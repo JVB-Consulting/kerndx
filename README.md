@@ -21,7 +21,7 @@ This repository is the **public release repo** for KernDX. `main` is fast-forwar
 
 ```mermaid
 flowchart TD
-    A[Subscriber Org<br/>Triggers · LWC · REST · Scheduled Jobs] --> B[TRG_Dispatcher]
+    A[Subscriber Org<br/>Triggers · LWC · REST · Scheduled Jobs] --> B[Kern entry frameworks<br/>TRG_Dispatcher · API_Inbound · Apex Controllers · Schedulable]
     B --> C[Selectors<br/>SEL_*  ·  QRY_Builder]
     B --> D[DML_Builder]
     B --> E[UTIL_AsyncChain]
