@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Displays active streaming subscriptions with unsubscribe controls.
+		Shows subscription count, individual unsubscribe buttons per channel,
+		and unsubscribe-all action.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Streaming Subscriptions</masterLabel>
+</LightningComponentBundle>

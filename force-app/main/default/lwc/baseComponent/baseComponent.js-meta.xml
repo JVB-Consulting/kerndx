@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Base class for LWC development. Provides basic event dispatching, message publishing/listening, error handling, and UI notifications.</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Base Component</masterLabel>
+</LightningComponentBundle>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IdempotencyKeyBodyHash__c</fullName>
+    <description>SHA-256 hex digest of the inbound request body, captured when the call was first processed. On a subsequent inbound call with the same Idempotency-Key, the framework compares the new request body&apos;s hash against this value: if they match, the original cached response is returned; if they differ, the framework rejects with HTTP 409 to surface the contract violation. Empty for outbound calls and for inbound calls created before the body-hash check shipped (legacy records fall through to the cached-response path on replay).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>SHA-256 hex digest of the request body. Used to detect Idempotency-Key reuse with a different body (HTTP 409 conflict).</inlineHelpText>
+    <label>Idempotency Key Body Hash</label>
+    <length>64</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

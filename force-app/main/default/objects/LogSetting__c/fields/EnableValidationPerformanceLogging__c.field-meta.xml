@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnableValidationPerformanceLogging__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When enabled, logs performance metrics for validation rule processing that exceeds ValidationPerformanceThresholdMs.</description>
+    <inlineHelpText>Enable to capture performance metrics for validation rule processing.</inlineHelpText>
+    <label>Enable Validation Performance Logging</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,24 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card title={title}>
+		<div class="slds-m-around_medium">
+			<lightning-datatable columns={columns} data={displayRows} default-sort-direction={sortDirection} hide-checkbox-column={isReadOnly} key-field={keyField}
+			                     max-row-selection={displayMaxRowsSelected} onrowselection={selectRows} onsort={sortColumns} selected-rows={aggregatedSelections}
+			                     sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
+			<br/>
+			<template if:true={showPagination}>
+				<lightning-layout horizontal-align="space">
+					<lightning-layout-item flexibility="auto">
+						<lightning-button disabled={disablePreviousButton} icon-name="utility:chevronleft" label="Previous" onclick={previousHandler}></lightning-button>
+					</lightning-layout-item>
+					<lightning-layout-item flexibility="auto">
+						Page {page} of {totalPages}
+					</lightning-layout-item>
+					<lightning-layout-item flexibility="auto">
+						<lightning-button disabled={disableNextButton} icon-name="utility:chevronright" icon-position="right" label="Next" onclick={nextHandler}></lightning-button>
+					</lightning-layout-item>
+				</lightning-layout>
+			</template>
+		</div>
+	</lightning-card>
+</template>

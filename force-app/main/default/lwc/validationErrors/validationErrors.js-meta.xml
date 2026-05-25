@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Displays validation errors and warnings from the Validation Framework</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Validation Errors</masterLabel>
+	<targets>
+		<target>lightning__RecordPage</target>
+		<target>lightning__AppPage</target>
+		<target>lightning__HomePage</target>
+		<target>lightning__FlowScreen</target>
+	</targets>
+	<targetConfigs>
+		<targetConfig targets="lightning__FlowScreen">
+			<property name="errors" type="apex://DTO_FlowValidationError[]" label="Errors" role="inputOnly" />
+			<property name="warnings" type="apex://DTO_FlowValidationError[]" label="Warnings" role="inputOnly" />
+			<property name="errorTitle" type="String" label="Error Title" default="Validation Errors" role="inputOnly" />
+			<property name="warningTitle" type="String" label="Warning Title" default="Warnings" role="inputOnly" />
+			<property name="showFieldNames" type="Boolean" label="Show Field Names" default="true" role="inputOnly" />
+			<property name="showRuleNames" type="Boolean" label="Show Rule Names" default="false" role="inputOnly" />
+		</targetConfig>
+	</targetConfigs>
+</LightningComponentBundle>

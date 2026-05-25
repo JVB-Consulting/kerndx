@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ExecutionStrategy__c</fullName>
+    <defaultValue>&apos;Accumulate&apos;</defaultValue>
+    <description>Controls how validation rules execute within this group. Accumulate (default): Run all rules and collect all errors. Fail Fast: Stop processing remaining rules for a record after the first error is found.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Accumulate = run all rules, Fail Fast = stop after first error per record</inlineHelpText>
+    <label>Execution Strategy</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Accumulate</fullName>
+                <default>true</default>
+                <label>Accumulate</label>
+            </value>
+            <value>
+                <fullName>Fail Fast</fullName>
+                <default>false</default>
+                <label>Fail Fast</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

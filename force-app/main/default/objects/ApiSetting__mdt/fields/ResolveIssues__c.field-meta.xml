@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ResolveIssues__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, allows manual resolution of API issues via the ApiIssue__c object.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enable manual resolution workflow for API issues. Requires Log Issues.</inlineHelpText>
+    <label>Resolve Issues</label>
+    <type>Checkbox</type>
+</CustomField>

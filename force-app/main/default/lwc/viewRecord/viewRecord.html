@@ -1,0 +1,26 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class="slds-is-relative" if:true={isLoading}>
+		<lightning-spinner alternative-text="Loading..." variant="brand"></lightning-spinner>
+	</div>
+	<div class='slds-box'>
+		<lightning-record-view-form object-api-name={objectApiName} record-id={recordId}>
+			<lightning-accordion active-section-name={displayActiveSections} allow-multiple-sections-open="true">
+				<template for:each={displaySections} for:item='section'>
+					<lightning-accordion-section class="section-background" key={section.key} label={section.label} name={section.key}>
+						<lightning-layout multiple-rows>
+							<template for:each={section.value} for:item="field">
+								<lightning-layout-item key={field.fieldAPIName} padding="around-small" size="6">
+									{field.fieldLabel}
+									<div class="slds-border_bottom">
+										<lightning-output-field field-name={field.fieldAPIName} variant="label-hidden"></lightning-output-field>
+									</div>
+								</lightning-layout-item>
+							</template>
+						</lightning-layout>
+					</lightning-accordion-section>
+				</template>
+			</lightning-accordion>
+		</lightning-record-view-form>
+	</div>
+</template>

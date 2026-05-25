@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Order__c</fullName>
+    <description>The execution priority for this strategy relative to other strategies for the same Feature Flag. Strategies are evaluated in ascending order (e.g., 1, then 2, then 3).</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>The execution priority for this rule (e.g., 1, 2, 3). Rules are processed in ascending order (lowest number first). The first rule to find a match wins.</inlineHelpText>
+    <label>Order</label>
+    <precision>2</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

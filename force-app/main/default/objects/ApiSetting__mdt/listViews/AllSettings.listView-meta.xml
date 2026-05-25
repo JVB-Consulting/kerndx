@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllSettings</fullName>
+    <columns>MasterLabel</columns>
+    <columns>ApiCredential__c</columns>
+    <columns>ClassName__c</columns>
+    <columns>EndpointPath__c</columns>
+    <columns>LogIssues__c</columns>
+    <columns>ResolveIssues__c</columns>
+    <columns>RetryIssues__c</columns>
+    <columns>MaxRetryCount__c</columns>
+    <columns>RetryBackoffSeconds__c</columns>
+    <columns>NamespacePrefix</columns>
+    <columns>IsProtected</columns>
+    <filterScope>Everything</filterScope>
+    <label>All Settings</label>
+</ListView>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Groups validation rules for a specific object and trigger context. Binds to a TriggerSetting and defines when validation rules in this group should execute (timing and operations). Enables application/domain segmentation of validation logic.</description>
+    <label>Validation Rule Group</label>
+    <pluralLabel>Validation Rule Groups</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

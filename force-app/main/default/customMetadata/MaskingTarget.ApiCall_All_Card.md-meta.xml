@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Card / ApiCall__c.*</label>
+    <protected>false</protected>
+    <values>
+        <field>CallerClass__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Rule__c</field>
+        <value xsi:type="xsd:string">MaskCreditCard</value>
+    </values>
+    <values>
+        <field>SObjectType__c</field>
+        <value xsi:type="xsd:string">ApiCall__c</value>
+    </values>
+</CustomMetadata>

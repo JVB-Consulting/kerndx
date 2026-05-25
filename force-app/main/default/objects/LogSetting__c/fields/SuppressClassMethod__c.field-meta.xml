@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SuppressClassMethod__c</fullName>
+    <description>Comma-separated class name patterns to suppress (denylist). Log entries from matching classes are dropped, even when ClassFilter is blank or includes them. Supports trailing wildcard (*). Blank means no class is suppressed. Applied AFTER the ClassFilter allowlist.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Examples: TST_*,SVC_NoisyJob or API_HighVolume*. Blank = nothing suppressed.</inlineHelpText>
+    <label>Suppress Class Method</label>
+    <length>255</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

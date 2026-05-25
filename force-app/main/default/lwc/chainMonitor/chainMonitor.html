@@ -1,0 +1,13 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card icon-name="standard:flow" title="Chain Monitor">
+		<div class="slds-grid">
+			<div class="slds-col slds-size_1-of-2 slds-border_right">
+				<c-chain-monitor-list onselect={handleSelect}></c-chain-monitor-list>
+			</div>
+			<div class="slds-col slds-size_1-of-2">
+				<c-chain-monitor-detail execution-id={selectedExecutionId}></c-chain-monitor-detail>
+			</div>
+		</div>
+	</lightning-card>
+</template>

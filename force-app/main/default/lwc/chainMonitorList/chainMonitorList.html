@@ -1,0 +1,42 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class="slds-var-p-around_small slds-is-relative" data-testid="chain-monitor-list-root">
+		<template if:true={isLoading}>
+			<lightning-spinner alternative-text="Loading chain executions" size="small"></lightning-spinner>
+		</template>
+
+		<!-- Search + Filter Toggle -->
+		<div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_x-small slds-gutters_x-small">
+			<div class="slds-col slds-grow">
+				<lightning-input label="Chain Name" oncommit={handleNameSearch} placeholder="Search chain name..." type="search" value={nameFilter}
+				                 variant="label-hidden"></lightning-input>
+			</div>
+			<div class="slds-col slds-shrink-none">
+				<lightning-button-icon alternative-text="Toggle status filters" icon-name="utility:filterList" onclick={handleToggleFilters} size="medium"
+				                       variant="border-filled"></lightning-button-icon>
+			</div>
+		</div>
+
+		<!-- Collapsible Status Filters -->
+		<template if:true={showFilters}>
+			<div class="filter-tray slds-var-m-bottom_x-small">
+				<div class="filter-row">
+					<lightning-checkbox-group label="Status" onchange={handleStatusChange} options={statusOptions} value={statusFilters}
+					                          variant="label-hidden"></lightning-checkbox-group>
+					<lightning-button class="slds-shrink-none" label={toggleAllLabel} onclick={handleToggleAllStatuses} variant="base"></lightning-button>
+				</div>
+			</div>
+		</template>
+
+		<!-- Table -->
+		<lightning-datatable columns={columns} data={records} key-field="executionId" max-row-selection="1" onrowselection={handleRowSelection} onsort={handleSort}
+		                     selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
+
+		<!-- Pagination -->
+		<div class="slds-grid slds-grid_align-center slds-var-m-top_x-small">
+			<lightning-button disabled={noPrevious} icon-name="utility:chevronleft" label="Previous" onclick={handlePrevious}></lightning-button>
+			<span class="slds-var-p-horizontal_medium slds-align-middle slds-text-body_small">{pageLabel}</span>
+			<lightning-button disabled={noNext} icon-name="utility:chevronright" icon-position="right" label="Next" onclick={handleNext}></lightning-button>
+		</div>
+	</div>
+</template>

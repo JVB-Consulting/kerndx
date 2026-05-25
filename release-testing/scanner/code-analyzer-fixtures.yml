@@ -1,0 +1,11 @@
+engines:
+  pmd:
+    # Scanner fixture validation uses the FULL ruleset — including the
+    # "use the framework API instead of the platform primitive" rules that
+    # the framework-scoped code-analyzer.yml deliberately excludes. The
+    # fixtures in release-testing/scanner/classes/ contain deliberate
+    # violations of those framework-API rules and must see them flagged so
+    # the runner can verify the published ruleset still catches what it
+    # claims to catch.
+    custom_rulesets:
+      - scanner/kerndx-pmd-ruleset.xml

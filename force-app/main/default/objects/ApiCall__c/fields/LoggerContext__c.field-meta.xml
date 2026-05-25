@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LoggerContext__c</fullName>
+    <description>Serialized logger context from originating transaction. Contains correlationId, parentTransactionId, and globalContext for cross-transaction log tracing. System-populated.</description>
+    <inlineHelpText>Logger context for tracing logs across async boundaries</inlineHelpText>
+    <label>Logger Context</label>
+    <length>32768</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TextAreaRich__c</fullName>
+    <description>Test Rich Text Area field for unit tests.</description>
+    <inlineHelpText>Test Rich Text Area field used by framework unit tests.</inlineHelpText>
+    <label>Rich Text Area</label>
+    <length>32000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Html</type>
+    <visibleLines>25</visibleLines>
+</CustomField>

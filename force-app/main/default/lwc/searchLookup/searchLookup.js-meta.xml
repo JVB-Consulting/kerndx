@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Search lookup component. Can either provide a JS reference to a controller, or the name of a controller which implements IF_Search.
+	</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Search Lookup</masterLabel>
+	<targets>
+		<target>lightning__FlowScreen</target>
+		<target>lightning__AppPage</target>
+		<target>lightning__HomePage</target>
+		<target>lightning__RecordPage</target>
+	</targets>
+	<targetConfigs>
+		<targetConfig targets="lightning__HomePage,lightning__AppPage,lightning__RecordPage">
+			<property name="controllerName" type="String" label="Controller Name" description="Name of controller which implements IF_Search." required="true"></property>
+			<property name="name" type="String" description="Unique identifier of search lookup element" label="Unique Element Name" required="true"></property>
+			<property name="fieldLabel" type="String" label="Label" description="Lookup label" required="true"></property>
+			<property name="resultUniqueId"
+					  type="String"
+					  label="Individual Result Id"
+					  description="Property name which uniquely identifies each search result"
+					  default="Id"></property>
+			<property name="addedElementClass" type="String" label="Added Element Class" description="Add SLDS classes to the outermost element" default="slds-box"></property>
+			<property name="controllerSearchParameters"
+					  type="String"
+					  label="Search Parameters"
+					  description="Search Parameters to be passed in format e.g. objectName=Foobar__c;maximumNumberOfResults=10."></property>
+		</targetConfig>
+		<targetConfig targets="lightning__FlowScreen">
+			<property name="controllerName"
+					  role="inputOnly"
+					  type="String"
+					  label="Controller Name"
+					  description="Name of controller which implements IF_Search."
+					  required="true"></property>
+			<property name="name" role="inputOnly" type="String" description="Unique identifier of search lookup element" label="Unique Element Name" required="true"></property>
+			<property name="fieldLabel" role="inputOnly" type="String" label="Label" description="Lookup label" required="true"></property>
+			<property name="resultUniqueId"
+					  role="inputOnly"
+					  type="String"
+					  label="Individual Result Id"
+					  description="Property name which uniquely identifies each search result"
+					  default="Id"></property>
+			<property name="addedElementClass"
+					  type="String"
+					  role="inputOnly"
+					  label="Added Element Class"
+					  description="Add SLDS classes to the outermost element"
+					  default="slds-box"></property>
+			<property name="controllerSearchParameters"
+					  type="String"
+					  label="Search Parameters"
+					  description="Search Parameters to be passed in format e.g. objectName=Foobar__c;maximumNumberOfResults=10."></property>
+		</targetConfig>
+	</targetConfigs>
+</LightningComponentBundle>

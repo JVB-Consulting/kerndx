@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnableMaskerPerformanceLogging__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, logs performance metrics for data masking on a trigger batch that exceeds MaskerPerformanceThresholdMs. One aggregate log entry per batch, not per record. Default off — turn on during investigation of slow commits to attribute the time to masking.</description>
+    <inlineHelpText>Enable to capture masking performance metrics. Default off.</inlineHelpText>
+    <label>Enable Masker Performance Logging</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

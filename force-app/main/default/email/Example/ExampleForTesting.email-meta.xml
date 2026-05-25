@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EmailTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <available>true</available>
+    <description>Email template to be used for testing Send Email functionality only</description>
+    <encodingKey>UTF-8</encodingKey>
+    <name>Example Template for Testing</name>
+    <style>none</style>
+    <subject>Example Email</subject>
+    <type>text</type>
+    <uiType>Aloha</uiType>
+</EmailTemplate>

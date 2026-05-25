@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask Health Data Keys in JSON</label>
+    <protected>false</protected>
+    <values>
+        <field>ApplicableFieldTypes__c</field>
+        <value xsi:type="xsd:string">STRING;TEXTAREA</value>
+    </values>
+    <values>
+        <field>CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Redacts values under protected-health JSON keys (diagnosis, mrn, rx_number, prescription, icd10, ndc, patient_id). Ships Block DML; review HIPAA before narrowing. Scoped STRING/TEXTAREA — JSON payloads live in free-text fields only.</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>MinInputLength__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Mode__c</field>
+        <value xsi:type="xsd:string">JsonKey</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">240.0</value>
+    </values>
+    <values>
+        <field>Pattern__c</field>
+        <value xsi:type="xsd:string">^(diagnosis|mrn|rx_number|prescription|icd10|ndc|patient_id)$</value>
+    </values>
+    <values>
+        <field>Replacement__c</field>
+        <value xsi:type="xsd:string">***PHI***</value>
+    </values>
+</CustomMetadata>

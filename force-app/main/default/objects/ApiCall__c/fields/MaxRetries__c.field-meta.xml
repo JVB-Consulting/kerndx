@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MaxRetries__c</fullName>
+    <defaultValue>0</defaultValue>
+    <description>Maximum retry attempts for this API call. Populated from ApiSetting__mdt.MaxRetryCount__c during creation. Used by the Dead Letter Queue formula to determine when retries are exhausted.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Maximum number of retry attempts. When Retries reaches this value, the call is considered dead-lettered.</inlineHelpText>
+    <label>Max Retries</label>
+    <precision>2</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

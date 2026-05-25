@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Reusable flow screen footer with Back/Next navigation.
+		Supports custom titles, button visibility, LMS-based disabling,
+		and override to Finish. Works in Flow screens or embedded
+		in parent LWC.</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Flow Footer</masterLabel>
+	<targets>
+		<target>lightning__FlowScreen</target>
+	</targets>
+	<targetConfigs>
+		<targetConfig targets="lightning__FlowScreen">
+			<property name="hideBackButton" label="Hide Back button?" description="Shows or hides the Back button, defaulted to False" type="Boolean" role="inputOnly"/>
+			<property name="disableNext"
+					  label="Is Next Disabled by Default?"
+					  description="Chooses to disable the next button by default"
+					  type="Boolean"
+					  default="false"
+					  role="inputOnly"/>
+
+			<property name="nextTitle" label="Next button title" description="Overrides Next button title" type="String" role="inputOnly"/>
+			<property name="previousTitle" label="Previous button title" description="Overrides Previous button title" type="String" role="inputOnly"/>
+
+			<property name="overridePreviousToFinish"
+					  label="Replace Previous event with Finish event?"
+					  description="Causes clicking 'Previous' button to terminate flow"
+					  type="Boolean"
+					  default="false"
+					  role="inputOnly"/>
+			<property name="overrideNextToFinish"
+					  label="Replace Next event with Finish event?"
+					  description="Causes clicking 'Next' button to terminate flow"
+					  type="Boolean"
+					  default="false"
+					  role="inputOnly"/>
+		</targetConfig>
+
+	</targetConfigs>
+</LightningComponentBundle>

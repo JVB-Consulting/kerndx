@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BypassFeatureFlag__c</fullName>
+    <description>Optional. This rule is SKIPPED when the Feature Flag is enabled.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Select a Feature Flag. Rule is skipped when the flag is enabled.</inlineHelpText>
+    <label>Bypass Feature Flag</label>
+    <referenceTo>FeatureFlag__mdt</referenceTo>
+    <relationshipLabel>Bypass Validation Rules</relationshipLabel>
+    <relationshipName>BypassValidationRules</relationshipName>
+    <required>false</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

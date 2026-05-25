@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Uses an SObject Api Name and Fieldset configuration to display a record</description>
+	<isExposed>false</isExposed>
+	<masterLabel>View Record</masterLabel>
+</LightningComponentBundle>

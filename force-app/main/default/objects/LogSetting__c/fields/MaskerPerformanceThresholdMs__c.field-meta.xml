@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MaskerPerformanceThresholdMs__c</fullName>
+    <defaultValue>100</defaultValue>
+    <description>Minimum masking duration in milliseconds before a trigger batch is logged as a performance entry. Applies when Enable Masker Performance Logging is on. Default 100ms.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Masking faster than this threshold is not logged. Default: 100ms.</inlineHelpText>
+    <label>Masker Performance Threshold (ms)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>TST FA BlockDml - Before Insert</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__AllowNonSelfInitiated__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__AllowRecursion__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__BypassFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Disabled by default. The Phase 5B BlockDml section enables this row via the section-flow-blockdml-active CMDT fixture, then restores the disabled state via section-flow-blockdml-default once the assertion completes. Bound to TST_SubscriberFlow_AlwaysFail so the platform raises a runtime fault that the trigger framework routes through FailureAction__c=BlockDml, blocking the DML and surfacing the error to the caller.</value>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaContextClassName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaFormula__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Event__c</field>
+        <value xsi:type="xsd:string">Before Insert</value>
+    </values>
+    <values>
+        <field>kern__FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>kern__FlowName__c</field>
+        <value xsi:type="xsd:string">TST_SubscriberFlow_AlwaysFail</value>
+    </values>
+    <values>
+        <field>kern__ForcePerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Order__c</field>
+        <value xsi:type="xsd:double">420.0</value>
+    </values>
+    <values>
+        <field>kern__PerformanceThresholdMs__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__RequiredFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__SuppressPerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__TriggerSetting__c</field>
+        <value xsi:type="xsd:string">Account</value>
+    </values>
+</CustomMetadata>

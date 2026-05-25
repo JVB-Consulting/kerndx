@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. Each rule has a pattern (regex, JSON keys, literal string, or DTO field paths), a replacement value, and a category. Pair a rule with one or more Masking Target records to apply it to specific fields on specific objects.</description>
+    <label>Masking Rule</label>
+    <pluralLabel>Masking Rules</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

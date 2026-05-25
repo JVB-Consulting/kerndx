@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Description__c</fullName>
+    <description>Human-readable explanation of what this trigger action does and why it exists. Required by validation rule to ensure every action is documented for maintainability.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Describe what this action does and why (e.g. &quot;Sets default field values on new Foobar records&quot;). Required for all actions.</inlineHelpText>
+    <label>Description</label>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

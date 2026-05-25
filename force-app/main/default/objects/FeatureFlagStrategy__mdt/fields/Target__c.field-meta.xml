@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Target__c</fullName>
+    <description>The identifier, name, or path of the item to evaluate. The required format depends on the &apos;Type&apos; field. For Custom Permission type: unprefixed names check local/subscriber permissions, &apos;core.&apos; prefix checks package permissions, and &apos;namespace__&apos; syntax checks fully-qualified namespaced permissions.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Format depends on Type. Profile: profile name. Permission Set Group: API name. Custom Permission: API name (use core.Name for package permissions). Public Group: DeveloperName. Hierarchical CS: Object.Field. List CS: Object.Name.Field. Custom Metadata: Object.DevName.Field.</inlineHelpText>
+    <label>Target</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

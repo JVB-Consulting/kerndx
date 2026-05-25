@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Account Validation</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__ContextClassName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Validation rules for Account object</value>
+    </values>
+    <values>
+        <field>kern__ExecutionStrategy__c</field>
+        <value xsi:type="xsd:string">Accumulate</value>
+    </values>
+    <values>
+        <field>kern__RequiredFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__TriggerOperations__c</field>
+        <value xsi:type="xsd:string">Insert;Update</value>
+    </values>
+    <values>
+        <field>kern__TriggerSetting__c</field>
+        <value xsi:type="xsd:string">Account</value>
+    </values>
+    <values>
+        <field>kern__TriggerTiming__c</field>
+        <value xsi:type="xsd:string">Before</value>
+    </values>
+</CustomMetadata>

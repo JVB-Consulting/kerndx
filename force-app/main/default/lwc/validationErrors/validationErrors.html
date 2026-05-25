@@ -1,0 +1,42 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template lwc:if={hasContent}>
+		<!-- Errors Section -->
+		<template lwc:if={hasErrors}>
+			<div class="slds-box slds-box_small slds-theme_error slds-var-m-bottom_small">
+				<div class="slds-media slds-media_center">
+					<div class="slds-media__figure">
+						<lightning-icon alternative-text="Error" icon-name="utility:error" size="small" variant="inverse"></lightning-icon>
+					</div>
+					<div class="slds-media__body">
+						<h2 class="slds-text-heading_small slds-text-color_inverse">{errorTitle}</h2>
+						<ul class="slds-list_dotted slds-var-m-top_x-small">
+							<template for:each={displayErrors} for:item="error">
+								<li class={error.listItemClass} data-field-name={error.fieldName} key={error.key} onclick={handleErrorClick}>{error.message}</li>
+							</template>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</template>
+
+		<!-- Warnings Section -->
+		<template lwc:if={hasWarnings}>
+			<div class="slds-box slds-box_small slds-theme_warning slds-var-m-bottom_small">
+				<div class="slds-media slds-media_center">
+					<div class="slds-media__figure">
+						<lightning-icon alternative-text="Warning" icon-name="utility:warning" size="small"></lightning-icon>
+					</div>
+					<div class="slds-media__body">
+						<h2 class="slds-text-heading_small">{warningTitle}</h2>
+						<ul class="slds-list_dotted slds-var-m-top_x-small">
+							<template for:each={displayWarnings} for:item="warning">
+								<li class={warning.listItemClass} data-field-name={warning.fieldName} key={warning.key} onclick={handleErrorClick}>{warning.message}</li>
+							</template>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</template>
+	</template>
+</template>

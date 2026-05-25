@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FeatureFlag__c</fullName>
+    <description>Master-detail relationship to the parent FeatureFlag__mdt record. This links the strategy rule to the feature it controls.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the parent Feature Flag that this strategy rule will apply to.</inlineHelpText>
+    <label>Feature Flag</label>
+    <referenceTo>FeatureFlag__mdt</referenceTo>
+    <relationshipLabel>Feature Flag Strategies</relationshipLabel>
+    <relationshipName>FeatureFlagStrategies</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

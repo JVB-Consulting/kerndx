@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnablePerformanceLogging__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When enabled, logs performance metrics for webservice and API callout operations that exceed PerformanceThresholdMs.</description>
+    <inlineHelpText>Enable to capture performance metrics for webservice operations.</inlineHelpText>
+    <label>Enable Performance Logging</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

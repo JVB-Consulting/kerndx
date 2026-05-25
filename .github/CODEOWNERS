@@ -1,0 +1,20 @@
+# CODEOWNERS — required-reviewer routing for the highest-risk paths.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Ownership here is enforced by branch protection's "Require review from
+# Code Owners" rule. The maintainer set is identical across all branches.
+
+# Release provenance ledger. The legitimate write path is the release
+# build pipeline (synthesized at staging time, not committed by hand).
+# Any PR that adds or modifies it manually must be reviewed — that
+# is the spoof vector if an attacker tries to forge a release record.
+RELEASE-PROVENANCE.json      @JVB-Consulting/maintainers
+
+# CI workflows + reusable Actions. Workflow drift is the top supply-chain
+# risk: a single PR that adds a malicious step or swaps an Action SHA
+# can exfiltrate secrets or alter what ships. Require explicit
+# maintainer review on every change.
+.github/workflows/*          @JVB-Consulting/maintainers
+
+# This file itself — protect the protection.
+.github/CODEOWNERS           @JVB-Consulting/maintainers

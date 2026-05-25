@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LastSuccessfulRunTime__c</fullName>
+    <description>Holds the last successful run time of the schedule. Used by scheduled jobs to track execution history and enable incremental processing based on changes since last run.</description>
+    <inlineHelpText>The date/time when this scheduled job last completed successfully.</inlineHelpText>
+    <label>Last Successful Run Time</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

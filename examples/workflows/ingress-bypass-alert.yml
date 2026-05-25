@@ -1,0 +1,154 @@
+name: ingress-bypass-alert
+
+# Fires a Slack alert when a PR is MERGED to main despite one of
+# the Ingress Gate's required checks being in a non-success state.
+#
+# Expected firing rate under healthy ops: near-zero. Each alert should be a
+# genuine "someone merged something that should have been blocked." Designed
+# to surface bypasses exercised via the Ingress Gate ruleset's bypass_actors
+# list — legitimate in emergencies, but the team should know every time.
+#
+# Required checks watched (update list if Ingress Gate ruleset changes):
+#   - Static Code Analysis
+#   - Naming Validation
+#
+# Notes:
+# - Legitimate back-promotion PRs (gs-pipeline/<protected>_-_<protected>) have
+#   SFCA's severity-check step skipped but the overall workflow still reports
+#   SUCCESS, so this alert does NOT fire for them.
+# - The PR's head SHA is queried — the check-runs on that SHA determine pass/
+#   fail regardless of merge-queue rewriting. If the head was force-pushed
+#   between the last check and merge, check-runs on the final head are what
+#   GitHub used to gate merge (or bypass), so those are what we want to see.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  alert:
+    name: Ingress Bypass Alert
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect required checks on PR head
+        id: inspect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+        run: |
+          set -euo pipefail
+          required_checks=["Static Code Analysis","Naming Validation"]
+          # `filter=latest` returns the latest check-run per name per GitHub's
+          # own gating semantics (considers check_suite + rerun lineage) — no
+          # need to re-implement ordering client-side.
+          lookup_conclusion() {
+            local name="$1"
+            gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=${name// /%20}&filter=latest" \
+              --jq '.check_runs[0].conclusion // "missing"'
+          }
+
+          failed_checks=""
+          failed_run_urls=""
+
+          for name in "${required_checks[@]}"; do
+            conclusion=$(lookup_conclusion "${name}")
+
+            # Race-condition mitigation: `pull_request.closed` can arrive before
+            # the check-runs API reflects the final state for same-SHA PRs.
+            # If a check reports "missing", wait + retry ONCE before flagging
+            # as a bypass. Real bypasses persist; races resolve in ~5-15s.
+            if [ "${conclusion}" = "missing" ]; then
+              echo "check '${name}' reports missing — sleeping 20s then retrying (race guard)"
+              sleep 20
+              conclusion=$(lookup_conclusion "${name}")
+            fi
+
+            echo "check '${name}': conclusion=${conclusion}"
+
+            case "${conclusion}" in
+              success|skipped|neutral)
+                ;;
+              *)
+                failed_checks+="• *${name}*: \`${conclusion}\`\n"
+                # Surface the workflow run URL for the failing check so the
+                # Slack reader doesn't have to click through two hops.
+                run_url=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=${name// /%20}&filter=latest" \
+                  --jq '.check_runs[0].html_url // ""')
+                if [ -n "${run_url}" ]; then
+                  failed_run_urls+="• <${run_url}|${name} run>\n"
+                fi
+                ;;
+            esac
+          done
+
+          if [ -z "${failed_checks}" ]; then
+            echo "All required checks SUCCESS/SKIPPED — no alert."
+            echo "alert=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "alert=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "failed_checks<<EOF"
+            printf "%b" "${failed_checks}"
+            echo "EOF"
+            echo "failed_run_urls<<EOF"
+            printf "%b" "${failed_run_urls}"
+            echo "EOF"
+            echo "sha_short=${SHA:0:10}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post Slack alert
+        # [E2E] title prefix suppresses Slack per harness convention.
+        if: steps.inspect.outputs.alert == 'true' && !startsWith(github.event.pull_request.title, '[E2E]')
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.undefined }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Ingress Gate bypassed on ${{ github.event.pull_request.base.ref }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": { "type": "plain_text", "text": "Ingress Gate bypass detected" }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Base branch:*\n`${{ github.event.pull_request.base.ref }}`" },
+                    { "type": "mrkdwn", "text": "*Merged by:*\n`${{ github.event.pull_request.merged_by.login }}`" },
+                    { "type": "mrkdwn", "text": "*PR author:*\n`${{ github.event.pull_request.user.login }}`" },
+                    { "type": "mrkdwn", "text": "*PR:*\n<${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}>" },
+                    { "type": "mrkdwn", "text": "*Head commit:*\n`${{ steps.inspect.outputs.sha_short }}`" }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Required checks that did NOT pass:*\n${{ steps.inspect.outputs.failed_checks }}\n*Failing workflow runs:*\n${{ steps.inspect.outputs.failed_run_urls }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "A member of the Ingress Gate's bypass-actor team merged this PR despite one or more required checks not succeeding. Verify the bypass was intentional and leave a justification comment on the PR."
+                  }
+                }
+              ]
+            }

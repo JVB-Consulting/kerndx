@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IsActive__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Activates this scheduled job. The framework automatically schedules the job when checked. Automatically unchecked if the job fails or is terminated.</description>
+    <inlineHelpText>Check to activate this scheduled job. Unchecks automatically if the job fails or is terminated.</inlineHelpText>
+    <label>Is Active</label>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

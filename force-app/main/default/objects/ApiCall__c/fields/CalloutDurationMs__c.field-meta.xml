@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CalloutDurationMs__c</fullName>
+    <description>Time taken for the actual HTTP callout to the external service, in milliseconds. Measures network round-trip time excluding handler processing and DML.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Time spent waiting for the external service to respond. High values indicate slow external APIs or network latency. System-populated.</inlineHelpText>
+    <label>Callout Duration (ms)</label>
+    <precision>6</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

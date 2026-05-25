@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RuleFormula_is_Required</fullName>
+    <active>true</active>
+    <description>Rule formula is required for all validation rules.</description>
+    <errorConditionFormula>ISBLANK(RuleFormula__c)</errorConditionFormula>
+    <errorDisplayField>RuleFormula__c</errorDisplayField>
+    <errorMessage>You must enter a formula that defines when validation should fail.</errorMessage>
+</ValidationRule>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MockingEnabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, the service returns mock responses from associated ApiMock__mdt records instead of executing real logic.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enable to activate mock responses for this service. Configure mocks via the API Mocks related list.</inlineHelpText>
+    <label>Mocking Enabled</label>
+    <type>Checkbox</type>
+</CustomField>

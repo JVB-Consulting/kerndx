@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AsyncChainExecution</fullName>
+    <fields>Name</fields>
+    <fields>ChainName__c</fields>
+    <fields>Status__c</fields>
+    <fields>CompletedSteps__c</fields>
+    <fields>TotalSteps__c</fields>
+    <fields>StartedAt__c</fields>
+    <fields>DurationMs__c</fields>
+    <label>Async Chain Execution</label>
+</CompactLayout>

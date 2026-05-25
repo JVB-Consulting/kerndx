@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MinInputLength__c</fullName>
+    <description>Optional minimum field-value length before this rule is evaluated. If the value being masked is shorter than this number of characters, the rule is skipped entirely — the pattern is not compiled or matched. Leave blank to apply the rule to any value length. Applies to Regex, CreditCard, and ExactMatch modes; JsonKey mode ignores this setting because keys are matched rather than the whole value. Note: this is a value-length check (how long the actual content is), not a schema check — if this minimum exceeds a field&apos;s configured maximum length (e.g. MinInputLength = 50 on a Text(20) field), the rule can never fire on that field but the framework does not detect or warn about it. Size the minimum to match the shortest plausible match of the rule&apos;s pattern.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Skip this rule when the field value is shorter than N characters (leave blank for no minimum). Applies to Regex / CreditCard / ExactMatch modes; JsonKey ignores this.</inlineHelpText>
+    <label>Min Input Length</label>
+    <precision>4</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

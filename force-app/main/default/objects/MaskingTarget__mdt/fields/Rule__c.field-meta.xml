@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Rule__c</fullName>
+    <description>The Masking Rule that will be applied to the field. Pick from rules shipped with the package or rules you have created yourself.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the rule that defines what to mask.</inlineHelpText>
+    <label>Rule</label>
+    <referenceTo>MaskingRule__mdt</referenceTo>
+    <relationshipLabel>Masking Targets</relationshipLabel>
+    <relationshipName>MaskingTargets</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

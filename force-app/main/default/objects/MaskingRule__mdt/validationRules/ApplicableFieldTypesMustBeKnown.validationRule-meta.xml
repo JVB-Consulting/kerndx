@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApplicableFieldTypesMustBeKnown</fullName>
+    <active>true</active>
+    <description>Blocks save when ApplicableFieldTypes__c is neither blank nor a semicolon list of known DisplayType names (STRING, TEXTAREA, URL, EMAIL, PHONE, ENCRYPTEDSTRING). Catches typos before they silently stop the rule firing.</description>
+    <errorConditionFormula>NOT(
+    OR(
+        ISBLANK(ApplicableFieldTypes__c),
+        REGEX(ApplicableFieldTypes__c, &quot;^(STRING|TEXTAREA|URL|EMAIL|PHONE|ENCRYPTEDSTRING)(;(STRING|TEXTAREA|URL|EMAIL|PHONE|ENCRYPTEDSTRING))*$&quot;)
+    )
+)</errorConditionFormula>
+    <errorDisplayField>ApplicableFieldTypes__c</errorDisplayField>
+    <errorMessage>Applicable Field Types must be blank (apply to every text-shaped field) or a semicolon list of: STRING, TEXTAREA, URL, EMAIL, PHONE, ENCRYPTEDSTRING. Example: STRING;TEXTAREA;ENCRYPTEDSTRING.</errorMessage>
+</ValidationRule>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FieldSetApiNames__c</fullName>
+    <description>Comma-separated list of field set API names to include in this group. Each field set renders as a separate section in the UI.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Field set API names to include, separated by commas</inlineHelpText>
+    <label>Field Set API Names</label>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

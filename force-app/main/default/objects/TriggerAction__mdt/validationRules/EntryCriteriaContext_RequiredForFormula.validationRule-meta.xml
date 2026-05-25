@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EntryCriteriaContext_RequiredForFormula</fullName>
+    <active>true</active>
+    <description>Requires Context Class Name for custom objects when Formula is set. Standard objects and Foobar__c have built-in contexts. Uses suffix matching for Foobar__c to handle namespace prefix.</description>
+    <errorConditionFormula>AND(
+    OR(
+        ISNEW(),
+        ISCHANGED(EntryCriteriaFormula__c),
+        ISCHANGED(EntryCriteriaContextClassName__c)
+    ),
+    NOT(ISBLANK(EntryCriteriaFormula__c)),
+    ISBLANK(EntryCriteriaContextClassName__c),
+    NOT(
+        OR(
+            CONTAINS(
+                &quot;|Account|Campaign|Case|Contact|Event|Lead|Opportunity|Task|User|&quot;,
+                &quot;|&quot; &amp; TriggerSetting__r.SObjectType__c &amp; &quot;|&quot;
+            ),
+            RIGHT(TriggerSetting__r.SObjectType__c, 9) = &quot;Foobar__c&quot;
+        )
+    )
+)</errorConditionFormula>
+    <errorDisplayField>EntryCriteriaContextClassName__c</errorDisplayField>
+    <errorMessage>Custom objects require a Context Class Name. Standard objects (Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User) and Foobar__c use built-in contexts automatically.</errorMessage>
+</ValidationRule>

@@ -1,0 +1,66 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={modalTitle}></lightning-modal-header>
+	<lightning-modal-body>
+		<div class="slds-var-p-around_medium" data-testid="scheduled-job-editor-root">
+			<div class="slds-grid slds-wrap">
+				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
+					<lightning-input label="Scheduler Name" onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
+				</div>
+				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
+					<template lwc:if={isClassNameLocked}>
+						<lightning-input data-testid="class-name" label="Class Name" read-only required value={className}></lightning-input>
+					</template>
+					<template lwc:else>
+						<lightning-combobox data-testid="class-name" label="Class Name" name="className" onchange={handleClassNameChange} options={classOptions}
+						                    placeholder="Select a class..." required value={className}></lightning-combobox>
+					</template>
+				</div>
+				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
+					<lightning-input checked={isActive} label="Active" message-toggle-active="Active" message-toggle-inactive="Inactive" onchange={handleIsActiveChange}
+					                 type="toggle"></lightning-input>
+				</div>
+			</div>
+
+			<div class="slds-var-m-top_medium">
+				<h3 class="slds-text-heading_small slds-var-m-bottom_small">{scheduleHeading}</h3>
+				<c-cron-expression-editor oncronchange={handleCronChange} value={cronExpression}></c-cron-expression-editor>
+			</div>
+
+			<template lwc:if={hasParameterDefinitions}>
+				<div class="slds-var-m-top_medium">
+					<h3 class="slds-text-heading_small slds-var-m-bottom_small">Parameters</h3>
+					<div class="slds-grid slds-wrap">
+						<template for:each={editParameterFields} for:item="parameter">
+							<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small" key={parameter.name}>
+								<template lwc:if={parameter.isText}>
+									<lightning-input data-parameter-name={parameter.name} data-testid={parameter.testId} field-level-help={parameter.description}
+									                 label={parameter.label} onchange={handleParameterChange} read-only={parameter.isLocked} required={parameter.isRequired}
+									                 value={parameter.value}></lightning-input>
+								</template>
+								<template lwc:elseif={parameter.isNumeric}>
+									<lightning-input data-parameter-name={parameter.name} data-testid={parameter.testId} field-level-help={parameter.description}
+									                 label={parameter.label} onchange={handleParameterChange} read-only={parameter.isLocked} required={parameter.isRequired}
+									                 step="1" type="number" value={parameter.value}></lightning-input>
+								</template>
+								<template lwc:elseif={parameter.isToggle}>
+									<lightning-input checked={parameter.toggleChecked} data-parameter-name={parameter.name} data-testid={parameter.testId}
+									                 disabled={parameter.isLocked} field-level-help={parameter.description} label={parameter.label} message-toggle-active="Yes"
+									                 message-toggle-inactive="No" onchange={handleParameterChange} type="toggle"></lightning-input>
+								</template>
+							</div>
+						</template>
+					</div>
+				</div>
+			</template>
+
+			<div class="slds-var-m-top_medium">
+				<lightning-textarea label="Description" onchange={handleDescriptionChange} value={description}></lightning-textarea>
+			</div>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" disabled={isSaving} label="Cancel" onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="save-button" disabled={isSaveDisabled} label="Save" onclick={handleSave} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

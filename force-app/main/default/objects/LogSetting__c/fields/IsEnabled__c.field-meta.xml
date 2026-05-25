@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IsEnabled__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Master kill switch for logging. When false, all log entries except ERROR are dropped.</description>
+    <inlineHelpText>Uncheck to disable all non-error logging for this level (Org, Profile, or User).</inlineHelpText>
+    <label>Is Enabled</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,21 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card title="22: Multi-Module Combinations">
+		<div class="slds-p-around_medium">
+			<lightning-button label="Run Tests" onclick={runTests}></lightning-button>
+			<lightning-button class="slds-m-left_small" label="Test Base Logging" onclick={testBaseLogging}></lightning-button>
+			<lightning-button class="slds-m-left_small" label="Test Dispatch Event" onclick={testDispatchEvent}></lightning-button>
+			<lightning-button class="slds-m-left_small" label="Toggle Loading" onclick={testLoadingToggle}></lightning-button>
+			<template lwc:if={isLoading}>
+				<lightning-spinner alternative-text="Loading" class="slds-m-top_small" size="small"></lightning-spinner>
+			</template>
+			<template lwc:if={hasResults}>
+				<ul class="slds-list_dotted slds-m-top_small">
+					<template for:each={results} for:item="result">
+						<li key={result.name}>{result.label}</li>
+					</template>
+				</ul>
+			</template>
+		</div>
+	</lightning-card>
+</template>

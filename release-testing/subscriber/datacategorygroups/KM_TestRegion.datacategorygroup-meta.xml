@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataCategoryGroup xmlns="http://soap.sforce.com/2006/04/metadata">
+    <active>true</active>
+    <dataCategory>
+        <dataCategory>
+            <label>North</label>
+            <name>North</name>
+        </dataCategory>
+        <dataCategory>
+            <label>South</label>
+            <name>South</name>
+        </dataCategory>
+        <label>All Regions</label>
+        <name>All</name>
+    </dataCategory>
+    <description>Second data category group for multi-group query testing</description>
+    <label>Test Region</label>
+    <objectUsage>
+        <object>KnowledgeArticleVersion</object>
+    </objectUsage>
+</DataCategoryGroup>

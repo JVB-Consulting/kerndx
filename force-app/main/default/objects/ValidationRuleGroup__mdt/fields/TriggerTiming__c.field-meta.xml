@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TriggerTiming__c</fullName>
+    <description>Semicolon-separated list of when rules in this group should run. Valid values: Before, After. Combined with Trigger Operations to determine exact trigger contexts.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enter timing separated by semicolons: Before;After. Before is typical for validation (can block save).</inlineHelpText>
+    <label>Trigger Timing</label>
+    <length>20</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

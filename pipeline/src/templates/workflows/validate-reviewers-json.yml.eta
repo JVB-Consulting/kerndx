@@ -1,0 +1,34 @@
+name: validate-reviewers-json
+
+# CI safety net: validates .github/reviewers.json against the committed
+# schema on any PR that touches either file. Not a required status check in
+# any ruleset — catches malformed edits before they break the auto-assign,
+# pr-ready-to-merge, and release-review-assigned workflows at runtime.
+
+on:
+  pull_request:
+    paths:
+      - '<%= reviewers.configFile %>'
+      - '<%= reviewers.schemaFile %>'
+
+jobs:
+  validate:
+    name: Validate reviewers.json
+    runs-on: <%= runsOn %>
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "<%= nodeVersion %>"
+
+      - name: Validate JSON against schema
+        run: |
+          npx --yes ajv-cli@5 validate \
+            --spec=draft7 \
+            --all-errors \
+            -s <%= reviewers.schemaFile %> \
+            -d <%= reviewers.configFile %>

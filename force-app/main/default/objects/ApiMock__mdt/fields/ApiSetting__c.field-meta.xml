@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApiSetting__c</fullName>
+    <description>The API Setting this mock belongs to. Multiple mocks can reference one setting, ordered by Priority.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the API Setting this mock applies to. The mock will be active when the setting has mocking enabled.</inlineHelpText>
+    <label>API Setting</label>
+    <referenceTo>ApiSetting__mdt</referenceTo>
+    <relationshipLabel>API Mocks</relationshipLabel>
+    <relationshipName>ApiMocks</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

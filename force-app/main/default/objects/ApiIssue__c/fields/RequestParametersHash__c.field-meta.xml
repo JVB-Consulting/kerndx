@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RequestParametersHash__c</fullName>
+    <description>Hash of the request parameters, used to identify duplicate requests and support deduplication during retry processing.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>System-generated hash used to detect duplicate issues and prevent redundant retries.</inlineHelpText>
+    <label>Request Parameters Hash</label>
+    <length>50</length>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

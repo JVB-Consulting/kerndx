@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ContextClassName__c</fullName>
+    <description>Overrides the group-level context class for this specific rule. Specifies the Apex class providing context for formula evaluation. For standard objects, leave blank to inherit from the group or use built-in contexts.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Optional. Overrides the group context class. Leave blank to inherit from group or use auto-detected standard object context.</inlineHelpText>
+    <label>Context Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PatternIsRequired</fullName>
+    <active>true</active>
+    <description>A rule without a Pattern has nothing to match against.</description>
+    <errorConditionFormula>ISBLANK(Pattern__c)</errorConditionFormula>
+    <errorDisplayField>Pattern__c</errorDisplayField>
+    <errorMessage>You must enter a Pattern for this Masking Rule.</errorMessage>
+</ValidationRule>

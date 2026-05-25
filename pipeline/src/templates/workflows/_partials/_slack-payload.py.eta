@@ -1,0 +1,24 @@
+      - name: Build Slack payload
+        id: slack_payload
+        if: always() && steps.classify.outputs.is_backprom == 'false' && steps.sfca.outcome != 'skipped'
+        run: |
+          ./.kerndx-pipeline/bin/kerndx slack-payload \
+            --csv sfca-violations.csv \
+            --pr-url "${{ github.event.pull_request.html_url }}" \
+            --pr-title "${{ github.event.pull_request.title }}" \
+            --pr-author "${{ github.event.pull_request.user.login }}" \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --head-ref "${{ github.head_ref }}" \
+            --base-ref "${{ github.base_ref }}" \
+            --repo "${{ github.repository }}" \
+            --run-id "${{ github.run_id }}" \
+            > slack-payload.json
+
+          # Export should_notify to GITHUB_OUTPUT so the next Notify Slack
+          # step's `if:` can gate on it. slack-payload always writes a JSON
+          # object; on clean passes it's {"should_notify": false}, on
+          # blocker-bearing PRs it's a full Slack blocks payload (no
+          # should_notify key — assume true).
+          SHOULD_NOTIFY=$(jq -r 'if has("should_notify") then .should_notify else true end' slack-payload.json)
+          echo "should_notify=$SHOULD_NOTIFY" >> "$GITHUB_OUTPUT"
+          echo "should_notify=$SHOULD_NOTIFY"

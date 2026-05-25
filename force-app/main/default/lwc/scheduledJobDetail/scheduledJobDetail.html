@@ -1,0 +1,75 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template lwc:if={hasRecord}>
+		<lightning-card data-testid="scheduled-job-detail-root" title="Scheduled Job">
+			<div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+				<lightning-layout multiple-rows>
+					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
+						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+							<span class="slds-form-element__label">Scheduler Name</span>
+							<div class="slds-form-element__control">
+								<span class="slds-form-element__static">{viewSchedulerName}</span>
+							</div>
+						</div>
+					</lightning-layout-item>
+					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
+						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+							<span class="slds-form-element__label">Class Name</span>
+							<div class="slds-form-element__control">
+								<span class="slds-form-element__static">{viewClassName}</span>
+							</div>
+						</div>
+					</lightning-layout-item>
+					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
+						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+							<span class="slds-form-element__label">Status</span>
+							<div class="slds-form-element__control">
+								<span class={activeStatusVariant}>{activeStatusLabel}</span>
+							</div>
+						</div>
+					</lightning-layout-item>
+				</lightning-layout>
+
+				<div class="slds-var-m-top_medium">
+					<h3 class="slds-text-title_caps slds-var-m-bottom_x-small" data-testid="schedule-heading">Schedule</h3>
+					<template lwc:if={viewCronExpression}>
+						<span class="cron-expression">{viewCronExpression}</span>
+						<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xxx-small" data-testid="cron-description">{viewCronDescription}</p>
+					</template>
+					<template lwc:else>
+						<span class="slds-text-color_weak">No schedule configured</span>
+					</template>
+				</div>
+
+				<template lwc:if={hasViewParameterPairs}>
+					<div class="slds-var-m-top_medium">
+						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">Parameters</h3>
+						<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-no-row-hover">
+							<thead>
+							<tr class="slds-line-height_reset">
+								<th class="slds-text-title_caps" scope="col">Parameter</th>
+								<th class="slds-text-title_caps" scope="col">Value</th>
+							</tr>
+							</thead>
+							<tbody>
+							<template for:each={viewParameterPairs} for:item="pair">
+								<tr key={pair.name}>
+									<td class="slds-text-color_weak">{pair.label}</td>
+									<td>{pair.value}</td>
+								</tr>
+							</template>
+							</tbody>
+						</table>
+					</div>
+				</template>
+
+				<template lwc:if={hasViewDescription}>
+					<div class="slds-var-m-top_medium">
+						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">Description</h3>
+						<span>{viewDescription}</span>
+					</div>
+				</template>
+			</div>
+		</lightning-card>
+	</template>
+</template>

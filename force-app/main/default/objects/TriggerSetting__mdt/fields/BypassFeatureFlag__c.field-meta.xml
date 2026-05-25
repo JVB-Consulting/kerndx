@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BypassFeatureFlag__c</fullName>
+    <description>Optional. ALL trigger actions for this object are SKIPPED when the Feature Flag is enabled.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Select a Feature Flag. ALL actions skipped when the flag is enabled.</inlineHelpText>
+    <label>Bypass Feature Flag</label>
+    <referenceTo>FeatureFlag__mdt</referenceTo>
+    <relationshipLabel>Bypass Trigger Settings</relationshipLabel>
+    <relationshipName>BypassTriggerSettings</relationshipName>
+    <required>false</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

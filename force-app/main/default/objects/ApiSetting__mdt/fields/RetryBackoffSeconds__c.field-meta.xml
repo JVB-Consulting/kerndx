@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RetryBackoffSeconds__c</fullName>
+    <description>The number of seconds to wait between retry attempts when using linear backoff strategy. Works with Max Retry Count to control retry timing.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Seconds to wait between retry attempts (e.g., 30 = 30-second delay)</inlineHelpText>
+    <label>Retry Backoff (sec)</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>NextRetry__c</fullName>
+    <description>Scheduled date/time for the next retry attempt. Calculated from the retry backoff setting in ApiSetting__mdt. Only populated when Status is Retry.</description>
+    <inlineHelpText>When the next automatic retry will be attempted. Calculated from the retry backoff interval configured in the API Setting.</inlineHelpText>
+    <label>Next Retry</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RequiredFeatureFlag__c</fullName>
+    <description>Optional. This action ONLY RUNS when the Feature Flag is enabled.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Select a Feature Flag. Action only runs when the flag is enabled.</inlineHelpText>
+    <label>Required Feature Flag</label>
+    <referenceTo>FeatureFlag__mdt</referenceTo>
+    <relationshipLabel>Required Trigger Actions</relationshipLabel>
+    <relationshipName>RequiredTriggerActions</relationshipName>
+    <required>false</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

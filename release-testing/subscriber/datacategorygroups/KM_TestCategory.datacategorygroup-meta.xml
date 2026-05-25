@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataCategoryGroup xmlns="http://soap.sforce.com/2006/04/metadata">
+    <active>true</active>
+    <dataCategory>
+        <dataCategory>
+            <label>Alpha</label>
+            <name>Alpha</name>
+        </dataCategory>
+        <dataCategory>
+            <label>Beta</label>
+            <name>Beta</name>
+        </dataCategory>
+        <label>All Categories</label>
+        <name>All</name>
+    </dataCategory>
+    <description>Minimal data category group for KernDX release testing</description>
+    <label>Test Category</label>
+    <objectUsage>
+        <object>KnowledgeArticleVersion</object>
+    </objectUsage>
+</DataCategoryGroup>

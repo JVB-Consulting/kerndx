@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask AWS Access Key IDs</label>
+    <protected>false</protected>
+    <values>
+        <field>ApplicableFieldTypes__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Redacts AWS access key IDs. Matches the AKIA (permanent) and ASIA (session) prefixes followed by 16 uppercase alphanumerics — the standard 20-char AWS access key format. Case-sensitive to avoid over-matching.</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:type="xsd:string">LogAndContinue</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>MinInputLength__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Mode__c</field>
+        <value xsi:type="xsd:string">Regex</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">330.0</value>
+    </values>
+    <values>
+        <field>Pattern__c</field>
+        <value xsi:type="xsd:string">\b(?:AKIA|ASIA)[0-9A-Z]{16}\b</value>
+    </values>
+    <values>
+        <field>Replacement__c</field>
+        <value xsi:type="xsd:string">[AWS_KEY_REDACTED]</value>
+    </values>
+</CustomMetadata>

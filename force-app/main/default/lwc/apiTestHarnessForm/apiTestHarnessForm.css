@@ -1,0 +1,101 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.config-column
+{
+	align-self    : flex-start;
+	border-right  : 1px solid #DDDBDA;
+	max-height    : calc(100vh - 4rem);
+	overflow-y    : auto;
+	padding-right : 1rem;
+	position      : sticky;
+	top           : 1rem;
+}
+
+.response-column
+{
+	padding-left : 1rem;
+}
+
+.response-column c-json-viewer
+{
+	display    : block;
+	max-height : 24rem;
+	overflow   : auto;
+}
+
+.response-column .slds-table
+{
+	display    : block;
+	max-height : 16rem;
+	overflow   : auto;
+}
+
+.api-call-link
+{
+	--slds-c-button-spacing-inline-end   : 0;
+	--slds-c-button-spacing-inline-start : 0;
+	--slds-c-button-text-color           : #0176D3;
+	--slds-c-button-text-color-hover     : #014486;
+}
+
+@media (max-width : 1023px)
+{
+	.config-column
+	{
+		border-right  : none;
+		max-height    : none;
+		overflow-y    : visible;
+		padding-right : 0;
+		position      : static;
+		top           : auto;
+	}
+
+	.response-column
+	{
+		padding-left : 0;
+		padding-top  : 1rem;
+	}
+}
+
+.parameter-row
+{
+	align-items : center;
+}
+
+.safety-bar
+{
+	background-color : #F4F6F9;
+	border-left      : 4px solid #C9C7C5;
+	border-radius    : 0.25rem;
+	margin-top       : 1rem;
+	padding          : 0.75rem 1rem;
+	transition       : background-color 0.2s, border-left-color 0.2s;
+}
+
+.safety-bar_sandbox
+{
+	background-color : #EBF7EE;
+	border-left      : 4px solid #2E844A;
+}
+
+.safety-bar_warning
+{
+	background-color : #FEF6E8;
+	border-left      : 4px solid #DD7A01;
+}
+
+.safety-bar_danger
+{
+	background-color : #FEF0EE;
+	border-left      : 4px solid #BA0517;
+}
+
+.empty-response
+{
+	align-items     : center;
+	color           : #706E6B;
+	display         : flex;
+	flex-direction  : column;
+	justify-content : center;
+	min-height      : 20rem;
+	text-align      : center;
+}

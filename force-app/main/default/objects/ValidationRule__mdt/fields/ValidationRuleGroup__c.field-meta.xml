@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ValidationRuleGroup__c</fullName>
+    <description>Links this rule to a validation rule group. The group determines which object and trigger contexts this rule applies to.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the validation rule group this rule belongs to</inlineHelpText>
+    <label>Validation Rule Group</label>
+    <referenceTo>ValidationRuleGroup__mdt</referenceTo>
+    <relationshipLabel>Validation Rules</relationshipLabel>
+    <relationshipName>ValidationRules</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

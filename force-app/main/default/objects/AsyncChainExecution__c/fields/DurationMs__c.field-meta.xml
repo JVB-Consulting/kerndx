@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DurationMs__c</fullName>
+    <description>Wall-clock duration in milliseconds from chain start to terminal state. Includes async gaps between Queueable transactions (platform scheduling overhead). Individual step durations in the Step Log field reflect CPU time within each transaction.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Wall-clock time from chain start to completion. Includes async gaps between steps. See Step Log for per-step CPU durations.</inlineHelpText>
+    <label>Duration (ms)</label>
+    <precision>10</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

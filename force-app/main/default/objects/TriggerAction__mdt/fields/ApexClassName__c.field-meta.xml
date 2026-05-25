@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApexClassName__c</fullName>
+    <description>Fully qualified Apex class name that implements the trigger action logic. The class must extend TRG_Base and implement the appropriate IF_Trigger interface (e.g. IF_Trigger.BeforeInsert). For managed package classes, include the namespace prefix (e.g. kern.TRG_SetFoobarDefaults). Set this OR Flow Name, never both — deploys that populate both fields or neither are blocked by a validation rule on this object. Leave blank to configure a flow action via Flow Name.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enter the Apex class name (with namespace prefix for managed-package classes). Leave blank if this row is a flow action — set Flow Name instead. Cannot set both.</inlineHelpText>
+    <label>Apex Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

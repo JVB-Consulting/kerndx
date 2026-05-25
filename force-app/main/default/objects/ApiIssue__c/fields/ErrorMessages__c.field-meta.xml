@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ErrorMessages__c</fullName>
+    <description>Error messages encountered during API call processing. May contain multiple messages separated by line breaks.</description>
+    <inlineHelpText>Error details from the API call. May contain multiple messages separated by line breaks.</inlineHelpText>
+    <label>Error Messages</label>
+    <length>131072</length>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

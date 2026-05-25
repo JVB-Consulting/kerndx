@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <description>Invokes the API callout asynchronously via the adaptive async processor.</description>
+        <name>InvokeApiCall</name>
+        <label>Invoke API Call</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <actionName>FLOW_CallApiAsync</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>SetStatusToRetrying</targetReference>
+        </connector>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>apiCalls</name>
+            <value>
+                <elementReference>$Record</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>FLOW_CallApiAsync</nameSegment>
+        <offset>0</offset>
+    </actionCalls>
+    <apiVersion>66.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <description>Retries a failed outbound API call at the scheduled NextRetry date/time, then sets status to Retrying.</description>
+    <environments>Default</environments>
+    <interviewLabel>Retry Outbound Api Call {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Retry Outbound Api Call</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <description>Marks the ApiCall as actively retrying to prevent re-triggering.</description>
+        <name>SetStatusToRetrying</name>
+        <label>Set Status to Retrying</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <inputAssignments>
+            <field>Status__c</field>
+            <value>
+                <stringValue>Retrying</stringValue>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>NextRetry__c</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>false</booleanValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Status__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Retry</stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Direction__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>Outbound</stringValue>
+            </value>
+        </filters>
+        <object>ApiCall__c</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <scheduledPaths>
+            <name>RetryAtScheduledTime</name>
+            <connector>
+                <targetReference>InvokeApiCall</targetReference>
+            </connector>
+            <label>Retry at Scheduled Time</label>
+            <offsetNumber>0</offsetNumber>
+            <offsetUnit>Minutes</offsetUnit>
+            <recordField>NextRetry__c</recordField>
+            <timeSource>RecordField</timeSource>
+        </scheduledPaths>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

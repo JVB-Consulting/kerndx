@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>UserLink__c</fullName>
+    <description>Formula-generated hyperlink to the user who produced this log entry. Provides one-click navigation from the log to the user record.</description>
+    <externalId>false</externalId>
+    <formula>HYPERLINK(&quot;/&quot; + UserId__c , &quot;Open&quot;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Click to navigate to the user who produced this log entry.</inlineHelpText>
+    <label>View User</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

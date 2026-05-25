@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>NumberInteger__c</fullName>
+    <description>Test Number (Integer, 3, 0) field for unit tests.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Test Number (Integer) field used by framework unit tests and TST_Builder.</inlineHelpText>
+    <label>Number Integer</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

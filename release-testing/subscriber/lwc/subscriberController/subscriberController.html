@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card title="19b: Controller Module">
+		<div class="slds-p-around_medium">
+			<lightning-button label="Run Tests" onclick={runTests}></lightning-button>
+			<template lwc:if={hasResults}>
+				<ul class="slds-list_dotted slds-m-top_small">
+					<template for:each={results} for:item="result">
+						<li key={result.name}>{result.label}</li>
+					</template>
+				</ul>
+			</template>
+		</div>
+	</lightning-card>
+</template>

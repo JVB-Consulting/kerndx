@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IsIdempotencyHit__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Indicates the response was returned from a previous API call with the same idempotency key, without re-executing the handler. Set automatically when an inbound request matches an existing idempotency key on a completed ApiCall__c record.</description>
+    <inlineHelpText>When checked, the response was returned from a previously completed call — the handler was not re-executed.</inlineHelpText>
+    <label>Is Idempotency Hit</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,38 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<lightning-card title="Subscribe to a channel">
+		<div class="slds-var-p-horizontal_large">
+			<form onsubmit={handleSubscribe}>
+				<lightning-combobox data-testid="event-type" label="Event type" onchange={handleSubEventTypeChange} options={subscribeEventTypes} placeholder="Select type"
+				                    value={subEventType}></lightning-combobox>
+				<lightning-combobox data-testid="event-name" disabled={isSubscribeEventNameDisabled} label="Event name" onchange={handleSubEventNameChange}
+				                    options={subscribeEventNames} placeholder={subEventNamePlaceholder} value={subscribeEventName}></lightning-combobox>
+				<lightning-input disabled={isSubscribeChannelDisabled} label="Streaming channel" name="subChannel" onchange={handleValueChange}
+				                 value={subChannel}></lightning-input>
+				<lightning-combobox disabled={isSubscribeDisabled} label="Replay option" name="subReplayOption" onchange={handleValueChange} options={replayOptions}
+				                    value={subReplayOption}></lightning-combobox>
+				<lightning-input label="Replay ID" lwc:if={isCustomReplayIdVisible} name="subReplayId" onchange={handleValueChange} required type="number"
+				                 value={subReplayId}></lightning-input>
+				<div class="slds-align_absolute-center slds-var-m-top_medium">
+					<lightning-button data-testid="subscribe-button" disabled={isSubscribeDisabled} label="Subscribe" type="submit" variant="brand"></lightning-button>
+				</div>
+				<!-- CDC enablement warning -->
+				<c-notice lwc:if={isCDCSubscription}>
+					<p>
+						Enable Change Data Capture events in&nbsp; <a href="/lightning/setup/CdcObjectEnablement/home">Setup</a>&nbsp;to receive them on the
+						<code>/data/ChangeEvents</code> channel or the
+						single-event channels. This doesn't apply to custom
+						channels you define. </p>
+				</c-notice>
+				<!-- Event monitoring enablement warning -->
+				<c-notice lwc:elseif={isEventMonitoringSubscription}>
+					<p>
+						Streaming must be enabled in&nbsp; <a href="/lightning/setup/EventManager/home">Event Manager</a>&nbsp;in order to receive Monitoring Events. </p>
+				</c-notice>
+			</form>
+		</div>
+	</lightning-card>
+</template>

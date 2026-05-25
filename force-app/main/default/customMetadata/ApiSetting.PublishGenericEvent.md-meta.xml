@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Publish a Generic Event (REST)</label>
+    <protected>true</protected>
+    <values>
+        <field>ApiCredential__c</field>
+        <value xsi:type="xsd:string">API_CallCurrentOrg</value>
+    </values>
+    <values>
+        <field>BypassFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CircuitBreakerEnabled__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>CircuitBreakerFailureThreshold__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CircuitBreakerSuccessThreshold__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CircuitBreakerTimeout__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>ClassName__c</field>
+        <value xsi:type="xsd:string">API_PublishGenericEvent</value>
+    </values>
+    <values>
+        <field>Direction__c</field>
+        <value xsi:type="xsd:string">Outbound</value>
+    </values>
+    <values>
+        <field>EndpointPath__c</field>
+        <value xsi:type="xsd:string">/services/data/v{0}/sobjects/StreamingChannel/{1}/push</value>
+    </values>
+    <values>
+        <field>IdempotencyEnabled__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>LogIssues__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>MaxRetryCount__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>MockingEnabled__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Priority__c</field>
+        <value xsi:type="xsd:double">100.0</value>
+    </values>
+    <values>
+        <field>RequiredFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>ResolveIssues__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>RetryBackoffSeconds__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>RetryIssues__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+</CustomMetadata>

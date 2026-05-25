@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# Salesforce CLI
+.sfdx/
+.sf/
+.localdevserver/
+deploy-options.json
+
+# LWC tooling
+**/lwc/jsconfig.json
+coverage/
+
+# Build + scratch outputs
+tmp/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/

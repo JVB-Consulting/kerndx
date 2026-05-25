@@ -1,0 +1,31 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<section aria-describedby="modalContent" aria-labelledby="modalTitle" aria-modal="true" class={modalClass} role="dialog" tabindex="-1">
+		<div class="slds-modal__container">
+			<!-- Close button -->
+			<lightning-button-icon alternative-text="Close" class="slds-button slds-button_icon slds-modal__close" icon-name="utility:close" lwc:if={showCloseIcon}
+			                       onclick={handleCloseModal} size="large"></lightning-button-icon>
+
+			<!-- Header -->
+			<header class={headerClass}>
+				<h2 class="slds-text-heading_medium slds-hyphenate" id="modalTitle">
+					{title} </h2>
+				<p class="slds-var-m-top_x-small slds-hide">
+					<slot name="tagline" onslotchange={handleSlotTaglineChange}></slot>
+				</p>
+			</header>
+
+			<!-- Body -->
+			<div class="slds-modal__content slds-var-p-around_medium" id="modalContent">
+				<slot></slot>
+			</div>
+
+			<!-- Footer -->
+			<footer class={footerClass}>
+				<slot name="footer" onslotchange={handleSlotFooterChange}></slot>
+			</footer>
+		</div>
+	</section>
+
+	<div class={backdropClass}></div>
+</template>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnableFlowActionLogging__c</fullName>
+    <defaultValue>&quot;ErrorsOnly&quot;</defaultValue>
+    <description>Controls how often flow trigger actions write audit log entries. Valid values: Off, ErrorsOnly, AlwaysOn. Off disables audit logging entirely. ErrorsOnly (default) records one log entry per failed flow run, with the failed record identified. AlwaysOn records one summary entry per successful batch plus one entry per failed record — use this only in orgs that need compliance-grade evidence of every flow trigger run, since heavy bulk saves multiply the log volume. Defaults to ErrorsOnly.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Off disables flow trigger audit logging. ErrorsOnly (default) logs only failed flow runs. AlwaysOn logs every flow run — use for compliance-grade audit needs in high-regulation orgs.</inlineHelpText>
+    <label>Enable Flow Action Logging</label>
+    <length>40</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

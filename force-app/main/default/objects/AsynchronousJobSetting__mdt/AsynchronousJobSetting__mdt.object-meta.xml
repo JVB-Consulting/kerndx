@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Declarative configuration for asynchronous job classes. The DeveloperName of each record should match the Apex class name it configures.</description>
+    <label>Asynchronous Job Setting</label>
+    <pluralLabel>Asynchronous Job Settings</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

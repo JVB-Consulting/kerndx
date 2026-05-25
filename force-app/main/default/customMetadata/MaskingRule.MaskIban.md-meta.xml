@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask IBAN Account Numbers</label>
+    <protected>false</protected>
+    <values>
+        <field>ApplicableFieldTypes__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Redacts IBAN-format international bank account numbers (two-letter country, two check digits, bank identifier, then up to 16 alphanumeric chars). Case-sensitive to avoid matching lowercase prose. Ships with Block DML; review with your PCI compliance team.</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>MinInputLength__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Mode__c</field>
+        <value xsi:type="xsd:string">Regex</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">220.0</value>
+    </values>
+    <values>
+        <field>Pattern__c</field>
+        <value xsi:type="xsd:string">\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}[A-Z0-9]{0,16}\b</value>
+    </values>
+    <values>
+        <field>Replacement__c</field>
+        <value xsi:type="xsd:string">[IBAN_REDACTED]</value>
+    </values>
+</CustomMetadata>

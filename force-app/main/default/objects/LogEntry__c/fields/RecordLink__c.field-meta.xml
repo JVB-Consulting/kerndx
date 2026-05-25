@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RecordLink__c</fullName>
+    <description>Formula-generated hyperlink to the record associated with this log entry. Provides one-click navigation from the log to the source record.</description>
+    <externalId>false</externalId>
+    <formula>HYPERLINK(&quot;/&quot; + RecordId__c , &quot;Open&quot;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>Click to navigate to the record associated with this log entry.</inlineHelpText>
+    <label>View Record</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

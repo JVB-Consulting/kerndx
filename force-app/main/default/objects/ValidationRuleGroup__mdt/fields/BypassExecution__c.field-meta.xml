@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BypassExecution__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, ALL validation rules in this group are completely skipped during trigger execution. This is a group-level kill switch that overrides individual rule settings. Applies unconditionally to all users.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to disable ALL validation rules in this group for all users. Use as a kill switch during troubleshooting or data migrations. Uncheck to re-enable.</inlineHelpText>
+    <label>Bypass Execution</label>
+    <type>Checkbox</type>
+</CustomField>

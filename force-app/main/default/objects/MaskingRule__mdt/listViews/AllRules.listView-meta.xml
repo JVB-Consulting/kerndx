@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllRules</fullName>
+    <columns>MasterLabel</columns>
+    <columns>DeveloperName</columns>
+    <columns>Mode__c</columns>
+    <columns>Order__c</columns>
+    <columns>Pattern__c</columns>
+    <columns>MinInputLength__c</columns>
+    <columns>ApplicableFieldTypes__c</columns>
+    <columns>FailureAction__c</columns>
+    <columns>IsActive__c</columns>
+    <columns>Description__c</columns>
+    <columns>IsProtected</columns>
+    <columns>NamespacePrefix</columns>
+    <filterScope>Everything</filterScope>
+    <label>All Masking Rules</label>
+</ListView>

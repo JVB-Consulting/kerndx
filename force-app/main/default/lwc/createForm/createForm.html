@@ -1,0 +1,63 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template if:true={isFieldsLoading}>
+		<div class='slds-is-relative'>
+			<lightning-spinner alternative-text="Loading..." class="spinner-medium" data-text="Loading..." size="medium" variant="brand"></lightning-spinner>
+		</div>
+	</template>
+
+	<template if:false={isFieldsLoading}>
+		<div class='slds-box slds-color__background_gray-1'>
+			<h1 class='slds-text-heading_medium' if:true={formHeading}>{formHeading}</h1>
+			<lightning-layout multiple-rows="true">
+				<template for:each={displayFieldList} for:item='field'>
+					<lightning-layout-item key={field.fieldName} padding="around-small" size='6'>
+						<template if:true={field.isText}>
+							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
+							                 type="text" value={field.fieldValue}></lightning-input>
+						</template>
+						<template if:true={field.isTextArea}>
+							<lightning-textarea class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
+							                    value={field.fieldValue}></lightning-textarea>
+						</template>
+						<template if:true={field.isEmail}>
+							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel}
+							                 message-when-pattern-mismatch="Please enter a valid email address." onchange={handleFieldChange} required={field.isRequired}
+							                 type="email" value={field.fieldValue}></lightning-input>
+						</template>
+						<template if:true={field.isPhone}>
+							<lightning-input class="input-field" data-id={field.fieldName} field-level-help="Telephone/Cellphone number e.g. 0129873456" label={field.fieldLabel}
+							                 onchange={handleFieldChange} pattern="[0-9]{10}" required={field.isRequired} type="tel" value={field.fieldValue}></lightning-input>
+						</template>
+						<template if:true={field.isDateTime}>
+							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
+							                 type="datetime" value={field.fieldValue}></lightning-input>
+						</template>
+						<template if:true={field.isPicklist}>
+							<lightning-combobox class="picklist-field" data-id={field.fieldName} label={field.fieldLabel} name={field.fieldName} onchange={handleFieldChange}
+							                    options={field.displayPicklistOptions} required={field.isRequired} value={field.displaySelectedPicklistValue}></lightning-combobox>
+						</template>
+						<template if:true={field.isLookup}>
+							<c-s-object-lookup default-record-id={field.fieldValue} element-name={field.fieldName} field-label-name={field.fieldLabel}
+							                   object-api-name={field.fieldLookupObjectApiName} onvalueselect={handleLookupValueSelect}></c-s-object-lookup>
+						</template>
+					</lightning-layout-item>
+				</template>
+			</lightning-layout>
+			<div class="slds-m-horizontal_x-small slds-clearfix" if:true={showFooter}>
+				<div class="slds-float_right">
+					<template if:true={awaitingRecordOperation}>
+						<div class='slds-is-relative'>
+							<lightning-spinner alternative-text="Loading..." class="spinner-medium" data-text="Loading..." size="medium" variant="brand"></lightning-spinner>
+						</div>
+					</template>
+					<template if:false={awaitingRecordOperation}>
+						<lightning-button if:true={showCancel} label="Cancel" onclick={dispatchCancelEvent} variant="brand"></lightning-button>
+						<lightning-button class="slds-m-left_small" if:true={isSaveMode} label={saveLabel} onclick={saveRecord} variant="brand"></lightning-button>
+					</template>
+				</div>
+			</div>
+		</div>
+	</template>
+
+</template>

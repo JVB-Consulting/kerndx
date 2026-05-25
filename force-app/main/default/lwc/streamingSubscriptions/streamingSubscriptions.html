@@ -1,0 +1,30 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<div class="slds-var-m-top_medium slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+		<div class="slds-col">
+			<h2 class="slds-nav-vertical__title">Subscriptions</h2>
+		</div>
+		<div class="slds-col slds-var-m-right_medium">
+			<lightning-badge label={subscriptionCount}></lightning-badge>
+			<lightning-button-icon alternative-text="Unsubscribe all" class="slds-var-m-left_x-small" data-testid="unsubscribe-all" icon-name="utility:delete"
+			                       onclick={handleUnsubscribeAll} variant="bare"></lightning-button-icon>
+		</div>
+	</div>
+
+	<div class="slds-var-p-horizontal_x-small slds-var-m-bottom_large">
+		<template for:each={subscriptions} for:item="subscription">
+			<div class="slds-grid slds-var-p-vertical_x-small slds-var-p-horizontal_xx-small subscription" data-testid="subscription-item" key={subscription.channel}>
+				<div class="slds-has-flexi-truncate">
+					<div class="slds-truncate" data-testid="subscription-channel">{subscription.channel}</div>
+				</div>
+				<div class="slds-no-flex">
+					<lightning-button-icon alternative-text="Unsubscribe" icon-name="utility:close" name={subscription.channel} onclick={handleUnsubscribe}
+					                       variant="bare"></lightning-button-icon>
+				</div>
+			</div>
+		</template>
+	</div>
+</template>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ClassName__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>The fully qualified name of the subscriber-org class that implements the framework&apos;s type resolver interface. Used to resolve non-global class names for web services, triggers, and DTOs.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>The subscriber-org class that resolves class names to Types for the framework</inlineHelpText>
+    <label>Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

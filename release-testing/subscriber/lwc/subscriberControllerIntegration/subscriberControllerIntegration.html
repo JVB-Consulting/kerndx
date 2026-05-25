@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card title="20: Controller Integration">
+		<div class="slds-p-around_medium">
+			<lightning-button disabled={isLoading} label="Run Tests" onclick={runTests}></lightning-button>
+			<template lwc:if={isLoading}>
+				<lightning-spinner alternative-text="Running tests" class="slds-m-left_medium" size="small"></lightning-spinner>
+			</template>
+			<template lwc:if={hasResults}>
+				<ul class="slds-list_dotted slds-m-top_small">
+					<template for:each={results} for:item="result">
+						<li key={result.name}>{result.label}</li>
+					</template>
+				</ul>
+			</template>
+		</div>
+	</lightning-card>
+</template>

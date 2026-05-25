@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PicklistMultiSelect__c</fullName>
+    <description>Test Multiselect Picklist field for unit tests.</description>
+    <inlineHelpText>Test Multi-Select Picklist field used by framework unit tests and TST_Builder.</inlineHelpText>
+    <label>Multi-Select Picklist</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>MultiselectPicklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>One</fullName>
+                <default>false</default>
+                <label>One</label>
+            </value>
+            <value>
+                <fullName>Two</fullName>
+                <default>false</default>
+                <label>Two</label>
+            </value>
+            <value>
+                <fullName>Three</fullName>
+                <default>false</default>
+                <label>Three</label>
+            </value>
+            <value>
+                <fullName>Four</fullName>
+                <default>false</default>
+                <label>Four</label>
+            </value>
+            <value>
+                <fullName>Five</fullName>
+                <default>false</default>
+                <label>Five</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <visibleLines>4</visibleLines>
+</CustomField>

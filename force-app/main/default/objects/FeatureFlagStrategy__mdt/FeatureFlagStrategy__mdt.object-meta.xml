@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Defines a single evaluation rule for a parent Feature Flag. A Feature Flag can have multiple strategies, which are processed in the order specified by the &apos;Order&apos; field. The first strategy to return &apos;true&apos; enables the feature.</description>
+    <label>Feature Flag Strategy</label>
+    <pluralLabel>Feature Flag Strategies</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

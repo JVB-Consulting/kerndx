@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DisableAllApis__c</fullName>
+    <businessStatus>Active</businessStatus>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, every API call (inbound and outbound) is disabled for the applicable user, profile, or org. This is a hierarchical custom setting — user-level overrides profile-level, which overrides org-level.</description>
+    <inlineHelpText>Check to disable ALL API calls (inbound and outbound). Applies at user, profile, or org level based on where the setting is configured.</inlineHelpText>
+    <label>Disable All APIs</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

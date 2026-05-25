@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LogIssues__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, failed API calls create an ApiIssue__c record for troubleshooting and triage.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Create issue records when API calls fail. Required for Resolve/Retry Issues.</inlineHelpText>
+    <label>Log Issues</label>
+    <type>Checkbox</type>
+</CustomField>

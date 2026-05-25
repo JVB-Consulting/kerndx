@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.pillSize
+{
+	width : 100%;
+}
+
+/*noinspection CssUnusedSymbol*/
+.slds-modal__content
+{
+	overflow : auto !important;
+}
+
+.required-field:before
+{
+	color   : #FF0000;
+	content : "* ";
+}
+
+.no-pointer-events
+{
+	pointer-events : none;
+}
+
+.no-records-found
+{
+	font-weight : bold;
+	text-align  : center;
+}
+
+/*noinspection CssUnusedSymbol*/
+.search-option-selected
+{
+	background : #E9E9E9;
+}

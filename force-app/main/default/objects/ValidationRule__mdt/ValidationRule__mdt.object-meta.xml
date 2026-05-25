@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Defines an individual validation rule with a formula-based condition, error message, and configuration options. Rules are grouped by ValidationRuleGroup__mdt and evaluated during trigger execution.</description>
+    <label>Validation Rule</label>
+    <pluralLabel>Validation Rules</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

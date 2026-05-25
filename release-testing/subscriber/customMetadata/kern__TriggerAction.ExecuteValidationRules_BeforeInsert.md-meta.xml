@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Execute Validation Rules - Before Insert</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__AllowNonSelfInitiated__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__AllowRecursion__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__ApexClassName__c</field>
+        <value xsi:type="xsd:string">TRG_ExecuteValidationRules</value>
+    </values>
+    <values>
+        <field>kern__BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Executes formula-based validation rules before Account insert</value>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaContextClassName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaFormula__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Event__c</field>
+        <value xsi:type="xsd:string">Before Insert</value>
+    </values>
+    <values>
+        <field>kern__ForcePerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Order__c</field>
+        <value xsi:type="xsd:double">50.0</value>
+    </values>
+    <values>
+        <field>kern__PerformanceThresholdMs__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__SuppressPerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__TriggerSetting__c</field>
+        <value xsi:type="xsd:string">Account</value>
+    </values>
+</CustomMetadata>

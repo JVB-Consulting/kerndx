@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CronExpression__c</fullName>
+    <description>Salesforce-format cron expression that defines when this job runs. Uses the 7-field Salesforce cron syntax: Seconds Minutes Hours Day_of_month Month Day_of_week Optional_year.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Salesforce cron expression defining the schedule (e.g., 0 0 12 * * ? for daily at noon). See Salesforce Apex Scheduler documentation for syntax.</inlineHelpText>
+    <label>Cron Expression</label>
+    <length>255</length>
+    <required>true</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

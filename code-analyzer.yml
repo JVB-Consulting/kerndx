@@ -1,0 +1,21 @@
+engines:
+  pmd:
+    # Both Kern PMD rulesets are loaded so the right scope is available via
+    # `--rule-selector`:
+    #
+    # - `pmd:KernDXFrameworkPackageSide` — framework-scoped subset. Use for
+    #   package-level CI scans of `force-app/`; excludes the
+    #   "use the framework API instead of the platform primitive" rules
+    #   (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, etc.) since
+    #   the package necessarily implements those APIs on top of the primitives.
+    # - `pmd:KernDXFrameworkCompliance` — full ruleset. Use for subscriber-style
+    #   scans (including release-testing's deliberate-violation fixtures) and
+    #   when shipping the ruleset for subscriber adoption.
+    custom_rulesets:
+      - scanner/kerndx-framework-ruleset.xml
+      - scanner/kerndx-pmd-ruleset.xml
+
+rules:
+  flow:
+    SameRecordFieldUpdates:
+      severity: Info

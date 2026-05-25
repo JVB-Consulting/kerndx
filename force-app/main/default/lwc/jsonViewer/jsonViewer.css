@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+pre
+{
+	margin  : 5px;
+	outline : 1px solid #CCCCCC;
+	padding : 5px;
+}
+
+.string
+{
+	color : #008000;
+}
+
+.number
+{
+	color : #FF8C00;
+}
+
+.boolean
+{
+	color : #0000FF;
+}
+
+.key
+{
+	color : #FF0000;
+}

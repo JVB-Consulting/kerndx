@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Description__c</fullName>
+    <description>Detailed description of what this validation rule checks. Should explain the business requirement and when this rule would fail. Reference any relevant policy documents or requirements.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Explain the business requirement this rule enforces (required)</inlineHelpText>
+    <label>Description</label>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

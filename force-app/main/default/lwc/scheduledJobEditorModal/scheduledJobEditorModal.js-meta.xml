@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Modal dialog for creating and editing ScheduledJob__c records with embedded cron editor and dynamic parameter forms.</description>
+	<masterLabel>Scheduled Job Editor Modal</masterLabel>
+	<isExposed>false</isExposed>
+</LightningComponentBundle>

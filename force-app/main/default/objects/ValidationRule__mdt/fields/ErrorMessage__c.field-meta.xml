@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ErrorMessage__c</fullName>
+    <description>The error message displayed when validation fails. Supports merge fields using {!FieldName} syntax referencing context class properties. Use Custom Labels with {$Label.LabelName} for internationalization.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Error message shown on failure. Supports merge fields: {!newRecord.Name}, {!Context.PropertyName}, {$Label.CustomLabel}</inlineHelpText>
+    <label>Error Message</label>
+    <length>4000</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

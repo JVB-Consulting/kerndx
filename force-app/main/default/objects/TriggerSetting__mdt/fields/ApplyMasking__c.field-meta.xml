@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApplyMasking__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When checked, the trigger dispatcher calls the data masking framework on every before-insert and before-update for this object before any configured TriggerAction handlers run. Only fires when the MaskingFramework_Enabled feature flag is on. Defaults to true so objects with a TriggerSetting are masked automatically; uncheck to opt this one object out.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Auto-masks configured fields on this object before insert and update. Uncheck only if this object has no sensitive data and you want to skip the masking pass for performance reasons.</inlineHelpText>
+    <label>Apply Masking</label>
+    <type>Checkbox</type>
+</CustomField>

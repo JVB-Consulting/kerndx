@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   Subscriber Naming Standards PMD Ruleset
+   Enforces subscriber-customizable naming conventions for Apex classes and triggers.
+
+   Domains: SLS, ORD, PRD, SVC, SUB, MKT, CMN (configured per-subscriber)
+   Brands:  ACM, BTA (optional segment, configured per-subscriber)
+   Layers:  SEL, TRG, FLOW, SVC, BATCH, SCHED, API, REST, DTO, CTRL, UTIL, LOG, IF, QRY, DML, MAP, TST
+
+   Apex classes:  Domain_[Brand_]Layer_Name[_TEST]
+   Triggers:      TRG_ObjectName
+
+   PMD 7 rule class: net.sourceforge.pmd.lang.rule.xpath.XPathRule
+   PMD 6 rule class: net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
+   (Change the class attribute on each rule element if using PMD 6.)
+
+   Suppress per-class with @SuppressWarnings('PMD.RuleName').
+
+   Brand codes (ACM, BTA) are placeholders. Replace them with your own
+   3-letter brand abbreviations via .kerndx/config.yml `naming.brands`, then
+   re-run `kerndx init` to regenerate this file.
+   See scanner/README.md §"Subscriber naming — &lt;Brand&gt; placeholder convention".
+-->
+<ruleset name="Subscriber Naming Standards"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+   <description>
+      Subscriber-customizable naming standards for Apex classes and triggers.
+      Enforces the Domain_[Brand_]Layer_Name convention with configurable domain
+      codes (SLS, ORD, PRD, SVC, SUB, MKT, CMN) and brand codes (ACM, BTA).
+      Subscribers tailor these prefixes to their own org's naming standard.
+   </description>
+
+   <!-- ================================================================
+        SUB-CLASS: SubscriberApexClassNaming (Priority 3 — Should Fix)
+        Apex class names must follow Domain_[Brand_]Layer_Name[_TEST].
+        ================================================================ -->
+   <rule name="SubscriberApexClassNaming"
+         language="apex"
+         message="Apex class ''{0}'' does not follow subscriber naming: Domain_[Brand_]Layer_Name[_TEST] (e.g. ORD_SEL_Order, SVC_TRG_ValidateWarranty_TEST)"
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Apex class names must follow the subscriber-customizable naming convention:
+
+            Domain_[Brand_]Layer_Name[_TEST]
+
+         Domain:  SLS, ORD, PRD, SVC, SUB, MKT, CMN (configured per-subscriber)
+         Brand:   ACM, BTA (optional — omit for shared classes)
+         Layer:   SEL, TRG, FLOW, SVC, BATCH, SCHED, API, REST, DTO, CTRL, UTIL, LOG, IF, QRY, DML, MAP, TST
+         Name:    PascalCase descriptive name
+         _TEST:   Appended for test classes
+
+         Suppress with @SuppressWarnings('PMD.SubscriberApexClassNaming') for
+         framework infrastructure or managed package adapter classes that
+         intentionally deviate from the convention.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[
+   not(
+      matches(
+         @SimpleName,
+         '^(SLS|ORD|PRD|SVC|SUB|MKT|CMN)_((ACM|BTA)_)?(SEL|TRG|FLOW|SVC|BATCH|SCHED|API|REST|DTO|CTRL|UTIL|LOG|IF|QRY|DML|MAP|TST)_[A-Z][a-zA-Z0-9]+(_TEST)?$'
+      )
+   )
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        SUB-TRIG: SubscriberTriggerNaming (Priority 3 — Should Fix)
+        Trigger names must follow TRG_ObjectName.
+        ================================================================ -->
+   <rule name="SubscriberTriggerNaming"
+         language="apex"
+         message="Trigger ''{0}'' does not follow subscriber naming: TRG_ObjectName (e.g. TRG_Account, TRG_WarrantyClaim)"
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Trigger names must follow the pattern TRG_ObjectName. Triggers are the
+         only artefact type without a domain prefix — the trigger is a technical
+         dispatcher, and the domain is expressed in the handler classes.
+
+         Suppress with @SuppressWarnings('PMD.SubscriberTriggerNaming') for managed
+         package triggers that use a different convention.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserTrigger[
+   not(
+      matches(@SimpleName, '^TRG_[A-Z][a-zA-Z0-9]+$')
+   )
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        SUB-LEN: SubscriberApexNameLength (Priority 3 — Should Fix)
+        Apex class and trigger names must not exceed 40 characters.
+        ================================================================ -->
+   <rule name="SubscriberApexNameLength"
+         language="apex"
+         message="Name ''{0}'' exceeds the 40-character limit ({1} characters). Shorten the descriptive portion — never the prefixes."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Salesforce enforces a 40-character limit on Apex class and trigger
+         names. When hitting the limit, shorten the descriptive portion — never
+         the Domain, Brand, or Layer prefixes.
+
+         See the Naming Standards document for pre-approved truncations.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[string-length(@SimpleName) > 40]
+|
+//UserTrigger[string-length(@SimpleName) > 40]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+</ruleset>

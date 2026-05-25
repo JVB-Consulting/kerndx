@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CallerClass__c</fullName>
+    <description>Optional. Leave blank to apply the rule whenever the field is masked. Set to an Apex class name (e.g. API_SendEmail) to restrict the rule to calls from that class only — useful when you want a rule to apply only in the context of one API service or integration and not everywhere that field is used.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Leave blank for all callers. Set to an Apex class name to restrict to calls from that class only.</inlineHelpText>
+    <label>Caller Class</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,10 @@
+<!--
+	@description This VF page is used to determine the running user Session Id,
+		since it's on a VF page this Session Id will be API enabled
+	@author Jason van Beukering
+	@date January 2023, February 2026
+	@see UTIL_System.getApiEnabledSessionId
+-->
+<apex:page id="UTIL_GetApiEnabledSessionId">
+	[[{!$Api.Session_ID}]]
+</apex:page>

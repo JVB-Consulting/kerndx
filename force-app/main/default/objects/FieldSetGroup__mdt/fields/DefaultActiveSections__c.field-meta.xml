@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DefaultActiveSections__c</fullName>
+    <description>Comma-separated list of section names (matching field set labels) that should be expanded by default when the UI loads.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Section names (matching field set labels) expanded by default, separated by commas</inlineHelpText>
+    <label>Default Active Sections</label>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

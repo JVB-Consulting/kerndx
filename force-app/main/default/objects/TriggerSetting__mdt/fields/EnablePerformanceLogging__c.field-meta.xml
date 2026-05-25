@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnablePerformanceLogging__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Master switch for performance logging on this object. When enabled, execution times are tracked for all child trigger actions and logged when they exceed the threshold. Individual actions can override via Suppress Performance Logging or Force Performance Logging.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to track execution times for all trigger actions on this object. Actions exceeding the threshold are logged. Individual actions can override this setting.</inlineHelpText>
+    <label>Enable Performance Logging</label>
+    <type>Checkbox</type>
+</CustomField>

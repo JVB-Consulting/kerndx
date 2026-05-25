@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Datetime__c</fullName>
+    <description>Test DateTime field for unit tests.</description>
+    <inlineHelpText>Test Datetime field used by framework unit tests and TST_Builder.</inlineHelpText>
+    <label>Datetime</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

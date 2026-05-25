@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ExpectedValue__c</fullName>
+    <description>Optional. The value to compare against the &apos;Target&apos;. If the &apos;Target&apos; is a field path, this field is compared (with type-safety) against the value *in* that field. If this field is blank, the logic defaults to checking if the &apos;Target&apos; field&apos;s value is &apos;true&apos;.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Optional. If you want to check for a specific value (e.g., &apos;APAC&apos;, &apos;Gold&apos;, &apos;5&apos;), enter it here. If you leave this blank, the strategy will just check if the &apos;Target&apos; field&apos;s value is &apos;true&apos;.</inlineHelpText>
+    <label>Expected Value</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SObjectType__c</fullName>
+    <description>EntityDefinition relationship that identifies which SObject this trigger setting governs. Validated by the platform — only real objects can be selected, preventing misconfiguration from typos or deleted objects.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the object this trigger setting applies to. All child Trigger Action records will fire on this object&apos;s trigger.</inlineHelpText>
+    <label>SObject Type</label>
+    <referenceTo>EntityDefinition</referenceTo>
+    <relationshipLabel>Trigger Settings</relationshipLabel>
+    <relationshipName>TriggerSettings</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

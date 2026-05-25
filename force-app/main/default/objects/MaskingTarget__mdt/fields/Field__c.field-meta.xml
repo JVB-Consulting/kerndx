@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Field__c</fullName>
+    <description>The field on the chosen object to mask. Only fields from the selected SObject Type appear in the picklist. Leave blank to apply the rule to every updateable text-shaped field on the object (Text, Text Area, Long Text Area, URL, Email, Phone, Encrypted Text); pick a specific field to scope the rule to one field, or to override or disable the wildcard behavior on that one field.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Pick the SObject Type first, then a field. Leave blank to apply this rule to every text field on the object; set a specific field to scope, override, or exclude.</inlineHelpText>
+    <label>Field</label>
+    <metadataRelationshipControllingField>MaskingTarget__mdt.SObjectType__c</metadataRelationshipControllingField>
+    <referenceTo>FieldDefinition</referenceTo>
+    <relationshipLabel>Masking Targets (Field)</relationshipLabel>
+    <relationshipName>MaskingTargetsByField</relationshipName>
+    <required>false</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

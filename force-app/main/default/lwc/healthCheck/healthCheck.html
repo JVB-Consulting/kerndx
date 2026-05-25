@@ -1,0 +1,182 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template lwc:if={allPassed}>
+		<div class="slds-scoped-notification slds-scoped-notification__light slds-theme_success health-check-allpass-slim" data-testid="health-check-all-pass" role="status">
+			<div class="slds-media slds-media_center">
+				<div class="slds-media__figure">
+					<lightning-icon alternative-text="Success" icon-name="utility:success" size="small" variant="success"></lightning-icon>
+				</div>
+				<div class="slds-media__body">
+					<p><strong>{labels.cardTitle}</strong> — {labels.allPassHeading} {resultCountLabel}</p>
+				</div>
+				<div class="slds-media__figure slds-media__figure_reverse">
+					<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="health-check-refresh" icon-name="utility:refresh" onclick={handleRefresh}
+					                       size="small" variant="bare"></lightning-button-icon>
+				</div>
+			</div>
+		</div>
+	</template>
+
+	<lightning-card icon-name="utility:heart" lwc:elseif={hasResults} title={labels.cardTitle}>
+		<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="health-check-refresh" icon-name="utility:refresh" onclick={handleRefresh} size="small"
+		                       slot="actions" variant="bare"></lightning-button-icon>
+
+		<div class="slds-p-horizontal_medium slds-p-bottom_small">
+			<template lwc:if={isLoading}>
+				<lightning-spinner alternative-text="Running health checks" size="small"></lightning-spinner>
+			</template>
+
+			<template lwc:else>
+				<div class="health-check-alert" data-testid="health-check-mixed" role="alert">
+					<p class="slds-text-body_regular slds-p-bottom_small" data-testid="health-check-headline"><strong>{headlineLabel}</strong></p>
+
+					<template lwc:if={hasPassingItems}>
+						<div class="passing-row slds-grid slds-grid_vertical-center slds-wrap slds-p-bottom_x-small">
+							<span class="slds-text-body_small slds-text-color_weak slds-m-right_x-small">{labels.passingPrefix}</span>
+							<template for:each={passingItems} for:item="passingItem">
+								<div class="status-chip slds-grid slds-grid_vertical-center slds-m-right_medium slds-m-bottom_xx-small" data-testid="health-check-passing-chip"
+								     key={passingItem.name}>
+									<lightning-icon alternative-text="Passing" class="slds-m-right_xx-small" icon-name="utility:success" size="x-small"
+									                variant="success"></lightning-icon>
+									<span class="slds-text-body_small slds-text-color_weak">{passingItem.name}</span>
+								</div>
+							</template>
+						</div>
+					</template>
+
+					<template lwc:if={hasFailItems}>
+						<div class="slds-var-m-top_small" data-testid="fail-section">
+							<h3 class="slds-text-heading_small slds-text-color_error slds-var-m-bottom_x-small">{labels.failSectionHeading}</h3>
+							<ul class="slds-has-dividers_bottom-space">
+								<template for:each={failItems} for:item="actionItem">
+									<li class="slds-item slds-p-around_small slds-grid slds-grid_vertical-center" data-testid="health-check-item" key={actionItem.name}>
+										<lightning-icon class="slds-m-right_small slds-align-top" icon-name={actionItem.iconName} size="small"
+										                variant={actionItem.iconVariant}></lightning-icon>
+										<template lwc:if={actionItem.isDataRetention}>
+											<template lwc:if={isCustomizeMode}>
+												<div class="retention-customize-block slds-col slds-grow">
+													<div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_xx-small">
+														<span class="slds-text-body_regular slds-col slds-grow" data-testid="customize-headline">
+															<strong>{customizingHeadline}</strong>
+														</span>
+														<lightning-button data-testid="back-to-apply-link" label={labels.backToApplyLink} onclick={handleBackToApply}
+														                  variant="base"></lightning-button>
+													</div>
+													<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="customize-help">
+														{labels.customizingHelp} </p>
+													<ul class="retention-sublist" data-testid="retention-sublist">
+														<template for:each={retentionProposals} for:item="proposal">
+															<li class="retention-sub-row slds-grid slds-grid_vertical-align-center slds-p-around_x-small"
+															    data-testid="retention-sub-row" key={proposal.objectApiName}>
+																<lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
+																<span class="slds-p-left_small retention-sub-row__object">{proposal.objectLabel}</span>
+																<span class="slds-p-left_small slds-text-body_small slds-text-color_weak retention-sub-row__meta">
+																	{proposal.recordCountLabel} &middot; {proposal.retentionDays} day retention
+																</span>
+																<lightning-button data-object-api-name={proposal.objectApiName} data-testid="set-up-button"
+																                  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
+															</li>
+														</template>
+													</ul>
+												</div>
+											</template>
+											<template lwc:else>
+												<div class="slds-col slds-grow">
+													<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+													<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+												</div>
+												<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
+													<lightning-button data-testid="apply-retention-button" label={labels.applyButton}
+													                  onclick={handleApplyRetention}></lightning-button>
+													<lightning-button class="slds-m-top_xx-small" data-testid="customize-retention-link" label={labels.customizeLink}
+													                  onclick={handleCustomizeRetention} variant="base"></lightning-button>
+												</div>
+											</template>
+										</template>
+										<template lwc:else>
+											<div class="slds-col slds-grow">
+												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+												<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+											</div>
+											<template lwc:if={actionItem.actionLabel}>
+												<div class="slds-shrink-none slds-m-left_small">
+													<lightning-button data-name={actionItem.name} label={actionItem.actionLabel} onclick={handleAction}></lightning-button>
+												</div>
+											</template>
+										</template>
+									</li>
+								</template>
+							</ul>
+						</div>
+					</template>
+
+					<template lwc:if={hasWarnItems}>
+						<div class="slds-var-m-top_small" data-testid="warn-section">
+							<h3 class="slds-text-heading_small slds-var-m-bottom_x-small">{labels.warnSectionHeading}</h3>
+							<ul class="slds-has-dividers_bottom-space">
+								<template for:each={warnItems} for:item="actionItem">
+									<li class="slds-item slds-p-around_small slds-grid slds-grid_vertical-center" data-testid="health-check-item" key={actionItem.name}>
+										<lightning-icon class="slds-m-right_small slds-align-top" icon-name={actionItem.iconName} size="small"
+										                variant={actionItem.iconVariant}></lightning-icon>
+										<template lwc:if={actionItem.isDataRetention}>
+											<template lwc:if={isCustomizeMode}>
+												<div class="retention-customize-block slds-col slds-grow">
+													<div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_xx-small">
+														<span class="slds-text-body_regular slds-col slds-grow" data-testid="customize-headline">
+															<strong>{customizingHeadline}</strong>
+														</span>
+														<lightning-button data-testid="back-to-apply-link" label={labels.backToApplyLink} onclick={handleBackToApply}
+														                  variant="base"></lightning-button>
+													</div>
+													<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="customize-help">
+														{labels.customizingHelp} </p>
+													<ul class="retention-sublist" data-testid="retention-sublist">
+														<template for:each={retentionProposals} for:item="proposal">
+															<li class="retention-sub-row slds-grid slds-grid_vertical-align-center slds-p-around_x-small"
+															    data-testid="retention-sub-row" key={proposal.objectApiName}>
+																<lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
+																<span class="slds-p-left_small retention-sub-row__object">{proposal.objectLabel}</span>
+																<span class="slds-p-left_small slds-text-body_small slds-text-color_weak retention-sub-row__meta">
+																	{proposal.recordCountLabel} &middot; {proposal.retentionDays} day retention
+																</span>
+																<lightning-button data-object-api-name={proposal.objectApiName} data-testid="set-up-button"
+																                  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
+															</li>
+														</template>
+													</ul>
+												</div>
+											</template>
+											<template lwc:else>
+												<div class="slds-col slds-grow">
+													<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+													<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+												</div>
+												<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
+													<lightning-button data-testid="apply-retention-button" label={labels.applyButton}
+													                  onclick={handleApplyRetention}></lightning-button>
+													<lightning-button class="slds-m-top_xx-small" data-testid="customize-retention-link" label={labels.customizeLink}
+													                  onclick={handleCustomizeRetention} variant="base"></lightning-button>
+												</div>
+											</template>
+										</template>
+										<template lwc:else>
+											<div class="slds-col slds-grow">
+												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+												<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+											</div>
+											<template lwc:if={actionItem.actionLabel}>
+												<div class="slds-shrink-none slds-m-left_small">
+													<lightning-button data-name={actionItem.name} label={actionItem.actionLabel} onclick={handleAction}></lightning-button>
+												</div>
+											</template>
+										</template>
+									</li>
+								</template>
+							</ul>
+						</div>
+					</template>
+				</div>
+			</template>
+		</div>
+	</lightning-card>
+</template>

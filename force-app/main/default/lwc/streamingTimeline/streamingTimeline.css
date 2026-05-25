@@ -1,0 +1,109 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) */
+/* Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) */
+/* Modifications copyright (c) 2026 JVB Consulting */
+
+circle
+{
+	cursor       : pointer;
+	stroke       : #FFFFFF;
+	stroke-width : 2px;
+}
+
+circle:hover
+{
+	opacity      : 0.8;
+	stroke       : #000000;
+	stroke-width : 3px;
+}
+
+/* Channel color classes */
+.channel-color-0
+{
+	fill : #1589EE;
+}
+
+/* Blue */
+.channel-color-1
+{
+	fill : #06A59A;
+}
+
+/* Teal */
+.channel-color-2
+{
+	fill : #E3B341;
+}
+
+/* Yellow */
+/*noinspection CssUnusedSymbol*/
+.channel-color-3
+{
+	fill : #E4504D;
+}
+
+/* Red */
+/*noinspection CssUnusedSymbol*/
+.channel-color-4
+{
+	fill : #9050E9;
+}
+
+/* Purple */
+.channel-color-5
+{
+	fill : #00A1E0;
+}
+
+/* Light Blue */
+/*noinspection CssUnusedSymbol*/
+.channel-color-6
+{
+	fill : #E9A510;
+}
+
+/* Orange */
+/*noinspection CssUnusedSymbol*/
+.channel-color-7
+{
+	fill : #04844B;
+}
+
+/* Green */
+/*noinspection CssUnusedSymbol*/
+.channel-color-8
+{
+	fill : #E4508A;
+}
+
+/* Pink */
+.channel-color-9
+{
+	fill : #0D9DDA;
+}
+
+/* Cyan */
+
+/*noinspection CssUnusedSymbol*/
+.major-tick
+{
+	font-weight : bold;
+}
+
+/*noinspection CssUnusedSymbol*/
+.tooltip
+{
+	background     : #000000;
+	color          : #FFFFFF;
+	padding        : 4px;
+	pointer-events : none;
+	position       : fixed;
+	text-align     : center;
+	z-index        : 1000;
+}
+
+/*noinspection CssUnusedSymbol*/
+.tooltip.data
+{
+	background : #005583;
+}

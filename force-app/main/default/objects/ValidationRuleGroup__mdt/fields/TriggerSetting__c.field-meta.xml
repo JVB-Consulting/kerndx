@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TriggerSetting__c</fullName>
+    <description>Links this validation rule group to a specific object via TriggerSetting. All rules in this group will validate records of the object defined in the TriggerSetting.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the Trigger Setting for the object this group validates</inlineHelpText>
+    <label>Trigger Setting</label>
+    <referenceTo>TriggerSetting__mdt</referenceTo>
+    <relationshipLabel>Validation Rule Groups</relationshipLabel>
+    <relationshipName>ValidationRuleGroups</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

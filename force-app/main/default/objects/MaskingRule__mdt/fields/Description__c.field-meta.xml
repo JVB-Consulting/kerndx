@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Description__c</fullName>
+    <description>Plain-language explanation of what this rule detects and why it exists. Required for all rules so future admins can understand each rule at a glance.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Describe what this rule catches in one or two sentences.</inlineHelpText>
+    <label>Description</label>
+    <required>false</required>
+    <type>TextArea</type>
+</CustomField>

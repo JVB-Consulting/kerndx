@@ -1,0 +1,107 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.slds-timeline__item_expandable
+{
+	padding-bottom : 0.5rem;
+	padding-left   : 0.25rem;
+	position       : relative;
+}
+
+.slds-timeline__item_expandable::before
+{
+	background-color : var(--slds-g-color-border-base-1, #C9C9C9);
+	content          : "";
+	height           : calc(100% - 0.75rem);
+	left             : 0.8rem;
+	position         : absolute;
+	top              : 1.25rem;
+	width            : 0.125rem;
+}
+
+.slds-timeline__item_last::before
+{
+	display : none;
+}
+
+.slds-timeline__icon
+{
+	z-index : 1;
+}
+
+/* Slow spin for running step icon */
+@keyframes spin
+{
+	from
+	{
+		transform : rotate(0deg);
+	}
+	to
+	{
+		transform : rotate(360deg);
+	}
+}
+
+.icon-spinning
+{
+	animation : spin 1.5s linear infinite;
+}
+
+.slds-timeline li
+{
+	list-style : none;
+}
+
+/* Step row hover state */
+.step-row
+{
+	border-radius : 0.25rem;
+	cursor        : pointer;
+	padding       : 0.125rem 0.25rem;
+	position      : relative;
+	transition    : background-color 0.15s ease;
+}
+
+.step-row:hover
+{
+	background-color : var(--slds-g-color-neutral-base-95, #F3F3F3);
+}
+
+/* Popover — hidden by default, shown on hover */
+.step-popover
+{
+	bottom        : 100%;
+	display       : none;
+	left          : 1.5rem;
+	margin-bottom : 0.5rem;
+	max-width     : 20rem;
+	min-width     : 14rem;
+	position      : absolute;
+	white-space   : normal;
+	z-index       : 10;
+}
+
+.step-row:hover .step-popover
+{
+	display : block;
+}
+
+/* Popover content grid */
+.popover-grid
+{
+	display               : grid;
+	gap                   : 0.125rem 0.5rem;
+	grid-template-columns : auto 1fr;
+}
+
+.popover-grid dt
+{
+	color       : var(--slds-g-color-on-inverse-1, #FFFFFF);
+	font-size   : 0.6875rem;
+	font-weight : 700;
+}
+
+.popover-grid dd
+{
+	color      : var(--slds-g-color-on-inverse-1, #FFFFFF);
+	font-size  : 0.6875rem;
+	word-break : break-word;
+}

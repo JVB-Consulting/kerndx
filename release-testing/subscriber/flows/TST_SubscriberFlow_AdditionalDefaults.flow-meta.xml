@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <assignments>
+        <description>Stamps NumberOfEmployees onto the trigger record so the calling Apex action can verify a second TRG_InvokeFlow CMDT record fired alongside the primary one.</description>
+        <name>StampAdditionalDefaults</name>
+        <label>Stamp Additional Defaults</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <assignmentItems>
+            <assignToReference>record.NumberOfEmployees</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <numberValue>42.0</numberValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>Subscriber-namespace test flow used by the flow-as-trigger-action release-testing Phase 5B for the recursion-identity assertion. Bound to a second TriggerAction__mdt row alongside TST_SubscriberFlow_SetDefaults so the calling Apex can verify both records fire on the same trigger event. Sets NumberOfEmployees=42 to leave a distinct fingerprint from the primary flow's Description / AccountSource writes.</description>
+    <interviewLabel>TST_SubscriberFlow_AdditionalDefaults {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>TST Subscriber Flow Additional Defaults</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <runInMode>DefaultMode</runInMode>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>StampAdditionalDefaults</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <description>Trigger record passed in by kern.TRG_InvokeFlow. Mutated in place; the calling Apex copies populated fields back onto Trigger.new.</description>
+        <name>record</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>true</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+    <variables>
+        <description>Pre-update record passed in by kern.TRG_InvokeFlow on update events. Read-only; not used by this flow.</description>
+        <name>recordPrior</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+</Flow>

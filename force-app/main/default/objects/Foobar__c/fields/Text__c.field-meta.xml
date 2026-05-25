@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Text__c</fullName>
+    <description>Test Text field (255) for unit tests.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Test Text (255) field used by framework unit tests and TST_Builder.</inlineHelpText>
+    <label>Text</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

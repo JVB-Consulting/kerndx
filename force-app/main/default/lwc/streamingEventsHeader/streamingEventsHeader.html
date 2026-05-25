@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<lightning-button-group>
+		<lightning-button data-testid="clear-button" icon-name="utility:delete" label="Clear events" onclick={handleClear}></lightning-button>
+		<lightning-button-icon-stateful alternative-text="Toggle filter view" data-testid="filter-toggle" icon-name="utility:filterList" onclick={handleFiltersDisplayToggle}
+		                                selected={isFiltersDisplayed}></lightning-button-icon-stateful>
+		<lightning-button-menu alternative-text="Display as" data-testid="view-toggle" icon-name={viewModeIconName} menu-alignment="right" onselect={handleViewModeSelect}>
+			<lightning-menu-subheader label="Display as"></lightning-menu-subheader>
+			<template for:each={viewModes} for:item="option">
+				<lightning-menu-item checked={option.checked} icon-name={option.iconName} key={option.value} label={option.label} value={option.value}></lightning-menu-item>
+			</template>
+		</lightning-button-menu>
+		<lightning-button-icon alternative-text="Download events data" data-testid="download-button" icon-name="utility:download" onclick={handleDownload}></lightning-button-icon>
+	</lightning-button-group>
+</template>

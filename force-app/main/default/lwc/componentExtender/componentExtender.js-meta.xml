@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Module initializer for BaseComponent functionality. Dynamically extends components with navigation, notification, lightning-message, controller, and
+		flow-navigation capabilities. Used by ComponentBuilder to compose component functionality at runtime.
+	</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Component Extender</masterLabel>
+</LightningComponentBundle>

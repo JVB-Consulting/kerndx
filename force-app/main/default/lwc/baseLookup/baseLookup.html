@@ -1,0 +1,62 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class={elementClass} onmouseleave={hideResults}>
+		<label class={fieldLabelClass} for="pill-input">{fieldLabelName}</label>
+		<div aria-expanded="false" aria-haspopup="listbox" class="lookupInputContainer slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click" role="combobox">
+			<div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_left-right" role="none">
+				<div class="searchBoxWrapper slds-show pillSize">
+					<!--Lookup Input Field-->
+					<lightning-input disabled={disableElement} is-loading={isSearchLoading} label={fieldLabelName} onchange={handleKeyChange} onclick={showResults}
+					                 onkeydown={handleKeyDown} placeholder={placeholder} type="search" value={searchTerm} variant="label-hidden"></lightning-input>
+				</div>
+
+				<!--Lookup Selected record pill container start-->
+				<div class="pillDiv slds-hide pillSize">
+                        <span class="slds-icon_container slds-combobox__input-entity-icon">
+							<span class="slds-media__figure slds-listbox__option-icon slds-m-top_none">
+								<lightning-icon alternative-text={fieldLabelName} icon-name={icon} if:true={icon} size="small" title={fieldLabelName}>
+								</lightning-icon>
+							</span>
+                        </span>
+					<input class="slds-input slds-combobox__input slds-combobox__input-value" id="pill-input" readonly type="text" value={pillLabel}/>
+					<template if:false={readOnly}>
+						<button class="slds-button slds-button_icon slds-input__icon slds-input__icon_right" title="Remove selected option">
+							<lightning-icon alternative-text="close icon" icon-name="utility:close" onclick={clearLookup} size="x-small"></lightning-icon>
+						</button>
+					</template>
+				</div>
+			</div>
+
+			<!-- lookup search result part start-->
+			<div class="slds-dropdown slds-dropdown_length-with-icon-7 slds-dropdown_fluid slds-m-top_none" role="listbox">
+				<ul class="slds-listbox slds-listbox_vertical" role="presentation">
+					<template for:each={displaySearchOptions} for:item="option">
+						<li class="slds-listbox__item search-options" key={option.resultIdentifier} role="presentation">
+							<div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" data-recid={option.resultIdentifier}
+							     onclick={handleSelectedRecord} role="option">
+                                    <span class="slds-media__figure slds-listbox__option-icon no-pointer-events">
+                                        <span class="slds-icon_container">
+											<span class="slds-media__figure slds-listbox__option-icon slds-m-top_none">
+												<lightning-icon alternative-text={fieldLabelName} icon-name={icon} if:true={icon} size="small" title={fieldLabelName}>
+												</lightning-icon>
+											</span>
+                                        </span>
+                                    </span>
+								<span class="slds-media__body no-pointer-events">
+                                        <span class="slds-listbox__option-text slds-listbox__option-text_entity slds-m-top_x-small slds-m-bottom_x-small">
+											{option.Name}
+										</span>
+                                    </span>
+							</div>
+						</li>
+					</template>
+
+					<!--ERROR msg, if there is no records-->
+					<template if:false={hasRecords}>
+						<li class="slds-listbox__item no-records-found">No Records Found....</li>
+					</template>
+				</ul>
+			</div>
+		</div>
+	</div>
+</template>

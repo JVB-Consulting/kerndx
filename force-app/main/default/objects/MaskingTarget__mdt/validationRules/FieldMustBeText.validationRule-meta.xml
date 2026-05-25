@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FieldMustBeText</fullName>
+    <active>true</active>
+    <description>Blocks Field values that are not text-shaped. Allowed: Text, Text Area, Long Text Area, URL, Encrypted, Email, Phone. Blank Field wildcards every text field on the object. Formulas pass this rule and are filtered at runtime.</description>
+    <errorConditionFormula>AND(
+    NOT(ISBLANK(Field__c)),
+    NOT(
+        OR(
+            CONTAINS(LOWER(Field__r.DataType), &quot;text&quot;),
+            CONTAINS(LOWER(Field__r.DataType), &quot;url&quot;),
+            CONTAINS(LOWER(Field__r.DataType), &quot;encrypted&quot;),
+            CONTAINS(LOWER(Field__r.DataType), &quot;email&quot;),
+            CONTAINS(LOWER(Field__r.DataType), &quot;phone&quot;)
+        )
+    )
+)</errorConditionFormula>
+    <errorDisplayField>Field__c</errorDisplayField>
+    <errorMessage>Masking supports only text-shaped fields (Text, Text Area, Long Text Area, URL, Encrypted, Email, Phone). Pick a text field, leave blank to wildcard the object, or remove this target.</errorMessage>
+</ValidationRule>

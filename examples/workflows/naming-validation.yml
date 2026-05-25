@@ -1,0 +1,77 @@
+name: naming-validation
+
+on:
+  pull_request:
+    branches: [main]
+
+    # No `paths:` filter — the workflow must run on every PR to these branches
+    # so the `Naming Validation` status check is always posted (required by
+    # the Ingress Gate ruleset). Naming is a fresh-content concern: every PR
+    # including back-promotions should pass the check (back-promotions are
+    # skipped via is_backprom, not omitted from the trigger).
+
+jobs:
+  naming-validation:
+    name: Naming Validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .kerndx-pipeline/pipeline/package-lock.json
+
+      - name: Install KernDX pipeline deps
+        working-directory: .kerndx-pipeline/pipeline
+        run: npm ci --omit=dev
+
+      - name: Classify head ref
+        id: classify
+        run: |
+          ./.kerndx-pipeline/bin/kerndx classify-ref \
+            --head-ref "${{ github.head_ref }}" \
+            --config .kerndx/config.yml \
+            >> "$GITHUB_OUTPUT"
+
+      # ── Resolve changed Flow + Object files ────────────────────────────────
+      # Writes changed-naming-files.txt used by the naming command below.
+      # The diff is scoped to naming-relevant extensions only, so config-only
+      # PRs complete with a passing (skipped) check.
+      #
+      # Uses an explicit merge-base + two-dot diff so the changeset is
+      # well-defined whether `actions/checkout` left HEAD on the merge
+      # commit (default for PRs) or on the feature tip.
+      - name: Resolve changed Flow + Object files
+        id: changed
+        if: steps.classify.outputs.is_backprom == 'false'
+        run: |
+          BASE_REF="origin/${{ github.base_ref }}"
+          BASE_SHA=$(git merge-base "$BASE_REF" HEAD)
+          HEAD_SHA=$(git rev-parse HEAD)
+          echo "--- diff bounds ---"
+          echo "base ref: $BASE_REF"
+          echo "base sha: $BASE_SHA"
+          echo "head sha: $HEAD_SHA"
+
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            'force-app/main/default/**/*.flow-meta.xml' \
+            'force-app/main/default/**/objects/**/*' \
+            > changed-naming-files.txt
+
+          COUNT=$(wc -l < changed-naming-files.txt | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "$COUNT naming-relevant file(s) changed"
+
+      - name: Run naming validation
+        id: naming
+        if: steps.classify.outputs.is_backprom == 'false' && steps.changed.outputs.count > 0
+        run: ./.kerndx-pipeline/bin/kerndx naming --ci

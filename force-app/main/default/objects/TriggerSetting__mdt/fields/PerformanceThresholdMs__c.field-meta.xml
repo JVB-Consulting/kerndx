@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PerformanceThresholdMs__c</fullName>
+    <description>Object-level performance threshold in milliseconds. Actions on this object are logged when their execution time exceeds this value. Overrides the global threshold. Individual actions can further override with their own threshold. Leave blank to use the global default.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Log actions on this object when execution exceeds this duration (ms). Individual actions can override with their own threshold. Leave blank for global default.</inlineHelpText>
+    <label>Performance Threshold (ms)</label>
+    <precision>8</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IdempotencyEnabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Idempotency ensures that processing the same API request multiple times produces the same result as processing it once. When enabled: Inbound — the framework checks for a duplicate Idempotency-Key header and returns the cached response without re-execution. Outbound — a UUID key is auto-generated and sent as a header so the receiving system can detect retries.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>When checked, duplicate API calls with the same Idempotency-Key header are detected and return the original response instead of re-processing. This prevents issues like double-charging or duplicate record creation.</inlineHelpText>
+    <label>Idempotency Enabled</label>
+    <type>Checkbox</type>
+</CustomField>

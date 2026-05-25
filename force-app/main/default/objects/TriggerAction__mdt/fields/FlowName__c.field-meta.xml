@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FlowName__c</fullName>
+    <description>API name of the active flow that runs as this trigger action. The flow must be an active auto-launched flow that declares an input/output variable named &quot;record&quot; matching the object on this trigger setting, plus an input-only variable named &quot;recordPrior&quot; for update events. Set this OR Apex Class Name, never both — deploys that populate both fields or neither are blocked by a validation rule on this object. Apex Class Name can be left blank when this is set; the framework runs the flow automatically. Deploys are blocked when the named flow is missing or inactive.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Enter the API name of an active auto-launched flow. Leave Apex Class Name blank — the framework runs the flow automatically. Cannot set both.</inlineHelpText>
+    <label>Flow Name</label>
+    <length>80</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

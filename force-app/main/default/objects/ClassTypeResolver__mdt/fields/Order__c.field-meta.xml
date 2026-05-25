@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Order__c</fullName>
+    <description>The execution priority for this resolver relative to other resolvers. Resolvers are chained in ascending order (e.g., 1, then 2, then 3). The first resolver to successfully resolve a class name wins.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>The execution priority for this resolver (e.g., 1, 2, 3). Resolvers are chained in ascending order (lowest number first). The first resolver to find a match wins.</inlineHelpText>
+    <label>Order</label>
+    <precision>2</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

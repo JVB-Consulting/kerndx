@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SObjectType__c</fullName>
+    <description>The object that contains the field to mask. Select first — the Field picklist filters to fields on whatever object you pick here.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Select the object first. The Field picklist updates to show only fields on this object.</inlineHelpText>
+    <label>SObject Type</label>
+    <referenceTo>EntityDefinition</referenceTo>
+    <relationshipLabel>Masking Targets (SObject)</relationshipLabel>
+    <relationshipName>MaskingTargetsBySObject</relationshipName>
+    <required>true</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllowNonSelfInitiated__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Controls whether this action runs during cascading triggers (when a different object&apos;s trigger causes this object&apos;s trigger to fire). When false, the action only runs when the trigger is initiated directly by the originating DML. Defaults to true (cascading allowed).</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>When unchecked, this action is skipped if the trigger was caused by another object&apos;s trigger (cascading). Only runs on direct DML operations.</inlineHelpText>
+    <label>Allow Non Self-Initiated</label>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Strict 2-column grid for timing section */
+.timing-grid
+{
+	display               : grid;
+	gap                   : 0.5rem 1rem;
+	grid-template-columns : 1fr 1fr;
+}
+
+.timing-grid dt
+{
+	color          : var(--slds-g-color-neutral-base-50, #706E6B);
+	font-size      : 0.6875rem;
+	letter-spacing : 0.0625rem;
+	text-transform : uppercase;
+}
+
+.timing-grid dd
+{
+	font-size : 0.8125rem;
+	margin    : 0;
+}

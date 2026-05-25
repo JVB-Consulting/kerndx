@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>ClassTypeResolverModal_Cancel</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Modal cancel button label</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_ClassNameLabel</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Name input label</shortDescription>
+        <value>Class Name</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_ClassNamePatternError</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Name pattern validation error</shortDescription>
+        <value>Class name must start with a letter and contain only letters, numbers, and underscores.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_ClassNamePlaceholder</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Name input placeholder</shortDescription>
+        <value>ACME_ClassTypeResolver</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_ClassNameRequiredError</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Name required validation error</shortDescription>
+        <value>Class name is required.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_CodeLanguageLabel</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Code container language label (shown above each code block)</shortDescription>
+        <value>Apex</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_CopyResolverAltText</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the copy-resolver button</shortDescription>
+        <value>Copy resolver class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_CopyTestAltText</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the copy-test button</shortDescription>
+        <value>Copy test class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_Done</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Modal done button label</shortDescription>
+        <value>Done</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_DownloadResolverAltText</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the download-resolver button</shortDescription>
+        <value>Download resolver class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_DownloadTestAltText</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the download-test button</shortDescription>
+        <value>Download test class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_Purpose</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Type Resolver Setup modal purpose sentence</shortDescription>
+        <value>Kern lives in its own managed-package namespace, so it can only find subscriber classes declared as global. This resolver lets Kern locate your regular public classes (trigger handlers, validation rules, scheduled jobs, and web services) without forcing you to declare every one of them as global.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_ResolverTabLabel</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Resolver class tab label</shortDescription>
+        <value>Resolver Class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStep1</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Setup step 1 — copy the resolver class</shortDescription>
+        <value>Copy the Resolver Class code from the tab below.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStep2</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Setup step 2 — create the Apex class via Setup</shortDescription>
+        <value>Create the Apex class: go to Setup &gt; Apex Classes &gt; New, paste the code, and click Save. Repeat for the Test Class tab. (Developers can also deploy via SFDX, VS Code, or Workbench if preferred.)</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStep3</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Setup step 3 — register the resolver via Custom Metadata</shortDescription>
+        <value>Register the resolver: go to Setup &gt; Custom Metadata Types &gt; Class Type Resolver &gt; Manage Records, then either edit the existing record or click New. Set Class Name to {0} and save.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStep4</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Setup step 4 — confirmation that Kern picks up the resolver automatically</shortDescription>
+        <value>Done. Kern now uses your resolver automatically to locate your custom triggers, validation rules, scheduled jobs, and web service handlers.</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStepsAltText</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the setup steps icon</shortDescription>
+        <value>Setup steps</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_SetupStepsHeading</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Setup Steps callout heading</shortDescription>
+        <value>Setup Steps</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_TestTabLabel</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Test class tab label</shortDescription>
+        <value>Test Class</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_Title</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Type Resolver Setup modal header title</shortDescription>
+        <value>Class Type Resolver Setup</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ActionRequiredHeadline</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mixed-banner headline when a check is failing</shortDescription>
+        <value>Action required — {0} failing, {1} {2}</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AllPassHeading</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check headline when every check passed</shortDescription>
+        <value>All systems operational.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AllPassMultipleChecks</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check suffix when multiple checks passed. {0} = number of checks.</shortDescription>
+        <value>{0} checks passed.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AllPassSingleCheck</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check suffix when a single check passed</shortDescription>
+        <value>1 check passed.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_CardTitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check card title</shortDescription>
+        <value>Health Check</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ClassTypeResolver_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Class Type Resolver health check display name</shortDescription>
+        <value>Class Type Resolver</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ClassTypeResolver_ClassNotFound</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Resolver references a class that cannot be found</shortDescription>
+        <value>A class type resolver is configured but the class it references cannot be found. Check that the class is deployed and accessible. Until it is, Kern cannot locate your public trigger handlers, validation rules, scheduled jobs, or web service classes — you would need to declare them as global to work around it.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ClassTypeResolver_Configured</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when a Class Type Resolver is configured and working</shortDescription>
+        <value>A class type resolver is configured and working.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ClassTypeResolver_InvalidType</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Resolver class is not compatible</shortDescription>
+        <value>A class type resolver is configured but the class it references is not compatible. The resolver class must extend the Kern base resolver. Until it does, Kern cannot use it to locate your public classes in your own namespace.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ClassTypeResolver_Missing</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when no Class Type Resolver is configured</shortDescription>
+        <value>No class type resolver is configured. Kern lives in its own managed-package namespace and can only find subscriber Apex classes declared as global. If you&apos;d rather keep your trigger handlers, validation rules, scheduled jobs, and web service classes as public (recommended), add a class type resolver so Kern can locate them in your own namespace.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ApplyButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Apply Recommended Retention button label (mirrors ModalTitle value)</shortDescription>
+        <value>Apply Recommended Retention</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention health check name</shortDescription>
+        <value>Data Retention</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_Configured</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention configured detail</shortDescription>
+        <value>Scheduled purge jobs are configured for framework data objects.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ConfiguredPill</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize sub-row Configured pill label</shortDescription>
+        <value>Configured</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CreateButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Create N jobs button label (takes N as {0})</shortDescription>
+        <value>Create {0} jobs</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CustomizeBackLink</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Back to one-click apply link label</shortDescription>
+        <value>← Back to one-click apply</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CustomizeLink</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize each job link label</shortDescription>
+        <value>Customize each job →</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CustomizingHeadline</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize-mode headline; {0} = number of jobs being customised</shortDescription>
+        <value>Data Retention — customizing {0} jobs</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CustomizingHelp</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize-mode helper copy rendered under the headline</shortDescription>
+        <value>Each Set up button opens the scheduled job editor with recommended defaults prefilled. Tweak anything before saving.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_FirstRunWarning</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>First-run deletion warning</shortDescription>
+        <value>Records older than the retention period will be deleted on the first scheduled run.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_Missing</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention missing detail with object list</shortDescription>
+        <value>No data retention configured for {0}. Without scheduled purge jobs, these records accumulate indefinitely and consume storage.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ModalSubtitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Apply Recommended Retention modal subtitle ({0} = number of jobs)</shortDescription>
+        <value>Kern will create {0} active scheduled jobs that delete records older than the recommended retention period. Pick a schedule per row, or customize each job instead for a fully custom cron.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ModalTitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Apply Recommended Retention modal title</shortDescription>
+        <value>Apply Recommended Retention</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ScheduleOptions</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Schedule picklist for apply-retention modal (pipe-delimited label=cron)</shortDescription>
+        <value>Nightly 2:00 AM=0 0 2 * * ?|Nightly 1:00 AM=0 0 1 * * ?|Weekly Sunday 2:00 AM=0 0 2 ? * SUN|Monthly 1st at 2:00 AM=0 0 2 1 * ?</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SchedulerName_ApiCall</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default SchedulerName__c for the API Call purge job</shortDescription>
+        <value>Purge API Calls</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SchedulerName_ApiIssue</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default SchedulerName__c for the API Issue purge job</shortDescription>
+        <value>Purge API Issues</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SchedulerName_AsyncChainExecution</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default SchedulerName__c for the Async Chain Execution purge job</shortDescription>
+        <value>Purge Chain Executions</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SchedulerName_LogEntry</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default SchedulerName__c for the Log Entry purge job</shortDescription>
+        <value>Purge Log Entries</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SetUpButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize sub-row Set up button label</shortDescription>
+        <value>Set up →</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_SuccessToast</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast message (takes N as {0})</shortDescription>
+        <value>Created {0} scheduled purge jobs.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_FailSection_Heading</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Section heading for Fail-severity action items</shortDescription>
+        <value>Action required</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_OrgCache_Allocated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when Organisation Cache is allocated. {0} = partition name.</shortDescription>
+        <value>Organisation Cache is allocated to the {0} partition.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_OrgCache_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Organisation Cache health check display name</shortDescription>
+        <value>Organisation Cache</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_OrgCache_NotAllocated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when Organisation Cache is not allocated. {0} = partition name.</shortDescription>
+        <value>Allocate Organisation Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this cache to remember state between requests — without it, automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_PassingPrefix</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check label prefix for the passing chip row</shortDescription>
+        <value>Passing:</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_RefreshAltText</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check refresh button assistive text</shortDescription>
+        <value>Refresh health checks</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ReviewRecommendedHeadline</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mixed-banner headline when only warnings are present</shortDescription>
+        <value>Review recommended — {0} {1}</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ScheduledJobsActionLabel</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data Retention action button label linking to Scheduled Jobs</shortDescription>
+        <value>Scheduled Jobs</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SessionCache_Allocated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when Session Cache is allocated. {0} = partition name.</shortDescription>
+        <value>Session Cache is allocated to the {0} partition.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SessionCache_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Session Cache health check display name</shortDescription>
+        <value>Session Cache</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SessionCache_NotAllocated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail message when Session Cache is not allocated. {0} = partition name.</shortDescription>
+        <value>Allocate Session Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this to store per-user data (like encryption keys) close to each user&apos;s session. Without it, that data falls back to the shared Org Cache — using more of your org-cache allocation and slowing down user-specific operations.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SetupActionLabel</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health Check action-item Setup button label</shortDescription>
+        <value>Setup</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_TrustedSite_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trusted Site health check display name</shortDescription>
+        <value>Trusted Site</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_TrustedSite_Configured</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trusted URL configured detail</shortDescription>
+        <value>Trusted URL is configured for {0}.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_TrustedSite_Missing</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trusted URL missing detail</shortDescription>
+        <value>Add a Trusted URL for {0} (Setup &gt; Trusted URLs &gt; New Trusted URL). Some Kern features call back into your own org — for example, pushing to streaming channels and other self-service API operations. Salesforce blocks these calls unless your org domain is explicitly trusted.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_WarnSection_Heading</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Section heading for Warn-severity action items</shortDescription>
+        <value>Review recommended</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_AdministrationToolsHeading</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Kern Home administration tools section heading</shortDescription>
+        <value>Administration Tools</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ApiTestHarness_Description</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>API Test Harness tool card description</shortDescription>
+        <value>Test inbound and outbound API calls with Safe Mode and Mocking control.</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ApiTestHarness_Title</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>API Test Harness tool card title</shortDescription>
+        <value>API Test Harness</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ChainMonitor_Description</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain Monitor tool card description</shortDescription>
+        <value>Monitor async chain executions, view step timelines, and diagnose failures in real time.</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ChainMonitor_Title</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain Monitor tool card title</shortDescription>
+        <value>Chain Monitor</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_StreamingMonitor_Description</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Streaming Event Monitor tool card description</shortDescription>
+        <value>Monitor platform events, change data capture, and custom streaming channels in real time.</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_StreamingMonitor_Title</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Streaming Event Monitor tool card title</shortDescription>
+        <value>Streaming Event Monitor</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ToolOpenButton</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shared launch/open button label for tool cards</shortDescription>
+        <value>Open</value>
+    </labels>
+</CustomLabels>

@@ -1,0 +1,122 @@
+name: pr-ready-to-merge
+
+# Fires a Slack ping to the PR author when:
+#   1. review decision is APPROVED, AND
+#   2. all required checks are green,
+# AND the PR isn't draft/closed/merged/a gs-pipeline back-prom.
+#
+# Listens to both pull_request_review (submitted) and check_suite (completed)
+# so whichever event is the final piece makes the PR ready fires the ping.
+#
+# Dedup: a push after "ready" flips mergeable_state back to unstable and
+# re-triggers when checks go green again — ping fires again. Acceptable —
+# the author wants to know the PR is once again ready to merge.
+
+on:
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+
+jobs:
+  notify:
+    name: Ready-to-merge ping
+    runs-on: ubuntu-latest    permissions:
+      pull-requests: read
+      contents: read
+    steps:
+      - name: Resolve PR context + fetch reviewer config
+        id: context
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Both events can supply a PR: review event has context.payload.pull_request;
+            // check_suite has pull_requests[]. Pick whichever is available.
+            let pr = context.payload.pull_request;
+            if (!pr && context.payload.check_suite && context.payload.check_suite.pull_requests.length) {
+              pr = context.payload.check_suite.pull_requests[0];
+            }
+            if (!pr) {
+              core.info('No PR context available on this event — skipping.');
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+
+            // Re-fetch fresh PR state — GitHub computes mergeable asynchronously
+            // and the event payload is a snapshot. One retry handles the null window.
+            async function getFreshPr() {
+              for (const delayMs of [0, 5000]) {
+                if (delayMs) await new Promise(r => setTimeout(r, delayMs));
+                const { data } = await github.rest.pulls.get({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  pull_number: pr.number,
+                });
+                if (data.mergeable !== null) return data;
+              }
+              return null;
+            }
+            const fresh = await getFreshPr();
+            if (!fresh) {
+              core.info('PR mergeable state still null after retry — skipping.');
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+
+            // Filter: skip draft, closed, merged, and gs-pipeline back-prom PRs.
+            if (fresh.draft || fresh.state !== 'open' || fresh.merged) {
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+            // Skip ONLY true back-promotion PRs (gs-pipeline/<protected>_-_<protected>).
+            // Gearset-intercepted feature PRs (gs-pipeline/feature/<name>_-_<protected>)
+            // keep the real author and should get the ready-to-merge ping.
+            const BACKPROM_RE = /^gs-pipeline\/(main)_-_(main)$/;
+            if (BACKPROM_RE.test(fresh.head.ref)) {
+              core.info('True back-prom PR — Gearset-managed, not pinging author.');
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+
+            // E2E harness skip. The test harness prefixes PR titles with `[E2E]`
+            // so full-suite runs don't produce Slack noise.
+            if (fresh.title && fresh.title.startsWith('[E2E]')) {
+              core.info('E2E test PR — suppressing Slack per harness convention.');
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+            if (!(fresh.mergeable === true && fresh.mergeable_state === 'clean')) {
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+
+            // Review decision: the PR's overall review state must be APPROVED.
+            // GraphQL is the cleanest way to read `reviewDecision`.
+            const { repository } = await github.graphql(`
+              query($owner: String!, $repo: String!, $num: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $num) { reviewDecision }
+                }
+              }
+            `, { owner: context.repo.owner, repo: context.repo.repo, num: fresh.number });
+
+            if (repository.pullRequest.reviewDecision !== 'APPROVED') {
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+
+            // Resolve author's Slack ID from reviewers.json on main.
+            const { data: file } = await github.rest.repos.getContent({
+              owner: context.repo.owner, repo: context.repo.repo,
+              path: '.github/reviewers.json', ref: 'main',
+            });
+            const cfg = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+            const login = fresh.user.login.toLowerCase();
+            const hit = (cfg.reviewers || []).find(r => r.gh.toLowerCase() === login);
+
+            core.setOutput('should_notify', 'true');
+            core.setOutput('pr_number',   String(fresh.number));
+            core.setOutput('pr_url',      fresh.html_url);
+            core.setOutput('pr_title',    fresh.title);
+            core.setOutput('author',      fresh.user.login);
+            core.setOutput('author_slack', hit ? hit.slack : '');

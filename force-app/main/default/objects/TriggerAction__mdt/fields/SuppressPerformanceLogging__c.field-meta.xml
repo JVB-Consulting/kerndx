@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SuppressPerformanceLogging__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, performance logging is completely suppressed for this action even if the parent Trigger Setting has logging enabled. Use this for lightweight actions where logging overhead is unnecessary. Takes precedence over Force Performance Logging if both are checked.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to suppress performance logging for this action, even when object-level logging is enabled. Use for lightweight actions where logging adds unnecessary overhead.</inlineHelpText>
+    <label>Suppress Performance Logging</label>
+    <type>Checkbox</type>
+</CustomField>

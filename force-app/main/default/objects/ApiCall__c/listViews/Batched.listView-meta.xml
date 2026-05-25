@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Batched</fullName>
+    <columns>NAME</columns>
+    <columns>ServiceName__c</columns>
+    <columns>Direction__c</columns>
+    <columns>IsMockedResponse__c</columns>
+    <columns>TotalDurationMs__c</columns>
+    <columns>TriggeringRecordUrl__c</columns>
+    <columns>CREATED_DATE</columns>
+    <columns>CREATEDBY_USER</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status__c</field>
+        <operation>equals</operation>
+        <value>Batched</value>
+    </filters>
+    <label>Batched</label>
+</ListView>

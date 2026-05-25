@@ -1,0 +1,6 @@
+Severity,Engine,Rule,File,StartLine,Message
+1,pmd,KernNoInlineSOQL,force-app/main/default/classes/Foo.cls,42,Inline SOQL detected in method doQuery
+1,pmd,ApexSharingViolations,force-app/main/default/classes/Bar.cls,15,Missing sharing declaration on class Bar
+2,pmd,ApexCRUDViolation,force-app/main/default/classes/Foo.cls,88,Object-level FLS violation on insert
+3,pmd,KernNoSystemDebug,force-app/main/default/classes/Baz.cls,99,System.debug should be replaced with LOG_Builder
+4,eslint,no-unused-vars,force-app/main/default/lwc/myComp/myComp.js,12,Variable unused

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Visualizes platform event usage metrics using D3.js charts. Displays daily allocation, hourly usage, and event delivery metrics with interactive filtering by date
+		range, event type, and usage type. Supports locale-aware time formatting.
+	</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Streaming Usage Metrics</masterLabel>
+</LightningComponentBundle>

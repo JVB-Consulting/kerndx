@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Enable Subscriber Flow Action</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Per-action gate referenced by the TST_FlowAction_Primary_BeforeInsert row. Phase 5B section 5 flips this off to verify RequiredFeatureFlag__c gating, then restores via section-flow-flag-default fixture.</value>
+    </values>
+    <values>
+        <field>kern__IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__IsEnabledByDefault__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__ResultOnNoMatch__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+</CustomMetadata>

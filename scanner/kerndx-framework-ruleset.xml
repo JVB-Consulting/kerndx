@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   KernDX Framework Compliance Scanner — Framework Ruleset
+
+   Rules applicable to the Kern framework package itself.
+
+   The framework IMPLEMENTS the APIs that subscribers use instead of raw
+   platform primitives. That means the package legitimately contains calls
+   to `Cache.Org.*` (behind UTIL_Cache), `Schema.getGlobalDescribe()`
+   (behind UTIL_SObjectDescribe), `System.enqueueJob` (behind
+   UTIL_AsynchronousJobLauncher), raw `Database.*` DML (in DML_Builder /
+   DML_Transaction), raw `System.schedule` (in SCHED_Base), etc. Rules
+   that nag "use the framework API" are subscriber-scoped by definition —
+   enforcing them on the framework itself is architecturally wrong.
+
+   This ruleset only includes the *universal* rules — test quality,
+   trigger delegation, REST resource naming. Pair with:
+
+     * `kerndx-subscriber-ruleset.xml` — universal rules plus every
+       "use the framework API" rule; subscribers should run this.
+     * `kerndx-pmd-ruleset.xml` — legacy alias; still contains everything
+       for tools that point at the historical filename. Equivalent to
+       the subscriber ruleset today.
+
+   All rule definitions live in `kerndx-pmd-ruleset.xml`; this file
+   references them via `<rule ref="…">` so the definitions never drift.
+-->
+<ruleset name="KernDXFrameworkPackageSide"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+   <description>
+      Framework-internal rules. Universal hygiene that applies to both
+      framework and subscriber code. Excludes the "use the framework
+      API instead of the platform primitive" rules that the framework
+      itself necessarily violates to implement those APIs.
+   </description>
+
+   <!-- Production-code hygiene (universal — applies to any Apex codebase) -->
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernTriggerMustDelegate"/>
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernRestResourceNaming"/>
+
+   <!--
+      KernNoInlineSOQL, KernNoSystemDebug, KernNoRawEmail are EXCLUDED
+      here because the framework's own infrastructure classes necessarily
+      use the primitives these rules wrap:
+        - QRY_Engine / SEL_* use inline SOQL by design
+        - LOG_Engine uses System.debug as its own fallback
+        - UTIL_Email / FLOW_SendEmailInternal wrap Messaging.sendEmail
+      Subscribers should run the full `kerndx-pmd-ruleset.xml` which
+      includes all three rules.
+   -->
+
+   <!-- Test-quality rules (universal; apply to framework tests too) -->
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernNoLegacyAssert"/>
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernNoCoverageTheatre"/>
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernNoBooleanExceptionThrown"/>
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernCoverageExemptRequiresReason"/>
+</ruleset>

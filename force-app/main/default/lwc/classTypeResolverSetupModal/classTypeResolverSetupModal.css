@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+lightning-button,
+lightning-button-icon
+{
+	--slds-c-button-brand-shadow-hover : none;
+	--slds-c-button-shadow-active      : none;
+	--slds-c-button-shadow-hover       : none;
+}
+
+.setup-steps
+{
+	background-color : #032D60;
+	border-radius    : 0.25rem;
+	padding          : 0.75rem 1rem;
+}
+
+.setup-steps ol
+{
+	font-size   : 0.8125rem;
+	line-height : 1.35;
+}
+
+.setup-steps code
+{
+	background-color : rgba(255, 255, 255, 0.15);
+	border-radius    : 0.125rem;
+	color            : #E8EAED;
+	font-family      : Menlo, Monaco, Consolas, "Courier New", monospace;
+	font-size        : 0.8125rem;
+	padding          : 0 0.25rem;
+}
+
+.setup-steps em
+{
+	color       : #E8EAED;
+	font-style  : normal;
+	font-weight : 400;
+}
+
+.code-container
+{
+	background-color : #F4F6F9;
+	border           : 1px solid #D8DDE6;
+	border-radius    : 0.25rem;
+	padding          : 0.75rem;
+}
+
+.code-container .code-language-label
+{
+	color : #706E6B;
+}
+
+.code-block
+{
+	background-color : transparent;
+	color            : #080707;
+	font-family      : Menlo, Monaco, Consolas, "Courier New", monospace;
+	font-size        : 12px;
+	line-height      : 1.5;
+	margin           : 0;
+	max-height       : 12rem;
+	overflow         : auto;
+	padding          : 0.5rem 0;
+	tab-size         : 4;
+	white-space      : pre;
+}

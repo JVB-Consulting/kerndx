@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CompositeKey__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Composite unique key combining User ID, year, and month to ensure one record per user per month.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>System-generated unique key (UserId + Year + Month). Prevents duplicate records for the same user/month.</inlineHelpText>
+    <label>Composite Key</label>
+    <length>40</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

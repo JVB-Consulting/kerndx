@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FailureRate__c</fullName>
+    <defaultValue>0</defaultValue>
+    <description>Percentage of requests that should return a simulated failure (0-100). Set to 0 for no failures. Used to test retry logic under partial failure conditions.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Percentage of requests to randomly fail (0-100). Use to test retry and error handling logic.</inlineHelpText>
+    <label>Failure Rate</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Percent</type>
+</CustomField>

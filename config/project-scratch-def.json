@@ -1,0 +1,15 @@
+{
+  "orgName": "Kern Subscriber Test Org",
+  "description": "Scratch org for testing Kern managed package installation",
+  "edition": "Enterprise",
+  "hasSampleData": false,
+  "features": [
+    "API",
+    "AuthorApex"
+  ],
+  "settings": {
+    "emailAdministrationSettings": {
+      "enableEnhancedEmailEnabled": true
+    }
+  }
+}

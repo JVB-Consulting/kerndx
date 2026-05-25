@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IsRegex__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, the Match Request Body Pattern is treated as a regular expression instead of a simple contains match.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to use regex matching for the request body pattern. Leave unchecked for simple contains matching.</inlineHelpText>
+    <label>Is Regex</label>
+    <type>Checkbox</type>
+</CustomField>

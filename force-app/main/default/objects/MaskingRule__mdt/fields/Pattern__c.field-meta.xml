@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pattern__c</fullName>
+    <description>What to look for. The format depends on the Mode: a regex matched against the field value in Regex mode, a regex matched against JSON keys in JSON by Key mode, or the exact substring to find in Exact Match mode.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>What to match. See the Mode field for the expected format.</inlineHelpText>
+    <label>Pattern</label>
+    <length>1024</length>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

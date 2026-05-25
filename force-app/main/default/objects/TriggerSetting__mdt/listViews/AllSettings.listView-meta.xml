@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllSettings</fullName>
+    <columns>DeveloperName</columns>
+    <columns>MasterLabel</columns>
+    <columns>SObjectType__c</columns>
+    <columns>BypassExecution__c</columns>
+    <columns>BypassFeatureFlag__c</columns>
+    <columns>RequiredFeatureFlag__c</columns>
+    <columns>NamespacePrefix</columns>
+    <columns>IsProtected</columns>
+    <filterScope>Everything</filterScope>
+    <label>All Settings</label>
+</ListView>

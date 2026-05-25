@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   Combined PMD Ruleset — KernDX Framework + Subscriber Naming
+
+   Use this file when your tool only accepts a single PMD ruleset path
+   (e.g. IntelliJ with Illuminated Cloud, VS Code Apex PMD extension).
+
+   It includes all rules from both rulesets by reference.
+-->
+<ruleset name="KernDX + Subscriber Combined"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+   <description>
+      Combined ruleset that includes all KernDX framework compliance rules
+      and configurable subscriber naming standards. Use this when your IDE
+      or CI tool only accepts a single ruleset file path.
+   </description>
+
+   <rule ref="kerndx-pmd-ruleset.xml"/>
+   <rule ref="subscriber-naming-pmd-ruleset.xml"/>
+
+</ruleset>

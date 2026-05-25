@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Test Type-Filter Warn Rule</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__ApplicableFieldTypes__c</field>
+        <value xsi:type="xsd:string">STRING;TEXTAREA</value>
+    </values>
+    <values>
+        <field>kern__CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Subscriber-deployed rule used only by section-39 to exercise the type-filter warn path. Scoped to STRING;TEXTAREA so a URL-field target triggers the framework warn.</value>
+    </values>
+    <values>
+        <field>kern__FailureAction__c</field>
+        <value xsi:type="xsd:string">LogAndContinue</value>
+    </values>
+    <values>
+        <field>kern__IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__MinInputLength__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Mode__c</field>
+        <value xsi:type="xsd:string">Regex</value>
+    </values>
+    <values>
+        <field>kern__Order__c</field>
+        <value xsi:type="xsd:double">900.0</value>
+    </values>
+    <values>
+        <field>kern__Pattern__c</field>
+        <value xsi:type="xsd:string">___never_match_this_sentinel___</value>
+    </values>
+    <values>
+        <field>kern__Replacement__c</field>
+        <value xsi:type="xsd:string">***TEST***</value>
+    </values>
+</CustomMetadata>

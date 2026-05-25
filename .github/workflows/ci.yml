@@ -1,0 +1,81 @@
+name: ci
+
+# Lightweight read-only validation. Runs on pull requests + master/main pushes:
+#   - npm ci          — clean install (exercises postinstall paths)
+#   - docs:validate   — markdown + prose-file-ref check (zero errors required)
+#   - test:scripts    — Jest suite for scripts/__tests__/ (~10s, ~1665 tests)
+#   - scanner tests   — node --test (eslint-plugin-kerndx rules; 6 suites)
+#
+# Read-only by design: no secrets consumed, no auth to external services, no
+# pushes. Subscribers cloning the repo can run the same commands locally
+# (`nvm use && npm ci && npm run docs:validate && npm run test:scripts`) and
+# reproduce the result.
+#
+# Runs on both `master` and `main` (the on-branches list covers both).
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint + script tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Reject merge commits on master/main
+        # Squash-merge-only enforcement on master/main. Paired with the
+        # local-side `.husky/pre-push` hook. If the branching policy ever
+        # flips to merge-commits, retire BOTH enforcement points together.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          # Deepen the shallow clone to reach base + head SHAs. --unshallow
+          # is a no-op when the clone is already complete; the `|| true`
+          # masks the "already complete" exit code on those rare runs.
+          git fetch --no-tags --unshallow 2>/dev/null || true
+          merges=$(git rev-list --merges "$BASE_SHA..$HEAD_SHA")
+          if [ -n "$merges" ]; then
+            echo "::error::Merge commits found in PR — master is squash-merge-only."
+            echo "$merges" | while read sha; do
+              subject=$(git log -1 --format='%s' "$sha")
+              echo "::error::  $sha  $subject"
+            done
+            echo "::error::Fix: rebase your branch onto the base so the history is linear,"
+            echo "::error::     or use squash-merge from the PR UI."
+            exit 1
+          fi
+          echo "Squash-merge gate PASS — no merge commits in PR range $BASE_SHA..$HEAD_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate documentation
+        run: npm run docs:validate
+
+      - name: Run script tests
+        # `--if-present` no-ops when the script isn't declared (the
+        # scripts/__tests__/ Jest suite is omitted from subscriber clones).
+        run: npm run test:scripts --if-present
+
+      - name: Run scanner plugin tests
+        # The scanner package isn't a root workspace child; its eslint peer
+        # dep doesn't hoist to root node_modules, so a fresh `npm ci` is
+        # required before `npm test` (otherwise eslint imports fail at
+        # module load and every test reports "test failed").
+        run: cd scanner/eslint-plugin-kerndx && npm ci && npm test

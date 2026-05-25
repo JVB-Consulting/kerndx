@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ReportingDate__c</fullName>
+    <description>Formula-generated date set to the first day of the login month/year, enabling relative date filtering in reports (e.g. THIS_YEAR, LAST_N_MONTHS).</description>
+    <formula>DATEVALUE(TEXT(LoginYear__c) &amp; &apos;-&apos; &amp; TEXT(LoginMonth__c) &amp; &apos;-&apos; &amp; &apos;01&apos;)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText>First day of the month (e.g. 2026-01-01 for January 2026). Use this in report filters with relative dates like THIS_YEAR.</inlineHelpText>
+    <label>Reporting Date</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

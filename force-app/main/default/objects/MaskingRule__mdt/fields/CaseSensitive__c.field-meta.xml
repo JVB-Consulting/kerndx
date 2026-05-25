@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CaseSensitive__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, the Pattern matches only exact case. When unchecked, matching is case-insensitive. Ignored in Exact Match mode — Exact Match always matches the exact case of the Pattern.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Leave unchecked for case-insensitive matching.</inlineHelpText>
+    <label>Case Sensitive</label>
+    <type>Checkbox</type>
+</CustomField>

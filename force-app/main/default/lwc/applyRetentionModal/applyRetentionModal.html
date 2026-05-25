@@ -1,0 +1,36 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="slds-var-m-bottom_small" data-testid="modal-subtitle">{subtitle}</p>
+		<table class="slds-table slds-table_cell-buffer slds-table_bordered" data-testid="proposal-table">
+			<thead>
+			<tr>
+				<th scope="col">Object</th>
+				<th scope="col">Records today</th>
+				<th scope="col">Retention</th>
+				<th scope="col">Schedule</th>
+			</tr>
+			</thead>
+			<tbody>
+			<template for:each={workingProposals} for:item="proposal">
+				<tr data-object-api-name={proposal.objectApiName} data-testid="proposal-row" key={proposal.objectApiName}>
+					<td>{proposal.objectLabel}</td>
+					<td>{proposal.recordCount}</td>
+					<td>{proposal.retentionDays} days</td>
+					<td>
+						<lightning-combobox data-object-api-name={proposal.objectApiName} label="Schedule" onchange={handleCronChange} options={scheduleOptions}
+						                    value={proposal.cronExpression} variant="label-hidden"></lightning-combobox>
+					</td>
+				</tr>
+			</template>
+			</tbody>
+		</table>
+		<div class="slds-box slds-var-m-top_small slds-theme_warning" data-testid="first-run-warning" role="alert">{firstRunWarning}</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="slds-var-m-right_auto" data-testid="customize-link" label={customizeLinkLabel} onclick={handleCustomize} variant="base"></lightning-button>
+		<lightning-button data-testid="cancel-button" label="Cancel" onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="confirm-button" label={confirmButtonLabel} onclick={handleConfirm} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

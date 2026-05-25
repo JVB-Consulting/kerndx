@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EnableTriggerPerformanceLogging__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When enabled, logs performance metrics for trigger action handlers that exceed TriggerPerformanceThresholdMs.</description>
+    <inlineHelpText>Enable to capture performance metrics for trigger actions.</inlineHelpText>
+    <label>Enable Trigger Performance Logging</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

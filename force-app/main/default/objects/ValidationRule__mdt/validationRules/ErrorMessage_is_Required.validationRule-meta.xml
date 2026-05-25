@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ErrorMessage_is_Required</fullName>
+    <active>true</active>
+    <description>Error message is required for all validation rules.</description>
+    <errorConditionFormula>ISBLANK(ErrorMessage__c)</errorConditionFormula>
+    <errorDisplayField>ErrorMessage__c</errorDisplayField>
+    <errorMessage>You must enter an error message to display when validation fails.</errorMessage>
+</ValidationRule>

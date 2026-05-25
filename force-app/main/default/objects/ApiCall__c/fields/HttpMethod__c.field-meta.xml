@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>HttpMethod__c</fullName>
+    <description>The HTTP method (verb) used for this API call: GET, POST, PUT, PATCH, or DELETE. Determined by the API handler class. System-populated.</description>
+    <inlineHelpText>The HTTP verb used for this call (e.g. GET, POST, PUT, DELETE). System-populated by the API handler.</inlineHelpText>
+    <label>HTTP Method</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>GET</fullName>
+                <default>false</default>
+                <label>GET</label>
+            </value>
+            <value>
+                <fullName>POST</fullName>
+                <default>false</default>
+                <label>POST</label>
+            </value>
+            <value>
+                <fullName>PUT</fullName>
+                <default>false</default>
+                <label>PUT</label>
+            </value>
+            <value>
+                <fullName>PATCH</fullName>
+                <default>false</default>
+                <label>PATCH</label>
+            </value>
+            <value>
+                <fullName>DELETE</fullName>
+                <default>false</default>
+                <label>DELETE</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

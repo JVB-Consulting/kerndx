@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants access to the Visualforce page that retrieves an API-enabled session ID for the current user. Assign this to users or integrations that need to make API calls using a session-based token.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Kern API Session Id</label>
+    <pageAccesses>
+        <apexPage>UTIL_GetApiEnabledSessionId</apexPage>
+        <enabled>true</enabled>
+    </pageAccesses>
+</PermissionSet>

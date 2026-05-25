@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ResolvedDate__c</fullName>
+    <description>The date and time when this failure was resolved, either through replay or manual resolution.</description>
+    <inlineHelpText>When this issue was resolved. Set automatically on successful replay or manual resolution.</inlineHelpText>
+    <label>Resolved Date</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

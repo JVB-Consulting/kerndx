@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.cron-expression
+{
+	font-family : var(--lwc-fontFamilyMono, "Consolas", "Menlo", monospace);
+}
+
+.badge-success
+{
+	--slds-c-badge-color-background : #2E844A;
+	--slds-c-badge-text-color       : #FFFFFF;
+}

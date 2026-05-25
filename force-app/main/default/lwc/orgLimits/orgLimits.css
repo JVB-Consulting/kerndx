@@ -1,0 +1,42 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.bar:nth-child(even)
+{
+	fill : #0176D3;
+}
+
+.bar:nth-child(odd)
+{
+	fill : #57A3FD;
+}
+
+.bar:hover
+{
+	fill : #014486;
+}
+
+/*noinspection CssUnusedSymbol*/
+.tick
+{
+	font-size : 14px;
+}
+
+.label
+{
+	font-size : 14px;
+}
+
+/*noinspection CssUnusedSymbol*/
+.tooltip
+{
+	background     : #014486;
+	color          : #FFFFFF;
+	padding        : 6px;
+	pointer-events : none;
+	position       : fixed;
+	z-index        : 1000;
+}
+
+.inactive
+{
+	visibility : hidden;
+}

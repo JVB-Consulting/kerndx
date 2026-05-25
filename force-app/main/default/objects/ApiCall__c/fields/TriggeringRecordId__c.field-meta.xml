@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TriggeringRecordId__c</fullName>
+    <description>The Salesforce record Id that initiated this web service call. Used to link the call back to the originating record (e.g., Account, Case, or custom object).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The 18-character Salesforce record ID that initiated this API call</inlineHelpText>
+    <label>Triggering Record ID</label>
+    <length>80</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DeadLetters</fullName>
+    <columns>NAME</columns>
+    <columns>ServiceName__c</columns>
+    <columns>Status__c</columns>
+    <columns>Retries__c</columns>
+    <columns>MaxRetries__c</columns>
+    <columns>ErrorMessages__c</columns>
+    <columns>TriggeringRecordUrl__c</columns>
+    <columns>LAST_UPDATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>DeadLettered__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Dead Letters</label>
+</ListView>

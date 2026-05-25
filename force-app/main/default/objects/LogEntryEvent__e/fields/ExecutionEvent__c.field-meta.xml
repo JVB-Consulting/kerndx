@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ExecutionEvent__c</fullName>
+    <description>Salesforce execution context (Quiddity) that produced this log entry.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Salesforce execution context (Quiddity). Common values: SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, AURA, REST.</inlineHelpText>
+    <isFilteringDisabled>false</isFilteringDisabled>
+    <isNameField>false</isNameField>
+    <isSortingDisabled>false</isSortingDisabled>
+    <label>Execution Event</label>
+    <length>40</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

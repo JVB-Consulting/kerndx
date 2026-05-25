@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ContextClassName__c</fullName>
+    <description>Specifies the default Apex class providing context for formula evaluation for all rules in this group. For standard objects (Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User), leave blank to use built-in context classes. Can be overridden at the individual rule level.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Optional for standard objects - built-in contexts auto-detected. Required for custom objects. Can be overridden per rule.</inlineHelpText>
+    <label>Context Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CorrelationId__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>UUID linking this chain execution to all related log entries across async boundaries.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>UUID linking this chain to all related log entries. Use to query LogEntry__c for the full execution timeline.</inlineHelpText>
+    <label>Correlation ID</label>
+    <length>36</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

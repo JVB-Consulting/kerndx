@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LoginFrequency</fullName>
+    <fields>User__c</fields>
+    <fields>LoginYear__c</fields>
+    <fields>LoginMonth__c</fields>
+    <fields>UniqueLoginCount__c</fields>
+    <fields>TotalLoginCount__c</fields>
+    <label>LoginFrequency</label>
+</CompactLayout>

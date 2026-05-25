@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ErrorMessages__c</fullName>
+    <description>Error messages encountered during API call processing. May include validation failures, HTTP errors, or exception details. System-populated.</description>
+    <inlineHelpText>Error details from processing this API call. Check this field when Status is Failed or Aborted to understand what went wrong.</inlineHelpText>
+    <label>Error Messages</label>
+    <length>32768</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

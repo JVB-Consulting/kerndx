@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ShadowMode__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When enabled, rule violations are logged with [SHADOW] tag but do not block save, regardless of Severity setting. Use during initial deployment to monitor impact before enforcement. Logged violations include context data for analysis.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enable to log violations without blocking saves. Use for monitoring before enforcement.</inlineHelpText>
+    <label>Shadow Mode</label>
+    <type>Checkbox</type>
+</CustomField>

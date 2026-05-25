@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Registers a single trigger action: one Apex class bound to one trigger event (e.g. Before Insert) on one object. Controls execution order, entry criteria, recursion, bypass, and performance logging. Each record belongs to a parent Trigger Setting that identifies the object.</description>
+    <label>Trigger Action</label>
+    <pluralLabel>Trigger Actions</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

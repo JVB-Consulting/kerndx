@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Response__c</fullName>
+    <description>The serialized response payload (JSON or XML) received from the external web service. Sensitive data is masked before persistence when MaskingTarget__mdt records are wired to this field.</description>
+    <inlineHelpText>The response body received from the external service. Sensitive data is masked via the data masking framework when configured. System-populated.</inlineHelpText>
+    <label>Response</label>
+    <length>131072</length>
+    <trackFeedHistory>true</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

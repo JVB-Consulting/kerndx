@@ -1,0 +1,23 @@
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .kerndx-pipeline/pipeline/package-lock.json
+
+      - name: Install KernDX pipeline deps
+        working-directory: .kerndx-pipeline/pipeline
+        run: npm ci --omit=dev
+
+      - name: Classify head ref
+        id: classify
+        run: |
+          ./.kerndx-pipeline/bin/kerndx classify-ref \
+            --head-ref "${{ github.head_ref }}" \
+            --config .kerndx/config.yml \
+            >> "$GITHUB_OUTPUT"

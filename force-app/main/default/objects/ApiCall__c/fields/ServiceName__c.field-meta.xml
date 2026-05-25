@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ServiceName__c</fullName>
+    <description>The fully qualified name of the API service handler class that processes this call.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The fully qualified name of the API handler class</inlineHelpText>
+    <label>Service Name</label>
+    <length>100</length>
+    <required>false</required>
+    <trackFeedHistory>true</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

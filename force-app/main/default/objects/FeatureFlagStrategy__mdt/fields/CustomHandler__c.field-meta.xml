@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CustomHandler__c</fullName>
+    <description>Optional. The name of an Apex class that implements the framework&apos;s feature flag strategy interface. If provided, this class executes instead of the standard logic for the selected Type.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Optional. To use your own custom Apex logic for this rule, enter the name of your Apex class here. This will override the standard &apos;Type&apos; logic and ignore the &apos;Target&apos; field (unless &apos;Type&apos; is &apos;Custom Strategy&apos; for backward compatibility).</inlineHelpText>
+    <label>Custom Handler Class</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

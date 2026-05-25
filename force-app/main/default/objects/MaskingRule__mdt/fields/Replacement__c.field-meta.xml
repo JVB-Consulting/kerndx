@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Replacement__c</fullName>
+    <description>What to replace matched content with. In Regex mode, use $1, $2 etc. to refer to capture groups from the Pattern. In other modes, $ and \\ are treated as ordinary characters. Blank replacement removes the match entirely; Regex mode requires an explicit replacement.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>The replacement string. $1, $2 work in Regex mode only. Leave blank in JSON by Key or Exact Match modes to remove the match entirely.</inlineHelpText>
+    <label>Replacement</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

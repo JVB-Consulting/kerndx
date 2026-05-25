@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PerformanceThresholdMs__c</fullName>
+    <defaultValue>10000</defaultValue>
+    <description>Minimum duration in milliseconds before a webservice/API operation is logged as a performance entry.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Operations faster than this threshold are not logged. Default: 10000ms (10 seconds).</inlineHelpText>
+    <label>Performance Threshold (ms)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

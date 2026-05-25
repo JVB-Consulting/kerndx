@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ReplacementRequiredForRegex</fullName>
+    <active>true</active>
+    <description>Regex mode always needs an explicit Replacement. Other modes permit a blank Replacement to remove the match outright, but Regex needs the admin to be explicit about what (if anything) to keep from the match.</description>
+    <errorConditionFormula>AND(ISPICKVAL(Mode__c, &quot;Regex&quot;), ISBLANK(Replacement__c))</errorConditionFormula>
+    <errorDisplayField>Replacement__c</errorDisplayField>
+    <errorMessage>Regex mode requires an explicit Replacement. Use $1, $2 etc. to preserve capture groups, or a static string like [REDACTED] to remove the match entirely.</errorMessage>
+</ValidationRule>

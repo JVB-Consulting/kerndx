@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TotalLoginCount__c</fullName>
+    <description>Total number of login events for this user in the given month. Includes all login types (UI, API, etc.).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Total logins for this user during the month. A user logging in 3 times on one day counts as 3.</inlineHelpText>
+    <label>Total Login Count</label>
+    <precision>10</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

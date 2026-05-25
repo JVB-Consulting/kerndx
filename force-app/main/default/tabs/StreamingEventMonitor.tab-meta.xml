@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>The Streaming Event Monitor tab provides a centralized workspace to track, test, and troubleshoot all events published to or subscribed from Salesforce’s Streaming.</description>
+    <flexiPage>StreamingEventMonitor</flexiPage>
+    <label>Streaming Event Monitor</label>
+    <motif>Custom30: Radar dish</motif>
+</CustomTab>

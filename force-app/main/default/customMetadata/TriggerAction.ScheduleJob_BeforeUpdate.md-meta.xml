@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Schedule Job - Before Update</label>
+    <protected>true</protected>
+    <values>
+        <field>AllowNonSelfInitiated__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>AllowRecursion__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>ApexClassName__c</field>
+        <value xsi:type="xsd:string">TRG_ScheduleJob</value>
+    </values>
+    <values>
+        <field>BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>BypassFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Manages job scheduling when ScheduledJob__c records are updated</value>
+    </values>
+    <values>
+        <field>EntryCriteriaContextClassName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>EntryCriteriaFormula__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Event__c</field>
+        <value xsi:type="xsd:string">Before Update</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>FlowName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>ForcePerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">1000.0</value>
+    </values>
+    <values>
+        <field>PerformanceThresholdMs__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>RequiredFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>SuppressPerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>TriggerSetting__c</field>
+        <value xsi:type="xsd:string">ScheduledJob</value>
+    </values>
+</CustomMetadata>

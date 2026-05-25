@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Custom styles for validation errors component */
+
+.slds-text-color_inverse
+{
+	color : #FFFFFF;
+}
+
+.slds-list_dotted li
+{
+	margin-left : 1rem;
+}
+
+/* Clickable error styles for field navigation */
+/*noinspection CssUnusedSymbol*/
+.clickable-error
+{
+	cursor          : pointer;
+	text-decoration : underline;
+}
+
+/*noinspection CssUnusedSymbol*/
+.clickable-error:hover
+{
+	opacity : 0.8;
+}

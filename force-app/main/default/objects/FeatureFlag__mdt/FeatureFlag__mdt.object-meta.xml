@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>This object is the master record for a single feature flag. It acts as the parent and defines the feature&apos;s name, its master on/off switch, and its final fallback behavior.</description>
+    <label>Feature Flag</label>
+    <pluralLabel>Feature Flags</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

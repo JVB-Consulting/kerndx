@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ServiceName__c</fullName>
+    <description>The fully qualified Apex class name of the API service handler that produced this issue (e.g. API_SendEmail).</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The API service class that produced this issue. Use this to identify which integration encountered an error.</inlineHelpText>
+    <label>Service Name</label>
+    <length>100</length>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

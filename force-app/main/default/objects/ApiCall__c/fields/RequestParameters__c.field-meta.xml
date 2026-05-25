@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RequestParameters__c</fullName>
+    <description>Name-value pairs of parameters passed to the API service handler for processing. These are the inputs provided when the API call was created, used by the handler to build the request.</description>
+    <inlineHelpText>Input parameters passed to the API handler. These drive request construction and are preserved for troubleshooting.</inlineHelpText>
+    <label>Request Parameters</label>
+    <length>131072</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

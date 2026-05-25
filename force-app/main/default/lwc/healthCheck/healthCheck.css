@@ -1,0 +1,55 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.health-check-allpass-slim
+{
+	padding : 0.5rem 1rem;
+}
+
+.health-check-alert ul
+{
+	border-top : 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.passing-row
+{
+	border-top  : 1px solid rgba(0, 0, 0, 0.05);
+	padding-top : 0.5rem;
+}
+
+.status-chip
+{
+	white-space : nowrap;
+}
+
+.retention-sublist
+{
+	border-left  : 2px solid #DDDBDA;
+	margin       : 0.5rem 0 0 0;
+	padding-left : 1rem;
+}
+
+.retention-sublist li + li
+{
+	border-top : 1px dashed #F0F0F0;
+}
+
+.retention-customize-block
+{
+	display   : block;
+	min-width : 0;
+	width     : 100%;
+}
+
+.retention-customize-block .slds-col.slds-grow
+{
+	min-width : 0;
+}
+
+.retention-sub-row__object
+{
+	font-weight : 500;
+}
+
+.retention-sub-row__meta
+{
+	margin-right : 0.75rem;
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Parent configuration for all trigger actions on a single object. Links to an EntityDefinition to identify the SObject, and provides object-level bypass, permission gating, and performance logging controls that cascade to every child Trigger Action record.</description>
+    <label>Trigger Setting</label>
+    <pluralLabel>Trigger Settings</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

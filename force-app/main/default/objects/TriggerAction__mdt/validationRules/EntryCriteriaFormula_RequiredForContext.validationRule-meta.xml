@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EntryCriteriaFormula_RequiredForContext</fullName>
+    <active>true</active>
+    <description>This checks that the Entry Criteria Formula is provided if the Context Class Name is set</description>
+    <errorConditionFormula>AND
+(
+	OR
+	(
+		ISNEW(),
+		ISCHANGED(EntryCriteriaFormula__c),
+		ISCHANGED(EntryCriteriaContextClassName__c)
+	),
+	AND
+	(
+		NOT(ISBLANK(EntryCriteriaContextClassName__c)),
+		ISBLANK(EntryCriteriaFormula__c)
+	)
+)</errorConditionFormula>
+    <errorDisplayField>EntryCriteriaFormula__c</errorDisplayField>
+    <errorMessage>Please provide an Entry Criteria for the given Context Class Name</errorMessage>
+</ValidationRule>

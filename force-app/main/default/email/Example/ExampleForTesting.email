@@ -1,0 +1,8 @@
+Dear {!Contact.Name}
+
+Please find details of {!Foobar__c.Name}
+
+Kind Regards
+{!Foobar__c.OwnerFullName}
+
+[Custom Merge Field]

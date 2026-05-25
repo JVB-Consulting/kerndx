@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DefaultFoobar</fullName>
+    <active>true</active>
+    <description>Default test record type for Foobar objects. Used in unit tests.</description>
+    <label>Default</label>
+    <picklistValues>
+        <picklist>PicklistMultiSelect__c</picklist>
+        <values>
+            <fullName>Five</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Four</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>One</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Three</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Two</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Picklist__c</picklist>
+        <values>
+            <fullName>Cold</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Hot</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Warm</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

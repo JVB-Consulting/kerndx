@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LogIssuesRequiredToResolveOrRetry</fullName>
+    <active>true</active>
+    <description>Validates that Resolve Issues and Retry Issues are only enabled when Log Issues is enabled.</description>
+    <errorConditionFormula>AND
+(
+	OR
+	(
+		ISNEW() ,
+		ISCHANGED(ResolveIssues__c),
+		ISCHANGED(RetryIssues__c)
+	),
+	OR
+	(
+		ResolveIssues__c  = TRUE,
+		RetryIssues__c = TRUE
+	),
+	LogIssues__c = FALSE
+)</errorConditionFormula>
+    <errorDisplayField>LogIssues__c</errorDisplayField>
+    <errorMessage>Resolve Issues or Retry Issues can only be enabled when Log Issues is enabled.</errorMessage>
+</ValidationRule>

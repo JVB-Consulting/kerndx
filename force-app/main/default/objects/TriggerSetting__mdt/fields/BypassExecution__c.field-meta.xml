@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BypassExecution__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, ALL trigger actions for this object are completely skipped. This is an object-level kill switch that overrides individual action settings. Unlike permission-based bypasses, this applies unconditionally to all users.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to disable ALL trigger actions for this object. Use as a kill switch during data migrations or troubleshooting. Uncheck to re-enable.</inlineHelpText>
+    <label>Bypass Execution</label>
+    <type>Checkbox</type>
+</CustomField>

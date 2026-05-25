@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LogLevel__c</fullName>
+    <description>Severity level of this log entry: DEBUG, INFO, WARN, or ERROR.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Severity: ERROR (failures), WARN (concerning), INFO (operational), DEBUG (diagnostic). Filter by level in log analysis.</inlineHelpText>
+    <isFilteringDisabled>false</isFilteringDisabled>
+    <isNameField>false</isNameField>
+    <isSortingDisabled>false</isSortingDisabled>
+    <label>Log Level</label>
+    <length>10</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mode__c</fullName>
+    <description>How the Pattern is interpreted.
+
+Regex: the Pattern is a regular expression matched against the whole field value. Matches are replaced with the Replacement; $1, $2 etc. may refer to capture groups.
+
+JSON by Key: the Pattern is a regex matched against JSON keys in the field value. The VALUE stored under each matching key is replaced with the Replacement. Non-matching keys are untouched. Works at any nesting depth.
+  Example — Pattern: ^(password|token|secret)$, Replacement: ***REDACTED***
+  Input:  {&quot;user&quot;:&quot;alice&quot;,&quot;password&quot;:&quot;hunter2&quot;,&quot;token&quot;:&quot;abc123&quot;}
+  Result: {&quot;user&quot;:&quot;alice&quot;,&quot;password&quot;:&quot;***REDACTED***&quot;,&quot;token&quot;:&quot;***REDACTED***&quot;}
+
+Exact Match: the Pattern is an exact substring to find in the field value; every occurrence is replaced with the Replacement.
+
+Credit Card: same as Regex, but each match must also pass the Luhn (mod-10) checksum per ISO/IEC 7812. Use for credit-card redaction to avoid redacting non-card 13-19 digit runs like transaction IDs.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Regex for free text. JSON by Key for JSON payloads (values under matching keys are redacted). Exact Match for an exact substring. Credit Card for Luhn-validated card-number redaction.</inlineHelpText>
+    <label>Mode</label>
+    <required>true</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Regex</fullName>
+                <default>true</default>
+                <label>Regex</label>
+            </value>
+            <value>
+                <fullName>JsonKey</fullName>
+                <default>false</default>
+                <label>JSON by Key</label>
+            </value>
+            <value>
+                <fullName>ExactMatch</fullName>
+                <default>false</default>
+                <label>Exact Match</label>
+            </value>
+            <value>
+                <fullName>CreditCard</fullName>
+                <default>false</default>
+                <label>Credit Card</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

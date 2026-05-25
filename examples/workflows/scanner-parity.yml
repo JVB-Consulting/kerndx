@@ -1,0 +1,55 @@
+name: scanner-parity
+
+# Drift alarm for the --rule-selector list. This check is NOT required by
+# any ruleset, so a `paths:` filter is safe here — the scope of the
+# "no paths: on ruleset-required checks" constraint does not apply.
+#
+# Subscribers: extend the `sources` map in the "Run scanner-parity check"
+# step below to include every file in your repo that invokes the analyzer
+# with --rule-selector (other workflow YAMLs, a package.json `scan` script,
+# a shell helper, etc.). Update the `paths:` list below to match.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sfca-quality-gate.yml'
+      - 'package.json'
+
+jobs:
+  parity:
+    name: Scanner Parity Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .kerndx-pipeline/pipeline/package-lock.json
+
+      - name: Install KernDX pipeline deps
+        working-directory: .kerndx-pipeline/pipeline
+        run: npm ci --omit=dev
+
+      - name: Run scanner-parity check
+        run: |
+          node -e "
+            const { checkParity } = require('./.kerndx-pipeline/pipeline/src/lib/scanner-parity.js');
+            // Sources MUST be files that invoke 'sf code-analyzer run --rule-selector ...'
+            // (workflow YAMLs, scan scripts, package.json npm-script lines). NOT code-analyzer.yml
+            // — that's the analyzer's config file, not a CLI invocation site, and it never
+            // contains the --rule-selector flag.
+            const result = checkParity({
+              'quality-gate workflow': '.github/workflows/sfca-quality-gate.yml',
+            });
+            if (!result.ok) {
+              console.error('Scanner parity check failed:');
+              result.issues.forEach(i => console.error(' -', i));
+              process.exit(1);
+            }
+            console.log('Scanner parity check passed.');
+          "

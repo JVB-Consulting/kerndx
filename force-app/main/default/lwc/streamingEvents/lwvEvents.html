@@ -1,0 +1,68 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<!-- Event data modal -->
+	<c-modal onclose={handleCloseEventModal} title="Event details">
+		<div class="slds-region_narrow">
+			<div class="slds-form slds-form_horizontal">
+				<lightning-input label="Local Time" read-only value={selectedEvent.timeLabel}></lightning-input>
+				<lightning-input label="Channel" read-only value={selectedEvent.channel}></lightning-input>
+				<lightning-input label="Type" read-only value={selectedEvent.type}></lightning-input>
+				<lightning-input label="Replay Id" read-only value={selectedEvent.replayId}></lightning-input>
+			</div>
+			<div class="slds-form-element">
+				<label class="slds-form-element__label" for="eventPayload">Payload</label>
+				<div class="slds-form-element__control">
+                    <textarea class="slds-textarea payload" disabled id="eventPayload">
+{selectedEventPayload}</textarea>
+				</div>
+			</div>
+		</div>
+	</c-modal>
+
+	<!-- Event list -->
+	<lightning-card icon-name="utility:events" title="Streaming Monitor">
+		<!-- Begin card header -->
+		<div slot="actions">
+			<template lwc:if={hasData}>
+				<lightning-badge class="slds-var-m-right_small" label={eventCountLabel}></lightning-badge>
+				<c-streaming-events-header onclear={handleClearEvents} ondownload={handleDownloadEvents} onfiltertoggle={handleFiltersDisplayToggle}
+				                           onviewmodechange={handleViewModeChange}></c-streaming-events-header>
+			</template>
+		</div>
+		<!-- End card header -->
+
+		<div class="slds-var-p-horizontal_small">
+			<template lwc:if={hasData}>
+				<!-- Begin filters -->
+				<div class="slds-var-m-bottom_large">
+					<c-streaming-event-filters channels={channels} class={filterClasses} onfilterchange={handleFilterChange}></c-streaming-event-filters>
+					<c-notice lwc:if={hasActiveFilters}>Current filters may prevent incoming events from being
+						displayed.
+					</c-notice>
+				</div>
+				<!-- End filters -->
+
+				<!-- Begin view modes -->
+				<template lwc:if={hasVisibleData}>
+					<lightning-datatable columns={tableColumns} data={filteredEvents} hide-checkbox-column key-field="id" lwc:if={isTableViewMode}
+					                     onrowaction={handleEventTableRowAction}></lightning-datatable>
+					<c-streaming-timeline channels={channels} events={filteredEvents} lwc:elseif={isTimelineViewMode} onselect={handleTimelineSelection}></c-streaming-timeline>
+				</template>
+				<!-- End view modes -->
+			</template>
+
+			<template lwc:if={emptyStateMessage}>
+				<div aria-hidden="true" class="slds-illustration slds-illustration_large">
+					<img alt="" class="slds-illustration__svg" src="/img/chatter/OpenRoad.svg"/>
+					<div class="slds-text-color_weak slds-var-m-bottom_large">
+						<h3 class="slds-text-heading_medium">
+							{emptyStateMessage} </h3>
+					</div>
+				</div>
+			</template>
+		</div>
+	</lightning-card>
+</template>

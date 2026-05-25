@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>StatusCode__c</fullName>
+    <defaultValue>200</defaultValue>
+    <description>The HTTP status code to return in the mock response.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>HTTP status code for the mock response (e.g., 200 for success, 400 for bad request).</inlineHelpText>
+    <label>Status Code</label>
+    <precision>3</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

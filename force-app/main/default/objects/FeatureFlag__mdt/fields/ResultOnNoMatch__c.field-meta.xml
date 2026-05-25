@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ResultOnNoMatch__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>The fallback result to use if strategies *exist*, but *none* of them return true. If true, the flag is ON. If false (default), the flag is OFF. This field is *only* used if at least one strategy exists and all strategies fail to match.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>The fallback value to use when a user doesn&apos;t match any of the defined strategy rules. Check this to enable the feature for all non-matching users. Leave unchecked (default) to disable it.</inlineHelpText>
+    <label>Result On No Match</label>
+    <type>Checkbox</type>
+</CustomField>

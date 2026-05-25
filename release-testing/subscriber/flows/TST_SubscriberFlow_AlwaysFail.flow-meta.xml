@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <description>Subscriber-namespace test flow used by the flow-as-trigger-action release-testing Phase 5B. Creates a Contact without LastName so the platform raises REQUIRED_FIELD_MISSING at runtime. The unhandled fault propagates to Flow.Interview.start() as a runtime exception that the trigger framework routes through FailureAction__c. Used to exercise the LogAndContinue and BlockDml strategies end-to-end across the subscriber namespace boundary.</description>
+    <interviewLabel>TST_SubscriberFlow_AlwaysFail {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>TST Subscriber Flow Always Fail</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordCreates>
+        <description>Creates a Contact without LastName. Platform raises REQUIRED_FIELD_MISSING at runtime; with no fault connector, the flow surfaces an unhandled fault to Flow.Interview.start().</description>
+        <name>CreateInvalidContact</name>
+        <label>Create Invalid Contact</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <inputAssignments>
+            <field>FirstName</field>
+            <value>
+                <stringValue>Subscriber test deliberate failure</stringValue>
+            </value>
+        </inputAssignments>
+        <object>Contact</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <runInMode>DefaultMode</runInMode>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>CreateInvalidContact</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <description>Trigger record passed in by kern.TRG_InvokeFlow. Required by the variable-contract scanner; not mutated by this flow.</description>
+        <name>record</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>true</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+    <variables>
+        <description>Pre-update record passed in by kern.TRG_InvokeFlow on update events. Read-only.</description>
+        <name>recordPrior</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+</Flow>

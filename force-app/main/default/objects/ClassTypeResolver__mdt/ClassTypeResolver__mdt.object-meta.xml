@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Registers a subscriber-org class that resolves Apex class names to Types at runtime. Required when subscriber classes used by the framework (e.g., trigger handlers, web services, DTOs) are not declared as global. The registered class must implement the framework&apos;s type resolver interface.</description>
+    <label>Class Type Resolver</label>
+    <pluralLabel>Class Type Resolvers</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

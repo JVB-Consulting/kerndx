@@ -1,0 +1,15 @@
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "versionName": "version 1.0",
+      "versionNumber": "1.0.0.NEXT"
+    }
+  ],
+  "name": "KernDX",
+  "namespace": "kern",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "66.0",
+  "packageAliases": {}
+}

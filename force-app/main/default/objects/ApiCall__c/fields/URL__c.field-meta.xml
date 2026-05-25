@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>URL__c</fullName>
+    <description>The full endpoint URL to which the HTTP request was sent. Composed of the Named Credential base URL and the endpoint path configured in ApiSetting__mdt.</description>
+    <inlineHelpText>The full URL that the API call was sent to. System-populated from the Named Credential and endpoint path.</inlineHelpText>
+    <label>URL</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Url</type>
+</CustomField>

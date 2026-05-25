@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RuleFormula__c</fullName>
+    <description>Boolean formula that defines when validation FAILS. If this formula evaluates to TRUE, the validation error is shown. Uses Salesforce FormulaEval syntax with access to oldRecord, newRecord, and context class properties. Supports standard formula functions and global variables ($User, $Permission, $Profile, $Label).</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Formula returning TRUE when validation should FAIL. Examples: ISBLANK(newRecord.Email), newRecord.Amount &gt; 1000000 &amp;&amp; NOT($Permission.Bypass_Amount_Limit)</inlineHelpText>
+    <label>Rule Formula</label>
+    <length>32768</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

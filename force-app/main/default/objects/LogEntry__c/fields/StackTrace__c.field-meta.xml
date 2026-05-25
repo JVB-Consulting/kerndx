@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>StackTrace__c</fullName>
+    <description>Apex execution stack trace captured at the time the event was logged.</description>
+    <inlineHelpText>Full stack trace showing the call chain leading to this log entry</inlineHelpText>
+    <label>Stack Trace</label>
+    <length>4096</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>

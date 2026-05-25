@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Direction__c</fullName>
+    <description>Indicates whether this issue originated from an inbound or outbound API call.</description>
+    <inlineHelpText>The direction of the API call that caused this issue.</inlineHelpText>
+    <label>Direction</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Outbound</fullName>
+                <default>true</default>
+                <label>Outbound</label>
+            </value>
+            <value>
+                <fullName>Inbound</fullName>
+                <default>false</default>
+                <label>Inbound</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

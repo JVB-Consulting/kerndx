@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <brand>
+        <headerColor>#9F7851</headerColor>
+        <logo>KernLogo</logo>
+        <logoVersion>2</logoVersion>
+        <shouldOverrideOrgTheme>true</shouldOverrideOrgTheme>
+    </brand>
+    <description>Monitor API calls, review logs, manage scheduled jobs, and configure the Kern framework.</description>
+    <formFactors>Small</formFactors>
+    <formFactors>Large</formFactors>
+    <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
+    <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
+    <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
+    <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
+    <label>Kern</label>
+    <navType>Standard</navType>
+    <tabs>KernHome</tabs>
+    <tabs>ApiCall__c</tabs>
+    <tabs>LogEntry__c</tabs>
+    <tabs>ScheduledJob__c</tabs>
+    <tabs>ApiIssue__c</tabs>
+    <tabs>AsyncChainExecution__c</tabs>
+    <tabs>LoginFrequency__c</tabs>
+    <tabs>standard-report</tabs>
+    <tabs>standard-Dashboard</tabs>
+    <uiType>Lightning</uiType>
+</CustomApplication>

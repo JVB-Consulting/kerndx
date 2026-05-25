@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllScheduledJobs</fullName>
+    <columns>NAME</columns>
+    <columns>SchedulerName__c</columns>
+    <columns>ClassName__c</columns>
+    <columns>CronExpression__c</columns>
+    <columns>Timezone__c</columns>
+    <columns>Description__c</columns>
+    <columns>IsActive__c</columns>
+    <columns>UPDATEDBY_USER</columns>
+    <columns>LAST_UPDATE</columns>
+    <filterScope>Everything</filterScope>
+    <label>All Scheduled Jobs</label>
+</ListView>

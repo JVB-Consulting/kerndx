@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Sidebar navigation panel for the Streaming Monitor application. Provides toggleable visibility, navigation menu with sections (Actions, Dashboards), and dispatches
+		'toggle' and 'navigate' events to parent components.
+	</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Streaming Sidebar</masterLabel>
+</LightningComponentBundle>

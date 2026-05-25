@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IdempotencyKey__c</fullName>
+    <description>Idempotency ensures that processing the same API request multiple times produces the same result as processing it once. This field stores the unique key used for duplicate detection. For inbound calls, extracted from the Idempotency-Key request header. For outbound calls, auto-generated as a UUID so the receiving system can detect retries.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>Unique key for duplicate detection. If two API calls share the same key, the second is treated as a duplicate and returns the original response without re-processing.</inlineHelpText>
+    <label>Idempotency Key</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

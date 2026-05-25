@@ -1,0 +1,60 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="slds-text-body_small slds-text-color_weak slds-var-m-bottom_small">{labels.purpose}</p>
+
+		<div class="slds-grid slds-var-m-bottom_small">
+			<div class="slds-col slds-size_1-of-2">
+				<lightning-input data-testid="resolver-class-name" label={labels.classNameLabel} max-length="40" message-when-pattern-mismatch={labels.classNamePatternError}
+				                 message-when-value-missing={labels.classNameRequiredError} onchange={handleClassNameChange} pattern="^[A-Za-z][A-Za-z0-9_]*$"
+				                 placeholder={labels.classNamePlaceholder} required value={resolverClassName}></lightning-input>
+			</div>
+		</div>
+
+		<div class="setup-steps slds-var-m-bottom_small" role="region">
+			<div class="slds-grid slds-grid_vertical-center slds-var-m-bottom_x-small">
+				<lightning-icon alternative-text={labels.setupStepsAltText} class="slds-var-m-right_x-small" icon-name="utility:list" size="small"
+				                variant="inverse"></lightning-icon>
+				<h2 class="slds-text-heading_small slds-text-color_inverse">{labels.setupStepsHeading}</h2>
+			</div>
+			<ol class="slds-list_ordered slds-text-color_inverse">
+				<li class="slds-var-m-bottom_xx-small">{labels.setupStep1}</li>
+				<li class="slds-var-m-bottom_xx-small">{labels.setupStep2}</li>
+				<li class="slds-var-m-bottom_xx-small">{setupStep3}</li>
+				<li>{labels.setupStep4}</li>
+			</ol>
+		</div>
+
+		<lightning-tabset active-tab-value="resolver" variant="scoped">
+			<lightning-tab label={labels.resolverTabLabel} value="resolver">
+				<div class="code-container slds-var-m-top_small">
+					<div class="slds-grid slds-grid_vertical-center slds-var-m-bottom_xx-small">
+						<p class="slds-text-title_caps slds-grow code-language-label">{labels.codeLanguageLabel}</p>
+						<lightning-button-icon alternative-text={labels.copyResolverAltText} class="slds-var-m-right_xx-small" data-testid="copy-resolver"
+						                       icon-name={resolverCopyIcon} onclick={handleCopyResolver} size="small" variant="bare"></lightning-button-icon>
+						<lightning-button-icon alternative-text={labels.downloadResolverAltText} data-testid="download-resolver" icon-name="utility:download"
+						                       onclick={handleDownloadResolver} size="small" variant="bare"></lightning-button-icon>
+					</div>
+					<pre class="code-block">{resolverClassCode}</pre>
+				</div>
+			</lightning-tab>
+			<lightning-tab label={labels.testTabLabel} value="test">
+				<div class="code-container slds-var-m-top_small">
+					<div class="slds-grid slds-grid_vertical-center slds-var-m-bottom_xx-small">
+						<p class="slds-text-title_caps slds-grow code-language-label">{labels.codeLanguageLabel}</p>
+						<lightning-button-icon alternative-text={labels.copyTestAltText} class="slds-var-m-right_xx-small" data-testid="copy-test" icon-name={testCopyIcon}
+						                       onclick={handleCopyTest} size="small" variant="bare"></lightning-button-icon>
+						<lightning-button-icon alternative-text={labels.downloadTestAltText} data-testid="download-test" icon-name="utility:download" onclick={handleDownloadTest}
+						                       size="small" variant="bare"></lightning-button-icon>
+					</div>
+					<pre class="code-block">{testClassCode}</pre>
+				</div>
+			</lightning-tab>
+		</lightning-tabset>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button data-testid="modal-cancel" label={labels.cancelLabel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="modal-confirm" label={labels.doneLabel} onclick={handleConfirm} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

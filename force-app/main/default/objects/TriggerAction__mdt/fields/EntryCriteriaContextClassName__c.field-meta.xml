@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EntryCriteriaContextClassName__c</fullName>
+    <description>Apex class that provides context variables (e.g. newRecord, oldRecord) for entry criteria formula evaluation. Built-in contexts exist for standard objects (Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User) and Foobar__c — leave blank for those. Custom objects require a class implementing the formula context interface.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Leave blank for standard objects and Foobar — built-in contexts are auto-detected. For custom objects, enter the class that provides formula variables (newRecord, oldRecord).</inlineHelpText>
+    <label>Context Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

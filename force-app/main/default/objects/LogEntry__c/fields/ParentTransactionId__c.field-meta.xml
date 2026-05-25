@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ParentTransactionId__c</fullName>
+    <description>Transaction ID of the parent process that spawned this execution context.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Links child transactions (queueable, batch, future) back to the originating transaction</inlineHelpText>
+    <label>Parent Transaction ID</label>
+    <length>36</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,39 @@
+{
+  "name": "eslint-plugin-kerndx",
+  "version": "0.2.0",
+  "description": "ESLint behavioral rules for KernDX LWC components — zero formatting opinions.",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "index.js",
+    "rules/"
+  ],
+  "keywords": [
+    "eslint",
+    "eslintplugin",
+    "kerndx",
+    "salesforce",
+    "lwc"
+  ],
+  "peerDependencies": {
+    "eslint": ">=8.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JVB-Consulting/kerndx.git",
+    "directory": "scanner/eslint-plugin-kerndx"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}

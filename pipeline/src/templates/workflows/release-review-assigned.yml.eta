@@ -1,0 +1,156 @@
+name: release-review-assigned
+
+# Fires a Slack ping to the CODEOWNERS review team when a PR against
+# a Release-Gate branch gets the team auto-requested as CODEOWNER.
+#
+# Filters:
+#   - base branch is one of: <%= releaseBranches.join(', ') %>
+#   - requested reviewer is a TEAM named 'release-admins'
+#   - head ref is NOT a gs-pipeline back-prom (Gearset orchestrates those)
+
+on:
+  pull_request:
+    types: [review_requested, review_request_removed]
+
+# Serialize runs per PR so the idempotency label-check in the notify step
+# sees a consistent view.
+concurrency:
+  group: release-review-assigned-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  # review_request_removed: clear the dedup label so a re-request re-pings.
+  clear-dedup-label:
+    name: Clear dedup label on team removal
+    runs-on: <%= runsOn %>
+
+    if: |
+      github.event.action == 'review_request_removed'
+      && github.event.requested_team != null
+      && github.event.requested_team.slug == 'release-admins'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Remove bot-release-admins-pinged label (best-effort)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const LABEL = 'bot-release-admins-pinged';
+            const pr_number = context.payload.pull_request.number;
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: pr_number,
+                name: LABEL,
+              });
+              console.log(`Removed '${LABEL}' from PR #${pr_number} — re-request will re-ping.`);
+            } catch (e) {
+              if (e.status === 404) {
+                console.log(`Label '${LABEL}' not present on PR #${pr_number} — nothing to remove.`);
+              } else {
+                throw e;
+              }
+            }
+
+  notify:
+    name: Release-review ping
+    runs-on: <%= runsOn %>
+
+    if: |
+      github.event.action == 'review_requested'
+      && github.event.requested_team != null
+      && github.event.requested_team.slug == 'release-admins'
+      && (<%= releaseBranches.map(b => "github.event.pull_request.base.ref == '" + b + "'").join('\n          || ') %>)
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Detect back-promotion (skip if true)
+        id: backprom
+        run: |
+          HEAD="${{ github.head_ref }}"
+          PROTECTED='<%= releaseBranches.map(b => b.replace('.', '\\.')).join('|') %>'
+          if [[ "$HEAD" =~ ^gs-pipeline/(${PROTECTED})_-_(${PROTECTED})$ ]]; then
+            echo "is_backprom=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Gearset back-promotion PR — skipping release-admins ping."
+          else
+            echo "is_backprom=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Idempotency check (bot-release-admins-pinged label)
+        id: dedup
+        if: steps.backprom.outputs.is_backprom == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const LABEL = 'bot-release-admins-pinged';
+            const pr_number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              pull_number: pr_number,
+            });
+            const existing = (pr.labels || []).some(l => l.name === LABEL);
+            if (existing) {
+              console.log(`Label '${LABEL}' already on PR #${pr_number} — skipping notification.`);
+              core.setOutput('should_notify', 'false');
+              return;
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: pr_number,
+              labels: [LABEL],
+            });
+            console.log(`Label '${LABEL}' added to PR #${pr_number} — proceeding.`);
+            core.setOutput('should_notify', 'true');
+
+      - name: Resolve team Slack subteam ID (if mapped)
+        id: team
+        if: steps.backprom.outputs.is_backprom == 'false' && steps.dedup.outputs.should_notify == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: file } = await github.rest.repos.getContent({
+              owner: context.repo.owner, repo: context.repo.repo,
+              path: '.github/reviewers.json', ref: 'main',
+            });
+            const cfg = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+            const slackSubteam = (cfg.teams || {})['release-admins'] || '<%= codeownersTeamSlackId %>';
+            core.setOutput('slack_subteam', slackSubteam);
+
+      - name: Notify Slack
+        # [E2E] title prefix suppresses Slack per harness convention.
+        if: steps.backprom.outputs.is_backprom == 'false' && steps.dedup.outputs.should_notify == 'true' && !startsWith(github.event.pull_request.title, '[E2E]')
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "🔔 Release-admins: codeowner review requested on PR #${{ github.event.pull_request.number }}",
+              "attachments": [{
+                "color": "#f2c744",
+                "title": "🔔 Codeowner review requested — ${{ github.event.pull_request.title }}",
+                "title_link": "${{ github.event.pull_request.html_url }}",
+                "fields": [
+                  { "title": "Team",
+                    "value": "${{ steps.team.outputs.slack_subteam && format('<!subteam^{0}>', steps.team.outputs.slack_subteam) || '@release-admins' }}",
+                    "short": true },
+                  { "title": "Branch",
+                    "value": "${{ github.head_ref }} → ${{ github.base_ref }}",
+                    "short": true },
+                  { "title": "PR",
+                    "value": "<${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}>",
+                    "short": false }
+                ],
+                "mrkdwn_in": ["text", "fields"]
+              }]
+            }

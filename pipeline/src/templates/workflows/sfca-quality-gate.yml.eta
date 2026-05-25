@@ -1,0 +1,230 @@
+name: sfca-quality-gate
+
+on:
+  pull_request:
+    branches: [<%= ingressBranches.join(', ') %>]
+
+    # No `paths:` filter — the workflow must run on every PR to these branches
+    # so the `Static Code Analysis` status check is always posted (required by
+    # the Ingress Gate ruleset). Expensive scan steps are gated by
+    # `is_backprom == 'false'` + `steps.changed.outputs.count > 0`, so
+    # config-only PRs trigger the workflow but skip the scan and complete with
+    # a passing check.
+
+jobs:
+  sfca-quality-gate:
+    name: Static Code Analysis
+    runs-on: <%= runsOn %>
+
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+<%~ include('_partials/_classify-ref') %>
+
+      - name: Set up Java
+        if: steps.classify.outputs.is_backprom == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Salesforce CLI
+        if: steps.classify.outputs.is_backprom == 'false'
+        run: |
+          npm install -g @salesforce/cli@latest
+          sf plugins install code-analyzer@latest
+
+      # ── Resolve which files changed in this PR ──────────────────────────────
+      # Build the --target argument string for SFCA so the analyzer scans
+      # only changed files, not the whole workspace. Without --target, SFCA
+      # scans all Apex lines + flows on every PR. With --target, the scan is
+      # proportional to the PR diff. Deletions are filtered out (git diff
+      # --name-only includes them and SFCA errors on missing paths).
+      #
+      # Uses an explicit merge-base + two-dot diff so the changeset is
+      # well-defined whether `actions/checkout` left HEAD on the merge
+      # commit (default for PRs) or on the feature tip.
+      - name: Get changed files
+        id: changed
+        if: steps.classify.outputs.is_backprom == 'false'
+        run: |
+          BASE_REF="origin/${{ github.base_ref }}"
+          BASE_SHA=$(git merge-base "$BASE_REF" HEAD)
+          HEAD_SHA=$(git rev-parse HEAD)
+          echo "--- diff bounds ---"
+          echo "base ref: $BASE_REF"
+          echo "base sha: $BASE_SHA"
+          echo "head sha: $HEAD_SHA"
+
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+<% for (const dir of packageDirs) { -%>
+            '<%= dir %>/**/*.cls' \
+            '<%= dir %>/**/*.trigger' \
+            '<%= dir %>/**/*.js' \
+            '<%= dir %>/**/*.html' \
+            '<%= dir %>/**/*.flow-meta.xml' \
+<% } -%>
+            > changed-files.txt
+
+          echo "--- changed files (raw diff, includes deletes) ---"
+          cat changed-files.txt
+
+          # Count + collect only files that still exist on HEAD. Deletions
+          # appear in `git diff --name-only` but pointing SFCA at a missing
+          # path errors with "file or folder does not exist" — and if the
+          # delete emptied the --workspace dir entirely, SFCA fails before
+          # even reading --target. So we anchor the count to files that
+          # survive the [-f] filter.
+          TARGETS=""
+          COUNT=0
+          while IFS= read -r f; do
+            if [ -n "$f" ] && [ -f "$f" ]; then
+              TARGETS="$TARGETS --target $f"
+              COUNT=$((COUNT + 1))
+            fi
+          done < changed-files.txt
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
+          echo "$COUNT file(s) to analyse (after filtering deletes)"
+          echo "--- target args ---"
+          echo "$TARGETS"
+
+      # ── Primary analysis: PR annotations + violation counts ─────────────────
+      # `--target` constrains the scan to changed files. The action's outputs
+      # (num-sev1-violations-in-changed-files, etc.) are now identical because
+      # everything we scan IS in changed files.
+      - name: Run Salesforce Code Analyzer
+        id: sfca
+        if: steps.classify.outputs.is_backprom == 'false' && steps.changed.outputs.count > 0
+        uses: forcedotcom/run-code-analyzer@v2
+        with:
+          run-arguments: >
+            --workspace <%= packageDirs[0] %>
+
+            --config-file code-analyzer.yml
+            --rule-selector <%= ruleSelector %>
+
+            ${{ steps.changed.outputs.targets }}
+          results-artifact-name: sfca-results
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Block on Critical (sev1) OR High (sev2) violations ─────────────────
+      # SFCA maps PMD priority-1 rules (KernDX framework rules,
+      # ApexCRUDViolation, ApexSharingViolations) to severity 2 ("High"),
+      # NOT severity 1 ("Critical"). A gate that only fires on sev1 will
+      # never block KernDX rule violations. Combining sev1+sev2 makes the
+      # gate match real-world subscriber expectations: framework violations
+      # block merges; missing-ApexDoc / style nits remain advisory.
+      - name: Check severity violations
+        if: >-
+          steps.classify.outputs.is_backprom == 'false'
+          && steps.changed.outputs.count > 0
+          && (steps.sfca.outputs.num-sev1-violations-in-changed-files > 0
+              || steps.sfca.outputs.num-sev2-violations-in-changed-files > 0)
+        run: |
+          SEV1=${{ steps.sfca.outputs.num-sev1-violations-in-changed-files }}
+          SEV2=${{ steps.sfca.outputs.num-sev2-violations-in-changed-files }}
+          echo "::error::${SEV1} critical + ${SEV2} high severity violation(s) found in changed files — fix before merging"
+          exit 1
+
+      # ── CSV export: per-violation rows for the Slack table ──────────────────
+      # --output-file extension determines format (.csv = CSV). No --format flag.
+      - name: Export violations to CSV
+        if: >-
+          always()
+          && steps.classify.outputs.is_backprom == 'false'
+          && steps.changed.outputs.count > 0
+          && steps.sfca.outcome != 'skipped'
+        run: |
+          TARGETS=$(awk '{printf "--target %s ", $0}' changed-files.txt)
+          RULE_SELECTOR="<%= ruleSelector %>"
+
+          sf code-analyzer run \
+            $TARGETS \
+            --rule-selector "$RULE_SELECTOR" \
+            --config-file code-analyzer.yml \
+            --output-file sfca-violations.csv \
+            2>sfca-run-errors.txt || true
+
+          echo "=== SFCA run errors (if any) ==="
+          cat sfca-run-errors.txt || true
+
+          touch sfca-violations.csv
+
+          echo "=== CSV header / first 5 rows ==="
+          head -6 sfca-violations.csv || true
+
+      # ── Emit GitHub Actions annotations for each violation ──────────────────
+      # Renders per-rule, per-line annotations on the PR's "Files changed" tab.
+      # GitHub caps annotations per step at 50; remaining violations are visible
+      # via the Slack notification + the sfca-results artifact.
+      - name: Emit PR annotations from violations CSV
+        if: >-
+          always()
+          && steps.classify.outputs.is_backprom == 'false'
+          && steps.changed.outputs.count > 0
+          && steps.sfca.outcome != 'skipped'
+        run: |
+          python3 - <<'PYEOF'
+          import csv, os
+
+          def level(sev):
+              try:
+                  n = int(sev)
+              except Exception:
+                  return 'warning'
+              return 'error' if n <= 2 else 'warning'
+
+          emitted = 0
+          try:
+              with open('sfca-violations.csv', newline='', encoding='utf-8') as fh:
+                  for row in csv.DictReader(fh):
+                      r = {k.lower().strip(): (v or '').strip() for k, v in row.items()}
+                      path = r.get('file', '').replace('\\', '/')
+                      if not path:
+                          continue
+                      rule = r.get('rule') or r.get('rulename') or 'unknown-rule'
+                      msg = (r.get('message') or '').replace('\n', ' ').replace('\r', ' ')
+                      line = r.get('startline') or r.get('line') or '1'
+                      col = r.get('startcolumn') or r.get('column') or '1'
+                      end_line = r.get('endline') or line
+                      end_col = r.get('endcolumn') or col
+                      lvl = level(r.get('severity'))
+                      safe_msg = msg.replace('%', '%25').replace(',', '%2C').replace(':', '%3A')
+                      rule_safe = rule.replace(',', '%2C')
+                      print(
+                          f"::{lvl} file={path},line={line},col={col},"
+                          f"endLine={end_line},endColumn={end_col},"
+                          f"title=SFCA {rule_safe}"
+                          f"::[{rule}] {msg}"
+                      )
+                      emitted += 1
+          except FileNotFoundError:
+              print("::notice::sfca-violations.csv not found — no annotations emitted")
+
+          print(f"Emitted {emitted} annotation(s).")
+          PYEOF
+<% if (slack.enabled) { %>
+<%~ include('_partials/_slack-payload.py.eta') %>
+
+      # ── Send to Slack (skipped on clean passes via should_notify) ────────────
+<% if (slack.suppress_on_pr_title_prefix) { %>
+      # Also skipped on <%= slack.suppress_on_pr_title_prefix %> prefixed PRs — automated runs should not spam Slack.
+<% } %>
+      - name: Notify Slack
+        if: >-
+          always()
+          && steps.classify.outputs.is_backprom == 'false'
+          && steps.sfca.outcome != 'skipped'
+          && steps.slack_payload.outputs.should_notify == 'true'
+<% if (slack.suppress_on_pr_title_prefix) { %>
+          && !startsWith(github.event.pull_request.title, '<%= slack.suppress_on_pr_title_prefix %>')
+<% } %>
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payload.json
+<% } %>

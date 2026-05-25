@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) */
+/* Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) */
+/* Modifications copyright (c) 2026 JVB Consulting */
+
+button
+{
+	border-bottom-width : 0;
+	border-top-width    : 0;
+}
+
+button.slds-is-closed
+{
+	border-width : 0;
+}
+
+button.slds-is-open:hover
+{
+	background-color : #F4F6FE;
+}
+
+button.slds-is-closed:hover
+{
+	background-color          : #0070D2;
+	border-bottom-left-radius : 0.25rem;
+	border-top-left-radius    : 0.25rem;
+}
+
+button.slds-is-closed:hover svg
+{
+	fill : #FFFFFF;
+}
+
+/* SLDS bug fix: removes list marker on nav menu */
+lightning-vertical-navigation-item-icon
+{
+	list-style : none;
+}

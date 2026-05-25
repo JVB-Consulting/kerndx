@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApplicableFieldTypes__c</fullName>
+    <description>Optional semicolon-delimited list of field types this rule applies to. Blank = every text-shaped field on the target object. Allowed values (case-insensitive): STRING (short text), TEXTAREA (long / rich text), URL, EMAIL, PHONE, ENCRYPTEDSTRING. Use this to narrow a rule to the field types where the pattern can match — e.g. MaskCreditCard is scoped STRING;TEXTAREA;ENCRYPTEDSTRING because URL / EMAIL / PHONE grammars cannot hold a card number. Narrowing reduces commit cost and eliminates false positives. Overrides explicit target wiring: if a MaskingTarget__mdt wires this rule to a specific Field__c whose DisplayType is excluded here, the rule will NOT fire — the framework emits a one-time warn log to surface the misconfiguration. Widen this list or remove the target if the wiring is intentional. Example: STRING;TEXTAREA;ENCRYPTEDSTRING.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Optional. Allowed: STRING, TEXTAREA, URL, EMAIL, PHONE, ENCRYPTEDSTRING (semicolon-separated, case-insensitive). Blank = all text-shaped fields. Overrides explicit target wiring — if a MaskingTarget specifies a field whose type is excluded here, the rule is silently skipped (framework logs a one-time warning).</inlineHelpText>
+    <label>Applicable Field Types</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

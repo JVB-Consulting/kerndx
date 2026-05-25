@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ShortMessage__c</fullName>
+    <description>Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Truncated message safe for SOQL filtering and GROUP BY. Use in reports and list views.</inlineHelpText>
+    <isFilteringDisabled>false</isFilteringDisabled>
+    <isNameField>false</isNameField>
+    <isSortingDisabled>false</isSortingDisabled>
+    <label>Short Message</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

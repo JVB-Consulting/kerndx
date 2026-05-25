@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Limits__c</fullName>
+    <description>JSON snapshot of Salesforce governor limits at the time the event was logged.</description>
+    <inlineHelpText>Captured limits such as SOQL queries, DML rows, CPU time, and heap size</inlineHelpText>
+    <label>Limits</label>
+    <length>1024</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

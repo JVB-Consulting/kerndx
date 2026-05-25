@@ -1,0 +1,29 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<!-- Lading channels, show spinner -->
+	<template lwc:if={isLoadingChannels}>
+		<lightning-spinner alternative-text="Loading channels" variant="brand"></lightning-spinner>
+	</template>
+
+	<!-- Done loading channels, display UI -->
+	<template lwc:else>
+		<article class="slds-card" data-testid="streaming-monitor-root">
+			<div class="main-card-body">
+				<c-streaming-sidebar onnavigate={handleNavigate} ontoggle={handleSidebarToggle} selected-item={view}>
+					<c-streaming-subscriptions onunsubscribe={handleUnsubscribe} onunsubscribeall={handleUnsubscribeAll} subscriptions={subscriptions}></c-streaming-subscriptions>
+				</c-streaming-sidebar>
+
+				<div class="body">
+					<c-streaming-events class={monitorClasses} subscriptions={subscriptions}></c-streaming-events>
+					<c-streaming-actions action={view} channels={channels} lwc:if={isActionView} onpublish={handlePublish} onsubscribe={handleSubscribe}
+					                     onsubscribeall={handleSubscribeAll}></c-streaming-actions>
+					<c-org-limits lwc:elseif={isOrgLimitsView}></c-org-limits>
+					<c-streaming-usage-metrics lwc:elseif={isEventUsageMetricsView}></c-streaming-usage-metrics>
+				</div>
+			</div>
+		</article>
+	</template>
+</template>

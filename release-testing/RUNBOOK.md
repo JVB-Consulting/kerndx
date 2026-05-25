@@ -1,0 +1,738 @@
+# KernDX Release Testing Runbook
+
+> **Who runs this?** This runbook documents the test cycle KernDX maintainers run before tagging a managed-package build — it is the gate every Kern release candidate must clear before being promoted to a published `04t` subscriber package version. It is shipped publicly so subscribers can see exactly what gauntlet a Kern version cleared on its way to becoming an installable release. **Subscribers do not need to run this themselves**; treat it as a reference for what "shipped" means in this project. The `release-testing/subscriber/` tree (Apex/LWC test fixtures used by these runs) is reusable if you want to anchor your own org-level regression suite against the framework, but the four phases below are the maintainers' workflow.
+
+> **`<repo-root>` placeholder.** Commands below reference `<repo-root>` where the absolute path to your project clone goes. Substitute mentally with the output of `pwd` from your project's root directory, or set an env var (`REPO_ROOT=$(pwd)`) and run `cd "$REPO_ROOT"`. The placeholder convention keeps this runbook portable across maintainer machines and CI runners.
+
+## Table of Contents
+
+- [Configuration](#configuration)
+- [Overview](#overview)
+- [Phase 1 — Environment Setup](#phase-1--environment-setup)
+- [Phase 2 — Automated Tests](#phase-2--automated-tests)
+  - [Run a single load test in isolation](#run-a-single-load-test-in-isolation)
+- [Phase 2.5 — Perf History Harvest](#phase-25--perf-history-harvest)
+- [Phase 3 — Visual Tests (Playwright E2E)](#phase-3--visual-tests-playwright-e2e)
+- [Phase 4 — Results Recording](#phase-4--results-recording)
+- [Phase 5 — Extended Load (pre-tag only)](#phase-5--extended-load-pre-tag-only)
+- [Knowledge Org Setup](#knowledge-org-setup)
+
+## Configuration
+
+`SF_SUBSCRIBER_ORG_ALIAS` is required. The runner scripts under `release-testing/runner/` resolve it via `release-testing/runner/subscriber-config.js` and throw a clear error if it is unset. Export it before running any command in this runbook:
+
+```bash
+export SF_SUBSCRIBER_ORG_ALIAS=MySubscriberOrg
+```
+
+If you leave it unset, the runner scripts fail fast with a message telling you which env var to set. The bash snippets in this runbook use `$SF_SUBSCRIBER_ORG_ALIAS` directly — your exported value is substituted automatically by your shell.
+
+## Overview
+
+This runbook defines the promotion gate for every KernDX release candidate. It combines automated Apex scripts, test
+class execution, and AI-orchestrated browser checks into a single versioned test cycle.
+
+**Wall-clock estimates:**
+- **Standard run (Phases 1-4):** ~85 min (setup ~15 min, automated tests ~45 min, visual tests ~20 min, recording ~5 min)
+- **Extended load (Phase 5, pre-tag only):** ~45-60 min additional
+
+**Test infrastructure lives in `release-testing/`:**
+
+```
+release-testing/
+  RUNBOOK.md                          # This file
+  subscriber/                         # Deployable artifacts for subscriber scratch org
+    cachePartitions/                  # Platform Cache allocation for kern__Library
+    classes/                          # Apex classes, triggers, meta XML
+    customMetadata/                   # CMDT records
+    layouts/                          # Account layout (with AccountSource field)
+    lwc/                              # LWC test components
+    flexipages/                       # SubscriberLwcTestPage
+    tabs/                             # Tab definition
+    permissionsets/                   # SubscriberTestAccess
+  scanner/                            # Static analysis validation fixtures
+    classes/                          # Apex: deliberate violations + compliant class
+    lwc/                              # LWC: violation, compliant, suppressed components
+  scripts/                            # Anonymous Apex test scripts (32 files)
+  e2e/                                # Playwright visual tests (36 checks)
+    specs/                            # 7 spec files (part1 through part7)
+    pages/                            # Page objects for Salesforce UI
+    helpers/                          # Auth, CLI, navigation, and wait helpers
+    fixtures/cmdt-states/             # CMDT state XML for sections 3, 11, 27
+  runner/                             # Phase 2 orchestrator and CMDT deployer
+  results/                            # Version-stamped result files
+```
+
+---
+
+## Phase 1 — Environment Setup
+
+### 1.1 Build Package
+
+```bash
+node scripts/build-package.js --skip-validation
+```
+
+Note the `SubscriberPackageVersionId` (04t...) from the output.
+
+### 1.2 Create Subscriber Scratch Org
+
+```bash
+sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
+```
+
+**CRITICAL:** Create the scratch org from `/tmp/kern-subscriber/` — NOT the dev project (has `"namespace":"kern"`).
+
+```bash
+mkdir -p /tmp/kern-subscriber/force-app
+cat > /tmp/kern-subscriber/sfdx-project.json << 'TMPEOF'
+{"packageDirectories":[{"path":"force-app","default":true}],"name":"KernSubscriber","sourceApiVersion":"66.0"}
+TMPEOF
+cd /tmp/kern-subscriber && sf org create scratch \
+  -f <repo-root>/config/project-scratch-def.json \
+  -a ${SF_SUBSCRIBER_ORG_ALIAS} -v DevHub -y 30 --wait 10
+```
+
+### 1.3 Install Package
+
+```bash
+sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <SubscriberPackageVersionId> --wait 15 --no-prompt
+```
+
+### 1.4 Deploy Subscriber Test Artifacts
+
+```bash
+cd <repo-root>
+
+mkdir -p /tmp/kern-subscriber/force-app/main/default/{classes,triggers,customMetadata,customPermissions,cachePartitions,layouts,flows}
+cp release-testing/subscriber/classes/*.cls release-testing/subscriber/classes/*.cls-meta.xml \
+  /tmp/kern-subscriber/force-app/main/default/classes/
+cp release-testing/subscriber/classes/*.trigger release-testing/subscriber/classes/*.trigger-meta.xml \
+  /tmp/kern-subscriber/force-app/main/default/triggers/
+cp release-testing/subscriber/customMetadata/* /tmp/kern-subscriber/force-app/main/default/customMetadata/
+cp release-testing/subscriber/customPermissions/* /tmp/kern-subscriber/force-app/main/default/customPermissions/
+cp release-testing/subscriber/cachePartitions/* /tmp/kern-subscriber/force-app/main/default/cachePartitions/
+cp release-testing/subscriber/layouts/* /tmp/kern-subscriber/force-app/main/default/layouts/
+cp release-testing/subscriber/flows/* /tmp/kern-subscriber/force-app/main/default/flows/
+```
+
+Deploy LWC, FlexiPages, tabs, and permission sets:
+
+```bash
+mkdir -p /tmp/kern-subscriber/force-app/main/default/{lwc,flexipages,tabs,permissionsets}
+cp -r release-testing/subscriber/lwc/* /tmp/kern-subscriber/force-app/main/default/lwc/
+cp release-testing/subscriber/flexipages/* /tmp/kern-subscriber/force-app/main/default/flexipages/
+cp release-testing/subscriber/tabs/* /tmp/kern-subscriber/force-app/main/default/tabs/
+cp release-testing/subscriber/permissionsets/* /tmp/kern-subscriber/force-app/main/default/permissionsets/
+```
+
+Generate CSP Trusted Site for the scratch org domain:
+
+```bash
+ORG_URL=$(sf org display -o $SF_SUBSCRIBER_ORG_ALIAS --json | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['instanceUrl'])")
+mkdir -p /tmp/kern-subscriber/force-app/main/default/cspTrustedSites
+cat > /tmp/kern-subscriber/force-app/main/default/cspTrustedSites/${SF_SUBSCRIBER_ORG_ALIAS}.cspTrustedSite-meta.xml << XMLEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<CspTrustedSite xmlns="http://soap.sforce.com/2006/04/metadata">
+    <endpointUrl>${ORG_URL}</endpointUrl>
+    <description>Trusted URL for subscriber scratch org</description>
+    <isActive>true</isActive>
+    <isApplicableToConnectSrc>true</isApplicableToConnectSrc>
+    <isApplicableToFrameSrc>false</isApplicableToFrameSrc>
+    <isApplicableToImgSrc>false</isApplicableToImgSrc>
+    <isApplicableToStyleSrc>false</isApplicableToStyleSrc>
+    <isApplicableToFontSrc>false</isApplicableToFontSrc>
+    <isApplicableToMediaSrc>false</isApplicableToMediaSrc>
+</CspTrustedSite>
+XMLEOF
+```
+
+Clear source tracking and deploy:
+
+```bash
+rm -rf /tmp/kern-subscriber/.sf/orgs
+cd /tmp/kern-subscriber && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app/main/default --ignore-conflicts
+cd <repo-root>
+```
+
+Assign permission sets to the admin user:
+
+```bash
+sf org assign permset -o $SF_SUBSCRIBER_ORG_ALIAS -n SubscriberTestAccess
+```
+
+**Do NOT assign `StrictValidationAccess` here.** It enables the `EnableStrictValidation` feature flag which activates the
+`AccountStrictValidation` rule group, causing sections 4-6 to fail with "Rating is required in strict mode". Section 22's
+setup/cleanup scripts manage this permission set when needed.
+
+Verify post-install configuration:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f /dev/stdin <<< "
+Boolean org = kern.UTIL_Cache.isOrgAllocated();
+Boolean session = kern.UTIL_Cache.isSessionAllocated();
+String orgUrl = Url.getOrgDomainUrl().toExternalForm();
+List<CspTrustedSite> sites = [SELECT Id FROM CspTrustedSite WHERE IsActive = true AND EndpointUrl = :orgUrl];
+System.debug('Org Cache: ' + org + ' | Session Cache: ' + session + ' | Trusted Site: ' + !sites.isEmpty());
+" 2>&1 | grep USER_DEBUG
+```
+
+All three Health Check indicators should show `true`.
+
+---
+
+## Phase 2 — Automated Tests
+
+### 2.1 Anonymous Apex Scripts
+
+Run each script sequentially against the org named by `SF_SUBSCRIBER_ORG_ALIAS`. Each outputs `PASS`/`FAIL` via `System.debug`.
+Filter output with: `sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f <script> 2>&1 | grep 'USER_DEBUG'`
+
+**Sections with pre-conditions beyond a vanilla subscriber scratch org:**
+
+- **Section 33** requires a **Knowledge-enabled** subscriber scratch org and pre-published Knowledge articles with assigned data categories — see [Knowledge Org Setup](#knowledge-org-setup) below for the full enablement recipe (use `config/km-scratch-def.json` instead of the standard scratch def, then deploy Knowledge settings + data category groups before running Phase 2). If your subscriber org doesn't have Knowledge enabled, skip Section 33; the rest of Phase 2 is unaffected.
+- **Sections 3, 11, 22, 27, 35, 42, 43** require CMDT state changes (fixture deploys) between runs — see the per-section notes immediately after the table.
+
+| #  | Script                                                            | Description                                                                   | Expected |
+|----|-------------------------------------------------------------------|-------------------------------------------------------------------------------|----------|
+| 1  | `release-testing/scripts/section-1-trigger-lifecycle.apex`        | Trigger handler lifecycle                                                     | 5/5      |
+| 2  | `release-testing/scripts/section-2-trigger-bypass.apex`           | Trigger bypass mechanisms                                                     | 6/6      |
+| 3  | `release-testing/scripts/section-3-trigger-feature-flags.apex`    | Trigger + feature flags (requires CMDT state changes)                         | 8/8      |
+| 4  | `release-testing/scripts/section-4-validation-lifecycle.apex`     | Validation rule lifecycle                                                     | 6/6      |
+| 5  | `release-testing/scripts/section-5-validation-bypass.apex`        | Validation bypass                                                             | 8/8      |
+| 6  | `release-testing/scripts/section-6-complex-formulas.apex`         | Complex validation formulas                                                   | 7/7      |
+| 7  | `release-testing/scripts/section-7-outbound-api.apex`             | Outbound API                                                                  | 4/4      |
+| 8  | `release-testing/scripts/section-8-api-feature-flags.apex`        | API feature flags                                                             | 5/5      |
+| 9  | `release-testing/scripts/section-9-cross-framework.apex`          | Cross-framework integration                                                   | 6/6      |
+| 10 | `release-testing/scripts/section-10-shadow-mode.apex`             | Shadow mode                                                                   | 5/5      |
+| 11 | `release-testing/scripts/section-11-execution-strategies.apex`    | Execution strategies (requires CMDT deployments)                              | 8/8      |
+| 12 | `release-testing/scripts/section-12-after-triggers.apex`          | After triggers                                                                | 6/6      |
+| 13 | `release-testing/scripts/section-13-inbound-api.apex`             | Inbound API                                                                   | 6/6      |
+| 14 | `release-testing/scripts/section-14-dml-builder.apex`             | DML Builder                                                                   | 6/6      |
+| 15 | `release-testing/scripts/section-15-qry-builder.apex`             | QRY Builder                                                                   | 10/10    |
+| 16 | `release-testing/scripts/section-16-log-builder.apex`             | LOG Builder                                                                   | 9/9      |
+| 17 | `release-testing/scripts/section-17-flow-invocables.apex`         | Flow invocables                                                               | 8/8      |
+| 19 | `release-testing/scripts/section-19-lwc-logger-persistence.apex`  | LWC logger persistence                                                        | 6/6      |
+| 20 | `release-testing/scripts/section-20-flow-logger.apex`             | Flow logger                                                                   | 7/7      |
+| 21 | `release-testing/scripts/section-21-scheduler.apex`               | Scheduler framework                                                           | 8/8      |
+| 22 | `release-testing/scripts/section-22-*.apex`                       | Advanced strategies (Custom Permission flags, Fail Fast + flag-gated groups)  | 8/8      |
+| 23 | `release-testing/scripts/section-23-trigger-action-ordering.apex` | Trigger action ordering + feature flag fix verification                       | 4/4      |
+| 24 | `release-testing/scripts/section-24-delegation-overrides.apex`    | Delegation mode caller overrides                                              | 5/5      |
+| 25 | `release-testing/scripts/section-25-scheduler-timezone.apex`      | Scheduler timezone awareness                                                  | 4/4      |
+| 26 | `release-testing/scripts/section-26-log-correlation.apex`         | Log correlation — end-to-end traceability                                     | 7/7      |
+| 27 | `release-testing/scripts/section-27-mock-selection.apex`          | Multi-mock selection — priority, pattern, catch-all                           | 8/8      |
+| 28 | `release-testing/scripts/section-28-util-cache.apex`              | UTIL_Cache — platform cache from subscriber                                   | 7/7      |
+| 29 | `release-testing/scripts/section-29-log-scope.apex`               | LOG_Builder.scope() — scoped logging                                          | 5/5      |
+| 30 | `release-testing/scripts/section-30-resilience-strategies.apex`   | Circuit breaker state machine & retry backoff math                            | 10/10    |
+| 31 | `release-testing/scripts/section-31-failure-handling.apex`        | Failure handling, retry persistence, failure rate injection, ApiIssue logging | 8/8      |
+| 32 | `release-testing/scripts/section-32-load-test.js`                 | Circuit breaker load test — parallel HTTP via Node (not Apex)                 | 5/5      |
+| 33 | `release-testing/scripts/section-33-knowledge-data-category.apex` | Knowledge WITH DATA CATEGORY queries (requires Knowledge org)                 | 5/5      |
+| 34 | `release-testing/scripts/section-34-async-chain.apex`             | Async chain orchestration (DML, context flow, handlers, callout isolation)    | 9/9      |
+| 35 | `release-testing/scripts/section-35-secure-by-default.apex`       | Secure-by-default USER_MODE posture (flag state, QRY + DML defaults, overrides, systemModeRequired hook) | 8/8      |
+| 35 | `release-testing/scripts/section-35-kill-switch.apex`             | Secure-by-default kill switch (both flags off → SYSTEM_MODE fallback)         | 4/4      |
+| 36 | `release-testing/scripts/section-36-masking-applicable-field-types.apex` | Masking `ApplicableFieldTypes__c` narrowing — rule skips fields whose DisplayType is outside the list | 4/4      |
+| 37 | `release-testing/scripts/section-37-masking-min-input-length.apex` | Masking `MinInputLength__c` short-circuit — values below threshold skip pattern eval entirely | 2/2      |
+| 38 | `release-testing/scripts/section-38-masking-transactionid-preservation.apex` | Regression guard for the original parent-transaction-ID false-redaction bug (Luhn + issuer-prefix filter) | 3/3      |
+| 39 | `release-testing/scripts/section-39-masking-type-filter-warn.apex` | Explicit-field `MaskingTarget__mdt` dropped by type filter emits a one-time warn LogEntry (P12) | 2/2      |
+| 40 | `release-testing/scripts/section-40-masking-inactive-rule-validation.apex` | Every shipped masking rule's `Pattern__c` compiles + matches a curated positive + negative sample (active + inactive) | 42/42    |
+| 41 | `release-testing/scripts/section-41-flow-action-subscriber.apex` | Cross-namespace `kern__TRG_InvokeFlow` dispatch — flow runs, output applied, LogAndContinue, recursion-identity, mock harness, variable contract | 6/6      |
+| 42 | `release-testing/scripts/section-42-flow-action-blockdml.apex`   | `FailureAction__c = BlockDml` halts DML when bound flow throws (requires `section-flow-blockdml-active` fixture before; restore via `section-flow-blockdml-default`) | 1/1      |
+| 43 | `release-testing/scripts/section-43-flow-action-feature-flag.apex` | `RequiredFeatureFlag__c` gating disables flow action when flag is off (requires `section-flow-flag-disabled` fixture before; restore via `section-flow-flag-default`) | 1/1      |
+| 44 | `release-testing/scripts/section-44-flow-action-upgrade.apex`    | Managed-package upgrade compatibility — pre-existing Apex-only `TriggerAction__mdt` rows still resolve after the new flow fields land | 3/3      |
+| 44 | `release-testing/scripts/section-44-load-masker.apex`            | Load test — `UTIL_FrameworkMasker` bulk: 200 `ApiCall__c` records via `TRG_Dispatcher` inline masking pre-step (emits `PERF_ROW`) | 2/2      |
+| 45 | `release-testing/scripts/section-45-load-qry-aggregate.apex`     | Load test — `QRY_Builder` aggregate cardinality: GROUP BY + ROLLUP across high-row counts (emits `PERF_ROW`) | 2/2      |
+| 46 | `release-testing/scripts/section-46-load-trigger-fanout.apex`    | Load test — `TRG_Dispatcher` fan-out + per-action filter under bulk DML (emits `PERF_ROW`) | 2/2      |
+| 47 | `release-testing/scripts/section-47-load-validation-bulk.apex`   | Load test — `UTIL_ValidationRule.executeForTrigger()` bulk: high-row validation group evaluation (emits `PERF_ROW`) | 2/2      |
+| 48 | `release-testing/scripts/section-48-load-async-chain-ser.apex`   | Load test — `UTIL_AsyncChain` context serialization launch: enqueues a multi-step chain with large shared context (emits `PERF_ROW`) | 1/1      |
+| 48b | `release-testing/scripts/section-48b-load-async-chain-ser-verify.apex` | Verify — chain from section 48 completed successfully (query `AsyncApexJob`) | 1/1      |
+| 49 | `release-testing/scripts/section-49-load-async-launcher.apex`    | Load test — `UTIL_AsynchronousJobLauncher` Queueable/Batch: enqueues multiple async jobs in burst (emits `PERF_ROW`) | 1/1      |
+| 49b | `release-testing/scripts/section-49b-load-async-launcher-verify.apex` | Verify — async jobs from section 49 completed successfully | 1/1      |
+| 50 | `release-testing/scripts/section-50-load-logger-pe-quota.apex`   | Load test — Logger platform event quota: emits ≥150 `LogEntryEvent__e` in one transaction using `LOG_Builder.scope()` (emits `PERF_ROW`) | 1/1      |
+| 50b | `release-testing/scripts/section-50b-load-logger-pe-quota-verify.apex` | Verify — `LogEntry__c` records from section 50 persisted (polls with delay) | 1/1      |
+| 51 | `release-testing/scripts/section-51-load-callout-storm.js`       | Load test — `UTIL_HttpClient` callout storm: parallel HTTP via Node.js against `REST_LoadProbe` (emits `PERF_ROW`) | 5/5      |
+| 52 | `release-testing/scripts/section-52-edge-dml-builder.apex`       | Edge cases — `DML_Builder`: partial-save flag, parent-child chain, mixed DML types, error aggregation | 6/6      |
+| 53 | `release-testing/scripts/section-53-edge-qry-builder.apex`       | Edge cases — `QRY_Builder`: semi-join subqueries, NOT IN, pagination, field set, scope, all rows, for update | 7/7      |
+| 54 | `release-testing/scripts/section-54-edge-inbound-api.apex`       | Edge cases — inbound API: duplicate headers, malformed JSON body, validation-phase abort, missing required fields | 5/5      |
+| 55 | `release-testing/scripts/section-55-edge-outbound-failure.apex`  | Edge cases — outbound API failure composition: circuit breaker open → abort, retry exhaustion, failure rate injection | 5/5      |
+| 56 | `release-testing/scripts/section-56-edge-async-chain.apex`       | Edge cases — `UTIL_AsyncChain`: `continueOnError`, max-steps guard, error handler context, correlation ID threading (Launch) | 1/1      |
+| 56b | `release-testing/scripts/section-56b-edge-async-chain-verify.apex` | Verify — chain from section 56 completed (checks error handler ran + step count correct) | 3/3      |
+| 57 | `release-testing/scripts/section-57-edge-cache-ttl.apex`         | Edge cases — `UTIL_Cache`: TTL expiry, missing partition graceful fallback, `AUTO` mode selection | 5/5      |
+| 58 | `release-testing/scripts/section-58-edge-logger.apex`            | Edge cases — `LOG_Builder`: scope batching, context chain, forRecord, summary, multi-level, PE governor limit | 6/6      |
+| 59 | `release-testing/scripts/section-59-edge-scheduler.apex`         | Edge cases — `SCHED_Base`: missing required parameter, type mismatch, default value fallback, cron expression building | 5/5      |
+| 60 | `release-testing/scripts/section-60-edge-mock-regex.apex`        | Edge cases — `API_MockFactory` + `API_MockMatcher`: regex mode priority, catch-all, pattern specificity ordering | 5/5      |
+| 61 | `release-testing/scripts/section-61-edge-masking-rollback.apex`  | Edge cases — `UTIL_FrameworkMasker`: DML rollback isolation (masking log survives rolled-back DML), field-length, idempotency | 4/4      |
+| 62 | `release-testing/scripts/section-62-edge-type-resolver.apex`     | Edge cases — `UTIL_TypeResolver`: interface mismatch error, `Order__c` ties, subscriber-first resolution, missing class | 5/5      |
+| 63 | `release-testing/scripts/section-63-edge-resilience-comp.apex`   | Edge cases — `UTIL_CircuitBreaker` + `UTIL_Retry` composition: retry feeds into open breaker, exponential backoff math | 5/5      |
+| 64 | `release-testing/scripts/section-64-edge-asyncjob-launcher.apex` | Edge cases — `UTIL_AsynchronousJobLauncher`: max concurrent guard, re-enqueue after failure, job type selection (Launch) | 1/1      |
+| 65 | `release-testing/scripts/section-65-bypass-audit-framework-wide.apex` | Framework-wide bypass audit — `UTIL_BypassAudit.emit` fires on trigger / query / DML / validation surfaces; reason latch flows; `BypassAudit_Enabled` kill-switch is default-on | 6/6      |
+| 66 | `release-testing/scripts/section-66-feature-flag-lwc-bridge.apex` | LWC bridge — `kern.CTRL_FeatureFlag.isEnabled` mirrors `kern.UTIL_FeatureFlag.isEnabled` for shipped flags and missing flags | 3/3      |
+
+**Section 65 forensic query** for subscribers grepping the audit channel:
+```sql
+SELECT kern__ContextData__c, kern__Message__c, kern__ClassMethod__c, kern__CreatedDate__c, kern__UserId__c
+FROM kern__LogEntry__c
+WHERE kern__ContextData__c LIKE '%"category":"BypassEvent"%'
+ORDER BY CreatedDate DESC LIMIT 100
+```
+Filter additionally on `'"surface":"query"'`, `'"surface":"dml"'`, `'"surface":"validation"'`, `'"surface":"trigger-object"'`, `'"surface":"trigger-action"'`, or `'"surface":"reason-latch"'` to scope by surface.
+
+**Section 3 note:** Requires 4 CMDT state changes between runs (deploy State A → run → State B → run → etc.).
+**Section 11 note:** Requires 2 CMDT deployments (Fail Fast → run → Accumulate → run).
+**Section 22 note:** Run 3 scripts in order: `section-22-setup.apex` → `section-22-advanced-strategies.apex` → `section-22-cleanup.apex`.
+Must run AFTER sections 4-6 (setup assigns `StrictValidationAccess` which adds strict validation rules).
+**Section 26 note:** 7 PASS total (26a-26g). Tests 26f-26g query LogEntry__c for async platform event data — run AFTER sections 16-20
+to ensure log entries exist. If 26f shows "No correlated entries found", wait a few seconds and re-run.
+**Section 27 note:** Requires CMDT state changes: deploy `section27-mock-enabled` (sets `MockingEnabled__c = true` on
+SubscriberCreateAccount and `IsEnabledByDefault__c = true` on MockAllAPIs), run script, then deploy `section27-mock-disabled`
+to restore defaults.
+**Section 33 note:** Requires a Knowledge-enabled subscriber scratch org. See [Knowledge Org Setup](#knowledge-org-setup)
+below. Run `section-33-knowledge-setup.apex` first to create and publish test articles, then assign data categories
+to articles before running the test script.
+
+**Section 35 note:** Three-step flag-flip dance that proves secure-by-default is real end-to-end. Run
+`section-35-secure-by-default.apex` against the shipped defaults (both `UserModeQueries_Enabled` and
+`UserModeDml_Enabled` on). Then deploy `section35-flags-disabled` fixture
+(`node release-testing/runner/cmdt-deployer.js section35-flags-disabled`) and run
+`section-35-kill-switch.apex` to prove the emergency kill switch returns the framework to SYSTEM_MODE. Finally
+deploy `section35-flags-default` to restore the shipped posture for the rest of Phase 2.
+
+**Section 39 note:** Depends on the subscriber CMDT fixtures
+`kern__MaskingRule.TestTypeFilterWarn` and `kern__MaskingTarget.TestTypeFilterWarnOnApiCallUrl` (both in
+`release-testing/subscriber/customMetadata/`) being deployed as part of Phase 1.4. The rule scopes to
+STRING;TEXTAREA with a never-match sentinel pattern and wires to `ApiCall__c.URL__c` (DisplayType URL) —
+the type-filter mismatch is what the framework warns on. Using a dedicated test rule (instead of
+MaskSecretKeys) because specific-field targets shadow rule-matched wildcards by rule+caller key — wiring a
+specific target for a shipped rule would break that rule's masking on other fields.
+
+**Section 41-44 notes (flow-as-trigger-action work):** Sections 41-44 share three subscriber flows
+(`TST_SubscriberFlow_SetDefaults`, `TST_SubscriberFlow_AdditionalDefaults`, `TST_SubscriberFlow_AlwaysFail` —
+all under `release-testing/subscriber/flows/`), four CMDT records (three TriggerAction rows + one FeatureFlag),
+and four fixture states under `release-testing/e2e/fixtures/cmdt-states/section-flow-*/`. Run order:
+
+```bash
+# 41 — runs against shipped defaults (no fixture deploy needed)
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-41-flow-action-subscriber.apex 2>&1 | grep USER_DEBUG
+
+# 42 — BlockDml (deploy active fixture, run, restore default)
+node release-testing/runner/cmdt-deployer.js section-flow-blockdml-active
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-42-flow-action-blockdml.apex 2>&1 | grep USER_DEBUG
+node release-testing/runner/cmdt-deployer.js section-flow-blockdml-default
+
+# 43 — RequiredFeatureFlag gating (deploy disabled fixture, run, restore default)
+node release-testing/runner/cmdt-deployer.js section-flow-flag-disabled
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-43-flow-action-feature-flag.apex 2>&1 | grep USER_DEBUG
+node release-testing/runner/cmdt-deployer.js section-flow-flag-default
+
+# 44 — runs against shipped defaults (no fixture deploy needed)
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-44-flow-action-upgrade.apex 2>&1 | grep USER_DEBUG
+```
+
+Plus the benchmark and scanner-self-test:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/benchmark-flow-action.apex 2>&1 | grep USER_DEBUG
+bash release-testing/scripts/test-flow-action-scanner.sh
+```
+
+The `TRG_InvokeFlow_SUBTEST` Apex test class lives in `release-testing/subscriber/classes/`; it runs as part
+of the standard 2.2 test-class sweep.
+
+**Sections 48/49/50 (async launch+verify pairs):** Run the launch script first, wait for async jobs to process (typically
+5-30 s), then run the corresponding verify script (`*-verify.apex`). The verify scripts poll `AsyncApexJob` and
+`LogEntry__c` — if they report 0 completed jobs, wait a few seconds and re-run.
+
+**Section 51 note:** Node.js load test — requires credentials for the org named by `SF_SUBSCRIBER_ORG_ALIAS` accessible to the Salesforce CLI.
+Run from the project root: `node release-testing/scripts/section-51-load-callout-storm.js`. The script authenticates
+via `sf org display -o $SF_SUBSCRIBER_ORG_ALIAS --json` and fires parallel HTTP callouts against `REST_LoadProbe`.
+
+**Section 56 (async chain edge, launch+verify):** Run `section-56-edge-async-chain.apex` first (enqueues the chain),
+then run `section-56b-edge-async-chain-verify.apex` after async processing completes.
+
+**Section 64 (AsyncJobLauncher edge, launch+verify):** Similar pattern — run `section-64-edge-asyncjob-launcher.apex`
+to enqueue, wait for completion, then check results inline (verify queries embedded in same script via polling).
+
+**Load test sections 44-51:** Each emits `PERF_ROW` lines to the debug log for the Phase 2.5 perf history harvester.
+Capture the raw log file path if you intend to update baselines (see `release-testing/Testing Protocol.md` for the
+`--logfile` flag). Behaviour assertions are the hard gate — timing warnings are advisory.
+
+### Run a single load test in isolation
+
+```bash
+sf apex run --file release-testing/scripts/section-45-load-qry-aggregate.apex -o $SF_SUBSCRIBER_ORG_ALIAS
+```
+
+Each load script is self-contained (creates + tears down its own data). See `release-testing/Testing Protocol.md` for the
+isolation guarantee, the `PERF_ROW` emission convention, and the per-baseline-update commands.
+
+### 2.2 Test Classes
+
+Run all subscriber test classes:
+
+```bash
+sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS --test-level RunLocalTests --result-format human --code-coverage
+```
+
+**Expected:** 30 test classes, 136/136 tests passing, 100% org-wide coverage.
+
+Test classes deployed in `release-testing/subscriber/classes/`:
+`AccountArchiveProcessor_TEST`, `API_ContactFormSubmit_TEST`, `API_GetPost_TEST`, `CTRL_SubscriberLwcTest_TEST`,
+`REST_ContactForm_TEST`, `SCHED_SubscriberJob_TEST`, `SubscriberAsyncDml_TEST`, `SubscriberChainSteps_TEST`,
+`SubscriberHttpClient_TEST`, `SubscriberMockSelection_TEST`, `SVC_AccountOnboarding_TEST`,
+`SVC_AccountValidator_TEST`, `SVC_PricingCalculator_TEST`, `SubscriberMockPatterns_TEST`,
+`SubscriberResilience_TEST`, `TRG_AccountHandlers_TEST`, `TRG_InvokeFlow_SUBTEST`, `UTIL_AccountClassifier_TEST`,
+`VAL_AccountRules_TEST`,
+`FastStart_AsyncChain_DEMO_TEST`, `FastStart_DML_DEMO_TEST`, `FastStart_E2E_DEMO_TEST`,
+`FastStart_FeatureFlag_DEMO_TEST`, `FastStart_InboundAPI_DEMO_TEST`, `FastStart_Logging_DEMO_TEST`,
+`FastStart_OutboundAPI_DEMO_TEST`, `FastStart_Selectors_DEMO_TEST`, `FastStart_TestData_DEMO_TEST`,
+`FastStart_TriggerAction_DEMO_TEST`, `FastStart_Validation_DEMO_TEST`
+
+### 2.3 Static Code Analysis (Scanner Ruleset)
+
+Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test fixtures and framework source.
+
+#### 2.3a Violation Detection
+
+Run the scanner against the test fixtures that contain deliberate violations:
+
+```bash
+sf code-analyzer run --target release-testing/scanner/classes/ --rule-selector pmd:KernDXFrameworkCompliance --config-file code-analyzer.yml --view detail
+```
+
+**Expected:** 40 violations across 4 files (0 from `ScannerTestCompliant.cls`):
+
+| File                             | Rule                         | Count |
+|----------------------------------|------------------------------|-------|
+| `ScannerTestTrigger.trigger`     | KernTriggerMustDelegate      | 1     |
+| `ScannerTestRestViolation.cls`   | KernRestResourceNaming       | 1     |
+| `ScannerTestViolations.cls`      | KernNoInlineSOQL             | 4     |
+| `ScannerTestViolations.cls`      | KernNoDirectDML              | 4     |
+| `ScannerTestViolations.cls`      | KernNoSystemDebug            | 2     |
+| `ScannerTestViolations.cls`      | KernNoRawHttp                | 3     |
+| `ScannerTestViolations.cls`      | KernNoRawHttpMock            | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawCache               | 2     |
+| `ScannerTestViolations.cls`      | KernNoRawDescribe            | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawTypeForName         | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawEnqueueJob          | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawSchedule            | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawEventPublish        | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawRestContext         | 2     |
+| `ScannerTestViolations.cls`      | KernNoRawEmail               | 1     |
+| `ScannerTestViolations.cls`      | KernUseSchedulerBase         | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawCrypto              | 1     |
+| `ScannerTestViolations.cls`      | KernNoRawFeatureManagement   | 1     |
+| `ScannerTestViolations_TEST.cls` | KernNoInlineSOQL             | 1     |
+| `ScannerTestViolations_TEST.cls` | KernNoDirectDML              | 1     |
+| `ScannerTestViolations_TEST.cls` | KernNoInlineDmlInTests       | 1     |
+| `ScannerTestViolations_TEST.cls` | KernNoLegacyAssert           | 3     |
+| `ScannerTestViolations_TEST.cls` | KernNoCoverageTheatre        | 3     |
+| `ScannerTestViolations_TEST.cls` | KernUseTestBuilder           | 2     |
+
+If a new framework wrapper is added, add a corresponding violation method to `ScannerTestViolations.cls` and update
+the expected count.
+
+#### 2.3b Framework Clean Scan
+
+Run the scanner against the framework source to verify no unintended violations remain in production classes:
+
+```bash
+sf code-analyzer run --target force-app/ --rule-selector pmd:KernDXFrameworkCompliance --config-file code-analyzer.yml --view table
+```
+
+**Expected:** 0 violations in production (non-`_TEST`) classes. Test class violations (KernUseTestBuilder,
+KernNoDirectDML) are expected — framework tests legitimately test raw APIs.
+
+#### 2.3c Subscriber Code Scan
+
+Run the scanner against the subscriber test code to confirm compliant subscriber code passes clean:
+
+```bash
+sf code-analyzer run --target release-testing/subscriber/classes/ --rule-selector pmd:KernDXFrameworkCompliance --config-file code-analyzer.yml --view detail
+```
+
+**Expected:** Subscriber code follows framework patterns — all violations should be justified and documented.
+
+#### 2.3d ESLint LWC Fixture Scan
+
+Run the ESLint `kerndx/use-component-builder` rule against the scanner LWC test fixtures:
+
+```bash
+cd release-testing/scanner/lwc && npx eslint "**/*.js"
+```
+
+**Expected:** 1 violation in `scannerTestViolation.js`, 0 violations in `scannerTestCompliant.js` and `scannerTestSuppressed.js`.
+
+| File                                             | Expected                               |
+|--------------------------------------------------|----------------------------------------|
+| `scannerTestViolation/scannerTestViolation.js`   | 1 `kerndx/use-component-builder` error |
+| `scannerTestCompliant/scannerTestCompliant.js`   | 0 errors (uses ComponentBuilder)       |
+| `scannerTestSuppressed/scannerTestSuppressed.js` | 0 errors (eslint-disable suppression)  |
+
+#### 2.3e ESLint LWC Framework Scan
+
+Run the ESLint rule against all framework LWC source to verify no components bypass ComponentBuilder:
+
+```bash
+cd force-app/main/default/lwc && npx eslint --rule "kerndx/use-component-builder: error" "**/*.js" --ignore-pattern "**/*.test.js"
+```
+
+**Expected:** 0 `kerndx/use-component-builder` errors. Framework infrastructure components (streaming monitor, notice, validationErrors) have
+justified `// eslint-disable-next-line` suppressions. Any new component extending `LightningElement` without suppression is a violation.
+
+---
+
+## Phase 2.5 — Perf History Harvest
+
+After Phase 2 completes, harvest `PERF_ROW:` lines from the Phase 2 log output and update the rolling baselines:
+
+```bash
+node release-testing/runner/perf-history.js --logfile <phase2-log-path>
+```
+
+This phase NEVER fails the build on timing alone. Behaviour assertions in each section script are the only hard gate;
+this step prints WARN/WARN! lines for regressions ≥1.3×/≥1.5× off the rolling 5-run median for human review.
+
+**Sections covered** (the 8 load tests that emit `PERF_ROW` lines):
+
+| Section | Short name           | What it measures                                      |
+|---------|----------------------|-------------------------------------------------------|
+| 44      | masker               | `UTIL_FrameworkMasker` bulk throughput (200 records)  |
+| 45      | qry-aggregate        | `QRY_Builder` GROUP BY + ROLLUP cardinality           |
+| 46      | trigger-fanout       | `TRG_Dispatcher` fan-out under bulk DML               |
+| 47      | validation-bulk      | `UTIL_ValidationRule.executeForTrigger()` bulk        |
+| 48      | async-chain-ser      | `UTIL_AsyncChain` context serialization enqueue time  |
+| 49      | async-launcher       | `UTIL_AsynchronousJobLauncher` burst enqueue time     |
+| 50      | logger-pe-quota      | Logger PE flood wall-clock (scoped emit batch)        |
+| 51      | callout-storm        | `UTIL_HttpClient` parallel callout throughput (Node)  |
+
+**Per-section invocation** (when iterating on one load test in isolation):
+
+```bash
+node release-testing/runner/perf-history.js --section=45 --logfile <log>
+```
+
+**Inspect baselines without modifying:**
+
+```bash
+node release-testing/runner/perf-history.js --report
+```
+
+**Reset a baseline after intentional perf change** (e.g. after a masker optimisation lands):
+
+```bash
+node release-testing/runner/perf-history.js --reset --section=44
+```
+
+The `release-testing/results/perf-history.json` file is committed as the source of truth for the package's current
+performance shape. When a perf change is intentional, the commit shipping the optimisation should also commit the new
+baseline.
+
+See `release-testing/Testing Protocol.md` for the isolation guarantee, `PERF_ROW` emission convention, and per-baseline-update
+commands.
+
+---
+
+## Phase 3 — Visual Tests (Playwright E2E)
+
+Phase 3 is fully automated by Playwright. The 29 visual checks (V1-V29) run in a headless browser against
+the subscriber scratch org.
+
+### Running Phase 3
+
+```bash
+npm run test:e2e
+```
+
+Or with visible browser for debugging:
+
+```bash
+npm run test:e2e:headed
+```
+
+Or a single part:
+
+```bash
+npm run test:e2e:part3
+```
+
+### Test Specs
+
+| Spec file                          | Checks              | What it tests                                                                       |
+|------------------------------------|---------------------|-------------------------------------------------------------------------------------|
+| `part1-app-core.spec.js`           | V1-V5, V1b-V1i      | App Home, Health Check sections + customize flow, Log Entries, Scheduled Jobs, API Harness, API Calls |
+| `part2-api-config.spec.js`         | V6-V10              | Echo results, API Issues, Streaming Monitor UI, CMDT, Login Frequencies             |
+| `part3-lwc-integration.spec.js`    | V11-V14             | LWC components, module tests, Account triggers, log entries                         |
+| `part4-scheduler-exec.spec.js`     | V15-V18             | Job execution (Purge, Login History), cleanup verification                          |
+| `part5-streaming-setup.spec.js`    | V19-V24             | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events                        |
+| `part6-streaming-advanced.spec.js` | V25-V29             | Generic channel (stale cache), publish, download, cleanup                           |
+| `part7-async-chain.spec.js`        | V10-V17             | Async chain execution, polling, record verification, API callout, handler isolation |
+
+**Expected:** 41/41 tests passing (13 in part1 after subsequent additions added V1f–V1i and extended V1/V1e).
+
+**Part 1 detail (post-Phase 0):**
+- V1 — App nav, tool cards, health check fail-above-warn section ordering, Apply + Customize buttons present.
+- V1b — Health check adapts as purge jobs are configured (4-of-4 turns card green).
+- V1c — Admin tool cards launch namespaced tabs.
+- V1d — Apply Recommended Retention creates all 4 purge jobs.
+- V1e — Customize flow per-object save, 4→3 sub-row transition, singular/plural meta labels.
+- V1f — Customize-mode headline interpolates proposal count; help paragraph and back-to-apply link work.
+- V1g — Set-up modal renders with usable dimensions (>300px height; guards against the 32px `lightning-layout`-inside-modal regression).
+- V1h — Locked Class Name renders read-only `lightning-input`, not a combobox with placeholder.
+- V1i — Customize + Set-up flow does not emit "Unable to access Apex type" errors (guards `schedulerClassName` namespace-agnostic wiring).
+- V2-V5 — Log Entries, Scheduled Jobs lifecycle, API Test Harness, API Call records.
+
+### Prerequisites
+
+- KernDX package installed in subscriber scratch org (alias: the value of `SF_SUBSCRIBER_ORG_ALIAS`)
+- Subscriber test code deployed (classes, triggers, CMDT, LWC components, FlexiPage, tab)
+- Health Check prerequisites configured (org cache partition, session cache partition, trusted URL)
+
+### Debugging Failures
+
+1. **Screenshot:** `release-testing/test-results/<test-name>/test-failed-1.png`
+2. **Video:** `release-testing/test-results/<test-name>/video.webm`
+3. **Trace:** `npx playwright show-trace release-testing/test-results/<test-name>/trace.zip`
+4. **Headed mode:** `npm run test:e2e:headed` to watch the browser in real time
+5. **Debug mode:** `npm run test:e2e:debug` for Playwright Inspector with step-through
+
+### Dependency Chain
+
+Parts 1-4 are mostly independent. Parts 5 and 6 MUST run in order (Part 5 creates streaming state,
+Part 6 consumes and cleans it up).
+
+---
+
+## Phase 4 — Results Recording
+
+After completing all phases, create a result file in `release-testing/results/` named after the package version
+(e.g., `1.0.0-37.md`).
+
+### Result File Format
+
+```markdown
+# Release Test Results — Kern 1.0.0-XX
+
+**Package Version:** 1.0.0-XX
+**SubscriberPackageVersionId:** 04tXXXXXXXXXXXXXXX
+**Test Date:** YYYY-MM-DD
+**Tested By:** [name or agent]
+
+## Summary
+
+| Phase | Result | Details |
+|-------|--------|---------|
+| Phase 2 — Automated Tests | PASS/FAIL | XX/XX scripts passed, XXX/XXX test methods passed |
+| Phase 2 — Scanner Ruleset | PASS/FAIL | XX/24 expected violations, 0 production violations |
+| Phase 2 — ESLint LWC Scan | PASS/FAIL | 0 kerndx/use-component-builder violations |
+| Phase 3 — Visual Tests    | PASS/FAIL | XX/29 Playwright tests passed |
+
+## Phase 2 — Automated Test Results
+
+| Script | Result | Pass/Total |
+|--------|--------|------------|
+| section-1-trigger-lifecycle | PASS/FAIL | X/5 |
+| section-2-trigger-bypass | PASS/FAIL | X/6 |
+| ... | ... | ... |
+| RunLocalTests | PASS/FAIL | XXX/XXX |
+
+## Phase 3 — Visual Test Results
+
+[Generated by Playwright reporter — see current-run.json]
+
+## Findings
+
+- [List any issues, warnings, or observations]
+
+## Promotion Decision
+
+- [ ] **PROMOTE** — All tests passed. Ready for `sf package version promote`.
+- [ ] **HOLD** — Issues found. See findings above.
+```
+
+### Recording Steps
+
+1. Copy the template above into `release-testing/results/<version>.md`
+2. Fill in results from Phase 2 and Phase 3
+3. Record any findings or deviations
+4. Check the promotion decision box
+5. Commit the result file
+
+---
+
+## Phase 5 — Extended Load (pre-tag only)
+
+Run only when promoting beta to GA. Adds ~45-60 min wall-clock.
+
+**Pre-conditions:**
+- Fresh scratch org under `SF_SUBSCRIBER_ORG_ALIAS` (cumulative load consumes governor headroom)
+- Org Cache + Session Cache + Trusted URL configured (per Health Check)
+- All Phase 1-4 phases passed first
+
+**Run:**
+
+```bash
+npm run test:load:extended
+```
+
+This sequences:
+- `sustained-masker-soak.apex` (~30 min via Schedulable cron)
+- `sustained-logger-pe-flood.apex` (~30 min via Schedulable cron)
+- `parallel-callout-burst-100.js` (~5 min)
+- `parallel-cache-contention.js` (~5 min)
+
+Smoke-test mode (single iteration via direct fire) is documented in each script's header.
+
+**Failure of any extended script blocks GA promotion.**
+
+See `release-testing/Testing Protocol.md` for the load-test isolation guarantee + per-baseline-update commands.
+
+---
+
+## Knowledge Org Setup
+
+Section 33 tests require a Knowledge-enabled subscriber scratch org. This is **optional** — only run when testing
+Knowledge/Data Category features. The standard subscriber org (created with `config/project-scratch-def.json`) does NOT
+have Knowledge enabled.
+
+### Create Knowledge-Enabled Subscriber Org
+
+Use `config/km-scratch-def.json` instead of `project-scratch-def.json` when creating the scratch org in Phase 1.2:
+
+```bash
+cd /tmp/kern-subscriber && sf org create scratch \
+  -f <repo-root>/config/km-scratch-def.json \
+  -a ${SF_SUBSCRIBER_ORG_ALIAS} -v DevHub -y 30 --wait 10
+```
+
+### Deploy Knowledge Test Artifacts
+
+After deploying the standard subscriber artifacts (Phase 1.4), also deploy Knowledge settings and data category groups:
+
+```bash
+mkdir -p /tmp/kern-subscriber/force-app/main/default/{settings,datacategorygroups}
+cp release-testing/subscriber/settings/* /tmp/kern-subscriber/force-app/main/default/settings/
+cp release-testing/subscriber/datacategorygroups/* /tmp/kern-subscriber/force-app/main/default/datacategorygroups/
+cd /tmp/kern-subscriber && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app/main/default --ignore-conflicts
+cd <repo-root>
+```
+
+### Create Test Data
+
+Run the setup script to insert and publish Knowledge articles:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-33-knowledge-setup.apex
+```
+
+After running setup, assign data categories to the published articles. This requires manual assignment via the
+Knowledge tab or the Data Category Selection API. Assign:
+- "KDX Test Alpha North" → KM_TestCategory: Alpha, KM_TestRegion: North
+- "KDX Test Alpha South" → KM_TestCategory: Alpha, KM_TestRegion: South
+- "KDX Test Beta North" → KM_TestCategory: Beta, KM_TestRegion: North
+
+### Run Section 33
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-33-knowledge-data-category.apex 2>&1 | grep 'USER_DEBUG'
+```
+
+**Expected:** 5/5 PASS

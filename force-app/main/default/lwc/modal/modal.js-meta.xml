@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Reusable modal dialog component with show/hide API methods, configurable title, width (small/large), close button visibility, and directional footer support.
+		Closes on ESC key and dispatches 'close' event. Supports content, footer, and tagline slots.
+	</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Modal Dialog</masterLabel>
+</LightningComponentBundle>

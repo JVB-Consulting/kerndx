@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <assignments>
+        <description>Sets Description on the Account record so the calling Apex can verify field write-back.</description>
+        <name>asgnSetDescription</name>
+        <label>Set Description</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>record.Description</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <stringValue>Set by flow</stringValue>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description>Trivial happy-path flow used by TRG_InvokeFlow_TEST to exercise the real Flow.Interview.createInterview + Flow.Interview.start path. Sets record.Description on an in/out Account variable; pairs with TRG_InvokeFlow_TEST.shouldInvokeRealFlowAndApplyResultsToAccount.</description>
+    <environments>Default</environments>
+    <interviewLabel>Test_BeforeInsertSetDescription {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Test_BeforeInsertSetDescription</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <runInMode>DefaultMode</runInMode>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>asgnSetDescription</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <description>Trigger record passed in by TRG_InvokeFlow. Mutated in place; the calling Apex copies populated fields back onto Trigger.new.</description>
+        <name>record</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>true</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+    <variables>
+        <description>Pre-update record passed in by TRG_InvokeFlow on update events. Read-only; not used by this flow.</description>
+        <name>recordPrior</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Account</objectType>
+    </variables>
+</Flow>

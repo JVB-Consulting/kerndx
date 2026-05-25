@@ -1,0 +1,6 @@
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Reusable Salesforce cron expression editor with preset, advanced, and custom modes</description>
+	<masterLabel>Cron Expression Editor</masterLabel>
+	<isExposed>false</isExposed>
+</LightningComponentBundle>

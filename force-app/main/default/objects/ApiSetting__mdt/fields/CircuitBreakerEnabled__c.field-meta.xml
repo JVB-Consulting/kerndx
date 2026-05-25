@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CircuitBreakerEnabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Enable circuit breaker pattern to prevent cascading failures when the external service is down</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>When enabled, stops calling the service after repeated failures to prevent overloading a failing system</inlineHelpText>
+    <label>Circuit Breaker Enabled</label>
+    <type>Checkbox</type>
+</CustomField>

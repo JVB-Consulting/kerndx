@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<lightning-card title="Subscribe to multiple streaming channels">
+		<div class="slds-var-p-horizontal_large">
+			<p class="slds-var-m-vertical_small">
+				Custom Change Data Capture channels cannot be automatically
+				discovered. Supported channels: PushTopic, Generic, Platform
+				events, Change Data Capture events and Monitoring events. </p>
+			<lightning-combobox label="Filter" name="subAllFilter" onchange={handleValueChange} options={subscribeAllFilterOptions} value={subAllFilter}></lightning-combobox>
+			<lightning-combobox label="Replay option" name="subAllReplay" onchange={handleValueChange} options={replayOptions} value={subAllReplay}></lightning-combobox>
+			<div class="slds-align_absolute-center slds-var-m-top_medium">
+				<lightning-button label="Subscribe" onclick={handleSubscribeAll} variant="brand"></lightning-button>
+			</div>
+		</div>
+	</lightning-card>
+</template>

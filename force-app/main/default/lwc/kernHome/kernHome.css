@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.tool-card-wrapper
+{
+	display : flex;
+}
+
+.tool-card
+{
+	display        : flex;
+	flex-direction : column;
+	width          : 100%;
+}
+
+.tool-card .slds-card__body
+{
+	display        : flex;
+	flex           : 1 1 auto;
+	flex-direction : column;
+}
+
+.tool-card-body
+{
+	display        : flex;
+	flex           : 1 1 auto;
+	flex-direction : column;
+}
+
+.tool-card-description
+{
+	flex : 1 1 auto;
+}
+
+.tool-card-footer
+{
+	margin-top : auto;
+}

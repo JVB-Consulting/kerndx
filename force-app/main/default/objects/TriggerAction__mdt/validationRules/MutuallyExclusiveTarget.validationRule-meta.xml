@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>MutuallyExclusiveTarget</fullName>
+    <active>true</active>
+    <description>Requires exactly one of Apex Class Name or Flow Name. Both populated is ambiguous; neither leaves the row without a dispatch target.</description>
+    <errorConditionFormula>OR(
+    AND(ISBLANK(ApexClassName__c), ISBLANK(FlowName__c)),
+    AND(NOT(ISBLANK(ApexClassName__c)), NOT(ISBLANK(FlowName__c)))
+)</errorConditionFormula>
+    <errorMessage>Set exactly one of Apex Class Name or Flow Name. Use Apex Class Name for an Apex trigger action, or Flow Name for a flow trigger action — not both, not neither.</errorMessage>
+</ValidationRule>

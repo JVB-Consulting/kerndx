@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>66.0</apiVersion>
+	<description>Adds Lightning navigation and URL generation capabilities to components.</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Module Navigation</masterLabel>
+</LightningComponentBundle>

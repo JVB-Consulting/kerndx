@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ResponseBody__c</fullName>
+    <description>Mock response body content (JSON or XML). Supports dynamic interpolation using {{request.field}} placeholders to echo request data back in the response.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>The mock response body. Use {{request.fieldName}} to dynamically insert values from the request.</inlineHelpText>
+    <label>Response Body</label>
+    <length>131072</length>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

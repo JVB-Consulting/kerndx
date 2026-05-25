@@ -1,0 +1,992 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   KernDX Framework Compliance Scanner
+   PMD 7 XPath Ruleset for Salesforce Apex
+
+   Enforces KernDX framework patterns: trigger delegation, selector queries,
+   DML_Builder, LOG_Builder, UTIL_HttpClient, SCHED_Base, UTIL_Cache,
+   UTIL_SObjectDescribe, UTIL_System, UTIL_AsynchronousJobLauncher,
+   UTIL_Email, UTIL_FeatureFlag, REST_* naming, and modern Assert class.
+
+   PMD 7 rule class: net.sourceforge.pmd.lang.rule.xpath.XPathRule
+   PMD 6 rule class: net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
+   (Change the class attribute on each rule element if using PMD 6.)
+
+   Priority tiers:
+      1 — Blocker: must fix before deployment
+      3 — Should Fix: not fixing makes code harder to maintain
+      5 — Informational: best practice, no immediate action required
+
+   Suppress per-class or per-method with @SuppressWarnings('PMD.RuleName').
+-->
+<ruleset name="KernDXFrameworkCompliance"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+   <description>
+      KernDX framework compliance rules. Ensures Apex code follows framework
+      conventions: trigger delegation, selector-based queries, DML_Builder,
+      LOG_Builder, UTIL_HttpClient, SCHED_Base, UTIL_Cache, UTIL_SObjectDescribe,
+      UTIL_System, UTIL_AsynchronousJobLauncher, UTIL_Email,
+      UTIL_FeatureFlag, REST_* naming, and modern Assert methods.
+   </description>
+
+   <!-- ================================================================
+        KERN-TRIG: KernTriggerMustDelegate (Priority 1 — Blocker)
+        Trigger body must only contain new TRG_Dispatcher().run().
+        Detects any method call inside a trigger that is NOT run() on
+        TRG_Dispatcher (namespaced or not).
+        ================================================================ -->
+   <rule name="KernTriggerMustDelegate"
+         language="apex"
+         message="Trigger must delegate to new TRG_Dispatcher().run(). No other logic allowed in trigger body."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Trigger files must contain only `new TRG_Dispatcher().run()` (or
+         `new kern.TRG_Dispatcher().run()`). Any additional logic — SOQL,
+         DML, method calls, variable declarations — violates the framework's
+         trigger delegation pattern.
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserTrigger//BlockStatement/*[
+   not(
+      self::ExpressionStatement/MethodCallExpression[
+         @MethodName = 'run'
+      ]
+   )
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-SOQL: KernNoInlineSOQL (Priority 1 — Blocker)
+        No inline [SELECT ...] or Database.query() anywhere.
+        Selectors use the inherited `query` property (QRY_Builder),
+        not inline SOQL. Framework infrastructure classes that need
+        raw SOQL use @SuppressWarnings('PMD.KernNoInlineSOQL').
+        ================================================================ -->
+   <rule name="KernNoInlineSOQL"
+         language="apex"
+         message="Inline SOQL is not allowed. Use a selector (SEL_*) or QRY_Builder."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Inline SOQL queries ([SELECT ...]) and Database.query() calls are
+         not allowed. Selectors use the inherited `query` property which
+         returns a QRY_Builder. All other code should call selectors or
+         use QRY_Builder directly. Framework infrastructure that requires
+         raw SOQL uses @SuppressWarnings to opt out.
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//SoqlExpression
+|
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'database.query'
+   or lower-case(@FullMethodName) = 'database.querywithbinds'
+   or lower-case(@FullMethodName) = 'database.countquery'
+   or lower-case(@FullMethodName) = 'database.countquerywithbinds'
+   or lower-case(@FullMethodName) = 'database.getquerylocator'
+   or lower-case(@FullMethodName) = 'database.getquerylocatorwithbinds'
+   or lower-case(@FullMethodName) = 'database.getcursor'
+   or lower-case(@FullMethodName) = 'database.getcursorwithbinds'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-DML: KernNoDirectDML (Priority 3 — Should Fix)
+        No inline DML statements or Database.* DML methods.
+        Use DML_Builder for all DML operations.
+        ================================================================ -->
+   <rule name="KernNoDirectDML"
+         language="apex"
+         message="Direct DML is not allowed. Use DML_Builder for insert, update, delete, upsert, and undelete operations."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct DML statements (insert, update, delete, upsert, undelete,
+         merge) and Database.* DML methods (Database.insert, Database.update,
+         etc.) must be replaced with DML_Builder for transactional safety,
+         consistent error handling, and sharing enforcement.
+
+         Framework infrastructure uses @SuppressWarnings to opt out.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//*[
+   self::DmlInsertStatement
+   or self::DmlUpdateStatement
+   or self::DmlDeleteStatement
+   or self::DmlUpsertStatement
+   or self::DmlUndeleteStatement
+   or self::DmlMergeStatement
+]
+|
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'database.insert'
+   or lower-case(@FullMethodName) = 'database.update'
+   or lower-case(@FullMethodName) = 'database.delete'
+   or lower-case(@FullMethodName) = 'database.upsert'
+   or lower-case(@FullMethodName) = 'database.undelete'
+   or lower-case(@FullMethodName) = 'database.merge'
+   or lower-case(@FullMethodName) = 'database.convertlead'
+   or lower-case(@FullMethodName) = 'database.emptyrecyclebin'
+   or lower-case(@FullMethodName) = 'database.insertasync'
+   or lower-case(@FullMethodName) = 'database.updateasync'
+   or lower-case(@FullMethodName) = 'database.deleteasync'
+   or lower-case(@FullMethodName) = 'database.insertimmediate'
+   or lower-case(@FullMethodName) = 'database.updateimmediate'
+   or lower-case(@FullMethodName) = 'database.deleteimmediate'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-DEBUG: KernNoSystemDebug (Priority 3 — Should Fix)
+        No System.debug() — use LOG_Builder.
+        ================================================================ -->
+   <rule name="KernNoSystemDebug"
+         language="apex"
+         message="System.debug() is not allowed. Use LOG_Builder for structured, async logging."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         System.debug() produces unstructured, non-persistent log output.
+         Use LOG_Builder for structured logging via platform events:
+         LOG_Builder.build().info('message').emitAt('Class.method')
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[lower-case(@FullMethodName) = 'system.debug']
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-HTTP: KernNoRawHttp (Priority 3 — Should Fix)
+        No new HttpRequest() or new Http() — use UTIL_HttpClient.
+        ================================================================ -->
+   <rule name="KernNoRawHttp"
+         language="apex"
+         message="Raw HTTP classes are not allowed. Use UTIL_HttpClient for HTTP callouts."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct instantiation of HttpRequest or Http bypasses framework
+         features: retry logic, circuit breakers, logging, named credential
+         integration, and mock support. Use UTIL_HttpClient static factories:
+         UTIL_HttpClient.get(), .post(), .put(), .del(), .patch()
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//NewObjectExpression[@Type = 'HttpRequest']
+|
+//NewObjectExpression[@Type = 'Http']
+|
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'webservicecallout.invoke'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-SCHED: KernUseSchedulerBase (Priority 3 — Should Fix)
+        Schedulable classes must extend SCHED_Base, not implement
+        Schedulable directly. SCHED_Base provides parameter resolution,
+        metadata-driven configuration, and error handling.
+        ================================================================ -->
+   <rule name="KernUseSchedulerBase"
+         language="apex"
+         message="Schedulable classes must extend SCHED_Base instead of implementing Schedulable directly."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Classes implementing the Schedulable interface directly bypass the
+         framework's scheduling infrastructure. Extend SCHED_Base instead,
+         which provides parameter resolution, metadata-driven scheduling
+         via ScheduledJob__c, and structured error handling.
+
+         Framework infrastructure uses @SuppressWarnings to opt out.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[
+   contains(string-join(@InterfaceNames, ','), 'Schedulable')
+   and not(contains(string(@SuperClassName), 'SCHED_Base'))
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-RAWSCHED: KernNoRawSchedule (Priority 3 — Should Fix)
+        No System.schedule() — use SCHED_Base metadata-driven scheduling
+        via ScheduledJob__c records.
+        ================================================================ -->
+   <rule name="KernNoRawSchedule"
+         language="apex"
+         message="System.schedule() is not allowed. Use SCHED_Base with ScheduledJob__c for metadata-driven scheduling."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct System.schedule() calls bypass the framework's scheduling
+         infrastructure. Use SCHED_Base with ScheduledJob__c records for
+         metadata-driven scheduling that supports monitoring, parameter
+         passing, and declarative configuration.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'system.schedule'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-EVENT: KernNoRawEventPublish (Priority 3 — Should Fix)
+        No EventBus.publish() — use LOG_Builder or framework event
+        publishing mechanisms.
+        ================================================================ -->
+   <rule name="KernNoRawEventPublish"
+         language="apex"
+         message="EventBus.publish() is not allowed. Use LOG_Builder or framework event publishing."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct EventBus.publish() calls bypass the framework's event
+         publishing infrastructure. Use LOG_Builder for log entry events
+         or the appropriate framework mechanism for domain events.
+
+         Framework infrastructure uses @SuppressWarnings to opt out.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'eventbus.publish'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-ASSERT: KernNoLegacyAssert (Priority 5 — Informational)
+        No System.assert/assertEquals/assertNotEquals — use Assert.*.
+        ================================================================ -->
+   <rule name="KernNoLegacyAssert"
+         language="apex"
+         message="Legacy System.assert*() methods are not allowed. Use Assert.isTrue(), Assert.areEqual(), Assert.areNotEqual(), etc."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         The legacy System.assert(), System.assertEquals(), and
+         System.assertNotEquals() methods should be replaced with the modern
+         Assert class methods (Assert.isTrue, Assert.areEqual, etc.) which
+         provide clearer method names and better failure messages.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'system.assert'
+   or lower-case(@FullMethodName) = 'system.assertequals'
+   or lower-case(@FullMethodName) = 'system.assertnotequals'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-TEST: KernUseTestBuilder (Priority 5 — Informational)
+        No raw SObject construction in test classes — use TST_Builder.
+        Only applies inside @IsTest classes.
+        ================================================================ -->
+   <rule name="KernUseTestBuilder"
+         language="apex"
+         message="Direct SObject construction in tests is not allowed. Use TST_Builder.of(SObjectType).build() for test data."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Test classes should use TST_Builder for record creation instead of
+         direct SObject construction (new Account(...), new Contact(...), etc.).
+         TST_Builder ensures consistent defaults, respects trigger framework
+         configuration, and reduces test maintenance.
+
+         This rule only fires inside @IsTest classes. Non-test code is not
+         affected (SObject construction in production code is a different
+         concern handled by DML_Builder rules).
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//NewKeyValueObjectExpression[
+   ancestor::UserClass[
+      ModifierNode/Annotation[lower-case(@Name) = 'istest']
+   ]
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-CACHE: KernNoRawCache (Priority 5 — Informational)
+        No direct Cache.Org or Cache.Session calls — use UTIL_Cache.
+        ================================================================ -->
+   <rule name="KernNoRawCache"
+         language="apex"
+         message="Direct Cache.Org/Cache.Session access is not allowed. Use UTIL_Cache for platform caching."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct access to Cache.Org and Cache.Session bypasses the framework's
+         caching abstraction. Use UTIL_Cache which provides automatic partition
+         management, graceful degradation when cache is unavailable, and
+         consistent key namespacing.
+
+         Example: UTIL_Cache.org().get(key) / UTIL_Cache.org().put(key, value)
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   starts-with(lower-case(@FullMethodName), 'cache.org.')
+   or starts-with(lower-case(@FullMethodName), 'cache.session.')
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-DESCRIBE: KernNoRawDescribe (Priority 5 — Informational)
+        No Schema.getGlobalDescribe() — use UTIL_SObjectDescribe.
+        ================================================================ -->
+   <rule name="KernNoRawDescribe"
+         language="apex"
+         message="Schema.getGlobalDescribe() is not allowed. Use UTIL_SObjectDescribe for cached describe calls."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Schema.getGlobalDescribe() is expensive and uncached. Use
+         UTIL_SObjectDescribe which caches describe results and provides
+         type-safe accessors for fields, record types, and object metadata.
+
+         Note: Individual .getDescribe() calls on SObjectField and SObjectType
+         tokens are acceptable and not flagged by this rule.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'schema.getglobaldescribe'
+   or lower-case(@FullMethodName) = 'schema.describetabs'
+   or lower-case(@FullMethodName) = 'schema.describesobjects'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-TYPE: KernNoRawTypeForName (Priority 5 — Informational)
+        No Type.forName() — use UTIL_System.getTypeForClassName().
+        ================================================================ -->
+   <rule name="KernNoRawTypeForName"
+         language="apex"
+         message="Type.forName() is not allowed. Use UTIL_System.getTypeForClassName() for subscriber-safe type resolution."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Type.forName() does not account for namespace resolution in managed
+         package contexts. Use UTIL_System.getTypeForClassName() which chains
+         through subscriber-first resolution, namespace prefixing, and custom
+         ClassTypeResolver__mdt resolvers.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'type.forname'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-ASYNC: KernNoRawEnqueueJob (Priority 5 — Informational)
+        No System.enqueueJob() — use UTIL_AsynchronousJobLauncher.
+        ================================================================ -->
+   <rule name="KernNoRawEnqueueJob"
+         language="apex"
+         message="System.enqueueJob() is not allowed. Use UTIL_AsynchronousJobLauncher for async job execution."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct System.enqueueJob() calls bypass the framework's async
+         processing infrastructure. Use UTIL_AsynchronousJobLauncher which
+         provides stack depth tracking, governor limit awareness, and
+         fallback strategies when queueable limits are reached.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'system.enqueuejob'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-EMAIL: KernNoRawEmail (Priority 3 — Should Fix)
+        No Messaging.sendEmail() or new SingleEmailMessage() — use
+        UTIL_Email for all outbound email operations.
+        ================================================================ -->
+   <rule name="KernNoRawEmail"
+         language="apex"
+         message="Direct Messaging API usage is not allowed. Use UTIL_Email for sending emails."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct Messaging API usage (Messaging.sendEmail, new
+         SingleEmailMessage, Messaging.renderStoredEmailTemplate) bypasses the
+         framework's email abstraction. Use UTIL_Email which provides template
+         management, error handling, and logging integration.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//NewObjectExpression[@Type = 'SingleEmailMessage']
+|
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'messaging.sendemail'
+   or lower-case(@FullMethodName) = 'messaging.renderstoredemailtemplate'
+   or lower-case(@FullMethodName) = 'messaging.sendemailmessage'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-RESTCLASS: KernRestResourceNaming (Priority 3 — Should Fix)
+        @RestResource classes must be named REST_*.
+        ================================================================ -->
+   <rule name="KernRestResourceNaming"
+         language="apex"
+         message="@RestResource classes must follow the REST_* naming convention and delegate to API_Dispatcher."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Classes annotated with @RestResource must follow the REST_* naming
+         convention. REST_* classes serve as thin routing layers that delegate
+         to API_Dispatcher.processInboundService(), with business logic in
+         API_* classes extending API_Inbound.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[
+   ModifierNode/Annotation[lower-case(@Name) = 'restresource']
+   and not(starts-with(@SimpleName, 'REST_'))
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-MOCK: KernNoRawHttpMock (Priority 3 — Should Fix)
+        No implements HttpCalloutMock or WebServiceMock — use
+        API_MockFactory for all HTTP/SOAP mocking in tests.
+        ================================================================ -->
+   <rule name="KernNoRawHttpMock"
+         language="apex"
+         message="Direct HttpCalloutMock/WebServiceMock implementations are not allowed. Use API_MockFactory for test mocking."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Implementing HttpCalloutMock or WebServiceMock directly bypasses the
+         framework's mock infrastructure. Use API_MockFactory which provides
+         consistent mock setup, automatic response configuration from
+         ApiSetting__mdt, and integration with the API framework's test helpers.
+
+         Example: API_MockFactory.forService(serviceName).body(json).register()
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[
+   contains(string-join(@InterfaceNames, ','), 'HttpCalloutMock')
+   or contains(string-join(@InterfaceNames, ','), 'WebServiceMock')
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-REST: KernNoRawRestContext (Priority 3 — Should Fix)
+        No direct RestContext.request/response access — use API_Inbound
+        properties. REST_* classes delegate to API_Dispatcher, and
+        API_Inbound subclasses access request/response via inherited
+        properties.
+        ================================================================ -->
+   <rule name="KernNoRawRestContext"
+         language="apex"
+         message="Direct RestContext access is not allowed. Use the API_Inbound framework (request/response properties) for inbound REST services."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct access to RestContext.request and RestContext.response bypasses
+         the framework's inbound API infrastructure. REST_* classes should
+         only delegate to API_Dispatcher.processInboundService(), and API_Inbound
+         subclasses access request/response via inherited properties that provide
+         automatic logging, error handling, and idempotency support.
+
+         Framework infrastructure uses @SuppressWarnings to opt out.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//VariableExpression[
+   lower-case(@Image) = 'request'
+   and ReferenceExpression[lower-case(@Image) = 'restcontext']
+]
+|
+//VariableExpression[
+   lower-case(@Image) = 'response'
+   and ReferenceExpression[lower-case(@Image) = 'restcontext']
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-FEATURE: KernNoRawFeatureManagement (Priority 5 — Informational)
+        No FeatureManagement.checkPermission() — use
+        UTIL_FeatureFlag.isEnabled().
+        ================================================================ -->
+   <rule name="KernNoRawFeatureManagement"
+         language="apex"
+         message="FeatureManagement methods are not allowed. Use UTIL_FeatureFlag.isEnabled() for feature flag checks."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct FeatureManagement API calls bypass the framework's feature
+         flag abstraction. Use UTIL_FeatureFlag.isEnabled() which provides
+         metadata-driven feature flags via FeatureFlag__mdt, caching, and
+         consistent flag naming conventions.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'featuremanagement.checkpermission'
+   or lower-case(@FullMethodName) = 'featuremanagement.checkpackagebooleanvalue'
+   or lower-case(@FullMethodName) = 'featuremanagement.checkpackagedatevalue'
+   or lower-case(@FullMethodName) = 'featuremanagement.checkpackageintegervalue'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-CRYPTO: KernNoRawCrypto (Priority 5 — Informational)
+        No direct Crypto.* calls — use UTIL_Crypto for hashing,
+        encryption, and key generation.
+        ================================================================ -->
+   <rule name="KernNoRawCrypto"
+         language="apex"
+         message="Direct Crypto class usage is not allowed. Use UTIL_Crypto for hashing, encryption, and key generation."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Direct Crypto class calls bypass the framework's cryptographic
+         utilities. Use UTIL_Crypto which provides simplified APIs for common
+         operations: generateMD5Hash, generateSHA1Hash, generateSHA256Hash,
+         generateEncryptionKey, encryptWithIntegrity, decryptWithIntegrity.
+
+         Framework infrastructure uses @SuppressWarnings to opt out.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   starts-with(lower-case(@FullMethodName), 'crypto.')
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-THEATRE: KernNoCoverageTheatre (Priority 1 — Blocker)
+        @IsTest methods must prove behaviour with meaningful assertions.
+        Flags four coverage-theatre patterns:
+           1. No Assert.* call anywhere in the method body.
+           2. An empty catch(...) {} block (swallowed exception).
+           3. A Boolean exceptionThrown = ...; pattern (forbidden by
+              docs/Code Conventions - Guide.md — use Assert.fail + Assert.isInstanceOfType).
+           4. An Assert.isNotNull(record) immediately following
+              TST_Builder.of(...).build() on the same variable.
+              TST_Builder.build() throws on insert failure, so the
+              non-null assertion adds no coverage.
+
+        Suppress with @SuppressWarnings('PMD.KernNoCoverageTheatre').
+        Suppressions themselves are flagged by
+        KernCoverageExemptRequiresReason (priority 1) to ensure review.
+        ================================================================ -->
+   <rule name="KernNoCoverageTheatre"
+         language="apex"
+         message="Test method exhibits a coverage-theatre pattern (no assertions, empty catch, Boolean exceptionThrown flag, or Assert.isNotNull after TST_Builder.build())."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         @IsTest methods must prove behaviour with meaningful assertions.
+         This rule flags four coverage-theatre patterns:
+
+         1. A test method with zero Assert.* calls — coverage without
+            verification.
+         2. catch(Exception error) {} — swallows exceptions silently.
+            Use Assert.fail('Should throw ...') + Assert.isInstanceOfType.
+         3. Boolean exceptionThrown = false; try { ... }
+            catch(Exception error) { exceptionThrown = true; }
+            Explicitly forbidden by docs/Code Conventions - Guide.md.
+         4. Assert.isNotNull(record) immediately after
+            (SObject)TST_Builder.of(...).build(). TST_Builder.build()
+            throws if insertion fails, so the non-null assertion adds
+            no coverage. Assert on defaults or derived fields instead.
+
+         Example of non-compliant code:
+
+         Boolean exceptionThrown = false;
+         try { doSomething(); }
+         catch(Exception error) { exceptionThrown = true; }
+         Assert.isTrue(exceptionThrown, 'should throw');
+
+         Example of compliant code:
+
+         try
+         {
+            doSomething();
+            Assert.fail('Expected IllegalArgumentException');
+         }
+         catch(Exception error)
+         {
+            Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect type');
+         }
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+(: Pattern 1 — @IsTest methods with zero assertion-shaped calls. :)
+(: Recognises Assert.* plus any helper whose method name starts with :)
+(: 'assert' (e.g. assertServiceCompleted, assertCallSuccessful). :)
+//Method[
+   ModifierNode/Annotation[lower-case(@Name) = 'istest']
+   and not(.//MethodCallExpression[
+      starts-with(lower-case(@FullMethodName), 'assert.')
+      or starts-with(lower-case(@MethodName), 'assert')
+   ])
+]
+|
+(: Pattern 2 — empty catch block inside an @IsTest method. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //CatchBlockStatement[not(BlockStatement/*)]
+|
+(: Pattern 3 — Boolean exceptionThrown anti-pattern. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //VariableDeclaration[
+      lower-case(@Type) = 'boolean'
+      and lower-case(@Image) = 'exceptionthrown'
+   ]
+|
+(: Pattern 4 — Assert.isNotNull(var) where var was declared from :)
+(: (SObject)TST_Builder.of(...).build() in the preceding statement. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //ExpressionStatement[
+      MethodCallExpression[
+         @FullMethodName = 'Assert.isNotNull'
+         and VariableExpression[1]/@Image =
+            preceding-sibling::VariableDeclarationStatements[1]
+               /VariableDeclaration[
+                  .//MethodCallExpression[@MethodName = 'build']
+                  and .//ReferenceExpression[@Image = 'TST_Builder']
+               ]/@Image
+      ]
+   ]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-EXEMPT: KernCoverageExemptRequiresReason (Priority 1)
+        Any @SuppressWarnings that silences KernNoCoverageTheatre must
+        be reviewed. This rule flags every such suppression so it
+        surfaces in code review as a blocker.
+
+        NOTE: PMD's Apex AST does not expose // line comments, so the
+        "// kern-coverage-exempt: <reason>" comment marker proposed in
+        the authoring plan cannot be directly inspected via XPath. The
+        rule therefore flags every coverage-theatre suppression; the
+        reviewer confirms the adjacent justification comment (a
+        companion regex-engine rule could enforce the reason length
+        without requiring AST comment access).
+        ================================================================ -->
+   <rule name="KernCoverageExemptRequiresReason"
+         language="apex"
+         message="@SuppressWarnings('PMD.KernNoCoverageTheatre') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Coverage-theatre suppressions are high-impact and must be
+         reviewed. This rule flags every @SuppressWarnings that contains
+         PMD.KernNoCoverageTheatre (case-insensitive) so reviewers can
+         confirm the adjacent justification comment exists and is
+         substantive (not placeholders like "tricky", "todo", "fixme",
+         "hard to test", or "hack").
+
+         Prefer narrowing suppression to the single method that needs
+         it. Class-level suppressions hide intent across the whole file.
+
+         Example (flagged — always requires review):
+
+         @SuppressWarnings('PMD.KernNoCoverageTheatre')
+         private static void shouldEmitEvent() { ... }
+
+         Example (compliant — reviewer confirms justification comment):
+
+         // Platform event delivery is async; Test.stopTest + CURRENT_RUN
+         // query is the only verification available.
+         @SuppressWarnings('PMD.KernNoCoverageTheatre')
+         private static void shouldEmitPlatformEvent() { ... }
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//Annotation[
+   lower-case(@Name) = 'suppresswarnings'
+   and .//AnnotationParameter[
+      contains(
+         translate(string(@Value), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),
+         'pmd.kernnocoveragetheatre'
+      )
+      or contains(
+         translate(string(@Image), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),
+         'pmd.kernnocoveragetheatre'
+      )
+   ]
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-TESTDML: KernNoInlineDmlInTests (Priority 3)
+        Inline DML in _TEST classes is not allowed. Use TST_Builder for
+        record creation and DML_Builder for explicit DML scenarios.
+
+        Allowlist (framework classes whose purpose is exercising DML):
+           - TST_Builder_TEST
+           - DML_Builder_TEST
+           - DML_Transaction_TEST
+           - DML_SharingProxy_TEST
+
+        Other test classes that legitimately need direct DML (e.g. User
+        insertion for System.runAs, or setup object seeding) should use
+        @SuppressWarnings('PMD.KernNoInlineDmlInTests') with a comment
+        explaining why.
+        ================================================================ -->
+   <rule name="KernNoInlineDmlInTests"
+         language="apex"
+         message="Inline DML inside a test class is not allowed. Use TST_Builder.of(SObjectType).build() for record creation, or DML_Builder for explicit DML scenarios."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Test classes should create records via TST_Builder (which
+         integrates with the trigger framework and produces consistent
+         defaults) and perform explicit DML via DML_Builder. Direct
+         insert/update/delete/upsert/undelete/merge statements and
+         Database.* DML calls are flagged.
+
+         Allowlisted test classes (framework components whose purpose
+         is exercising DML primitives):
+            - TST_Builder_TEST
+            - DML_Builder_TEST
+            - DML_Transaction_TEST
+            - DML_SharingProxy_TEST
+
+         Other test classes that legitimately require direct DML
+         (e.g. User insertion for System.runAs, platform event
+         seeding) should use
+         @SuppressWarnings('PMD.KernNoInlineDmlInTests') with an
+         adjacent comment explaining why.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//*[
+   self::DmlInsertStatement
+   or self::DmlUpdateStatement
+   or self::DmlDeleteStatement
+   or self::DmlUpsertStatement
+   or self::DmlUndeleteStatement
+   or self::DmlMergeStatement
+][
+   ancestor::UserClass[
+      ModifierNode/Annotation[lower-case(@Name) = 'istest']
+      and not(@SimpleName = 'TST_Builder_TEST')
+      and not(@SimpleName = 'DML_Builder_TEST')
+      and not(@SimpleName = 'DML_Transaction_TEST')
+      and not(@SimpleName = 'DML_SharingProxy_TEST')
+   ]
+]
+|
+//MethodCallExpression[
+   (
+      lower-case(@FullMethodName) = 'database.insert'
+      or lower-case(@FullMethodName) = 'database.update'
+      or lower-case(@FullMethodName) = 'database.delete'
+      or lower-case(@FullMethodName) = 'database.upsert'
+      or lower-case(@FullMethodName) = 'database.undelete'
+      or lower-case(@FullMethodName) = 'database.merge'
+   )
+   and ancestor::UserClass[
+      ModifierNode/Annotation[lower-case(@Name) = 'istest']
+      and not(@SimpleName = 'TST_Builder_TEST')
+      and not(@SimpleName = 'DML_Builder_TEST')
+      and not(@SimpleName = 'DML_Transaction_TEST')
+      and not(@SimpleName = 'DML_SharingProxy_TEST')
+   ]
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-BOOLEXCEPT: KernNoBooleanExceptionThrown (Priority 5)
+        The 'Boolean exceptionThrown = false' try/catch anti-pattern
+        is explicitly forbidden by docs/Code Conventions - Guide.md. Use Assert.fail +
+        Assert.isInstanceOfType instead. This rule overlaps with
+        KernNoCoverageTheatre pattern 3 but gives the specific pattern
+        its own priority-5 rule so the violation message is precise.
+        ================================================================ -->
+   <rule name="KernNoBooleanExceptionThrown"
+         language="apex"
+         message="The 'Boolean exceptionThrown' try/catch pattern is forbidden. Use Assert.fail('Should throw ...') + Assert.isInstanceOfType(error, ExceptionClass.class, ...) instead."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         The 'Boolean exceptionThrown = false; try { ... }
+         catch(Exception error) { exceptionThrown = true; }
+         Assert.isTrue(exceptionThrown, ...)' anti-pattern is
+         explicitly forbidden by docs/Code Conventions - Guide.md. It obscures intent, loses
+         the exception type, and skips the original error message.
+
+         Use the canonical Apex pattern:
+
+         try
+         {
+            doSomething();
+            Assert.fail('Expected IllegalArgumentException');
+         }
+         catch(Exception error)
+         {
+            Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect type');
+         }
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//VariableDeclaration[
+   lower-case(@Type) = 'boolean'
+   and lower-case(@Image) = 'exceptionthrown'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+</ruleset>

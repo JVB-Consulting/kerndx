@@ -1,0 +1,79 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template if:true={isLoading}>
+		<lightning-spinner alternative-text="Loading steps" size="small"></lightning-spinner>
+	</template>
+	<template if:false={isLoading}>
+		<lightning-card icon-name="standard:flow" title="Step Timeline">
+			<template if:true={hasSteps}>
+				<div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+					<ul class="slds-timeline">
+						<template for:each={displaySteps} for:item="step">
+							<li key={step.key}>
+								<div class={step.itemClass}>
+									<div class="slds-media step-row" data-testid="step-row">
+										<div class="slds-media__figure slds-timeline__icon">
+											<lightning-icon alternative-text={step.statusLabel} class={step.iconClass} icon-name={step.iconName} size="x-small"
+											                variant={step.iconVariant}></lightning-icon>
+										</div>
+										<div class="slds-media__body">
+											<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+												<div class="slds-truncate" title={step.name}>
+													<span class="slds-text-body_regular">{step.name}</span>
+												</div>
+												<div class="slds-timeline__actions slds-timeline__actions_inline">
+													<template if:true={step.hasDuration}>
+														<span class="slds-text-body_small slds-text-color_weak">
+															{step.durationLabel}
+														</span>
+													</template>
+													<template if:false={step.hasDuration}>
+														<span class="slds-text-body_small slds-text-color_weak">
+															{step.statusLabel}
+														</span>
+													</template>
+												</div>
+											</div>
+											<template if:true={step.hasError}>
+												<p class="slds-text-body_small slds-text-color_error slds-var-m-top_xx-small">
+													{step.errorMessage} </p>
+											</template>
+										</div>
+										<!-- Hover popover -->
+										<div class="step-popover slds-popover slds-popover_tooltip slds-nubbin_bottom-left" role="tooltip">
+											<div class="slds-popover__body">
+												<dl class="popover-grid">
+													<dt>Class</dt>
+													<dd>{step.className}</dd>
+													<dt>Status</dt>
+													<dd>{step.statusLabel}</dd>
+													<template if:true={step.hasDuration}>
+														<dt>Duration</dt>
+														<dd>{step.durationLabel}</dd>
+													</template>
+													<template if:true={step.continueOnError}>
+														<dt>Continue on Error</dt>
+														<dd>Yes</dd>
+													</template>
+													<template if:true={step.hasError}>
+														<dt>Error</dt>
+														<dd class="slds-text-color_error">{step.errorMessage}</dd>
+													</template>
+												</dl>
+											</div>
+										</div>
+									</div>
+								</div>
+							</li>
+						</template>
+					</ul>
+				</div>
+			</template>
+			<template if:false={hasSteps}>
+				<div class="slds-text-align_center slds-text-color_weak slds-var-p-around_medium">
+					No steps recorded.
+				</div>
+			</template>
+		</lightning-card>
+	</template>
+</template>

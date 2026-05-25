@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Lookup__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Test Lookup field (self-referential) for unit tests.</description>
+    <inlineHelpText>Test self-referential Lookup field used by framework unit tests and relationship queries.</inlineHelpText>
+    <label>Lookup</label>
+    <referenceTo>Foobar__c</referenceTo>
+    <relationshipLabel>Foobars</relationshipLabel>
+    <relationshipName>Foobars</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

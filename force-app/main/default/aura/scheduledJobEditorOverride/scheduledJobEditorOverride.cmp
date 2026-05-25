@@ -1,0 +1,3 @@
+<aura:component implements="lightning:actionOverride,force:hasRecordId">
+	<c:scheduledJobEditor recordId="{!v.recordId}"></c:scheduledJobEditor>
+</aura:component>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CircuitBreakerTimeout__c</fullName>
+    <description>Seconds to wait before attempting to close the circuit (default: 60)</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>How long to wait before trying the service again after circuit opens (default: 60 seconds)</inlineHelpText>
+    <label>Circuit Breaker Timeout (sec)</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

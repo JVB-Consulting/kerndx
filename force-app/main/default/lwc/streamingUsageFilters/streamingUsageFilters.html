@@ -1,0 +1,41 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- Copyright (c) Philippe Ozil (CC0-1.0 — rights waived) -->
+<!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
+<!-- Modifications copyright (c) 2026 JVB Consulting -->
+<template>
+	<div class="filters slds-grid slds-wrap slds-grid_vertical-align-center">
+		<!-- After time -->
+		<div class="slds-col slds-size_3-of-12 slds-m-bottom_small">
+			<lightning-input checked={afterTimeEnabled} class="toggle" label="Include events after" onchange={handleAfterTimeToggle} type="toggle"></lightning-input>
+		</div>
+		<div class="slds-size_9-of-12 slds-m-bottom_small">
+			<lightning-input disabled={afterTimeDisabled} label="After time" onchange={handleAfterTimeChange} type="datetime" value={afterTime}
+			                 variant="label-hidden"></lightning-input>
+		</div>
+
+		<!-- Before time -->
+		<div class="slds-col slds-size_3-of-12">
+			<lightning-input checked={beforeTimeEnabled} class="toggle" label="Include events before" onchange={handleBeforeTimeToggle} type="toggle"></lightning-input>
+		</div>
+		<div class="slds-size_9-of-12">
+			<lightning-input disabled={beforeTimeDisabled} label="Before time" onchange={handleBeforeTimeChange} type="datetime" value={beforeTime}
+			                 variant="label-hidden"></lightning-input>
+		</div>
+
+		<!-- Event types -->
+		<div class="event-types slds-p-top_medium">
+			<template for:each={eventTypeOptions} for:item="eventType">
+				<div class="event-type slds-m-right_x-large" key={eventType.index}>
+					<span class="dot slds-m-right_xx-small" style={eventType.style}></span>
+					<lightning-input checked={eventType.checked} data-index={eventType.index} label={eventType.label} message-toggle-active="Displayed"
+					                 message-toggle-inactive="Hidden" onchange={handleEventTypeToggle} type="toggle"></lightning-input>
+				</div>
+			</template>
+		</div>
+
+		<!-- Reset -->
+		<div class="slds-col slds-size_12-of-12 slds-align_absolute-center slds-m-top_small">
+			<lightning-button label="Clear filters" onclick={handleClearFilters}></lightning-button>
+		</div>
+	</div>
+</template>

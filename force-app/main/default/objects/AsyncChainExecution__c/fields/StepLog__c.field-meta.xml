@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>StepLog__c</fullName>
+    <description>Serialized JSON array logging each step&apos;s class name, configuration, execution result, and duration. Populated at chain creation with step definitions, then enriched with runtime outcomes as each step completes.</description>
+    <inlineHelpText>JSON log of each step — what ran, whether it succeeded, and how long it took. Framework-managed.</inlineHelpText>
+    <label>Step Log</label>
+    <length>131072</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>10</visibleLines>
+</CustomField>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Type__c</fullName>
+    <description>The type of evaluation strategy to execute. Determines which logic path is used and dictates the required format for the Target field. Options: Custom Permission (user has permission), Profile (user&apos;s profile matches), Permission Set Group (user is assigned), Public Group (user is member), Hierarchical Custom Setting (field value), List Custom Setting (record field value), Custom Metadata (record field value).</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>How to evaluate this rule. Custom Permission: user has it. Profile: user&apos;s profile matches. Permission Set Group: user is assigned. Public Group: user is a member. Custom Setting/Metadata: field value check. Your choice determines the Target field format.</inlineHelpText>
+    <label>Type</label>
+    <required>true</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Custom Permission</fullName>
+                <default>true</default>
+                <label>Custom Permission</label>
+            </value>
+            <value>
+                <fullName>Hierarchical Custom Setting</fullName>
+                <default>false</default>
+                <label>Hierarchical Custom Setting</label>
+            </value>
+            <value>
+                <fullName>Permission Set Group</fullName>
+                <default>false</default>
+                <label>Permission Set Group</label>
+            </value>
+            <value>
+                <fullName>Profile</fullName>
+                <default>false</default>
+                <label>Profile</label>
+            </value>
+            <value>
+                <fullName>Public Group</fullName>
+                <default>false</default>
+                <label>Public Group</label>
+            </value>
+            <value>
+                <fullName>Custom Metadata</fullName>
+                <default>false</default>
+                <label>Custom Metadata</label>
+            </value>
+            <value>
+                <fullName>List Custom Setting</fullName>
+                <default>false</default>
+                <label>List Custom Setting</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

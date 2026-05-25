@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AllowRecursion__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Controls whether this action can execute more than once in the same transaction. When false, the framework tracks execution and skips the action if the same trigger fires again (e.g. an After Update action that updates the same object). Defaults to true (recursion allowed).</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>When unchecked, this action runs only once per transaction even if the trigger fires again. Uncheck to prevent infinite loops from actions that modify the same object.</inlineHelpText>
+    <label>Allow Recursion</label>
+    <type>Checkbox</type>
+</CustomField>

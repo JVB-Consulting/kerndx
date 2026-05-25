@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!--
+* @description HTML type to support the image columns on Lightning data table
+*
+* @author Jason van Beukering
+*
+* @see storyNo: 325616
+*
+* @date July 2022
+* -->
+<template>
+	<template lwc:if={imgUrl}>
+		<img alt={imgUrl} src={imgUrl}>
+	</template>
+</template>

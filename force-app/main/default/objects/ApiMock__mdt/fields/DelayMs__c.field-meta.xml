@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>DelayMs__c</fullName>
+    <defaultValue>0</defaultValue>
+    <description>Simulated latency in milliseconds for fault simulation. Set to 0 for no delay. Used to test timeout handling and retry logic.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Simulated delay in milliseconds. Use to test timeout handling. Set to 0 for no delay.</inlineHelpText>
+    <label>Delay (ms)</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

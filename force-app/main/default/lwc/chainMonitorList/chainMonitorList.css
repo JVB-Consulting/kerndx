@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Filter tray — compact horizontal row with toggle button inline */
+.filter-row
+{
+	align-items : center;
+	display     : flex;
+	gap         : 0.5rem;
+}
+
+/* Render status checkboxes in a single horizontal row */
+lightning-checkbox-group .slds-checkbox
+{
+	display       : inline-flex;
+	margin-bottom : 0;
+	margin-right  : 0.5rem;
+}
+
+/* Compact the checkbox group container */
+lightning-checkbox-group .slds-form-element__control
+{
+	display   : flex;
+	flex-wrap : wrap;
+	gap       : 0.125rem 0.5rem;
+}

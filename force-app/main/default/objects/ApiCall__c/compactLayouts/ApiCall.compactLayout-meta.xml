@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApiCall</fullName>
+    <fields>Name</fields>
+    <fields>ServiceName__c</fields>
+    <fields>Status__c</fields>
+    <fields>Direction__c</fields>
+    <fields>TotalDurationMs__c</fields>
+    <fields>IsMockedResponse__c</fields>
+    <label>ApiCall</label>
+</CompactLayout>
