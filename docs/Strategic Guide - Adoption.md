@@ -73,7 +73,7 @@ This creates natural tension between consistency and SI expertise:
 |---------------|--------|-------------------|
 | **Hand-off complexity** | Higher if the incoming SI is new to KernDX — they must learn the framework-specific conventions, metadata topology, and managed-package constraints | Comparable — incoming SIs that already use one of `taf` / `apex-fluently-soql` / `nebula-logger` get a head start on that library; SIs new to those libraries face equivalent ramp |
 | **Convention fragmentation** | Lower if governance exists — managed package enforces a single convention set | Higher — each SI may adopt different libraries, or use them inconsistently, unless the central architecture team enforces a standard |
-| **Contractual boundaries** | More complex — framework dependency should be addressed in SI contracts; source ownership and maintenance responsibility require explicit terms (mitigated by the source-ownership-at-handover model) | Simpler — open-source libraries carry no contractual implications |
+| **Contractual boundaries** | More complex — framework dependency should be addressed in SI contracts; source ownership and maintenance responsibility require explicit terms (mitigated by public source availability under BSL 1.1, with direct source delivery and handover support on consulting engagements) | Simpler — open-source libraries carry no contractual implications |
 | **Knowledge silo risk** | Higher — KernDX expertise concentrated in the original SI; handover requires deliberate knowledge transfer | Comparable in practice — modular libraries have public READMEs and (in some cases) hosted docs, but most are single-maintainer projects without large issue-tracker communities, so the "Stack Overflow will save us" framing is weaker than it sounds |
 | **Overall multi-SI risk** | **Higher risk** without strong central governance to enforce consistent usage across SIs; **manageable** with central authority | **Comparable risk** to KernDX — multi-SI fragmentation is governance-driven, not framework-driven. Modular stacks fragment differently (library divergence) than integrated stacks (partial adoption) but both fragment without governance |
 
@@ -518,12 +518,12 @@ Use this table to evaluate which approach best fits your constraints. Each colum
 | Governance maturity is low | Managed package encapsulates standards | Requires architectural discipline to maintain consistency |
 | Integration volume > 5 APIs | Built-in retry, circuit breaker, transactional outbox | Build custom resilience or adopt `apex-libra` |
 | Package encapsulation needed | 2GP managed, exempt from 6 MB limit | Source-distributed, counts against limit |
-| Open-source community required | Not available (BSL 1.1, private repo) | MIT-licensed, public GitHub repos |
+| Open-source community required | Not a fit — source is public under BSL 1.1, but BSL is not OSI-approved until the Apache 2.0 conversion, and the contribution model is single-maintainer / issues-only | MIT-licensed, public GitHub repos |
 | Existing `fflib` investment | Complement with utilities, don't replace | Complement with utilities, don't replace |
 | Domain-Driven Design required | Not a fit (service-oriented) | `fflib` or `at4dx` |
 | Rapid prototyping | Strong default conventions speed delivery | Lighter initial setup |
 | AI-assisted development | `AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference, optimised for AI code generation | Per-library README quality varies; `apex-fluently-soql` and `nebula-logger` ship maintainer-authored docs sites |
-| Consulting delivery with handover | Source ownership transferred at handover; the client owns the framework | Client may already know one or more of the libraries; if not, the per-library ramp is comparable to learning KernDX |
+| Consulting delivery with handover | Source is public under BSL 1.1; consulting delivery adds direct source delivery and handover support, and the client owns and can self-maintain the framework | Client may already know one or more of the libraries; if not, the per-library ramp is comparable to learning KernDX |
 | Operational entropy risk (multi-team) | Lower entropy growth potential (see [Operational Entropy](#operational-entropy-and-maintainability-in-multi-team-environments)) | Higher entropy risk without governance (see [Operational Entropy](#operational-entropy-and-maintainability-in-multi-team-environments)) |
 
 ### Capability Comparison

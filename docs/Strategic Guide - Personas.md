@@ -486,7 +486,7 @@ this change." That distinction is what makes the posture defensible to auditors 
 **What you need to know:**
 
 - **All major open-source frameworks are free** — TAF (Apache 2.0), SOQL Lib / Apex Fluently (MIT), `nebula-logger` (MIT), `fflib` (BSD-3), `apex-libra` (MIT),
-  `rflib` (BSD-3). KernDX ships under BSL 1.1 as a managed package with source ownership on handover. The cost is training and maintenance, not licenses.
+  `rflib` (BSD-3). KernDX ships under BSL 1.1 as a managed package with source publicly available (and direct source delivery on consulting engagements). The cost is training and maintenance, not licenses.
 - **The ecosystem has shifted** — from monolithic frameworks (`fflib`, 2013) to modular libraries (SOQL Lib, TAF, 2020+) and granular suites (Apex Fluently's 8
   independent libraries).
 - **AI may change the calculus** — Salesforce's Agentforce (announced 2024, GA October 2024) creates demand for frameworks AI agents can interpret. Frameworks
@@ -578,7 +578,7 @@ after a four-year clock).
 
 | Security concern | KernDX | Modular stack (TAF + SOQL Lib + `nebula-logger`) | `fflib` |
 |------------------|--------|--------------------------------------------------|---------|
-| Source audit | Full source at handover | Public GitHub repos | Public GitHub repo |
+| Source audit | Public GitHub repo (BSL 1.1) | Public GitHub repos | Public GitHub repo |
 | Sharing enforcement | Mandatory `with sharing` declaration on every class | Developer responsibility | Developer responsibility |
 | Query security default | `USER_MODE` default-on on read paths and audited via subscriber-written explicit opt-out (`SEL_Base.systemModeRequired()` plus metadata kill-switch) | SOQL Lib: `USER_MODE` default-on on read paths and audited; SOQLCache constructor silently downgrades to `SYSTEM_MODE` on the cache extension surface | Developer responsibility; `newQueryFactory().setCondition(String)` accepts arbitrary WHERE strings |
 | DML security default | `USER_MODE` default-on on write paths and audited via subscriber-written explicit opt-out (metadata kill-switch; configuration changes tracked via Setup Audit Trail) | DML Lib: `USER_MODE` default-on on write paths but `userMode()` / `systemMode()` / `withSharing()` / `withoutSharing()` mutate `Configuration` in-place silently | SimpleDML default bypasses FLS/CRUD on every write |
