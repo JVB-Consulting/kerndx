@@ -56,7 +56,7 @@ The following scenarios represent contexts where modular open-source stacks are 
 | Platform R&D orgs experimenting with architectural patterns | Modular adoption allows swapping individual libraries without rearchitecting; ideal for evaluating emerging tools |
 | Organisations requiring public governance for audit or compliance | Public GitHub repos and open commit history satisfy audit requirements that private frameworks cannot. If the audit also demands multi-contributor maintainership, only the `fflib` family genuinely qualifies (per the [Bus Factor Reframe](#bus-factor-reframe--institutional-knowledge-survival-via-documentation-depth)); most other community libraries are also single-maintainer |
 
-In these contexts, KernDX may introduce unnecessary abstraction and operational overhead. A modular stack is the better fit for these contexts.
+In these contexts, KernDX may introduce unnecessary abstraction and operational overhead. A modular stack is the better fit for these contexts. For a capability-by-capability comparison of KernDX against each of these libraries — including where a specialised library is the better pick — see [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md).
 
 ---
 
@@ -268,7 +268,7 @@ Any framework — integrated or modular — should meet these governance gates b
 | G-6 Contribution guidelines | PASS | PASS | PASS | PASS |
 | G-7 CI transparency | PASS | PASS | PASS | PASS |
 
-† `apex-fluently-soql` is one of 8 Apex Fluently libraries primarily authored by Piotr Gajek. A full Apex Fluently stack is effectively a single-maintainer dependency (or two if paired with `nebula-logger` — maintained by Jonathan Gillespie), so an architecture board evaluating *the modular stack as a whole* should treat its overall G-5 gate result as CONDITIONAL even though each individual library lists its own G-5 status.
+† The 8 Apex Fluently libraries share a single primary author, so a full Apex Fluently stack is effectively a single-maintainer dependency (or two if paired with a separately-maintained logger such as `nebula-logger`), so an architecture board evaluating *the modular stack as a whole* should treat its overall G-5 gate result as CONDITIONAL even though each individual library lists its own G-5 status.
 
 ### Hard Questions Architecture Review Boards Will Ask
 
