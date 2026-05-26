@@ -47,7 +47,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Lines of code (LWC Jest tests) | ~31K | counted from `force-app/main/default/lwc/**/*.test.js` |
 | Lines of code (total) | ~205K | sum of the rows above |
 | Source API version | 66.0 | visible in Setup → Installed Packages → Kern → API Version; also in `sfdx-project.json` |
-| Latest packaged version | 1.0.0-121 (validated build) | `sfdx-project.json` `packageAliases` |
+| Latest packaged version | 1.0.0-121 (released) | `sfdx-project.json` `packageAliases` |
 
 ## Org Apex Usage (Unmanaged)
 
@@ -200,7 +200,7 @@ Distribution-maturity figures at the snapshot date (2026-05-09), reported separa
 | Metric | Value | Source |
 |--------|------:|-------|
 | Published managed-package versions | 107 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000IrvVAAS` |
-| Latest packaged version | 1.0.0-121 (validated build) | `sfdx-project.json` `packageAliases` |
+| Latest packaged version | 1.0.0-121 (released) | `sfdx-project.json` `packageAliases` |
 | Primary contributors | 1 | single-maintainer project |
 
 > KernDX is a young, single-maintainer project whose distribution maturity is carried by 107 published managed-package version IDs rather than by a long public commit history.

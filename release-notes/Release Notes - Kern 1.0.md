@@ -1,6 +1,6 @@
 # Kern 1.0 — Feature Reference
 
-**Initial release:** March 2026 · **Latest validated build:** 1.0.0-121 (May 2026)
+**Initial release:** March 2026 · **Latest release:** 1.0.0-121 (May 2026 — promoted for production install)
 **API Version:** 66.0
 **Namespace:** `kern` (rebrandable via [Installation](../docs/Installation.md) for white-label deployments)
 
@@ -610,5 +610,5 @@ Cross-namespace subscriber imports supported — ComponentBuilder and 11 depende
 - 53 LWC components with ~2,283 Jest cases at 100% coverage
 - 24 PMD rules + 6 ESLint rules enforce framework conventions in IDE and CI/CD — see [Code Scanning - Guide](../docs/Code%20Scanning%20-%20Guide.md)
 - Secure-by-default: USER_MODE is the default `AccessLevel` on `QRY_Builder` / `SEL_Base` / `DML_Builder`; bypass audit logging records every programmatic bypass
-- Subscriber release testing: 171 subscriber Apex tests / 21 Playwright end-to-end cases at 100% pass rate on the latest validated build (1.0.0-120)
+- Subscriber release testing: 171 subscriber Apex tests / 21 Playwright end-to-end cases at 100% pass rate on the released build (1.0.0-121)
 - No inline SOQL, no `System.debug`, no hardcoded IDs in production code

@@ -164,7 +164,7 @@ KernDX is a Salesforce managed-package framework providing integrated trigger ha
 | **Package Type** | Managed Package (2GP) |
 | **API Version** | 66.0 (`sourceApiVersion` per `sfdx-project.json`) |
 | **License** | Business Source License 1.1 — source-available, four-year clock to Apache 2.0 |
-| **Status** | v1.0 packaged — first validated build shipped, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); one external client engagement at the snapshot date, broader subscriber adoption on the public-release rollout path |
+| **Status** | v1.0 packaged — first validated build shipped, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); publicly released under BSL 1.1 and promoted for production install, with one known external client engagement at the snapshot date and public adoption still early |
 | **Coverage gate** | 100% Apex per-file + 95% LWC statements + 95% LWC branches enforced by `scripts/evaluate-coverage.js` at every release build |
 | **Latest packaged build** | See [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier |
 
