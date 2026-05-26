@@ -1493,4 +1493,4 @@ net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
 | [Utilities - Guide](Utilities%20-%20Guide.md) | `UTIL_Cache`, `UTIL_Crypto`, `UTIL_Email`, and other utilities |
 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) | `SCHED_Base`, `UTIL_AsynchronousJobLauncher` |
 | [Security - Guide](Security%20-%20Guide.md) | Sharing enforcement and security patterns |
-| `scanner/README.md` | Quick reference for scanner files and rules |
+| [`scanner/README.md`](../scanner/README.md) | Quick reference for scanner files and rules |
