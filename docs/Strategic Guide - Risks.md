@@ -87,7 +87,7 @@ This section documents known risks and trade-offs for both integrated and modula
 | `TriggerSetting__mdt.BypassExecution__c` | All handlers for an object | Declaratively disable all trigger processing for an SObject type | No (metadata deploy) |
 | `FeatureFlag__mdt` | Entire feature path | Disable a feature flag, which prevents associated trigger actions from executing | No (metadata deploy) |
 | Web service feature flags | Specific API handler | Disable outbound/inbound web service processing via `FeatureFlag__mdt` | No (metadata deploy) |
-| Source ownership + repackaging | Any framework class | Fork the source (transferred at handover), fix the bug, repackage under client namespace | Yes (the exit strategy) |
+| Source ownership + repackaging | Any framework class | Fork the public source (BSL 1.1), fix the bug, repackage under client namespace | Yes (the exit strategy) |
 
 **Bypass usage is audit-logged by default.** Every bypass call writes a structured audit event via `LOG_Builder`, carrying the W3C correlation ID so every bypass — whether a deliberate P1 mitigation or an accidental call inside a loop — is traceable across triggers, async chains, and API calls. Subscribers get auditable evidence of every emergency bypass without writing any logging code themselves. Across comparable Apex frameworks, only KernDX and `rflib` ship built-in bypass-audit emission — `taf`'s programmatic bypass surface, `fflib`'s static-Boolean kill-switch, `apex-libra`'s `disableTrigger` / `asSystemWithoutSharing`, and the Apex Fluently programmatic surfaces all emit no observable signal on bypass.
 
@@ -238,7 +238,7 @@ This applies equally to all frameworks — open-source visibility and internal o
 | Current status | Packaged with 107 distinct package version IDs declared in `sfdx-project.json` |
 | Upgrade guarantees | Backward-compatible minor releases; breaking changes in major versions only |
 | API stability | `global` members are the stable API surface; `public` members are internal and may change |
-| Source delivery method | Full source repository provided at project handover |
+| Source delivery method | Public source repository under BSL 1.1; consulting engagements additionally include direct source delivery and handover support |
 
 ### Adoption Gate Criteria
 
@@ -254,7 +254,7 @@ Any framework — integrated or modular — should meet these governance gates b
 | G-6 | Contribution guidelines published | `CONTRIBUTING.md` published in the source repository | PASS |
 | G-7 | CI transparency | `.github/workflows/ci.yml` and Actions run history publicly visible on the source repository | PASS |
 
-**Assessment:** KernDX passes 4 of 7 gates, with 1 conditional and 2 failures. Enterprises adopting KernDX should document explicit risk acceptance for gates G-3 and G-4 and establish contractual mitigations (source ownership, defined handover process, succession planning). The conditional G-5 gate ("succession via source ownership") is materially stronger in practice than the conditional label alone suggests: the succession-exit path is AI-executable against the framework's handover AI-context bundle, with ~1-2 days wall-clock for a deeply adopted transition — so "succession via source ownership" is a concrete sprint-scale activity, not a multi-week project, for teams equipped with modern agentic tooling.
+**Assessment:** KernDX passes 4 of 7 gates, with 1 conditional and 2 failures. Enterprises adopting KernDX should document explicit risk acceptance for gates G-3 and G-4 and establish contractual mitigations (source ownership, defined handover process, succession planning). The conditional G-5 gate ("succession via source ownership") is materially stronger in practice than the conditional label alone suggests: the succession-exit path is AI-executable against the framework's public AI-context bundle, with ~1-2 days wall-clock for a deeply adopted transition — so "succession via source ownership" is a concrete sprint-scale activity, not a multi-week project, for teams equipped with modern agentic tooling.
 
 **For comparison**, the same gates applied to modular frameworks:
 

@@ -632,18 +632,18 @@ KernDX provides infrastructure patterns. It does not replace organisational gove
 
 ### Current State
 
-KernDX is licensed under BSL 1.1 (Business Source License), which converts to Apache 2.0 after four years. The source is available but not yet published publicly. This section documents what open-source readiness looks like and where KernDX stands.
+KernDX is licensed under BSL 1.1 (Business Source License), which converts to Apache 2.0 after four years. The source is published publicly on GitHub under BSL 1.1. This section documents KernDX's open-source posture against the dimensions an architecture review board weighs.
 
-| Dimension | Current State | Required for Open-Source |
-|-----------|--------------|------------------------|
-| **Source availability** | Private repository | Public GitHub repository |
-| **License** | BSL 1.1 (converts to Apache 2.0 after 4 years) | OSI-approved license (MIT, Apache 2.0, or BSD-3) |
-| **Documentation** | 26 developer documents (14 guides, 12 fast starts), 263 API references, `AGENTS.md` + `docs/Code Conventions - Guide.md` (repo-root AI instructions) + [AI Agent Instructions](AI%20Agent%20Instructions.md) (per-module framework reference) | Public docs site, README, contribution guide |
-| **Test coverage** | 100% per-file Apex + 95% LWC statements + 95% LWC branches enforced at every release build | Maintained at 100% with public CI |
-| **CI/CD** | Internal | Public GitHub Actions |
-| **Issue tracking** | Internal | Public GitHub Issues |
-| **Community** | Single developer | Contribution guidelines, code of conduct |
-| **Distribution** | Source deploy | Unlocked package + source |
+| Dimension | KernDX | Open-source benchmark |
+|-----------|--------|------------------------|
+| **Source availability** | Public GitHub repository | Public GitHub repository — met |
+| **License** | BSL 1.1 (converts to Apache 2.0 after 4 years) | OSI-approved license (MIT, Apache 2.0, or BSD-3) — BSL is source-available but not OSI-approved until the Apache 2.0 conversion (a deliberate choice during the commercial period, not a gap to close) |
+| **Documentation** | 26 developer documents (14 guides, 12 fast starts), 263 API references, `AGENTS.md` + `docs/Code Conventions - Guide.md` (repo-root AI instructions) + [AI Agent Instructions](AI%20Agent%20Instructions.md) (per-module framework reference) | Public README, docs, contribution guide — met |
+| **Test coverage** | 100% per-file Apex + 95% LWC statements + 95% LWC branches enforced at every release build | Maintained with public CI — met |
+| **CI/CD** | Public GitHub Actions (`.github/workflows/ci.yml`) | Public CI — met |
+| **Issue tracking** | Public GitHub Issues with bug-report + feature-request templates | Public issues — met |
+| **Community** | `CONTRIBUTING.md` + Code of Conduct published; single-maintainer, issues-only contribution model (external PRs not accepted at this stage by design) | Contribution guidelines + code of conduct — met |
+| **Distribution** | Managed package + source deploy + repackage-under-namespace | Package + source — met |
 
 ### Adoption Signal Profile
 
@@ -659,7 +659,7 @@ KernDX is **v1.0** with the first validated build packaged and testing-hardened 
 | Package versions published | 107 |
 | Contributors | 1 |
 
-KernDX adoption activity reflects two structural conditions: the framework is private-repo (GitHub-stars history is therefore not visible) and ships with a single contributor. Adoption activity and per-capability coverage are reported separately throughout this guide — adoption activity is orthogonal to per-capability coverage and never caps a capability score.
+KernDX adoption activity reflects two structural conditions: the public repository is newly published (so GitHub-stars history has not yet accumulated) and the framework ships with a single contributor. Adoption activity and per-capability coverage are reported separately throughout this guide — adoption activity is orthogonal to per-capability coverage and never caps a capability score.
 
 **Capability coverage across the comparable Apex frameworks surveyed.** On the axes that drive defect rate — security defaults, framework integration, capability breadth — KernDX measures favourably against those alternatives:
 
@@ -683,7 +683,7 @@ KernDX adoption activity reflects two structural conditions: the framework is pr
 | **`taf`** | Started as personal project by Mitch Spano. Published on GitHub with Apache 2.0. Has grown to several hundred GitHub stars at a recent fetch. The main reference among the comparable Apex libraries surveyed for a metadata-driven trigger framework. |
 | **`apex-fluently-soql`** | Published with MIT license and dedicated documentation site. Active maintenance with 147 commits in the last 12 months and 36 tagged releases. Adopted by `rflib` — a documented downstream-consumer adoption signal. |
 | **`nebula-logger`** | Published early, iterated in public. MIT license. Has grown past eight hundred GitHub stars at a recent fetch, with 25+ contributors over 8 years. Featured in Trailhead and Dreamforce. The main reference among the comparable Apex libraries surveyed for community engagement on a single-purpose library. |
-| **KernDX** | BSL 1.1 licensed, 2+ years development. The full developer documentation set (26 developer documents, 263 API references) exists but is not yet public. Converts to Apache 2.0 four years after release. Public publishing would require public CI and community infrastructure. |
+| **KernDX** | BSL 1.1 licensed, 2+ years development. Published publicly on GitHub with the full developer documentation set (26 developer documents, 263 API references), public CI (`ci.yml`), issue templates, `CONTRIBUTING.md`, and a Code of Conduct. Converts to Apache 2.0 four years after release. |
 
 ### Bus Factor Mitigation
 
