@@ -144,13 +144,13 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 |--------|------:|-------|
 | Developer guides | 15 | Excluding the Strategic Guide series; counted from `docs/*%20-%20Guide.md` |
 | Fast Start guides | 12 | |
-| Strategic Guide documents | 8 | Overview + Architecture & Philosophy + Adoption + Operations + Risks + Glossary + Personas + Metrics |
+| Strategic Guide documents | 9 | Overview + Architecture & Philosophy + Adoption + Operations + Risks + Glossary + Personas + Metrics + Choosing a Framework |
 | API reference pages (Apex) | 234 | |
 | API reference pages (metadata) | 15 | |
 | API reference pages (objects) | 11 | |
 | API reference pages (events) | 2 | |
 | API reference pages (total) | 262 | sum of all reference categories |
-| Total documentation files (developer-focused) | 35 | 15 developer guides + 12 Fast Start guides + 8 Strategic Guide documents (excluding `reference/`) |
+| Total documentation files (developer-focused) | 36 | 15 developer guides + 12 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`) |
 
 > Headline figure used in companion docs: 27 developer documents (15 guides + 12 Fast Starts) + 263 API reference pages. The 263 figure includes the Security Guide (separately tracked at 2,027 lines) alongside the 262 categorised reference pages.
 
@@ -195,21 +195,15 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 ## Activity Snapshot
 
-Activity figures at the snapshot date (2026-05-09), reported separately from capability coverage so that activity duration does not skew capability comparisons. All figures derive from `git log` and `sfdx-project.json` at that date.
+Distribution-maturity figures at the snapshot date (2026-05-09), reported separately from capability coverage so that activity duration does not skew capability comparisons. Figures derive from `sfdx-project.json` `packageAliases`.
 
-| Metric | Value | Notes |
+| Metric | Value | Source |
 |--------|------:|-------|
-| Total commits (entire history) | 1100 | `git rev-list --count HEAD` |
-| Commits in last 12 months | 1100 | entire history is within the 12-month window |
-| Contributor count | 1 | `git shortlog -sn` |
-| Tagged releases | 4 | `git tag` — mix of project-codename and snapshot tags; distribution semver lives in `sfdx-project.json` `packageAliases` |
-| Days since last tag | 1 | computed from `git for-each-ref --sort=-creatordate refs/tags` |
-| Package-version IDs published | 107 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000IrvVAAS` |
+| Published managed-package versions | 107 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000IrvVAAS` |
 | Latest packaged version | 1.0.0-121 (validated build) | `sfdx-project.json` `packageAliases` |
-| First commit date | 2026-03-04 | `git log --reverse --format=%ad` |
-| Snapshot commit date | 2026-05-09 | most recent commit at snapshot |
+| Primary contributors | 1 | single-maintainer project |
 
-> KernDX is approximately two months old at the snapshot date, with high commit velocity (1100 commits in roughly two months) from a single contributor. Distribution maturity is carried by 107 published managed-package version IDs, not by git tags.
+> KernDX is a young, single-maintainer project whose distribution maturity is carried by 107 published managed-package version IDs rather than by a long public commit history.
 
 ## Comparator Set
 

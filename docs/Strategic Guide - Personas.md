@@ -91,7 +91,7 @@ stakeholders in a 30-minute session.
 **Key questions to ask:**
 
 - How will we handle framework version upgrades across multiple sandboxes and production?
-- What happens if the framework is deprecated or maintainer moves on? (KernDX: source publicly available under BSL 1.1; clone and self-maintain regardless of vendor status; TAF: Mitch Spano is Director of Engineering for Apex at Salesforce; SOQL Lib:
+- What happens if the framework is deprecated or maintainer moves on? (KernDX: source publicly available under BSL 1.1; clone and self-maintain regardless of vendor status; TAF: Apache 2.0, actively maintained — fork and self-maintain if needed; SOQL Lib:
   active community.)
 - Can we enforce framework usage via PMD rules or CI/CD gates?
 - How do we prevent framework bypass (developers writing inline SOQL despite framework availability)?
@@ -369,9 +369,9 @@ integrated test infrastructure (`TST_Builder`, `TST_Mock`, `TST_Factory`, `API_M
 release build reduce regression risk during feature delivery. The release runbook, drift-audit cycle, and end-to-end subscriber harness produce evidence of
 release quality at each version cut.
 
-**Governance by Design vs Honor System.** Every read and every write that flows through the framework records its data-access decision as compliant by default;
+**Governance by Design vs. developer vigilance.** Every read and every write that flows through the framework records its data-access decision as compliant by default;
 the absence of an explicit, audited override is itself the audit record. Frameworks that require each developer to declare data-access governance per query and
-per DML call depend on developer-side vigilance every sprint — that is an Honor System, and Honor Systems degrade under deadline pressure. KernDX shifts the
+per DML call rely on constant developer vigilance. KernDX shifts that operational burden by enforcing security by default, moving the
 question your audit team asks from "did the developer remember?" to "is there an audited override on this line?" — and the answer is enumerable from source.
 
 **Developer tax: where engineering hours actually go.** Without framework-bundled standards, engineering teams pay a recurring tax — every sprint, developers

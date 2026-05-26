@@ -653,10 +653,7 @@ KernDX is **v1.0** with the first validated build packaged and testing-hardened 
 
 | Activity signal | KernDX value |
 |---|---|
-| Commits in the last 12 months | 1100 |
-| Tagged releases | 4 |
-| Days since latest tag | 1 |
-| Package versions published | 107 |
+| Published managed-package versions | 107 |
 | Contributors | 1 |
 
 KernDX adoption activity reflects two structural conditions: the public repository is newly published (so GitHub-stars history has not yet accumulated) and the framework ships with a single contributor. Adoption activity and per-capability coverage are reported separately throughout this guide — adoption activity is orthogonal to per-capability coverage and never caps a capability score.
@@ -680,7 +677,7 @@ KernDX adoption activity reflects two structural conditions: the public reposito
 
 | Framework | Open-Source Journey |
 |-----------|-------------------|
-| **`taf`** | Started as personal project by Mitch Spano. Published on GitHub with Apache 2.0. Has grown to several hundred GitHub stars at a recent fetch. The main reference among the comparable Apex libraries surveyed for a metadata-driven trigger framework. |
+| **`taf`** | Started as a personal project, published on GitHub under Apache 2.0. Has grown to several hundred GitHub stars at a recent fetch. A widely-referenced metadata-driven trigger framework. |
 | **`apex-fluently-soql`** | Published with MIT license and dedicated documentation site. Active maintenance with 147 commits in the last 12 months and 36 tagged releases. Adopted by `rflib` — a documented downstream-consumer adoption signal. |
 | **`nebula-logger`** | Published early, iterated in public. MIT license. Has grown past eight hundred GitHub stars at a recent fetch, with 25+ contributors over 8 years. Featured in Trailhead and Dreamforce. The main reference among the comparable Apex libraries surveyed for community engagement on a single-purpose library. |
 | **KernDX** | BSL 1.1 licensed, 2+ years development. Published publicly on GitHub with the full developer documentation set (26 developer documents, 263 API references), public CI (`ci.yml`), issue templates, `CONTRIBUTING.md`, and a Code of Conduct. Converts to Apache 2.0 four years after release. |

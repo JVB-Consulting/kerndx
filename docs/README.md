@@ -23,7 +23,7 @@
    - [Testing](#testing-1)
 5. [API Reference](#api-reference)
 6. [Special Documents](#special-documents)
-   - [Strategic Guide (8 documents)](#strategic-guide-8-documents)
+   - [Strategic Guide (9 documents)](#strategic-guide-9-documents)
 7. [Choosing the Right Document](#choosing-the-right-document)
 
 </details>
@@ -184,13 +184,14 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | [Code Conventions - Guide](Code%20Conventions%20-%20Guide.md) | Canonical Apex/LWC/JS coding conventions — naming, formatting, ApexDoc, anti-patterns |
 | [Installation](Installation.md) | Subscriber org configuration, post-install steps, health check verification |
 
-### Strategic Guide (8 documents)
+### Strategic Guide (9 documents)
 
 | Document | Description |
 |----------|-------------|
 | [Overview](Strategic%20Guide%20-%20Overview.md) | Executive tear sheet, key findings, recommendations, navigation hub |
 | [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md) | Design principles, capabilities, Well-Architected alignment |
 | [Adoption](Strategic%20Guide%20-%20Adoption.md) | Enterprise delivery, TCO model, decision matrices, build-vs-buy economics |
+| [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md) | Capability-by-capability comparison against the established Apex frameworks, pick-by-capability guidance, head-to-head trade-offs |
 | [Operations](Strategic%20Guide%20-%20Operations.md) | Day-2 ownership, packaging, exit strategy, observability |
 | [Risks](Strategic%20Guide%20-%20Risks.md) | Risk register and mitigations for adoption decisions |
 | [Personas](Strategic%20Guide%20-%20Personas.md) | Stakeholder-specific decision views (CTO, architect, developer, PM, ISV) |
@@ -224,7 +225,7 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Control record-level sharing at runtime | [Security - Guide](Security%20-%20Guide.md) |
 | Build Lightning Web Components | [LWC - Guide](LWC%20-%20Guide.md) |
 | Use string, date, number, or collection utilities | [Utilities - Guide](Utilities%20-%20Guide.md) |
-| Evaluate KernDX vs fflib trade-offs | [Strategic Guide](Strategic%20Guide%20-%20Overview.md) |
+| Evaluate KernDX vs fflib trade-offs | [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md) |
 | Set up KernDX in a subscriber org | [Installation](Installation.md) |
 | Configure AI-assisted KernDX development | [AI Agent Instructions](AI%20Agent%20Instructions.md) |
 | Write browser-based E2E tests | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) |

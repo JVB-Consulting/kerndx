@@ -13,6 +13,7 @@
 | **Overview** (this document) | Executive tear sheet, key findings, recommendations, navigation |
 | **[Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md)** | Design principles, capabilities, Well-Architected alignment, open-source readiness |
 | **[Adoption](Strategic%20Guide%20-%20Adoption.md)** | Enterprise delivery, TCO model, AI tooling alignment, decision matrices, coexistence patterns, brownfield roll-out roadmap |
+| **[Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md)** | Capability-by-capability comparison against the established Apex frameworks (`fflib`, `taf`, `nebula-logger`, …), pick-by-capability guidance, head-to-head trade-offs, organisational fit |
 | **[Operations](Strategic%20Guide%20-%20Operations.md)** | Packaging, distribution, exit strategy, post-handover support tiers, performance and governor limits |
 | **[Risks](Strategic%20Guide%20-%20Risks.md)** | Risks and mitigations, "when not to use KernDX", adoption gates, hard questions architecture review boards will ask |
 | **[Personas](Strategic%20Guide%20-%20Personas.md)** | Stakeholder-specific decision views (CTO, architect, developer, PM, ISV) |
@@ -219,7 +220,7 @@ The findings below summarize how KernDX compares against the alternative Salesfo
 
 #### Framework Comparison
 
-The Apex libraries surveyed by this guide span full-stack frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`), single-capability libraries (Apex Fluently family — 8 libraries, `nebula-logger`, `taf`, `nebula-triggers`), and single-purpose tools (`fflib-mocks`, `mask-sobject`, `promise`, `apex-chainable`, `apex-promisify`, `apex-async-linkable`). The per-area findings above point to the specific comparisons.
+The Apex libraries surveyed by this guide span full-stack frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`), single-capability libraries (Apex Fluently family — 8 libraries, `nebula-logger`, `taf`, `nebula-triggers`), and single-purpose tools (`fflib-mocks`, `mask-sobject`, `promise`, `apex-chainable`, `apex-promisify`, `apex-async-linkable`). The per-area findings above point to the specific comparisons. For a capability-by-capability comparison with head-to-head trade-offs and pick-by-capability guidance, see [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md).
 
 #### Recommendations by Context
 
