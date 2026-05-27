@@ -91,32 +91,30 @@ For specific older versions, see the [Releases page](https://github.com/JVB-Cons
 
 ### Post-Install Configuration
 
-After installation, verify the framework is operational:
+After installing, finish setup with the **Health Check** built into the **Kern** app. If you installed the package as a System Administrator, the app is available to you by default — open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. Its **Home** tab runs the Health Check automatically: it verifies the configuration below, sorts anything outstanding to the top (**Action required** for hard prerequisites, **Review recommended** for optional settings, **Passing** for everything already set), and offers in-place fixes — including a **Class Type Resolver** generator that writes a resolver class and test for you, and a one-click **Data Retention** scheduler. The Home tab also provides quick-launch **Administration Tools**: API Test Harness, Streaming Event Monitor, and Chain Monitor.
 
-1. **Org Cache partition** — required for `UTIL_Cache`. Navigate to **Setup > Platform Cache** and verify a partition exists. If none, click **New Platform Cache Partition** and allocate at least 5 MB of Org Cache capacity (10 MB recommended for production).
-2. **Session Cache partition** — required for `UTIL_SessionEncryption`. Same location as Org Cache. Allocate at least 3 MB of Session Cache capacity to the same partition.
-3. **Trusted URL** — only required if you are calling out to a domain that triggers Salesforce's outbound header-validation (CSP, lockerservice, or hostname binding). For framework smoke-tests against a sandbox or scratch org, you can skip this step. To find your org's My Domain, navigate to **Setup > Company Information > My Domain**. To register an outbound target, navigate to **Setup > Trusted URLs** and add the host you intend to call (do not include a path or trailing slash).
-4. **Health Check LWC** — KernDX ships a `healthCheck` Lightning component that diagnoses post-install configuration drift. To install it:
-   1. Open **Setup > Lightning App Builder > New** and create (or open) a Lightning App Page, Home Page, or Record Page.
-   2. In the component palette, search for **Health Check** under **Custom > Managed**. Drag it onto the page canvas. Save and activate the page.
-   3. Open the page. The component renders a status table covering: Org Cache + Session Cache partitions, `TriggerSetting__mdt` records for shipped objects, `MaskingTarget__mdt` wiring, `ApiSetting__mdt` + `ApiCredential__mdt` for outbound calls, scheduled-job presence for retention sweeps, and feature-flag coverage.
-   4. Read the status indicators:
-      - 🟢 **Pass** — configuration is complete and the capability is operational.
-      - 🟡 **Warn** — the capability ships but a recommended setting is missing (e.g. retention scheduled job not yet active); the framework still works.
-      - 🔴 **Fail** — a hard prerequisite is missing (e.g. Org Cache partition); the corresponding capability will throw at runtime until fixed. Failing rows sort to the top, with the most foundational issue first.
-   5. Each row exposes an inline **Customize** or **Apply** action where the framework can repair the configuration without leaving the page (e.g. apply recommended retention, schedule a sweep job).
+What the Health Check looks for, and how to satisfy it:
+
+1. **Platform Cache.** KernDX ships its own Platform Cache partition — **LibraryCache** (under the `kern` namespace) — so you don't create one. A managed package's capacity allocation doesn't transfer to a subscriber org, so you allocate the space yourself: in **Setup > Platform Cache**, edit the **LibraryCache** partition. Give it **Organisation** cache — Kern uses this to remember state between requests, so without it automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working. Add **Session** cache where you can — Kern keeps per-user data such as encryption keys there, and without it that data falls back to Org Cache, using more of your org-cache allocation and slowing user-specific operations.
+2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org — for example, pushing to streaming channels. If you use them, add a Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**); otherwise you can skip this step.
+3. **Class Type Resolver (optional).** Only needed if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global` — Kern then needs a resolver to locate them across its namespace. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you; see also [Subscriber Integration Gotchas](#subscriber-integration-gotchas) below.
+
+To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission) below). For a full walkthrough of every check and what each result means, see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.
 
 ### Subscriber Integration Gotchas
 
 Four details that consistently bite subscribers on first integration:
 
-1. **Custom type resolvers must be `global`.** The managed package cannot instantiate `public` subscriber classes via
-   `Type.newInstance()` across namespaces. If you implement a `ClassTypeResolver__mdt` resolver, declare the class
-   `global with sharing` and use `kern.UTIL_System.getNamespacePrefix()` for namespace-aware resolution:
+1. **Custom type resolvers must be `global`.** The managed package instantiates resolver classes across namespaces via
+   `Type.newInstance()`, which cannot reach a `public` class — so declare yours `global with sharing` (the `resolveType`
+   override itself stays `public`; it overrides a `global abstract` method without widening to `global`). You don't have
+   to write the body by hand: the Kern app's Health Check generates a complete, namespace-aware resolver and a matching
+   test for you (click **Setup** on the Class Type Resolver row; see [Health Check](Utilities%20-%20Guide.md#health-check)).
+   The shape is:
    ```apex
    global with sharing class MyCustomResolver extends kern.UTIL_TypeResolver.BaseClassResolver
    {
-       global override Type resolve(String className) { /* ... */ }
+       public override Type resolveType(String className) { /* ... */ }
    }
    ```
 2. **Subscriber request DTOs need `@JsonAccess` with both flags.** `DTO_JsonBase.serialize()` runs from the managed

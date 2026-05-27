@@ -7,6 +7,7 @@
 **Before you start:**
 
 - [ ] KernDX package installed in your org
+- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
 - [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)

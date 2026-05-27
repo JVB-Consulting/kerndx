@@ -689,7 +689,7 @@ public class DTO_Request extends DTO_JsonBase
  *
  * @see UTIL_TypeResolver
  */
-global with sharing class CustomTypeResolver extends UTIL_TypeResolver.BaseClassResolver
+global with sharing class CustomTypeResolver extends kern.UTIL_TypeResolver.BaseClassResolver
 {
 	/**
 	 * @description Resolves a Type object from a class name
@@ -716,15 +716,15 @@ global with sharing class CustomTypeResolver extends UTIL_TypeResolver.BaseClass
 
 		if(String.isNotBlank(className))
 		{
-			String namespace = UTIL_System.getNamespacePrefix(
-				UTIL_System.getClassNamespace(className),
-				UTIL_String.DOT
+			String namespace = kern.UTIL_System.getNamespacePrefix(
+				kern.UTIL_System.getClassNamespace(className),
+				'.'
 			);
 
 			classType = Type.forName(namespace, className);
 			// Retry without namespace for nested classes (e.g., MyParentClass.MyChildClass)
 			classType = classType == null && String.isNotBlank(namespace)
-				? Type.forName(UTIL_String.EMPTY, className)
+				? Type.forName('', className)
 				: classType;
 		}
 

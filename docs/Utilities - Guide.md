@@ -205,8 +205,14 @@
 23. [Invocable Methods for Flows](#invocable-methods-for-flows)
     - [Logging from Flows (FLOW_WriteLog)](#logging-from-flows-flow_writelog)
     - [Email from Flows (FLOW_SendEmail)](#email-from-flows-flow_sendemail)
-24. [Anti-Patterns](#anti-patterns)
-25. [Best Practices](#best-practices-5)
+24. [Health Check](#health-check)
+    - [Opening the Kern app](#opening-the-kern-app)
+    - [Reading the results](#reading-the-results)
+    - [What it checks](#what-it-checks)
+    - [Built-in fixes](#built-in-fixes)
+    - [Administration Tools](#administration-tools)
+25. [Anti-Patterns](#anti-patterns)
+26. [Best Practices](#best-practices-5)
     - [Type Resolution](#type-resolution-1)
     - [Random Data Generation](#random-data-generation)
     - [SObject Indexing](#sobject-indexing)
@@ -215,8 +221,8 @@
     - [Logging](#logging)
     - [Omnistudio Integration](#omnistudio-integration)
     - [Invocable Methods](#invocable-methods)
-26. [Testing](#testing)
-27. [Related Documentation](#related-documentation)
+27. [Testing](#testing)
+28. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -226,6 +232,7 @@
 
 | I am a...     | I need to...                      | Go to...                                                                                       |
 |---------------|-----------------------------------|------------------------------------------------------------------------------------------------|
+| **Admin**     | Verify my org is configured       | [Health Check](#health-check)                                                                  |
 | **Architect** | Understand utility architecture   | [Architecture](#architecture)                                                                  |
 | **Architect** | Design fault tolerance patterns   | [Circuit Breaker Framework](#circuit-breaker-framework-util_circuitbreaker)                     |
 | **Developer** | Use common utilities              | [Quick Start](#quick-start)                                                                    |
@@ -4648,6 +4655,59 @@ emailRequest.mergeFields = new List<DTO_NameValue>{mergeField1, mergeField2};
 List<FLOW_SendEmail.DTO_Response> responses =
 	FLOW_SendEmail.sendEmail(new List<FLOW_SendEmail.DTO_Request>{emailRequest});
 ```
+
+---
+
+## Health Check
+
+The **Health Check** is a post-install diagnostic built into the **Kern** app. It confirms that the org-level configuration each capability depends on is in place, and offers one-click fixes for the settings it can apply for you. Run it right after installing the package, and again whenever you turn on a new capability.
+
+### Opening the Kern app
+
+If you installed the package as a System Administrator, the **Kern** app is available to you straight away — open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. The app's **Home** tab runs the Health Check automatically and shows the results at the top of the page.
+
+To give another user access to the app and its tabs, assign the **Kern Administrator** permission set:
+
+```bash
+sf org assign permset -n kern__Administrator -o <username>
+```
+
+The check re-runs each time the Home tab loads. Use the refresh icon in the card header to run it again without reloading the page.
+
+### Reading the results
+
+Results are grouped by severity so the items that need attention stay at the top:
+
+- **Action required** — a hard prerequisite is missing, and the capability that depends on it will fail at runtime until you fix it. The most foundational issue sorts first.
+- **Review recommended** — the capability works, but a recommended setting is absent. Safe to defer; worth completing before go-live.
+- **Passing** — configured and operational. Passing checks collapse into a single row of green chips.
+
+The card header summarises the overall state — for example *Review recommended — 2 warnings*, or *All systems operational* when everything passes.
+
+### What it checks
+
+| Check | When missing | What it verifies |
+|-------|--------------|------------------|
+| **Organisation Cache** | Action required | Organisation cache is allocated to KernDX's **LibraryCache** partition (the package ships the partition; you allocate the capacity). Without it, automatic integration retries, repeated-error protection, and shared configuration lookups stop working. |
+| **Session Cache** | Review recommended | Session cache is allocated to the **LibraryCache** partition. Kern keeps per-user data such as encryption keys here; without it that data falls back to Org Cache. |
+| **Trusted Site** | Action required | A Trusted URL is registered for your org domain (Setup &gt; Trusted URLs). Only relevant if you use features that call back into your org, such as streaming channels. |
+| **Class Type Resolver** | Review recommended | A custom type resolver is registered so the framework can locate the subscriber Apex classes you reference in configuration. |
+| **Data Retention** | Review recommended | A scheduled purge job exists for each framework data object — Log Entries, API Calls, API Issues, and Async Chain Executions. Without one, these records accumulate indefinitely. |
+
+### Built-in fixes
+
+Two checks can repair the configuration for you, without leaving the page:
+
+- **Class Type Resolver → Setup** opens a generator that writes a ready-to-deploy resolver class and its matching test class for you to copy or download. See [Type Resolution](#type-resolution-util_typeresolver) for the resolver pattern and how to register it.
+- **Data Retention → Apply Recommended Retention** schedules a nightly purge job for every uncovered object using default retention windows. Choose **Customize each job →** to set the retention period and schedule per object before the jobs are created.
+
+### Administration Tools
+
+Below the Health Check, the Home tab provides quick-launch cards for the framework's operational consoles:
+
+- **API Test Harness** — test inbound and outbound API calls with Safe Mode and mocking control.
+- **Streaming Event Monitor** — monitor platform events, change data capture, and custom streaming channels in real time.
+- **Chain Monitor** — monitor async chain executions, view step timelines, and diagnose failures in real time.
 
 ---
 
