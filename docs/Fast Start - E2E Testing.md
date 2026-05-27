@@ -7,6 +7,7 @@
 **Before you start:**
 
 - [ ] KernDX package installed in your org
+- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
 - [ ] CLI authenticated (`sf org display -o YourOrgAlias` to verify)
 - [ ] Node.js 22+ installed (`node --version`) — required for the Playwright tier only
 

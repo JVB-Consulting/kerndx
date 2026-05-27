@@ -7,6 +7,7 @@
 **Before you start:**
 
 - [ ] KernDX package installed in your org
+- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
 - [ ] VS Code with [Apex PMD extension](https://marketplace.visualstudio.com/items?itemName=chuckjonas.apex-pmd) installed -- or IntelliJ with Illuminated Cloud
 - [ ] SF Code Analyzer v5 installed (`sf plugins install @salesforce/plugin-code-analyzer`)
 - [ ] Working in a sandbox or scratch org (not production)

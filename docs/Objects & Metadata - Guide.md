@@ -1203,23 +1203,37 @@ responsibility pattern, ordered by `Order__c` ascending.
 them via `setNext()`. The built-in `PackageClassResolver` runs first (subscriber-first namespace resolution), then delegates to the custom
 resolver chain. The first resolver to return a non-null Type wins.
 
-**Subscriber example**:
+**Subscriber example.** You don't have to write this by hand — the Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row → **Setup**); see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide. The class must be `global` so the package can construct it across namespaces via `Type.newInstance()`; the `resolveType` override stays `public`.
+
 ```apex
-// 1. Create a resolver class implementing the framework interface
-public class ACME_ClassResolver extends UTIL_TypeResolver.BaseClassResolver
+// 1. Create a resolver class (this is what the Health Check generator produces):
+@SuppressWarnings('PMD.AvoidGlobalModifier')
+global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.BaseClassResolver
 {
-	public override Type resolveType(String typeName)
+	public override Type resolveType(String className)
 	{
-		// Try local resolution first
-		Type resolved = Type.forName('', typeName);
-		// Delegate to next resolver in chain if not found
-		return resolved ?? nextResolver?.resolveType(typeName);
+		return getTypeForClassName(className) ?? (Type)nextResolver?.resolveType(className);
+	}
+
+	private static Type getTypeForClassName(String className)
+	{
+		Type classType;
+
+		if(String.isNotBlank(className))
+		{
+			String namespace = kern.UTIL_System.getNamespacePrefix(kern.UTIL_System.getClassNamespace(className), '.');
+
+			classType = Type.forName(namespace, className);
+			classType = classType == null && String.isNotBlank(namespace) ? Type.forName('', className) : classType;
+		}
+
+		return classType;
 	}
 }
 
 // 2. Register via ClassTypeResolver__mdt record:
 //    DeveloperName: AcmeResolver
-//    ClassName__c:  ACME_ClassResolver
+//    ClassName__c:  ACME_ClassTypeResolver
 //    Order__c:      1
 ```
 
