@@ -43,7 +43,7 @@
  *
  * @group Selectors
  *
- * @date January 2026, May 2026
+ * @date January 2026, June 2026
  */
 public inherited sharing class SEL_CustomPermission
 {
@@ -423,7 +423,7 @@ public inherited sharing class SEL_CustomPermission
 
 		// Step 1: Query user's permission set assignments
 		List<PermissionSetAssignment> assignments = QRY_Builder.selectFrom(PermissionSetAssignment.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<SObjectField>
 				{
 						PermissionSetAssignment.PermissionSetId,
@@ -467,7 +467,7 @@ public inherited sharing class SEL_CustomPermission
 	{
 		// Query Permission Set Group components with PermissionSet.Type to identify muting permission sets
 		List<PermissionSetGroupComponent> components = QRY_Builder.selectFrom(PermissionSetGroupComponent.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String>
 				{
 						'PermissionSetId',
@@ -526,7 +526,7 @@ public inherited sharing class SEL_CustomPermission
 			{
 				// Local/subscriber permission - NamespacePrefix is null
 				permission = (CustomPermission)QRY_Builder.selectFrom(CustomPermission.SObjectType)
-						.withSystemMode()
+						.systemModeInternal()
 						.condition(CustomPermission.DeveloperName).equals(apiName)
 						.andCondition(CustomPermission.NamespacePrefix).isNull()
 						.getFirst();
@@ -535,7 +535,7 @@ public inherited sharing class SEL_CustomPermission
 			{
 				// Package permission - specific namespace
 				permission = (CustomPermission)QRY_Builder.selectFrom(CustomPermission.SObjectType)
-						.withSystemMode()
+						.systemModeInternal()
 						.condition(CustomPermission.DeveloperName).equals(apiName)
 						.andCondition(CustomPermission.NamespacePrefix).equals(namespacePrefix)
 						.getFirst();
@@ -563,7 +563,7 @@ public inherited sharing class SEL_CustomPermission
 		if(!PERMISSION_SET_CACHE.containsKey(permissionId))
 		{
 			Set<Object> parentIds = QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
-					.withSystemMode()
+					.systemModeInternal()
 					.fields(new List<SObjectField> {SetupEntityAccess.ParentId})
 					.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
 					.asValueSet(SetupEntityAccess.ParentId);

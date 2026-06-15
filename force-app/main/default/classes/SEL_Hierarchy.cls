@@ -18,7 +18,7 @@
  *
  * @group Selectors
  *
- * @date January 2026, May 2026
+ * @date January 2026, June 2026
  *
  * @since 1.0
  *
@@ -506,7 +506,7 @@ global inherited sharing class SEL_Hierarchy
 			{
 				// Query all immediate children of current level
 				List<SObject> children = QRY_Builder.selectFrom(objectType)
-						.withSystemMode()
+						.systemModeInternal()
 						.fields(new List<String> {FIELD_ID})
 						.condition(parentFieldName).isIn(new List<Id>(currentLevelParentIds))
 						.toList();
@@ -638,8 +638,7 @@ global inherited sharing class SEL_Hierarchy
 			while(!currentLevelParentIds.isEmpty() && currentDepth < maxDepth)
 			{
 				// Query children with their parent reference
-				List<SObject> children = QRY_Builder.selectFrom(objectType)
-						.withSystemMode()
+				List<SObject> children = QRY_Builder.selectFrom(objectType).systemModeInternal()
 						.fields(new List<String> {FIELD_ID, parentFieldName})
 						.condition(parentFieldName).isIn(new List<Id>(currentLevelParentIds))
 						.toList();
@@ -683,8 +682,7 @@ global inherited sharing class SEL_Hierarchy
 		 */
 		private Map<Id, SObject> queryRecordsWithParents(List<String> queryFields, Set<Id> recordIds)
 		{
-			return QRY_Builder.selectFrom(objectType)
-					.withSystemMode()
+			return QRY_Builder.selectFrom(objectType).systemModeInternal()
 					.fields(queryFields)
 					.condition(FIELD_ID).isIn(new List<Id>(recordIds))
 					.asMap();

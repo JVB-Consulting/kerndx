@@ -12,7 +12,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -255,7 +255,7 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	private QRY_Builder.Builder buildActiveByProfileQuery(String profileName)
 	{
 		QRY_Builder.Builder profileSubquery = QRY_Builder.selectFrom(Profile.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String> {'Id'})
 				.condition(Profile.Name).equals(profileName);
 
@@ -315,7 +315,7 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	private QRY_Builder.Builder buildActiveByProfileAndPermissionSetQuery(String profileName, String permissionSetOrGroupName)
 	{
 		QRY_Builder.Builder permissionSetSubquery = QRY_Builder.selectFrom(PermissionSetAssignment.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String> {SEL_PermissionSetAssignment.FIELD_ASSIGNEE_ID})
 				.condition(SEL_PermissionSetAssignment.FIELD_PERMISSION_SET_NAME).equals(permissionSetOrGroupName);
 
@@ -579,10 +579,10 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	private static Set<String> getSimilarNicknames(String communityNickname)
 	{
 		return QRY_Builder.selectFrom(User.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.addField(User.CommunityNickname)
 				.condition(User.CommunityNickname).startsWith(communityNickname)
-				.bypassSharing()
+				.bypassSharingInternal()
 				.asStringSet(User.CommunityNickname);
 	}
 

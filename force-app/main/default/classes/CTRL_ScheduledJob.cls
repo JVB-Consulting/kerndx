@@ -11,7 +11,7 @@
  *
  * @group Controllers
  *
- * @date March 2026, May 2026
+ * @date March 2026, June 2026
  */
 public inherited sharing class CTRL_ScheduledJob
 {
@@ -134,7 +134,7 @@ public inherited sharing class CTRL_ScheduledJob
 				? request.timezone
 				: UserInfo.getTimeZone().getID();
 
-		DML_Builder.newTransaction().withSystemMode().doUpsert(record).execute();
+		DML_Builder.newTransaction().systemModeInternal().doUpsert(record).execute();
 
 		return record.Id;
 	}

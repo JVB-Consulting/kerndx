@@ -11,7 +11,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -47,6 +47,6 @@ global inherited sharing class SCHED_PerformBatchedCallouts implements Schedulab
 			apiCall.Status__c = SEL_ApiCall.STATUS_QUEUED;
 		}
 
-		DML_Builder.newTransaction().withSystemMode().doUpdate(apiCalls).allowPartial().execute();
+		DML_Builder.newTransaction().systemModeInternal().doUpdate(apiCalls).allowPartial().execute();
 	}
 }

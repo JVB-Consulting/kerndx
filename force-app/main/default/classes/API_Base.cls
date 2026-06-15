@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -861,7 +861,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 			List<ContentVersion> relatedContentVersions = createRelatedContentVersions();
 			if(!relatedContentVersions.isEmpty())
 			{
-				DML_Builder.newTransaction().withSystemMode().doInsert(relatedContentVersions).allowPartial().execute();
+				DML_Builder.newTransaction().systemModeInternal().doInsert(relatedContentVersions).allowPartial().execute();
 			}
 		}
 		else

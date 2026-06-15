@@ -9,13 +9,14 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class QRY_Builder_TEST
 {
 	private static final String TEST_ADMIN_COMPANY = 'QRY_Builder_TEST-admin';
+	private static final String FIELD_DATE = SEL_Foobar.FIELD_DATE;
 	private static final String FIELD_EMAIL = SEL_Foobar.FIELD_EMAIL;
 	private static final String FIELD_ID = 'Id';
 	private static final String FIELD_LOOKUP = SEL_Foobar.FIELD_LOOKUP;
@@ -4092,10 +4093,10 @@ private class QRY_Builder_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			Schema.FieldSet fieldSet = Schema.SObjectType.Foobar__c.fieldSets.getMap().get(SEL_Foobar.FIELDSET_AUDIT);
+			FieldSet aFieldSet = SObjectType.Foobar__c.fieldSets.getMap().get(SEL_Foobar.FIELDSET_AUDIT);
 
 			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
-					.fieldSet(fieldSet)
+					.fieldSet(aFieldSet)
 					.toSoql();
 
 			Assert.isTrue(soql.containsIgnoreCase('CreatedDate'), 'Should contain CreatedDate from fieldset');
@@ -4456,8 +4457,8 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('system-mode');
-		Assert.isNotNull(context, 'withSystemMode should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'withSystemMode should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_QUERY, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be query');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
 	}
@@ -4486,7 +4487,8 @@ private class QRY_Builder_TEST
 		Test.stopTest();
 
 		Assert.isFalse(builder.userModeEnabled, 'systemModeInternal should flip userModeEnabled to false');
-		Assert.isNull(findBypassAuditContext('system-mode'), 'systemModeInternal must not emit a bypass audit entry');
+		Assert.isNull(findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType)),
+				'systemModeInternal must not emit a bypass audit entry');
 	}
 
 	/**
@@ -4506,10 +4508,36 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).bypassSharing().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('sharing');
-		Assert.isNotNull(context, 'bypassSharing should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'bypassSharing should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_QUERY, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be query');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
+	}
+
+	/**
+	 * @description Tests that `bypassSharingInternal` disables the sharing proxy WITHOUT enqueuing
+	 * a bypass audit entry. The framework-internal channel is the path used by framework reads
+	 * that structurally require org-wide visibility (the health check's trusted-site probe, the
+	 * community-nickname uniqueness scan) — none of which are subscriber-facing bypasses, so they
+	 * must not pollute the `BypassEvent` forensic trail.
+	 *
+	 * @see QRY_Builder.Builder.bypassSharingInternal
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldNotEmitBypassAuditOnBypassSharingInternal()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		QRY_Builder.Builder builder = QRY_Builder.selectFrom(Foobar__c.SObjectType).bypassSharingInternal();
+		builder.toList();
+		Test.stopTest();
+
+		Assert.isFalse(builder.sharingEnforced, 'bypassSharingInternal should flip sharingEnforced to false');
+		Assert.isNull(findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType)),
+				'bypassSharingInternal must not emit a bypass audit entry');
 	}
 
 	/**
@@ -4529,8 +4557,8 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('security-mode');
-		Assert.isNotNull(context, 'withoutSecurity should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('security-mode:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'withoutSecurity should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_QUERY, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be query');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
 	}
@@ -4554,8 +4582,8 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('system-mode');
-		Assert.isNotNull(context, 'withSystemMode should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'withSystemMode should emit an object-qualified bypass audit entry');
 		Assert.areEqual('Customer data migration', context.get(UTIL_BypassAudit.CONTEXT_REASON), 'Latched reason should appear in query bypass audit context');
 	}
 
@@ -4582,5 +4610,248 @@ private class QRY_Builder_TEST
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * @description Verifies groupBy(QRY_Function) renders the date-function expression into GROUP BY,
+	 * and that a grouped-but-not-aliased-projected function is still echoed into SELECT (the de-dup
+	 * leaves the plain echo untouched).
+	 */
+	@IsTest
+	private static void groupByFunctionRendersIntoGroupByClause()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.toSoql();
+
+			Assert.isTrue(soql.contains('GROUP BY CALENDAR_MONTH(' + FIELD_DATE + ')'), 'groupBy(QRY_Function) should render the expression into GROUP BY');
+			Assert.isTrue(soql.contains('count_Id, CALENDAR_MONTH(' + FIELD_DATE + ')'), 'An unprojected grouped function should still be echoed into SELECT');
+		}
+	}
+
+	/**
+	 * @description Verifies the canonical bucket-and-aggregate query renders the function exactly once
+	 * in SELECT — under its explicit alias — proving addField(QRY_Function, alias) projects the
+	 * expression and the aggregate de-dup suppresses the redundant GROUP BY echo.
+	 */
+	@IsTest
+	private static void addFieldAndGroupByFunctionEmitItOnce()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.addField(QRY_Function.calendarMonth(Foobar__c.Date__c), 'dateBucket')
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.toSoql();
+
+			String selectClause = soql.substringBetween('SELECT ', ' FROM');
+			String expectedSelect = 'COUNT(Id) count_Id, CALENDAR_MONTH(' + FIELD_DATE + ') dateBucket';
+			Assert.areEqual(expectedSelect, selectClause, 'Grouped-and-projected function must appear once in SELECT, under its alias');
+			Assert.isTrue(soql.contains('GROUP BY CALENDAR_MONTH(' + FIELD_DATE + ')'), 'GROUP BY should retain the bare function expression');
+		}
+	}
+
+	/**
+	 * @description Regression guard: a plain grouped field with no separate aliased projection is still
+	 * echoed into SELECT after the date-function de-dup change.
+	 */
+	@IsTest
+	private static void plainFieldGroupingStillEchoesIntoSelect()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(FIELD_PICKLIST)
+					.toSoql();
+
+			Assert.isTrue(soql.contains('count_Id, ' + FIELD_PICKLIST), 'Plain grouped field must still echo into SELECT');
+			Assert.isTrue(soql.contains('GROUP BY ' + FIELD_PICKLIST), 'GROUP BY should contain the plain field');
+		}
+	}
+
+	/**
+	 * @description Regression guard: a GROUPING() expression is still emitted alongside the echoed
+	 * grouped field after the date-function de-dup change.
+	 */
+	@IsTest
+	private static void groupingExpressionStillEmittedAlongsideFunctionDedup()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(FIELD_PICKLIST)
+					.grouping(FIELD_PICKLIST)
+					.rollup()
+					.toSoql();
+
+			Assert.isTrue(soql.contains('GROUPING(' + FIELD_PICKLIST + ')'), 'GROUPING() expression must still be emitted');
+			Assert.isTrue(soql.contains('count_Id, ' + FIELD_PICKLIST), 'Grouped field must still echo alongside GROUPING()');
+		}
+	}
+
+	/**
+	 * @description Verifies orderBy(QRY_Function) renders the date-function expression into ORDER BY,
+	 * ascending (no direction keyword emitted by default).
+	 */
+	@IsTest
+	private static void orderByFunctionAscendingRendersExpression()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.orderBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.toSoql();
+
+			Assert.isTrue(soql.contains('ORDER BY CALENDAR_MONTH(' + FIELD_DATE + ')'), 'orderBy(QRY_Function) should render the expression into ORDER BY');
+			Assert.isFalse(soql.contains('CALENDAR_MONTH(' + FIELD_DATE + ') DESC'), 'Ascending order should not emit DESC');
+		}
+	}
+
+	/**
+	 * @description Verifies orderBy(QRY_Function, true) renders the date-function expression into ORDER
+	 * BY with a DESC direction.
+	 */
+	@IsTest
+	private static void orderByFunctionDescendingRendersDescending()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.orderBy(QRY_Function.calendarMonth(Foobar__c.Date__c), true)
+					.toSoql();
+
+			Assert.isTrue(soql.contains('ORDER BY CALENDAR_MONTH(' + FIELD_DATE + ') DESC'), 'orderBy(QRY_Function, true) should render DESC');
+		}
+	}
+
+	/**
+	 * @description End-to-end: buckets seeded records by calendar month, ascending, and reads back the
+	 * bucket and the per-bucket count through the typed AggregateRow getters.
+	 */
+	@IsTest
+	private static void dateBucketReportReturnsCountsPerCalendarMonth()
+	{
+		System.runAs(getTestAdmin())
+		{
+			for(Integer i = 0; i < 3; i++)
+			{
+				TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 3, 10 + i)).build();
+			}
+			for(Integer i = 0; i < 2; i++)
+			{
+				TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 6, 10 + i)).build();
+			}
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.addField(QRY_Function.calendarMonth(Foobar__c.Date__c), 'closeMonth')
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.orderBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.toAggregateList();
+
+			Assert.areEqual(2, rows.size(), 'Should return one bucket per calendar month');
+			Assert.areEqual(3, rows[0].getInteger('closeMonth'), 'First bucket (ascending) should be March');
+			Assert.areEqual(3, rows[0].getInteger('count_Id'), 'March bucket should count three records');
+			Assert.areEqual(6, rows[1].getInteger('closeMonth'), 'Second bucket should be June');
+			Assert.areEqual(2, rows[1].getInteger('count_Id'), 'June bucket should count two records');
+		}
+	}
+
+	/**
+	 * @description End-to-end: dayOnly truncates a datetime to a Date bucket, read back via getDate
+	 * (the read-back outlier). Two identical instants bucket together regardless of time zone.
+	 */
+	@IsTest
+	private static void dayOnlyBucketReadsBackAsDate()
+	{
+		System.runAs(getTestAdmin())
+		{
+			// Seed two identical instants and one distinct instant: identical instants resolve to the
+			// same DAY_ONLY date in any time zone, so the bucket counts are independent of the org/user TZ.
+			Datetime marchInstant = Datetime.newInstanceGmt(2026, 3, 15, 12, 0, 0);
+			Datetime juneInstant = Datetime.newInstanceGmt(2026, 6, 20, 12, 0, 0);
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Datetime__c, marchInstant).build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Datetime__c, marchInstant).build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Datetime__c, juneInstant).build();
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.addField(QRY_Function.dayOnly(Foobar__c.Datetime__c), 'theDay')
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.dayOnly(Foobar__c.Datetime__c))
+					.toAggregateList();
+
+			Assert.areEqual(2, rows.size(), 'dayOnly should produce two day buckets');
+			Map<Date, Integer> dayToCount = new Map<Date, Integer>();
+			for(QRY_Builder.AggregateRow row : rows)
+			{
+				Date bucketDay = row.getDate('theDay');
+				Assert.isNotNull(bucketDay, 'dayOnly bucket should read back as a Date');
+				dayToCount.put(bucketDay, row.getInteger('count_Id'));
+			}
+			Assert.areEqual(2, dayToCount.size(), 'Should be two distinct day buckets');
+			Assert.isTrue(dayToCount.values().contains(2), 'The two identical instants should bucket together with count two');
+		}
+	}
+
+	/**
+	 * @description End-to-end: the date-bucket report runs under USER_MODE and still returns buckets,
+	 * confirming the function wrapper is transparent to field-level-security enforcement.
+	 */
+	@IsTest
+	private static void calendarMonthBucketsUnderUserModeReturnBuckets()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 3, 10)).build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 3, 11)).build();
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.addField(QRY_Function.calendarMonth(Foobar__c.Date__c), 'closeMonth')
+					.count(FIELD_ID)
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.withUserMode()
+					.toAggregateList();
+
+			Assert.areEqual(1, rows.size(), 'Should return one calendar-month bucket under USER_MODE');
+			Assert.areEqual(3, rows[0].getInteger('closeMonth'), 'Bucket should be March');
+			Assert.areEqual(2, rows[0].getInteger('count_Id'), 'Both records should be counted under USER_MODE');
+		}
+	}
+
+	/**
+	 * @description End-to-end: a SELECT + GROUP BY date-bucket query with no aggregate returns the
+	 * distinct date buckets and reads back via the explicit alias.
+	 */
+	@IsTest
+	private static void distinctCalendarMonthsReadBackWithoutAggregate()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 3, 10)).build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 3, 11)).build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 6, 5)).build();
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					// empty fields() disables the default Id projection so a GROUP BY with no aggregate is valid SOQL
+					.fields(new List<SObjectField>())
+					.addField(QRY_Function.calendarMonth(Foobar__c.Date__c), 'bucket')
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.orderBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
+					.toAggregateList();
+
+			Assert.areEqual(2, rows.size(), 'Should return distinct calendar-month buckets without an aggregate');
+			Assert.areEqual(3, rows[0].getInteger('bucket'), 'First bucket should be March');
+			Assert.areEqual(6, rows[1].getInteger('bucket'), 'Second bucket should be June');
+		}
 	}
 }

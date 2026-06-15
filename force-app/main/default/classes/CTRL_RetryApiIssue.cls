@@ -9,7 +9,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class CTRL_RetryApiIssue
 {
@@ -53,7 +53,7 @@ public inherited sharing class CTRL_RetryApiIssue
 			if(handler.result.isSuccess)
 			{
 				apiIssue.Status__c = SEL_ApiIssue.STATUS_RESOLVED;
-				DML_Builder.newTransaction().withSystemMode().doUpdate(apiIssue).execute();
+				DML_Builder.newTransaction().systemModeInternal().doUpdate(apiIssue).execute();
 				dtoResponse.callSuccessful = true;
 			}
 			else
@@ -109,7 +109,7 @@ public inherited sharing class CTRL_RetryApiIssue
 		{
 			apiIssue.Status__c = SEL_ApiIssue.STATUS_RESOLVED;
 			apiIssue.ResolvedDate__c = Datetime.now();
-			DML_Builder.newTransaction().withSystemMode().doUpdate(apiIssue).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(apiIssue).execute();
 			dtoResponse.callSuccessful = true;
 		}
 		else

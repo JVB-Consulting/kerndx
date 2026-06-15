@@ -8,7 +8,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -61,6 +61,39 @@ private class SEL_AsyncChainExecution_TEST
 		Assert.isFalse(fields.isEmpty(), 'Default fields should not be empty');
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.ChainName__c), 'Should contain ChainName__c');
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.CorrelationId__c), 'Should contain CorrelationId__c');
+	}
+
+	/**
+	 * @description Tests that the Chain Monitor detail read returns the record and — because the
+	 * console must see all users' Private-OWD chains — emits no sharing BYPASS audit entry; the
+	 * bypass is a framework-internal design choice, not a subscriber-facing opt-out.
+	 *
+	 * @see SEL_AsyncChainExecution.findByIdForMonitoring
+	 * @see QRY_Builder.Builder.bypassSharingInternal
+	 */
+	@IsTest
+	private static void shouldFindByIdForMonitoringWithoutBypassAudit()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'MonitoringChain');
+
+		Test.startTest();
+		AsyncChainExecution__c foundExecution = new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id);
+		Test.stopTest();
+
+		Assert.isNotNull(foundExecution, 'The monitoring read should find the chain execution');
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)(context?.get(UTIL_BypassAudit.CONTEXT_TARGET));
+			Assert.isFalse
+					(
+							target != null && target.startsWith('sharing'),
+							'The monitoring read must not emit a sharing BYPASS audit entry'
+					);
+		}
 	}
 
 	/**

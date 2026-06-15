@@ -8,7 +8,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('ApexUnusedDeclaration,RedundantSuppression')
 public inherited sharing class TRG_DeleteApiCallDocuments extends TRG_Base implements IF_Trigger.BeforeDelete
@@ -34,6 +34,6 @@ public inherited sharing class TRG_DeleteApiCallDocuments extends TRG_Base imple
 			documentsToDelete.add(documentToDelete);
 		}
 
-		DML_Builder.newTransaction().withSystemMode().doDelete(documentsToDelete).execute();
+		DML_Builder.newTransaction().systemModeInternal().doDelete(documentsToDelete).execute();
 	}
 }

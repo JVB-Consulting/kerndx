@@ -8,7 +8,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -1518,8 +1518,8 @@ private class DML_Builder_TEST
 		DML_Builder.newTransaction().doInsert(record).withSystemMode().execute();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('system-mode');
-		Assert.isNotNull(context, 'withSystemMode should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'withSystemMode should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_DML, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be dml');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
 	}
@@ -1548,7 +1548,8 @@ private class DML_Builder_TEST
 		DML_Builder.newTransaction().doInsert(record).systemModeInternal().execute();
 		Test.stopTest();
 
-		Assert.isNull(findBypassAuditContext('system-mode'), 'systemModeInternal must not emit a bypass audit entry');
+		Assert.isNull(findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType)),
+				'systemModeInternal must not emit a bypass audit entry');
 	}
 
 	/**
@@ -1569,10 +1570,21 @@ private class DML_Builder_TEST
 		DML_Builder.newTransaction().doInsert(record).bypassSharing().execute();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('sharing');
-		Assert.isNotNull(context, 'bypassSharing should emit a bypass audit entry');
+		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'bypassSharing should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_DML, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be dml');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
+		String caller = (String)context.get(UTIL_BypassAudit.CONTEXT_CALLER);
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			Assert.isTrue(caller.startsWith('DML_Builder_TEST'),
+					'DML bypass through the builder should resolve the caller past DML_Builder to the subscriber test method. Actual: ' + caller);
+		}
+		else
+		{
+			Assert.areEqual(UTIL_BypassAudit.class.getName() + '.emit', caller,
+					'In a namespaced org every frame carries the package namespace, so the documented fallback caller applies. Actual: ' + caller);
+		}
 	}
 
 	/**
@@ -1596,10 +1608,48 @@ private class DML_Builder_TEST
 		DML_Builder.newTransaction().doInsert(record).bypassSharing().async();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('sharing');
+		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
 		Assert.isNotNull(context, 'async() should flush queued bypass audits before handing off to DML_AsyncBuilder');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_DML, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be dml');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
+	}
+
+	/**
+	 * @description Tests that audit footprint recording skips null operations gracefully — a
+	 * null records list, a null member of a generic `List<SObject>`, and an all-null concretely
+	 * typed list (each registrable through the public `do*` surface and reachable at terminal
+	 * time, before any DML validation occurs) must neither throw nor contaminate the footprints,
+	 * while a real record in the same transaction still gets its object-qualified audit entry
+	 * with an uninflated row count. The all-null typed list also pins that the typed-list fast
+	 * path mints no zero-row phantom entry for its object. Uses the `async()` terminal so the
+	 * audit path runs without attempting actual DML against the null entries.
+	 *
+	 * @see DML_Builder.async
+	 * @see UTIL_BypassAudit.AuditQueue.recordOperation
+	 */
+	@IsTest
+	private static void shouldSkipNullRecordsWhenRecordingAuditFootprints()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+
+		Test.startTest();
+		DML_Builder.newTransaction()
+				.doInsert((List<SObject>)null)
+				.doInsert(new List<SObject> {null})
+				.doInsert(new List<Account> {null})
+				.doInsert(record)
+				.bypassSharing()
+				.async();
+		Test.stopTest();
+
+		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'The real record should still produce its object-qualified audit entry');
+		Assert.areEqual('1', String.valueOf(context.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Null operations and null members must not inflate the row count');
+		Assert.isNull(findBypassAuditContext('sharing:null'), 'Null records must not contaminate the audit footprints');
+		Assert.isNull(findBypassAuditContext('sharing:' + String.valueOf(Account.SObjectType)),
+				'An all-null typed list must not mint a zero-row phantom entry for its object');
 	}
 
 	/**

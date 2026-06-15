@@ -8,7 +8,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -208,6 +208,37 @@ private class SEL_User_TEST
 		Test.stopTest();
 
 		Assert.areNotEqual(foundUser.CommunityNickname, nickname, 'Nick Name not generated correctly');
+	}
+
+	/**
+	 * @description Tests that the nickname-uniqueness scan — a framework-internal read that
+	 * structurally requires org-wide User visibility — emits no sharing BYPASS audit entry. The
+	 * scan routes through `bypassSharingInternal()`, which must stay silent so nickname generation
+	 * does not pollute the `BypassEvent` forensic trail.
+	 *
+	 * @see SEL_User.getSimilarNicknames
+	 * @see QRY_Builder.Builder.bypassSharingInternal
+	 */
+	@IsTest
+	private static void shouldNotEmitBypassAuditWhenGeneratingNickname()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		new SEL_User().generateUniqueCommunityNickname(UTIL_Random.randomName());
+		Test.stopTest();
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)(context?.get(UTIL_BypassAudit.CONTEXT_TARGET));
+			Assert.isFalse
+					(
+							target != null && target.startsWith('sharing'),
+							'The nickname-uniqueness scan must not emit a sharing BYPASS audit entry'
+					);
+		}
 	}
 
 	/**

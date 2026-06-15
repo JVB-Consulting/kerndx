@@ -13,7 +13,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, June 2026
  */
 public inherited sharing class SEL_ValidationRules
 {
@@ -282,12 +282,12 @@ public inherited sharing class SEL_ValidationRules
 		}
 
 		QRY_Builder.Builder childQuery = QRY_Builder.selectFrom(ValidationRule__mdt.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String>(getRuleFields()))
 				.condition(ValidationRule__mdt.BypassExecution__c.getDescribe().name).equals(false);
 
 		return QRY_Builder.selectFrom(ValidationRuleGroup__mdt.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String>(getGroupFields()))
 				.condition(ValidationRuleGroup__mdt.BypassExecution__c.getDescribe().name).equals(false)
 				.subselect(childQuery, RELATIONSHIP_VALIDATION_RULES)
@@ -334,23 +334,9 @@ public inherited sharing class SEL_ValidationRules
 	 */
 	private static List<ValidationRule__mdt> sortByOrder(List<ValidationRule__mdt> rules)
 	{
-		Map<Decimal, List<ValidationRule__mdt>> rulesByOrder = new Map<Decimal, List<ValidationRule__mdt>>();
-		for(ValidationRule__mdt rule : rules)
-		{
-			Decimal orderValue = rule.Order__c ?? 0;
-			if(!rulesByOrder.containsKey(orderValue))
-			{
-				rulesByOrder.put(orderValue, new List<ValidationRule__mdt>());
-			}
-			rulesByOrder.get(orderValue).add(rule);
-		}
-		List<Decimal> sortedOrders = new List<Decimal>(rulesByOrder.keySet());
-		sortedOrders.sort();
-		List<ValidationRule__mdt> sorted = new List<ValidationRule__mdt>();
-		for(Decimal orderValue : sortedOrders)
-		{
-			sorted.addAll(rulesByOrder.get(orderValue));
-		}
+		List<ValidationRule__mdt> sorted = new List<ValidationRule__mdt>(rules);
+		sorted.sort(new UTIL_Comparators.SObjectFieldComparator(
+				UTIL_SObjectDescribe.getCachedFieldName(ValidationRule__mdt.Order__c), true));
 		return sorted;
 	}
 

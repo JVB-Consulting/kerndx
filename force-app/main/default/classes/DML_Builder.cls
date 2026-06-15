@@ -11,7 +11,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -117,9 +117,11 @@ global inherited sharing class DML_Builder
 	/**
 	 * @description Setter-time bypass-audit queue keyed to the DML surface. Setter calls
 	 * (`bypassSharing` / `withSystemMode`) enqueue their target via `auditQueue.queue(...)`;
-	 * `execute()` calls `auditQueue.flush()` so a builder dropped before execution emits
-	 * nothing. Lazy-initialised so the secure-by-default execution path (no bypass setters
-	 * called) does not allocate the queue.
+	 * both terminals (`execute()` / `async()`) record the registered operations' footprints
+	 * via `recordOperationFootprints()` — the step that produces the object-qualified targets
+	 * — then call `auditQueue.flush()`, so a builder dropped before execution emits nothing.
+	 * Lazy-initialised so the secure-by-default execution path (no bypass setters called)
+	 * does not allocate the queue.
 	 */
 	@TestVisible
 	private final UTIL_BypassAudit.AuditQueue auditQueue
@@ -652,8 +654,61 @@ global inherited sharing class DML_Builder
 	 */
 	global DML_AsyncBuilder async()
 	{
+		recordOperationFootprints();
 		auditQueue.flush();
 		return new DML_AsyncBuilder(operations, isPartial, accessLevel);
+	}
+
+	/**
+	 * @description Records each registered operation's object, verb, and submitted row count
+	 * into the audit queue so `flush()` emits one object-qualified `BYPASS` entry per touched
+	 * object. Runs at terminal time — mirroring the query surface — so every `do*` overload,
+	 * present and future, is covered without per-method plumbing. Exits immediately when the
+	 * queue holds no bypass target (the no-bypass hot path pays one method call, nothing more).
+	 * Concretely-typed record lists aggregate to a single `recordOperation` call; only genuinely
+	 * generic `List<SObject>` registrations fall back to per-record attribution so heterogeneous
+	 * rows still land on their own concrete types. Verbs derive from the `DatabaseOperation`
+	 * enum name (`DML_INSERT` → `insert`).
+	 */
+	private void recordOperationFootprints()
+	{
+		if(!auditQueue.hasPendingEmission())
+		{
+			return;
+		}
+		for(DTO_Operation operation : operations)
+		{
+			if(operation.records == null)
+			{
+				continue;
+			}
+			String verb = operation.operationType.name().substringAfter('_').toLowerCase();
+			SObjectType listType = operation.records.getSObjectType();
+			if(listType != null)
+			{
+				Integer concreteRows = 0;
+				for(SObject record : operation.records)
+				{
+					if(record != null)
+					{
+						concreteRows++;
+					}
+				}
+				if(concreteRows > 0)
+				{
+					auditQueue.recordOperation(String.valueOf(listType), verb, concreteRows);
+				}
+				continue;
+			}
+			for(SObject record : operation.records)
+			{
+				if(record == null)
+				{
+					continue;
+				}
+				auditQueue.recordOperation(String.valueOf(record.getSObjectType()), verb, 1);
+			}
+		}
 	}
 
 	/**
@@ -673,6 +728,7 @@ global inherited sharing class DML_Builder
 	 */
 	global TransactionResult execute()
 	{
+		recordOperationFootprints();
 		auditQueue.flush();
 		if(operations.isEmpty())
 		{

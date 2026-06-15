@@ -12,13 +12,14 @@
  *
  * @see IF_Queryable
  * @see QRY_Condition.DateLiteral
+ * @see QRY_Function
  * @see QRY_Builder_TEST
  *
  * @author Jason van Beukering
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -1990,10 +1991,11 @@ global inherited sharing class QRY_Builder
 			String key = groupName.toLowerCase();
 			if(parentBuilder.dataCategoryFilters.containsKey(key))
 			{
-				throw new IllegalArgumentException(
-						'A data category filter for group \'' + groupName + '\' has already been added. '
-						+ 'SOQL only permits one filter per data category group.'
-				);
+				throw new IllegalArgumentException
+						(
+								'A data category filter for group \'' + groupName + '\' has already been added. '
+								+ 'SOQL only permits one filter per data category group.'
+						);
 			}
 			parentBuilder.dataCategoryFilters.put(key, new DataCategoryEntry(groupName, operator, categoryNames));
 			return parentBuilder;
@@ -2064,9 +2066,11 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description Setter-time bypass-audit queue keyed to the query surface. Setter calls
 		 * (`withoutSecurity` / `withSystemMode` / `bypassSharing`) enqueue their target via
-		 * `auditQueue.queue(...)`; the first executing terminal calls `auditQueue.flush()` so
-		 * a builder dropped before execution emits nothing. Lazy-initialised so the secure-by-
-		 * default execution path (no bypass setters called) does not allocate the queue.
+		 * `auditQueue.queue(...)`; the first executing terminal records the builder's
+		 * SObjectType via `auditQueue.recordOperation(...)` — the step that produces the
+		 * object-qualified targets — then calls `auditQueue.flush()`, so a builder dropped
+		 * before execution emits nothing. Lazy-initialised so the secure-by-default execution
+		 * path (no bypass setters called) does not allocate the queue.
 		 */
 		@TestVisible
 		private final UTIL_BypassAudit.AuditQueue auditQueue
@@ -2679,6 +2683,33 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
+		 * @description Projects a SOQL date-function expression into SELECT under an explicit alias, for
+		 * read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
+		 * Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
+		 *
+		 * @param functionField The date-function expression, from a QRY_Function factory
+		 * @param alias The read-back alias for the projected expression
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .addField(QRY_Function.calendarMonth(Opportunity.CloseDate), 'closeMonth')
+		 *     .count('Id')
+		 *     .groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+		 *     .toAggregateList();
+		 * ```
+		 */
+		global virtual Builder addField(QRY_Function functionField, String alias)
+		{
+			explicitFields.add(functionField.toExpression() + UTIL_String.SPACE + alias);
+			return this;
+		}
+
+		/**
 		 * @description Configures the query to select ALL fields on the object.
 		 *
 		 * @return Builder for chaining
@@ -2921,6 +2952,30 @@ global inherited sharing class QRY_Builder
 		global Builder groupBy(SObjectField groupField)
 		{
 			return groupBy(UTIL_SObjectDescribe.getCachedFieldName(groupField));
+		}
+
+		/**
+		 * @description Adds a SOQL date-function expression to the GROUP BY clause (e.g. CALENDAR_MONTH(CloseDate)),
+		 * bucketing records by that date part. Use the same QRY_Function factory in addField to project the bucket.
+		 *
+		 * @param functionField The date-function expression, from a QRY_Function factory
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .addField(QRY_Function.calendarMonth(Opportunity.CloseDate), 'closeMonth')
+		 *     .count('Id')
+		 *     .groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+		 *     .toAggregateList();
+		 * ```
+		 */
+		global virtual Builder groupBy(QRY_Function functionField)
+		{
+			return groupBy(functionField.toExpression());
 		}
 
 		/**
@@ -3645,6 +3700,46 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
+		 * @description Orders by a SOQL date-function expression, ascending (e.g. ORDER BY CALENDAR_MONTH(CloseDate)).
+		 *
+		 * @param functionField The date-function expression, from a QRY_Function factory
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * .orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+		 * ```
+		 */
+		global virtual Builder orderBy(QRY_Function functionField)
+		{
+			return orderBy(functionField.toExpression());
+		}
+
+		/**
+		 * @description Orders by a SOQL date-function expression, ascending or descending.
+		 *
+		 * @param functionField The date-function expression, from a QRY_Function factory
+		 * @param sortDescending When true, sorts DESCENDING; otherwise ASCENDING
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * .orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate), true)
+		 * ```
+		 */
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+		global virtual Builder orderBy(QRY_Function functionField, Boolean sortDescending)
+		{
+			return orderBy(functionField.toExpression(), sortDescending);
+		}
+
+		/**
 		 * @description Applies sort direction and nulls placement to the last ORDER BY clause.
 		 *
 		 * @param sortDescending When true, sorts DESCENDING; otherwise ASCENDING
@@ -3964,8 +4059,32 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder bypassSharing()
 		{
-			sharingEnforced = false;
+			bypassSharingInternal();
 			auditQueue.queueSharing();
+			return this;
+		}
+
+		/**
+		 * @description Framework-internal sibling of `bypassSharing()` that disables the sharing
+		 * proxy without enqueuing a `BypassEvent` audit entry. Use from framework-internal reads
+		 * that structurally require org-wide visibility (e.g. the health check's trusted-site
+		 * configuration probe, the community-nickname uniqueness scan) — these are not
+		 * subscriber-facing bypasses and must not pollute the `BypassEvent` forensic trail.
+		 * Public-but-not-global so subscribers cannot bind to it; application code that
+		 * legitimately opts out of sharing must call `bypassSharing()` so the opt-out is audited.
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @example
+		 * ```apex
+		 * List<CspTrustedSite> trustedSites = QRY_Builder.selectFrom(CspTrustedSite.SObjectType)
+		 *     .bypassSharingInternal()
+		 *     .toList();
+		 * ```
+		 */
+		public Builder bypassSharingInternal()
+		{
+			sharingEnforced = false;
 			return this;
 		}
 
@@ -4354,6 +4473,7 @@ global inherited sharing class QRY_Builder
 		@TestVisible
 		private QRY_Engine.QueryParameters buildParameters(QRY_BindRegistry registry)
 		{
+			auditQueue.recordOperation(String.valueOf(objectType), UTIL_BypassAudit.OPERATION_QUERY, null);
 			auditQueue.flush();
 			QRY_Condition.Evaluable effectiveCondition = buildEffectiveCondition();
 			QRY_Generator generator = buildGeneratorWithCondition(effectiveCondition);
@@ -4672,6 +4792,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Integer count()
 		{
+			auditQueue.recordOperation(String.valueOf(objectType), UTIL_BypassAudit.OPERATION_QUERY, null);
 			auditQueue.flush();
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Generator gen = new QRY_Generator(objectType);

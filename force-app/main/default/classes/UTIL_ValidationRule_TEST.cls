@@ -2711,6 +2711,108 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
+	 * @description Tests that `clearBypass` of a bypassed object emits a `validation` `CLEAR` audit
+	 * entry carrying the prefixed `object:<api-name>` target, so the clear correlates to its
+	 * originating object bypass rather than the old lossy bare identifier.
+	 *
+	 * @see UTIL_ValidationRule.clearBypass
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldEmitClearAuditWithObjectPrefixOnValidationObjectClear()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		UTIL_ValidationRule.bypassObject(TEST_OBJECT_NAME);
+
+		Test.startTest();
+		UTIL_ValidationRule.clearBypass(TEST_OBJECT_NAME);
+		Test.stopTest();
+
+		Map<String, Object> context = findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_OBJECT + TEST_OBJECT_NAME, UTIL_BypassAudit.ACTION_CLEAR);
+		Assert.isNotNull(context, 'clearBypass of a bypassed object should emit a validation CLEAR audit entry with the object: prefix');
+		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be CLEAR');
+	}
+
+	/**
+	 * @description Tests that `clearBypass` of a bypassed group emits a `validation` `CLEAR` audit
+	 * entry carrying the prefixed `group:<developer-name>` target.
+	 *
+	 * @see UTIL_ValidationRule.clearBypass
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldEmitClearAuditWithGroupPrefixOnValidationGroupClear()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		UTIL_ValidationRule.bypassGroup(TEST_GROUP_NAME);
+
+		Test.startTest();
+		UTIL_ValidationRule.clearBypass(TEST_GROUP_NAME);
+		Test.stopTest();
+
+		Map<String, Object> context = findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_GROUP + TEST_GROUP_NAME, UTIL_BypassAudit.ACTION_CLEAR);
+		Assert.isNotNull(context, 'clearBypass of a bypassed group should emit a validation CLEAR audit entry with the group: prefix');
+		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be CLEAR');
+	}
+
+	/**
+	 * @description Tests that `clearBypass` of a bypassed rule emits a `validation` `CLEAR` audit
+	 * entry carrying the prefixed `rule:<developer-name>` target.
+	 *
+	 * @see UTIL_ValidationRule.clearBypass
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldEmitClearAuditWithRulePrefixOnValidationRuleClear()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		UTIL_ValidationRule.bypassRule(TEST_RULE_NAME);
+
+		Test.startTest();
+		UTIL_ValidationRule.clearBypass(TEST_RULE_NAME);
+		Test.stopTest();
+
+		Map<String, Object> context = findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_RULE + TEST_RULE_NAME, UTIL_BypassAudit.ACTION_CLEAR);
+		Assert.isNotNull(context, 'clearBypass of a bypassed rule should emit a validation CLEAR audit entry with the rule: prefix');
+		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be CLEAR');
+	}
+
+	/**
+	 * @description Tests that a single `clearBypass` of an identifier registered under more than one
+	 * bypass type emits a correlated `CLEAR` entry per removed type, and emits none for a type the
+	 * identifier was never bypassed under.
+	 *
+	 * @see UTIL_ValidationRule.clearBypass
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldEmitClearAuditPerBypassTypeWhenIdentifierBypassedUnderMany()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		UTIL_ValidationRule.bypassObject(TEST_OBJECT_NAME);
+		UTIL_ValidationRule.bypassRule(TEST_OBJECT_NAME);
+
+		Test.startTest();
+		UTIL_ValidationRule.clearBypass(TEST_OBJECT_NAME);
+		Test.stopTest();
+
+		Assert.isNotNull(findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_OBJECT + TEST_OBJECT_NAME, UTIL_BypassAudit.ACTION_CLEAR),
+				'clearBypass should emit an object: CLEAR for the object bypass it removed');
+		Assert.isNotNull(findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_RULE + TEST_OBJECT_NAME, UTIL_BypassAudit.ACTION_CLEAR),
+				'clearBypass should emit a rule: CLEAR for the rule bypass it removed');
+		Assert.isNull(findValidationAuditContext(UTIL_BypassAudit.TARGET_PREFIX_GROUP + TEST_OBJECT_NAME, UTIL_BypassAudit.ACTION_CLEAR),
+				'clearBypass should emit no group: CLEAR when the identifier was never bypassed as a group');
+	}
+
+	/**
 	 * @description Locates the most-recent bypass audit entry whose `target` matches the supplied
 	 * value and whose `surface` is `validation`. Filtering by both target and surface keeps
 	 * assertions stable when other framework-internal audits (e.g., `query` system-mode
@@ -2727,6 +2829,33 @@ private class UTIL_ValidationRule_TEST
 			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
 			if(context != null
 					&& target.equals(context.get(UTIL_BypassAudit.CONTEXT_TARGET))
+					&& UTIL_BypassAudit.SURFACE_VALIDATION.equals(context.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
+			{
+				return context;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @description Locates the most-recent `validation` bypass audit entry whose `target` and
+	 * `action` both match the supplied values. Filtering by action as well as target keeps CLEAR
+	 * assertions deterministic when the originating BYPASS shares the same prefixed target within
+	 * the transaction.
+	 *
+	 * @param target The bypass audit `target` context value to find.
+	 * @param action The bypass audit `action` context value to find (e.g. `ACTION_CLEAR`).
+	 *
+	 * @return The inner context map for the matching audit entry, or `null` if none exists.
+	 */
+	private static Map<String, Object> findValidationAuditContext(String target, String action)
+	{
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			if(context != null
+					&& target.equals(context.get(UTIL_BypassAudit.CONTEXT_TARGET))
+					&& action.equals(context.get(UTIL_BypassAudit.CONTEXT_ACTION))
 					&& UTIL_BypassAudit.SURFACE_VALIDATION.equals(context.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
 			{
 				return context;

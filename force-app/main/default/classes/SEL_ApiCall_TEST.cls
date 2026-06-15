@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -111,6 +111,36 @@ private class SEL_ApiCall_TEST
 		List<ApiCall__c> results = new SEL_ApiCall().findByBatchedOutbound();
 
 		Assert.areEqual(1, results.size(), 'Should find one batched outbound item');
+	}
+
+	/**
+	 * @description Tests that the batched-outbound sweep — which bypasses sharing so a scheduled
+	 * sweep sees every user's batched calls — emits no sharing BYPASS audit entry. The bypass is
+	 * a framework-internal design choice, not a subscriber-facing opt-out.
+	 *
+	 * @see SEL_ApiCall.findByBatchedOutbound
+	 * @see QRY_Builder.Builder.bypassSharingInternal
+	 */
+	@IsTest
+	private static void shouldNotEmitBypassAuditOnBatchedOutboundSweep()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		new SEL_ApiCall().findByBatchedOutbound();
+		Test.stopTest();
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)(context?.get(UTIL_BypassAudit.CONTEXT_TARGET));
+			Assert.isFalse
+					(
+							target != null && target.startsWith('sharing'),
+							'The batched-outbound sweep must not emit a sharing BYPASS audit entry'
+					);
+		}
 	}
 
 	/**

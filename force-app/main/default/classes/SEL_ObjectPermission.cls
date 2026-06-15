@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -190,7 +190,7 @@ global inherited sharing class SEL_ObjectPermission
 		if(!userIds.isEmpty())
 		{
 			QRY_Builder.Builder subquery = QRY_Builder.selectFrom(UTIL_SObjectDescribe.getSObjectTypeByName(OBJECT_NAME))
-					.withSystemMode()
+					.systemModeInternal()
 					.fields(new List<String> {FIELD_PARENT_ID})
 					.condition(OPERATION_TYPE_TO_FIELD_MAP.get(objectAccessLevel).getDescribe().name).equals(true)
 					.andCondition(FIELD_SOBJECT_TYPE).equals(objectType.getDescribe().name);
@@ -198,7 +198,7 @@ global inherited sharing class SEL_ObjectPermission
 			foundUserIds = UTIL_SObject.extractIds
 					(
 							QRY_Builder.selectFrom(PermissionSetAssignment.SObjectType)
-									.withSystemMode()
+									.systemModeInternal()
 									.fields(new List<String> {SEL_PermissionSetAssignment.FIELD_ASSIGNEE_ID})
 									.condition(SEL_PermissionSetAssignment.FIELD_ASSIGNEE_ID).isIn(UTIL_Set.toList(userIds))
 									.andCondition(SEL_PermissionSetAssignment.FIELD_PERMISSION_SET_ID).isIn(subquery)

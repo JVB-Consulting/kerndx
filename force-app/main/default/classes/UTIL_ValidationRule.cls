@@ -54,7 +54,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, June 2026
  *
  * @since 1.0
  *
@@ -600,7 +600,10 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Clears a specific bypass (object, group, or rule).
+	 * @description Clears a specific bypass (object, group, or rule). For each bypass type the
+	 * identifier was actually registered under, emits a `validation` `CLEAR` audit entry carrying the
+	 * matching prefixed target (`object:`/`group:`/`rule:`) so the clear correlates to its originating
+	 * bypass. An identifier that is not currently bypassed removes nothing and emits nothing.
 	 *
 	 * @param identifier The object API name, group DeveloperName, or rule DeveloperName to clear
 	 *
@@ -608,15 +611,25 @@ global inherited sharing class UTIL_ValidationRule
 	 *
 	 * @example
 	 * ```apex
-	 * UTIL_ValidationRule.clearBypass('value');
+	 * UTIL_ValidationRule.clearBypass('Account');
 	 * ```
 	 */
 	global static void clearBypass(String identifier)
 	{
-		BYPASSED_OBJECTS.remove(identifier);
-		BYPASSED_GROUPS.remove(identifier);
-		BYPASSED_RULES.remove(identifier);
-		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_VALIDATION, UTIL_BypassAudit.ACTION_CLEAR, identifier, null);
+		if(BYPASSED_OBJECTS.remove(identifier))
+		{
+			UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_VALIDATION, UTIL_BypassAudit.ACTION_CLEAR, UTIL_BypassAudit.TARGET_PREFIX_OBJECT + identifier, null);
+		}
+
+		if(BYPASSED_GROUPS.remove(identifier))
+		{
+			UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_VALIDATION, UTIL_BypassAudit.ACTION_CLEAR, UTIL_BypassAudit.TARGET_PREFIX_GROUP + identifier, null);
+		}
+
+		if(BYPASSED_RULES.remove(identifier))
+		{
+			UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_VALIDATION, UTIL_BypassAudit.ACTION_CLEAR, UTIL_BypassAudit.TARGET_PREFIX_RULE + identifier, null);
+		}
 	}
 
 	/**

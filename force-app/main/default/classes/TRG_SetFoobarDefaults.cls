@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 {
@@ -37,7 +37,7 @@ public inherited sharing class TRG_SetFoobarDefaults extends TRG_Base implements
 			//Insert item, this should not result in a second call to trigger action; used to test recursion
 			if(insertNewFoo)
 			{
-				DML_Builder.newTransaction().withSystemMode().doInsert(TST_Factory.newFoobar()).execute();
+				DML_Builder.newTransaction().systemModeInternal().doInsert(TST_Factory.newFoobar()).execute();
 			}
 		}
 	}

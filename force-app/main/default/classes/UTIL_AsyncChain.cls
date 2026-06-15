@@ -9,7 +9,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  *
  * @since 1.0
  *
@@ -1074,11 +1074,11 @@ global inherited sharing class UTIL_AsyncChain
 			{
 				execution.Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED;
 				execution.CompletedAt__c = Datetime.now();
-				DML_Builder.newTransaction().withSystemMode().doInsert(execution).execute();
+				DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
 				return execution.Id;
 			}
 
-			DML_Builder.newTransaction().withSystemMode().doInsert(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
 
 			AsyncOptions options = asyncOptions != null ? asyncOptions : new AsyncOptions();
 
@@ -1744,7 +1744,7 @@ global inherited sharing class UTIL_AsyncChain
 				return;
 			}
 
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 			shouldChainNext = true;
 		}
 
@@ -1820,7 +1820,7 @@ global inherited sharing class UTIL_AsyncChain
 								ErrorMessage__c = UTIL_String.abbreviate(errorMessage, AsyncChainExecution__c.ErrorMessage__c),
 								CompletedAt__c = Datetime.now()
 						);
-				DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+				DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 			}
 			catch(Exception dmlError)
 			{
@@ -1854,7 +1854,7 @@ global inherited sharing class UTIL_AsyncChain
 			execution.CompletedAt__c = Datetime.now();
 			setDuration(execution);
 			execution.ContextData__c = UTIL_String.abbreviate(context.serialize(), AsyncChainExecution__c.ContextData__c);
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 
 			if(errorHandler != null)
 			{
@@ -1875,7 +1875,7 @@ global inherited sharing class UTIL_AsyncChain
 			execution.CompletedAt__c = Datetime.now();
 			setDuration(execution);
 			execution.ContextData__c = UTIL_String.abbreviate(context.serialize(), AsyncChainExecution__c.ContextData__c);
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 			logChainPerformance(execution);
 
 			if(completionHandler != null)
@@ -1896,7 +1896,7 @@ global inherited sharing class UTIL_AsyncChain
 			execution.ErrorMessage__c = UTIL_String.abbreviate(message, AsyncChainExecution__c.ErrorMessage__c);
 			execution.CompletedAt__c = Datetime.now();
 			setDuration(execution);
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 			logChainPerformance(execution);
 		}
 
@@ -1912,7 +1912,7 @@ global inherited sharing class UTIL_AsyncChain
 			execution.ErrorMessage__c = UTIL_String.abbreviate(message, AsyncChainExecution__c.ErrorMessage__c);
 			execution.CompletedAt__c = Datetime.now();
 			setDuration(execution);
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 
 			LOG_Builder.build().warn('Chain aborted: ' + message)
 					.at(UTIL_AsyncChain.class.getName() + '.ChainExecutor.markAborted')
@@ -2046,7 +2046,7 @@ global inherited sharing class UTIL_AsyncChain
 				execution.ErrorMessage__c = UTIL_String.abbreviate(errorMessage, AsyncChainExecution__c.ErrorMessage__c);
 			}
 
-			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 		}
 
 		public void execute(FinalizerContext finalizerContext)
@@ -2078,7 +2078,7 @@ global inherited sharing class UTIL_AsyncChain
 								ErrorMessage__c = UTIL_String.abbreviate(errorMessage, AsyncChainExecution__c.ErrorMessage__c),
 								CompletedAt__c = Datetime.now()
 						);
-				DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+				DML_Builder.newTransaction().systemModeInternal().doUpdate(execution).execute();
 			}
 			catch(Exception dmlError)
 			{

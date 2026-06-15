@@ -14,7 +14,7 @@
  *
  * @group Email
  *
- * @date November 2025, May 2026
+ * @date November 2025, June 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class FLOW_SendEmailInternal
@@ -67,7 +67,7 @@ public inherited sharing class FLOW_SendEmailInternal
 			if(closedTaskStatus == null)
 			{
 				TaskStatus status = (TaskStatus)QRY_Builder.selectFrom(TaskStatus.SObjectType)
-						.withSystemMode()
+						.systemModeInternal()
 						.addField(TaskStatus.MasterLabel)
 						.condition(TaskStatus.IsClosed).equals(true)
 						.getFirst();
