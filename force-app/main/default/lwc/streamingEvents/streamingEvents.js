@@ -17,6 +17,8 @@
  *   - Allows toggling between Table and Timeline view modes
  *   - Supports clearing and downloading events
  *   - Handles event selection and modal display
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement, api, wire} from 'lwc';
 import {getRecord, getFieldValue} from 'lightning/uiRecordApi';

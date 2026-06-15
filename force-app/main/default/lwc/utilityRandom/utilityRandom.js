@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, February 2024, March 2026
+ * @date June 2021, March 2026
  */
 import {CAPITAL_LETTERS, DIGITS, LOWER_CASE_LETTERS} from 'c/utilityString';
 

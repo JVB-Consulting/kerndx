@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, December 2025, March 2026
+ * @date June 2021, March 2026
  */
 import utilityLogger from 'c/utilityLogger';
 

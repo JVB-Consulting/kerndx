@@ -8,6 +8,8 @@
  * The Subscriptions component displays and manages a list of active
  * event-streaming subscriptions. It exposes actions that allow a parent component
  * to unsubscribe from a single channel or unsubscribe from all channels.
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement, api} from 'lwc';
 

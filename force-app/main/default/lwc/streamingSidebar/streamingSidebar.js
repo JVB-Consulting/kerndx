@@ -8,6 +8,8 @@
  * used within the Streaming Monitor application.
  * It controls visibility of the sidebar and dispatches navigation
  * and toggle events to the parent component.
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement, api} from 'lwc';
 

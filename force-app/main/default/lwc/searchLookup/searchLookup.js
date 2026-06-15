@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, November 2023, February 2026
+ * @date October 2022, February 2026
  */
 import executeSearchController from '@salesforce/apex/CTRL_ExecuteSearch.executeSearchController';
 import BaseLookup, {DELAY} from 'c/baseLookup';

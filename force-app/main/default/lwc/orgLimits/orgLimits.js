@@ -6,6 +6,8 @@
  * @description LWC component that renders a horizontal bar chart of Salesforce org limits
  * using D3.js. Each bar represents a limit's percentage consumed, with tooltips showing
  * the consumed value and maximum.
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement} from 'lwc';
 import getOrgLimits from '@salesforce/apex/CTRL_EventMonitor.getOrgLimits';

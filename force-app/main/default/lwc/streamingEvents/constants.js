@@ -6,6 +6,8 @@
 /**
  * @description Column definitions for the events data table.
  * @type {Array<Object>}
+ *
+ * @date March 2026, May 2026
  */
 export const TABLE_COLUMNS = [
 	{

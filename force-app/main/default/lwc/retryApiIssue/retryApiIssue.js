@@ -2,6 +2,8 @@
 /**
  * @description Headless quick action to retry a failed API call from an ApiIssue__c record.
  *              Invokes the Apex retry controller and displays a toast with the result.
+ *
+ * @date March 2026, May 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';

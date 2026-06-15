@@ -2,6 +2,8 @@
 /**
  * @description Reusable cron expression editor component with preset, advanced, and custom modes.
  *              Supports Salesforce 7-field cron syntax. Designed for embedding in any context.
+ *
+ * @date March 2026, May 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';

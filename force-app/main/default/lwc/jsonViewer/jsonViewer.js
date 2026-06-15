@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2020, December 2025, February 2026
+ * @date February 2020, February 2026
  */
 
 import {api, LightningElement} from 'lwc';

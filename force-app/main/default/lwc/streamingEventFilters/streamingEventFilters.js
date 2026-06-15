@@ -20,6 +20,8 @@
  *   beforeTime: <epoch ms | undefined>,
  *   afterTime: <epoch ms | undefined>
  * }
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement, api} from 'lwc';
 

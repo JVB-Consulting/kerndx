@@ -2,6 +2,8 @@
 /**
  * @description Constants and option arrays for the cron expression editor.
  *              All values constrained to what Salesforce System.schedule() accepts.
+ *
+ * @date March 2026, May 2026
  */
 
 export const MODE_PRESET = 'preset';

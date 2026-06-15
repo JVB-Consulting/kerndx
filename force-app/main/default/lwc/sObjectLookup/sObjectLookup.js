@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, January 2024, February 2026, March 2026
+ * @date October 2022, March 2026
  */
 import search from '@salesforce/apex/CTRL_Search.search';
 import BaseLookup from 'c/baseLookup';

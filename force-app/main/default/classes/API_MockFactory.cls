@@ -17,7 +17,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, April 2026, May 2026
+ * @date February 2026, May 2026
  *
  * @since 1.0
  *

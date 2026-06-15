@@ -8,7 +8,7 @@
  *              global slot so the fallback-stub function expression is evaluated.
  *
  * @author Jason van Beukering
- * @date December 2025, February 2026, April 2026
+ * @date December 2025, April 2026
  */
 
 /*

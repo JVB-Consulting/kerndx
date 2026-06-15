@@ -12,6 +12,8 @@
  *   - Trigger data download
  *
  * The component emits events to communicate user actions to parent components.
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement} from 'lwc';
 

@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, February 2022, March 2026
+ * @date June 2021, March 2026
  */
 
 /**

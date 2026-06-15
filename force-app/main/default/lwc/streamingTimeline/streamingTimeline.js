@@ -29,6 +29,8 @@
  *
  * This component is designed for dashboards, monitoring consoles, and real-time
  * streaming analytics pages that require chronological event visualization.
+ *
+ * @date March 2026, May 2026
  */
 import {LightningElement, api} from 'lwc';
 import {loadScript} from 'lightning/platformResourceLoader';

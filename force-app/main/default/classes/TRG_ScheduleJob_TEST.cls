@@ -8,7 +8,7 @@
  *
  * @group Triggers
  *
- * @date January 2026, February 2026, March 2026
+ * @date January 2026, March 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)

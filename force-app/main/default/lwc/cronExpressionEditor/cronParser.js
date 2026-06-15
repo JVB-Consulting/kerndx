@@ -2,6 +2,8 @@
 /**
  * @description Pure functions for parsing, building, and describing Salesforce cron expressions.
  *              Supports the 7-field Salesforce format: Seconds Minutes Hours DayOfMonth Month DayOfWeek [Year]
+ *
+ * @date March 2026, May 2026
  */
 import {
 	MODE_PRESET, MODE_ADVANCED, MODE_CUSTOM, DEFAULT_CRON_EXPRESSION, NUMBER_TO_DAY_NAME
