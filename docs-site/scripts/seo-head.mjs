@@ -10,7 +10,7 @@ export const OG_IMAGE = 'og-image.png';
 const IMAGE_WIDTH = '1280';
 const IMAGE_HEIGHT = '640';
 const SITE_NAME = 'KernDX';
-const SITE_DESCRIPTION = 'Source-available Salesforce Apex + LWC framework and library suite.';
+const SITE_DESCRIPTION = 'A complete Salesforce Apex + LWC framework and library suite.';
 
 // schema.org JSON-LD graph: a sitewide Organization + WebSite, plus a per-page
 // TechArticle on every non-home page (linked back to the WebSite). Gives search

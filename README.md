@@ -3,9 +3,9 @@
 [![Coverage](https://img.shields.io/badge/coverage-100%25%20Apex%20%2F%2095%25%20LWC-brightgreen.svg)](./docs/Code%20Conventions%20-%20Guide.md)
 [![Version](https://img.shields.io/badge/version-1.1.0--11-blue.svg)](./RELEASE-PROVENANCE.json)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-orange.svg)](./LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://jvb-consulting.github.io/kerndx/)
+[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://docs.jvb-consulting.io/)
 
-📚 **[Browse the documentation site](https://jvb-consulting.github.io/kerndx/)** — the same Fast Starts, Strategic Guides, and Apex reference under `docs/`, rendered and searchable.
+📚 **[Browse the documentation site](https://docs.jvb-consulting.io/)** — the same Fast Starts, Strategic Guides, and Apex reference under `docs/`, rendered and searchable.
 
 Ship Apex and LWC features in a fraction of the time.
 
