@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Building type-safe SOQL queries with sharing enforcement and reusable query logic
 - **Architects** - Designing data access layers with proper abstraction and security controls
 - **Business Analysts** - Understanding query capabilities, sharing rules, and data access patterns
@@ -18,127 +19,128 @@
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Architecture](#architecture)
-   - [KernDX vs OOTB: Selector Framework Comparison](#kerndx-vs-ootb-selector-framework-comparison)
-     - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
-     - [Pros & Cons Comparison](#pros--cons-comparison)
-     - [When to Use KernDX Selector Framework](#when-to-use-kerndx-selector-framework)
-     - [When to Use OOTB Inline SOQL](#when-to-use-ootb-inline-soql)
-     - [Example Comparison](#example-comparison)
-   - [Layer 1: QRY_Builder (Recommended Default for Subscriber Orgs)](#layer-1-qry_builder-recommended-default-for-subscriber-orgs)
-   - [Layer 2: SEL_Base](#layer-2-sel_base)
-   - [Layer 3: QRY_Condition](#layer-3-qry_condition)
+4. [Escape Hatches](#escape-hatches)
+5. [Architecture](#architecture)
+    - [KernDX vs OOTB: Selector Framework Comparison](#kerndx-vs-ootb-selector-framework-comparison)
+        - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
+        - [Pros & Cons Comparison](#pros--cons-comparison)
+        - [When to Use KernDX Selector Framework](#when-to-use-kerndx-selector-framework)
+        - [When to Use OOTB Inline SOQL](#when-to-use-ootb-inline-soql)
+        - [Example Comparison](#example-comparison)
+    - [Layer 1: QRY_Builder (Recommended Default for Subscriber Orgs)](#layer-1-qry_builder-recommended-default-for-subscriber-orgs)
+    - [Layer 2: SEL_Base](#layer-2-sel_base)
+    - [Layer 3: QRY_Condition](#layer-3-qry_condition)
 5. [Basic Queries](#basic-queries)
-   - [findById](#findbyid)
-   - [findByField](#findbyfield)
+    - [findById](#findbyid)
+    - [findByField](#findbyfield)
 6. [Advanced Queries](#advanced-queries)
-   - [Complex WHERE Conditions](#complex-where-conditions)
-   - [ORDER BY and LIMIT](#order-by-and-limit)
-   - [Pagination](#pagination)
+    - [Complex WHERE Conditions](#complex-where-conditions)
+    - [ORDER BY and LIMIT](#order-by-and-limit)
+    - [Pagination](#pagination)
 7. [Query Builder](#query-builder)
-   - [SELECT and FROM](#select-and-from)
-   - [WHERE Conditions](#where-conditions)
-   - [Aggregate Functions](#aggregate-functions)
-   - [GROUP BY](#group-by)
+    - [SELECT and FROM](#select-and-from)
+    - [WHERE Conditions](#where-conditions)
+    - [Aggregate Functions](#aggregate-functions)
+    - [GROUP BY](#group-by)
 8. [Sharing Enforcement](#sharing-enforcement)
-   - [Enforcing Sharing](#enforcing-sharing)
-   - [Bypassing Sharing](#bypassing-sharing)
-   - [USER_MODE Security](#user_mode-security)
-   - [Strip Inaccessible Fields](#strip-inaccessible-fields)
+    - [Enforcing Sharing](#enforcing-sharing)
+    - [Bypassing Sharing](#bypassing-sharing)
+    - [USER_MODE Security](#user_mode-security)
+    - [Strip Inaccessible Fields](#strip-inaccessible-fields)
 9. [Complex Examples](#complex-examples)
-   - [Parent-to-Child Subqueries](#parent-to-child-subqueries)
-   - [Semi-Join Subqueries](#semi-join-subqueries)
-   - [Aggregate Queries](#aggregate-queries)
-   - [QueryLocator for Batch Apex](#querylocator-for-batch-apex)
+    - [Parent-to-Child Subqueries](#parent-to-child-subqueries)
+    - [Semi-Join Subqueries](#semi-join-subqueries)
+    - [Aggregate Queries](#aggregate-queries)
+    - [QueryLocator for Batch Apex](#querylocator-for-batch-apex)
 10. [Custom Selector Classes](#custom-selector-classes)
 11. [QRY_Builder Examples](#qry_builder-examples)
     - [Basic Queries](#basic-queries-1)
-      - [Simple Field Selection](#simple-field-selection)
-      - [Query with Single Condition](#query-with-single-condition)
-      - [Query with Multiple AND Conditions](#query-with-multiple-and-conditions)
-      - [Query with OR Conditions](#query-with-or-conditions)
-      - [Explicit Condition Grouping](#explicit-condition-grouping)
+        - [Simple Field Selection](#simple-field-selection)
+        - [Query with Single Condition](#query-with-single-condition)
+        - [Query with Multiple AND Conditions](#query-with-multiple-and-conditions)
+        - [Query with OR Conditions](#query-with-or-conditions)
+        - [Explicit Condition Grouping](#explicit-condition-grouping)
     - [Advanced Filtering](#advanced-filtering)
-      - [Using IN Operator with Collection](#using-in-operator-with-collection)
-      - [Using IN Operator with SObjects](#using-in-operator-with-sobjects)
-      - [String Pattern Matching](#string-pattern-matching)
-      - [Multi-Picklist Field Filtering](#multi-picklist-field-filtering)
-      - [Date Literal Conditions](#date-literal-conditions)
+        - [Using IN Operator with Collection](#using-in-operator-with-collection)
+        - [Using IN Operator with SObjects](#using-in-operator-with-sobjects)
+        - [String Pattern Matching](#string-pattern-matching)
+        - [Multi-Picklist Field Filtering](#multi-picklist-field-filtering)
+        - [Date Literal Conditions](#date-literal-conditions)
     - [Parent Relationship Queries](#parent-relationship-queries)
-      - [Querying Related Fields](#querying-related-fields)
+        - [Querying Related Fields](#querying-related-fields)
     - [Caching Queries](#caching-queries)
-      - [Platform Cache Integration](#platform-cache-integration)
+        - [Platform Cache Integration](#platform-cache-integration)
     - [Query Performance Logging](#query-performance-logging)
-      - [Force Logging a Query](#force-logging-a-query)
-      - [Custom Threshold per Query](#custom-threshold-per-query)
-      - [Suppress Logging](#suppress-logging)
-      - [Logging Hierarchy](#logging-hierarchy)
+        - [Force Logging a Query](#force-logging-a-query)
+        - [Custom Threshold per Query](#custom-threshold-per-query)
+        - [Suppress Logging](#suppress-logging)
+        - [Logging Hierarchy](#logging-hierarchy)
     - [Aggregate Queries](#aggregate-queries-1)
-      - [Simple Aggregation](#simple-aggregation)
-      - [Aggregation with HAVING Clause](#aggregation-with-having-clause)
-      - [Multiple Grouping Fields](#multiple-grouping-fields)
+        - [Simple Aggregation](#simple-aggregation)
+        - [Aggregation with HAVING Clause](#aggregation-with-having-clause)
+        - [Multiple Grouping Fields](#multiple-grouping-fields)
     - [Multi-Field Grouping](#multi-field-grouping)
-      - [GROUP BY ROLLUP (Subtotals)](#group-by-rollup-subtotals)
-      - [GROUP BY CUBE (Cross-Tabulation)](#group-by-cube-cross-tabulation)
+        - [GROUP BY ROLLUP (Subtotals)](#group-by-rollup-subtotals)
+        - [GROUP BY CUBE (Cross-Tabulation)](#group-by-cube-cross-tabulation)
     - [SOQL Functions in Queries](#soql-functions-in-queries)
-      - [Date Functions in GROUP BY](#date-functions-in-group-by)
-      - [toLabel (Picklist Translation)](#tolabel-picklist-translation)
-      - [FORMAT (Localized Formatting)](#format-localized-formatting)
+        - [Date Functions in GROUP BY](#date-functions-in-group-by)
+        - [toLabel (Picklist Translation)](#tolabel-picklist-translation)
+        - [FORMAT (Localized Formatting)](#format-localized-formatting)
     - [Result Transformation](#result-transformation)
-      - [Converting to Map](#converting-to-map)
-      - [Extracting Id Sets](#extracting-id-sets)
-      - [Extracting Field Values](#extracting-field-values)
+        - [Converting to Map](#converting-to-map)
+        - [Extracting Id Sets](#extracting-id-sets)
+        - [Extracting Field Values](#extracting-field-values)
     - [Existence Checks](#existence-checks)
-      - [Checking if Records Exist](#checking-if-records-exist)
+        - [Checking if Records Exist](#checking-if-records-exist)
     - [Security & Row Locking](#security--row-locking)
-      - [Security Methods Overview](#security-methods-overview)
-      - [USER_MODE Security (CRUD, FLS, and Sharing)](#user_mode-security-crud-fls-and-sharing)
-      - [Strip Inaccessible Fields](#strip-inaccessible-fields-1)
-      - [Combining Security Options](#combining-security-options)
-      - [Sharing Control (SYSTEM_MODE only)](#sharing-control-system_mode-only)
-      - [Conditional Field Addition Based on Access](#conditional-field-addition-based-on-access)
-      - [Row Locking for Updates](#row-locking-for-updates)
+        - [Security Methods Overview](#security-methods-overview)
+        - [USER_MODE Security (CRUD, FLS, and Sharing)](#user_mode-security-crud-fls-and-sharing)
+        - [Strip Inaccessible Fields](#strip-inaccessible-fields-1)
+        - [Combining Security Options](#combining-security-options)
+        - [Sharing Control (SYSTEM_MODE only)](#sharing-control-system_mode-only)
+        - [Conditional Field Addition Based on Access](#conditional-field-addition-based-on-access)
+        - [Row Locking for Updates](#row-locking-for-updates)
     - [Scoped Queries](#scoped-queries)
-      - [Using USING SCOPE](#using-using-scope)
+        - [Using USING SCOPE](#using-using-scope)
     - [Data Category Queries](#data-category-queries)
-      - [Operators](#operators)
-      - [Single Category Filter](#single-category-filter)
-      - [Multiple Categories in One Group](#multiple-categories-in-one-group)
-      - [Multiple Groups (AND)](#multiple-groups-and)
-      - [Hierarchy Traversal with BELOW](#hierarchy-traversal-with-below)
-      - [Constraints](#constraints)
+        - [Operators](#operators)
+        - [Single Category Filter](#single-category-filter)
+        - [Multiple Categories in One Group](#multiple-categories-in-one-group)
+        - [Multiple Groups (AND)](#multiple-groups-and)
+        - [Hierarchy Traversal with BELOW](#hierarchy-traversal-with-below)
+        - [Constraints](#constraints)
     - [Batch Processing](#batch-processing)
-      - [QueryLocator for Batch Apex](#querylocator-for-batch-apex-1)
-      - [Cursor-Based Processing](#cursor-based-processing)
+        - [QueryLocator for Batch Apex](#querylocator-for-batch-apex-1)
+        - [Cursor-Based Processing](#cursor-based-processing)
     - [Custom Reusable Selectors (5% Use Case)](#custom-reusable-selectors-5-use-case)
-      - [Extending Builder](#extending-builder)
+        - [Extending Builder](#extending-builder)
     - [Combining Multiple Patterns](#combining-multiple-patterns)
-      - [Complex Real-World Example](#complex-real-world-example)
+        - [Complex Real-World Example](#complex-real-world-example)
 12. [Testing](#testing)
     - [Basic Query Mocking](#basic-query-mocking)
     - [Creating Mock Records](#creating-mock-records)
     - [Multiple Query Mocking](#multiple-query-mocking)
     - [Mocking with TST_Mock](#mocking-with-tst_mock)
     - [Limitations](#limitations)
-      - [AggregateResult Mocking Not Supported](#aggregateresult-mocking-not-supported)
-      - [Query Conditions Not Evaluated](#query-conditions-not-evaluated)
-      - [Mock Scope](#mock-scope)
+        - [AggregateResult Mocking Not Supported](#aggregateresult-mocking-not-supported)
+        - [Query Conditions Not Evaluated](#query-conditions-not-evaluated)
+        - [Mock Scope](#mock-scope)
 13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
 14. [Anti-Patterns](#anti-patterns)
 15. [Best Practices](#best-practices)
-    - [1. Always Use Selector Classes](#1-always-use-selector-classes)
-    - [2. Use query Property Inside Selectors, QRY_Builder for One-Off](#2-use-query-property-inside-selectors-qry_builder-for-one-off)
-    - [3. Create Custom Selector Classes for Each SObject](#3-create-custom-selector-classes-for-each-sobject)
-    - [4. Use Type-Safe Field References](#4-use-type-safe-field-references)
-    - [5. Be Explicit About Sharing](#5-be-explicit-about-sharing)
-    - [6. Choose the Right Layer](#6-choose-the-right-layer)
-    - [7. Use QueryLocator for Batch Apex](#7-use-querylocator-for-batch-apex)
-    - [8. Avoid Query Loops](#8-avoid-query-loops)
-    - [9. Test with TST_Builder](#9-test-with-tst_builder)
-    - [10. Document Query Methods](#10-document-query-methods)
-    - [11. Handle Null and Empty Collections](#11-handle-null-and-empty-collections)
-    - [12. Use Pagination for Large Result Sets](#12-use-pagination-for-large-result-sets)
-    - [13. Leverage Subqueries for Efficiency](#13-leverage-subqueries-for-efficiency)
+    - [Always Use Selector Classes](#always-use-selector-classes)
+    - [Use query Property Inside Selectors, QRY_Builder for One-Off](#use-query-property-inside-selectors-qry_builder-for-one-off)
+    - [Create Custom Selector Classes for Each SObject](#create-custom-selector-classes-for-each-sobject)
+    - [Use Type-Safe Field References](#use-type-safe-field-references)
+    - [Be Explicit About Sharing](#be-explicit-about-sharing)
+    - [Choose the Right Layer](#choose-the-right-layer)
+    - [Use QueryLocator for Batch Apex](#use-querylocator-for-batch-apex)
+    - [Avoid Query Loops](#avoid-query-loops)
+    - [Test with TST_Builder](#test-with-tst_builder)
+    - [Document Query Methods](#document-query-methods)
+    - [Handle Null and Empty Collections](#handle-null-and-empty-collections)
+    - [Use Pagination for Large Result Sets](#use-pagination-for-large-result-sets)
+    - [Leverage Subqueries for Efficiency](#leverage-subqueries-for-efficiency)
 16. [Related Documentation](#related-documentation)
 
 </details>
@@ -147,20 +149,21 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                           |
-|---------------|-----------------------------------|--------------------------------------------------------------------|
-| **Architect** | Understand query architecture     | [Architecture](#architecture)                                      |
-| **Architect** | Compare with OOTB SOQL            | [KernDX vs OOTB](#kerndx-vs-ootb-selector-framework-comparison)   |
-| **Developer** | Query records                     | [Quick Start](#quick-start)                                        |
-| **Developer** | Build complex queries             | [QRY_Builder Examples](#qry_builder-examples)                      |
-| **Developer** | Create custom selectors           | [Custom Selector Classes](#custom-selector-classes)                |
-| **Analyst**   | Understand sharing enforcement    | [Capability Matrix](#capability-matrix-for-analysts)               |
+| I am a...     | I need to...                   | Go to...                                                        |
+|---------------|--------------------------------|-----------------------------------------------------------------|
+| **Architect** | Understand query architecture  | [Architecture](#architecture)                                   |
+| **Architect** | Compare with OOTB SOQL         | [KernDX vs OOTB](#kerndx-vs-ootb-selector-framework-comparison) |
+| **Developer** | Query records                  | [Quick Start](#quick-start)                                     |
+| **Developer** | Build complex queries          | [QRY_Builder Examples](#qry_builder-examples)                   |
+| **Developer** | Create custom selectors        | [Custom Selector Classes](#custom-selector-classes)             |
+| **Analyst**   | Understand sharing enforcement | [Capability Matrix](#capability-matrix-for-analysts)            |
 
 ---
 
 ## Overview
 
-The Selector Framework provides a layered, type-safe approach to querying SObjects in Salesforce without writing hardcoded SOQL strings. It promotes consistency, maintainability, and security by abstracting database operations into reusable components.
+The Selector Framework provides a layered, type-safe approach to querying SObjects in Salesforce without writing hardcoded SOQL strings. It promotes consistency, maintainability,
+and security by abstracting database operations into reusable components.
 
 **Managed Package Context:**
 
@@ -172,11 +175,13 @@ The framework consists of three complementary layers:
 2. **[QRY_Builder](reference/apex/QRY_Builder.md)** - **Query engine** - Fluent query builder with caching, pagination, and result transformation
 3. **[QRY_Condition](reference/apex/QRY_Condition.md)** - Low-level condition builders and operators
 
-**For production code, create selectors** by extending [`SEL_Base`](reference/apex/SEL_Base.md) (e.g., `SEL_Accounts`, `SEL_Contacts`) with default field sets, inherited `findById()`/`findByField()` methods, and custom query methods that use the `query` property.
+**For production code, create selectors** by extending [`SEL_Base`](reference/apex/SEL_Base.md) (e.g., `SEL_Accounts`, `SEL_Contacts`) with default field sets, inherited
+`findById()`/`findByField()` methods, and custom query methods that use the `query` property.
 
-**For one-off queries** (anonymous Apex, scripts, objects without a selector), use [`QRY_Builder`](reference/apex/QRY_Builder.md) directly. Selectors use QRY_Builder internally via the `query` property — it's the engine, not the alternative.
+**For one-off queries** (anonymous Apex, scripts, objects without a selector), use [`QRY_Builder`](reference/apex/QRY_Builder.md) directly. Selectors use QRY_Builder internally via
+the `query` property — it's the engine, not the alternative.
 
-> **Selector Framework Scope:** 42 `SEL_*` classes (production) extending `SEL_Base`, plus the `QRY_Builder`
+> **Selector Framework Scope:** 44 `SEL_*` classes (most extend `SEL_Base`), plus the `QRY_Builder`
 > fluent API with caching, pagination, semi-joins, aggregates, and 5 security modes.
 
 > **Responsibilities:** Selectors only query data. They do not perform DML, contain business logic, or mutate
@@ -188,11 +193,12 @@ The framework consists of three complementary layers:
 > - Tests where inline SOQL against inserted records improves readability and is not reused
 
 **Key Benefits:**
+
 - **Type Safety** - SObjectField references prevent typos and invalid field names
 - **Sharing Control** - Explicit enforcement or bypass of sharing rules
 - **Testability** - Mockable query logic and consistent patterns
 - **Maintainability** - Centralized query logic in selector classes
-- **Security** - Built-in support for WITH SECURITY_ENFORCED, bind variables, and automatic literal escaping
+- **Security** - Built-in USER_MODE enforcement (CRUD, FLS, and sharing at the database level), bind variables, and automatic literal escaping
 - **Consistency** - Standardized query patterns across the codebase
 - **Performance** - Bind variables enable better query plan caching
 
@@ -222,6 +228,24 @@ Account account = (Account)new SEL_Accounts().findById(accountId);
 ```
 
 For deeper coverage, continue reading the sections below.
+
+---
+
+## Escape Hatches
+
+The selector framework is opt-in. `QRY_Builder` is the recommended default for subscriber orgs; `SEL_Base` is for the ~5% of queries that genuinely benefit from a reusable selector
+class. When the abstraction doesn't fit, native SOQL is always available — and the framework's own LWCs use Salesforce's native client-side caching directly.
+
+| You need                                                        | Use                                                                                                                                                                                                                                                                   | See                                                           |
+|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| **One-off inline SOQL** (prototype, simple query, debug helper) | Standard `[SELECT … FROM …]` syntax — no framework wrapper required.                                                                                                                                                                                                  | [When to Use OOTB Inline SOQL](#when-to-use-ootb-inline-soql) |
+| **Bypass sharing for a single query**                           | `QRY_Builder.bypassSharing()` — routes through `without sharing` for that query only.                                                                                                                                                                                 | [Bypassing Sharing](#bypassing-sharing)                       |
+| **USER_MODE enforcement per query**                             | `QRY_Builder.withUserMode()` — enforces FLS + CRUD at query time.                                                                                                                                                                                                     | [USER_MODE Security](#user_mode-security)                     |
+| **Native Lightning Data Service caching in LWC**                | `@wire(getRecord)`, `@wire(getObjectInfo)`, `@wire(getRecordCreateDefaults)` from `lightning/uiRecordApi` / `lightning/uiObjectInfoApi` — used by framework components like `scheduledJobDetail`, `sObjectLookup`, `createForm`. No lint or scanner rule blocks them. | [LWC - Guide](LWC%20-%20Guide.md)                             |
+| **Cacheable Apex bridge for LWC**                               | `@AuraEnabled(cacheable=true)` on a controller method — used in framework code like `CTRL_FeatureFlag`.                                                                                                                                                               | [LWC - Guide](LWC%20-%20Guide.md)                             |
+| **Raw `Database.query()` / `Database.queryWithBinds()`**        | Works unmodified — nothing intercepts platform SOQL.                                                                                                                                                                                                                  | —                                                             |
+
+The selector layer is a productivity convenience, not a wall. Reach for it when its features pay off; skip it when they don't.
 
 ---
 
@@ -278,24 +302,24 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 
 #### Pros & Cons Comparison
 
-| Feature | KernDX Selector Framework | Salesforce OOTB Inline SOQL |
-|---------|-------------------------------|----------------------------|
-| **Field Type Safety** | ✅ `SObjectField` references prevent field name typos | ✅ Compile-time field checking (both use `SObjectField`) |
-| **Centralized Queries** | ✅ selector classes consolidate all queries for an object | ⚠️ Queries typically scattered across codebase |
-| **Sharing Control** | ✅ Explicit `withSharing()` / `bypassSharing()` methods | ✅ `with sharing` / `without sharing` / `inherited sharing` keywords + `WITH SECURITY_ENFORCED` clause |
-| **Dynamic Queries** | ✅ [`QRY_Builder`](reference/apex/QRY_Builder.md) fluent API, type-safe | ⚠️ Requires `Database.query()` with string concatenation |
-| **SOQL Injection Protection** | ✅ Bind variables where possible, automatic escaping as fallback | ⚠️ Manual escaping required for dynamic queries |
-| **Result Caching** | ✅ Built-in Platform Cache integration (`cacheTTL`, `userScopedCache` params) | ❌ Manual cache implementation required |
-| **Cursor Support** | ✅ Automatic `Database.getCursor()` for compatible queries (bypasses 2K OFFSET limit, supports 50M rows) | ⚠️ Manual `Database.getCursor()` implementation required |
-| **Pagination** | ✅ Built-in with auto Cursor/OFFSET selection | ⚠️ Manual OFFSET (2K limit) or Cursor implementation |
-| **QueryLocator** | ✅ `getQueryLocator()` method for Batch Apex | ✅ `Database.getQueryLocator()` available |
-| **Reusability** | ✅ selector methods called from anywhere | ❌ Must duplicate SOQL or create helper classes |
-| **Query Pattern Consistency** | ✅ Enforced patterns across all queries | ⚠️ Each developer may structure queries differently |
-| **Refactoring** | ✅ `SObjectField` auto-updated by IDE in method calls | ✅ `SObjectField` auto-updated in inline SOQL too |
-| **Complex Conditions** | ✅ Programmatic `addCondition()` with `OrCondition` / `AndCondition` | ⚠️ Manual parentheses in string for dynamic queries |
-| **Simplicity** | ⚠️ Requires selector class creation and framework knowledge | ✅ Direct SOQL, familiar to all Salesforce developers |
-| **Performance** | ⚠️ Framework overhead (minimal, optional caching) | ✅ Direct database access, no overhead |
-| **Learning Curve** | ⚠️ Must learn selector patterns and framework APIs | ✅ Standard SOQL/Apex knowledge |
+| Feature                       | KernDX Selector Framework                                                                               | Salesforce OOTB Inline SOQL                                                                           |
+|-------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| **Field Type Safety**         | ✅ `SObjectField` references prevent field name typos                                                    | ✅ Compile-time field checking (both use `SObjectField`)                                               |
+| **Centralized Queries**       | ✅ selector classes consolidate all queries for an object                                                | ⚠️ Queries typically scattered across codebase                                                        |
+| **Sharing Control**           | ✅ Explicit `withSharing()` / `bypassSharing()` methods                                                  | ✅ `with sharing` / `without sharing` / `inherited sharing` keywords + `WITH USER_MODE` clause |
+| **Dynamic Queries**           | ✅ [`QRY_Builder`](reference/apex/QRY_Builder.md) fluent API, type-safe                                  | ⚠️ Requires `Database.query()` with string concatenation                                              |
+| **SOQL Injection Protection** | ✅ Bind variables where possible, automatic escaping as fallback                                         | ⚠️ Manual escaping required for dynamic queries                                                       |
+| **Result Caching**            | ✅ Built-in Platform Cache integration (`cacheTTL`, `userScopedCache` params)                            | ❌ Manual cache implementation required                                                                |
+| **Cursor Support**            | ✅ Automatic `Database.getCursor()` for compatible queries (bypasses 2K OFFSET limit, supports 50M rows) | ⚠️ Manual `Database.getCursor()` implementation required                                              |
+| **Pagination**                | ✅ Built-in with auto Cursor/OFFSET selection                                                            | ⚠️ Manual OFFSET (2K limit) or Cursor implementation                                                  |
+| **QueryLocator**              | ✅ `getQueryLocator()` method for Batch Apex                                                             | ✅ `Database.getQueryLocator()` available                                                              |
+| **Reusability**               | ✅ selector methods called from anywhere                                                                 | ❌ Must duplicate SOQL or create helper classes                                                        |
+| **Query Pattern Consistency** | ✅ Enforced patterns across all queries                                                                  | ⚠️ Each developer may structure queries differently                                                   |
+| **Refactoring**               | ✅ `SObjectField` auto-updated by IDE in method calls                                                    | ✅ `SObjectField` auto-updated in inline SOQL too                                                      |
+| **Complex Conditions**        | ✅ Programmatic `addCondition()` with `OrCondition` / `AndCondition`                                     | ⚠️ Manual parentheses in string for dynamic queries                                                   |
+| **Simplicity**                | ⚠️ Requires selector class creation and framework knowledge                                             | ✅ Direct SOQL, familiar to all Salesforce developers                                                  |
+| **Performance**               | ⚠️ Framework overhead (minimal, optional caching)                                                       | ✅ Direct database access, no overhead                                                                 |
+| **Learning Curve**            | ⚠️ Must learn selector patterns and framework APIs                                                      | ✅ Standard SOQL/Apex knowledge                                                                        |
 
 #### When to Use KernDX Selector Framework
 
@@ -323,6 +347,7 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 #### Example Comparison
 
 **OOTB Inline SOQL (Scattered, String-Based):**
+
 ```apex
 // Query 1: In AccountService.cls
 List<Account> accounts = [
@@ -354,6 +379,7 @@ List<Account> accounts = Database.query(query);
 ```
 
 **KernDX Selector Framework (Centralized, Type-Safe):**
+
 ```apex
 // SEL_Accounts.cls - Single source of truth
 public inherited sharing class SEL_Accounts extends SEL_Base
@@ -408,6 +434,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 ```
 
 **Key Advantages Demonstrated:**
+
 1. **Type Safety**: `Account.Industry` vs `"Industry"` string
 2. **Centralization**: Single selector class vs scattered queries
 3. **Reusability**: Call method from anywhere
@@ -419,13 +446,17 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 
 ### Layer 1: [QRY_Builder](reference/apex/QRY_Builder.md) **(Recommended Default for Subscriber Orgs)**
 
-**Purpose:** Modern fluent query builder that provides an intuitive API for building and executing [SOQL queries](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm). Provides enterprise features like caching, cursor-based pagination, and sharing enforcement.
+**Purpose:** Modern fluent query builder that provides an intuitive API for building and
+executing [SOQL queries](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm). Provides enterprise features like caching,
+cursor-based pagination, and sharing enforcement.
 
-**When to Use:** **This is the recommended default for developers in subscriber org implementations.** Use `QRY_Builder` for 95% of your query needs - it combines ease of use with enterprise capabilities.
+**When to Use:** **This is the recommended default for developers in subscriber org implementations.** Use `QRY_Builder` for 95% of your query needs - it combines ease of use with
+enterprise capabilities.
 
 **Key Features:**
 
 **Field Selection:**
+
 - `selectFrom()` - Entry point - specify SObject type to query
 - `fields()` / `addFields()` - Define fields to retrieve (SObjectField or String)
 - `addField()` - Add a single field
@@ -435,30 +466,38 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 - `subselect()` - Add child relationship subquery
 
 **WHERE Conditions:**
+
 - `condition()` / `andCondition()` / `orCondition()` - Build WHERE conditions
 - `addCondition()` - Explicit condition grouping for complex logic (accepts `OrCondition` / `AndCondition`)
 - Operators: `equals()`, `notEquals()`, `greaterThan()`, `greaterThanOrEquals()`, `lessThan()`, `lessThanOrEquals()`
 - Collection operators: `isIn()`, `notInSet()` (safe empty list handling), `isInStrict()`, `notInSetStrict()` (throws on empty)
-- SObject operators: `isIn(List<SObject>)`, `isIn(List<SObject>, SObjectField)`, `notInSet(List<SObject>)`, `notInSet(List<SObject>, SObjectField)`, `equals(SObject)`, `notEquals(SObject)`
+- SObject operators: `isIn(List<SObject>)`, `isIn(List<SObject>, SObjectField)`, `notInSet(List<SObject>)`, `notInSet(List<SObject>, SObjectField)`, `equals(SObject)`,
+  `notEquals(SObject)`
 - Semi-join subqueries: `isIn(Builder)`, `notIn(Builder)`
 - Null checks: `isNull()`, `isNotNull()`
 - String matching: `contains()`, `startsWith()`, `endsWith()`
 - Multi-picklist: `includes()`, `excludes()` (safe empty list handling), `includesStrict()`, `excludesStrict()` (throws on empty)
 
-> **SQL Precedence:** AND binds tighter than OR. For example, `A AND B OR C AND D` produces `(A AND B) OR (C AND D)`. Use `addCondition()` with `QRY_Condition.OrCondition` / `QRY_Condition.AndCondition` when you need explicit control over grouping.
+> **SQL Precedence:** AND binds tighter than OR. For example, `A AND B OR C AND D` produces `(A AND B) OR (C AND D)`. Use `addCondition()` with `QRY_Condition.OrCondition` /
+`QRY_Condition.AndCondition` when you need explicit control over grouping.
 
 **Aggregates & Grouping:**
+
 - `sum()` / `avg()` / `min()` / `max()` / `count()` - Aggregate functions
 - `groupBy()` - Group by a field (`String` or `SObjectField`); call multiple times for multi-field grouping
 - `havingSumOf()` / `havingAvgOf()` / `havingMinOf()` / `havingMaxOf()` / `havingCountOf()` / `havingCount()` - HAVING conditions
 
 **Ordering & Limits:**
+
 - `orderBy()` then `ascending()` / `descending()` / `nullsFirst()` / `nullsLast()` - Define sorting
 - `orderBy(field, sortDescending)` / `orderBy(field, sortDescending, nullsLast)` - Dynamic sorting with booleans
 - `withLimit()` / `withOffset()` - Control result sets
 
 **Security & Performance:**
-- **Default access mode:** Subscriber-reachable queries default to `AccessLevel.USER_MODE` (CRUD, FLS, sharing enforced) via the `UserModeQueries_Enabled` feature flag. Framework-internal selectors override the `systemModeRequired()` hook on `SEL_Base` to opt into `AccessLevel.SYSTEM_MODE`. See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+
+- **Default access mode:** Subscriber-reachable queries default to `AccessLevel.USER_MODE` (CRUD, FLS, sharing enforced) via the `UserModeQueries_Enabled` feature flag.
+  Framework-internal selectors override the `systemModeRequired()` hook on `SEL_Base` to opt into `AccessLevel.SYSTEM_MODE`.
+  See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
 - `withUserMode()` - Force `AccessLevel.USER_MODE` (enforces CRUD, FLS, and sharing at DB level) regardless of flag state
 - `withSystemMode()` - Force `AccessLevel.SYSTEM_MODE` (bypasses CRUD/FLS; typically paired with `.bypassSharing()` for framework-internal reads) regardless of flag state
 - `stripInaccessible()` - Remove inaccessible fields from results post-query
@@ -468,16 +507,19 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 - `fields(List, AccessType)` / `addField(field, AccessType)` - Add fields with security checks
 
 **Query Performance Logging:**
+
 - `forcePerformanceLogging()` - Force logging this query regardless of threshold settings
 - `logPerformanceIfSlowerThan(ms)` - Log if query exceeds custom threshold (overrides global setting)
 - `suppressPerformanceLogging()` - Prevent performance logging for this query (use for high-frequency internal queries)
 
 **Row Locking & Special Clauses:**
+
 - `forUpdate()` / `forReference()` / `forView()` - Row locking
 - `allRows()` - Include archived/deleted records
 - `usingScope()` - Filter by visibility scope (MINE, MY_TERRITORY, TEAM, etc.)
 
 **Execution & Results:**
+
 - `toSoql()` - Generate SOQL string without executing
 - `toList()` - Execute query and return results as List
 - `getFirst()` - Get first matching record
@@ -487,16 +529,18 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 - `toCursor()` - Get Database.Cursor for efficient large dataset traversal (bypasses 2K OFFSET limit)
 
 **Result Transformation:**
+
 - `asMap()` - Convert results to Map<Id, SObject> keyed by record Id
 - `asMapById(field)` / `asMapByString(field)` - Convert results to Map keyed by any Id or String field
 - `asGroupedMapById(field)` / `asGroupedMapByString(field)` - Group records by any Id or String field (preserves duplicates)
 - `asIdSet()` / `asIdList()` - Extract record Ids as Set or List
 - `asValueSet()` - Extract field values as Set
 - `isCached()` - Check if last results came from cache
-**Extensibility:**
+  **Extensibility:**
 - Custom selectors via `SEL_Base` extension (the production pattern for reusable queries)
 
 **Advantages Over Inline SOQL:**
+
 - Type-safe field references prevent typos
 - Automatic cache management
 - Intelligent cursor vs OFFSET selection for large datasets
@@ -505,6 +549,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 - Consistent security enforcement
 
 **Example:**
+
 ```apex
 /**
  * @description Retrieves technology accounts with high revenue
@@ -526,6 +571,7 @@ public static List<Account> findHighValueTechnologyAccounts(Decimal minimumReven
 ```
 
 **Caching Example:**
+
 ```apex
 /**
  * @description Retrieves frequently accessed account data with caching
@@ -578,11 +624,13 @@ Contact contact = (Contact)new SEL_Contacts().findById(contactId);
 
 ### Layer 2: [SEL_Base](reference/apex/SEL_Base.md)
 
-**Purpose:** Base class for object-specific [selectors](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_enterprise_patterns_selector_layer.htm) with default fields and reusable query methods.
+**Purpose:** Base class for object-specific [selectors](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_enterprise_patterns_selector_layer.htm) with
+default fields and reusable query methods.
 
 **When to Use:** Create custom selector classes extending `SEL_Base` when you need reusable, object-specific queries with consistent default field sets.
 
 **Key Features:**
+
 - `findById()` - Query by record ID(s)
 - `findByField()` - Query by any field value(s)
 - `getFields()` - Override to define consistent field sets per object
@@ -596,17 +644,21 @@ List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Techn
 
 ### Layer 3: [QRY_Condition](reference/apex/QRY_Condition.md)
 
-**Purpose:** Building blocks for [WHERE conditions](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_conditionexpression.htm), operators, and field comparisons.
+**Purpose:** Building blocks
+for [WHERE conditions](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_conditionexpression.htm), operators, and field
+comparisons.
 
 **When to Use:** When constructing complex condition logic for [QRY_Builder](reference/apex/QRY_Builder.md) queries or [SEL_Base](reference/apex/SEL_Base.md) selectors.
 
 **Key Features:**
+
 - Condition builders: `equals()`, `notEquals()`, `greaterThan()`, `lessThan()`, `likeX()`
 - Nestable conditions: `AndCondition`, `OrCondition`
 - Field conditions with type-safe operators
 - `OrderBy` for sorting specifications
 
 **Example:**
+
 ```apex
 /**
  * @description Creates complex OR condition for account search
@@ -620,14 +672,16 @@ List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Techn
  * ```apex
  * QRY_Condition.OrCondition condition = buildAccountCondition('Technology', 'Customer');
  * ```
- */
+
+*/
 public static QRY_Condition.OrCondition buildAccountCondition(String industry, String type)
 {
-	QRY_Condition.OrCondition orCondition = new QRY_Condition.OrCondition();
-	orCondition.add(new QRY_Condition.FieldCondition(Account.Industry).equals(industry));
-	orCondition.add(new QRY_Condition.FieldCondition(Account.Type).equals(type));
-	return orCondition;
+QRY_Condition.OrCondition orCondition = new QRY_Condition.OrCondition();
+orCondition.add(new QRY_Condition.FieldCondition(Account.Industry).equals(industry));
+orCondition.add(new QRY_Condition.FieldCondition(Account.Type).equals(type));
+return orCondition;
 }
+
 ```
 
 ---
@@ -661,6 +715,7 @@ public inherited sharing class SEL_Accounts extends SEL_Base
 Retrieve records by their Salesforce Id using [SEL_Base.findById](reference/apex/SEL_Base.md).
 
 **Example:**
+
 ```apex
 // Retrieves a single account by Id
 Account account = (Account)new SEL_Accounts().findById(accountId);
@@ -683,6 +738,7 @@ Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
 Retrieve records by any field value(s).
 
 **Example:**
+
 ```apex
 // Finds accounts by industry
 List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');
@@ -707,6 +763,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 Combine multiple conditions using AND/OR logic with [QRY_Builder](reference/apex/QRY_Builder.md).
 
 **Example:**
+
 ```apex
 /**
  * @description Finds accounts matching complex business criteria
@@ -723,16 +780,18 @@ Combine multiple conditions using AND/OR logic with [QRY_Builder](reference/apex
  * Set<String> types = new Set<String>{'Customer', 'Partner'};
  * List<Account> accounts = findByComplexCriteria(industries, 1000000, types);
  * ```
- */
+
+*/
 public static List<Account> findByComplexCriteria(Set<String> industries, Decimal minRevenue, Set<String> types)
 {
-	return QRY_Builder.selectFrom(Account.SObjectType)
-		.fields(new List<SObjectField>{ Account.Name, Account.Industry, Account.Type, Account.AnnualRevenue })
-		.condition(Account.Industry).isIn(new List<String>(industries))
-		.andCondition(Account.AnnualRevenue).greaterThanOrEquals(minRevenue)
-		.orCondition(Account.Type).isIn(new List<String>(types))
-		.toList();
+return QRY_Builder.selectFrom(Account.SObjectType)
+.fields(new List<SObjectField>{ Account.Name, Account.Industry, Account.Type, Account.AnnualRevenue })
+.condition(Account.Industry).isIn(new List<String>(industries))
+.andCondition(Account.AnnualRevenue).greaterThanOrEquals(minRevenue)
+.orCondition(Account.Type).isIn(new List<String>(types))
+.toList();
 }
+
 ```
 
 ### ORDER BY and LIMIT
@@ -752,16 +811,18 @@ Sort and limit query results.
  * ```apex
  * List<Account> topAccounts = getTopAccountsByRevenue(10);
  * ```
- */
+
+*/
 public static List<Account> getTopAccountsByRevenue(Integer topN)
 {
-	return QRY_Builder.selectFrom(Account.SObjectType)
-		.fields(new List<SObjectField>{ Account.Name, Account.AnnualRevenue, Account.Industry })
-		.condition(Account.AnnualRevenue).isNotNull()
-		.orderBy(Account.AnnualRevenue).descending()
-		.withLimit(topN)
-		.toList();
+return QRY_Builder.selectFrom(Account.SObjectType)
+.fields(new List<SObjectField>{ Account.Name, Account.AnnualRevenue, Account.Industry })
+.condition(Account.AnnualRevenue).isNotNull()
+.orderBy(Account.AnnualRevenue).descending()
+.withLimit(topN)
+.toList();
 }
+
 ```
 
 **Dynamic sorting** — when the sort direction comes from a variable (e.g., UI column sorting), use the boolean overloads to avoid `if/else` blocks:
@@ -789,6 +850,7 @@ Both `SObjectField` and `String` field name variants are available.
 Implement efficient [pagination](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_offset.htm) for large result sets.
 
 **Example:**
+
 ```apex
 /**
  * @description Retrieves a paginated list of contacts
@@ -802,14 +864,16 @@ Implement efficient [pagination](https://developer.salesforce.com/docs/atlas.en-
  * ```apex
  * QRY_Builder.QueryPage page1 = getPaginatedContacts(1, 25);
  * ```
- */
+
+*/
 public static QRY_Builder.QueryPage getPaginatedContacts(Integer pageNumber, Integer pageSize)
 {
-	return QRY_Builder.selectFrom(Contact.SObjectType)
-		.fields(new List<SObjectField>{ Contact.FirstName, Contact.LastName, Contact.Email, Contact.Phone })
-		.orderBy(Contact.LastName).ascending()
-		.getPage(pageNumber, pageSize);
+return QRY_Builder.selectFrom(Contact.SObjectType)
+.fields(new List<SObjectField>{ Contact.FirstName, Contact.LastName, Contact.Email, Contact.Phone })
+.orderBy(Contact.LastName).ascending()
+.getPage(pageNumber, pageSize);
 }
+
 ```
 
 ---
@@ -840,6 +904,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 Add filtering to queries.
 
 **Example:**
+
 ```apex
 // Query with WHERE clause
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -854,6 +919,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 Use COUNT, SUM, AVG, MIN, MAX with [QRY_Builder](reference/apex/QRY_Builder.md).
 
 **Example:**
+
 ```apex
 // Count accounts by industry
 List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Account.SObjectType)
@@ -867,6 +933,7 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Account.SObjectT
 Group aggregated results.
 
 **Example:**
+
 ```apex
 /**
  * @description Calculates total revenue by industry
@@ -887,16 +954,19 @@ public static List<QRY_Builder.AggregateRow> getTotalRevenueByIndustry()
 
 ## Sharing Enforcement
 
-The Selector Framework provides fine-grained control over [sharing rule enforcement](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_keywords_sharing.htm). [QRY_Builder](reference/apex/QRY_Builder.md) offers independent, combinable security options. By default, queries run in **USER_MODE** (CRUD, FLS, and sharing enforced) — driven by the `UserModeQueries_Enabled` feature flag which ships with `IsEnabledByDefault__c=true`.
+The Selector Framework provides fine-grained control
+over [sharing rule enforcement](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_keywords_sharing.htm). [QRY_Builder](reference/apex/QRY_Builder.md)
+offers independent, combinable security options. By default, queries run in **USER_MODE** (CRUD, FLS, and sharing enforced) — driven by the `UserModeQueries_Enabled` feature flag
+which ships with `IsEnabledByDefault__c=true`.
 
-| Method | Effect | When to Use |
-|--------|--------|-------------|
-| `.withUserMode()` | Explicitly runs in USER_MODE (the shipped default) | Subscriber code that must enforce the running user's permissions |
-| `.withSystemMode()` | Runs in SYSTEM_MODE — bypasses CRUD/FLS/sharing | Framework-internal reads of configuration or audit data; rare in subscriber code |
-| `.stripInaccessible()` | Removes inaccessible fields from results post-query | Complements USER_MODE when null values are problematic |
-| `.withSharing()` | Uses `with sharing` proxy class (SYSTEM_MODE only) | Enforce sharing while bypassing CRUD/FLS |
-| `.bypassSharing()` | Uses `without sharing` proxy class (SYSTEM_MODE only) | Bypass sharing in SYSTEM_MODE (use with caution) |
-| `.withoutSecurity()` | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries |
+| Method                 | Effect                                                                                                                     | When to Use                                                                      |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `.withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Subscriber code that must enforce the running user's permissions                 |
+| `.withSystemMode()`    | Runs in SYSTEM_MODE — bypasses CRUD/FLS/sharing                                                                            | Framework-internal reads of configuration or audit data; rare in subscriber code |
+| `.stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
+| `.withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
+| `.bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
+| `.withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
 
 ### Enforcing Sharing
 
@@ -943,7 +1013,8 @@ public static List<Contact> findAllContactsWithoutSharing(Set<Id> accountIds)
 
 ### USER_MODE Security
 
-Use `.withUserMode()` for full [CRUD, FLS, and sharing enforcement](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_enforce_usermode.htm) at the database level:
+Use `.withUserMode()` for full [CRUD, FLS, and sharing enforcement](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_enforce_usermode.htm) at
+the database level:
 
 ```apex
 /**
@@ -979,6 +1050,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 Query parent records with related child records using [QRY_Builder.subselect()](reference/apex/QRY_Builder.md).
 
 **Example:**
+
 ```apex
 /**
  * @description Queries accounts with their contacts
@@ -1002,9 +1074,11 @@ public static List<Account> getAccountsWithContacts(Set<Id> accountIds)
 
 ### Semi-Join Subqueries
 
-Use `isIn(Builder)` and `notIn(Builder)` for [semi-join](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_semi_join.htm) patterns where one query filters based on another query's results.
+Use `isIn(Builder)` and `notIn(Builder)` for [semi-join](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_semi_join.htm)
+patterns where one query filters based on another query's results.
 
 **Semi-Join (IN subquery):**
+
 ```apex
 /**
  * @description Finds users assigned to specific permission sets
@@ -1028,6 +1102,7 @@ public static List<User> findUsersWithPermissionSets(Set<String> permissionSetNa
 ```
 
 **Anti-Join Pattern (NOT IN):**
+
 ```apex
 /**
  * @description Finds accounts without any contacts
@@ -1054,6 +1129,7 @@ public static List<Account> findAccountsWithoutContacts()
 Perform aggregations with [GROUP BY](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select_groupby.htm).
 
 **Example:**
+
 ```apex
 /**
  * @description Gets total revenue by industry with filtering
@@ -1078,6 +1154,7 @@ public static List<QRY_Builder.AggregateRow> getTotalRevenueByIndustry(Decimal m
 Get a [QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_QueryLocator.htm) for batch processing.
 
 **Example:**
+
 ```apex
 /**
  * @description Batch class to process accounts
@@ -1133,6 +1210,7 @@ public with sharing class BATCH_ProcessAccounts implements Database.Batchable<SO
 Create custom selector classes for each SObject by extending [SEL_Base](reference/apex/SEL_Base.md) to centralize and standardize queries.
 
 **Pattern:**
+
 ```apex
 /**
  * @description Selector for Contact queries.
@@ -1193,6 +1271,7 @@ public inherited sharing class SEL_Contacts extends SEL_Base
 ```
 
 **Test Class Pattern:**
+
 ```apex
 /**
  * @description Unit tests for SEL_Contacts.
@@ -1250,7 +1329,8 @@ private class SEL_Contacts_TEST
 
 ## QRY_Builder Examples
 
-This section provides practical examples demonstrating common query patterns using `QRY_Builder`. These examples show real-world scenarios you'll encounter when building Salesforce applications.
+This section provides practical examples demonstrating common query patterns using `QRY_Builder`. These examples show real-world scenarios you'll encounter when building Salesforce
+applications.
 
 ### Basic Queries
 
@@ -1426,16 +1506,17 @@ public static List<Account> findAccountsForContacts(List<Contact> contacts)
 
 **Empty list handling:**
 
-| Method | Empty/Null Behavior |
-|--------|---------------------|
-| `isIn(List<SObject>)` | Returns no results (safe) |
-| `isInStrict(List<SObject>)` | Throws `IllegalArgumentException` |
-| `notInSet(List<SObject>)` | Excludes nothing (safe) |
+| Method                          | Empty/Null Behavior               |
+|---------------------------------|-----------------------------------|
+| `isIn(List<SObject>)`           | Returns no results (safe)         |
+| `isInStrict(List<SObject>)`     | Throws `IllegalArgumentException` |
+| `notInSet(List<SObject>)`       | Excludes nothing (safe)           |
 | `notInSetStrict(List<SObject>)` | Throws `IllegalArgumentException` |
 
 **Important: Id/String Type Coercion**
 
-When using `List<Object>` with `isIn()` or `notInSet()`, be aware that Apex automatically coerces strings that look like valid Salesforce IDs (15 or 18 characters) into Id values. This is an Apex platform behaviour, not a framework limitation.
+When using `List<Object>` with `isIn()` or `notInSet()`, be aware that Apex automatically coerces strings that look like valid Salesforce IDs (15 or 18 characters) into Id values.
+This is an Apex platform behaviour, not a framework limitation.
 
 ```apex
 // PROBLEMATIC: ID-like strings in List<Object> are treated as Ids
@@ -1451,6 +1532,7 @@ List<Id> idValues = new List<Id>{accountId1, accountId2};
 ```
 
 **Best practices:**
+
 - Use `List<Id>` or `List<SObject>` when querying Id/lookup fields
 - Use `List<String>` when querying text fields, even if values look like IDs
 - Avoid `List<Object>` when your collection may contain mixed Id and String values
@@ -1611,6 +1693,7 @@ QRY_Builder integrates with the logging framework to automatically log slow quer
 > **See Also:** [Logging - Guide](Logging%20-%20Guide.md) for comprehensive logging documentation including correlation tracking, context management, and troubleshooting.
 
 **Configuration via [`LogSetting__c`](reference/objects/LogSetting__c.md):**
+
 - `EnableQueryPerformanceLogging__c` - Master switch (default: true)
 - `QueryPerformanceThresholdMs__c` - Threshold in ms (default: 1000 = 1 second)
 
@@ -1666,6 +1749,7 @@ public static LogSetting__c getLogSetting()
 #### Logging Hierarchy
 
 The logging hierarchy (most to least specific):
+
 1. `.suppressPerformanceLogging()` - Never log this query
 2. `.forcePerformanceLogging()` - Always log this query
 3. `.logPerformanceIfSlowerThan(ms)` - Log if exceeds custom threshold
@@ -1779,19 +1863,33 @@ Date functions, `toLabel()`, and `FORMAT()` work through the existing string ove
 
 #### Date Functions in GROUP BY
 
+Bucket records by a part of a date with `QRY_Function` — a typed, discoverable factory per SOQL date
+function, so you never hand-spell the expression. Use the same factory in `addField` (with an alias for
+read-back), `groupBy`, and `orderBy` so the SELECT and GROUP BY expressions always match:
+
 ```apex
 List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
-	.addField('CALENDAR_MONTH(CloseDate) monthNumber')
-	.addField('CALENDAR_YEAR(CloseDate) yearNumber')
-	.groupBy('CALENDAR_MONTH(CloseDate)')
-	.groupBy('CALENDAR_YEAR(CloseDate)')
-	.sum(Opportunity.Amount)
+	.addField(QRY_Function.calendarMonth(Opportunity.CloseDate), 'monthNumber')
+	.count('Id')
+	.groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+	.orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
 	.toAggregateList();
+
+for(QRY_Builder.AggregateRow row : results)
+{
+	Integer month = row.getInteger('monthNumber');
+	Integer total = row.getInteger('count_Id');
+}
 ```
 
-All 12 SOQL date functions are supported: `CALENDAR_MONTH`, `CALENDAR_YEAR`, `DAY_IN_MONTH`, `DAY_IN_WEEK`,
-`DAY_IN_YEAR`, `DAY_ONLY`, `FISCAL_MONTH`, `FISCAL_QUARTER`, `FISCAL_YEAR`, `HOUR_IN_DAY`, `WEEK_IN_MONTH`,
-`WEEK_IN_YEAR`.
+All 13 SOQL date functions have a factory: `calendarMonth`, `calendarQuarter`, `calendarYear`, `dayInMonth`,
+`dayInWeek`, `dayInYear`, `dayOnly`, `fiscalMonth`, `fiscalQuarter`, `fiscalYear`, `hourInDay`, `weekInMonth`,
+`weekInYear`. Each yields an `Integer` date part except `dayOnly`, which yields a `Date` — read it back with
+`row.getDate(alias)`.
+
+When the field name is only known at runtime, the raw-string form still works
+(`.addField('CALENDAR_MONTH(' + fieldName + ')')`); the typed factories are the safe, autocompleting path for
+the common case.
 
 #### toLabel (Picklist Translation)
 
@@ -1896,24 +1994,29 @@ public static Boolean hasOpenCases(Id accountId)
 
 ### Security & Row Locking
 
-QRY_Builder provides independent, combinable security options. By default, queries run in **USER_MODE** (CRUD, FLS, and sharing enforced) — driven by the `UserModeQueries_Enabled` feature flag which ships with `IsEnabledByDefault__c=true`.
+QRY_Builder provides independent, combinable security options. By default, queries run in **USER_MODE** (CRUD, FLS, and sharing enforced) — driven by the `UserModeQueries_Enabled`
+feature flag which ships with `IsEnabledByDefault__c=true`.
 
 #### Security Methods Overview
 
-| Method | Effect | When to Use |
-|--------|--------|-------------|
-| `withUserMode()` | Explicitly runs in USER_MODE (the shipped default) | Subscriber code that must enforce the running user's permissions |
-| `withSystemMode()` | Runs in SYSTEM_MODE — bypasses CRUD/FLS/sharing | Framework-internal reads of configuration or audit data; rare in subscriber code |
-| `stripInaccessible()` | Removes inaccessible fields from results post-query | Complements USER_MODE when null values are problematic |
-| `withSharing()` | Uses `with sharing` proxy class (SYSTEM_MODE only) | Enforce sharing while bypassing CRUD/FLS |
-| `bypassSharing()` | Uses `without sharing` proxy class (SYSTEM_MODE only) | Bypass sharing in SYSTEM_MODE (use with caution) |
-| `withoutSecurity()` | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries |
+| Method                | Effect                                                                                                                     | When to Use                                                                      |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Subscriber code that must enforce the running user's permissions                 |
+| `withSystemMode()`    | Runs in SYSTEM_MODE — bypasses CRUD/FLS/sharing                                                                            | Framework-internal reads of configuration or audit data; rare in subscriber code |
+| `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
+| `withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
+| `bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
+| `withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
 
-**Important:** When using `withUserMode()` (or accepting the USER_MODE default), sharing is enforced at the database level regardless of `withSharing()`/`bypassSharing()` settings. The sharing proxy methods only have effect in SYSTEM_MODE.
+**Important:** When using `withUserMode()` (or accepting the USER_MODE default), sharing is enforced at the database level regardless of `withSharing()`/`bypassSharing()` settings.
+The sharing proxy methods only have effect in SYSTEM_MODE.
 
-**Per-selector opt-out:** framework-internal selectors that must always run in SYSTEM_MODE (e.g. those reading `*__mdt` configuration or `LogEntry__c` audit data) override `systemModeRequired()` on `SEL_Base` to return `true`. That single override pins every query routed through the selector's `query` property to SYSTEM_MODE regardless of the flag-driven default.
+**Per-selector opt-out:** framework-internal selectors that must always run in SYSTEM_MODE (e.g. those reading `*__mdt` configuration or `LogEntry__c` audit data) override
+`systemModeRequired()` on `SEL_Base` to return `true`. That single override pins every query routed through the selector's `query` property to SYSTEM_MODE regardless of the
+flag-driven default.
 
-**Org-wide kill switch:** deploy an override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c=false` to temporarily fall back to SYSTEM_MODE framework-wide — emergency rollback only, while offending code is fixed.
+**Org-wide kill switch:** deploy an override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c=false` to temporarily fall back to SYSTEM_MODE
+framework-wide — emergency rollback only, while offending code is fixed.
 
 #### USER_MODE Security (CRUD, FLS, and Sharing)
 
@@ -2079,12 +2182,12 @@ data category groups. Use `.withDataCategory(groupName)` to start a filter, then
 
 #### Operators
 
-| Operator | Method | Description |
-|----------|--------|-------------|
-| `AT` | `.at()` | Exact category match |
-| `ABOVE` | `.above()` | Ancestors of the specified category |
-| `BELOW` | `.below()` | Descendants of the specified category |
-| `ABOVE_OR_BELOW` | `.aboveOrBelow()` | Both ancestors and descendants |
+| Operator         | Method            | Description                           |
+|------------------|-------------------|---------------------------------------|
+| `AT`             | `.at()`           | Exact category match                  |
+| `ABOVE`          | `.above()`        | Ancestors of the specified category   |
+| `BELOW`          | `.below()`        | Descendants of the specified category |
+| `ABOVE_OR_BELOW` | `.aboveOrBelow()` | Both ancestors and descendants        |
 
 Each operator has two overloads: `(String categoryName)` for a single category, and `(List<String> categoryNames)` for
 multiple categories in one group (rendered as a parenthesized list in SOQL).
@@ -2141,8 +2244,7 @@ List<SObject> articles = QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectT
 #### Constraints
 
 - **One filter per group** — adding two filters for the same group throws `IllegalArgumentException`
-- **Mutually exclusive with `WITH SECURITY_ENFORCED`** — use `.withUserMode()` for security enforcement with data
-  category queries
+- **Mutually exclusive with `WITH USER_MODE`** — combining `.withDataCategory()` with `.withUserMode()` throws a configuration error; scope field-level security separately when querying data categories
 - **Knowledge queries require `PublishStatus` in WHERE** — Salesforce returns an error if omitted
 - **`Language` required when Translation Workbench is enabled** — add `.condition('Language').equals('en_US')`
 
@@ -2183,7 +2285,8 @@ public with sharing class BATCH_ProcessAccounts implements Database.Batchable<SO
 
 #### Cursor-Based Processing
 
-Use `toCursor()` for efficient traversal of large datasets that exceed the 2,000 OFFSET limit. Cursors support up to 50 million records and don't require loading all records into memory.
+Use `toCursor()` for efficient traversal of large datasets that exceed the 2,000 OFFSET limit. Cursors support up to 50 million records and don't require loading all records into
+memory.
 
 ```apex
 /**
@@ -2218,16 +2321,17 @@ public static void processLargeDataset()
 
 **Cursor vs QueryLocator vs OFFSET:**
 
-| Feature | `toCursor()` | `toQueryLocator()` | OFFSET |
-|---------|--------------|--------------------|----|
-| **Max Records** | 50 million | 50 million | 2,000 (with OFFSET) |
-| **Use Case** | Apex code traversal | Batch Apex `start()` | Simple pagination |
-| **Memory** | Fetch on demand | Batch framework handles | All in memory |
-| **Subqueries** | ❌ Not supported | ❌ Not supported | ✅ Supported |
-| **Aggregates** | ❌ Not supported | ❌ Not supported | ✅ Supported |
-| **FOR UPDATE** | ❌ Not supported | ❌ Not supported | ✅ Supported |
+| Feature         | `toCursor()`        | `toQueryLocator()`      | OFFSET              |
+|-----------------|---------------------|-------------------------|---------------------|
+| **Max Records** | 50 million          | 50 million              | 2,000 (with OFFSET) |
+| **Use Case**    | Apex code traversal | Batch Apex `start()`    | Simple pagination   |
+| **Memory**      | Fetch on demand     | Batch framework handles | All in memory       |
+| **Subqueries**  | ❌ Not supported     | ❌ Not supported         | ✅ Supported         |
+| **Aggregates**  | ❌ Not supported     | ❌ Not supported         | ✅ Supported         |
+| **FOR UPDATE**  | ❌ Not supported     | ❌ Not supported         | ✅ Supported         |
 
 **When to Use Cursors:**
+
 - Processing more than 2,000 records outside of batch context
 - Need random access to large result sets
 - Memory-efficient traversal of millions of records
@@ -2346,9 +2450,11 @@ public static List<Opportunity> findRecentHighValueOpportunities(Decimal minimum
 
 ## Testing
 
-The Selector Framework provides built-in support for mocking query results in unit tests. This allows you to test business logic without requiring database operations, making tests faster and more isolated.
+The Selector Framework provides built-in support for mocking query results in unit tests. This allows you to test business logic without requiring database operations, making tests
+faster and more isolated.
 
 **Key Benefits:**
+
 - **Faster Tests** - No database round-trips means faster test execution
 - **Isolated Testing** - Test business logic independent of database state
 - **Predictable Results** - Control exactly what data your code receives
@@ -2384,7 +2490,8 @@ private static void testWithMockedQuery()
 }
 ```
 
-**Important:** When mocks are active, query conditions are **not** evaluated. All `QRY_Builder` calls for the mocked SObject type return the configured mock data regardless of WHERE conditions.
+**Important:** When mocks are active, query conditions are **not** evaluated. All `QRY_Builder` calls for the mocked SObject type return the configured mock data regardless of
+WHERE conditions.
 
 ### Creating Mock Records
 
@@ -2429,10 +2536,12 @@ private static void testWithFactoryMockRecords()
 ```
 
 **Difference between `withoutInsertion()` and `withoutInsertion(true)`:**
+
 - `withoutInsertion()` - Creates record in memory with **no ID** (null Id)
 - `withoutInsertion(true)` - Creates record in memory with **auto-generated mock ID** (valid 18-character Id)
 
 Use `withoutInsertion(true)` when you need records with IDs for:
+
 - Query mocking (records need IDs for realistic testing)
 - Code that checks `record.Id != null`
 - Map keys or Set membership based on Id
@@ -2535,7 +2644,8 @@ List<AggregateResult> mockResults = new List<AggregateResult>
 
 **Reason:** `AggregateResult` is a final class with no public constructor. There is no way to create instances of `AggregateResult` in Apex code.
 
-Because `toAggregateList()` returns `QRY_Builder.AggregateRow` (a wrapper around `AggregateResult`), test the value-bearing methods on `AggregateRow` directly against real data inserted via `TST_Builder`.
+Because `toAggregateList()` returns `QRY_Builder.AggregateRow` (a wrapper around `AggregateResult`), test the value-bearing methods on `AggregateRow` directly against real data
+inserted via `TST_Builder`.
 
 **Workaround:** For testing aggregate queries, insert real test data:
 
@@ -2576,6 +2686,7 @@ QRY_Builder.selectFrom(Account.SObjectType).withLimit(1).toList();
 ```
 
 If you need to test condition logic, either:
+
 1. Use real database records
 2. Pre-filter your mock data to match expected conditions
 
@@ -2587,54 +2698,57 @@ Mocks are active for the **entire test transaction** until cleared. Always call 
 
 ## Capability Matrix (for Analysts)
 
-| Capability | Control Point | Method | Notes |
-|---|---|---|---|
-| USER_MODE (CRUD + FLS + Sharing) | Database-level enforcement | `.withUserMode()` | Full security enforcement at the database level |
-| Strip inaccessible fields | Post-query field removal | `.stripInaccessible()` | Removes fields the running user cannot access |
-| Sharing enforcement | Proxy class delegation | `.withSharing()` | Runs query in `with sharing` context |
-| Sharing bypass | Proxy class delegation | `.bypassSharing()` | Runs query in `without sharing` context |
-| Reset to defaults | Security reset | `.withoutSecurity()` | Returns to SYSTEM_MODE with inherited sharing |
-| Row locking | FOR UPDATE clause | `.forUpdate()` | Locks records for update within the transaction |
-| Query caching | Platform cache | `.withCache()` | Caches query results in platform cache |
+| Capability                       | Control Point              | Method                 | Notes                                           |
+|----------------------------------|----------------------------|------------------------|-------------------------------------------------|
+| USER_MODE (CRUD + FLS + Sharing) | Database-level enforcement | `.withUserMode()`      | Full security enforcement at the database level |
+| Strip inaccessible fields        | Post-query field removal   | `.stripInaccessible()` | Removes fields the running user cannot access   |
+| Sharing enforcement              | Proxy class delegation     | `.withSharing()`       | Runs query in `with sharing` context            |
+| Sharing bypass                   | Proxy class delegation     | `.bypassSharing()`     | Runs query in `without sharing` context         |
+| Reset to defaults                | Security reset             | `.withoutSecurity()`   | Returns to SYSTEM_MODE with inherited sharing   |
+| Row locking                      | FOR UPDATE clause          | `.forUpdate()`         | Locks records for update within the transaction |
+| Query caching                    | Platform cache             | `.withCache()`         | Caches query results in platform cache          |
 
 ---
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why It's Wrong | Instead |
-|---|---|---|
-| Inline SOQL scattered across classes | Duplicates field lists, makes refactoring error-prone, and bypasses sharing controls | Use `QRY_Builder` or a custom `SEL_*` selector class |
-| Business logic inside a selector | Selectors become untestable and violate single responsibility | Keep selectors pure -- move logic to trigger actions or service classes |
-| Querying inside a loop | Causes SOQL governor limit exceptions on bulk operations | Collect IDs first, query once, then iterate over results |
-| Ignoring sharing declarations | Runs queries with unpredictable sharing context inherited from the caller | Always use `.withSharing()`, `.bypassSharing()`, or `.withUserMode()` explicitly |
-| Hardcoded field name strings in selectors | Breaks silently when fields are renamed or deleted | Use `SObjectField` token references (e.g., `Account.Name`) |
-| Using `QRY_Builder.selectFrom()` inside a selector method | Bypasses the selector's default fields and breaks reusability | Use the inherited `query` property which returns a pre-configured `QRY_Builder.Builder` |
+| Anti-Pattern                                              | Why It's Wrong                                                                       | Instead                                                                                 |
+|-----------------------------------------------------------|--------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| Inline SOQL scattered across classes                      | Duplicates field lists, makes refactoring error-prone, and bypasses sharing controls | Use `QRY_Builder` or a custom `SEL_*` selector class                                    |
+| Business logic inside a selector                          | Selectors become untestable and violate single responsibility                        | Keep selectors pure -- move logic to trigger actions or service classes                 |
+| Querying inside a loop                                    | Causes SOQL governor limit exceptions on bulk operations                             | Collect IDs first, query once, then iterate over results                                |
+| Ignoring sharing declarations                             | Runs queries with unpredictable sharing context inherited from the caller            | Always use `.withSharing()`, `.bypassSharing()`, or `.withUserMode()` explicitly        |
+| Hardcoded field name strings in selectors                 | Breaks silently when fields are renamed or deleted                                   | Use `SObjectField` token references (e.g., `Account.Name`)                              |
+| Using `QRY_Builder.selectFrom()` inside a selector method | Bypasses the selector's default fields and breaks reusability                        | Use the inherited `query` property which returns a pre-configured `QRY_Builder.Builder` |
 
 ---
 
 ## Best Practices
 
-### 1. **Always Use Selector Classes**
+### **Always Use Selector Classes**
 
 **DO:**
+
 ```apex
 // Use selector methods
 List<Account> accounts = new SEL_Accounts().findById(accountIds);
 ```
 
 **DON'T:**
+
 ```apex
 // Avoid inline SOQL
 List<Account> accounts = [SELECT Name, Industry FROM Account WHERE Id IN :accountIds];
 ```
 
-### 2. **Use `query` Property Inside Selectors, QRY_Builder for One-Off**
+### **Use `query` Property Inside Selectors, QRY_Builder for One-Off**
 
 Inside selector classes, always use the inherited `query` property — it returns a `QRY_Builder.Builder`
 pre-configured with your default fields. Use `QRY_Builder.selectFrom()` directly only for one-off
 queries where no selector exists.
 
 **DO:**
+
 ```apex
 // Inside a selector — uses default fields automatically
 public List<Account> findCustomers()
@@ -2650,6 +2764,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 ```
 
 **DON'T:**
+
 ```apex
 // Inside a selector — bypasses default fields
 public List<Account> findCustomers()
@@ -2661,27 +2776,30 @@ public List<Account> findCustomers()
 }
 ```
 
-### 3. **Create Custom Selector Classes for Each SObject**
+### **Create Custom Selector Classes for Each SObject**
 
 Centralize all queries for an SObject in a dedicated selector class extending [SEL_Base](reference/apex/SEL_Base.md):
+
 - `SEL_Contacts` for Contact queries
 - `SEL_Accounts` for Account queries
 - Define `getFields()` method for consistent field sets
 
-### 4. **Use Type-Safe Field References**
+### **Use Type-Safe Field References**
 
 **DO:**
+
 ```apex
 .condition(Account.Industry).equals('Technology')
 .orderBy(Account.AnnualRevenue).descending()
 ```
 
 **DON'T:**
+
 ```apex
 .condition('Industy').equals('Technology') // String field names prone to typos
 ```
 
-### 5. **Be Explicit About Sharing**
+### **Be Explicit About Sharing**
 
 Always explicitly set sharing when security is a concern:
 
@@ -2696,20 +2814,21 @@ Always explicitly set sharing when security is a concern:
 .bypassSharing()
 ```
 
-### 6. **Choose the Right Layer**
+### **Choose the Right Layer**
 
 - **Production code** — Extend [SEL_Base](reference/apex/SEL_Base.md) for each queried object
-  - Default fields, inherited `findById()`, `findByField()`
-  - Custom query methods using the `query` property
-  - Reusable, testable, mockable
+    - Default fields, inherited `findById()`, `findByField()`
+    - Custom query methods using the `query` property
+    - Reusable, testable, mockable
 - **One-off / ad-hoc** — Use [QRY_Builder](reference/apex/QRY_Builder.md) directly
-  - Anonymous Apex, scripts, objects without a selector
-  - Caching, pagination, result transformation
+    - Anonymous Apex, scripts, objects without a selector
+    - Caching, pagination, result transformation
 
 **Rule of thumb:** If you query the same object from two or more places, create a selector. If it's
 a one-off, use `QRY_Builder.selectFrom()` directly.
 
 **Example:**
+
 ```apex
 // Production — selector with default fields and reusable method
 Account account = (Account)new SEL_Accounts().findById(accountId);
@@ -2723,7 +2842,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-### 7. **Use QueryLocator for Batch Apex**
+### **Use QueryLocator for Batch Apex**
 
 Always use `QRY_Builder.toQueryLocator()` in batch `start()` methods:
 
@@ -2737,9 +2856,10 @@ public Database.QueryLocator start(Database.BatchableContext context)
 }
 ```
 
-### 8. **Avoid Query Loops**
+### **Avoid Query Loops**
 
 **DO:**
+
 ```apex
 // Query once, process many
 Set<Id> accountIds = new Set<Id>();
@@ -2752,6 +2872,7 @@ Map<Id, Account> accountMap = new Map<Id, Account>(accounts);
 ```
 
 **DON'T:**
+
 ```apex
 // Query inside loop - GOVERNOR LIMIT VIOLATION
 for(Opportunity opportunity : opportunities)
@@ -2760,7 +2881,7 @@ for(Opportunity opportunity : opportunities)
 }
 ```
 
-### 9. **Test with [TST_Builder](reference/apex/TST_Builder.md)**
+### **Test with [TST_Builder](reference/apex/TST_Builder.md)**
 
 Use the builder pattern for test data creation:
 
@@ -2784,7 +2905,7 @@ private static void shouldReturnResults()
 }
 ```
 
-### 10. **Document Query Methods**
+### **Document Query Methods**
 
 All query methods must have comprehensive ApexDoc:
 
@@ -2794,7 +2915,7 @@ Set<Id> accountIds = new Set<Id>{acc1.Id, acc2.Id};
 List<Contact> contacts = new SEL_Contacts().findActiveByAccountIds(accountIds);
 ```
 
-### 11. **Handle Null and Empty Collections**
+### **Handle Null and Empty Collections**
 
 **Option A: Manual validation (return early)**
 
@@ -2817,12 +2938,12 @@ public static List<Contact> findByAccountIds(Set<Id> accountIds)
 
 The non-strict collection methods (`isIn()`, `notInSet()`, `includes()`, `excludes()`) handle empty/null collections safely:
 
-| Method | Empty/Null Behaviour |
-|--------|---------------------|
-| `isIn()` | Returns zero results (adds impossible `Id` match) |
-| `notInSet()` | Skips condition (excludes nothing) |
-| `includes()` | Skips condition (matches all) |
-| `excludes()` | Skips condition (matches all) |
+| Method       | Empty/Null Behaviour                              |
+|--------------|---------------------------------------------------|
+| `isIn()`     | Returns zero results (adds impossible `Id` match) |
+| `notInSet()` | Skips condition (excludes nothing)                |
+| `includes()` | Skips condition (matches all)                     |
+| `excludes()` | Skips condition (matches all)                     |
 
 **Option C: Use strict methods to surface bugs**
 
@@ -2841,7 +2962,7 @@ public static List<Contact> findByAccountIds(Set<Id> accountIds)
 
 Strict methods: `isInStrict()`, `notInSetStrict()`, `includesStrict()`, `excludesStrict()`
 
-### 12. **Use Pagination for Large Result Sets**
+### **Use Pagination for Large Result Sets**
 
 Prevent governor limit issues with built-in pagination:
 
@@ -2860,7 +2981,7 @@ Integer deletedSinceCursorCreated = result.deletedRecords;
 Database.PaginationCursor cursor = result.cursor;
 ```
 
-### 13. **Leverage Subqueries for Efficiency**
+### **Leverage Subqueries for Efficiency**
 
 Use parent-to-child subqueries to reduce query count:
 

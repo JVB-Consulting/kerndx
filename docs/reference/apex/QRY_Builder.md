@@ -4,7 +4,7 @@ type: class
 description: "Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, paginatio"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---
@@ -46,7 +46,7 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
     .getPage(2, 25);
 ```
 
-**See Also:** [IF_Queryable](IF_Queryable.md), [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md)
+**See Also:** [IF_Queryable](IF_Queryable.md), [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md), [QRY_Function](QRY_Function.md)
 
 ---
 

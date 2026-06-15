@@ -34,24 +34,24 @@ no SOQL, compile-time field safety, inherited from the base class.
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Query Records](#query-records)
-   - [Add Conditions](#add-conditions)
-   - [Check If Records Exist](#check-if-records-exist)
+    - [Query Records](#query-records)
+    - [Add Conditions](#add-conditions)
+    - [Check If Records Exist](#check-if-records-exist)
 2. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-   - [Step 1: Create the Selector](#step-1-create-the-selector)
-   - [Step 2: Execute](#step-2-execute)
-   - [Step 3: Write Tests](#step-3-write-tests)
+    - [Step 1: Create the Selector](#step-1-create-the-selector)
+    - [Step 2: Execute](#step-2-execute)
+    - [Step 3: Write Tests](#step-3-write-tests)
 3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-   - [Parent Field Access](#parent-field-access)
-   - [Ordering and Limits](#ordering-and-limits)
-   - [Convenience Terminal Methods](#convenience-terminal-methods)
-   - [QRY_Builder for One-Off Queries](#qry_builder-for-one-off-queries)
-   - [Security Modes](#security-modes)
-   - [Compound Conditions](#compound-conditions)
-   - [Date Literals](#date-literals)
-   - [Data Category Filtering (Knowledge)](#data-category-filtering-knowledge)
-   - [Multi-Field GROUP BY and ROLLUP](#multi-field-group-by-and-rollup)
-   - [SOQL Functions (Date, toLabel, FORMAT)](#soql-functions-date-tolabel-format)
+    - [Parent Field Access](#parent-field-access)
+    - [Ordering and Limits](#ordering-and-limits)
+    - [Convenience Terminal Methods](#convenience-terminal-methods)
+    - [QRY_Builder for One-Off Queries](#qry_builder-for-one-off-queries)
+    - [Security Modes](#security-modes)
+    - [Compound Conditions](#compound-conditions)
+    - [Date Literals](#date-literals)
+    - [Data Category Filtering (Knowledge)](#data-category-filtering-knowledge)
+    - [Multi-Field GROUP BY and ROLLUP](#multi-field-group-by-and-rollup)
+    - [SOQL Functions (Date, toLabel, FORMAT)](#soql-functions-date-tolabel-format)
 4. [Common Issues](#common-issues)
 5. [What You Now Know](#what-you-now-know)
 6. [Next Steps](#next-steps)
@@ -529,7 +529,8 @@ System.debug('Found ' + contacts.size() + ' contacts for Technology accounts');
 
 ### Security Modes
 
-KernDX ships **USER_MODE as the secure-by-default** for every `kern.QRY_Builder` query — CRUD, FLS, and sharing are enforced unless a caller explicitly opts out. The default is controlled by the `UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
+KernDX ships **USER_MODE as the secure-by-default** for every `kern.QRY_Builder` query — CRUD, FLS, and sharing are enforced unless a caller explicitly opts out. The default is
+controlled by the `UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
 
 Run these from Execute Anonymous to compare:
 
@@ -558,9 +559,13 @@ List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 System.debug('Strip inaccessible: ' + stripped.size() + ' accounts');
 ```
 
-> **Note:** As an admin, USER_MODE and SYSTEM_MODE often return the same rows because the admin holds every permission. The difference is visible when running as a lower-permission user (e.g., via `System.runAs()` in tests). Subscriber code should almost never need `.withSystemMode()` — it is reserved for framework-internal reads that must bypass the running user's permissions (audit tables, configuration metadata). If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and override `systemModeRequired()` to return `true` — that keeps the opt-out local to one selector rather than sprinkled across call sites.
+> **Note:** As an admin, USER_MODE and SYSTEM_MODE often return the same rows because the admin holds every permission. The difference is visible when running as a lower-permission
+> user (e.g., via `System.runAs()` in tests). Subscriber code should almost never need `.withSystemMode()` — it is reserved for framework-internal reads that must bypass the running
+> user's permissions (audit tables, configuration metadata). If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and override `systemModeRequired()` to return
+`true` — that keeps the opt-out local to one selector rather than sprinkled across call sites.
 >
-> **Kill switch:** deploy an org override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c = false` to temporarily fall back to SYSTEM_MODE framework-wide — for emergency only, while offending code is fixed.
+> **Kill switch:** deploy an org override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c = false` to temporarily fall back to SYSTEM_MODE
+> framework-wide — for emergency only, while offending code is fixed.
 
 ### Compound Conditions
 
@@ -638,32 +643,33 @@ List<kern.QRY_Builder.AggregateRow> results = kern.QRY_Builder.selectFrom(Opport
 
 ### SOQL Functions (Date, toLabel, FORMAT)
 
-Date functions, `toLabel()`, and `FORMAT()` work through string overloads — no special API needed:
+The 13 SOQL date functions have typed `QRY_Function` factories (`calendarYear`, `calendarMonth`, `fiscalQuarter`, …) for `addField` / `groupBy` / `orderBy`; `toLabel()` and
+`FORMAT()` work through string overloads:
 
 ```apex
 kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
-	.addField('CALENDAR_YEAR(CloseDate) yearNumber')
-	.groupBy('CALENDAR_YEAR(CloseDate)')
+	.addField(kern.QRY_Function.calendarYear(Opportunity.CloseDate), 'yearNumber')
+	.groupBy(kern.QRY_Function.calendarYear(Opportunity.CloseDate))
 	.sum(Opportunity.Amount)
 	.toAggregateList();
 ```
 
-See the [Selectors Guide — SOQL Functions](Selectors%20-%20Guide.md#soql-functions-in-queries) for all 12 date
+See the [Selectors Guide — SOQL Functions](Selectors%20-%20Guide.md#soql-functions-in-queries) for all 13 date
 functions, toLabel, and FORMAT examples.
 
 ---
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `SObject row was retrieved via SOQL without querying the requested field` | Field not in `getFields()` | Add the field to `getFields()` or use `.addField()` in the query method |
-| Wrong results from custom query | Used `QRY_Builder.selectFrom()` inside selector | Use the inherited `query` property -- it includes your default fields |
-| `List has no rows for assignment` | `findById()` returns `null` when not found | Check for `null` before casting, or use `findByIdOrThrow()` |
-| Missing parent fields | Used `SObjectField` for relationship fields | Use `getFieldPaths()` or `.addFields(List<String>)` for `Owner.Name` etc. |
-| `Variable does not exist: query` | Class doesn't extend `kern.SEL_Base` | Add `extends kern.SEL_Base` and `super(SObjectType)` in constructor |
-| `findByField(String, String)` not found | Variable named `account` shadows `Account` type | Rename the variable (e.g., `result`) so `Account.Industry` resolves as SObjectField |
-| Test coverage gaps | Custom query method not tested | Add a test that calls each custom method and asserts the results |
+| Problem                                                                   | Cause                                           | Fix                                                                                 |
+|---------------------------------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------|
+| `SObject row was retrieved via SOQL without querying the requested field` | Field not in `getFields()`                      | Add the field to `getFields()` or use `.addField()` in the query method             |
+| Wrong results from custom query                                           | Used `QRY_Builder.selectFrom()` inside selector | Use the inherited `query` property -- it includes your default fields               |
+| `List has no rows for assignment`                                         | `findById()` returns `null` when not found      | Check for `null` before casting, or use `findByIdOrThrow()`                         |
+| Missing parent fields                                                     | Used `SObjectField` for relationship fields     | Use `getFieldPaths()` or `.addFields(List<String>)` for `Owner.Name` etc.           |
+| `Variable does not exist: query`                                          | Class doesn't extend `kern.SEL_Base`            | Add `extends kern.SEL_Base` and `super(SObjectType)` in constructor                 |
+| `findByField(String, String)` not found                                   | Variable named `account` shadows `Account` type | Rename the variable (e.g., `result`) so `Account.Industry` resolves as SObjectField |
+| Test coverage gaps                                                        | Custom query method not tested                  | Add a test that calls each custom method and asserts the results                    |
 
 ---
 
@@ -671,12 +677,12 @@ functions, toLabel, and FORMAT examples.
 
 After completing this guide, you understand the **selector pattern** in KernDX:
 
-| Concept | What It Does |
-|---------|-------------|
-| **`SEL_Base`** | Base class for all selectors -- provides inherited query methods |
-| **`getFields()`** | Defines default fields for every query (compile-time validated) |
-| **`query` property** | Pre-configured `QRY_Builder.Builder` with your default fields |
-| **`QRY_Builder`** | Fluent query builder for ad-hoc queries without a selector |
+| Concept               | What It Does                                                                 |
+|-----------------------|------------------------------------------------------------------------------|
+| **`SEL_Base`**        | Base class for all selectors -- provides inherited query methods             |
+| **`getFields()`**     | Defines default fields for every query (compile-time validated)              |
+| **`query` property**  | Pre-configured `QRY_Builder.Builder` with your default fields                |
+| **`QRY_Builder`**     | Fluent query builder for ad-hoc queries without a selector                   |
 | **Inherited methods** | `findById()`, `findByField()`, `toList()`, `count()`, `exists()` -- all free |
 
 **Key patterns:**
@@ -692,11 +698,11 @@ After completing this guide, you understand the **selector pattern** in KernDX:
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| DML Builder (writes) | [Fast Start - DML](Fast%20Start%20-%20DML.md) |
-| Test Data Patterns | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md) |
+| Topic                                    | Link                                                                |
+|------------------------------------------|---------------------------------------------------------------------|
+| DML Builder (writes)                     | [Fast Start - DML](Fast%20Start%20-%20DML.md)                       |
+| Test Data Patterns                       | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)         |
 | Code Scanning (catch SOQL anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Complete Selectors Guide | [Selectors - Guide](Selectors%20-%20Guide.md) |
-| QRY_Builder Reference | [reference/apex/QRY_Builder.md](reference/apex/QRY_Builder.md) |
-| SEL_Base Reference | [reference/apex/SEL_Base.md](reference/apex/SEL_Base.md) |
+| Complete Selectors Guide                 | [Selectors - Guide](Selectors%20-%20Guide.md)                       |
+| QRY_Builder Reference                    | [reference/apex/QRY_Builder.md](reference/apex/QRY_Builder.md)      |
+| SEL_Base Reference                       | [reference/apex/SEL_Base.md](reference/apex/SEL_Base.md)            |

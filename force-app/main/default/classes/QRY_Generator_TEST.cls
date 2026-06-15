@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -558,7 +558,7 @@ private class QRY_Generator_TEST
 	}
 
 	/**
-	 * @description Tests WITH SECURITY_ENFORCED clause.
+	 * @description Tests WITH USER_MODE clause.
 	 */
 	@IsTest
 	private static void shouldGenerateSecurityEnforced()
@@ -569,7 +569,7 @@ private class QRY_Generator_TEST
 
 		String soql = generator.toSoql();
 
-		Assert.isTrue(soql.contains('WITH SECURITY_ENFORCED'), 'Should contain WITH SECURITY_ENFORCED');
+		Assert.isTrue(soql.contains('WITH USER_MODE'), 'Should contain WITH USER_MODE');
 	}
 
 	/**
@@ -1436,5 +1436,58 @@ private class QRY_Generator_TEST
 		String soql = generator.toSoql();
 
 		Assert.isTrue(soql.contains('WHERE'), 'whereX should set WHERE clause');
+	}
+
+	/**
+	 * @description Verifies the aggregate clause emits a grouped-and-aliased-projected expression once:
+	 * the GROUP BY echo is suppressed because the aliased projection already covers it.
+	 */
+	@IsTest
+	private static void aggregateGroupedAndAliasProjectedExpressionEmittedOnce()
+	{
+		String monthExpression = 'CALENDAR_MONTH(CreatedDate)';
+
+		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
+				.addField(monthExpression + ' createdMonth')
+				.selectCount('Id')
+				.groupBy(monthExpression);
+
+		String selectClause = generator.toSoql().substringBetween('SELECT ', ' FROM');
+
+		Assert.areEqual('COUNT(Id) count_Id, ' + monthExpression + ' createdMonth', selectClause, 'Grouped-and-aliased-projected expression must appear once in SELECT');
+	}
+
+	/**
+	 * @description Regression guard: a plain grouped field with no aliased projection is still echoed
+	 * into the aggregate SELECT clause.
+	 */
+	@IsTest
+	private static void aggregatePlainGroupedFieldStillEchoedIntoSelect()
+	{
+		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
+				.selectCount('Id')
+				.groupBy('Industry');
+
+		String selectClause = generator.toSoql().substringBetween('SELECT ', ' FROM');
+
+		Assert.areEqual('COUNT(Id) count_Id, Industry', selectClause, 'Plain grouped field must still be echoed into SELECT');
+	}
+
+	/**
+	 * @description Regression guard: a GROUPING() projection and its grouped field are both preserved
+	 * in the aggregate SELECT clause after the de-dup change.
+	 */
+	@IsTest
+	private static void aggregateGroupingExpressionPreservedWithDedup()
+	{
+		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
+				.selectCount('Id')
+				.groupBy('Industry')
+				.grouping('Industry')
+				.rollup();
+
+		String selectClause = generator.toSoql().substringBetween('SELECT ', ' FROM');
+
+		Assert.areEqual('COUNT(Id) count_Id, Industry, GROUPING(Industry)', selectClause, 'GROUPING() and its grouped field must both be emitted');
 	}
 }

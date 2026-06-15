@@ -4,7 +4,7 @@ type: class
 description: "A semi-intelligent wrapper for standard Apex Schema methods, providing internal caching to avoid hitting describe limits and helper methods for handling relationship field names and namespaces."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---
@@ -81,6 +81,7 @@ String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 | global static [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [getSObjectTypeById](#getsobjecttypebyid)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) objectId) | Returns the SObjectType token for a given record ID. |
 | global static [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [getSObjectTypeByName](#getsobjecttypebyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName) | Returns the SObjectType token for a given object API name. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isPersonAccountEnabled](#ispersonaccountenabled)() | Determines whether Person Accounts are enabled by checking for the isPersonAccount field on Account. |
+| global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRecordTypeAvailable](#isrecordtypeavailable)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeName) | Reports whether a record type, identified by its developer name, is available to the running user for the given SObject. |
 
 ## Inner Classes
 
@@ -1124,5 +1125,36 @@ Determines whether Person Accounts are enabled by checking for the `isPersonAcco
 ```apex
 Boolean isPersonAccountEnabled = UTIL_SObjectDescribe.isPersonAccountEnabled();
 System.debug(isPersonAccountEnabled); // Outputs: true or false based on org configuration
+```
+
+### isRecordTypeAvailable
+
+```apex
+global static Boolean isRecordTypeAvailable(SObjectType objectType, String recordTypeName)
+```
+
+Reports whether a record type, identified by its developer name, is available to the
+running user for the given SObject. A record type is available only when it exists, is active, and
+is assigned to the running user's profile or a permission set. Check this before stamping a
+RecordTypeId so an insert does not fail with INVALID_CROSS_REFERENCE_KEY when the type is not
+assigned to the running user — for example a packaged record type that a subscriber has not
+assigned to the profile the code runs under.
+
+**Parameters:**
+
+- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type.
+- `recordTypeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The developer name of the record type.
+
+**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - true when the record type exists and is available to the running user; false otherwise.
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+if(UTIL_SObjectDescribe.isRecordTypeAvailable(Account.SObjectType, 'Customer'))
+{
+    account.RecordTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Account.SObjectType, 'Customer');
+}
 ```
 

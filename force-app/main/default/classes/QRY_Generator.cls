@@ -18,7 +18,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength')
 public inherited sharing class QRY_Generator
@@ -184,7 +184,7 @@ public inherited sharing class QRY_Generator
 	private String aggregateField;
 
 	/**
-	 * @description Flag for WITH SECURITY_ENFORCED.
+	 * @description Flag for WITH USER_MODE field-level security enforcement.
 	 */
 	private Boolean enforceFieldLevelSecurity = false;
 
@@ -615,7 +615,7 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Enables WITH SECURITY_ENFORCED.
+	 * @description Enables WITH USER_MODE field-level security enforcement.
 	 *
 	 * @return The current generator for method chaining.
 	 */
@@ -895,7 +895,7 @@ public inherited sharing class QRY_Generator
 
 		if(enforceFieldLevelSecurity)
 		{
-			parts.add('WITH SECURITY_ENFORCED');
+			parts.add('WITH USER_MODE');
 		}
 
 		String dataCategoryClause = buildDataCategoryClause();
@@ -958,7 +958,7 @@ public inherited sharing class QRY_Generator
 			parts.add('ALL ROWS');
 		}
 
-		return String.join(parts, ' ');
+		return String.join(parts, UTIL_String.SPACE);
 	}
 
 	/**
@@ -1028,28 +1028,35 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the aggregate clause.
+	 * @description Builds the aggregate clause. Emits the aggregate function (with its auto-alias),
+	 * echoes the GROUP BY expressions into SELECT, then appends any parenthesised SELECT expressions
+	 * (e.g. GROUPING(...) or a date-function projection). A GROUP BY expression that is also projected
+	 * under an explicit alias is echoed only once — the aliased projection wins — so a date function
+	 * grouped and projected together is not emitted twice.
 	 *
 	 * @return The aggregate SELECT content.
 	 */
 	private String buildAggregateClause()
 	{
 		String functionName = aggregateFunction.name();
-		String fieldPart = String.isBlank(aggregateField) ? '' : aggregateField;
+		String fieldPart = String.isBlank(aggregateField) ? UTIL_String.EMPTY : aggregateField;
 		String functionCall = functionName + '(' + fieldPart + ')';
 
-		String alias = '';
+		String alias = UTIL_String.EMPTY;
 		if(String.isNotBlank(aggregateField))
 		{
-			alias = ' ' + functionName?.toLowerCase() + '_' + aggregateField;
+			alias = UTIL_String.SPACE + functionName?.toLowerCase() + '_' + aggregateField;
 		}
 
 		List<String> parts = new List<String>();
 		parts.add(functionCall + alias);
 
-		if(!groupByFields.isEmpty())
+		for(String groupExpression : groupByFields)
 		{
-			parts.addAll(groupByFields);
+			if(!isGroupExpressionProjectedWithAlias(groupExpression))
+			{
+				parts.add(groupExpression);
+			}
 		}
 
 		for(Object field : selectFields)
@@ -1065,6 +1072,30 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
+	 * @description Determines whether a GROUP BY expression is already projected in SELECT under an
+	 * explicit alias (i.e. a SELECT field of the form "<expression> <alias>"). When it is, echoing the
+	 * bare GROUP BY expression into SELECT would duplicate it, because the parenthesised-projection pass
+	 * re-adds the aliased form. A plain grouped field with no separate aliased projection returns false,
+	 * so its GROUP BY echo is preserved unchanged.
+	 *
+	 * @param groupExpression The GROUP BY expression under test (e.g. CALENDAR_MONTH(CloseDate)).
+	 *
+	 * @return True when a SELECT field projects this expression under an alias; false otherwise.
+	 */
+	private Boolean isGroupExpressionProjectedWithAlias(String groupExpression)
+	{
+		String aliasedPrefix = groupExpression + UTIL_String.SPACE;
+		for(Object field : selectFields)
+		{
+			if(String.valueOf(field).startsWith(aliasedPrefix))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @description Builds the USING SCOPE clause.
 	 *
 	 * @return The USING SCOPE clause or empty string.
@@ -1073,7 +1104,7 @@ public inherited sharing class QRY_Generator
 	{
 		if(scopeValue == null)
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 		return 'USING SCOPE ' + scopeToString(scopeValue);
 	}
@@ -1102,13 +1133,13 @@ public inherited sharing class QRY_Generator
 	{
 		if(whereCondition == null)
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 
 		String conditionSoql = getConditionSoql(whereCondition, registry, options);
 		if(String.isBlank(conditionSoql))
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 
 		return 'WHERE ' + conditionSoql;
@@ -1126,13 +1157,13 @@ public inherited sharing class QRY_Generator
 	{
 		if(havingCondition == null)
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 
 		String conditionSoql = getConditionSoql(havingCondition, registry, options);
 		if(String.isBlank(conditionSoql))
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 
 		return 'HAVING ' + conditionSoql;
@@ -1165,7 +1196,7 @@ public inherited sharing class QRY_Generator
 	{
 		if(orderByList.isEmpty())
 		{
-			return '';
+			return UTIL_String.EMPTY;
 		}
 
 		List<String> orderParts = new List<String>();
@@ -1415,9 +1446,9 @@ public inherited sharing class QRY_Generator
 
 			if(categoryNames.size() == 1)
 			{
-				return groupName + ' ' + operatorString + ' ' + categoryNames[0];
+				return groupName + UTIL_String.SPACE + operatorString + UTIL_String.SPACE + categoryNames[0];
 			}
-			return groupName + ' ' + operatorString + ' (' + String.join(categoryNames, FIELD_SEPARATOR) + ')';
+			return groupName + UTIL_String.SPACE + operatorString + ' (' + String.join(categoryNames, FIELD_SEPARATOR) + ')';
 		}
 
 		/**
