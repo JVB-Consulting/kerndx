@@ -10,7 +10,7 @@ const BASE = process.env.DOCS_BASE || '/';
 
 export default withMermaid(defineConfig({
 	title: 'KernDX',
-	description: 'Source-available Salesforce Apex + LWC framework and library suite.',
+	description: 'A complete Salesforce Apex + LWC framework and library suite.',
 	srcDir: 'src',
 	lang: 'en-US',
 	// '/' under the custom domain (mirror). A GitHub project-page deploy (e.g. the
@@ -85,7 +85,7 @@ export default withMermaid(defineConfig({
 		{
 			desc = (resolvedTitle && !isHome)
 				? `${resolvedTitle} — KernDX, a source-available Salesforce Apex and LWC framework.`
-				: 'Source-available Salesforce Apex + LWC framework and library suite.';
+				: 'A complete Salesforce Apex + LWC framework and library suite.';
 		}
 		else if (isReference && resolvedTitle && !desc.includes(resolvedTitle))
 		{
