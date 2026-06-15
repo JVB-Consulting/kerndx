@@ -27,37 +27,22 @@ const DEFAULT_MAX_LENGTH = 40;
 
 module.exports = {
 	meta: {
-		type: 'suggestion',
-		docs: {
-			description: 'Enforce LWC component folder naming pattern from configured domain/brand vocab',
-			recommended: false
-		},
-		messages: {
+		type: 'suggestion', docs: {
+			description: 'Enforce LWC component folder naming pattern from configured domain/brand vocab', recommended: false
+		}, messages: {
 			badName: 'LWC component "{{name}}" does not match the configured naming pattern {{pattern}}.',
 			tooLong: 'LWC component "{{name}}" exceeds the {{limit}}-character limit ({{length}} characters).'
-		},
-		schema: [
+		}, schema: [
 			{
-				type: 'object',
-				properties: {
+				type: 'object', properties: {
 					domains: {
-						type: 'array',
-						items: { type: 'string', pattern: '^[a-z]+$' },
-						minItems: 1,
-						uniqueItems: true
-					},
-					brands: {
-						type: 'array',
-						items: { type: 'string', pattern: '^[A-Z][a-zA-Z0-9]*$' },
-						uniqueItems: true
-					},
-					maxLength: {
-						type: 'integer',
-						minimum: 1
+						type: 'array', items: {type: 'string', pattern: '^[a-z]+$'}, minItems: 1, uniqueItems: true
+					}, brands: {
+						type: 'array', items: {type: 'string', pattern: '^[A-Z][a-zA-Z0-9]*$'}, uniqueItems: true
+					}, maxLength: {
+						type: 'integer', minimum: 1
 					}
-				},
-				required: ['domains'],
-				additionalProperties: false
+				}, required: ['domains'], additionalProperties: false
 			}
 		]
 	},
@@ -67,7 +52,7 @@ module.exports = {
 		const opts = context.options[0];
 
 		// No options → no enforcement. Subscribers must opt in explicitly.
-		if (!opts || !Array.isArray(opts.domains) || opts.domains.length === 0)
+		if(!opts || !Array.isArray(opts.domains) || opts.domains.length === 0)
 		{
 			return {};
 		}
@@ -89,7 +74,7 @@ module.exports = {
 			const parts = filePath.split(path.sep);
 			const lwcIndex = parts.lastIndexOf('lwc');
 
-			if (lwcIndex === -1 || lwcIndex >= parts.length - 1)
+			if(lwcIndex === -1 || lwcIndex >= parts.length - 1)
 			{
 				return null;
 			}
@@ -100,41 +85,37 @@ module.exports = {
 		return {
 			Program(node)
 			{
-				if (reported)
+				if(reported)
 				{
 					return;
 				}
 
 				const componentName = getComponentName();
 
-				if (!componentName)
+				if(!componentName)
 				{
 					return;
 				}
 
-				if (componentName.startsWith('__'))
+				if(componentName.startsWith('__'))
 				{
 					return;
 				}
 
-				if (!pattern.test(componentName))
+				if(!pattern.test(componentName))
 				{
 					reported = true;
 					context.report({
-						node,
-						messageId: 'badName',
-						data: { name: componentName, pattern: patternDoc }
+						node, messageId: 'badName', data: {name: componentName, pattern: patternDoc}
 					});
 					return;
 				}
 
-				if (componentName.length > maxLength)
+				if(componentName.length > maxLength)
 				{
 					reported = true;
 					context.report({
-						node,
-						messageId: 'tooLong',
-						data: { name: componentName, length: componentName.length, limit: maxLength }
+						node, messageId: 'tooLong', data: {name: componentName, length: componentName.length, limit: maxLength}
 					});
 				}
 			}

@@ -7,9 +7,26 @@ const rule = require('../rules/enforce-component-naming');
 
 const ruleTester = new RuleTester({parserOptions: {ecmaVersion: 2022, sourceType: 'module'}});
 
-const BRAND_OPTIONS = [{ domains: ['sls', 'ord', 'prd', 'svc', 'sub', 'mkt', 'cmn'], brands: ['Acme', 'Beta'] }];
+const BRAND_OPTIONS = [
+	{
+		domains: [
+			'sls',
+			'ord',
+			'prd',
+			'svc',
+			'sub',
+			'mkt',
+			'cmn'
+		],
+		brands: [
+			'Acme',
+			'Beta'
+		]
+	}
+];
 
-test('enforce-component-naming with domains+brands options', () => {
+test('enforce-component-naming with domains+brands options', () =>
+{
 	ruleTester.run('enforce-component-naming', rule, {
 		valid: [
 			{
@@ -73,10 +90,7 @@ test('enforce-component-naming with domains+brands options', () => {
 				name: '__tests__ directories are skipped'
 			},
 			{
-				code: 'const x = 1;',
-				filename: '/project/scripts/util.js',
-				options: BRAND_OPTIONS,
-				name: 'non-LWC files are skipped'
+				code: 'const x = 1;', filename: '/project/scripts/util.js', options: BRAND_OPTIONS, name: 'non-LWC files are skipped'
 			},
 			{
 				code: 'export default class MyComponent {}',
@@ -86,7 +100,14 @@ test('enforce-component-naming with domains+brands options', () => {
 			{
 				code: 'export default class DemoCustomerPortal {}',
 				filename: '/project/force-app/main/default/lwc/demoCustomerPortal/demoCustomerPortal.js',
-				options: [{ domains: ['demo', 'cli'] }],
+				options: [
+					{
+						domains: [
+							'demo',
+							'cli'
+						]
+					}
+				],
 				name: 'different subscriber: domains only, no brands'
 			}
 		],
@@ -144,7 +165,14 @@ test('enforce-component-naming with domains+brands options', () => {
 			{
 				code: 'export default class DemoBadName {}',
 				filename: '/project/force-app/main/default/lwc/badName/badName.js',
-				options: [{ domains: ['demo', 'cli'], maxLength: 30 }],
+				options: [
+					{
+						domains: [
+							'demo',
+							'cli'
+						], maxLength: 30
+					}
+				],
 				name: 'different subscriber: violates configured pattern',
 				errors: [{messageId: 'badName'}]
 			}

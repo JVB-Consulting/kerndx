@@ -17,16 +17,23 @@ function pmdAvailable()
 function runPmd(fixture)
 {
 	const target = path.join(FIXTURES, fixture);
-	if (!fs.existsSync(target))
+	if(!fs.existsSync(target))
 	{
 		throw new Error(`Fixture does not exist: ${target}`);
 	}
 	try
 	{
-		const output = execSync(`pmd check -d "${target}" -R "${RULESET}" -f csv --no-cache`, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']});
+		const output = execSync(`pmd check -d "${target}" -R "${RULESET}" -f csv --no-cache`, {
+			encoding: 'utf-8',
+			stdio: [
+				'pipe',
+				'pipe',
+				'pipe'
+			]
+		});
 		return output;
 	}
-	catch (error)
+	catch(error)
 	{
 		return (error.stdout || '') + (error.stderr || '');
 	}
@@ -108,9 +115,25 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 			expect(countRuleHits(output, 'KernNoBooleanExceptionThrown')).toBe(0);
 		});
 	});
+
+	describe('KernSecurityBypassCallSite', () =>
+	{
+		it('fires once per bypass call site on the positive fixture', () =>
+		{
+			const output = runPmd('KernSecurityBypassCallSite-positive.cls');
+			const hits = countRuleHits(output, 'KernSecurityBypassCallSite');
+			expect(hits).toBeGreaterThanOrEqual(7);
+		});
+
+		it('is silent on the negative fixture', () =>
+		{
+			const output = runPmd('KernSecurityBypassCallSite-negative.cls');
+			expect(countRuleHits(output, 'KernSecurityBypassCallSite')).toBe(0);
+		});
+	});
 });
 
-if (!pmdAvailable())
+if(!pmdAvailable())
 {
 	// eslint-disable-next-line no-console
 	console.warn('[pmd-rules.test] pmd CLI not found on PATH; PMD tests skipped. Install with: brew install pmd');

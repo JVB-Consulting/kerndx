@@ -989,4 +989,46 @@
       </properties>
    </rule>
 
+   <!-- ================================================================
+        KERN-BYPASS: KernSecurityBypassCallSite (Priority 5 — Informational)
+        Inventories security-bypass call sites (withSystemMode,
+        bypassSharing, withoutSecurity, validation/trigger bypasses) so
+        a PR introducing a new bypass surfaces in review. Runtime
+        fingerprint rows (detail:bypass:* on kern__LogEntry__c) are
+        reconcilable against this deploy-time inventory.
+        ================================================================ -->
+   <rule name="KernSecurityBypassCallSite"
+         language="apex"
+         message="Security bypass call site — confirm this is intentional and reviewed. Acknowledge with @SuppressWarnings('PMD.KernSecurityBypassCallSite') or // NOPMD with a reason."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Flags KernDX security-bypass call sites: QRY_Builder/DML_Builder
+         withSystemMode(), bypassSharing(), withoutSecurity(),
+         UTIL_ValidationRule bypassObject()/bypassGroup()/bypassRule(),
+         and TRG_Base bypassAction(). These are legitimate, audited APIs —
+         this rule is an inventory, not a violation. Acknowledge expected
+         call sites with @SuppressWarnings('PMD.KernSecurityBypassCallSite')
+         or an inline // NOPMD comment stating the reason; the suppression
+         comment is the reviewable deploy-time acknowledgment artifact.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   @MethodName = 'withSystemMode'
+   or @MethodName = 'bypassSharing'
+   or @MethodName = 'withoutSecurity'
+   or @MethodName = 'bypassObject'
+   or @MethodName = 'bypassGroup'
+   or @MethodName = 'bypassRule'
+   or @MethodName = 'bypassAction'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
 </ruleset>

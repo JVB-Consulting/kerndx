@@ -20,26 +20,25 @@
 
 const path = require('path');
 
-const MUTATING_METHODS = new Set(['dispatchEvent', 'click']);
+const MUTATING_METHODS = new Set([
+	'dispatchEvent',
+	'click'
+]);
 
 module.exports = {
 	meta: {
-		type: 'problem',
-		docs: {
-			description: 'Forbid mutation of a shared beforeAll(...) fixture across tests',
-			recommended: true
-		},
-		messages: {
+		type: 'problem', docs: {
+			description: 'Forbid mutation of a shared beforeAll(...) fixture across tests', recommended: true
+		}, messages: {
 			sharedFixture: 'beforeAll(...) builds a createElement fixture that is mutated by later it(...) blocks. Use beforeEach(...) or move createElement into the mutating test.'
-		},
-		schema: []
+		}, schema: []
 	},
 
 	create(context)
 	{
 		const filename = context.getFilename();
 
-		if (!isTestFile(filename))
+		if(!isTestFile(filename))
 		{
 			return {};
 		}
@@ -47,35 +46,34 @@ module.exports = {
 		return {
 			CallExpression(node)
 			{
-				if (!isDescribeCall(node))
+				if(!isDescribeCall(node))
 				{
 					return;
 				}
 
 				const describeBody = getDescribeBody(node);
 
-				if (!describeBody)
+				if(!describeBody)
 				{
 					return;
 				}
 
 				const beforeAll = findBeforeAllWithCreateElement(describeBody);
 
-				if (!beforeAll)
+				if(!beforeAll)
 				{
 					return;
 				}
 
 				const mutatingTest = findMutatingTest(describeBody);
 
-				if (!mutatingTest)
+				if(!mutatingTest)
 				{
 					return;
 				}
 
 				context.report({
-					node: beforeAll,
-					messageId: 'sharedFixture'
+					node: beforeAll, messageId: 'sharedFixture'
 				});
 			}
 		};
@@ -89,12 +87,12 @@ module.exports = {
  */
 function isTestFile(filename)
 {
-	if (!filename || filename === '<input>' || filename === '<text>')
+	if(!filename || filename === '<input>' || filename === '<text>')
 	{
 		return false;
 	}
 
-	if (filename.endsWith('.test.js'))
+	if(filename.endsWith('.test.js'))
 	{
 		return true;
 	}
@@ -113,16 +111,12 @@ function isDescribeCall(node)
 {
 	const callee = node.callee;
 
-	if (callee.type === 'Identifier' && callee.name === 'describe')
+	if(callee.type === 'Identifier' && callee.name === 'describe')
 	{
 		return true;
 	}
 
-	if (
-		callee.type === 'MemberExpression' &&
-		callee.object.type === 'Identifier' &&
-		callee.object.name === 'describe'
-	)
+	if(callee.type === 'MemberExpression' && callee.object.type === 'Identifier' && callee.object.name === 'describe')
 	{
 		return true;
 	}
@@ -139,17 +133,17 @@ function getDescribeBody(node)
 {
 	const callback = node.arguments[1];
 
-	if (!callback)
+	if(!callback)
 	{
 		return null;
 	}
 
-	if (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression')
+	if(callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression')
 	{
 		return null;
 	}
 
-	if (!callback.body || callback.body.type !== 'BlockStatement')
+	if(!callback.body || callback.body.type !== 'BlockStatement')
 	{
 		return null;
 	}
@@ -165,33 +159,33 @@ function getDescribeBody(node)
  */
 function findBeforeAllWithCreateElement(describeBody)
 {
-	for (const statement of describeBody.body)
+	for(const statement of describeBody.body)
 	{
-		if (statement.type !== 'ExpressionStatement')
+		if(statement.type !== 'ExpressionStatement')
 		{
 			continue;
 		}
 
 		const expression = statement.expression;
 
-		if (expression.type !== 'CallExpression')
+		if(expression.type !== 'CallExpression')
 		{
 			continue;
 		}
 
-		if (expression.callee.type !== 'Identifier' || expression.callee.name !== 'beforeAll')
+		if(expression.callee.type !== 'Identifier' || expression.callee.name !== 'beforeAll')
 		{
 			continue;
 		}
 
 		const callback = expression.arguments[0];
 
-		if (!callback || (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression'))
+		if(!callback || (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression'))
 		{
 			continue;
 		}
 
-		if (containsCreateElement(callback.body))
+		if(containsCreateElement(callback.body))
 		{
 			return expression;
 		}
@@ -211,11 +205,7 @@ function containsCreateElement(subtree)
 
 	walk(subtree, (node) =>
 	{
-		if (
-			node.type === 'CallExpression' &&
-			node.callee.type === 'Identifier' &&
-			node.callee.name === 'createElement'
-		)
+		if(node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'createElement')
 		{
 			found = true;
 			return false;
@@ -235,38 +225,36 @@ function containsCreateElement(subtree)
  */
 function findMutatingTest(describeBody)
 {
-	for (const statement of describeBody.body)
+	for(const statement of describeBody.body)
 	{
-		if (statement.type !== 'ExpressionStatement')
+		if(statement.type !== 'ExpressionStatement')
 		{
 			continue;
 		}
 
 		const expression = statement.expression;
 
-		if (expression.type !== 'CallExpression')
+		if(expression.type !== 'CallExpression')
 		{
 			continue;
 		}
 
 		const callee = expression.callee;
-		const calleeName = callee.type === 'Identifier'
-			? callee.name
-			: (callee.type === 'MemberExpression' && callee.object.type === 'Identifier' ? callee.object.name : null);
+		const calleeName = callee.type === 'Identifier' ? callee.name : (callee.type === 'MemberExpression' && callee.object.type === 'Identifier' ? callee.object.name : null);
 
-		if (calleeName !== 'it' && calleeName !== 'test')
+		if(calleeName !== 'it' && calleeName !== 'test')
 		{
 			continue;
 		}
 
 		const callback = expression.arguments[1];
 
-		if (!callback || (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression'))
+		if(!callback || (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression'))
 		{
 			continue;
 		}
 
-		if (callback.body && containsMutation(callback.body))
+		if(callback.body && containsMutation(callback.body))
 		{
 			return expression;
 		}
@@ -291,18 +279,18 @@ function containsMutation(subtree)
 
 	walk(subtree, (node) =>
 	{
-		if (found)
+		if(found)
 		{
 			return false;
 		}
 
-		if (node.type === 'CallExpression' && isMutatingCall(node))
+		if(node.type === 'CallExpression' && isMutatingCall(node))
 		{
 			found = true;
 			return false;
 		}
 
-		if (node.type === 'AssignmentExpression' && isMutatingAssignment(node))
+		if(node.type === 'AssignmentExpression' && isMutatingAssignment(node))
 		{
 			found = true;
 			return false;
@@ -321,14 +309,14 @@ function containsMutation(subtree)
  */
 function isMutatingCall(node)
 {
-	if (node.callee.type !== 'MemberExpression')
+	if(node.callee.type !== 'MemberExpression')
 	{
 		return false;
 	}
 
 	const property = node.callee.property;
 
-	if (property.type !== 'Identifier')
+	if(property.type !== 'Identifier')
 	{
 		return false;
 	}
@@ -344,12 +332,12 @@ function isMutatingCall(node)
  */
 function isMutatingAssignment(node)
 {
-	if (node.left.type !== 'MemberExpression')
+	if(node.left.type !== 'MemberExpression')
 	{
 		return false;
 	}
 
-	if (node.left.property.type !== 'Identifier')
+	if(node.left.property.type !== 'Identifier')
 	{
 		return false;
 	}
@@ -366,42 +354,42 @@ function walk(root, visit)
 {
 	const stack = [root];
 
-	while (stack.length)
+	while(stack.length)
 	{
 		const node = stack.pop();
 
-		if (!node || typeof node.type !== 'string')
+		if(!node || typeof node.type !== 'string')
 		{
 			continue;
 		}
 
 		const descend = visit(node);
 
-		if (descend === false)
+		if(descend === false)
 		{
 			continue;
 		}
 
-		for (const key of Object.keys(node))
+		for(const key of Object.keys(node))
 		{
-			if (key === 'parent')
+			if(key === 'parent')
 			{
 				continue;
 			}
 
 			const value = node[key];
 
-			if (Array.isArray(value))
+			if(Array.isArray(value))
 			{
-				for (const child of value)
+				for(const child of value)
 				{
-					if (child && typeof child.type === 'string')
+					if(child && typeof child.type === 'string')
 					{
 						stack.push(child);
 					}
 				}
 			}
-			else if (value && typeof value.type === 'string')
+			else if(value && typeof value.type === 'string')
 			{
 				stack.push(value);
 			}

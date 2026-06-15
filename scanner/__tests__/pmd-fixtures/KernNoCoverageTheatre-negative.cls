@@ -6,7 +6,14 @@ private class KernNoCoverageTheatre_Negative_TEST
 	private static void shouldAssertOnDerivedField()
 	{
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-		Foobar__c result = [SELECT Id, Name FROM Foobar__c WHERE Id = :record.Id LIMIT 1];
+		Foobar__c result =
+		[
+				SELECT Id,
+						Name
+				FROM Foobar__c
+				WHERE Id = :record.Id
+				LIMIT 1
+		];
 		Assert.isNotNull(result.Name, 'Name default should be set');
 	}
 

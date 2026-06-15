@@ -5,14 +5,14 @@ Two PMD rulesets and an ESLint plugin that enforce KernDX framework conventions 
 
 **Files:**
 
-| File | Scope | What It Enforces |
-|------|-------|-----------------|
-| `kerndx-pmd-ruleset.xml` | Subscriber orgs (full ruleset) | Every KernDX rule — use this in a subscriber org. Includes the "use the framework API instead of the platform primitive" rules (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, `KernNoInlineDmlInTests`, etc.) which only make sense for subscribers. |
-| `kerndx-framework-ruleset.xml` | Kern framework package itself | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Includes universal hygiene rules (trigger delegation, inline-SOQL in production, test-quality rules, `Assert.*`, no `System.debug`, etc.). |
-| `subscriber-naming-pmd-ruleset.xml` | Subscriber (configurable) | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit |
-| `combined-pmd-ruleset.xml` | Subscriber orgs (single-file reference) | Full subscriber ruleset + subscriber naming — use when your tool only accepts one file (IntelliJ/Illuminated Cloud) |
-| `eslint-plugin-kerndx/` | Framework + subscriber naming | `ComponentBuilder` usage, `console.log` blocking, LWC component naming (`domain[Brand]Feature`), Jest test-quality rules |
-| `validate-naming.js` | Subscriber (standalone) | Flow and Custom Object naming (artefacts PMD/ESLint cannot parse) |
+| File                                | Scope                                   | What It Enforces                                                                                                                                                                                                                                                                                                                           |
+|-------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kerndx-pmd-ruleset.xml`            | Subscriber orgs (full ruleset)          | Every KernDX rule — use this in a subscriber org. Includes the "use the framework API instead of the platform primitive" rules (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, `KernNoInlineDmlInTests`, etc.) which only make sense for subscribers.                                                                         |
+| `kerndx-framework-ruleset.xml`      | Kern framework package itself           | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Includes universal hygiene rules (trigger delegation, inline-SOQL in production, test-quality rules, `Assert.*`, no `System.debug`, etc.). |
+| `subscriber-naming-pmd-ruleset.xml` | Subscriber (configurable)               | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                                                                                                                                                                                          |
+| `combined-pmd-ruleset.xml`          | Subscriber orgs (single-file reference) | Full subscriber ruleset + subscriber naming — use when your tool only accepts one file (IntelliJ/Illuminated Cloud)                                                                                                                                                                                                                        |
+| `eslint-plugin-kerndx/`             | Framework + subscriber naming           | `ComponentBuilder` usage, `console.log` blocking, LWC component naming (`domain[Brand]Feature`), Jest test-quality rules                                                                                                                                                                                                                   |
+| `validate-naming.js`                | Subscriber (standalone)                 | Flow and Custom Object naming (artefacts PMD/ESLint cannot parse)                                                                                                                                                                                                                                                                          |
 
 The framework ruleset references rule definitions in `kerndx-pmd-ruleset.xml` via `<rule ref="…">`,
 so rule text lives in exactly one place. `code-analyzer.yml` in this repo points at
@@ -24,32 +24,32 @@ need subscriber naming).
 
 Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informational (best practice).
 
-| Rule | What It Blocks | Use Instead | Priority |
-|------|---------------|-------------|----------|
-| `KernTriggerMustDelegate` | Logic in trigger body | `new TRG_Dispatcher().run()` | 1 |
-| `KernNoInlineSOQL` | `[SELECT ...]`, `Database.query()` outside `SEL_*`/`QRY_*` | Selector or `QRY_Builder` | 1 |
-| `KernNoCoverageTheatre` | Zero-assertion tests, empty `catch(Exception e) {}`, `Boolean exceptionThrown = true`, `Assert.isNotNull(record)` immediately after `TST_Builder.build()` | Real assertions on observed behaviour (`Assert.areEqual`, `Assert.isInstanceOfType`, etc.) | 1 |
-| `KernCoverageExemptRequiresReason` | `// kern-coverage-exempt:` with empty, short, or blocklisted reason | Document a concrete, testable reason ≥15 chars | 1 |
-| `KernNoDirectDML` | `insert`/`update`/`delete`/`upsert`, `Database.*` DML | `DML_Builder` | 3 |
-| `KernNoSystemDebug` | `System.debug()` | `LOG_Builder` | 3 |
-| `KernNoRawHttp` | `new HttpRequest()`, `new Http()` | `UTIL_HttpClient` | 3 |
-| `KernUseSchedulerBase` | `implements Schedulable` directly | `extends SCHED_Base` | 3 |
-| `KernNoRawSchedule` | `System.schedule()` | `SCHED_Base` + `ScheduledJob__c` | 3 |
-| `KernNoRawEventPublish` | `EventBus.publish()` | `LOG_Builder` / framework events | 3 |
-| `KernNoRawHttpMock` | `implements HttpCalloutMock/WebServiceMock` | `API_MockFactory` | 3 |
-| `KernNoRawRestContext` | `RestContext.request/response` | `API_Inbound` framework | 3 |
-| `KernNoRawEmail` | `Messaging.sendEmail()`, `new SingleEmailMessage()` | `UTIL_Email` | 3 |
-| `KernRestResourceNaming` | `@RestResource` on non-`REST_*` class | `REST_*` + `API_Dispatcher` | 3 |
-| `KernNoInlineDmlInTests` | Inline DML (`insert record;`, etc.) in `_TEST.cls` files outside the framework allowlist | `TST_Builder.build()` / `DML_Builder` | 3 |
-| `KernNoLegacyAssert` | `System.assert*()` | `Assert.*` | 5 |
-| `KernUseTestBuilder` | `new Account(Name = ...)` in tests | `TST_Builder` | 5 |
-| `KernNoBooleanExceptionThrown` | `Boolean exceptionThrown = true/false` followed by asserting the flag | `Assert.fail` + `Assert.isInstanceOfType` inside the catch block | 5 |
-| `KernNoRawCache` | `Cache.Org.*`, `Cache.Session.*` | `UTIL_Cache` | 5 |
-| `KernNoRawDescribe` | `Schema.getGlobalDescribe()` | `UTIL_SObjectDescribe` | 5 |
-| `KernNoRawTypeForName` | `Type.forName()` | `UTIL_System.getTypeForClassName()` | 5 |
-| `KernNoRawEnqueueJob` | `System.enqueueJob()` | `UTIL_AsynchronousJobLauncher` | 5 |
-| `KernNoRawCrypto` | `Crypto.*` | `UTIL_Crypto` | 5 |
-| `KernNoRawFeatureManagement` | `FeatureManagement.checkPermission()` | `UTIL_FeatureFlag.isEnabled()` | 5 |
+| Rule                               | What It Blocks                                                                                                                                            | Use Instead                                                                                | Priority |
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|----------|
+| `KernTriggerMustDelegate`          | Logic in trigger body                                                                                                                                     | `new TRG_Dispatcher().run()`                                                               | 1        |
+| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()` outside `SEL_*`/`QRY_*`                                                                                                | Selector or `QRY_Builder`                                                                  | 1        |
+| `KernNoCoverageTheatre`            | Zero-assertion tests, empty `catch(Exception e) {}`, `Boolean exceptionThrown = true`, `Assert.isNotNull(record)` immediately after `TST_Builder.build()` | Real assertions on observed behaviour (`Assert.areEqual`, `Assert.isInstanceOfType`, etc.) | 1        |
+| `KernCoverageExemptRequiresReason` | `// kern-coverage-exempt:` with empty, short, or blocklisted reason                                                                                       | Document a concrete, testable reason ≥15 chars                                             | 1        |
+| `KernNoDirectDML`                  | `insert`/`update`/`delete`/`upsert`, `Database.*` DML                                                                                                     | `DML_Builder`                                                                              | 3        |
+| `KernNoSystemDebug`                | `System.debug()`                                                                                                                                          | `LOG_Builder`                                                                              | 3        |
+| `KernNoRawHttp`                    | `new HttpRequest()`, `new Http()`                                                                                                                         | `UTIL_HttpClient`                                                                          | 3        |
+| `KernUseSchedulerBase`             | `implements Schedulable` directly                                                                                                                         | `extends SCHED_Base`                                                                       | 3        |
+| `KernNoRawSchedule`                | `System.schedule()`                                                                                                                                       | `SCHED_Base` + `ScheduledJob__c`                                                           | 3        |
+| `KernNoRawEventPublish`            | `EventBus.publish()`                                                                                                                                      | `LOG_Builder` / framework events                                                           | 3        |
+| `KernNoRawHttpMock`                | `implements HttpCalloutMock/WebServiceMock`                                                                                                               | `API_MockFactory`                                                                          | 3        |
+| `KernNoRawRestContext`             | `RestContext.request/response`                                                                                                                            | `API_Inbound` framework                                                                    | 3        |
+| `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                                                                                       | `UTIL_Email`                                                                               | 3        |
+| `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                                                                                     | `REST_*` + `API_Dispatcher`                                                                | 3        |
+| `KernNoInlineDmlInTests`           | Inline DML (`insert record;`, etc.) in `_TEST.cls` files outside the framework allowlist                                                                  | `TST_Builder.build()` / `DML_Builder`                                                      | 3        |
+| `KernNoLegacyAssert`               | `System.assert*()`                                                                                                                                        | `Assert.*`                                                                                 | 5        |
+| `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                                                                                        | `TST_Builder`                                                                              | 5        |
+| `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = true/false` followed by asserting the flag                                                                                     | `Assert.fail` + `Assert.isInstanceOfType` inside the catch block                           | 5        |
+| `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                                                                                          | `UTIL_Cache`                                                                               | 5        |
+| `KernNoRawDescribe`                | `Schema.getGlobalDescribe()`                                                                                                                              | `UTIL_SObjectDescribe`                                                                     | 5        |
+| `KernNoRawTypeForName`             | `Type.forName()`                                                                                                                                          | `UTIL_System.getTypeForClassName()`                                                        | 5        |
+| `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                                                                                     | `UTIL_AsynchronousJobLauncher`                                                             | 5        |
+| `KernNoRawCrypto`                  | `Crypto.*`                                                                                                                                                | `UTIL_Crypto`                                                                              | 5        |
+| `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                                                                                     | `UTIL_FeatureFlag.isEnabled()`                                                             | 5        |
 
 The four PMD test-quality rules above — `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`,
 `KernNoInlineDmlInTests`, `KernNoBooleanExceptionThrown` — catch the canonical coverage-theatre anti-patterns
@@ -73,11 +73,11 @@ Multiple rules: `@SuppressWarnings('PMD.KernNoDirectDML, PMD.KernNoRawHttp')`
 
 Configurable subscriber naming rules in `subscriber-naming-pmd-ruleset.xml`:
 
-| Rule | What It Validates | Priority |
-|------|------------------|----------|
-| `SubscriberApexClassNaming` | Class names follow `Domain_[Brand_]Layer_Name[_TEST]` | 3 |
-| `SubscriberTriggerNaming` | Trigger names follow `TRG_ObjectName` | 3 |
-| `SubscriberApexNameLength` | Class and trigger names do not exceed 40 characters | 3 |
+| Rule                        | What It Validates                                     | Priority |
+|-----------------------------|-------------------------------------------------------|----------|
+| `SubscriberApexClassNaming` | Class names follow `Domain_[Brand_]Layer_Name[_TEST]` | 3        |
+| `SubscriberTriggerNaming`   | Trigger names follow `TRG_ObjectName`                 | 3        |
+| `SubscriberApexNameLength`  | Class and trigger names do not exceed 40 characters   | 3        |
 
 ### `<Brand>` placeholder convention
 
@@ -183,14 +183,14 @@ Note: SF Code Analyzer v5 (`sf code-analyzer`) replaces `sfdx-scanner`. Migrate 
 
 The `eslint-plugin-kerndx` plugin enforces framework and naming conventions in LWC components. PMD cannot parse JavaScript, so these rules are handled via ESLint.
 
-| Rule | What It Blocks | Use Instead |
-|------|---------------|-------------|
-| `kerndx/use-component-builder` | `extends LightningElement` (including aliased imports) | `extends ComponentBuilder(...)` |
-| `kerndx/no-console-log` | `console.log()`, `window.console.*`, `globalThis.console.*` | `this.consoleLog()`, `this.consoleError()` |
-| `kerndx/enforce-component-naming` | LWC folder names without domain prefix | `domain[Brand]FeatureVariant` (e.g. `ordReturnWizard`) |
-| `kerndx/no-jest-theatre` | Assertion-less Jest `it`/`test` blocks, hollow `expect(createElement(...)).toBeTruthy()` smoke tests | Query the rendered DOM and assert on the visible outcome |
-| `kerndx/no-mutating-shared-fixture` | `beforeAll` that calls `createElement` while `it` blocks mutate its shared state | Create a fresh element per test in `beforeEach`, or scope mutation to a dedicated fixture |
-| `kerndx/no-coverage-exempt-without-reason` | `// kern-coverage-exempt:` in `.js` files with empty/short/blocklisted reason | Document a concrete, testable reason ≥15 chars (mirrors the Apex rule) |
+| Rule                                       | What It Blocks                                                                                       | Use Instead                                                                               |
+|--------------------------------------------|------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| `kerndx/use-component-builder`             | `extends LightningElement` (including aliased imports)                                               | `extends ComponentBuilder(...)`                                                           |
+| `kerndx/no-console-log`                    | `console.log()`, `window.console.*`, `globalThis.console.*`                                          | `this.consoleLog()`, `this.consoleError()`                                                |
+| `kerndx/enforce-component-naming`          | LWC folder names without domain prefix                                                               | `domain[Brand]FeatureVariant` (e.g. `ordReturnWizard`)                                    |
+| `kerndx/no-jest-theatre`                   | Assertion-less Jest `it`/`test` blocks, hollow `expect(createElement(...)).toBeTruthy()` smoke tests | Query the rendered DOM and assert on the visible outcome                                  |
+| `kerndx/no-mutating-shared-fixture`        | `beforeAll` that calls `createElement` while `it` blocks mutate its shared state                     | Create a fresh element per test in `beforeEach`, or scope mutation to a dedicated fixture |
+| `kerndx/no-coverage-exempt-without-reason` | `// kern-coverage-exempt:` in `.js` files with empty/short/blocklisted reason                        | Document a concrete, testable reason ≥15 chars (mirrors the Apex rule)                    |
 
 ### Setup
 
@@ -283,7 +283,8 @@ violations render inline on the deployment report.
 
 #### `--format github-annotations`
 
-Emits one annotation line per violation in the [GitHub Actions workflow-command format](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message).
+Emits one annotation line per violation in
+the [GitHub Actions workflow-command format](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message).
 `::error` for regressions and floor breaches; `::warning` for `*_missing`. `%`, CR, and LF are
 URL-escaped per the GitHub spec so arbitrary messages round-trip safely.
 
@@ -417,12 +418,12 @@ your `.kerndx/config.yml` exactly.
 
 ### Worked examples
 
-| Subscriber profile | `.kerndx/config.yml` `naming.brands:` |
-|--------------------|---------------------------------------|
-| Single brand (e.g. ACME Corp) | `[ACM]` |
-| Two brands (Northwind + Globex) | `[NWD, GLB]` |
-| No brand segment at all (single-org subscriber, no brand axis) | `[]` (or omit `brands:`) |
-| Three brands (Acme, Beta, Coyote) | `[ACM, BET, COY]` |
+| Subscriber profile                                             | `.kerndx/config.yml` `naming.brands:` |
+|----------------------------------------------------------------|---------------------------------------|
+| Single brand (e.g. ACME Corp)                                  | `[ACM]`                               |
+| Two brands (Northwind + Globex)                                | `[NWD, GLB]`                          |
+| No brand segment at all (single-org subscriber, no brand axis) | `[]` (or omit `brands:`)              |
+| Three brands (Acme, Beta, Coyote)                              | `[ACM, BET, COY]`                     |
 
 The same pattern applies to `naming.domains` and `naming.apex_layers`.
 

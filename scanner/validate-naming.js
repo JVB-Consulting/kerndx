@@ -39,7 +39,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadConfig, ConfigError } = require('./lib/naming-config-loader.js');
+const {loadConfig, ConfigError} = require('./lib/naming-config-loader.js');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -53,22 +53,18 @@ function buildScannerPatterns(config)
 
 	const brandSegment = brandGroup ? `(?:(${brandGroup})_)?` : '';
 
-	const flowPattern = new RegExp(
-		`^(${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+_(${flowTypeGroup})_[A-Z][a-zA-Z0-9]+$`
-	);
+	const flowPattern = new RegExp(`^(${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+_(${flowTypeGroup})_[A-Z][a-zA-Z0-9]+$`);
 
-	const objectPattern = new RegExp(
-		`^(${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+__c$`
-	);
+	const objectPattern = new RegExp(`^(${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+__c$`);
 
-	return { flow: flowPattern, object: objectPattern };
+	return {flow: flowPattern, object: objectPattern};
 }
 
 // ─── Scanner ────────────────────────────────────────────────────────────────
 
 function scanDirectory(dirPath)
 {
-	if (!fs.existsSync(dirPath))
+	if(!fs.existsSync(dirPath))
 	{
 		return [];
 	}
@@ -78,21 +74,21 @@ function scanDirectory(dirPath)
 function check(state, category, name, pattern, expectedHint)
 {
 	state.checked++;
-	if (!pattern.test(name))
+	if(!pattern.test(name))
 	{
-		state.violations.push({ category, name, expected: expectedHint });
+		state.violations.push({category, name, expected: expectedHint});
 	}
 	const limit = state.lengthLimits[category];
-	if (limit)
+	if(limit)
 	{
 		const bare = name.replace(/__c$|__e$|__mdt$/, '');
-		if (bare.length > limit)
+		if(bare.length > limit)
 		{
-			state.violations.push({ category, name, expected: `${limit} character limit exceeded (${bare.length} chars)` });
+			state.violations.push({category, name, expected: `${limit} character limit exceeded (${bare.length} chars)`});
 		}
-		else if (bare.length > limit - LENGTH_WARNING_THRESHOLD)
+		else if(bare.length > limit - LENGTH_WARNING_THRESHOLD)
 		{
-			state.warnings.push({ category, name, length: bare.length, limit });
+			state.warnings.push({category, name, length: bare.length, limit});
 		}
 	}
 }
@@ -102,9 +98,9 @@ function scanFlows(state, basePath, patterns)
 	const flowDir = path.join(basePath, 'flows');
 	const files = scanDirectory(flowDir);
 
-	for (const file of files)
+	for(const file of files)
 	{
-		if (!file.endsWith('.flow-meta.xml') || file.startsWith('.'))
+		if(!file.endsWith('.flow-meta.xml') || file.startsWith('.'))
 		{
 			continue;
 		}
@@ -118,9 +114,9 @@ function scanCustomObjects(state, basePath, patterns)
 	const objectDir = path.join(basePath, 'objects');
 	const entries = scanDirectory(objectDir);
 
-	for (const entry of entries)
+	for(const entry of entries)
 	{
-		if (entry.startsWith('.') || !entry.endsWith('__c'))
+		if(entry.startsWith('.') || !entry.endsWith('__c'))
 		{
 			continue;
 		}
@@ -134,7 +130,7 @@ function main(argv)
 {
 	const inputPath = argv[2] || './force-app';
 
-	if (!fs.existsSync(inputPath))
+	if(!fs.existsSync(inputPath))
 	{
 		console.error(`Error: ${inputPath} does not exist.`);
 		process.exit(2);
@@ -147,11 +143,11 @@ function main(argv)
 	let configResult;
 	try
 	{
-		configResult = loadConfig({ repoRoot: process.cwd() });
+		configResult = loadConfig({repoRoot: process.cwd()});
 	}
-	catch (e)
+	catch(e)
 	{
-		if (e instanceof ConfigError)
+		if(e instanceof ConfigError)
 		{
 			console.error(`Configuration error: ${e.message}`);
 			process.exit(2);
@@ -163,11 +159,11 @@ function main(argv)
 
 	console.log('Subscriber Naming Standards Validator (Flows & Custom Objects)');
 	console.log(`Source: ${inputPath}${isStandardLayout ? ' (SFDX standard layout)' : ' (flat layout)'}`);
-	if (configResult.source === 'config')
+	if(configResult.source === 'config')
 	{
 		console.log(`Config: ${configResult.configPath} (overrides applied)`);
 	}
-	else if (configResult.source === 'config-no-naming-block')
+	else if(configResult.source === 'config-no-naming-block')
 	{
 		console.log(`Config: ${configResult.configPath} (no 'naming' block — defaults applied)`);
 	}
@@ -180,12 +176,8 @@ function main(argv)
 	console.log('      See scanner/subscriber-naming-pmd-ruleset.xml and scanner/eslint-plugin-kerndx/.\n');
 
 	const state = {
-		checked: 0,
-		violations: [],
-		warnings: [],
-		lengthLimits: {
-			'Flow': configResult.config.length_limits.flow,
-			'Custom Object': configResult.config.length_limits.custom_object
+		checked: 0, violations: [], warnings: [], lengthLimits: {
+			'Flow': configResult.config.length_limits.flow, 'Custom Object': configResult.config.length_limits.custom_object
 		}
 	};
 
@@ -194,36 +186,36 @@ function main(argv)
 
 	console.log(`Checked: ${state.checked} artefacts\n`);
 
-	if (state.warnings.length > 0)
+	if(state.warnings.length > 0)
 	{
 		console.log(`Near-limit warnings (within ${LENGTH_WARNING_THRESHOLD} chars):`);
-		for (const w of state.warnings)
+		for(const w of state.warnings)
 		{
 			console.log(`  ${w.name} (${w.category}: ${w.length}/${w.limit} chars)`);
 		}
 		console.log('');
 	}
 
-	if (state.violations.length === 0)
+	if(state.violations.length === 0)
 	{
 		console.log('No naming violations found.');
 		process.exit(0);
 	}
 
 	const grouped = {};
-	for (const v of state.violations)
+	for(const v of state.violations)
 	{
-		if (!grouped[v.category])
+		if(!grouped[v.category])
 		{
 			grouped[v.category] = [];
 		}
 		grouped[v.category].push(v);
 	}
 
-	for (const [category, items] of Object.entries(grouped))
+	for(const [category, items] of Object.entries(grouped))
 	{
 		console.log(`${category} (${items.length} violation${items.length === 1 ? '' : 's'}):`);
-		for (const item of items)
+		for(const item of items)
 		{
 			console.log(`  ${item.name}`);
 			console.log(`    Expected: ${item.expected}`);
@@ -235,9 +227,9 @@ function main(argv)
 	process.exit(1);
 }
 
-if (require.main === module)
+if(require.main === module)
 {
 	main(process.argv);
 }
 
-module.exports = { buildScannerPatterns };
+module.exports = {buildScannerPatterns};

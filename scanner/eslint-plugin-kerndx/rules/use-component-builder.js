@@ -12,15 +12,11 @@
 
 module.exports = {
 	meta: {
-		type: 'suggestion',
-		docs: {
-			description: 'Enforce ComponentBuilder usage instead of LightningElement',
-			recommended: true
-		},
-		messages: {
+		type: 'suggestion', docs: {
+			description: 'Enforce ComponentBuilder usage instead of LightningElement', recommended: true
+		}, messages: {
 			useCB: 'LWC components must extend ComponentBuilder(...) instead of LightningElement. Import {ComponentBuilder} from \'c/componentBuilder\'.'
-		},
-		schema: []
+		}, schema: []
 	},
 
 	create(context)
@@ -30,18 +26,14 @@ module.exports = {
 		return {
 			ImportDeclaration(node)
 			{
-				if (node.source.value !== 'lwc')
+				if(node.source.value !== 'lwc')
 				{
 					return;
 				}
 
-				for (const specifier of node.specifiers)
+				for(const specifier of node.specifiers)
 				{
-					if (
-						specifier.type === 'ImportSpecifier' &&
-						specifier.imported.name === 'LightningElement' &&
-						specifier.local.name !== 'LightningElement'
-					)
+					if(specifier.type === 'ImportSpecifier' && specifier.imported.name === 'LightningElement' && specifier.local.name !== 'LightningElement')
 					{
 						lightningElementAliases.add(specifier.local.name);
 					}
@@ -50,14 +42,14 @@ module.exports = {
 
 			ClassDeclaration(node)
 			{
-				if (!node.superClass)
+				if(!node.superClass)
 				{
 					return;
 				}
 
 				const superClass = node.superClass;
 
-				if (superClass.type === 'Identifier' && lightningElementAliases.has(superClass.name))
+				if(superClass.type === 'Identifier' && lightningElementAliases.has(superClass.name))
 				{
 					context.report({node: superClass, messageId: 'useCB'});
 				}

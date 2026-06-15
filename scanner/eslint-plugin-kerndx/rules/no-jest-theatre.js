@@ -22,28 +22,30 @@
 
 const path = require('path');
 
-const TEST_FUNCTIONS = new Set(['it', 'test']);
-const HOLLOW_MATCHERS = new Set(['toBeTruthy', 'toBeDefined']);
+const TEST_FUNCTIONS = new Set([
+	'it',
+	'test'
+]);
+const HOLLOW_MATCHERS = new Set([
+	'toBeTruthy',
+	'toBeDefined'
+]);
 
 module.exports = {
 	meta: {
-		type: 'problem',
-		docs: {
-			description: 'Forbid assertion-less Jest tests and hollow createElement assertions',
-			recommended: true
-		},
-		messages: {
+		type: 'problem', docs: {
+			description: 'Forbid assertion-less Jest tests and hollow createElement assertions', recommended: true
+		}, messages: {
 			noAssertions: 'Test "{{name}}" contains no expect(...) calls. Add assertions against rendered state, dispatched events, or toast calls.',
 			hollowCreateElement: 'Test "{{name}}" only asserts that createElement returned a truthy/defined value. Assert on rendered DOM, dispatched events, or controller calls instead.'
-		},
-		schema: []
+		}, schema: []
 	},
 
 	create(context)
 	{
 		const filename = context.getFilename();
 
-		if (!isTestFile(filename))
+		if(!isTestFile(filename))
 		{
 			return {};
 		}
@@ -51,21 +53,21 @@ module.exports = {
 		return {
 			CallExpression(node)
 			{
-				if (!isTestCall(node))
+				if(!isTestCall(node))
 				{
 					return;
 				}
 
 				const callbackArgument = node.arguments[1];
 
-				if (!callbackArgument || !isFunctionLike(callbackArgument))
+				if(!callbackArgument || !isFunctionLike(callbackArgument))
 				{
 					return;
 				}
 
 				const body = getBlockBody(callbackArgument);
 
-				if (!body)
+				if(!body)
 				{
 					return;
 				}
@@ -73,22 +75,18 @@ module.exports = {
 				const expectCalls = collectExpectCalls(body);
 				const testName = describeTestName(node.arguments[0]);
 
-				if (expectCalls.length === 0)
+				if(expectCalls.length === 0)
 				{
 					context.report({
-						node,
-						messageId: 'noAssertions',
-						data: {name: testName}
+						node, messageId: 'noAssertions', data: {name: testName}
 					});
 					return;
 				}
 
-				if (expectCalls.length === 1 && isHollowCreateElementAssertion(expectCalls[0], body))
+				if(expectCalls.length === 1 && isHollowCreateElementAssertion(expectCalls[0], body))
 				{
 					context.report({
-						node: expectCalls[0],
-						messageId: 'hollowCreateElement',
-						data: {name: testName}
+						node: expectCalls[0], messageId: 'hollowCreateElement', data: {name: testName}
 					});
 				}
 			}
@@ -103,12 +101,12 @@ module.exports = {
  */
 function isTestFile(filename)
 {
-	if (!filename || filename === '<input>' || filename === '<text>')
+	if(!filename || filename === '<input>' || filename === '<text>')
 	{
 		return false;
 	}
 
-	if (filename.endsWith('.test.js'))
+	if(filename.endsWith('.test.js'))
 	{
 		return true;
 	}
@@ -127,17 +125,12 @@ function isTestCall(node)
 {
 	const callee = node.callee;
 
-	if (callee.type === 'Identifier' && TEST_FUNCTIONS.has(callee.name))
+	if(callee.type === 'Identifier' && TEST_FUNCTIONS.has(callee.name))
 	{
 		return true;
 	}
 
-	if (
-		callee.type === 'MemberExpression' &&
-		callee.object.type === 'Identifier' &&
-		TEST_FUNCTIONS.has(callee.object.name) &&
-		callee.property.type === 'Identifier'
-	)
+	if(callee.type === 'MemberExpression' && callee.object.type === 'Identifier' && TEST_FUNCTIONS.has(callee.object.name) && callee.property.type === 'Identifier')
 	{
 		return true;
 	}
@@ -162,7 +155,7 @@ function isFunctionLike(node)
  */
 function getBlockBody(node)
 {
-	if (node.body && node.body.type === 'BlockStatement')
+	if(node.body && node.body.type === 'BlockStatement')
 	{
 		return node.body;
 	}
@@ -185,7 +178,7 @@ function collectExpectCalls(block)
 
 	walk(block, (node) =>
 	{
-		if (node.type === 'CallExpression' && isExpectChain(node))
+		if(node.type === 'CallExpression' && isExpectChain(node))
 		{
 			calls.push(node);
 			return false;
@@ -206,23 +199,23 @@ function isExpectChain(node)
 {
 	let current = node;
 
-	while (current)
+	while(current)
 	{
-		if (current.type === 'CallExpression')
+		if(current.type === 'CallExpression')
 		{
-			if (current.callee.type === 'Identifier' && current.callee.name === 'expect')
+			if(current.callee.type === 'Identifier' && current.callee.name === 'expect')
 			{
 				return true;
 			}
 
-			if (current.callee.type === 'MemberExpression')
+			if(current.callee.type === 'MemberExpression')
 			{
 				current = current.callee.object;
 				continue;
 			}
 		}
 
-		if (current.type === 'MemberExpression')
+		if(current.type === 'MemberExpression')
 		{
 			current = current.object;
 			continue;
@@ -244,36 +237,31 @@ function isExpectChain(node)
  */
 function isHollowCreateElementAssertion(node, body)
 {
-	if (node.callee.type !== 'MemberExpression')
+	if(node.callee.type !== 'MemberExpression')
 	{
 		return false;
 	}
 
-	if (node.callee.property.type !== 'Identifier' || !HOLLOW_MATCHERS.has(node.callee.property.name))
+	if(node.callee.property.type !== 'Identifier' || !HOLLOW_MATCHERS.has(node.callee.property.name))
 	{
 		return false;
 	}
 
 	const expectCall = node.callee.object;
 
-	if (
-		expectCall.type !== 'CallExpression' ||
-		expectCall.callee.type !== 'Identifier' ||
-		expectCall.callee.name !== 'expect' ||
-		expectCall.arguments.length === 0
-	)
+	if(expectCall.type !== 'CallExpression' || expectCall.callee.type !== 'Identifier' || expectCall.callee.name !== 'expect' || expectCall.arguments.length === 0)
 	{
 		return false;
 	}
 
 	const argument = expectCall.arguments[0];
 
-	if (isCreateElementCall(argument))
+	if(isCreateElementCall(argument))
 	{
 		return true;
 	}
 
-	if (argument.type === 'Identifier' && identifierBoundToCreateElement(argument.name, body))
+	if(argument.type === 'Identifier' && identifierBoundToCreateElement(argument.name, body))
 	{
 		return true;
 	}
@@ -288,11 +276,7 @@ function isHollowCreateElementAssertion(node, body)
  */
 function isCreateElementCall(node)
 {
-	return (
-		node.type === 'CallExpression' &&
-		node.callee.type === 'Identifier' &&
-		node.callee.name === 'createElement'
-	);
+	return (node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'createElement');
 }
 
 /**
@@ -305,7 +289,7 @@ function isCreateElementCall(node)
  */
 function identifierBoundToCreateElement(name, body)
 {
-	if (!body || body.type !== 'BlockStatement')
+	if(!body || body.type !== 'BlockStatement')
 	{
 		return false;
 	}
@@ -321,21 +305,16 @@ function identifierBoundToCreateElement(name, body)
  */
 function findCreateElementBinding(block, name)
 {
-	for (const statement of block.body)
+	for(const statement of block.body)
 	{
-		if (statement.type !== 'VariableDeclaration')
+		if(statement.type !== 'VariableDeclaration')
 		{
 			continue;
 		}
 
-		for (const declarator of statement.declarations)
+		for(const declarator of statement.declarations)
 		{
-			if (
-				declarator.id.type === 'Identifier' &&
-				declarator.id.name === name &&
-				declarator.init &&
-				isCreateElementCall(declarator.init)
-			)
+			if(declarator.id.type === 'Identifier' && declarator.id.name === name && declarator.init && isCreateElementCall(declarator.init))
 			{
 				return true;
 			}
@@ -352,17 +331,17 @@ function findCreateElementBinding(block, name)
  */
 function describeTestName(node)
 {
-	if (!node)
+	if(!node)
 	{
 		return '<unnamed>';
 	}
 
-	if (node.type === 'Literal' && typeof node.value === 'string')
+	if(node.type === 'Literal' && typeof node.value === 'string')
 	{
 		return node.value;
 	}
 
-	if (node.type === 'TemplateLiteral' && node.quasis.length === 1)
+	if(node.type === 'TemplateLiteral' && node.quasis.length === 1)
 	{
 		return node.quasis[0].value.cooked;
 	}
@@ -380,38 +359,38 @@ function describeTestName(node)
  */
 function walk(root, visit)
 {
-	if (!root || typeof root.type !== 'string')
+	if(!root || typeof root.type !== 'string')
 	{
 		return;
 	}
 
 	const descend = visit(root);
 
-	if (descend === false)
+	if(descend === false)
 	{
 		return;
 	}
 
-	for (const key of Object.keys(root))
+	for(const key of Object.keys(root))
 	{
-		if (key === 'parent')
+		if(key === 'parent')
 		{
 			continue;
 		}
 
 		const value = root[key];
 
-		if (Array.isArray(value))
+		if(Array.isArray(value))
 		{
-			for (const child of value)
+			for(const child of value)
 			{
-				if (child && typeof child.type === 'string')
+				if(child && typeof child.type === 'string')
 				{
 					walk(child, visit);
 				}
 			}
 		}
-		else if (value && typeof value.type === 'string')
+		else if(value && typeof value.type === 'string')
 		{
 			walk(value, visit);
 		}

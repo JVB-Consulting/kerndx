@@ -9,7 +9,8 @@ const TEST_FILENAME = '/project/force-app/main/default/lwc/ordReturnWizard/__tes
 
 const ruleTester = new RuleTester({parserOptions: {ecmaVersion: 2022, sourceType: 'module'}});
 
-test('no-mutating-shared-fixture', () => {
+test('no-mutating-shared-fixture', () =>
+{
 	ruleTester.run('no-mutating-shared-fixture', rule, {
 		valid: [
 			{
@@ -27,9 +28,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(element.shadowRoot.querySelector('h2').textContent).toBe('World');
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeAll with read-only tests is allowed'
+				`, filename: TEST_FILENAME, name: 'beforeAll with read-only tests is allowed'
 			},
 			{
 				code: `
@@ -44,9 +43,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(handler).toHaveBeenCalled();
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeEach with mutating tests is allowed'
+				`, filename: TEST_FILENAME, name: 'beforeEach with mutating tests is allowed'
 			},
 			{
 				code: `
@@ -59,9 +56,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(true).toBe(true);
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeAll without createElement is allowed even when a test mutates'
+				`, filename: TEST_FILENAME, name: 'beforeAll without createElement is allowed even when a test mutates'
 			},
 			{
 				code: `
@@ -74,9 +69,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(1).toBe(1);
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeAll with createElement but no mutating tests is allowed'
+				`, filename: TEST_FILENAME, name: 'beforeAll with createElement but no mutating tests is allowed'
 			},
 			{
 				code: `
@@ -88,37 +81,27 @@ test('no-mutating-shared-fixture', () => {
 							element.click();
 						});
 					});
-				`,
-				filename: '/project/scripts/helpers.js',
-				name: 'non-test files are skipped'
+				`, filename: '/project/scripts/helpers.js', name: 'non-test files are skipped'
 			},
 			{
 				code: `
 					doSomething('<input>');
-				`,
-				filename: '<input>',
-				name: 'virtual <input> filename is skipped'
+				`, filename: '<input>', name: 'virtual <input> filename is skipped'
 			},
 			{
 				code: `
 					describe('no callback');
-				`,
-				filename: TEST_FILENAME,
-				name: 'describe with no callback is skipped'
+				`, filename: TEST_FILENAME, name: 'describe with no callback is skipped'
 			},
 			{
 				code: `
 					describe('string callback', 'not a function');
-				`,
-				filename: TEST_FILENAME,
-				name: 'describe with non-function callback is skipped'
+				`, filename: TEST_FILENAME, name: 'describe with non-function callback is skipped'
 			},
 			{
 				code: `
 					describe('arrow expression body', () => doWork());
-				`,
-				filename: TEST_FILENAME,
-				name: 'describe with expression-bodied arrow is skipped'
+				`, filename: TEST_FILENAME, name: 'describe with expression-bodied arrow is skipped'
 			},
 			{
 				code: `
@@ -130,9 +113,7 @@ test('no-mutating-shared-fixture', () => {
 							element['value'] = 'bracket';
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'bracket-property assignment is not treated as mutation'
+				`, filename: TEST_FILENAME, name: 'bracket-property assignment is not treated as mutation'
 			},
 			{
 				code: `
@@ -144,9 +125,7 @@ test('no-mutating-shared-fixture', () => {
 							element.dispatchEvent(new CustomEvent('x'));
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'non-call top-level statements are ignored'
+				`, filename: TEST_FILENAME, name: 'non-call top-level statements are ignored'
 			},
 			{
 				code: `
@@ -156,9 +135,7 @@ test('no-mutating-shared-fixture', () => {
 							element.click();
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeAll without function callback is skipped'
+				`, filename: TEST_FILENAME, name: 'beforeAll without function callback is skipped'
 			},
 			{
 				code: `
@@ -169,9 +146,7 @@ test('no-mutating-shared-fixture', () => {
 						it('no callback here');
 						other(() => {});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it without function callback prevents mutation detection'
+				`, filename: TEST_FILENAME, name: 'it without function callback prevents mutation detection'
 			},
 			{
 				code: `
@@ -185,9 +160,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(value).toBe(1);
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'pure function calls do not constitute mutation'
+				`, filename: TEST_FILENAME, name: 'pure function calls do not constitute mutation'
 			},
 			{
 				code: `
@@ -201,9 +174,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(local).toBe(2);
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'assignment to plain identifier is not treated as mutation'
+				`, filename: TEST_FILENAME, name: 'assignment to plain identifier is not treated as mutation'
 			}
 		],
 
@@ -221,10 +192,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(handler).toHaveBeenCalled();
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'beforeAll with dispatchEvent test is flagged',
-				errors: [{messageId: 'sharedFixture'}]
+				`, filename: TEST_FILENAME, name: 'beforeAll with dispatchEvent test is flagged', errors: [{messageId: 'sharedFixture'}]
 			},
 			{
 				code: `
@@ -238,10 +206,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(handler).toHaveBeenCalled();
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'querySelector().click() test is flagged',
-				errors: [{messageId: 'sharedFixture'}]
+				`, filename: TEST_FILENAME, name: 'querySelector().click() test is flagged', errors: [{messageId: 'sharedFixture'}]
 			},
 			{
 				code: `
@@ -255,10 +220,7 @@ test('no-mutating-shared-fixture', () => {
 							expect(element.value).toBe('new value');
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'public-api setter mutation is flagged',
-				errors: [{messageId: 'sharedFixture'}]
+				`, filename: TEST_FILENAME, name: 'public-api setter mutation is flagged', errors: [{messageId: 'sharedFixture'}]
 			},
 			{
 				code: `
@@ -271,10 +233,7 @@ test('no-mutating-shared-fixture', () => {
 							element.dispatchEvent(new CustomEvent('save'));
 						});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'test() alias with mutation is flagged',
-				errors: [{messageId: 'sharedFixture'}]
+				`, filename: TEST_FILENAME, name: 'test() alias with mutation is flagged', errors: [{messageId: 'sharedFixture'}]
 			}
 		]
 	});

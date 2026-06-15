@@ -30,10 +30,17 @@ function runValidator(forceAppPath)
 	const script = path.resolve(__dirname, '..', 'validate-naming.js');
 	try
 	{
-		const output = execSync(`node "${script}" "${forceAppPath}"`, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']});
+		const output = execSync(`node "${script}" "${forceAppPath}"`, {
+			encoding: 'utf-8',
+			stdio: [
+				'pipe',
+				'pipe',
+				'pipe'
+			]
+		});
 		return {exitCode: 0, output};
 	}
-	catch (error)
+	catch(error)
 	{
 		return {exitCode: error.status, output: error.stdout || '', stderr: error.stderr || ''};
 	}
@@ -45,7 +52,7 @@ describe('validate-naming', () =>
 
 	afterEach(() =>
 	{
-		if (env)
+		if(env)
 		{
 			env.cleanup();
 			env = null;
@@ -106,9 +113,18 @@ describe('validate-naming', () =>
 		it('should accept all valid Flow type codes', () =>
 		{
 			env = createTempForceApp();
-			const types = ['BS', 'AS', 'BD', 'SCR', 'AL', 'SCH', 'PE', 'SF'];
+			const types = [
+				'BS',
+				'AS',
+				'BD',
+				'SCR',
+				'AL',
+				'SCH',
+				'PE',
+				'SF'
+			];
 
-			for (const type of types)
+			for(const type of types)
 			{
 				addFlow(env.base, `SVC_Case_${type}_DoSomething`);
 			}
@@ -222,7 +238,7 @@ describe('validate-naming', () =>
 
 			const result = runValidator(env.root);
 
-			if (result.output.includes('Near-limit warnings'))
+			if(result.output.includes('Near-limit warnings'))
 			{
 				expect(result.output).toContain('Near-limit warnings');
 			}

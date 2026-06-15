@@ -9,7 +9,8 @@ const TEST_FILENAME = '/project/force-app/main/default/lwc/ordReturnWizard/__tes
 
 const ruleTester = new RuleTester({parserOptions: {ecmaVersion: 2022, sourceType: 'module'}});
 
-test('no-jest-theatre', () => {
+test('no-jest-theatre', () =>
+{
 	ruleTester.run('no-jest-theatre', rule, {
 		valid: [
 			{
@@ -19,9 +20,7 @@ test('no-jest-theatre', () => {
 						document.body.appendChild(element);
 						expect(element.shadowRoot.querySelector('h1').textContent).toBe('Hello');
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it() with rendered-state expect is allowed'
+				`, filename: TEST_FILENAME, name: 'it() with rendered-state expect is allowed'
 			},
 			{
 				code: `
@@ -31,18 +30,14 @@ test('no-jest-theatre', () => {
 						element.dispatchEvent(new CustomEvent('save'));
 						expect(handler).toHaveBeenCalled();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'hollow toBeTruthy plus a real assertion is allowed'
+				`, filename: TEST_FILENAME, name: 'hollow toBeTruthy plus a real assertion is allowed'
 			},
 			{
 				code: `
 					it('rejects invalid input', () => {
 						expect(() => doWork(null)).toThrow();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'expect.toThrow counts as an assertion'
+				`, filename: TEST_FILENAME, name: 'expect.toThrow counts as an assertion'
 			},
 			{
 				code: `
@@ -51,55 +46,41 @@ test('no-jest-theatre', () => {
 						expect(element).toBeDefined();
 						expect(element.shadowRoot).not.toBeNull();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'hollow toBeDefined plus a real assertion is allowed'
+				`, filename: TEST_FILENAME, name: 'hollow toBeDefined plus a real assertion is allowed'
 			},
 			{
 				code: `
 					it('does nothing useful', () => {});
-				`,
-				filename: '/project/scripts/helpers.js',
-				name: 'non-test files are skipped'
+				`, filename: '/project/scripts/helpers.js', name: 'non-test files are skipped'
 			},
 			{
 				code: `
 					it.only('renders', () => {
 						expect(wrapper.textContent).toBe('ok');
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it.only with a real expect is allowed'
+				`, filename: TEST_FILENAME, name: 'it.only with a real expect is allowed'
 			},
 			{
 				code: `
 					it('arrow expression body skipped', () => doWork());
-				`,
-				filename: TEST_FILENAME,
-				name: 'expression-bodied arrow callback is skipped'
+				`, filename: TEST_FILENAME, name: 'expression-bodied arrow callback is skipped'
 			},
 			{
 				code: `
 					it('no callback argument');
-				`,
-				filename: TEST_FILENAME,
-				name: 'it() without a callback is skipped'
+				`, filename: TEST_FILENAME, name: 'it() without a callback is skipped'
 			},
 			{
 				code: `
 					it('string callback argument', 'not a function');
-				`,
-				filename: TEST_FILENAME,
-				name: 'non-function callback is skipped'
+				`, filename: TEST_FILENAME, name: 'non-function callback is skipped'
 			},
 			{
 				code: `
 					it('empty expect is ignored', () => {
 						expect();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'expect() with zero arguments still counts as an assertion'
+				`, filename: TEST_FILENAME, name: 'expect() with zero arguments still counts as an assertion'
 			},
 			{
 				code: `
@@ -107,18 +88,14 @@ test('no-jest-theatre', () => {
 						const unrelated = {};
 						expect(unrelated).toBeTruthy();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'toBeTruthy on non-createElement identifier is allowed'
+				`, filename: TEST_FILENAME, name: 'toBeTruthy on non-createElement identifier is allowed'
 			},
 			{
 				code: `
 					it('non-hollow matcher on createElement is fine', () => {
 						expect(createElement('c-x', {is: X})).toBe(expected);
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'non-hollow matcher on createElement is allowed'
+				`, filename: TEST_FILENAME, name: 'non-hollow matcher on createElement is allowed'
 			},
 			{
 				code: `
@@ -126,23 +103,17 @@ test('no-jest-theatre', () => {
 						other(1).toBeTruthy();
 						expect(value).toBe(1);
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'non-expect member chains are ignored'
+				`, filename: TEST_FILENAME, name: 'non-expect member chains are ignored'
 			},
 			{
 				code: `
 					doSomething('<input>');
-				`,
-				filename: '<input>',
-				name: 'ESLint virtual <input> filename is skipped'
+				`, filename: '<input>', name: 'ESLint virtual <input> filename is skipped'
 			},
 			{
 				code: `
 					notATest(() => {});
-				`,
-				filename: TEST_FILENAME,
-				name: 'non-it/test call is ignored'
+				`, filename: TEST_FILENAME, name: 'non-it/test call is ignored'
 			},
 			{
 				code: `
@@ -151,18 +122,14 @@ test('no-jest-theatre', () => {
 						const ref = chain;
 						expect(ref).toBe(1);
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'chained member access on non-expect is ignored'
+				`, filename: TEST_FILENAME, name: 'chained member access on non-expect is ignored'
 			},
 			{
 				code: `
 					it('hollow matcher with zero-arg expect', () => {
 						expect().toBeTruthy();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'zero-argument expect followed by hollow matcher is allowed'
+				`, filename: TEST_FILENAME, name: 'zero-argument expect followed by hollow matcher is allowed'
 			}
 		],
 
@@ -173,20 +140,14 @@ test('no-jest-theatre', () => {
 						const element = createElement('c-x', {is: X});
 						document.body.appendChild(element);
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it() with no expect is flagged',
-				errors: [{messageId: 'noAssertions', data: {name: 'does nothing'}}]
+				`, filename: TEST_FILENAME, name: 'it() with no expect is flagged', errors: [{messageId: 'noAssertions', data: {name: 'does nothing'}}]
 			},
 			{
 				code: `
 					test('also nothing', function() {
 						doSomething();
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'test() with no expect is flagged',
-				errors: [{messageId: 'noAssertions', data: {name: 'also nothing'}}]
+				`, filename: TEST_FILENAME, name: 'test() with no expect is flagged', errors: [{messageId: 'noAssertions', data: {name: 'also nothing'}}]
 			},
 			{
 				code: `
@@ -214,26 +175,17 @@ test('no-jest-theatre', () => {
 					it.skip('skipped but still checked', () => {
 						const element = createElement('c-x', {is: X});
 					});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it.skip with no expect is flagged',
-				errors: [{messageId: 'noAssertions', data: {name: 'skipped but still checked'}}]
+				`, filename: TEST_FILENAME, name: 'it.skip with no expect is flagged', errors: [{messageId: 'noAssertions', data: {name: 'skipped but still checked'}}]
 			},
 			{
 				code: `
 					test(\`template name\`, () => {});
-				`,
-				filename: TEST_FILENAME,
-				name: 'template literal test name is flagged and labelled',
-				errors: [{messageId: 'noAssertions', data: {name: 'template name'}}]
+				`, filename: TEST_FILENAME, name: 'template literal test name is flagged and labelled', errors: [{messageId: 'noAssertions', data: {name: 'template name'}}]
 			},
 			{
 				code: `
 					it(dynamicName, () => {});
-				`,
-				filename: TEST_FILENAME,
-				name: 'dynamic test name falls back to <dynamic>',
-				errors: [{messageId: 'noAssertions', data: {name: '<dynamic>'}}]
+				`, filename: TEST_FILENAME, name: 'dynamic test name falls back to <dynamic>', errors: [{messageId: 'noAssertions', data: {name: '<dynamic>'}}]
 			},
 			{
 				code: `
@@ -246,10 +198,7 @@ test('no-jest-theatre', () => {
 			{
 				code: `
 					it(undefined, () => {});
-				`,
-				filename: TEST_FILENAME,
-				name: 'it() with identifier-undefined name falls through to <dynamic>',
-				errors: [{messageId: 'noAssertions', data: {name: '<dynamic>'}}]
+				`, filename: TEST_FILENAME, name: 'it() with identifier-undefined name falls through to <dynamic>', errors: [{messageId: 'noAssertions', data: {name: '<dynamic>'}}]
 			}
 		]
 	});

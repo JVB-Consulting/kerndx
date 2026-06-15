@@ -16,22 +16,26 @@
 'use strict';
 
 const MIN_REASON_LENGTH = 15;
-const BLOCKED_REASONS = ['hard to test', 'tricky', 'todo', 'fixme', 'later', 'xxx', 'hack'];
+const BLOCKED_REASONS = [
+	'hard to test',
+	'tricky',
+	'todo',
+	'fixme',
+	'later',
+	'xxx',
+	'hack'
+];
 const EXEMPT_PATTERN = /\/\/\s*kern-coverage-exempt\s*:\s*(.*)$/i;
 
 module.exports = {
 	meta: {
-		type: 'problem',
-		docs: {
-			description: 'Require a substantive platform-limitation reason on every kern-coverage-exempt comment',
-			recommended: true
-		},
-		messages: {
+		type: 'problem', docs: {
+			description: 'Require a substantive platform-limitation reason on every kern-coverage-exempt comment', recommended: true
+		}, messages: {
 			empty: 'kern-coverage-exempt comment requires a reason. Cite the specific platform limitation after the colon.',
 			tooShort: 'kern-coverage-exempt reason must be at least {{min}} characters ({{length}} given). Cite the specific platform limitation.',
 			blocked: 'kern-coverage-exempt reason "{{reason}}" is not an accepted justification. Cite the specific platform behaviour, not "{{match}}".'
-		},
-		schema: []
+		}, schema: []
 	},
 
 	create(context)
@@ -42,9 +46,9 @@ module.exports = {
 				const sourceCode = context.getSourceCode();
 				const comments = sourceCode.getAllComments();
 
-				for (const comment of comments)
+				for(const comment of comments)
 				{
-					if (comment.type !== 'Line')
+					if(comment.type !== 'Line')
 					{
 						continue;
 					}
@@ -52,40 +56,35 @@ module.exports = {
 					const fullText = `//${comment.value}`;
 					const match = EXEMPT_PATTERN.exec(fullText);
 
-					if (!match)
+					if(!match)
 					{
 						continue;
 					}
 
 					const reason = match[1].trim();
 
-					if (reason.length === 0)
+					if(reason.length === 0)
 					{
 						context.report({
-							node: comment,
-							messageId: 'empty'
+							node: comment, messageId: 'empty'
 						});
 						continue;
 					}
 
-					if (reason.length < MIN_REASON_LENGTH)
+					if(reason.length < MIN_REASON_LENGTH)
 					{
 						context.report({
-							node: comment,
-							messageId: 'tooShort',
-							data: {min: String(MIN_REASON_LENGTH), length: String(reason.length)}
+							node: comment, messageId: 'tooShort', data: {min: String(MIN_REASON_LENGTH), length: String(reason.length)}
 						});
 						continue;
 					}
 
 					const blockedMatch = findBlockedMatch(reason);
 
-					if (blockedMatch)
+					if(blockedMatch)
 					{
 						context.report({
-							node: comment,
-							messageId: 'blocked',
-							data: {reason, match: blockedMatch}
+							node: comment, messageId: 'blocked', data: {reason, match: blockedMatch}
 						});
 					}
 				}
@@ -103,9 +102,9 @@ function findBlockedMatch(reason)
 {
 	const lowered = reason.toLowerCase();
 
-	for (const blocked of BLOCKED_REASONS)
+	for(const blocked of BLOCKED_REASONS)
 	{
-		if (lowered.includes(blocked))
+		if(lowered.includes(blocked))
 		{
 			return blocked;
 		}
