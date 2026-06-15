@@ -14,15 +14,18 @@
  *   - `subscribe`       — Subscribe to a specific event or channel
  *   - `publish`         — Publish a payload to a specified event
  *   - `register`        — Register to receive specific event types
+ *
+ * @date March 2026, June 2026
  **/
 import {LightningElement, api} from 'lwc';
 import {
-	EVENT_TYPES, EVT_PUSH_TOPIC, EVT_GENERIC, EVT_STD_PLATFORM_EVENT, EVT_PLATFORM_EVENT, EVT_CDC, EVT_CUSTOM_CHANNEL_CDC, EVT_CUSTOM_CHANNEL_PE, EVT_MONITORING, FILTER_ALL,
-	FILTER_CUSTOM, getChannelPrefix
+	EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, EVT_PUSH_TOPIC, EVT_GENERIC, EVT_STD_PLATFORM_EVENT, EVT_PLATFORM_EVENT, EVT_CDC, EVT_CUSTOM_CHANNEL_CDC, EVT_CUSTOM_CHANNEL_PE, EVT_MONITORING,
+	FILTER_ALL, FILTER_CUSTOM, getChannelPrefix
 } from 'c/utilityStreaming';
 import utilityLogger from 'c/utilityLogger';
 
 import getBlankPlatformEvent from '@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent';
+import PUBLISH_SCOPE_NOTE from '@salesforce/label/c.EventMonitor_PublishScopeNote';
 
 import subscribeAll from './subscribeAll.html';
 import subscribe from './subscribe.html';
@@ -136,6 +139,12 @@ export default class StreamingActions extends LightningElement
 
 	registrationEventType;
 
+	/**
+	 * @description Custom-label text shown at the top of the Publish screen explaining which event
+	 * types can be published manually and where to watch the rest.
+	 **/
+	publishScopeNote = PUBLISH_SCOPE_NOTE;
+
 	// ── Computed Properties: Subscribe ───────────────────────────────────
 
 	/**
@@ -167,11 +176,13 @@ export default class StreamingActions extends LightningElement
 	}
 
 	/**
-	 * @description Whether the subscription event name dropdown should be disabled.
+	 * @description Whether the subscription event name dropdown should be disabled. Safe-navigates the
+	 * channel lookup: on slow/early load the selected type may not be in the channel map yet, and the
+	 * getter must report disabled rather than throw mid-render.
 	 **/
 	get isSubscribeEventNameDisabled()
 	{
-		return (this.subEventType === undefined || this.channels[this.subEventType].length === 0);
+		return (this.subEventType === undefined || (this.channels[this.subEventType]?.length ?? 0) === 0);
 	}
 
 	/**
@@ -183,13 +194,15 @@ export default class StreamingActions extends LightningElement
 	}
 
 	/**
-	 * @description Whether the subscribe button should be disabled.
+	 * @description Whether the subscribe button should be disabled. Safe-navigates the channel value:
+	 * `subChannel` can be undefined before the type handler seeds it, and the getter must report
+	 * disabled rather than throw mid-render.
 	 **/
 	get isSubscribeDisabled()
 	{
 		if(this.subEventType === EVT_CUSTOM_CHANNEL_CDC || this.subEventType === EVT_CUSTOM_CHANNEL_PE)
 		{
-			const channel = this.subChannel.trim();
+			const channel = this.subChannel?.trim() ?? '';
 			return (channel === '' || channel === getChannelPrefix(this.subEventType));
 		}
 		return (this.subEventType !== EVT_CUSTOM_CHANNEL_CDC && this.subscribeEventName === undefined);
@@ -259,11 +272,13 @@ export default class StreamingActions extends LightningElement
 	// ── Computed Properties: Publish ─────────────────────────────────────
 
 	/**
-	 * @description Returns list of all available event types for publishing.
+	 * @description Returns the event types a user can publish manually (Generic and Custom Platform
+	 * events). Platform-published and record-change-driven types are intentionally excluded so the
+	 * Publish picklist never offers a type that cannot be published from here.
 	 **/
 	get publishEventTypes()
 	{
-		return EVENT_TYPES;
+		return PUBLISHABLE_EVENT_TYPES;
 	}
 
 	/**
@@ -287,11 +302,12 @@ export default class StreamingActions extends LightningElement
 	}
 
 	/**
-	 * @description Whether the publish event name dropdown should be disabled.
+	 * @description Whether the publish event name dropdown should be disabled. Safe-navigates the
+	 * channel lookup for the same slow/early-load reason as `isSubscribeEventNameDisabled`.
 	 **/
 	get isPublishEventNameDisabled()
 	{
-		return (this.pubEventType === undefined || this.channels[this.pubEventType].length === 0);
+		return (this.pubEventType === undefined || (this.channels[this.pubEventType]?.length ?? 0) === 0);
 	}
 
 	/**
@@ -300,14 +316,6 @@ export default class StreamingActions extends LightningElement
 	get isPublishDisabled()
 	{
 		return (this.pubEventType === undefined || this.publishEventName === undefined);
-	}
-
-	/**
-	 * @description Whether manual publishing is allowed for the selected type.
-	 **/
-	get isManualPublishedAllowed()
-	{
-		return (this.pubEventType === EVT_GENERIC || this.pubEventType === EVT_PLATFORM_EVENT);
 	}
 
 	/**

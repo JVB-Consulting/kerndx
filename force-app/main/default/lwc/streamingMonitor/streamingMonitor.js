@@ -11,6 +11,8 @@
  * Main controller component for the Streaming API Monitor app.
  * Handles subscribing, publishing, tracking events,
  * UI navigation, error handling and rendering logic.
+ *
+ * @date March 2026, June 2026
  */
 import {LightningElement, track} from 'lwc';
 import {
@@ -23,6 +25,11 @@ import {
 	EVENT_TYPES, EVT_CDC, CHANNEL_ALL_CDC, FILTER_CUSTOM, FILTER_ALL, isCDCChannel, getChannelPrefix, normalizeEvent, channelSort, isCustomChannel
 } from 'c/utilityStreaming';
 import utilityLogger from 'c/utilityLogger';
+
+import PUBLISH_ERROR_BODY from '@salesforce/label/c.EventMonitor_Publish_ErrorBody';
+import PUBLISH_ERROR_TITLE from '@salesforce/label/c.EventMonitor_Publish_ErrorTitle';
+import PUBLISH_SUCCESS_BODY from '@salesforce/label/c.EventMonitor_Publish_SuccessBody';
+import PUBLISH_SUCCESS_TITLE from '@salesforce/label/c.EventMonitor_Publish_SuccessTitle';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -81,6 +88,18 @@ function classifyStreamingError(error, isErrorSuppressed)
 	}
 
 	return {showToast: true, errorMessage: defaultMessage};
+}
+
+/**
+ * @description Substitutes the single `{0}` placeholder in a label template.
+ *
+ * @param {string} template - The label text containing `{0}`.
+ * @param {string} value - The replacement value.
+ * @returns {string} The interpolated string.
+ */
+function formatLabel(template, value)
+{
+	return template.replace('{0}', value);
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -345,7 +364,10 @@ export default class StreamingMonitor extends LightningElement
 	}
 
 	/**
-	 * @description Publishes a platform event or CDC test event.
+	 * @description Publishes a platform event or CDC test event. Toast text is label-sourced, and
+	 * the error toast surfaces the Apex AuraHandledException message (`error.body.message` — itself
+	 * label-sourced by CTRL_EventMonitor) so the user sees the specific, translatable reason rather
+	 * than a generic failure line.
 	 *
 	 * @param {CustomEvent} event - Contains eventType, eventName, and eventPayload.
 	 */
@@ -355,13 +377,13 @@ export default class StreamingMonitor extends LightningElement
 		try
 		{
 			await publishStreamingEvent(eventParams);
-			this.notify('success', 'Event published', `Successfully published event ${eventParams.eventName}`);
+			this.notify('success', PUBLISH_SUCCESS_TITLE, formatLabel(PUBLISH_SUCCESS_BODY, eventParams.eventName));
 			this.view = VIEW_MODES.MONITOR;
 		}
 		catch(error)
 		{
 			utilityLogger.error(`Failed to publish ${eventParams.eventName}`, error);
-			this.notify('error', 'Publish failed', `Failed to publish ${eventParams.eventName}`);
+			this.notify('error', PUBLISH_ERROR_TITLE, error?.body?.message || formatLabel(PUBLISH_ERROR_BODY, eventParams.eventName));
 		}
 	}
 

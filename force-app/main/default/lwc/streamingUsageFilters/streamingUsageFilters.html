@@ -3,39 +3,64 @@
 <!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
-	<div class="filters slds-grid slds-wrap slds-grid_vertical-align-center">
-		<!-- After time -->
-		<div class="slds-col slds-size_3-of-12 slds-m-bottom_small">
-			<lightning-input checked={afterTimeEnabled} class="toggle" label="Include events after" onchange={handleAfterTimeToggle} type="toggle"></lightning-input>
-		</div>
-		<div class="slds-size_9-of-12 slds-m-bottom_small">
-			<lightning-input disabled={afterTimeDisabled} label="After time" onchange={handleAfterTimeChange} type="datetime" value={afterTime}
-			                 variant="label-hidden"></lightning-input>
-		</div>
+	<div class="filters">
+		<div class="ctl-row slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small">
+			<!-- Granularity -->
+			<div class="slds-col slds-form-element">
+				<label class="slds-form-element__label">{labels.granularityLabel}</label>
+				<div aria-label={labels.granularityLabel} class="seg-group" role="group">
+					<button aria-pressed={dailyPressed} class="seg-btn" data-segment="Daily" data-spec-id="usage-granularity-daily" onclick={handleSegmentClick}>
+						{labels.granularityDaily}
+					</button>
+					<button aria-pressed={hourlyPressed} class="seg-btn" data-segment="Hourly" data-spec-id="usage-granularity-hourly" disabled={enhancedDisabled}
+					        onclick={handleSegmentClick}>{labels.granularityHourly}
+					</button>
+					<button aria-pressed={fifteenPressed} class="seg-btn" data-segment="FifteenMinutes" data-spec-id="usage-granularity-fifteen" disabled={enhancedDisabled}
+					        onclick={handleSegmentClick}>{labels.granularityFifteenMinutes}
+					</button>
+				</div>
+			</div>
 
-		<!-- Before time -->
-		<div class="slds-col slds-size_3-of-12">
-			<lightning-input checked={beforeTimeEnabled} class="toggle" label="Include events before" onchange={handleBeforeTimeToggle} type="toggle"></lightning-input>
-		</div>
-		<div class="slds-size_9-of-12">
-			<lightning-input disabled={beforeTimeDisabled} label="Before time" onchange={handleBeforeTimeChange} type="datetime" value={beforeTime}
-			                 variant="label-hidden"></lightning-input>
-		</div>
+			<!-- Date-range preset -->
+			<div class="slds-col slds-form-element">
+				<lightning-combobox data-spec-id="usage-range-preset" label={labels.dateRangeLabel} onchange={handlePresetChange} options={presetOptions}
+				                    value={preset}></lightning-combobox>
+			</div>
 
-		<!-- Event types -->
-		<div class="event-types slds-p-top_medium">
-			<template for:each={eventTypeOptions} for:item="eventType">
-				<div class="event-type slds-m-right_x-large" key={eventType.index}>
-					<span class="dot slds-m-right_xx-small" style={eventType.style}></span>
-					<lightning-input checked={eventType.checked} data-index={eventType.index} label={eventType.label} message-toggle-active="Displayed"
-					                 message-toggle-inactive="Hidden" onchange={handleEventTypeToggle} type="toggle"></lightning-input>
+			<!-- Custom range -->
+			<template lwc:if={showCustomRange}>
+				<div class="slds-col slds-form-element">
+					<lightning-input data-spec-id="usage-range-from" label={labels.dateRangeFrom} onchange={handleCustomFromChange} type="datetime"
+					                 value={customFrom}></lightning-input>
+				</div>
+				<div class="slds-col slds-form-element">
+					<lightning-input data-spec-id="usage-range-to" label={labels.dateRangeTo} onchange={handleCustomToChange} type="datetime" value={customTo}></lightning-input>
 				</div>
 			</template>
 		</div>
 
-		<!-- Reset -->
-		<div class="slds-col slds-size_12-of-12 slds-align_absolute-center slds-m-top_small">
-			<lightning-button label="Clear filters" onclick={handleClearFilters}></lightning-button>
+		<!-- Inline range error -->
+		<template lwc:if={hasRangeError}>
+			<div class="inline-error slds-text-color_error slds-m-top_xx-small" data-spec-id="usage-range-error" role="alert">{rangeError}</div>
+		</template>
+
+		<!-- Enhanced-usage notice -->
+		<template lwc:if={showEnhancedNotice}>
+			<c-notice data-spec-id="usage-enhanced-notice">
+				<span>{labels.enhancedNoticeBody}</span>
+				<a href={enhancedDocsUrl} rel="noopener noreferrer" target="_blank">{labels.enhancedNoticeLinkLabel}</a>
+			</c-notice>
+		</template>
+
+		<!-- Legend -->
+		<div class="legend slds-m-top_small" data-spec-id="usage-legend">
+			<template for:each={chips} for:item="chip">
+				<button aria-pressed={chip.ariaPressed} class="chip" data-index={chip.index} data-spec-id="usage-legend-chip" key={chip.index} onclick={handleChipToggle}>
+					<span class="dot" style={chip.style}></span>
+					<span class="chip-label">{chip.label}</span>
+					<span class="cnt">{chip.total}</span>
+				</button>
+			</template>
 		</div>
 	</div>
 </template>

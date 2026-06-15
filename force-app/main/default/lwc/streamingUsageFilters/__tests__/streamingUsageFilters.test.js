@@ -4,13 +4,27 @@
 // Modifications copyright (c) 2026 JVB Consulting
 
 /**
- * @description Jest unit tests for streamingUsageFilters LWC component
+ * @description Jest unit tests for the streamingUsageFilters LWC component — the Event Usage Metrics
+ * filter controls: a granularity segmented control, date-range presets with a custom From/To range,
+ * legend chips, and the enhanced-usage notice. Under sfdx-lwc-jest custom labels resolve to their id
+ * strings, so assertions target `data-spec-id` hooks and dispatched events rather than display text.
+ *
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date June 2026
  */
-
 import {createElement} from 'lwc';
-import LwcEventUsageMetricsFilters from 'c/streamingUsageFilters';
+import StreamingUsageFilters from 'c/streamingUsageFilters';
+import VALIDATION_FROM_BEFORE_TO from '@salesforce/label/c.EventUsageMetrics_Validation_FromBeforeTo';
+import VALIDATION_RANGE_TOO_NARROW from '@salesforce/label/c.EventUsageMetrics_Validation_RangeTooNarrow';
+import VALIDATION_RANGE_TOO_WIDE from '@salesforce/label/c.EventUsageMetrics_Validation_RangeTooWide';
+
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const MILLISECONDS_PER_DAY = 24 * MILLISECONDS_PER_HOUR;
+
+const EVENT_TYPES = [
+	{index: 0, name: 'PLATFORM_EVENTS_PUBLISHED', label: 'Platform Events Published', color: '#0176D3', total: 42},
+	{index: 1, name: 'CDC_EVENTS_PUBLISHED', label: 'Change Data Capture', color: '#2E844A', total: 17}
+];
 
 describe('streamingUsageFilters', () =>
 {
@@ -24,694 +38,501 @@ describe('streamingUsageFilters', () =>
 	});
 
 	/**
-	 * @description Helper to find lightning-input by label
-	 * @param {Element} root
-	 * @param {string} label
+	 * @description Creates and inserts the component with sensible defaults.
+	 * @param {Object} [overrides] - Optional `eventTypes` / `enhanced` overrides.
+	 * @returns {Element} The inserted component element.
+	 */
+	function createFilters({eventTypes = EVENT_TYPES, enhanced = true} = {})
+	{
+		const element = createElement('c-streaming-usage-filters', {is: StreamingUsageFilters});
+		element.eventTypes = eventTypes;
+		element.isEnhancedUsageMetricEnabled = enhanced;
+		document.body.appendChild(element);
+		return element;
+	}
+
+	/**
+	 * @description Finds the first descendant carrying the given data-spec-id.
+	 * @param {Element} element - The host component.
+	 * @param {string} id - The data-spec-id value.
 	 * @returns {Element|null}
 	 */
-	function findInputByLabel(root, label)
+	function spec(element, id)
 	{
-		const inputs = root.querySelectorAll('lightning-input');
-		for(const input of inputs)
-		{
-			if(input.label === label)
-			{
-				return input;
-			}
-		}
-		return null;
+		return element.shadowRoot.querySelector(`[data-spec-id="${id}"]`);
 	}
 
 	/**
-	 * @description Simulate toggle change event
-	 * @param {Element} toggleInput
-	 * @param {boolean} checked
+	 * @description Finds every descendant carrying the given data-spec-id.
+	 * @param {Element} element - The host component.
+	 * @param {string} id - The data-spec-id value.
+	 * @returns {NodeList}
 	 */
-	function simulateToggle(toggleInput, checked)
+	function specAll(element, id)
 	{
-		// Mock the target.checked for the handler
-		Object.defineProperty(toggleInput, 'checked', {value: checked, writable: true});
-		toggleInput.dispatchEvent(new CustomEvent('change', {
-			bubbles: true, composed: true
-		}));
+		return element.shadowRoot.querySelectorAll(`[data-spec-id="${id}"]`);
 	}
 
 	/**
-	 * @description Simulate datetime change event
-	 * @param {Element} datetimeInput
-	 * @param {string} value
+	 * @description Dispatches a `change` event carrying a `detail.value`, matching how
+	 * lightning-combobox / lightning-input surface user input.
+	 * @param {Element} node - The control to change.
+	 * @param {string} value - The new value.
 	 */
-	function simulateDatetimeChange(datetimeInput, value)
+	function changeValue(node, value)
 	{
-		datetimeInput.dispatchEvent(new CustomEvent('change', {
-			bubbles: true, composed: true, detail: {value}
-		}));
+		node.dispatchEvent(new CustomEvent('change', {detail: {value}}));
 	}
 
-	describe('connectedCallback', () =>
+	/**
+	 * @description Returns the detail of the most recent call to a jest handler.
+	 * @param {jest.Mock} handler - The event handler spy.
+	 * @returns {Object}
+	 */
+	function lastDetail(handler)
 	{
-		it('should initialize beforeTime to current top-of-hour', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
+		return handler.mock.calls[handler.mock.calls.length - 1][0].detail;
+	}
 
-			// beforeTime should be set to current hour (minutes = 0)
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			expect(beforeTimeInput.value).toBeDefined();
-			const beforeDate = new Date(beforeTimeInput.value);
-			expect(beforeDate.getMinutes()).toBe(0);
+	it('renders Daily pressed, the 30-day preset, no custom inputs, no notice, and one pressed chip per event type', async() =>
+	{
+		const element = createFilters();
+		await Promise.resolve();
+
+		expect(spec(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
+		expect(spec(element, 'usage-granularity-hourly').getAttribute('aria-pressed')).toBe('false');
+		expect(spec(element, 'usage-granularity-fifteen').getAttribute('aria-pressed')).toBe('false');
+
+		expect(spec(element, 'usage-range-preset').value).toBe('P30D');
+
+		expect(spec(element, 'usage-range-from')).toBeNull();
+		expect(spec(element, 'usage-range-to')).toBeNull();
+		expect(spec(element, 'usage-enhanced-notice')).toBeNull();
+
+		const chips = specAll(element, 'usage-legend-chip');
+		expect(chips.length).toBe(EVENT_TYPES.length);
+		chips.forEach((chip) => expect(chip.getAttribute('aria-pressed')).toBe('true'));
+	});
+
+	it('dispatches searchfilterchange with a 24-hour range when Hourly is selected', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+
+		expect(searchHandler).toHaveBeenCalledTimes(1);
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('Hourly');
+		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
+		expect(spanMs).toBe(24 * MILLISECONDS_PER_HOUR);
+		expect(spec(element, 'usage-range-preset').value).toBe('P1D');
+	});
+
+	it('dispatches searchfilterchange with a 1-hour range and the LastHour preset when 15 minutes is selected', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		spec(element, 'usage-granularity-fifteen').click();
+		await Promise.resolve();
+
+		expect(searchHandler).toHaveBeenCalledTimes(1);
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('FifteenMinutes');
+		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
+		expect(spanMs).toBe(MILLISECONDS_PER_HOUR);
+		expect(spec(element, 'usage-range-preset').value).toBe('PT1H');
+	});
+
+	it('disables Hourly and 15-minute, shows the enhanced notice, and still emits for Daily when enhanced metrics are off', async() =>
+	{
+		const element = createFilters({enhanced: false});
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		expect(spec(element, 'usage-granularity-hourly').disabled).toBe(true);
+		expect(spec(element, 'usage-granularity-fifteen').disabled).toBe(true);
+		expect(spec(element, 'usage-enhanced-notice')).not.toBeNull();
+
+		spec(element, 'usage-granularity-daily').click();
+		await Promise.resolve();
+
+		expect(searchHandler).toHaveBeenCalledTimes(1);
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('Daily');
+		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
+		expect(spanMs).toBe(30 * MILLISECONDS_PER_DAY);
+	});
+
+	it('dispatches searchfilterchange with a 7-day range when the 7-day preset is chosen under Daily', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		changeValue(spec(element, 'usage-range-preset'), 'P7D');
+		await Promise.resolve();
+
+		expect(searchHandler).toHaveBeenCalledTimes(1);
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('Daily');
+		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
+		expect(spanMs).toBe(7 * MILLISECONDS_PER_DAY);
+	});
+
+	it('reveals From/To for the custom preset and shows an inline error without emitting when From is not before To', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+
+		expect(spec(element, 'usage-range-from')).not.toBeNull();
+		expect(spec(element, 'usage-range-to')).not.toBeNull();
+		searchHandler.mockClear();
+
+		// Seeded To is "now"; a From in the far future is never before it.
+		changeValue(spec(element, 'usage-range-from'), '2099-01-01T00:00:00.000Z');
+		await Promise.resolve();
+
+		// Assert the specific From-before-To message so the test cannot pass via the wrong branch.
+		expect(spec(element, 'usage-range-error').textContent).toBe(VALIDATION_FROM_BEFORE_TO);
+		expect(searchHandler).not.toHaveBeenCalled();
+	});
+
+	it('dispatches searchfilterchange with the ISO custom range and clears the error when From/To are valid', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+
+		// Spans four-plus days: above the Daily one-bucket minimum, below the 30-day maximum.
+		const fromIso = '2026-06-01T10:00:00.000Z';
+		const toIso = '2026-06-05T12:00:00.000Z';
+		changeValue(spec(element, 'usage-range-from'), fromIso);
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-to'), toIso);
+		await Promise.resolve();
+
+		// The final (To) change must be the emit we assert on: endDate === toIso only holds if the
+		// To-change actually dispatched, so a regression that stopped emitting there cannot pass.
+		expect(searchHandler).toHaveBeenCalled();
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('Daily');
+		expect(detail.startDate).toBe(fromIso);
+		expect(detail.endDate).toBe(toIso);
+		expect(spec(element, 'usage-range-error')).toBeNull();
+	});
+
+	it('shows the range-too-wide error and does not emit when the custom span exceeds the 15-minute window', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		spec(element, 'usage-granularity-fifteen').click();
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+		searchHandler.mockClear();
+
+		// Two-hour span (valid order, but exceeds the 1-hour FifteenMinutes maximum).
+		changeValue(spec(element, 'usage-range-to'), '2026-06-05T12:00:00.000Z');
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-from'), '2026-06-05T10:00:00.000Z');
+		await Promise.resolve();
+
+		// Assert the range-too-wide message specifically (the From-before-To label resolves to a
+		// distinct id under sfdx-lwc-jest), so a regression in the span check cannot hide behind the
+		// order check.
+		const errorText = spec(element, 'usage-range-error').textContent;
+		expect(errorText).toBe(VALIDATION_RANGE_TOO_WIDE);
+		expect(errorText).not.toBe(VALIDATION_FROM_BEFORE_TO);
+		expect(searchHandler).not.toHaveBeenCalled();
+	});
+
+	it('shows the range-too-narrow error and does not emit when the custom span is shorter than one hourly bucket', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+		searchHandler.mockClear();
+
+		// 51-minute span — valid order, inside the 24-hour maximum, but shorter than one hourly
+		// bucket. The platform rejects such queries (live-verified TimeSegmentValueTooLargeException),
+		// so the client must catch it inline instead of surfacing a generic server error.
+		changeValue(spec(element, 'usage-range-to'), '2026-06-05T14:15:00.000Z');
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
+		await Promise.resolve();
+
+		// Assert the range-too-narrow message specifically so a regression in the minimum check
+		// cannot hide behind the order or maximum checks.
+		const errorText = spec(element, 'usage-range-error').textContent;
+		expect(errorText).toBe(VALIDATION_RANGE_TOO_NARROW);
+		expect(errorText).not.toBe(VALIDATION_FROM_BEFORE_TO);
+		expect(errorText).not.toBe(VALIDATION_RANGE_TOO_WIDE);
+		expect(searchHandler).not.toHaveBeenCalled();
+	});
+
+	it('dispatches searchfilterchange when the custom span is exactly one bucket wide (inclusive minimum)', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+		searchHandler.mockClear();
+
+		// Exactly 60 minutes — the platform accepts a span equal to one bucket (live-verified), so
+		// the inclusive boundary must pass validation and emit.
+		changeValue(spec(element, 'usage-range-to'), '2026-06-05T14:24:00.000Z');
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
+		await Promise.resolve();
+
+		expect(spec(element, 'usage-range-error')).toBeNull();
+		expect(searchHandler).toHaveBeenCalled();
+		const detail = lastDetail(searchHandler);
+		expect(detail.startDate).toBe('2026-06-05T13:24:00.000Z');
+		expect(detail.endDate).toBe('2026-06-05T14:24:00.000Z');
+	});
+
+	it('dispatches displayfilterchange with the toggled boolean array when a legend chip is clicked', async() =>
+	{
+		const element = createFilters();
+		const displayHandler = jest.fn();
+		element.addEventListener('displayfilterchange', displayHandler);
+		await Promise.resolve();
+
+		specAll(element, 'usage-legend-chip')[0].click();
+		await Promise.resolve();
+
+		expect(displayHandler).toHaveBeenCalledTimes(1);
+		expect(lastDetail(displayHandler).visibleTypes).toEqual([
+			false,
+			true
+		]);
+
+		specAll(element, 'usage-legend-chip')[0].click();
+		await Promise.resolve();
+
+		expect(displayHandler).toHaveBeenCalledTimes(2);
+		expect(lastDetail(displayHandler).visibleTypes).toEqual([
+			true,
+			true
+		]);
+	});
+
+	it('discards the custom range and emits the snapped preset range when granularity changes while Custom is active', async() =>
+	{
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		await Promise.resolve();
+
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+		expect(spec(element, 'usage-range-from')).not.toBeNull();
+		searchHandler.mockClear();
+
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+
+		expect(spec(element, 'usage-range-from')).toBeNull();
+		expect(spec(element, 'usage-range-to')).toBeNull();
+		expect(spec(element, 'usage-range-preset').value).toBe('P1D');
+
+		expect(searchHandler).toHaveBeenCalledTimes(1);
+		const detail = lastDetail(searchHandler);
+		expect(detail.timeSegment).toBe('Hourly');
+		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
+		expect(spanMs).toBe(24 * MILLISECONDS_PER_HOUR);
+	});
+
+	it('gates the offered presets to the current granularity window', async() =>
+	{
+		const element = createFilters();
+		await Promise.resolve();
+
+		const valuesOf = () => spec(element, 'usage-range-preset').options.map((option) => option.value);
+
+		// Last Hour is excluded under Daily: a one-hour span is below the one-day platform minimum,
+		// so offering it would hand the user a preset that is guaranteed to fail validation.
+		expect(valuesOf()).toEqual([
+			'P1D',
+			'P7D',
+			'P30D',
+			'CUSTOM'
+		]);
+
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+		expect(valuesOf()).toEqual([
+			'PT1H',
+			'P1D',
+			'CUSTOM'
+		]);
+
+		spec(element, 'usage-granularity-fifteen').click();
+		await Promise.resolve();
+		expect(valuesOf()).toEqual([
+			'PT1H',
+			'CUSTOM'
+		]);
+	});
+
+	it('renders legend chips as buttons and granularity controls with aria-pressed for accessibility', async() =>
+	{
+		const element = createFilters();
+		await Promise.resolve();
+
+		specAll(element, 'usage-legend-chip').forEach((chip) =>
+		{
+			expect(chip.tagName).toBe('BUTTON');
+			expect(chip.getAttribute('aria-pressed')).not.toBeNull();
 		});
 
-		it('should initialize afterTime to 24 hours before beforeTime', async() =>
+		[
+			'usage-granularity-daily',
+			'usage-granularity-hourly',
+			'usage-granularity-fifteen'
+		].forEach((id) =>
 		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			const afterTimeInput = findInputByLabel(element.shadowRoot, 'After time');
-
-			const beforeDate = new Date(beforeTimeInput.value);
-			const afterDate = new Date(afterTimeInput.value);
-
-			// afterTime should be exactly 24 hours before beforeTime
-			const diffMs = beforeDate.getTime() - afterDate.getTime();
-			expect(diffMs).toBe(24 * 60 * 60 * 1000);
-		});
-
-		it('should start with both time toggles unchecked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-
-			expect(afterToggle.checked).toBeFalsy();
-			expect(beforeToggle.checked).toBeFalsy();
+			expect(spec(element, id).getAttribute('aria-pressed')).not.toBeNull();
 		});
 	});
 
-	describe('eventTypes API', () =>
+	it('exposes event types through the getter and preserves chip visibility by series name when eventTypes is reassigned', async() =>
 	{
-		it('should transform event types with style and checked=true', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
+		const element = createFilters();
+		await Promise.resolve();
 
-			element.eventTypes = [
-				{label: 'Type A', value: 'type_a', color: '#FF0000', index: 0},
-				{label: 'Type B', value: 'type_b', color: '#00FF00', index: 1}
-			];
-			await Promise.resolve();
+		// Hide the first series, then re-supply event types (a refetch) — the setter must keep the
+		// hidden chip hidden instead of silently snapping every series back to visible.
+		specAll(element, 'usage-legend-chip')[0].click();
+		await Promise.resolve();
+		expect(specAll(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
 
-			// Check that event type toggles are rendered
-			const eventTypeToggles = element.shadowRoot.querySelectorAll('.event-type lightning-input');
-			expect(eventTypeToggles.length).toBe(2);
-			expect(eventTypeToggles[0].label).toBe('Type A');
-			expect(eventTypeToggles[0].checked).toBe(true);
-			expect(eventTypeToggles[1].label).toBe('Type B');
-			expect(eventTypeToggles[1].checked).toBe(true);
-		});
+		element.eventTypes = [...EVENT_TYPES];
+		await Promise.resolve();
 
-		it('should apply color as background-color style', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-
-			element.eventTypes = [{label: 'Test', value: 'test', color: '#123456', index: 0}];
-			await Promise.resolve();
-
-			const colorDot = element.shadowRoot.querySelector('.dot');
-			expect(colorDot.style.cssText).toContain('background-color');
-		});
-
-		it('should return eventTypeOptions from getter', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-
-			element.eventTypes = [{label: 'Test', value: 'test', color: '#123456', index: 0}];
-			await Promise.resolve();
-
-			const result = element.eventTypes;
-			expect(result.length).toBe(1);
-			expect(result[0].label).toBe('Test');
-			expect(result[0].checked).toBe(true);
-			expect(result[0].style).toBe('background-color: #123456;');
-		});
+		expect(element.eventTypes).toEqual(EVENT_TYPES);
+		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+			'false',
+			'true'
+		]);
 	});
 
-	describe('time toggle handlers', () =>
+	it('defaults a series name it has not seen before to visible while keeping prior selections', async() =>
 	{
-		it('should enable afterTime filter when toggle is checked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
+		const element = createFilters();
+		await Promise.resolve();
 
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
+		specAll(element, 'usage-legend-chip')[0].click();
+		await Promise.resolve();
 
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
+		element.eventTypes = [
+			EVENT_TYPES[0],
+			EVENT_TYPES[1],
+			{index: 2, name: 'STANDARD_VOLUME_EVENTS_PUBLISHED', label: 'Standard Volume Events Published', color: '#9050E9', total: 3}
+		];
+		await Promise.resolve();
 
-			expect(filterChangeHandler).toHaveBeenCalled();
-			const detail = filterChangeHandler.mock.calls[0][0].detail;
-			expect(detail.afterTime).toBeDefined();
-		});
-
-		it('should enable beforeTime filter when toggle is checked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-
-			expect(filterChangeHandler).toHaveBeenCalled();
-			const detail = filterChangeHandler.mock.calls[0][0].detail;
-			expect(detail.beforeTime).toBeDefined();
-		});
-
-		it('should return undefined afterTime when toggle is unchecked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-
-			// First enable then disable
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
-			simulateToggle(afterToggle, false);
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.afterTime).toBeUndefined();
-		});
-
-		it('should return undefined beforeTime when toggle is unchecked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-			simulateToggle(beforeToggle, false);
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.beforeTime).toBeUndefined();
-		});
+		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+			'false',
+			'true',
+			'true'
+		]);
 	});
 
-	describe('time change handlers', () =>
+	it('drops the remembered state of a vanished series so it returns visible', async() =>
 	{
-		it('should update afterTime on change', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
+		const element = createFilters();
+		await Promise.resolve();
 
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
+		specAll(element, 'usage-legend-chip')[1].click();
+		await Promise.resolve();
 
-			// Enable afterTime filter first
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
+		element.eventTypes = [EVENT_TYPES[0]];
+		await Promise.resolve();
+		expect(specAll(element, 'usage-legend-chip').length).toBe(1);
 
-			const afterTimeInput = findInputByLabel(element.shadowRoot, 'After time');
-			const newTime = '2025-01-15T10:00:00.000Z';
-			simulateDatetimeChange(afterTimeInput, newTime);
-			await Promise.resolve();
+		element.eventTypes = [...EVENT_TYPES];
+		await Promise.resolve();
 
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.afterTime).toBe(new Date(newTime).getTime());
-		});
-
-		it('should update beforeTime on change', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			// Enable beforeTime filter first
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			const newTime = '2025-01-20T15:00:00.000Z';
-			simulateDatetimeChange(beforeTimeInput, newTime);
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.beforeTime).toBe(new Date(newTime).getTime());
-		});
+		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+			'true',
+			'true'
+		]);
 	});
 
-	describe('event type toggle handler', () =>
+	it('renders without event types and without crashing', async() =>
 	{
-		it('should toggle event type selection', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
+		const element = createElement('c-streaming-usage-filters', {is: StreamingUsageFilters});
+		element.eventTypes = null;
+		document.body.appendChild(element);
+		await Promise.resolve();
 
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-
-			element.eventTypes = [
-				{label: 'Type A', value: 'type_a', color: '#FF0000', index: 0},
-				{label: 'Type B', value: 'type_b', color: '#00FF00', index: 1}
-			];
-			await Promise.resolve();
-
-			// Toggle first event type off
-			const eventTypeToggles = element.shadowRoot.querySelectorAll('.event-type lightning-input');
-			const firstToggle = eventTypeToggles[0];
-			Object.defineProperty(firstToggle, 'checked', {value: false, writable: true});
-			Object.defineProperty(firstToggle, 'dataset', {value: {index: '0'}, writable: true});
-			firstToggle.dispatchEvent(new CustomEvent('change', {bubbles: true, composed: true}));
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.eventTypes).toEqual([
-				false,
-				true
-			]);
-		});
-
-		it('should maintain other event types when one is toggled', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-
-			element.eventTypes = [
-				{label: 'Type A', value: 'type_a', color: '#FF0000', index: 0},
-				{label: 'Type B', value: 'type_b', color: '#00FF00', index: 1},
-				{label: 'Type C', value: 'type_c', color: '#0000FF', index: 2}
-			];
-			await Promise.resolve();
-
-			// Toggle second event type off
-			const eventTypeToggles = element.shadowRoot.querySelectorAll('.event-type lightning-input');
-			const secondToggle = eventTypeToggles[1];
-			Object.defineProperty(secondToggle, 'checked', {value: false, writable: true});
-			Object.defineProperty(secondToggle, 'dataset', {value: {index: '1'}, writable: true});
-			secondToggle.dispatchEvent(new CustomEvent('change', {bubbles: true, composed: true}));
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.eventTypes).toEqual([
-				true,
-				false,
-				true
-			]);
-		});
+		expect(specAll(element, 'usage-legend-chip').length).toBe(0);
+		expect(spec(element, 'usage-granularity-daily')).not.toBeNull();
 	});
 
-	describe('handleClearFilters', () =>
+	it('reset() restores the Daily default, clears the custom range, re-shows every chip, and does not emit', async() =>
 	{
-		it('should reset hasBeforeTime and hasAfterTime to false', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
+		const element = createFilters();
+		const searchHandler = jest.fn();
+		const displayHandler = jest.fn();
+		element.addEventListener('searchfilterchange', searchHandler);
+		element.addEventListener('displayfilterchange', displayHandler);
+		await Promise.resolve();
 
-			// Enable both toggles first
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			simulateToggle(beforeToggle, true);
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
+		// Drive the controls off their defaults: switch to Hourly, then enter a custom range and hide a chip.
+		spec(element, 'usage-granularity-hourly').click();
+		await Promise.resolve();
+		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		await Promise.resolve();
+		specAll(element, 'usage-legend-chip')[0].click();
+		await Promise.resolve();
+		expect(spec(element, 'usage-range-from')).not.toBeNull();
+		expect(specAll(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
+		searchHandler.mockClear();
+		displayHandler.mockClear();
 
-			// Clear filters via button click
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
+		element.reset();
+		await Promise.resolve();
 
-			// Time inputs should be disabled
-			const afterTimeInput = findInputByLabel(element.shadowRoot, 'After time');
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			expect(afterTimeInput.disabled).toBe(true);
-			expect(beforeTimeInput.disabled).toBe(true);
-		});
-
-		it('should reset beforeTime and afterTime to undefined', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.beforeTime).toBeUndefined();
-			expect(lastCall.detail.afterTime).toBeUndefined();
-		});
-
-		it('should reset all event types to checked=true', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-
-			element.eventTypes = [
-				{label: 'Type A', value: 'type_a', color: '#FF0000', index: 0},
-				{label: 'Type B', value: 'type_b', color: '#00FF00', index: 1}
-			];
-			await Promise.resolve();
-
-			// Toggle both off via DOM
-			const eventTypeToggles = element.shadowRoot.querySelectorAll('.event-type lightning-input');
-			for(let i = 0; i < eventTypeToggles.length; i++)
-			{
-				const toggle = eventTypeToggles[i];
-				Object.defineProperty(toggle, 'checked', {value: false, writable: true});
-				Object.defineProperty(toggle, 'dataset', {value: {index: String(i)}, writable: true});
-				toggle.dispatchEvent(new CustomEvent('change', {bubbles: true, composed: true}));
-			}
-			await Promise.resolve();
-
-			// Clear filters
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.eventTypes).toEqual([
-				true,
-				true
-			]);
-		});
-
-		it('should dispatch filterchange event', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
-
-			expect(filterChangeHandler).toHaveBeenCalled();
-		});
-	});
-
-	describe('disabled getters', () =>
-	{
-		it('should return true for afterTimeDisabled when hasAfterTime is false', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const afterTimeInput = findInputByLabel(element.shadowRoot, 'After time');
-			expect(afterTimeInput.disabled).toBe(true);
-		});
-
-		it('should return false for afterTimeDisabled when hasAfterTime is true', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
-
-			const afterTimeInput = findInputByLabel(element.shadowRoot, 'After time');
-			expect(afterTimeInput.disabled).toBe(false);
-		});
-
-		it('should return true for beforeTimeDisabled when hasBeforeTime is false', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			expect(beforeTimeInput.disabled).toBe(true);
-		});
-
-		it('should return false for beforeTimeDisabled when hasBeforeTime is true', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			expect(beforeTimeInput.disabled).toBe(false);
-		});
-	});
-
-	describe('filterchange event', () =>
-	{
-		it('should include all filter properties in event detail', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-
-			element.eventTypes = [{label: 'Test', value: 'test', color: '#FF0000', index: 0}];
-			await Promise.resolve();
-
-			// Enable both time filters
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			const afterToggle = findInputByLabel(element.shadowRoot, 'Include events after');
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-			simulateToggle(afterToggle, true);
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail).toHaveProperty('beforeTime');
-			expect(lastCall.detail).toHaveProperty('afterTime');
-			expect(lastCall.detail).toHaveProperty('eventTypes');
-			expect(lastCall.detail.eventTypes).toEqual([true]);
-		});
-
-		it('should convert ISO timestamp to epoch milliseconds', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			// Enable and set time
-			const beforeToggle = findInputByLabel(element.shadowRoot, 'Include events before');
-			simulateToggle(beforeToggle, true);
-			await Promise.resolve();
-
-			const beforeTimeInput = findInputByLabel(element.shadowRoot, 'Before time');
-			const isoTime = '2025-01-15T12:00:00.000Z';
-			simulateDatetimeChange(beforeTimeInput, isoTime);
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.beforeTime).toBe(new Date(isoTime).getTime());
-		});
-
-		it('should return empty eventTypes array when none set', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			// Trigger a filter change
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
-
-			const lastCall = filterChangeHandler.mock.calls[filterChangeHandler.mock.calls.length - 1][0];
-			expect(lastCall.detail.eventTypes).toEqual([]);
-		});
-	});
-
-	describe('clear filters button', () =>
-	{
-		it('should render clear filters button', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			expect(clearButton).not.toBeNull();
-			expect(clearButton.label).toBe('Clear filters');
-		});
-
-		it('should call handleClearFilters when clicked', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-
-			const filterChangeHandler = jest.fn();
-			element.addEventListener('filterchange', filterChangeHandler);
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const clearButton = element.shadowRoot.querySelector('lightning-button');
-			clearButton.click();
-			await Promise.resolve();
-
-			expect(filterChangeHandler).toHaveBeenCalled();
-		});
-	});
-
-	describe('rendering', () =>
-	{
-		it('should render all toggle inputs', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			expect(findInputByLabel(element.shadowRoot, 'Include events after')).not.toBeNull();
-			expect(findInputByLabel(element.shadowRoot, 'Include events before')).not.toBeNull();
-		});
-
-		it('should render datetime inputs', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			expect(findInputByLabel(element.shadowRoot, 'After time')).not.toBeNull();
-			expect(findInputByLabel(element.shadowRoot, 'Before time')).not.toBeNull();
-		});
-
-		it('should render event type toggles with color dots', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-
-			element.eventTypes = [
-				{label: 'Type A', value: 'type_a', color: '#FF0000', index: 0}
-			];
-			await Promise.resolve();
-
-			const dots = element.shadowRoot.querySelectorAll('.dot');
-			expect(dots.length).toBe(1);
-		});
-
-		it('should render grid layout', async() =>
-		{
-			const element = createElement('c-streaming-usage-filters', {
-				is: LwcEventUsageMetricsFilters
-			});
-			document.body.appendChild(element);
-			await Promise.resolve();
-
-			const grid = element.shadowRoot.querySelector('.slds-grid');
-			expect(grid).not.toBeNull();
-		});
+		expect(spec(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
+		expect(spec(element, 'usage-range-preset').value).toBe('P30D');
+		expect(spec(element, 'usage-range-from')).toBeNull();
+		specAll(element, 'usage-legend-chip').forEach((chip) => expect(chip.getAttribute('aria-pressed')).toBe('true'));
+		expect(searchHandler).not.toHaveBeenCalled();
+		expect(displayHandler).not.toHaveBeenCalled();
 	});
 });

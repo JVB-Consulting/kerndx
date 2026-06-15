@@ -5,31 +5,194 @@
 
 c-streaming-usage-filters
 {
-	display        : block;
-	margin         : 0 auto;
-	padding-bottom : 1rem;
+	display : block;
 }
 
-circle:hover
+/* View switch (chart / table) */
+.view-switch .seg-group
 {
+	display : inline-flex;
+}
+
+.seg-btn
+{
+	appearance  : none;
+	background  : #FFFFFF;
+	border      : 1px solid #C9C9C9;
+	color       : #0176D3;
+	cursor      : pointer;
+	font-family : inherit;
+	font-size   : 12.5px;
+	font-weight : 600;
+	margin-left : -1px;
+	padding     : 6px 14px;
+}
+
+.seg-btn:first-child
+{
+	border-radius : 4px 0 0 4px;
+	margin-left   : 0;
+}
+
+.seg-btn:last-child
+{
+	border-radius : 0 4px 4px 0;
+}
+
+.seg-btn[aria-pressed="true"]
+{
+	background   : #0176D3;
+	border-color : #0176D3;
+	color        : #FFFFFF;
+}
+
+/* Chart */
+.chart-host
+{
+	position : relative;
+}
+
+.usage-chart
+{
+	display : block;
+	width   : 100%;
+}
+
+.bar
+{
+	transition : opacity 100ms;
+}
+
+.bar:hover
+{
+	opacity      : 0.75;
 	stroke       : #000000;
-	stroke-width : 1px;
+	stroke-width : 0.5;
 }
 
-/*noinspection CssUnusedSymbol*/
-.tooltip
+.gridline
 {
-	background     : #000000;
-	color          : #FFFFFF;
-	padding        : 4px;
+	stroke : #F0F0F0;
+}
+
+.axis-baseline
+{
+	stroke : #C9C7C5;
+}
+
+.axis-label
+{
+	fill      : #706E6B;
+	font-size : 10.5px;
+}
+
+/* Hover tooltip */
+.tooltip-new
+{
+	background     : #FFFFFF;
+	border         : 1px solid #C9C7C5;
+	border-radius  : 6px;
+	box-shadow     : 0 2px 6px rgba(0, 0, 0, 0.18);
+	font-size      : 12px;
+	min-width      : 150px;
+	padding        : 8px 10px;
 	pointer-events : none;
 	position       : fixed;
-	text-align     : center;
 	z-index        : 1000;
 }
 
-/*noinspection CssUnusedSymbol*/
-.tooltip.data
+.tooltip-new .tt-time
 {
-	background : #005583;
+	color         : #706E6B;
+	font-size     : 11px;
+	margin-bottom : 3px;
+}
+
+.tooltip-new .tt-row
+{
+	align-items : center;
+	display     : flex;
+	gap         : 6px;
+}
+
+.tooltip-new .tt-row .dot
+{
+	border-radius : 50%;
+	height        : 8px;
+	width         : 8px;
+}
+
+.tooltip-new .tt-row b
+{
+	margin-left  : auto;
+	padding-left : 14px;
+}
+
+/* Empty state */
+.empty-state
+{
+	color      : #706E6B;
+	padding    : 54px 0 60px;
+	text-align : center;
+}
+
+.empty-state .empty-heading
+{
+	color         : #444444;
+	font-size     : 15px;
+	font-weight   : 700;
+	margin-bottom : 4px;
+}
+
+/* Error state */
+.scoped-error
+{
+	align-items   : flex-start;
+	background    : #FEF1EE;
+	border        : 1px solid #F2A094;
+	border-radius : 6px;
+	display       : flex;
+	font-size     : 12.5px;
+	gap           : 8px;
+	padding       : 10px 12px;
+}
+
+.scoped-error .ico
+{
+	flex : 0 0 auto;
+}
+
+/* Data table */
+.data-table
+{
+	border-collapse : collapse;
+	font-size       : 12.5px;
+	margin-top      : 8px;
+	width           : 100%;
+}
+
+.data-table th
+{
+	background     : #FAFAF9;
+	border-bottom  : 1px solid #DDDBDA;
+	color          : #706E6B;
+	font-size      : 11px;
+	font-weight    : 700;
+	letter-spacing : 0.04em;
+	padding        : 7px 12px;
+	text-align     : left;
+	text-transform : uppercase;
+}
+
+.data-table td
+{
+	border-bottom : 1px solid #EDEDED;
+	padding       : 7px 12px;
+}
+
+.data-table th.num,
+.data-table td.num
+{
+	font-variant-numeric : tabular-nums;
+	text-align           : right;
 }

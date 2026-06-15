@@ -6,10 +6,14 @@
 /**
  * @description Jest unit tests for streamingMonitor LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 import {createElement} from 'lwc';
 import LwcStreamingMonitor from 'c/streamingMonitor';
+import PUBLISH_ERROR_BODY from '@salesforce/label/c.EventMonitor_Publish_ErrorBody';
+import PUBLISH_ERROR_TITLE from '@salesforce/label/c.EventMonitor_Publish_ErrorTitle';
+import PUBLISH_SUCCESS_BODY from '@salesforce/label/c.EventMonitor_Publish_SuccessBody';
+import PUBLISH_SUCCESS_TITLE from '@salesforce/label/c.EventMonitor_Publish_SuccessTitle';
 
 // Mock EMP API
 const mockSubscribe = jest.fn();
@@ -1201,6 +1205,62 @@ describe('c-streaming-monitor', () =>
 			const toast = getLastToastByVariant('error');
 			expect(toast).not.toBeNull();
 			expect(toast.title).toBeTruthy();
+		});
+
+		it('shows the label-sourced title and the Apex error message on the publish error toast', async() =>
+		{
+			// An AuraHandledException from CTRL_EventMonitor arrives as error.body.message — the
+			// label-sourced text must reach the user instead of being discarded.
+			mockPublishStreamingEvent.mockRejectedValueOnce({body: {message: 'No platform event named Foo__e exists in this org.'}});
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'publish');
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('publish', {
+				detail: {eventName: 'Foo__e', payload: '{}'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			const toast = getLastToastByVariant('error');
+			expect(toast.title).toBe(PUBLISH_ERROR_TITLE);
+			expect(toast.message).toBe('No platform event named Foo__e exists in this org.');
+		});
+
+		it('falls back to the label-sourced body when the publish error carries no message', async() =>
+		{
+			mockPublishStreamingEvent.mockRejectedValueOnce(new Error('network'));
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'publish');
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('publish', {
+				detail: {eventName: 'Foo__e', payload: '{}'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			const toast = getLastToastByVariant('error');
+			expect(toast.title).toBe(PUBLISH_ERROR_TITLE);
+			expect(toast.message).toBe(PUBLISH_ERROR_BODY);
+		});
+
+		it('shows the label-sourced success toast when publishing succeeds', async() =>
+		{
+			mockPublishStreamingEvent.mockResolvedValue({});
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'publish');
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('publish', {
+				detail: {eventName: 'Foo__e', payload: '{}'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			const toast = getLastToastByVariant('success');
+			expect(toast.title).toBe(PUBLISH_SUCCESS_TITLE);
+			expect(toast.message).toBe(PUBLISH_SUCCESS_BODY);
 		});
 	});
 

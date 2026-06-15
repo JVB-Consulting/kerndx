@@ -6,12 +6,13 @@
 /**
  * @description Jest unit tests for utilityStreaming LWC utility module
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 
 import {
 	CHANNEL_ALL_CDC, EVT_CDC, EVT_CUSTOM_CHANNEL_CDC, EVT_CUSTOM_CHANNEL_PE, EVT_GENERIC, EVT_MONITORING, EVT_PLATFORM_EVENT, EVT_PUSH_TOPIC, EVT_STD_PLATFORM_EVENT, FILTER_ALL,
-	FILTER_CUSTOM, EVENT_TYPES, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, channelSort, timestampSort, toTitleCase
+	FILTER_CUSTOM, EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, getCompactTimeLabel, formatCount, channelSort, timestampSort,
+	toTitleCase
 } from 'c/utilityStreaming';
 
 describe('utilityStreaming', () =>
@@ -86,6 +87,21 @@ describe('utilityStreaming', () =>
 				expect(eventType).toHaveProperty('label');
 				expect(eventType).toHaveProperty('value');
 				expect(eventType).toHaveProperty('channelPrefix');
+			});
+		});
+
+		it('should export PUBLISHABLE_EVENT_TYPES containing only the manually publishable types', () =>
+		{
+			expect(PUBLISHABLE_EVENT_TYPES).toBeInstanceOf(Array);
+			expect(PUBLISHABLE_EVENT_TYPES.map((eventType) => eventType.value)).toEqual([EVT_GENERIC, EVT_PLATFORM_EVENT]);
+		});
+
+		it('should exclude platform-published and record-change event types from PUBLISHABLE_EVENT_TYPES', () =>
+		{
+			const publishableValues = PUBLISHABLE_EVENT_TYPES.map((eventType) => eventType.value);
+			[EVT_STD_PLATFORM_EVENT, EVT_CDC, EVT_PUSH_TOPIC, EVT_MONITORING, EVT_CUSTOM_CHANNEL_PE, EVT_CUSTOM_CHANNEL_CDC].forEach((value) =>
+			{
+				expect(publishableValues).not.toContain(value);
 			});
 		});
 	});
@@ -406,6 +422,96 @@ describe('utilityStreaming', () =>
 			const result = getTimeLabel(date, undefined, 'en_ZA');
 
 			expect(result).toContain('2025');
+		});
+	});
+
+	describe('getCompactTimeLabel', () =>
+	{
+		it('should render only the date for the Daily segment', () =>
+		{
+			const result = getCompactTimeLabel(new Date('2026-06-02T14:30:00.000Z'), 'Daily', 'UTC');
+
+			expect(result).toBe('Jun 2');
+		});
+
+		it('should append a 24-hour time for sub-daily segments', () =>
+		{
+			const result = getCompactTimeLabel(new Date('2026-06-02T14:30:00.000Z'), 'Hourly', 'UTC');
+
+			expect(result).toBe('Jun 2, 14:30');
+		});
+
+		it('should accept epoch milliseconds', () =>
+		{
+			const epoch = Date.UTC(2026, 5, 2, 0, 0, 0);
+			const result = getCompactTimeLabel(epoch, 'Daily', 'UTC');
+
+			expect(result).toBe('Jun 2');
+		});
+
+		it('should honour the locale 12/24-hour preference for sub-daily segments', () =>
+		{
+			const date = new Date('2026-06-02T14:30:00.000Z');
+			const twelveHour = getCompactTimeLabel(date, 'Hourly', 'UTC', 'en_US');
+			const twentyFourHour = getCompactTimeLabel(date, 'Hourly', 'UTC', 'en_ZA');
+
+			expect(twelveHour).toMatch(/PM|AM/);
+			expect(twentyFourHour).not.toMatch(/PM|AM/);
+		});
+
+		it('should return empty string for invalid input', () =>
+		{
+			expect(getCompactTimeLabel(null, 'Daily')).toBe('');
+			expect(getCompactTimeLabel('invalid', 'Daily')).toBe('');
+			expect(getCompactTimeLabel({}, 'Hourly')).toBe('');
+			expect(getCompactTimeLabel(Number.NaN, 'Daily')).toBe('');
+			expect(getCompactTimeLabel(new Date('not a date'), 'Daily')).toBe('');
+		});
+
+		it('should label a UTC-midnight daily bucket by its start instant in the requested zone, regardless of host timezone', () =>
+		{
+			// The locked product decision: bucket labels follow the USER's Salesforce timezone. A UTC
+			// daily bucket starting 2026-06-06T00:00:00Z is 20:00 on Jun 5 in New York, so the
+			// date-only label reads "Jun 5" for users west of UTC — the tooltip's precise times make
+			// the mapping inspectable. The explicit timeZone argument makes this host-independent.
+			const result = getCompactTimeLabel(new Date('2026-06-06T00:00:00.000Z'), 'Daily', 'America/New_York');
+
+			expect(result).toBe('Jun 5');
+		});
+
+		it('should shift sub-daily labels into the requested zone, regardless of host timezone', () =>
+		{
+			const result = getCompactTimeLabel(new Date('2026-06-06T14:00:00.000Z'), 'Hourly', 'America/New_York');
+
+			expect(result).toBe('Jun 6, 10:00');
+		});
+	});
+
+	describe('formatCount', () =>
+	{
+		it('should group thousands with the default en-US locale', () =>
+		{
+			expect(formatCount(31000)).toBe('31,000');
+			expect(formatCount(1234567)).toBe('1,234,567');
+		});
+
+		it('should leave small numbers ungrouped', () =>
+		{
+			expect(formatCount(0)).toBe('0');
+			expect(formatCount(42)).toBe('42');
+		});
+
+		it('should honour an explicit Salesforce locale', () =>
+		{
+			expect(formatCount(1000, 'en_US')).toBe('1,000');
+		});
+
+		it('should return empty string for non-finite values', () =>
+		{
+			expect(formatCount(undefined)).toBe('');
+			expect(formatCount(null)).toBe('');
+			expect(formatCount('not a number')).toBe('');
+			expect(formatCount(Number.NaN)).toBe('');
 		});
 	});
 

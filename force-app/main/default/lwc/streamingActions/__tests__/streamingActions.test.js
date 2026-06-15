@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingActions LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 import {createElement} from 'lwc';
 import LwcActions from 'c/streamingActions';
@@ -32,6 +32,10 @@ jest.mock('c/utilityStreaming', () => ({
 		{label: 'Custom Channel - Platform event', value: 'CustomChannelPE', channelPrefix: '/event/'},
 		{label: 'Custom Channel - Change event', value: 'CustomChannelCDC', channelPrefix: '/data/'},
 		{label: 'Monitoring event', value: 'MonitoringEvent', channelPrefix: '/event/'}
+	],
+	PUBLISHABLE_EVENT_TYPES: [
+		{label: 'Generic event', value: 'GenericEvent', channelPrefix: '/u/'},
+		{label: 'Custom Platform event', value: 'PlatformEvent', channelPrefix: '/event/'}
 	],
 	getChannelPrefix: jest.fn((eventType) =>
 	{
@@ -703,13 +707,21 @@ describe('c-streaming-actions', () =>
 			expect(comboboxes.length).toBeGreaterThanOrEqual(1);
 		});
 
-		it('shows notice for non-publishable event types', async() =>
+		it('excludes non-publishable event types from the publish dropdown', async() =>
 		{
 			const element = createComponent({action: 'publish', channels: mockChannels});
 			await flushPromises();
 
 			const eventTypeCombobox = element.shadowRoot.querySelector('lightning-combobox');
-			simulateComboboxChange(eventTypeCombobox, 'ChangeDataCaptureEvent');
+			const optionValues = eventTypeCombobox.options.map((option) => option.value);
+			expect(optionValues).toEqual(['GenericEvent', 'PlatformEvent']);
+			expect(optionValues).not.toContain('ChangeDataCaptureEvent');
+			expect(optionValues).not.toContain('StandardPlatformEvent');
+		});
+
+		it('always shows the publish scope note explaining which types are publishable', async() =>
+		{
+			const element = createComponent({action: 'publish', channels: mockChannels});
 			await flushPromises();
 
 			const notice = element.shadowRoot.querySelector('c-notice');
@@ -1109,22 +1121,22 @@ describe('c-streaming-actions', () =>
 
 		it('shows no events placeholder when type has empty channels', async() =>
 		{
-			// Create channels with empty PlatformEvent array
+			// Create channels with empty Custom Platform event array
 			const channelsWithEmpty = {
-				...mockChannels, StandardPlatformEvent: []
+				...mockChannels, PlatformEvent: []
 			};
 			const element = createComponent({action: 'publish', channels: channelsWithEmpty});
 			await flushPromises();
 
 			const eventTypeCombobox = element.shadowRoot.querySelector('lightning-combobox');
-			simulateComboboxChange(eventTypeCombobox, 'StandardPlatformEvent');
+			simulateComboboxChange(eventTypeCombobox, 'PlatformEvent');
 			await flushPromises();
 			await flushPromises();
 
 			const eventNameCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[1];
 			if(eventNameCombobox)
 			{
-				expect(eventNameCombobox.placeholder).toBe('No Standard Platform events available');
+				expect(eventNameCombobox.placeholder).toBe('No Custom Platform events available');
 			}
 			else
 			{
@@ -1252,13 +1264,14 @@ describe('c-streaming-actions', () =>
 			expect(eventTypeCombobox.options.length).toBe(8);
 		});
 
-		it('pubEventTypes returns all event types', async() =>
+		it('pubEventTypes returns only the publishable event types', async() =>
 		{
 			const element = createComponent({action: 'publish'});
 			await flushPromises();
 
 			const eventTypeCombobox = element.shadowRoot.querySelector('lightning-combobox');
-			expect(eventTypeCombobox.options.length).toBe(8);
+			expect(eventTypeCombobox.options.length).toBe(2);
+			expect(eventTypeCombobox.options.map((option) => option.value)).toEqual(['GenericEvent', 'PlatformEvent']);
 		});
 
 		it('regEventTypes returns all event types', async() =>
@@ -1449,6 +1462,77 @@ describe('c-streaming-actions', () =>
 		{
 			const context = {action: 'InvalidAction'};
 			expect(() => prototype.render.call(context)).toThrow('Unsupported action: InvalidAction');
+		});
+
+		it('isSubscribeEventNameDisabled reports disabled instead of throwing when the selected type is missing from channels', () =>
+		{
+			// Early/slow load: an event type is selected before the channel map has been populated.
+			const context = {subEventType: 'PushTopicEvent', channels: {}};
+			const descriptor = Object.getOwnPropertyDescriptor(prototype, 'isSubscribeEventNameDisabled');
+			expect(descriptor.get.call(context)).toBe(true);
+		});
+
+		it('isPublishEventNameDisabled reports disabled instead of throwing when the selected type is missing from channels', () =>
+		{
+			const context = {pubEventType: 'PlatformEvent', channels: {}};
+			const descriptor = Object.getOwnPropertyDescriptor(prototype, 'isPublishEventNameDisabled');
+			expect(descriptor.get.call(context)).toBe(true);
+		});
+
+		it('isSubscribeDisabled reports disabled instead of throwing when subChannel is undefined for a custom channel type', () =>
+		{
+			const context = {subEventType: 'CustomChannelCDC', subChannel: undefined};
+			const descriptor = Object.getOwnPropertyDescriptor(prototype, 'isSubscribeDisabled');
+			expect(descriptor.get.call(context)).toBe(true);
+		});
+	});
+
+	describe('defensive getters - slow or early channel load', () =>
+	{
+		it('keeps the subscribe form rendered with the event-name dropdown disabled when channels has not loaded yet', async() =>
+		{
+			const element = createComponent({action: 'subscribe', channels: {}});
+			await flushPromises();
+
+			const eventTypeCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[0];
+			simulateComboboxChange(eventTypeCombobox, 'PushTopicEvent');
+			await flushPromises();
+
+			const eventNameCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[1];
+			expect(eventNameCombobox.disabled).toBe(true);
+			expect(element.shadowRoot.querySelector('lightning-card')).not.toBeNull();
+		});
+
+		it('keeps the publish form rendered with the event-name dropdown disabled when channels has not loaded yet', async() =>
+		{
+			const element = createComponent({action: 'publish', channels: {}});
+			await flushPromises();
+
+			const eventTypeCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[0];
+			simulateComboboxChange(eventTypeCombobox, 'PlatformEvent');
+			await flushPromises();
+
+			const eventNameCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[1];
+			expect(eventNameCombobox.disabled).toBe(true);
+			expect(element.shadowRoot.querySelector('lightning-card')).not.toBeNull();
+		});
+
+		it('keeps the subscribe button disabled instead of crashing when the channel input reports an undefined value', async() =>
+		{
+			const element = createComponent({action: 'subscribe', channels: {PushTopicEvent: ['TestTopic']}});
+			await flushPromises();
+
+			const eventTypeCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[0];
+			simulateComboboxChange(eventTypeCombobox, 'CustomChannelCDC');
+			await flushPromises();
+
+			const channelInput = element.shadowRoot.querySelector('lightning-input[name="subChannel"]');
+			simulateInputChange(channelInput, undefined, 'subChannel');
+			await flushPromises();
+
+			const button = element.shadowRoot.querySelector('[data-testid="subscribe-button"]');
+			expect(button.disabled).toBe(true);
+			expect(element.shadowRoot.querySelector('lightning-card')).not.toBeNull();
 		});
 	});
 });

@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, May 2026
+ * @date March 2026, June 2026
  */
 
 // ── Channel Constants ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -37,17 +37,18 @@ export const FILTER_CUSTOM = 'custom';
 
 /**
  * @description Central lookup for streaming event type metadata. Each entry provides a
- * human-readable label, the CometD channel prefix, and a predicate that determines
- * whether a given channel is subscriber-created (custom) or platform-provided.
+ * human-readable label, the CometD channel prefix, a predicate that determines whether a
+ * given channel is subscriber-created (custom) or platform-provided, and an optional
+ * `publishable` flag marking the types a user can publish manually from the Publish screen.
  *
  * @private
- * @type {Readonly<Object<string, {label: string, channelPrefix: string, isCustom: function(string): boolean}>>}
+ * @type {Readonly<Object<string, {label: string, channelPrefix: string, isCustom: function(string): boolean, publishable?: boolean}>>}
  */
 const REGISTRY = Object.freeze({
 	[EVT_PUSH_TOPIC]: {label: 'PushTopic event', channelPrefix: '/topic/', isCustom: () => true},
-	[EVT_GENERIC]: {label: 'Generic event', channelPrefix: '/u/', isCustom: () => true},
+	[EVT_GENERIC]: {label: 'Generic event', channelPrefix: '/u/', isCustom: () => true, publishable: true},
 	[EVT_STD_PLATFORM_EVENT]: {label: 'Standard Platform event', channelPrefix: '/event/', isCustom: () => false},
-	[EVT_PLATFORM_EVENT]: {label: 'Custom Platform event', channelPrefix: '/event/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__e')},
+	[EVT_PLATFORM_EVENT]: {label: 'Custom Platform event', channelPrefix: '/event/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__e'), publishable: true},
 	[EVT_CDC]: {label: 'Change Data Capture event', channelPrefix: '/data/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__ChangeEvent')},
 	[EVT_CUSTOM_CHANNEL_PE]: {label: 'Custom Channel - Platform event', channelPrefix: '/event/', isCustom: () => true},
 	[EVT_CUSTOM_CHANNEL_CDC]: {label: 'Custom Channel - Change event', channelPrefix: '/data/', isCustom: () => true},
@@ -62,6 +63,15 @@ const REGISTRY = Object.freeze({
 export const EVENT_TYPES = Object.freeze(Object.entries(REGISTRY).map(([key, definition]) => ({
 	label: definition.label, value: key, channelPrefix: definition.channelPrefix
 })));
+
+/**
+ * @description Event types a user can publish manually from the Publish screen — currently Generic
+ * and Custom Platform events. Every other type is published by the platform (Standard Platform,
+ * Monitoring) or generated automatically when records change (Change Data Capture, PushTopic, and
+ * the custom-channel variants), so they are excluded from the publish picklist.
+ * @type {ReadonlyArray<{label: string, value: string, channelPrefix: string}>}
+ */
+export const PUBLISHABLE_EVENT_TYPES = Object.freeze(EVENT_TYPES.filter((eventType) => REGISTRY[eventType.value].publishable));
 
 // ── Channel Helpers ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -195,10 +205,36 @@ export function normalizeEvent(event)
 /** @description Default locale producing YYYY-MM-DD HH:MM:SS format. */
 const ISO_LIKE_LOCALE = 'sv-SE';
 
+/** @description English locale used when a Salesforce locale is supplied. */
+const ENGLISH_LOCALE = 'en-US';
+
 /** @description Base Intl.DateTimeFormat options for full timestamp display. */
 const BASE_FORMAT_OPTIONS = Object.freeze({
 	year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
 });
+
+/** @description Date-part options for the compact, segment-aware label (e.g. "Jun 2"). */
+const COMPACT_DATE_OPTIONS = Object.freeze({month: 'short', day: 'numeric'});
+
+/** @description Time-part options for the compact label's sub-daily segments (e.g. "14:00"). */
+const COMPACT_TIME_OPTIONS = Object.freeze({hour: '2-digit', minute: '2-digit'});
+
+/** @description Time segment whose compact label omits the time component. */
+const SEGMENT_DAILY = 'Daily';
+
+/**
+ * @description Detects whether a locale uses a 24-hour clock by probing a 1 PM time for an AM/PM
+ * marker.
+ * @param {string} displayLocale - A BCP-47 (hyphenated) locale.
+ * @returns {boolean} `true` when the locale formats time without an AM/PM marker.
+ * @private
+ */
+function is24HourLocale(displayLocale)
+{
+	const probe = new Date(2025, 0, 1, 13, 0, 0);
+	const formatted = probe.toLocaleString(displayLocale, {hour: 'numeric'});
+	return !formatted.includes('PM') && !formatted.includes('AM');
+}
 
 /**
  * @description Formats a Date or epoch-ms value into a human-readable timestamp string.
@@ -224,13 +260,8 @@ export function getTimeLabel(time, timeZone, locale)
 
 	if(locale)
 	{
-		const normalisedLocale = locale.replace('_', '-');
-		const probe = new Date(2025, 0, 1, 13, 0, 0);
-		const formatted = probe.toLocaleString(normalisedLocale, {hour: 'numeric'});
-		const is24Hour = !formatted.includes('PM') && !formatted.includes('AM');
-
-		displayLocale = 'en-US';
-		options.hour12 = !is24Hour;
+		displayLocale = ENGLISH_LOCALE;
+		options.hour12 = !is24HourLocale(locale.replace('_', '-'));
 	}
 
 	if(timeZone)
@@ -239,6 +270,71 @@ export function getTimeLabel(time, timeZone, locale)
 	}
 
 	return date.toLocaleString(displayLocale, options);
+}
+
+/**
+ * @description Formats a bucket timestamp as a compact, segment-aware axis/tooltip label: a bare
+ * date ("Jun 2") for the Daily segment and a date-plus-time ("Jun 2, 14:00") for sub-daily
+ * segments. Defaults to en-US with a 24-hour clock; a Salesforce locale switches the month name
+ * and the 12/24-hour preference to that locale.
+ *
+ * @param {Date|number} time - Date object or epoch milliseconds
+ * @param {string} segment - `Daily`, `Hourly`, or `FifteenMinutes`
+ * @param {string} [timeZone] - IANA timezone (e.g. 'America/Los_Angeles')
+ * @param {string} [locale] - Salesforce locale (e.g. 'en_US', 'en_ZA')
+ * @returns {string} The compact label, or empty string if the input is invalid
+ */
+export function getCompactTimeLabel(time, segment, timeZone, locale)
+{
+	const date = time instanceof Date ? time : typeof time === 'number' ? new Date(time) : null;
+
+	// The NaN check honours the "empty string for invalid input" contract for NaN epochs and
+	// Invalid Date instances, which `new Date` coerces to a truthy-but-unformattable object.
+	if(!date || Number.isNaN(date.getTime()))
+	{
+		return '';
+	}
+
+	const displayLocale = locale ? locale.replace('_', '-') : ENGLISH_LOCALE;
+	const dateOptions = {...COMPACT_DATE_OPTIONS};
+	const timeOptions = {...COMPACT_TIME_OPTIONS, hour12: locale ? !is24HourLocale(displayLocale) : false};
+
+	if(timeZone)
+	{
+		dateOptions.timeZone = timeZone;
+		timeOptions.timeZone = timeZone;
+	}
+
+	const datePart = date.toLocaleDateString(displayLocale, dateOptions);
+
+	if(segment === SEGMENT_DAILY)
+	{
+		return datePart;
+	}
+
+	return `${datePart}, ${date.toLocaleTimeString(displayLocale, timeOptions)}`;
+}
+
+/**
+ * @description Formats an integer count with locale-aware thousands grouping (e.g. 31000 → "31,000").
+ * Non-finite input yields an empty string so the UI never renders "NaN".
+ *
+ * @param {number} value - The count to format
+ * @param {string} [locale] - Salesforce locale (e.g. 'en_US'); defaults to en-US grouping
+ * @returns {string} The grouped count, or empty string when the value is not a finite number
+ */
+export function formatCount(value, locale)
+{
+	const numeric = Number(value);
+
+	// `value == null` (loose) rejects null and undefined, which `Number` would otherwise coerce to 0;
+	// `!Number.isFinite` rejects NaN/Infinity and unparseable strings.
+	if(value == null || !Number.isFinite(numeric))
+	{
+		return '';
+	}
+
+	return numeric.toLocaleString(locale ? locale.replace('_', '-') : ENGLISH_LOCALE);
 }
 
 // ── Sort Comparators ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

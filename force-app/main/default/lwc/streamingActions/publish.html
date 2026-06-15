@@ -5,26 +5,20 @@
 <template>
 	<lightning-card title="Publish a streaming event">
 		<div class="slds-var-p-horizontal_large">
+			<c-notice>
+				<p>{publishScopeNote}</p>
+			</c-notice>
 			<lightning-combobox data-testid="event-type" label="Event type" onchange={handlePubEventTypeChange} options={publishEventTypes} placeholder="Select type"
 			                    value={pubEventType}></lightning-combobox>
 			<template lwc:if={pubEventType}>
-				<!-- Manual publish allowed -->
-				<template lwc:if={isManualPublishedAllowed}>
-					<lightning-combobox data-testid="event-name" disabled={isPublishEventNameDisabled} label="Event name" onchange={handlePubEventNameChange}
-					                    options={pubEventNames} placeholder={pubEventNamePlaceholder} value={publishEventName}></lightning-combobox>
-					<lightning-input disabled label="Streaming channel" value={publishChannel}></lightning-input>
-					<lightning-textarea data-testid="publish-payload" disabled={isPublishDisabled} field-level-help={publishPayloadHelp} label="Event payload"
-					                    onchange={handlePubPayloadChange} value={publishPayload}></lightning-textarea>
-					<div class="slds-align_absolute-center slds-var-m-top_medium">
-						<lightning-button data-testid="publish-button" disabled={isPublishDisabled} label="Publish" onclick={handlePublish} variant="brand"></lightning-button>
-					</div>
-				</template>
-				<!-- Manual publish not allowed -->
-				<c-notice lwc:else>
-					<p>
-						This type of event can only be published by the
-						Platform. </p>
-				</c-notice>
+				<lightning-combobox data-testid="event-name" disabled={isPublishEventNameDisabled} label="Event name" onchange={handlePubEventNameChange}
+				                    options={pubEventNames} placeholder={pubEventNamePlaceholder} value={publishEventName}></lightning-combobox>
+				<lightning-input disabled label="Streaming channel" value={publishChannel}></lightning-input>
+				<lightning-textarea data-testid="publish-payload" disabled={isPublishDisabled} field-level-help={publishPayloadHelp} label="Event payload"
+				                    onchange={handlePubPayloadChange} value={publishPayload}></lightning-textarea>
+				<div class="slds-align_absolute-center slds-var-m-top_medium">
+					<lightning-button data-testid="publish-button" disabled={isPublishDisabled} label="Publish" onclick={handlePublish} variant="brand"></lightning-button>
+				</div>
 			</template>
 		</div>
 	</lightning-card>

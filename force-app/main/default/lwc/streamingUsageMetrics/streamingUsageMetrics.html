@@ -3,19 +3,109 @@
 <!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
-	<lightning-card title="Event usage metrics">
-		<div slot="actions">
-			<lightning-badge label={eventCountLabel}></lightning-badge>
+	<lightning-card>
+		<span data-spec-id="usage-card-title" slot="title">{labels.cardTitle}</span>
+		<div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small" slot="actions">
+			<span class="slds-col">
+				<lightning-badge data-spec-id="usage-count-badge" label={countBadge}></lightning-badge>
+			</span>
+			<span class="slds-col">
+				<lightning-button-icon alternative-text={labels.viewLabel} data-spec-id="usage-refresh" icon-name="utility:refresh" onclick={handleRefresh} title={labels.viewLabel}
+				                       variant="border-filled"></lightning-button-icon>
+			</span>
 		</div>
 
-		<div class="slds-var-p-horizontal_large">
-			<c-notice>Each dot represents an hour. The time that is displayed is the
-				start of the period.
-			</c-notice>
-			<div class="slds-var-m-bottom_large slds-border_bottom">
-				<c-streaming-usage-filters event-types={eventTypeDefinitions} onfilterchange={handleFilterChange}></c-streaming-usage-filters>
+		<div class="slds-var-p-horizontal_medium">
+			<c-streaming-usage-filters event-types={eventTypeDefinitions} is-enhanced-usage-metric-enabled={enhancedUsageEnabled} lwc:ref="filters"
+			                           ondisplayfilterchange={handleDisplayFilterChange} onsearchfilterchange={handleSearchFilterChange}></c-streaming-usage-filters>
+
+			<div class="view-switch slds-form-element slds-m-vertical_small">
+				<label class="slds-form-element__label">{labels.viewLabel}</label>
+				<div aria-label={labels.viewLabel} class="seg-group" role="group">
+					<button aria-pressed={chartPressed} class="seg-btn" data-spec-id="usage-view-chart" onclick={handleViewChart}>{labels.viewChart}</button>
+					<button aria-pressed={tablePressed} class="seg-btn" data-spec-id="usage-view-table" onclick={handleViewTable}>{labels.viewTable}</button>
+				</div>
 			</div>
-			<div class={timelineClasses} lwc:dom="manual"></div>
+
+			<!-- Error state -->
+			<template lwc:if={hasError}>
+				<div class="scoped-error slds-m-top_small" data-spec-id="usage-error-state" role="alert">
+					<span class="ico">⚠️</span>
+					<span>
+						{labels.errorBody}
+						<button class="slds-button slds-m-left_small" data-spec-id="usage-error-retry" onclick={handleRetry}>{labels.errorRetry}</button>
+					</span>
+				</div>
+			</template>
+
+			<!-- Chart -->
+			<template lwc:if={showChart}>
+				<div class="chart-host" lwc:ref="chartHost">
+					<svg aria-label={labels.cardTitle} class="usage-chart" role="img" viewBox={chartViewBox}>
+						<template for:each={gridlines} for:item="gridline">
+							<g key={gridline.key}>
+								<line class="gridline" x1={gridline.x1} x2={gridline.x2} y1={gridline.y} y2={gridline.y}></line>
+								<text class="axis-label" text-anchor="end" x={gridline.labelX} y={gridline.labelY}>{gridline.label}</text>
+							</g>
+						</template>
+						<line class="axis-baseline" x1={baseline.x1} x2={baseline.x2} y1={baseline.y} y2={baseline.y}></line>
+						<template for:each={xTicks} for:item="tick">
+							<text class="axis-label" key={tick.key} text-anchor="middle" x={tick.x} y={tick.y}>{tick.label}</text>
+						</template>
+						<template for:each={bars} for:item="bar">
+							<rect class="bar" data-bucket={bar.bucketTimestamp} data-testid="usage-bar" fill={bar.color} height={bar.height} key={bar.key}
+							      onmouseenter={handleBarMouseEnter} onmouseleave={handleBarMouseLeave} rx={barCornerRadius} width={bar.width} x={bar.x} y={bar.y}></rect>
+						</template>
+					</svg>
+					<template lwc:if={tooltip.visible}>
+						<div class="tooltip-new" data-spec-id="usage-tooltip" style={tooltip.style}>
+							<div class="tt-time">{tooltip.time}</div>
+							<template for:each={tooltip.rows} for:item="row">
+								<div class="tt-row" key={row.key}>
+									<span class="dot" style={row.dotStyle}></span>
+									<span class="tt-label">{row.label}</span>
+									<b>{row.value}</b>
+								</div>
+							</template>
+						</div>
+					</template>
+				</div>
+			</template>
+
+			<!-- Table -->
+			<template lwc:if={showTable}>
+				<table class="data-table" data-spec-id="usage-table">
+					<thead>
+					<tr>
+						<th>{labels.tablePeriodStart}</th>
+						<template for:each={tableHeaders} for:item="header">
+							<th class="num" key={header.key}>{header.label}</th>
+						</template>
+					</tr>
+					</thead>
+					<tbody>
+					<template for:each={tableRows} for:item="row">
+						<tr key={row.key}>
+							<td>{row.period}</td>
+							<template for:each={row.cells} for:item="cell">
+								<td class="num" key={cell.key}>{cell.value}</td>
+							</template>
+						</tr>
+					</template>
+					</tbody>
+				</table>
+			</template>
+
+			<!-- Empty state -->
+			<template lwc:if={showEmpty}>
+				<div class="empty-state" data-spec-id="usage-empty-state">
+					<div class="empty-heading">{labels.emptyHeading}</div>
+					<div>{labels.emptyBody}</div>
+					<div class="slds-m-top_small">
+						<button class="slds-button" data-spec-id="usage-clear-filters" onclick={handleReset}>{labels.resetFilters}</button>
+					</div>
+				</div>
+			</template>
 		</div>
 	</lightning-card>
 </template>
