@@ -1,0 +1,23 @@
+{
+  "name": "kerndx-docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "VitePress documentation site for KernDX (docs.jvb-consulting.io).",
+  "scripts": {
+    "prepare:src": "node scripts/prepare.mjs",
+    "build": "npm run prepare:src && vitepress build",
+    "dev": "npm run prepare:src && vitepress dev",
+    "preview": "vitepress preview --port 4173",
+    "test:unit": "node --test \"scripts/!(render-smoke).test.mjs\"",
+    "test:render": "node scripts/render-smoke.test.mjs",
+    "test:artifact": "node scripts/artifact-audit.mjs",
+    "test:sweep": "node scripts/full-corpus-sweep.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "vitepress-plugin-mermaid": "2.0.17",
+    "mermaid": "11.6.0",
+    "@playwright/test": "1.55.0"
+  }
+}

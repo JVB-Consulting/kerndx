@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="KernDX">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b5895c"/>
+      <stop offset="1" stop-color="#8a623c"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <!-- Stylised "K": a vertical bar + an angular chevron, matching the brand mark. -->
+  <g fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="20" y1="16" x2="20" y2="48"/>
+    <polyline points="44,16 28,32 44,48"/>
+  </g>
+</svg>

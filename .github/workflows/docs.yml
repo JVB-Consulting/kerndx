@@ -1,0 +1,135 @@
+name: docs
+
+# Builds the VitePress documentation site (gating, on any repo the docs-site/ tree
+# lands in) and, where GitHub Pages is enabled, deploys it. The build job is the
+# Tier-1 gate: strict vitepress build (zero dead links) + Playwright render smoke-test.
+#
+# A Pages deploy creates no commits on the branch, so it does not interact with the
+# release-distribution sync's fast-forward / parity / human-commit invariants.
+#
+# Path-filtered so it only runs when something that affects the site changes
+# (respecting the lightweight read-only philosophy of ci.yml).
+#
+# Publishing is controlled entirely by three repository variables, so any clone of
+# this repo can host its own copy of the docs site (see
+# docs/Documentation Site - Guide.md):
+#   ENABLE_DOCS_DEPLOY  'true' to deploy to GitHub Pages (unset → build gate only)
+#   DOCS_BASE           '/<repo>/' for a github.io project URL; unset/'' for a
+#                       custom domain served at the root
+#   DOCS_CNAME          custom domain to register with Pages (unset → none)
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-notes/**'
+      - 'distribution/public-mirror-manifest.json'
+      - 'sfdx-project.json'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-notes/**'
+      - 'distribution/public-mirror-manifest.json'
+      - 'sfdx-project.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Workflow-level group cancels superseded *builds* on the same ref. The deploy job overrides
+# this with its own 'pages' group (cancel-in-progress:false) so a Pages publish is never
+# aborted mid-flight.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build + render smoke-test
+    runs-on: ubuntu-latest
+    env:
+      # '' on the published repo (custom domain → base '/'); set to '/<repo>/' on a
+      # project-page deploy so assets resolve under the subpath.
+      DOCS_BASE: ${{ vars.DOCS_BASE }}
+      # The docs site's "back to repo" nav link (GitHub social icon). Derived from
+      # the Actions context so every clone — production mirror, rehearsal, or
+      # ephemeral test repo — links its docs back to ITSELF, not the production repo.
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version-file: docs-site/.nvmrc
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Unit tests
+        working-directory: docs-site
+        run: npm run test:unit
+
+      - name: Build (strict dead-link gate)
+        working-directory: docs-site
+        run: npm run build
+
+      - name: Markdown lint (advisory, non-blocking)
+        working-directory: docs-site
+        # Runs after the build, so the materialized src/ tree exists.
+        run: npx --yes markdownlint-cli2 "src/**/*.md" || true
+
+      - name: Render smoke-test
+        working-directory: docs-site
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:render
+
+      - name: Write CNAME (custom-domain deploys only)
+        if: vars.DOCS_CNAME != ''
+        env:
+          DOCS_CNAME: ${{ vars.DOCS_CNAME }}
+        run: echo "$DOCS_CNAME" > docs-site/.vitepress/dist/CNAME
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: docs-site/.vitepress/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    # Direct pushes and manual dispatches deploy; PRs never do. Gated on
+    # ENABLE_DOCS_DEPLOY so it runs only where Pages is configured — repos without
+    # the variable get the build gate alone.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.ENABLE_DOCS_DEPLOY == 'true'
+    # Dedicated 'pages' group with cancel-in-progress:false (GitHub's recommended pattern):
+    # serialize deploys but never abort an in-flight publish, which can leave Pages broken.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5.0.0

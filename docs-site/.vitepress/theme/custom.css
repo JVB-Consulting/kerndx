@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Wide technical tables scroll within their own container on narrow viewports,
+   so the page body itself never overflows (mobile-first indexing). VitePress 1.6.4
+   renders tables as a bare <table> with no wrapping <div>, so the scroll container has
+   to be the table itself: making it a block-level box lets overflow-x clip + scroll the
+   wide content instead of pushing the page body wider than the viewport. */
+.vp-doc table
+{
+	display    : block;
+	max-width  : 100%;
+	overflow-x : auto;
+	width      : max-content;
+}
+
+/* Code blocks must scroll within their own box on narrow viewports too. VitePress
+   only applies horizontal-scroll styling to language-wrapped fences
+   (div[class*="language-"] > pre); bare <pre> blocks — indented code and unlabeled
+   fences, common in the auto-generated Apex reference pages — fall through and push
+   the page body wider than the viewport at 390px. Constraining every .vp-doc pre to
+   the container width with overflow-x:auto makes the long lines scroll in-place
+   instead of overflowing the page (mobile-first indexing). */
+.vp-doc pre
+{
+	max-width  : 100%;
+	overflow-x : auto;
+}
+
+/* Long unbreakable identifiers — Apex class/method names like
+   UTIL_AsynchronousJobLauncher, and especially the prev/next pager titles that repeat
+   them — have no break opportunity, so on a phone they force the page wider than the
+   screen (verified: the footer pager was the last remaining overflow source). Let those
+   identifiers wrap inside headings, prose, and the pager; code blocks are deliberately
+   excluded (they scroll, per the rules above). min-width:0 lets the flex/grid layout
+   columns actually shrink to the viewport. Result: zero horizontal page overflow on
+   every route at 360px and 390px (modern-phone widths). Low-specificity :where() so the
+   default theme keeps control of everything else. */
+.vp-doc :where(h1, h2, h3, h4, h5, h6, p, li, blockquote, dd, dt),
+.VPDocFooter :where(.title, .desc),
+.VPDoc :where(.pager-link)
+{
+	overflow-wrap : anywhere;
+}
+
+.VPDoc :where(.container, .content, .content-container, main, .aside, .aside-container)
+{
+	min-width : 0;
+}
+
+/* On phones, scrolling wide content sideways within its own box (the desktop behavior
+   above) reads as "cut off" — the code/table runs past the screen edge with no visible
+   affordance. So on narrow viewports, make wide content WRAP to fit instead: code lines
+   soft-wrap (nothing hidden off-screen), and table cells wrap so the whole table fits the
+   width. Desktop keeps the scroll-in-box behavior, where there is room and wrapping would
+   hurt readability. Verified: zero hidden horizontal overflow on code blocks and tables at
+   modern-phone widths. */
+@media (max-width: 640px)
+{
+	.vp-doc div[class*="language-"] pre,
+	.vp-doc div[class*="language-"] code,
+	.vp-doc pre code
+	{
+		white-space   : pre-wrap;
+		overflow-wrap : anywhere;
+	}
+
+	.vp-doc table
+	{
+		width : 100%;
+	}
+
+	.vp-doc th,
+	.vp-doc td
+	{
+		white-space   : normal;
+		overflow-wrap : anywhere;
+	}
+}

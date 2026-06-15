@@ -1,0 +1,6 @@
+# KernDX documentation site — https://docs.jvb-consulting.io
+# Copied verbatim into the published site root by docs-site/scripts/prepare.mjs.
+User-agent: *
+Allow: /
+
+Sitemap: https://docs.jvb-consulting.io/sitemap.xml
