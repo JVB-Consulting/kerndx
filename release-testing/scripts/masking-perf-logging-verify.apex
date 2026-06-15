@@ -9,11 +9,15 @@ Integer failCount = 0;
 
 List<kern__LogEntry__c> entries =
 [
-	SELECT kern__Message__c, kern__ClassMethod__c, kern__LogLevel__c, kern__DurationMs__c, CreatedDate
-	FROM kern__LogEntry__c
-	WHERE kern__ClassMethod__c LIKE '%UTIL_MaskerPerformanceTimer/%ApiCall__c'
-	ORDER BY CreatedDate DESC
-	LIMIT 5
+		SELECT kern__Message__c,
+				kern__ClassMethod__c,
+				kern__LogLevel__c,
+				kern__DurationMs__c,
+				CreatedDate
+		FROM kern__LogEntry__c
+		WHERE kern__ClassMethod__c LIKE '%UTIL_MaskerPerformanceTimer/%ApiCall__c'
+		ORDER BY CreatedDate DESC
+		LIMIT 5
 ];
 
 Boolean passFound = !entries.isEmpty();

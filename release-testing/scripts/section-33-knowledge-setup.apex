@@ -14,34 +14,37 @@
 List<Knowledge__kav> articles = new List<Knowledge__kav>();
 
 articles.add(new Knowledge__kav(
-	Title = 'KDX Test Alpha North',
-	UrlName = 'kdx-test-alpha-north',
-	Language = 'en_US',
-	Summary = 'Test article categorised as Alpha and North'
+		Title = 'KDX Test Alpha North',
+		UrlName = 'kdx-test-alpha-north',
+		Language = 'en_US',
+		Summary = 'Test article categorised as Alpha and North'
 ));
 
 articles.add(new Knowledge__kav(
-	Title = 'KDX Test Alpha South',
-	UrlName = 'kdx-test-alpha-south',
-	Language = 'en_US',
-	Summary = 'Test article categorised as Alpha and South'
+		Title = 'KDX Test Alpha South',
+		UrlName = 'kdx-test-alpha-south',
+		Language = 'en_US',
+		Summary = 'Test article categorised as Alpha and South'
 ));
 
 articles.add(new Knowledge__kav(
-	Title = 'KDX Test Beta North',
-	UrlName = 'kdx-test-beta-north',
-	Language = 'en_US',
-	Summary = 'Test article categorised as Beta and North'
+		Title = 'KDX Test Beta North',
+		UrlName = 'kdx-test-beta-north',
+		Language = 'en_US',
+		Summary = 'Test article categorised as Beta and North'
 ));
 
 insert articles;
 
-List<Knowledge__kav> inserted = [
-	SELECT Id, KnowledgeArticleId, Title
-	FROM Knowledge__kav
-	WHERE Title LIKE 'KDX Test%'
-	AND PublishStatus = 'Draft'
-	AND Language = 'en_US'
+List<Knowledge__kav> inserted =
+[
+		SELECT Id,
+				KnowledgeArticleId,
+				Title
+		FROM Knowledge__kav
+		WHERE Title LIKE 'KDX Test%'
+		AND PublishStatus = 'Draft'
+		AND Language = 'en_US'
 ];
 
 for(Knowledge__kav article : inserted)

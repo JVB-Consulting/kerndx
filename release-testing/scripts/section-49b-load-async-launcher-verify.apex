@@ -88,15 +88,17 @@ try
 {
 	List<kern__Foobar__c> handoffRows =
 	[
-		SELECT Id, Name, kern__TextAreaLong__c
-		FROM kern__Foobar__c
-		WHERE Name LIKE 'Section49Load_%'
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT Id,
+					Name,
+					kern__TextAreaLong__c
+			FROM kern__Foobar__c
+			WHERE Name LIKE 'Section49Load_%'
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, handoffRows.size(),
-		'49b-verify: expected exactly one Section49Load_% handoff row, got ' + handoffRows.size()
+			'49b-verify: expected exactly one Section49Load_% handoff row, got ' + handoffRows.size()
 			+ ' (was section-49 launched first?)');
 
 	kern__Foobar__c handoffRow = handoffRows[0];
@@ -112,7 +114,7 @@ try
 	runStamp = (String)handoff.get('runStamp');
 
 	System.debug(LoggingLevel.INFO,
-		'49b-verify: read handoff ' + handoffName + ' jobIdQueueable=' + jobIdQueueable
+			'49b-verify: read handoff ' + handoffName + ' jobIdQueueable=' + jobIdQueueable
 			+ ' jobIdBatch=' + jobIdBatch + ' dispatchQ=' + dispatchWallMsQueueable
 			+ 'ms dispatchB=' + dispatchWallMsBatch + 'ms');
 
@@ -129,24 +131,31 @@ try
 	{
 		List<AsyncApexJob> currentRows =
 		[
-			SELECT Id, JobType, Status, NumberOfErrors, JobItemsProcessed, TotalJobItems,
-					CreatedDate, CompletedDate, ExtendedStatus
-			FROM AsyncApexJob
-			WHERE Id IN :jobIds
+				SELECT Id,
+						JobType,
+						Status,
+						NumberOfErrors,
+						JobItemsProcessed,
+						TotalJobItems,
+						CreatedDate,
+						CompletedDate,
+						ExtendedStatus
+				FROM AsyncApexJob
+				WHERE Id IN :jobIds
 		];
 
 		for(AsyncApexJob row : currentRows)
 		{
 			latestRows.put(row.Id, row);
 			Boolean isTerminal = row.Status == STATUS_COMPLETED
-				|| row.Status == STATUS_FAILED
-				|| row.Status == STATUS_ABORTED;
+					|| row.Status == STATUS_FAILED
+					|| row.Status == STATUS_ABORTED;
 			if(row.Id == jobIdQueueable)
 			{
 				if(row.Status != lastQueueableStatus)
 				{
 					System.debug(LoggingLevel.INFO,
-						'49b-verify (Queueable poll @ ' + pollElapsedMs + 'ms): Status='
+							'49b-verify (Queueable poll @ ' + pollElapsedMs + 'ms): Status='
 							+ row.Status + ' (was ' + lastQueueableStatus + ')');
 					lastQueueableStatus = row.Status;
 				}
@@ -157,7 +166,7 @@ try
 				if(row.Status != lastBatchStatus)
 				{
 					System.debug(LoggingLevel.INFO,
-						'49b-verify (Batch poll @ ' + pollElapsedMs + 'ms): Status='
+							'49b-verify (Batch poll @ ' + pollElapsedMs + 'ms): Status='
 							+ row.Status + ' (was ' + lastBatchStatus + ')');
 					lastBatchStatus = row.Status;
 				}
@@ -180,7 +189,7 @@ try
 		if(Limits.getCpuTime() >= 8000)
 		{
 			System.debug(LoggingLevel.WARN,
-				'49b-verify: approaching sync CPU governor (' + Limits.getCpuTime() + '/10000 ms) — '
+					'49b-verify: approaching sync CPU governor (' + Limits.getCpuTime() + '/10000 ms) — '
 					+ 'aborting poll loop. If both jobs still not terminal, re-run section-49b only '
 					+ '(handoff row persists for re-poll).');
 			break;
@@ -194,7 +203,7 @@ try
 	Assert.isNotNull(batchJob, '49b-verify: BatchApex AsyncApexJob row must be readable');
 
 	Assert.areEqual(STATUS_COMPLETED, queueableJob.Status,
-		'49b-verify: Queueable job (' + jobIdQueueable + ') must reach Status=Completed within '
+			'49b-verify: Queueable job (' + jobIdQueueable + ') must reach Status=Completed within '
 			+ POLL_BUDGET_MS + ' ms; got Status=' + queueableJob.Status
 			+ ', NumberOfErrors=' + queueableJob.NumberOfErrors
 			+ ', ExtendedStatus=' + queueableJob.ExtendedStatus
@@ -202,12 +211,12 @@ try
 			+ 'backpressure is saturating — wait longer + re-run section-49b only.');
 
 	Assert.areEqual(0, queueableJob.NumberOfErrors,
-		'49b-verify: Queueable job (' + jobIdQueueable + ') must have NumberOfErrors=0 (no items dropped, '
+			'49b-verify: Queueable job (' + jobIdQueueable + ') must have NumberOfErrors=0 (no items dropped, '
 			+ 'no per-item DML failure surfaced via processor allowPartial()); got '
 			+ queueableJob.NumberOfErrors + '. ExtendedStatus=' + queueableJob.ExtendedStatus);
 
 	Assert.areEqual(STATUS_COMPLETED, batchJob.Status,
-		'49b-verify: BatchApex job (' + jobIdBatch + ') must reach Status=Completed within '
+			'49b-verify: BatchApex job (' + jobIdBatch + ') must reach Status=Completed within '
 			+ POLL_BUDGET_MS + ' ms; got Status=' + batchJob.Status
 			+ ', NumberOfErrors=' + batchJob.NumberOfErrors
 			+ ', JobItemsProcessed=' + batchJob.JobItemsProcessed + '/' + batchJob.TotalJobItems
@@ -216,53 +225,53 @@ try
 			+ 'scheduler backpressure is saturating — wait longer + re-run section-49b only.');
 
 	Assert.areEqual(0, batchJob.NumberOfErrors,
-		'49b-verify: BatchApex job (' + jobIdBatch + ') must have NumberOfErrors=0 (no items dropped); '
+			'49b-verify: BatchApex job (' + jobIdBatch + ') must have NumberOfErrors=0 (no items dropped); '
 			+ 'got ' + batchJob.NumberOfErrors + '. ExtendedStatus=' + batchJob.ExtendedStatus);
 
 	Assert.areEqual(batchJob.TotalJobItems, batchJob.JobItemsProcessed,
-		'49b-verify: BatchApex JobItemsProcessed (' + batchJob.JobItemsProcessed + ') must equal '
+			'49b-verify: BatchApex JobItemsProcessed (' + batchJob.JobItemsProcessed + ') must equal '
 			+ 'TotalJobItems (' + batchJob.TotalJobItems + ') — every chunk completed cleanly.');
 
 	Assert.isNotNull(queueableJob.CompletedDate,
-		'49b-verify: Queueable CompletedDate must be populated on terminal Status=Completed');
+			'49b-verify: Queueable CompletedDate must be populated on terminal Status=Completed');
 
 	Assert.isNotNull(batchJob.CompletedDate,
-		'49b-verify: BatchApex CompletedDate must be populated on terminal Status=Completed');
+			'49b-verify: BatchApex CompletedDate must be populated on terminal Status=Completed');
 
 	Long queueableWaitMsAvg = queueableJob.CompletedDate.getTime() - queueableJob.CreatedDate.getTime();
 	Long batchExecutionMs = batchJob.CompletedDate.getTime() - batchJob.CreatedDate.getTime();
 	Long dispatchWallMsAvg = (dispatchWallMsQueueable + dispatchWallMsBatch) / 2;
 
 	Assert.isTrue(queueableWaitMsAvg >= 0,
-		'49b-verify: queueableWaitMsAvg must be >= 0; got ' + queueableWaitMsAvg);
+			'49b-verify: queueableWaitMsAvg must be >= 0; got ' + queueableWaitMsAvg);
 
 	Assert.isTrue(batchExecutionMs >= 0,
-		'49b-verify: batchExecutionMs must be >= 0; got ' + batchExecutionMs);
+			'49b-verify: batchExecutionMs must be >= 0; got ' + batchExecutionMs);
 
 	Map<String, Object> dispatchRow = new Map<String, Object>
 	{
-		'section' => 49,
-		'metric' => 'dispatchWallMs',
-		'value' => dispatchWallMsAvg
+			'section' => 49,
+			'metric' => 'dispatchWallMs',
+			'value' => dispatchWallMsAvg
 	};
 	Map<String, Object> queueableWaitRow = new Map<String, Object>
 	{
-		'section' => 49,
-		'metric' => 'queueableWaitMsAvg',
-		'value' => queueableWaitMsAvg
+			'section' => 49,
+			'metric' => 'queueableWaitMsAvg',
+			'value' => queueableWaitMsAvg
 	};
 	Map<String, Object> batchExecutionRow = new Map<String, Object>
 	{
-		'section' => 49,
-		'metric' => 'batchExecutionMs',
-		'value' => batchExecutionMs
+			'section' => 49,
+			'metric' => 'batchExecutionMs',
+			'value' => batchExecutionMs
 	};
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(dispatchRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(queueableWaitRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(batchExecutionRow));
 
 	System.debug(LoggingLevel.INFO,
-		'49b-verify PASS: Queueable ' + jobIdQueueable + ' Completed ('
+			'49b-verify PASS: Queueable ' + jobIdQueueable + ' Completed ('
 			+ itemCountQueueable + ' items, NumberOfErrors=' + queueableJob.NumberOfErrors
 			+ ', wait=' + queueableWaitMsAvg + 'ms). '
 			+ 'BatchApex ' + jobIdBatch + ' Completed (' + itemCountBatch
@@ -277,7 +286,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'49b-verify FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'49b-verify FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('49b-verify: ' + scenarioError.getMessage());
 	fail++;
 }
@@ -286,56 +295,56 @@ try
 {
 	List<kern__Foobar__c> residualHandoff =
 	[
-		SELECT Id
-		FROM kern__Foobar__c
-		WHERE Name LIKE 'Section49Load_%'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM kern__Foobar__c
+			WHERE Name LIKE 'Section49Load_%'
+			AND CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualHandoff.isEmpty())
 	{
 		delete residualHandoff;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualHandoff.size() + ' Section49Load_% handoff Foobar__c row(s)');
+				'Cleanup: deleted ' + residualHandoff.size() + ' Section49Load_% handoff Foobar__c row(s)');
 	}
 
 	List<Account> residualQueueableAccounts =
 	[
-		SELECT Id
-		FROM Account
-		WHERE Name LIKE 'Section49QHF_%'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM Account
+			WHERE Name LIKE 'Section49QHF_%'
+			AND CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualQueueableAccounts.isEmpty())
 	{
 		delete residualQueueableAccounts;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualQueueableAccounts.size() + ' Section49QHF_% Account row(s)');
+				'Cleanup: deleted ' + residualQueueableAccounts.size() + ' Section49QHF_% Account row(s)');
 	}
 
 	List<Account> residualBatchAccounts =
 	[
-		SELECT Id
-		FROM Account
-		WHERE Name LIKE 'Section49BHF_%'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM Account
+			WHERE Name LIKE 'Section49BHF_%'
+			AND CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualBatchAccounts.isEmpty())
 	{
 		delete residualBatchAccounts;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualBatchAccounts.size() + ' Section49BHF_% Account row(s)');
+				'Cleanup: deleted ' + residualBatchAccounts.size() + ' Section49BHF_% Account row(s)');
 	}
 }
 catch(Exception cleanupError)
 {
 	System.debug(LoggingLevel.WARN,
-		'49b cleanup warning (handoff/Account delete failed): ' + cleanupError.getMessage());
+			'49b cleanup warning (handoff/Account delete failed): ' + cleanupError.getMessage());
 }
 
 System.debug(LoggingLevel.INFO, '');

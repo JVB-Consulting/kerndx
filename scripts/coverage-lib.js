@@ -24,7 +24,11 @@ const path = require('path');
 const APEX_FLOOR = 100.0;
 
 /** @description Allowed values for the `--format` CLI flag. */
-const SUPPORTED_FORMATS = Object.freeze(['text', 'pmd-xml', 'github-annotations']);
+const SUPPORTED_FORMATS = Object.freeze([
+	'text',
+	'pmd-xml',
+	'github-annotations'
+]);
 
 /** @description PMD ruleset attribute used in `--format pmd-xml` output. */
 const PMD_RULESET_NAME = 'KernDXCoverage';
@@ -122,11 +126,8 @@ function parseApexCoverage(sfPayload)
 	}
 	const root = sfPayload.result && typeof sfPayload.result === 'object' ? sfPayload.result : sfPayload;
 
-	const rawCoverage =
-		(Array.isArray(root.codecoverage) ? root.codecoverage : null)
-		|| (root.coverage && Array.isArray(root.coverage.coverage) ? root.coverage.coverage : null)
-		|| (Array.isArray(root.coverage) ? root.coverage : null)
-		|| [];
+	const rawCoverage = (Array.isArray(root.codecoverage) ? root.codecoverage : null) || (root.coverage && Array.isArray(root.coverage.coverage) ? root.coverage.coverage : null)
+			|| (Array.isArray(root.coverage) ? root.coverage : null) || [];
 
 	const classes = {};
 	for(const entry of rawCoverage)
@@ -159,10 +160,7 @@ function parseApexCoverage(sfPayload)
 	const testFailures = tests.filter(test => test && test.Outcome && test.Outcome !== 'Pass');
 
 	return {
-		classes,
-		wallClockSeconds,
-		testsPassed: testFailures.length === 0,
-		testFailures
+		classes, wallClockSeconds, testsPassed: testFailures.length === 0, testFailures
 	};
 }
 
@@ -185,20 +183,82 @@ function applyApexExemptions(apexCoverage, exemptLineCounts)
 		const adjustedTotal = Math.max(0, totalLines - exemptLines);
 		const adjustedUncovered = Math.max(0, entry.uncoveredLines - exemptLines);
 		const adjustedCovered = Math.max(0, adjustedTotal - adjustedUncovered);
-		const percentage = adjustedTotal === 0
-			? 100
-			: Number(((adjustedCovered / adjustedTotal) * 100).toFixed(1));
+		const percentage = adjustedTotal === 0 ? 100 : Number(((adjustedCovered / adjustedTotal) * 100).toFixed(1));
 		adjusted.classes[className] = {
-			percentage,
-			coveredLines: adjustedCovered,
-			uncoveredLines: adjustedUncovered,
-			exemptLines
+			percentage, coveredLines: adjustedCovered, uncoveredLines: adjustedUncovered, exemptLines
 		};
 	}
 	return {
-		...apexCoverage,
-		...adjusted
+		...apexCoverage, ...adjusted
 	};
+}
+
+/**
+ * @description Computes a class's true coverage from its raw per-test
+ * `ApexCodeCoverage` rows by unioning every test method's covered lines: a line
+ * is covered when *any* test covers it, and uncovered only when no test ever
+ * covers it. This union is what `ApexCodeCoverageAggregate` is meant to equal,
+ * but which it under-reports for heavily-shared classes after a parallel
+ * `RunLocalTests` (coverage-record write contention loses rollup entries).
+ *
+ * @param {Array<{Coverage: {coveredLines: Array<number>, uncoveredLines: Array<number>}}>} rows
+ * @return {{percentage: number, coveredLines: number, uncoveredLines: number}}
+ */
+function unionCoverageFromRows(rows)
+{
+	const covered = new Set();
+	const mentionedUncovered = new Set();
+	for(const row of rows || [])
+	{
+		const coverage = (row && row.Coverage) || {};
+		for(const line of coverage.coveredLines || [])
+		{
+			covered.add(line);
+		}
+		for(const line of coverage.uncoveredLines || [])
+		{
+			mentionedUncovered.add(line);
+		}
+	}
+	let uncoveredCount = 0;
+	for(const line of mentionedUncovered)
+	{
+		if(!covered.has(line))
+		{
+			uncoveredCount++;
+		}
+	}
+	const coveredCount = covered.size;
+	const total = coveredCount + uncoveredCount;
+	const percentage = total === 0 ? 100 : Number(((coveredCount / total) * 100).toFixed(1));
+	return {percentage, coveredLines: coveredCount, uncoveredLines: uncoveredCount};
+}
+
+/**
+ * @description Corrects `ApexCodeCoverageAggregate`-derived coverage against the
+ * authoritative per-test union for the named classes. Upgrade-only: a class is
+ * replaced with its union figure solely when the union reports a strictly higher
+ * percentage, so a genuinely-uncovered line can never be masked by stale or
+ * partial per-test rows. Absorbs the parallel-run rollup artifact where the
+ * aggregate under-reports classes whose per-test rows are in fact complete.
+ *
+ * @param {{classes: Object<string, Object>}} aggregateCoverage - Output of `normaliseAggregateRows()`.
+ * @param {Object<string, Array<Object>>} perTestRowsByClass - `{className: ApexCodeCoverage rows}`.
+ * @return {{classes: Object<string, Object>}} New coverage object; classes absent from the map pass through untouched.
+ */
+function reconcileAggregateWithPerTestRows(aggregateCoverage, perTestRowsByClass)
+{
+	const classes = {...((aggregateCoverage && aggregateCoverage.classes) || {})};
+	for(const [className, rows] of Object.entries(perTestRowsByClass || {}))
+	{
+		const union = unionCoverageFromRows(rows);
+		const current = classes[className];
+		if(!current || union.percentage > current.percentage)
+		{
+			classes[className] = union;
+		}
+	}
+	return {...aggregateCoverage, classes};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -265,8 +325,7 @@ function tallyHits(hits)
 {
 	const values = hits ? Object.values(hits) : [];
 	return {
-		covered: values.reduce((sum, value) => sum + (Number(value) > 0 ? 1 : 0), 0),
-		total: values.length
+		covered: values.reduce((sum, value) => sum + (Number(value) > 0 ? 1 : 0), 0), total: values.length
 	};
 }
 
@@ -327,8 +386,7 @@ function deriveLineCoverage(entry)
 	}
 	const lines = Object.values(byLine);
 	return {
-		covered: lines.filter(count => count > 0).length,
-		total: lines.length
+		covered: lines.filter(count => count > 0).length, total: lines.length
 	};
 }
 
@@ -372,10 +430,7 @@ function parseJestCoverageSummary(summary, repoRoot)
 		}
 		const relative = toRepoRelative(key, repoRoot);
 		files[relative] = {
-			statements: toPct(value.statements),
-			branches: toPct(value.branches),
-			functions: toPct(value.functions),
-			lines: toPct(value.lines)
+			statements: toPct(value.statements), branches: toPct(value.branches), functions: toPct(value.functions), lines: toPct(value.lines)
 		};
 	}
 	return {files};
@@ -538,11 +593,11 @@ function formatSummaryLine(measurements, pass)
 {
 	const prefix = pass ? 'OK' : 'FAIL';
 	const apexParts = measurements
-		.filter(measurement => measurement.kind === 'apex')
-		.map(measurement => `${measurement.target} ${fmtPct(measurement.current)}`);
+	.filter(measurement => measurement.kind === 'apex')
+	.map(measurement => `${measurement.target} ${fmtPct(measurement.current)}`);
 	const lwcParts = measurements
-		.filter(measurement => measurement.kind === 'lwc')
-		.map(measurement => `${componentLabel(measurement.target)} ${fmtPct(measurement.current.statements)}/${fmtPct(measurement.current.branches)}`);
+	.filter(measurement => measurement.kind === 'lwc')
+	.map(measurement => `${componentLabel(measurement.target)} ${fmtPct(measurement.current.statements)}/${fmtPct(measurement.current.branches)}`);
 	const segments = [];
 	if(apexParts.length > 0)
 	{
@@ -623,11 +678,8 @@ function formatPmdXml(violations, options)
 		{
 			const priority = violationPriority(violation);
 			const message = xmlEscape(describeViolation(violation));
-			lines.push(
-				'\t\t<violation beginline="0" endline="0" begincolumn="0" endcolumn="0" ' +
-				`rule="${xmlEscape(PMD_RULE_NAME)}" ruleset="${xmlEscape(PMD_RULESET_NAME)}" ` +
-				`priority="${priority}">${message}</violation>`
-			);
+			lines.push('\t\t<violation beginline="0" endline="0" begincolumn="0" endcolumn="0" ' + `rule="${xmlEscape(PMD_RULE_NAME)}" ruleset="${xmlEscape(PMD_RULESET_NAME)}" `
+					+ `priority="${priority}">${message}</violation>`);
 		}
 		lines.push('\t</file>');
 	}
@@ -784,11 +836,11 @@ function describeViolation(violation)
 function xmlEscape(value)
 {
 	return String(value == null ? '' : value)
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;');
+	.replace(/&/g, '&amp;')
+	.replace(/</g, '&lt;')
+	.replace(/>/g, '&gt;')
+	.replace(/"/g, '&quot;')
+	.replace(/'/g, '&apos;');
 }
 
 /**
@@ -802,9 +854,9 @@ function xmlEscape(value)
 function escapeAnnotationMessage(value)
 {
 	return String(value == null ? '' : value)
-		.replace(/%/g, '%25')
-		.replace(/\r/g, '%0D')
-		.replace(/\n/g, '%0A');
+	.replace(/%/g, '%25')
+	.replace(/\r/g, '%0D')
+	.replace(/\n/g, '%0A');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -823,9 +875,7 @@ function readBaseline(baselinePath)
 	if(!fs.existsSync(baselinePath))
 	{
 		return {
-			capturedAt: null,
-			apex: {totalWallClockSeconds: 0, testSetupClasses: [], classes: {}},
-			lwc: {totalRuntimeSeconds: 0, files: {}}
+			capturedAt: null, apex: {totalWallClockSeconds: 0, testSetupClasses: [], classes: {}}, lwc: {totalRuntimeSeconds: 0, files: {}}
 		};
 	}
 	const contents = fs.readFileSync(baselinePath, 'utf8');
@@ -863,32 +913,23 @@ function buildBaseline(args)
 	for(const [name, entry] of Object.entries(apexResult.classes))
 	{
 		apexClasses[name] = {
-			percentage: entry.percentage,
-			coveredLines: entry.coveredLines,
-			uncoveredLines: entry.uncoveredLines,
-			exemptLines: toInt(entry.exemptLines || 0)
+			percentage: entry.percentage, coveredLines: entry.coveredLines, uncoveredLines: entry.uncoveredLines, exemptLines: toInt(entry.exemptLines || 0)
 		};
 	}
 	const lwcFiles = {};
 	for(const [filePath, entry] of Object.entries(lwcResult.files))
 	{
 		lwcFiles[filePath] = {
-			statements: entry.statements,
-			branches: entry.branches,
-			functions: entry.functions,
-			lines: entry.lines
+			statements: entry.statements, branches: entry.branches, functions: entry.functions, lines: entry.lines
 		};
 	}
 	return {
-		capturedAt: new Date().toISOString(),
-		apex: {
+		capturedAt: new Date().toISOString(), apex: {
 			totalWallClockSeconds: Number(apexResult.wallClockSeconds || 0),
 			testSetupClasses: Array.isArray(testSetupClasses) ? [...testSetupClasses].sort() : [],
 			classes: sortKeys(apexClasses)
-		},
-		lwc: {
-			totalRuntimeSeconds: Number(lwcRuntimeSeconds || 0),
-			files: sortKeys(lwcFiles)
+		}, lwc: {
+			totalRuntimeSeconds: Number(lwcRuntimeSeconds || 0), files: sortKeys(lwcFiles)
 		}
 	};
 }
@@ -1092,10 +1133,7 @@ function parseExemptComments(source, pattern)
 		const reason = (match[1] || '').trim();
 		const {valid, failures} = validateExemptReason(reason);
 		results.push({
-			lineNumber: index + 1,
-			reason,
-			reasonValid: valid,
-			failures
+			lineNumber: index + 1, reason, reasonValid: valid, failures
 		});
 	}
 	return results;
@@ -1134,6 +1172,8 @@ module.exports = {
 	safeParseJson,
 	parseApexCoverage,
 	applyApexExemptions,
+	unionCoverageFromRows,
+	reconcileAggregateWithPerTestRows,
 	parseJestCoverageFinal,
 	parseJestCoverageSummary,
 	parseCoverageExemptComments,

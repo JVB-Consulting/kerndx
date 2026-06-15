@@ -142,21 +142,27 @@ private class Subscriber_DmlEdges_TEST
 	 */
 	private static User createStandardUser()
 	{
-		Profile standardProfile = [SELECT Id FROM Profile WHERE Name = :STANDARD_PROFILE LIMIT 1];
+		Profile standardProfile =
+		[
+				SELECT Id
+				FROM Profile
+				WHERE Name = :STANDARD_PROFILE
+				LIMIT 1
+		];
 		String suffix = String.valueOf(Crypto.getRandomInteger()).right(8);
 		User standardUser = new User
-		(
-			FirstName = 'DmlEdges',
-			LastName = 'Subscriber',
-			Email = 'dml-edges-' + suffix + '@kerndx.test',
-			Username = 'dml-edges-' + suffix + '@kerndx.test.invalid',
-			Alias = 'dml' + suffix.right(3),
-			TimeZoneSidKey = 'America/New_York',
-			LocaleSidKey = 'en_US',
-			EmailEncodingKey = 'UTF-8',
-			LanguageLocaleKey = 'en_US',
-			ProfileId = standardProfile.Id
-		);
+				(
+						FirstName = 'DmlEdges',
+						LastName = 'Subscriber',
+						Email = 'dml-edges-' + suffix + '@kerndx.test',
+						Username = 'dml-edges-' + suffix + '@kerndx.test.invalid',
+						Alias = 'dml' + suffix.right(3),
+						TimeZoneSidKey = 'America/New_York',
+						LocaleSidKey = 'en_US',
+						EmailEncodingKey = 'UTF-8',
+						LanguageLocaleKey = 'en_US',
+						ProfileId = standardProfile.Id
+				);
 		insert standardUser;
 		return standardUser;
 	}

@@ -120,21 +120,27 @@ private class Subscriber_QryEdges_TEST
 	 */
 	private static User createStandardUser()
 	{
-		Profile standardProfile = [SELECT Id FROM Profile WHERE Name = :STANDARD_PROFILE LIMIT 1];
+		Profile standardProfile =
+		[
+				SELECT Id
+				FROM Profile
+				WHERE Name = :STANDARD_PROFILE
+				LIMIT 1
+		];
 		String suffix = String.valueOf(Crypto.getRandomInteger()).right(8);
 		User standardUser = new User
-		(
-			FirstName = 'QryEdges',
-			LastName = 'Subscriber',
-			Email = 'qry-edges-' + suffix + '@kerndx.test',
-			Username = 'qry-edges-' + suffix + '@kerndx.test.invalid',
-			Alias = 'qry' + suffix.right(3),
-			TimeZoneSidKey = 'America/New_York',
-			LocaleSidKey = 'en_US',
-			EmailEncodingKey = 'UTF-8',
-			LanguageLocaleKey = 'en_US',
-			ProfileId = standardProfile.Id
-		);
+				(
+						FirstName = 'QryEdges',
+						LastName = 'Subscriber',
+						Email = 'qry-edges-' + suffix + '@kerndx.test',
+						Username = 'qry-edges-' + suffix + '@kerndx.test.invalid',
+						Alias = 'qry' + suffix.right(3),
+						TimeZoneSidKey = 'America/New_York',
+						LocaleSidKey = 'en_US',
+						EmailEncodingKey = 'UTF-8',
+						LanguageLocaleKey = 'en_US',
+						ProfileId = standardProfile.Id
+				);
 		insert standardUser;
 		return standardUser;
 	}

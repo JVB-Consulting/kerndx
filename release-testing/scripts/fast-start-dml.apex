@@ -7,8 +7,8 @@
 Account demoAccount = new Account(Name = 'Fast Start DML Demo', Phone = '555-0100', Industry = 'Technology');
 
 kern.DML_Builder.TransactionResult insertResult = kern.DML_Builder.newTransaction()
-	.doInsert(demoAccount)
-	.execute();
+		.doInsert(demoAccount)
+		.execute();
 
 System.debug('Insert success: ' + insertResult.isSuccess());
 System.debug('Account Id: ' + demoAccount.Id);
@@ -17,14 +17,14 @@ System.debug('Account Id: ' + demoAccount.Id);
 Contact demoContact = new Contact(LastName = 'Demo');
 
 kern.DML_Builder.newTransaction()
-	.doInsert(demoContact, Contact.AccountId, demoAccount)
-	.execute();
+		.doInsert(demoContact, Contact.AccountId, demoAccount)
+		.execute();
 
 System.debug('Contact AccountId matches Account Id: ' + (demoContact.AccountId == demoAccount.Id));
 
 // 3. Cleanup — delete the Account; the linked Contact is cascade-deleted automatically.
 kern.DML_Builder.newTransaction()
-	.doDelete(demoAccount)
-	.execute();
+		.doDelete(demoAccount)
+		.execute();
 
 System.debug('Cleanup complete');

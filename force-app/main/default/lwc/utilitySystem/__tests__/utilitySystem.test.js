@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 import {reduceErrors, sortBy, copyToClipBoard, flattenObject, setPropertyOnObject} from 'c/utilitySystem';
 
@@ -148,8 +148,10 @@ describe('reduceErrors', () =>
 			const error = {
 				body: {
 					fieldErrors: {
-						Name: [{message: 'Required'}, {message: 'TooLong'}],
-						Industry: [{message: 'BadValue'}]
+						Name: [
+							{message: 'Required'},
+							{message: 'TooLong'}
+						], Industry: [{message: 'BadValue'}]
 					}
 				}
 			};

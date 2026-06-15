@@ -23,15 +23,15 @@ public with sharing class FastStart_DML_DEMO
 	 * @return The result of the transaction.
 	 */
 	public kern.DML_Builder.TransactionResult createAccountWithContacts
-	(
-		String accountName,
-		List<String> contactLastNames
-	)
+			(
+					String accountName,
+					List<String> contactLastNames
+			)
 	{
 		Account newAccount = new Account(Name = accountName, Phone = '555-0100');
 
 		kern.DML_Builder dmlTransaction = kern.DML_Builder.newTransaction()
-			.doInsert(newAccount);
+				.doInsert(newAccount);
 
 		for(String lastName : contactLastNames)
 		{
@@ -53,8 +53,8 @@ public with sharing class FastStart_DML_DEMO
 	public kern.DML_Builder.TransactionResult tryBulkInsertAccounts(List<Account> accounts)
 	{
 		return kern.DML_Builder.newTransaction()
-			.doInsert(accounts)
-			.allowPartial()
-			.execute();
+				.doInsert(accounts)
+				.allowPartial()
+				.execute();
 	}
 }

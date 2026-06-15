@@ -14,19 +14,33 @@
  */
 public with sharing class SubscriberChainSteps
 {
-	/** @description Context key for the created Foobar record ID. */
+	/**
+	 * @description Context key for the created Foobar record ID.
+	 */
 	public static final String KEY_FOOBAR_ID = 'foobarId';
-	/** @description Context key for the API response body. */
+	/**
+	 * @description Context key for the API response body.
+	 */
 	public static final String KEY_API_RESPONSE = 'apiResponse';
-	/** @description Context key for the verification summary written by VerifyContextStep. */
+	/**
+	 * @description Context key for the verification summary written by VerifyContextStep.
+	 */
 	public static final String KEY_VERIFIED = 'verified';
-	/** @description Context key for the error handler executed flag. */
+	/**
+	 * @description Context key for the error handler executed flag.
+	 */
 	public static final String KEY_ERROR_HANDLED = 'errorHandled';
-	/** @description Context key for the completion handler executed flag. */
+	/**
+	 * @description Context key for the completion handler executed flag.
+	 */
 	public static final String KEY_COMPLETED = 'completed';
-	/** @description Prefix for per-step context keys written by WriteContextStep. Each step writes step_&lt;currentStepIndex&gt;. */
+	/**
+	 * @description Prefix for per-step context keys written by WriteContextStep. Each step writes step_&lt;currentStepIndex&gt;.
+	 */
 	public static final String CONTEXT_KEY_PREFIX = 'step_';
-	/** @description Size in characters of the random payload each WriteContextStep writes to context. */
+	/**
+	 * @description Size in characters of the random payload each WriteContextStep writes to context.
+	 */
 	public static final Integer WRITE_CONTEXT_PAYLOAD_SIZE = 1024;
 
 	/**
@@ -72,7 +86,7 @@ public with sharing class SubscriberChainSteps
 		{
 			Id foobarId = (Id)context.get(KEY_FOOBAR_ID);
 			kern__Foobar__c record = (kern__Foobar__c)kern.QRY_Builder.selectFrom(kern__Foobar__c.SObjectType)
-					.fields(new List<SObjectField>{kern__Foobar__c.Name})
+					.fields(new List<SObjectField> {kern__Foobar__c.Name})
 					.condition(kern__Foobar__c.Id).equals(foobarId)
 					.getFirst();
 			record.Name = record.Name + ' — Updated';
@@ -101,7 +115,12 @@ public with sharing class SubscriberChainSteps
 				return kern.UTIL_AsyncChain.failed('apiResponse missing from context');
 			}
 
-			kern__Foobar__c record = [SELECT Name FROM kern__Foobar__c WHERE Id = :foobarId];
+			kern__Foobar__c record =
+			[
+					SELECT Name
+					FROM kern__Foobar__c
+					WHERE Id = :foobarId
+			];
 			if(!record.Name.contains('Updated'))
 			{
 				return kern.UTIL_AsyncChain.failed('Foobar not updated by prior step: ' + record.Name);
@@ -209,7 +228,7 @@ public with sharing class SubscriberChainSteps
 				{
 					return kern.UTIL_AsyncChain.failed(
 							'Prior payload at ' + priorKey + ' was '
-									+ priorPayload.length() + ' chars (expected ' + WRITE_CONTEXT_PAYLOAD_SIZE + ')');
+							+ priorPayload.length() + ' chars (expected ' + WRITE_CONTEXT_PAYLOAD_SIZE + ')');
 				}
 			}
 

@@ -14,9 +14,11 @@
  * @date May 2026
  */
 public inherited sharing class FastStart_TriggerAction_DEMO extends kern.TRG_Base
-	implements kern.IF_Trigger.BeforeInsert
+		implements kern.IF_Trigger.BeforeInsert
 {
-	/** @description Default description stamped on new Account records. */
+	/**
+	 * @description Default description stamped on new Account records.
+	 */
 	@TestVisible
 	private static final String DEFAULT_DESCRIPTION = 'Created via Fast Start';
 
@@ -31,9 +33,9 @@ public inherited sharing class FastStart_TriggerAction_DEMO extends kern.TRG_Bas
 		{
 			Account account = (Account)record;
 
-			if(String.isBlank(account.Description))
+			if(String.isBlank(Account.Description))
 			{
-				account.Description = DEFAULT_DESCRIPTION;
+				Account.Description = DEFAULT_DESCRIPTION;
 			}
 		}
 	}

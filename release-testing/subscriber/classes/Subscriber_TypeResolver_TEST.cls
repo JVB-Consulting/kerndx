@@ -122,16 +122,16 @@ private class Subscriber_TypeResolver_TEST
 	{
 		List<SObject> tiedResolvers = new List<SObject>
 		{
-			(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
-					.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'TiedResolverA')
-					.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, CUSTOM_RESOLVER)
-					.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
-					.build(),
-			(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
-					.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'TiedResolverB')
-					.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, CUSTOM_RESOLVER)
-					.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
-					.build()
+				(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
+						.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'TiedResolverA')
+						.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, CUSTOM_RESOLVER)
+						.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
+						.build(),
+				(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
+						.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'TiedResolverB')
+						.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, CUSTOM_RESOLVER)
+						.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
+						.build()
 		};
 		kern.QRY_Builder.setMock(kern__ClassTypeResolver__mdt.SObjectType, tiedResolvers);
 
@@ -183,11 +183,11 @@ private class Subscriber_TypeResolver_TEST
 	{
 		List<SObject> throwingChain = new List<SObject>
 		{
-			(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
-					.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'ThrowingResolverInjected')
-					.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, THROWING_RESOLVER)
-					.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
-					.build()
+				(SObject)kern.TST_Mock.of(kern__ClassTypeResolver__mdt.SObjectType)
+						.withOverride(kern__ClassTypeResolver__mdt.DeveloperName, 'ThrowingResolverInjected')
+						.withOverride(kern__ClassTypeResolver__mdt.kern__ClassName__c, THROWING_RESOLVER)
+						.withOverride(kern__ClassTypeResolver__mdt.kern__Order__c, RESOLVER_ORDER)
+						.build()
 		};
 		kern.QRY_Builder.setMock(kern__ClassTypeResolver__mdt.SObjectType, throwingChain);
 

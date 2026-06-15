@@ -64,7 +64,13 @@ test.describe.serial('Part 8: Chain Monitor UI', () =>
 
 		const status = await monitor.getDetailStatus();
 		expect(status, 'Detail panel should show status badge').toBeTruthy();
-		expect(['Running', 'Completed', 'Failed', 'Aborted', 'Stalled'], 'Status should be a valid value').toContain(status.trim());
+		expect([
+			'Running',
+			'Completed',
+			'Failed',
+			'Aborted',
+			'Stalled'
+		], 'Status should be a valid value').toContain(status.trim());
 
 		const hasTimeline = await monitor.hasStepTimeline();
 		expect(hasTimeline, 'Detail panel should show step timeline').toBeTruthy();
@@ -193,15 +199,14 @@ test.describe.serial('Part 8: Chain Monitor UI', () =>
 		const chainId = match[1];
 		testInfo.annotations.push({type: 'notes', description: `Launched 2-step chain ${chainId}`});
 
-		const records = soqlQuery(
-			`SELECT kern__Status__c, kern__CompletedSteps__c, kern__TotalSteps__c FROM kern__AsyncChainExecution__c WHERE Id = '${chainId}'`
-		);
+		const records = soqlQuery(`SELECT kern__Status__c, kern__CompletedSteps__c, kern__TotalSteps__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${chainId}'`);
 		const execution = records[0];
 		testInfo.annotations.push({type: 'notes', description: `DB: ${execution.kern__Status__c}, ${execution.kern__CompletedSteps__c}/${execution.kern__TotalSteps__c}`});
 
 		const instanceUrl = getInstanceUrl();
-		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${chainId}/view`,
-			{waitUntil: 'domcontentloaded'});
+		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${chainId}/view`, {waitUntil: 'domcontentloaded'});
 		await waitForPageLoad(page);
 		await page.waitForTimeout(5000);
 
@@ -217,14 +222,11 @@ test.describe.serial('Part 8: Chain Monitor UI', () =>
 
 	test('V39: Chain execution record page has embedded step timeline', async({page}) =>
 	{
-		const records = soqlQuery(
-			"SELECT Id FROM kern__AsyncChainExecution__c WHERE kern__ChainName__c = 'E2E_OnboardingChain' ORDER BY CreatedDate DESC LIMIT 1"
-		);
+		const records = soqlQuery('SELECT Id FROM kern__AsyncChainExecution__c WHERE kern__ChainName__c = \'E2E_OnboardingChain\' ORDER BY CreatedDate DESC LIMIT 1');
 		expect(records.length).toBeGreaterThan(0);
 
 		const instanceUrl = getInstanceUrl();
-		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${records[0].Id}/view`,
-			{waitUntil: 'domcontentloaded'});
+		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${records[0].Id}/view`, {waitUntil: 'domcontentloaded'});
 		await waitForPageLoad(page);
 		await page.waitForTimeout(5000);
 

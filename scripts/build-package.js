@@ -16,7 +16,7 @@
  * @author Kern Framework
  */
 
-const { execSync, spawn } = require('child_process');
+const {execSync, spawn} = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const preparePackageBuild = require('./prepare-package-build');
@@ -27,9 +27,7 @@ const {getDevOrgAlias} = require('./dev-org-config');
 // ============================================================================
 
 const CONFIG = {
-	DEFAULT_DEV_ORG: 'DevHub',
-	DEFAULT_WAIT: 60,
-	PACKAGE_NAME: 'Kern'
+	DEFAULT_DEV_ORG: 'DevHub', DEFAULT_WAIT: 60, PACKAGE_NAME: 'Kern'
 };
 
 // ============================================================================
@@ -37,12 +35,7 @@ const CONFIG = {
 // ============================================================================
 
 const colors = {
-	reset: '\x1b[0m',
-	red: '\x1b[31m',
-	green: '\x1b[32m',
-	yellow: '\x1b[33m',
-	blue: '\x1b[34m',
-	cyan: '\x1b[36m'
+	reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', cyan: '\x1b[36m'
 };
 
 function log(message, color = colors.reset)
@@ -90,9 +83,9 @@ function parseArgs()
 		extraArgs: []
 	};
 
-	for (let i = 0; i < args.length; i++)
+	for(let i = 0; i < args.length; i++)
 	{
-		switch (args[i])
+		switch(args[i])
 		{
 			case '--dev-org':
 			case '-o':
@@ -175,7 +168,7 @@ Examples:
  */
 function hasUncommittedChanges()
 {
-	const output = execSync('git status --porcelain -- force-app/', { encoding: 'utf8' });
+	const output = execSync('git status --porcelain -- force-app/', {encoding: 'utf8'});
 	return output.trim().length > 0;
 }
 
@@ -189,8 +182,7 @@ function hasUncommittedChanges()
 function applyNamespacePrefixes(options)
 {
 	return preparePackageBuild.main({
-		dryRun: options.dryRun,
-		verbose: options.verbose
+		dryRun: options.dryRun, verbose: options.verbose
 	});
 }
 
@@ -204,13 +196,18 @@ function applyNamespacePrefixes(options)
 function createPackageVersion(options)
 {
 	const args = [
-		'package', 'version', 'create',
-		'--package', options.packageAlias,
-		'--target-dev-hub', options.devOrg,
-		'--wait', options.wait.toString(),
+		'package',
+		'version',
+		'create',
+		'--package',
+		options.packageAlias,
+		'--target-dev-hub',
+		options.devOrg,
+		'--wait',
+		options.wait.toString()
 	];
 
-	if (options.skipValidation)
+	if(options.skipValidation)
 	{
 		args.push('--skip-validation');
 	}
@@ -219,7 +216,7 @@ function createPackageVersion(options)
 		args.push('--code-coverage');
 	}
 
-	if (options.installationKey)
+	if(options.installationKey)
 	{
 		args.push('--installation-key', options.installationKey);
 	}
@@ -239,12 +236,12 @@ function createPackageVersion(options)
  */
 function revertChanges(verbose)
 {
-	if (verbose)
+	if(verbose)
 	{
 		logInfo('Reverting force-app/ changes...');
 	}
-	execSync('git checkout -- force-app/', { encoding: 'utf8' });
-	if (verbose)
+	execSync('git checkout -- force-app/', {encoding: 'utf8'});
+	if(verbose)
 	{
 		logSuccess('Changes reverted');
 	}
@@ -258,18 +255,22 @@ function revertChanges(verbose)
 function resyncOrgMetadata(verbose)
 {
 	const metadataArgs = [
-		'project', 'deploy', 'start',
-		'-o', getDevOrgAlias(),
-		'-m', 'CustomMetadata',
+		'project',
+		'deploy',
+		'start',
+		'-o',
+		getDevOrgAlias(),
+		'-m',
+		'CustomMetadata',
 		'--ignore-conflicts'
 	];
 
-	if (verbose)
+	if(verbose)
 	{
 		logInfo('Deploying committed metadata to org...');
 	}
 
-	execSync(`sf ${metadataArgs.join(' ')}`, { encoding: 'utf8', stdio: verbose ? 'inherit' : 'pipe' });
+	execSync(`sf ${metadataArgs.join(' ')}`, {encoding: 'utf8', stdio: verbose ? 'inherit' : 'pipe'});
 }
 
 /**
@@ -284,8 +285,11 @@ function runCommand(command, args)
 	{
 		let output = '';
 		const proc = spawn(command, args, {
-			stdio: ['inherit', 'pipe', 'pipe'],
-			shell: true
+			stdio: [
+				'inherit',
+				'pipe',
+				'pipe'
+			], shell: true
 		});
 
 		proc.stdout.on('data', (data) =>
@@ -304,13 +308,13 @@ function runCommand(command, args)
 
 		proc.on('close', (code) =>
 		{
-			resolve({ code: code || 0, output });
+			resolve({code: code || 0, output});
 		});
 
 		proc.on('error', (err) =>
 		{
 			logError(`Failed to start command: ${err.message}`);
-			resolve({ code: 1, output: err.message });
+			resolve({code: 1, output: err.message});
 		});
 	});
 }
@@ -328,12 +332,12 @@ function setupSignalHandlers(verbose, noResync)
 		try
 		{
 			revertChanges(verbose);
-			if (!noResync)
+			if(!noResync)
 			{
 				resyncOrgMetadata(verbose);
 			}
 		}
-		catch (error)
+		catch(error)
 		{
 			logError(`Failed to revert changes: ${error.message}`);
 		}
@@ -352,7 +356,7 @@ async function main()
 {
 	const options = parseArgs();
 
-	if (options.help)
+	if(options.help)
 	{
 		showHelp();
 		return;
@@ -369,7 +373,7 @@ async function main()
 	logInfo(`Validation: ${options.skipValidation ? 'SKIPPED' : 'enabled'}`);
 	logInfo(`Key:        ${options.installationKey ? '(custom)' : 'bypass'}`);
 	logInfo(`Resync:     ${options.noResync ? 'SKIPPED' : 'enabled'}`);
-	if (options.dryRun)
+	if(options.dryRun)
 	{
 		logInfo('Mode:       DRY RUN');
 	}
@@ -382,13 +386,13 @@ async function main()
 	// Check for uncommitted changes
 	try
 	{
-		if (hasUncommittedChanges())
+		if(hasUncommittedChanges())
 		{
 			logError('Uncommitted changes detected in force-app/. Please commit or stash them first.');
 			process.exit(1);
 		}
 	}
-	catch (error)
+	catch(error)
 	{
 		logError(`Failed to check git status: ${error.message}`);
 		process.exit(1);
@@ -405,7 +409,7 @@ async function main()
 		prefixResult = applyNamespacePrefixes(options);
 		prefixesApplied = true;
 	}
-	catch (error)
+	catch(error)
 	{
 		logError(`Failed to apply namespace prefixes: ${error.message}`);
 		process.exit(1);
@@ -414,7 +418,7 @@ async function main()
 	logSuccess(`Namespace prefixes applied (${prefixResult.totalModified} files modified)`);
 	console.log('');
 
-	if (options.dryRun)
+	if(options.dryRun)
 	{
 		logInfo('Dry run complete. No package version created.');
 		revertChanges(options.verbose);
@@ -429,7 +433,7 @@ async function main()
 		const buildResult = await createPackageVersion(options);
 		console.log('');
 
-		if (buildResult.code !== 0)
+		if(buildResult.code !== 0)
 		{
 			logError('Package version creation failed');
 			buildFailed = true;
@@ -439,7 +443,7 @@ async function main()
 			logSuccess('Package version created');
 		}
 	}
-	catch (error)
+	catch(error)
 	{
 		logError(`Package version creation error: ${error.message}`);
 		buildFailed = true;
@@ -451,10 +455,10 @@ async function main()
 	// Subscriber clones of the source release don't ship update-package-refs.js
 	// (it's a kern-maintainer-only tool that rewrites internal CHANGELOG +
 	// Installation.md), so skip the step quietly when the module isn't present.
-	if (!buildFailed)
+	if(!buildFailed)
 	{
 		const updatePackageRefsPath = path.join(__dirname, 'update-package-refs.js');
-		if (!fs.existsSync(updatePackageRefsPath))
+		if(!fs.existsSync(updatePackageRefsPath))
 		{
 			logStep(++currentStep, totalSteps, 'Updating doc references to new package version...');
 			console.log('  (skipped — update-package-refs.js not present; this is a subscriber/release install)');
@@ -467,10 +471,9 @@ async function main()
 			{
 				const updatePackageRefs = require('./update-package-refs');
 				const exitCode = updatePackageRefs.run([], {
-					log: (m) => console.log('  ' + m),
-					errlog: (m) => console.error('  ' + m)
+					log: (m) => console.log('  ' + m), errlog: (m) => console.error('  ' + m)
 				});
-				if (exitCode === 0)
+				if(exitCode === 0)
 				{
 					logSuccess('Doc references updated');
 				}
@@ -479,7 +482,7 @@ async function main()
 					logError(`Doc reference update completed with warnings (exit=${exitCode}) — review the WARNING lines above; the build itself succeeded.`);
 				}
 			}
-			catch (error)
+			catch(error)
 			{
 				logError(`Doc reference update error (non-fatal): ${error.message}`);
 			}
@@ -500,26 +503,26 @@ async function main()
 		revertChanges(options.verbose);
 		logSuccess('Local file changes reverted');
 	}
-	catch (error)
+	catch(error)
 	{
 		logError(`Failed to revert changes: ${error.message}`);
 		logError('Manual revert required: git checkout -- force-app/');
 	}
 
-	if (!options.noResync)
+	if(!options.noResync)
 	{
 		try
 		{
 			resyncOrgMetadata(options.verbose);
 			logSuccess('Org metadata resynced to committed state');
 		}
-		catch (error)
+		catch(error)
 		{
 			logError(`Failed to resync org metadata: ${error.message}`);
 		}
 	}
 
-	if (buildFailed)
+	if(buildFailed)
 	{
 		console.log('');
 		logError('Build failed. Changes have been reverted.');
@@ -558,7 +561,7 @@ module.exports = {
 };
 
 // Run if executed directly
-if (require.main === module)
+if(require.main === module)
 {
 	main().catch((err) =>
 	{
@@ -567,12 +570,12 @@ if (require.main === module)
 		try
 		{
 			revertChanges(true);
-			if (!noResync)
+			if(!noResync)
 			{
 				resyncOrgMetadata(true);
 			}
 		}
-		catch (revertError)
+		catch(revertError)
 		{
 			logError(`Failed to revert changes: ${revertError.message}`);
 			logError('Manual revert required: git checkout -- force-app/');

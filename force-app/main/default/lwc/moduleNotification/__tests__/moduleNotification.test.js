@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 
 		// Mock ShowToastEvent
@@ -412,7 +412,10 @@ describe('moduleNotification', () =>
 		{
 			initialiseCustomNotificationFactory(mockComponent);
 			initializeShowErrorToast(mockComponent);
-			const apexErrors = [{body: [{message: 'one'}]}, {message: 'two'}];
+			const apexErrors = [
+				{body: [{message: 'one'}]},
+				{message: 'two'}
+			];
 
 			mockComponent.showErrorToast(apexErrors);
 

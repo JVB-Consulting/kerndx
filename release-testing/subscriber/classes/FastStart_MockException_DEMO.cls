@@ -10,9 +10,9 @@
  * `kern.TST_Mock.throwsException(Account.SObjectType, ...)` to force the negative path
  * without any other mocking layer. Three `kern.TST_Mock.throwsException` overloads exist:
  *
- *   - `throwsException(SObjectType, Exception)`  — explicit exception instance
- *   - `throwsException(SObjectType, String)`     — wraps the message in a QueryException
- *   - `throwsException(SObjectType)`             — generic QueryException with default message
+ * - `throwsException(SObjectType, Exception)`  — explicit exception instance
+ * - `throwsException(SObjectType, String)`     — wraps the message in a QueryException
+ * - `throwsException(SObjectType)`             — generic QueryException with default message
  *
  * `kern.TST_Mock.clear(SObjectType)` and `kern.TST_Mock.clear()` both wipe the exception
  * registry so subscribers do not need to clear two layers manually.
@@ -27,7 +27,9 @@
  */
 public with sharing class FastStart_MockException_DEMO
 {
-	/** @description Sentinel value returned when the wrapped query throws a QueryException. */
+	/**
+	 * @description Sentinel value returned when the wrapped query throws a QueryException.
+	 */
 	@TestVisible
 	private static final Integer QUERY_FAILED_SENTINEL = -1;
 
@@ -46,8 +48,8 @@ public with sharing class FastStart_MockException_DEMO
 		try
 		{
 			return kern.QRY_Builder.selectFrom(Account.SObjectType)
-				.condition(Account.Industry).equals(industry)
-				.count();
+					.condition(Account.Industry).equals(industry)
+					.count();
 		}
 		catch(QueryException error)
 		{

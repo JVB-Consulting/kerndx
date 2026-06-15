@@ -22,13 +22,19 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_Logging_DEMO_TEST
 {
-	/** @description Log level constant for INFO entries. */
+	/**
+	 * @description Log level constant for INFO entries.
+	 */
 	private static final String LOG_LEVEL_INFO = 'INFO';
 
-	/** @description Log level constant for ERROR entries. */
+	/**
+	 * @description Log level constant for ERROR entries.
+	 */
 	private static final String LOG_LEVEL_ERROR = 'ERROR';
 
-	/** @description Message text used in the critical alert test. */
+	/**
+	 * @description Message text used in the critical alert test.
+	 */
 	private static final String ALERT_MESSAGE = 'Critical configuration missing';
 
 	/**
@@ -45,16 +51,20 @@ private class FastStart_Logging_DEMO_TEST
 		kern.LOG_Builder.ignoreTestMode = true;
 
 		Test.startTest();
-		new FastStart_Logging_DEMO().processOrders(new List<Account>{ account });
+		new FastStart_Logging_DEMO().processOrders(new List<Account> {Account});
 		Test.getEventBus().deliver();
 		Test.stopTest();
 
 		Id currentUserId = UserInfo.getUserId();
 		String processOrdersAt = 'FastStart_Logging_DEMO.processOrders';
-		List<kern__LogEntry__c> entries = [
-			SELECT kern__Message__c, kern__LogLevel__c, kern__CorrelationId__c
-			FROM kern__LogEntry__c
-			WHERE kern__UserId__c = :currentUserId AND kern__ClassMethod__c = :processOrdersAt
+		List<kern__LogEntry__c> entries =
+		[
+				SELECT kern__Message__c,
+						kern__LogLevel__c,
+						kern__CorrelationId__c
+				FROM kern__LogEntry__c
+				WHERE kern__UserId__c = :currentUserId
+				AND kern__ClassMethod__c = :processOrdersAt
 		];
 
 		Assert.isFalse(entries.isEmpty(), 'Expected log entries to be persisted after event delivery');
@@ -88,10 +98,14 @@ private class FastStart_Logging_DEMO_TEST
 
 		Id currentUserId = UserInfo.getUserId();
 		String criticalAlertAt = 'FastStart_Logging_DEMO.criticalAlert';
-		List<kern__LogEntry__c> entries = [
-			SELECT kern__Message__c, kern__LogLevel__c
-			FROM kern__LogEntry__c
-			WHERE kern__UserId__c = :currentUserId AND kern__ClassMethod__c = :criticalAlertAt AND kern__LogLevel__c = :LOG_LEVEL_ERROR
+		List<kern__LogEntry__c> entries =
+		[
+				SELECT kern__Message__c,
+						kern__LogLevel__c
+				FROM kern__LogEntry__c
+				WHERE kern__UserId__c = :currentUserId
+				AND kern__ClassMethod__c = :criticalAlertAt
+				AND kern__LogLevel__c = :LOG_LEVEL_ERROR
 		];
 
 		Assert.isFalse(entries.isEmpty(), 'Expected one ERROR entry from criticalAlert()');

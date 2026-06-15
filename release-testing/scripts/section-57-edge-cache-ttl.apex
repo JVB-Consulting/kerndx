@@ -167,7 +167,7 @@ try
 	Object retrieved57a = cache57a.get(key57a);
 	Assert.isNull(retrieved57a, '57a: get() should return null when wrapper validUntil=now (CacheEntry.isValid() returns false)');
 
-	Map<String, Object> bulkRetrieved57a = cache57a.getAll(new Set<String>{key57a});
+	Map<String, Object> bulkRetrieved57a = cache57a.getAll(new Set<String> {key57a});
 	Assert.areEqual(0, bulkRetrieved57a.size(),
 			'57a: getAll() should also honour wrapper expiry — empty map for an expired key (getFromCache filters by isValid() before adding to results)');
 
@@ -256,8 +256,8 @@ try
 	Assert.isFalse(opResult57c.success, '57c: OperationResult.success should be false');
 	Set<kern.UTIL_Cache.Status> acceptableStatuses57c = new Set<kern.UTIL_Cache.Status>
 	{
-		kern.UTIL_Cache.Status.CACHE_UNAVAILABLE,
-		kern.UTIL_Cache.Status.WRITE_FAILURE
+			kern.UTIL_Cache.Status.CACHE_UNAVAILABLE,
+			kern.UTIL_Cache.Status.WRITE_FAILURE
 	};
 	Assert.isTrue(acceptableStatuses57c.contains(opResult57c.status),
 			'57c: status should be CACHE_UNAVAILABLE (null partition) or WRITE_FAILURE (partition.put threw); got ' + opResult57c.status);
@@ -301,7 +301,7 @@ try
 	Boolean putAllResult57d = cache57d.putAll(bulkEntries57d);
 	Assert.isTrue(putAllResult57d, '57d: putAll should return true after all entries written');
 
-	for(Integer sampleIndex : new List<Integer>{0, 7, 24, 49})
+	for(Integer sampleIndex : new List<Integer> {0, 7, 24, 49})
 	{
 		String sampleKey = key57dPrefix + sampleIndex;
 		Object individualValue = cache57d.get(sampleKey);

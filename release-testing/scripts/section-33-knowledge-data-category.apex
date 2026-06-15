@@ -17,7 +17,7 @@ try
 	// Test 33a: SOQL generation — withDataCategory produces valid SOQL string
 	{
 		String soql = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
-				.fields(new List<String>{'Id', 'Title'})
+				.fields(new List<String> {'Id', 'Title'})
 				.condition('PublishStatus').equals('Online')
 				.condition('Language').equals('en_US')
 				.withDataCategory('KM_TestCategory__c').at('Alpha__c')
@@ -30,7 +30,7 @@ try
 	// Test 33b: Single category query — AT returns matching articles
 	{
 		List<SObject> results = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
-				.fields(new List<String>{'Id', 'Title'})
+				.fields(new List<String> {'Id', 'Title'})
 				.condition('PublishStatus').equals('Online')
 				.condition('Language').equals('en_US')
 				.condition('Title').contains('KDX Test')
@@ -48,7 +48,7 @@ try
 	// Test 33c: BELOW operator — returns all descendants
 	{
 		List<SObject> results = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
-				.fields(new List<String>{'Id', 'Title'})
+				.fields(new List<String> {'Id', 'Title'})
 				.condition('PublishStatus').equals('Online')
 				.condition('Language').equals('en_US')
 				.condition('Title').contains('KDX Test')
@@ -62,7 +62,7 @@ try
 	// Test 33d: Multiple groups — AND filter across two category groups
 	{
 		List<SObject> results = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
-				.fields(new List<String>{'Id', 'Title'})
+				.fields(new List<String> {'Id', 'Title'})
 				.condition('PublishStatus').equals('Online')
 				.condition('Language').equals('en_US')
 				.condition('Title').contains('KDX Test')
@@ -77,7 +77,7 @@ try
 	// Test 33e: Empty result — query category with no matching articles
 	{
 		List<SObject> results = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
-				.fields(new List<String>{'Id', 'Title'})
+				.fields(new List<String> {'Id', 'Title'})
 				.condition('PublishStatus').equals('Online')
 				.condition('Language').equals('en_US')
 				.condition('Title').contains('NONEXISTENT_KDX_MARKER')

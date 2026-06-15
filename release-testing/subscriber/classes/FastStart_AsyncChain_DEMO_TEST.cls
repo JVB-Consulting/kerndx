@@ -26,10 +26,14 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_AsyncChain_DEMO_TEST
 {
-	/** @description Chain name used by every test in this class. */
+	/**
+	 * @description Chain name used by every test in this class.
+	 */
 	private static final String CHAIN_NAME = 'FastStartAsyncChainDemo';
 
-	/** @description Status value persisted on AsyncChainExecution__c when the chain failed. */
+	/**
+	 * @description Status value persisted on AsyncChainExecution__c when the chain failed.
+	 */
 	private static final String STATUS_FAILED = 'Failed';
 
 	/**
@@ -46,27 +50,27 @@ private class FastStart_AsyncChain_DEMO_TEST
 		kern.UTIL_ValidationRule.bypassObject('Account');
 
 		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Async Chain Demo')
-			.build();
+				.withOverride(Account.Name, 'Async Chain Demo')
+				.build();
 
 		Test.startTest();
 		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
-			.withInitialContext(FastStart_AsyncChain_DEMO.CONTEXT_KEY_ACCOUNT_ID, record.Id)
-			.then(new FastStart_AsyncChain_DEMO())
-			.execute();
+				.withInitialContext(FastStart_AsyncChain_DEMO.CONTEXT_KEY_ACCOUNT_ID, record.Id)
+				.then(new FastStart_AsyncChain_DEMO())
+				.execute();
 		Test.stopTest();
 
 		Account result = (Account)kern.QRY_Builder.selectFrom(Account.SObjectType)
-			.fields(new List<SObjectField>{ Account.Description })
-			.condition(Account.Id).equals(record.Id)
-			.getFirst();
+				.fields(new List<SObjectField> {Account.Description})
+				.condition(Account.Id).equals(record.Id)
+				.getFirst();
 
 		Assert.areEqual
-		(
-			FastStart_AsyncChain_DEMO.ENRICHMENT_NOTE,
-			result.Description,
-			'Description should be stamped by the chain step'
-		);
+				(
+						FastStart_AsyncChain_DEMO.ENRICHMENT_NOTE,
+						result.Description,
+						'Description should be stamped by the chain step'
+				);
 		Assert.isNotNull(executionId, 'Chain executionId should be returned by execute()');
 	}
 
@@ -80,18 +84,18 @@ private class FastStart_AsyncChain_DEMO_TEST
 	{
 		Test.startTest();
 		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
-			.then(new FastStart_AsyncChain_DEMO())
-			.execute();
+				.then(new FastStart_AsyncChain_DEMO())
+				.execute();
 		Test.stopTest();
 
 		Map<String, Object> status = kern.UTIL_AsyncChain.getStatus(executionId);
 
 		Assert.areEqual(STATUS_FAILED, (String)status.get('status'), 'Chain should be marked Failed when accountId missing');
 		Assert.areEqual
-		(
-			FastStart_AsyncChain_DEMO.ERROR_MISSING_ACCOUNT_ID,
-			(String)status.get('errorMessage'),
-			'errorMessage should propagate the StepResult.failed message'
-		);
+				(
+						FastStart_AsyncChain_DEMO.ERROR_MISSING_ACCOUNT_ID,
+						(String)status.get('errorMessage'),
+						'errorMessage should propagate the StepResult.failed message'
+				);
 	}
 }

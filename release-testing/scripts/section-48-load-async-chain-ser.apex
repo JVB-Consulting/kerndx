@@ -127,17 +127,19 @@ try
 
 	kern__AsyncChainExecution__c readback =
 	[
-		SELECT kern__Status__c, kern__TotalSteps__c, kern__ChainName__c
-		FROM kern__AsyncChainExecution__c
-		WHERE Id = :executionId
+			SELECT kern__Status__c,
+					kern__TotalSteps__c,
+					kern__ChainName__c
+			FROM kern__AsyncChainExecution__c
+			WHERE Id = :executionId
 	];
 	Assert.areEqual(CHAIN_NAME_48, readback.kern__ChainName__c,
-		'48-launch: persisted chain name should match the run-stamped name');
+			'48-launch: persisted chain name should match the run-stamped name');
 	Assert.areEqual(STEP_COUNT, (Integer)readback.kern__TotalSteps__c,
-		'48-launch: TotalSteps__c should equal ' + STEP_COUNT + ' at execute() time');
+			'48-launch: TotalSteps__c should equal ' + STEP_COUNT + ' at execute() time');
 
 	System.debug(LoggingLevel.INFO,
-		'48-launch PASS: ' + STEP_COUNT + '-step WriteContextStep chain launched as ' + CHAIN_NAME_48
+			'48-launch PASS: ' + STEP_COUNT + '-step WriteContextStep chain launched as ' + CHAIN_NAME_48
 			+ ' (' + executionId + '). TotalSteps=' + readback.kern__TotalSteps__c
 			+ ' Status=' + readback.kern__Status__c
 			+ '. Run section-48b after ~3-5 minutes for dequeue + verification.');

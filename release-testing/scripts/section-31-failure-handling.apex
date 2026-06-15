@@ -18,16 +18,16 @@
 // =============================================================================
 
 Set<Id> baselineCallIds = new Map<Id, kern__ApiCall__c>(
-		[
-				SELECT Id
-				FROM kern__ApiCall__c
-		]
+[
+		SELECT Id
+		FROM kern__ApiCall__c
+]
 ).keySet();
 Set<Id> baselineIssueIds = new Map<Id, kern__ApiIssue__c>(
-		[
-				SELECT Id
-				FROM kern__ApiIssue__c
-		]
+[
+		SELECT Id
+		FROM kern__ApiIssue__c
+]
 ).keySet();
 Set<Id> trackingCallIds = baselineCallIds.clone();
 Set<Id> trackingIssueIds = baselineIssueIds.clone();

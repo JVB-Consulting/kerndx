@@ -11,7 +11,7 @@ const SCRIPTS = [
 	{kind: 'apex', path: 'release-testing/scripts/load-extended/sustained-masker-soak.apex'},
 	{kind: 'apex', path: 'release-testing/scripts/load-extended/sustained-logger-pe-flood.apex'},
 	{kind: 'node', path: 'release-testing/scripts/load-extended/parallel-callout-burst-100.js'},
-	{kind: 'node', path: 'release-testing/scripts/load-extended/parallel-cache-contention.js'},
+	{kind: 'node', path: 'release-testing/scripts/load-extended/parallel-cache-contention.js'}
 ];
 
 console.log('=== Extended load suite ===\n');

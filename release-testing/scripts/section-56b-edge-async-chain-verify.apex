@@ -54,7 +54,10 @@ try
 {
 	List<kern__AsyncChainExecution__c> rows56a =
 	[
-			SELECT kern__Status__c, kern__CompletedSteps__c, kern__TotalSteps__c, kern__ErrorMessage__c
+			SELECT kern__Status__c,
+					kern__CompletedSteps__c,
+					kern__TotalSteps__c,
+					kern__ErrorMessage__c
 			FROM kern__AsyncChainExecution__c
 			WHERE kern__ChainName__c LIKE 'Section56a_MaxSteps_%'
 			ORDER BY CreatedDate DESC
@@ -64,15 +67,15 @@ try
 	kern__AsyncChainExecution__c execution56a = rows56a[0];
 	Assert.areEqual(STATUS_COMPLETED, execution56a.kern__Status__c,
 			'56a-verify: chain at the maxSteps boundary should reach Completed; got Status=' + execution56a.kern__Status__c
-					+ ' ErrorMessage=' + execution56a.kern__ErrorMessage__c
-					+ ' (chain may still be Running — wait longer between launch and verify, or scratch-org queueable backpressure may be saturating)');
+			+ ' ErrorMessage=' + execution56a.kern__ErrorMessage__c
+			+ ' (chain may still be Running — wait longer between launch and verify, or scratch-org queueable backpressure may be saturating)');
 	Assert.areEqual(2, (Integer)execution56a.kern__TotalSteps__c, '56a-verify: TotalSteps__c should be 2');
 	Assert.areEqual(2, (Integer)execution56a.kern__CompletedSteps__c,
 			'56a-verify: CompletedSteps__c should equal 2 (both steps executed at the cap boundary)');
 	System.debug(LoggingLevel.INFO,
 			'56a-verify PASS: 2-step chain at withMaxSteps(2) boundary → Completed ('
-					+ execution56a.kern__CompletedSteps__c + '/' + execution56a.kern__TotalSteps__c
-					+ ' steps)');
+			+ execution56a.kern__CompletedSteps__c + '/' + execution56a.kern__TotalSteps__c
+			+ ' steps)');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -94,7 +97,8 @@ try
 {
 	List<kern__AsyncChainExecution__c> rows56c =
 	[
-			SELECT kern__Status__c, kern__ContextData__c
+			SELECT kern__Status__c,
+					kern__ContextData__c
 			FROM kern__AsyncChainExecution__c
 			WHERE kern__ChainName__c LIKE 'Section56c_MissingKey_%'
 			ORDER BY CreatedDate DESC
@@ -129,7 +133,8 @@ try
 {
 	List<kern__AsyncChainExecution__c> rows56dSuccess =
 	[
-			SELECT kern__Status__c, kern__ContextData__c
+			SELECT kern__Status__c,
+					kern__ContextData__c
 			FROM kern__AsyncChainExecution__c
 			WHERE kern__ChainName__c LIKE 'Section56d_OnCompleteSuccess_%'
 			ORDER BY CreatedDate DESC
@@ -144,7 +149,8 @@ try
 
 	List<kern__AsyncChainExecution__c> rows56dFailure =
 	[
-			SELECT kern__Status__c, kern__ContextData__c
+			SELECT kern__Status__c,
+					kern__ContextData__c
 			FROM kern__AsyncChainExecution__c
 			WHERE kern__ChainName__c LIKE 'Section56d_OnCompleteFailure_%'
 			ORDER BY CreatedDate DESC
@@ -175,8 +181,8 @@ delete
 		SELECT Id
 		FROM kern__ApiCall__c
 		WHERE kern__ServiceName__c = 'API_PostExample'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedDate = TODAY
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 delete
@@ -184,7 +190,7 @@ delete
 		SELECT Id
 		FROM kern__Foobar__c
 		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 delete
@@ -192,7 +198,7 @@ delete
 		SELECT Id
 		FROM kern__AsyncChainExecution__c
 		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 kern.API_MockFactory.clearMocks();

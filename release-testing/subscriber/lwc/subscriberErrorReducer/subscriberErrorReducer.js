@@ -58,7 +58,12 @@ export default class SubscriberErrorReducer extends ComponentBuilder('controller
 
 		try
 		{
-			const reduced = reduceErrors({body: [{message: 'A'}, {message: 'B'}]});
+			const reduced = reduceErrors({
+				body: [
+					{message: 'A'},
+					{message: 'B'}
+				]
+			});
 			checks.push({name: 'reduceErrorsArrayBody', pass: reduced === 'A,B'});
 		}
 		catch(error)

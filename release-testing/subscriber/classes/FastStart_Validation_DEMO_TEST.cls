@@ -35,11 +35,11 @@ private class FastStart_Validation_DEMO_TEST
 		kern.UTIL_ValidationRule.bypassObject('Account');
 
 		Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Description, 'A valid description')
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Description, 'A valid description')
+				.withoutInsertion()
+				.build();
 
-		kern.DML_Builder.TransactionResult result = new FastStart_Validation_DEMO().validateAndSave(account);
+		kern.DML_Builder.TransactionResult result = new FastStart_Validation_DEMO().validateAndSave(Account);
 
 		Assert.isTrue(result.isSuccess(), 'Save should succeed for a valid Account');
 		Assert.areEqual(1, result.getSuccessCount(), 'One record should be inserted');
@@ -58,11 +58,11 @@ private class FastStart_Validation_DEMO_TEST
 		kern.UTIL_ValidationRule.bypassObject('Account');
 
 		Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, null)
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Name, null)
+				.withoutInsertion()
+				.build();
 
-		kern.DML_Builder.TransactionResult result = new FastStart_Validation_DEMO().validateAndSave(account);
+		kern.DML_Builder.TransactionResult result = new FastStart_Validation_DEMO().validateAndSave(Account);
 
 		Assert.isFalse(result.isSuccess(), 'Save should fail for an invalid Account');
 		Assert.isTrue(result.getFailureCount() > 0, 'Failure count should be non-zero');

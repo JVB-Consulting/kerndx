@@ -15,13 +15,19 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_E2E_DEMO_TEST
 {
-	/** @description Standard input used across happy-path tests. */
+	/**
+	 * @description Standard input used across happy-path tests.
+	 */
 	private static final String INPUT_STANDARD = 'hello world';
 
-	/** @description Expected output for the standard input. */
+	/**
+	 * @description Expected output for the standard input.
+	 */
 	private static final String EXPECTED_STANDARD = 'PROCESSED: HELLO WORLD';
 
-	/** @description Input with leading and trailing whitespace. */
+	/**
+	 * @description Input with leading and trailing whitespace.
+	 */
 	private static final String INPUT_PADDED = '  hello world  ';
 
 	/**

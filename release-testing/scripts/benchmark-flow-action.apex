@@ -24,7 +24,7 @@ System.debug('========================================');
 System.debug('Single-Mode Flow-Action Benchmark');
 System.debug('========================================');
 
-List<Integer> recordCounts = new List<Integer>{1, 10, 100};
+List<Integer> recordCounts = new List<Integer> {1, 10, 100};
 
 try
 {

@@ -582,7 +582,7 @@ delete
 		SELECT Id
 		FROM kern__Foobar__c
 		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 

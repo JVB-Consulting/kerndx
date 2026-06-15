@@ -13,10 +13,15 @@ try
 {
 	// Verify 34a: Single-step chain completed
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__CompletedSteps__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__CompletedSteps__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34a_SingleStep' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34a_SingleStep'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		System.assert(!executions.isEmpty(), '34a-verify FAIL: Execution record not found');
 		kern__AsyncChainExecution__c execution = executions[0];
@@ -25,17 +30,27 @@ try
 
 		Map<String, Object> context = (Map<String, Object>)JSON.deserializeUntyped(execution.kern__ContextData__c);
 		Id foobarId = (Id)context.get('foobarId');
-		List<kern__Foobar__c> foobars = [SELECT Id FROM kern__Foobar__c WHERE Id = :foobarId];
+		List<kern__Foobar__c> foobars =
+		[
+				SELECT Id
+				FROM kern__Foobar__c
+				WHERE Id = :foobarId
+		];
 		System.assert(!foobars.isEmpty(), '34a-verify FAIL: Foobar record should exist');
 		System.debug('34a-verify PASS: Completed with DML — Foobar: ' + foobarId);
 	}
 
 	// Verify 34b: Multi-step chain completed with context flow
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__CompletedSteps__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__CompletedSteps__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34b_MultiStep' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34b_MultiStep'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Completed', '34b-verify FAIL: Expected Completed, got: ' + execution.kern__Status__c);
@@ -43,17 +58,26 @@ try
 
 		Map<String, Object> context = (Map<String, Object>)JSON.deserializeUntyped(execution.kern__ContextData__c);
 		Id foobarId = (Id)context.get('foobarId');
-		kern__Foobar__c record = [SELECT Name FROM kern__Foobar__c WHERE Id = :foobarId];
+		kern__Foobar__c record =
+		[
+				SELECT Name
+				FROM kern__Foobar__c
+				WHERE Id = :foobarId
+		];
 		System.assert(record.Name.contains('Updated'), '34b-verify FAIL: Foobar should be updated');
 		System.debug('34b-verify PASS: Multi-step completed — ' + record.Name);
 	}
 
 	// Verify 34c: Failing chain marked Failed
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__ErrorMessage__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__ErrorMessage__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34c_Failing' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34c_Failing'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Failed', '34c-verify FAIL: Expected Failed, got: ' + execution.kern__Status__c);
@@ -63,10 +87,14 @@ try
 
 	// Verify 34d: Error handler executed
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34d_ErrorHandler' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34d_ErrorHandler'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Failed', '34d-verify FAIL: Expected Failed');
@@ -77,10 +105,14 @@ try
 
 	// Verify 34e: Completion handler executed
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34e_CompletionHandler' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34e_CompletionHandler'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Completed', '34e-verify FAIL: Expected Completed, got: ' + execution.kern__Status__c);
@@ -91,10 +123,15 @@ try
 
 	// Verify 34g: ContinueOnError chain completed
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__CompletedSteps__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__CompletedSteps__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34g_ContinueOnError' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34g_ContinueOnError'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Completed', '34g-verify FAIL: Expected Completed, got: ' + execution.kern__Status__c);
@@ -104,10 +141,14 @@ try
 
 	// Verify 34h: Handler callout isolation — onComplete handler ran callout after DML step
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34h_HandlerCallout' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34h_HandlerCallout'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Completed', '34h-verify FAIL: Expected Completed, got: ' + execution.kern__Status__c);
@@ -118,10 +159,15 @@ try
 
 	// Verify 34i: ApiStep bridge completed with result in context
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__CompletedSteps__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__CompletedSteps__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34i_ApiStep' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34i_ApiStep'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		System.assert(!executions.isEmpty(), '34i-verify FAIL: Execution record not found');
 		kern__AsyncChainExecution__c execution = executions[0];
@@ -137,10 +183,14 @@ try
 
 	// Verify 34j: Initial context preserved
 	{
-		List<kern__AsyncChainExecution__c> executions = [
-				SELECT kern__Status__c, kern__ContextData__c
+		List<kern__AsyncChainExecution__c> executions =
+		[
+				SELECT kern__Status__c,
+						kern__ContextData__c
 				FROM kern__AsyncChainExecution__c
-				WHERE kern__ChainName__c = 'Test34j_InitialContext' ORDER BY CreatedDate DESC LIMIT 1
+				WHERE kern__ChainName__c = 'Test34j_InitialContext'
+				ORDER BY CreatedDate DESC
+				LIMIT 1
 		];
 		kern__AsyncChainExecution__c execution = executions[0];
 		System.assert(execution.kern__Status__c == 'Completed', '34j-verify FAIL: Expected Completed');

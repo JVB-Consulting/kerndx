@@ -26,18 +26,18 @@ private class FastStart_TriggerAction_DEMO_TEST
 	private static void shouldStampDefaultDescriptionWhenBlank()
 	{
 		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Description, null)
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Description, null)
+				.withoutInsertion()
+				.build();
 
-		new FastStart_TriggerAction_DEMO().beforeInsert(new List<SObject>{ record });
+		new FastStart_TriggerAction_DEMO().beforeInsert(new List<SObject> {record});
 
 		Assert.areEqual
-		(
-			FastStart_TriggerAction_DEMO.DEFAULT_DESCRIPTION,
-			record.Description,
-			'Description should be stamped when blank'
-		);
+				(
+						FastStart_TriggerAction_DEMO.DEFAULT_DESCRIPTION,
+						record.Description,
+						'Description should be stamped when blank'
+				);
 	}
 
 	/**
@@ -47,17 +47,17 @@ private class FastStart_TriggerAction_DEMO_TEST
 	private static void shouldPreserveDescriptionWhenAlreadySet()
 	{
 		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Description, 'Custom description')
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Description, 'Custom description')
+				.withoutInsertion()
+				.build();
 
-		new FastStart_TriggerAction_DEMO().beforeInsert(new List<SObject>{ record });
+		new FastStart_TriggerAction_DEMO().beforeInsert(new List<SObject> {record});
 
 		Assert.areEqual
-		(
-			'Custom description',
-			record.Description,
-			'Pre-populated Description should not be overwritten'
-		);
+				(
+						'Custom description',
+						record.Description,
+						'Pre-populated Description should not be overwritten'
+				);
 	}
 }

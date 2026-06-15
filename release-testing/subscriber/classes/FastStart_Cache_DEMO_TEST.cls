@@ -16,7 +16,9 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_Cache_DEMO_TEST
 {
-	/** @description Value stored via the graceful-fallback factory during the round-trip test. */
+	/**
+	 * @description Value stored via the graceful-fallback factory during the round-trip test.
+	 */
 	private static final String FALLBACK_VALUE = 'demo-fallback-value';
 
 	/**
@@ -38,7 +40,7 @@ private class FastStart_Cache_DEMO_TEST
 
 		kern.UTIL_Cache.Store cache = kern.UTIL_Cache.inTransaction();
 		Assert.isTrue(cache.contains(FastStart_Cache_DEMO.MEMOIZED_DESCRIBE_KEY),
-			'Transaction-scope cache should contain the memoized describe key after the first call');
+				'Transaction-scope cache should contain the memoized describe key after the first call');
 	}
 
 	/**
@@ -61,7 +63,7 @@ private class FastStart_Cache_DEMO_TEST
 				kern.UTIL_Cache.Scope.IN_TRANSACTION
 		};
 		Assert.isTrue(expectedScopes.contains(scopeUsed),
-			'storeWithGracefulFallback should report SESSION, ORG, or IN_TRANSACTION; actual: ' + scopeUsed);
+				'storeWithGracefulFallback should report SESSION, ORG, or IN_TRANSACTION; actual: ' + scopeUsed);
 	}
 
 	/**
@@ -92,8 +94,8 @@ private class FastStart_Cache_DEMO_TEST
 		demo.getMemoizedAccountDescribe();
 
 		Assert.isNull(kern.UTIL_Cache.org().get(FastStart_Cache_DEMO.MEMOIZED_DESCRIBE_KEY),
-			'Org cache should not see the transaction-scope key');
+				'Org cache should not see the transaction-scope key');
 		Assert.isNull(kern.UTIL_Cache.session().get(FastStart_Cache_DEMO.MEMOIZED_DESCRIBE_KEY),
-			'Session cache should not see the transaction-scope key');
+				'Session cache should not see the transaction-scope key');
 	}
 }

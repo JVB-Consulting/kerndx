@@ -75,7 +75,8 @@ async function waitForLightningReady(page)
 async function waitForPageLoad(page)
 {
 	await page.waitForLoadState('domcontentloaded');
-	await page.locator('.oneAlohaPage, .oneWorkspace, records-lwc-highlights-panel, records-record-layout-event-broker, force-list-view-manager-grid, lst-list-view-manager-header, [data-testid="kern-home-root"]')
+	await page.locator(
+			'.oneAlohaPage, .oneWorkspace, records-lwc-highlights-panel, records-record-layout-event-broker, force-list-view-manager-grid, lst-list-view-manager-header, [data-testid="kern-home-root"]')
 	.first()
 	.waitFor({state: 'attached', timeout: 5_000})
 	.catch(() =>

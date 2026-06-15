@@ -99,10 +99,15 @@ System.debug('CPU per record: +' + (cpuOverhead / (Decimal)batchSize).setScale(2
 
 // Query the DB to verify persistence. In-memory list refs do not always reflect
 // before-insert trigger field mutations in anonymous Apex, but the committed row does.
-ApiCall__c persistedSample = [
-	SELECT Id, Request__c, Response__c, URL__c, RequestParameters__c
-	FROM ApiCall__c
-	WHERE Id = :maskedRecords[0].Id
+ApiCall__c persistedSample =
+[
+		SELECT Id,
+				Request__c,
+				Response__c,
+				URL__c,
+				RequestParameters__c
+		FROM ApiCall__c
+		WHERE Id = :maskedRecords[0].Id
 ];
 System.debug('=== PERSISTED MASKED RECORD (from DB) ===');
 System.debug('Request: ' + persistedSample.Request__c);
@@ -125,10 +130,10 @@ delete maskedRecords;
 Integer WALL_OVERHEAD_BUDGET_MS = 900;
 Integer CPU_OVERHEAD_BUDGET_MS = 1800;
 Assert.isTrue(wallOverhead < WALL_OVERHEAD_BUDGET_MS,
-	'Masking wall-clock overhead exceeded budget: observed=' + wallOverhead + 'ms budget=' + WALL_OVERHEAD_BUDGET_MS + 'ms '
-	+ '(would have caught 99cdf4e SOQL-cost regression — see commit history).');
+		'Masking wall-clock overhead exceeded budget: observed=' + wallOverhead + 'ms budget=' + WALL_OVERHEAD_BUDGET_MS + 'ms '
+		+ '(would have caught 99cdf4e SOQL-cost regression — see commit history).');
 Assert.isTrue(cpuOverhead < CPU_OVERHEAD_BUDGET_MS,
-	'Masking CPU overhead exceeded budget: observed=' + cpuOverhead + 'ms budget=' + CPU_OVERHEAD_BUDGET_MS + 'ms.');
+		'Masking CPU overhead exceeded budget: observed=' + cpuOverhead + 'ms budget=' + CPU_OVERHEAD_BUDGET_MS + 'ms.');
 
 System.debug('=== GATE: PASS ===');
 System.debug('Wall overhead ' + wallOverhead + 'ms < ' + WALL_OVERHEAD_BUDGET_MS + 'ms budget');

@@ -5,10 +5,10 @@
  * `SObjectField` and a `String` overload, for a total of 8 signatures) that bridge to
  * `UTIL_SObject.indexById` / `indexByStringKey` / `groupByKey` / `groupByStringKey`:
  *
- *   - `asMapById(SObjectField|String)`        → `Map<Id, SObject>` keyed by an arbitrary Id field
- *   - `asMapByString(SObjectField|String)`    → `Map<String, SObject>` keyed by an arbitrary String field
- *   - `asGroupedMapById(SObjectField|String)` → `Map<Id, List<SObject>>` grouped by an Id field
- *   - `asGroupedMapByString(SObjectField|String)` → `Map<String, List<SObject>>` grouped by a String field
+ * - `asMapById(SObjectField|String)`        → `Map<Id, SObject>` keyed by an arbitrary Id field
+ * - `asMapByString(SObjectField|String)`    → `Map<String, SObject>` keyed by an arbitrary String field
+ * - `asGroupedMapById(SObjectField|String)` → `Map<Id, List<SObject>>` grouped by an Id field
+ * - `asGroupedMapByString(SObjectField|String)` → `Map<String, List<SObject>>` grouped by a String field
  *
  * Before these terminals shipped, subscribers writing `Map<Id, Contact>` keyed by
  * `Contact.AccountId` (rather than the strictly Id-keyed `asMap()` terminal) had to
@@ -40,9 +40,9 @@ public with sharing class FastStart_QueryMapTerminals_DEMO
 	public Map<Id, SObject> contactsKeyedByAccountId()
 	{
 		return kern.QRY_Builder.selectFrom(Contact.SObjectType)
-			.fields(new List<SObjectField>{Contact.LastName, Contact.AccountId})
-			.condition(Contact.AccountId).isNotNull()
-			.asMapById(Contact.AccountId);
+				.fields(new List<SObjectField> {Contact.LastName, Contact.AccountId})
+				.condition(Contact.AccountId).isNotNull()
+				.asMapById(Contact.AccountId);
 	}
 
 	/**
@@ -54,9 +54,9 @@ public with sharing class FastStart_QueryMapTerminals_DEMO
 	public Map<Id, List<Contact>> contactsGroupedByAccountId()
 	{
 		return (Map<Id, List<Contact>>)kern.QRY_Builder.selectFrom(Contact.SObjectType)
-			.fields(new List<SObjectField>{Contact.LastName, Contact.AccountId})
-			.condition(Contact.AccountId).isNotNull()
-			.asGroupedMapById(Contact.AccountId);
+				.fields(new List<SObjectField> {Contact.LastName, Contact.AccountId})
+				.condition(Contact.AccountId).isNotNull()
+				.asGroupedMapById(Contact.AccountId);
 	}
 
 	/**
@@ -71,9 +71,9 @@ public with sharing class FastStart_QueryMapTerminals_DEMO
 	public Map<String, SObject> accountsKeyedByName()
 	{
 		return kern.QRY_Builder.selectFrom(Account.SObjectType)
-			.fields(new List<SObjectField>{Account.Name, Account.Industry})
-			.condition(Account.Name).isNotNull()
-			.asMapByString(Account.Name);
+				.fields(new List<SObjectField> {Account.Name, Account.Industry})
+				.condition(Account.Name).isNotNull()
+				.asMapByString(Account.Name);
 	}
 
 	/**
@@ -84,8 +84,8 @@ public with sharing class FastStart_QueryMapTerminals_DEMO
 	public Map<String, List<Account>> accountsGroupedByIndustry()
 	{
 		return (Map<String, List<Account>>)kern.QRY_Builder.selectFrom(Account.SObjectType)
-			.fields(new List<SObjectField>{Account.Name, Account.Industry})
-			.condition(Account.Industry).isNotNull()
-			.asGroupedMapByString(Account.Industry);
+				.fields(new List<SObjectField> {Account.Name, Account.Industry})
+				.condition(Account.Industry).isNotNull()
+				.asGroupedMapByString(Account.Industry);
 	}
 }

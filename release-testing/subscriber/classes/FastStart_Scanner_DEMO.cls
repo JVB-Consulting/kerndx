@@ -7,8 +7,8 @@
  * to a production org.
  *
  * Violations present:
- *   - Inline SOQL: [SELECT Id FROM Account] (KernNoInlineSOQL)
- *   - System.debug() call (KernNoSystemDebug)
+ * - Inline SOQL: [SELECT Id FROM Account] (KernNoInlineSOQL)
+ * - System.debug() call (KernNoSystemDebug)
  *
  * @see docs/Fast Start - Code Scanning.md
  *
@@ -28,7 +28,13 @@ public with sharing class FastStart_Scanner_DEMO
 	 */
 	public List<Account> getAccounts()
 	{
-		Account[] accounts = [SELECT Id, Name FROM Account LIMIT 10];
+		Account[] accounts =
+		[
+				SELECT Id,
+						Name
+				FROM Account
+				LIMIT 10
+		];
 
 		System.debug(accounts);
 

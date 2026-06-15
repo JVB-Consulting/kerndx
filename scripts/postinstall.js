@@ -11,7 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const {spawnSync} = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const gitDir = path.join(repoRoot, '.git');
@@ -22,5 +22,8 @@ if(!fs.existsSync(gitDir))
 	process.exit(0);
 }
 
-const result = spawnSync('npx', ['husky', 'install'], {stdio: 'inherit', cwd: repoRoot});
+const result = spawnSync('npx', [
+	'husky',
+	'install'
+], {stdio: 'inherit', cwd: repoRoot});
 process.exit(result.status === null ? 1 : result.status);

@@ -163,38 +163,40 @@ try
 	Long startWallMsQueueable = System.currentTimeMillis();
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest requestQueueable =
 			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(itemsQueueable)
-				.withLimitAtWhichToBatch(THRESHOLD);
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id jobIdQueueable = kern.UTIL_AsynchronousJobLauncher.process(requestQueueable, new AccountArchiveProcessor());
 	Long dispatchWallMsQueueable = System.currentTimeMillis() - startWallMsQueueable;
 
 	Assert.isNotNull(jobIdQueueable,
-		'49-launch: 49-item dispatch must return a non-null job ID (49 <= threshold=50 → Queueable)');
+			'49-launch: 49-item dispatch must return a non-null job ID (49 <= threshold=50 → Queueable)');
 
 	List<AsyncApexJob> jobsQueueable =
 	[
-		SELECT Id, JobType, Status
-		FROM AsyncApexJob
-		WHERE Id = :jobIdQueueable
-		LIMIT 1
+			SELECT Id,
+					JobType,
+					Status
+			FROM AsyncApexJob
+			WHERE Id = :jobIdQueueable
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, jobsQueueable.size(),
-		'49-launch: AsyncApexJob row must exist for the Queueable job ID. Got: ' + jobsQueueable.size());
+			'49-launch: AsyncApexJob row must exist for the Queueable job ID. Got: ' + jobsQueueable.size());
 
 	Assert.areEqual('Queueable', jobsQueueable[0].JobType,
-		'49-launch: JobType must be "Queueable" for AUTO/49-item/threshold-50 dispatch. '
+			'49-launch: JobType must be "Queueable" for AUTO/49-item/threshold-50 dispatch. '
 			+ 'Got: ' + jobsQueueable[0].JobType);
 
 	Assert.isTrue(
-		jobsQueueable[0].Status == 'Queued'
-		|| jobsQueueable[0].Status == 'Processing'
-		|| jobsQueueable[0].Status == 'Completed',
-		'49-launch: Queueable Status must be Queued/Processing/Completed immediately after enqueue. '
+			jobsQueueable[0].Status == 'Queued'
+			|| jobsQueueable[0].Status == 'Processing'
+			|| jobsQueueable[0].Status == 'Completed',
+			'49-launch: Queueable Status must be Queued/Processing/Completed immediately after enqueue. '
 			+ 'Got: ' + jobsQueueable[0].Status);
 
 	System.debug(LoggingLevel.INFO,
-		'49-launch (Queueable side) PASS: ' + ITEM_COUNT_QUEUEABLE + ' items, threshold=' + THRESHOLD
+			'49-launch (Queueable side) PASS: ' + ITEM_COUNT_QUEUEABLE + ' items, threshold=' + THRESHOLD
 			+ ' → JobType=' + jobsQueueable[0].JobType + ', Status=' + jobsQueueable[0].Status
 			+ ', JobId=' + jobIdQueueable + ', dispatchWallMs=' + dispatchWallMsQueueable + 'ms');
 
@@ -214,66 +216,68 @@ try
 	Long startWallMsBatch = System.currentTimeMillis();
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest requestBatch =
 			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(itemsBatch)
-				.withLimitAtWhichToBatch(THRESHOLD);
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id jobIdBatch = kern.UTIL_AsynchronousJobLauncher.process(requestBatch, new AccountArchiveProcessor());
 	Long dispatchWallMsBatch = System.currentTimeMillis() - startWallMsBatch;
 
 	Assert.isNotNull(jobIdBatch,
-		'49-launch: 51-item dispatch must return a non-null job ID (51 > threshold=50 → BatchApex)');
+			'49-launch: 51-item dispatch must return a non-null job ID (51 > threshold=50 → BatchApex)');
 
 	List<AsyncApexJob> jobsBatch =
 	[
-		SELECT Id, JobType, Status
-		FROM AsyncApexJob
-		WHERE Id = :jobIdBatch
-		LIMIT 1
+			SELECT Id,
+					JobType,
+					Status
+			FROM AsyncApexJob
+			WHERE Id = :jobIdBatch
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, jobsBatch.size(),
-		'49-launch: AsyncApexJob row must exist for the BatchApex job ID. Got: ' + jobsBatch.size());
+			'49-launch: AsyncApexJob row must exist for the BatchApex job ID. Got: ' + jobsBatch.size());
 
 	Assert.areEqual('BatchApex', jobsBatch[0].JobType,
-		'49-launch: JobType must be "BatchApex" for AUTO/51-item/threshold-50 dispatch. '
+			'49-launch: JobType must be "BatchApex" for AUTO/51-item/threshold-50 dispatch. '
 			+ 'Per Task 1.13 finding, the framework reports "BatchApex" not "BatchApexWorker". '
 			+ 'Got: ' + jobsBatch[0].JobType);
 
 	Assert.isTrue(
-		jobsBatch[0].Status == 'Queued'
-		|| jobsBatch[0].Status == 'Holding'
-		|| jobsBatch[0].Status == 'Processing'
-		|| jobsBatch[0].Status == 'Completed',
-		'49-launch: BatchApex Status must be Queued/Holding/Processing/Completed immediately after submitBatch. '
+			jobsBatch[0].Status == 'Queued'
+			|| jobsBatch[0].Status == 'Holding'
+			|| jobsBatch[0].Status == 'Processing'
+			|| jobsBatch[0].Status == 'Completed',
+			'49-launch: BatchApex Status must be Queued/Holding/Processing/Completed immediately after submitBatch. '
 			+ 'Got: ' + jobsBatch[0].Status);
 
 	System.debug(LoggingLevel.INFO,
-		'49-launch (Batch side) PASS: ' + ITEM_COUNT_BATCH + ' items, threshold=' + THRESHOLD
+			'49-launch (Batch side) PASS: ' + ITEM_COUNT_BATCH + ' items, threshold=' + THRESHOLD
 			+ ' → JobType=' + jobsBatch[0].JobType + ', Status=' + jobsBatch[0].Status
 			+ ', JobId=' + jobIdBatch + ', dispatchWallMs=' + dispatchWallMsBatch + 'ms');
 
 	Map<String, Object> handoff = new Map<String, Object>
 	{
-		'jobIdQueueable' => (String)jobIdQueueable,
-		'jobIdBatch' => (String)jobIdBatch,
-		'dispatchWallMsQueueable' => dispatchWallMsQueueable,
-		'dispatchWallMsBatch' => dispatchWallMsBatch,
-		'itemCountQueueable' => ITEM_COUNT_QUEUEABLE,
-		'itemCountBatch' => ITEM_COUNT_BATCH,
-		'threshold' => THRESHOLD,
-		'accountQueueablePrefix' => ACCOUNT_QUEUEABLE_PREFIX,
-		'accountBatchPrefix' => ACCOUNT_BATCH_PREFIX,
-		'runStamp' => RUN_STAMP_49
+			'jobIdQueueable' => (String)jobIdQueueable,
+			'jobIdBatch' => (String)jobIdBatch,
+			'dispatchWallMsQueueable' => dispatchWallMsQueueable,
+			'dispatchWallMsBatch' => dispatchWallMsBatch,
+			'itemCountQueueable' => ITEM_COUNT_QUEUEABLE,
+			'itemCountBatch' => ITEM_COUNT_BATCH,
+			'threshold' => THRESHOLD,
+			'accountQueueablePrefix' => ACCOUNT_QUEUEABLE_PREFIX,
+			'accountBatchPrefix' => ACCOUNT_BATCH_PREFIX,
+			'runStamp' => RUN_STAMP_49
 	};
 
 	kern__Foobar__c handoffRow = new kern__Foobar__c
-	(
-		Name = HANDOFF_NAME,
-		kern__TextAreaLong__c = JSON.serialize(handoff)
-	);
+			(
+					Name = HANDOFF_NAME,
+					kern__TextAreaLong__c = JSON.serialize(handoff)
+			);
 	insert handoffRow;
 
 	System.debug(LoggingLevel.INFO,
-		'49-launch (handoff) PASS: persisted handoff row ' + handoffRow.Id + ' Name=' + HANDOFF_NAME
+			'49-launch (handoff) PASS: persisted handoff row ' + handoffRow.Id + ' Name=' + HANDOFF_NAME
 			+ ' with both job IDs + dispatch wall times. '
 			+ 'Run section-49b after ~30-90 s for terminal-status verification + PERF_ROW emission.');
 
@@ -282,7 +286,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'49-launch FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'49-launch FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('49-launch: ' + scenarioError.getMessage());
 	fail++;
 }

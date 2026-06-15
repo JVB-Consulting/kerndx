@@ -182,7 +182,12 @@ try
 		for(Account account : validBulk) cleanupIds.add(account.Id);
 
 		System.assertEquals(50, validBulk.size(), '4g FAIL: All 50 valid accounts should be inserted');
-		List<Account> inserted = [SELECT Id FROM Account WHERE Id IN :validBulk];
+		List<Account> inserted =
+		[
+				SELECT Id
+				FROM Account
+				WHERE Id IN :validBulk
+		];
 		System.assertEquals(50, inserted.size(), '4g FAIL: All 50 records should persist after validation passes');
 
 		Boolean bulkExceptionThrown = false;

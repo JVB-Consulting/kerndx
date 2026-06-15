@@ -49,52 +49,174 @@ const DEFAULT_CONFIG = {
 	extraFiles: ['./README.md'],
 
 	/** Additional directories to scan (all .md files included) */
-	extraDirs: ['./research', './standards', './release-notes']
+	extraDirs: [
+		'./research',
+		'./standards',
+		'./release-notes'
+	]
 };
 
 /** Standard Salesforce types that should not be flagged as missing classes */
 const SF_STANDARD_TYPES = new Set([
-	'System', 'Database', 'Schema', 'Test', 'Math', 'Limits', 'UserInfo',
-	'JSON', 'String', 'Integer', 'Boolean', 'Decimal', 'Double', 'Long',
-	'Date', 'Datetime', 'Time', 'Blob', 'Id', 'Object', 'Type', 'Enum',
-	'List', 'Set', 'Map', 'SObject', 'Account', 'Contact', 'Case', 'Lead',
-	'Opportunity', 'Task', 'Event', 'User', 'Profile', 'PermissionSet',
-	'ContentVersion', 'ContentDocument', 'Attachment', 'EmailMessage',
-	'HttpRequest', 'HttpResponse', 'Http', 'RestRequest', 'RestResponse',
-	'RestContext', 'Messaging', 'Approval', 'Auth', 'ConnectApi',
-	'ApexPages', 'PageReference', 'SelectOption', 'Savepoint',
-	'TriggerOperation', 'FlowDefinition', 'EntityDefinition',
-	'FieldDefinition', 'DescribeSObjectResult', 'DescribeFieldResult',
-	'SObjectField', 'SObjectType', 'FieldSet', 'FieldSetMember',
-	'AggregateResult', 'QueryLocator', 'BatchableContext', 'SchedulableContext',
-	'QueueableContext', 'FinalizerContext', 'Assert', 'Exception',
-	'DmlException', 'QueryException', 'NullPointerException',
-	'IllegalArgumentException', 'TypeException', 'MathException',
-	'CalloutException', 'AsyncException', 'LimitException',
-	'Callable', 'Schedulable', 'Queueable', 'Batchable', 'Finalizer',
-	'Comparable', 'Iterable', 'Iterator', 'StubProvider',
-	'InstallHandler', 'UninstallHandler',
-	'Cache', 'OrgCachePartition', 'SessionCachePartition',
-	'Trigger', 'Process', 'Flow', 'Metadata',
-	'FeatureManagement', 'Network', 'Site', 'Community',
-	'EventBus', 'Platform', 'Quiddity', 'Request',
-	'CustomMetadataType', 'PlatformEvent',
-	'InvocableMethod', 'InvocableVariable', 'AuraEnabled',
-	'IsTest', 'TestVisible', 'SuppressWarnings', 'JsonAccess',
-	'RestResource', 'HttpGet', 'HttpPost', 'HttpPut', 'HttpPatch', 'HttpDelete',
-	'NamespaceAccessible', 'RemoteAction',
-	'Crypto', 'EncodingUtil', 'Url', 'Pattern', 'Matcher',
-	'AsyncOperation', 'FlexQueue', 'OrgLimits',
-	'AccessLevel', 'SecurityEnforced', 'StripInaccessible',
-	'ApplicationReadWriteMode', 'StatusCode',
-	'CTRL', 'LWC'
+	'System',
+	'Database',
+	'Schema',
+	'Test',
+	'Math',
+	'Limits',
+	'UserInfo',
+	'JSON',
+	'String',
+	'Integer',
+	'Boolean',
+	'Decimal',
+	'Double',
+	'Long',
+	'Date',
+	'Datetime',
+	'Time',
+	'Blob',
+	'Id',
+	'Object',
+	'Type',
+	'Enum',
+	'List',
+	'Set',
+	'Map',
+	'SObject',
+	'Account',
+	'Contact',
+	'Case',
+	'Lead',
+	'Opportunity',
+	'Task',
+	'Event',
+	'User',
+	'Profile',
+	'PermissionSet',
+	'ContentVersion',
+	'ContentDocument',
+	'Attachment',
+	'EmailMessage',
+	'HttpRequest',
+	'HttpResponse',
+	'Http',
+	'RestRequest',
+	'RestResponse',
+	'RestContext',
+	'Messaging',
+	'Approval',
+	'Auth',
+	'ConnectApi',
+	'ApexPages',
+	'PageReference',
+	'SelectOption',
+	'Savepoint',
+	'TriggerOperation',
+	'FlowDefinition',
+	'EntityDefinition',
+	'FieldDefinition',
+	'DescribeSObjectResult',
+	'DescribeFieldResult',
+	'SObjectField',
+	'SObjectType',
+	'FieldSet',
+	'FieldSetMember',
+	'AggregateResult',
+	'QueryLocator',
+	'BatchableContext',
+	'SchedulableContext',
+	'QueueableContext',
+	'FinalizerContext',
+	'Assert',
+	'Exception',
+	'DmlException',
+	'QueryException',
+	'NullPointerException',
+	'IllegalArgumentException',
+	'TypeException',
+	'MathException',
+	'CalloutException',
+	'AsyncException',
+	'LimitException',
+	'Callable',
+	'Schedulable',
+	'Queueable',
+	'Batchable',
+	'Finalizer',
+	'Comparable',
+	'Iterable',
+	'Iterator',
+	'StubProvider',
+	'InstallHandler',
+	'UninstallHandler',
+	'Cache',
+	'OrgCachePartition',
+	'SessionCachePartition',
+	'Trigger',
+	'Process',
+	'Flow',
+	'Metadata',
+	'FeatureManagement',
+	'Network',
+	'Site',
+	'Community',
+	'EventBus',
+	'Platform',
+	'Quiddity',
+	'Request',
+	'CustomMetadataType',
+	'PlatformEvent',
+	'InvocableMethod',
+	'InvocableVariable',
+	'AuraEnabled',
+	'IsTest',
+	'TestVisible',
+	'SuppressWarnings',
+	'JsonAccess',
+	'RestResource',
+	'HttpGet',
+	'HttpPost',
+	'HttpPut',
+	'HttpPatch',
+	'HttpDelete',
+	'NamespaceAccessible',
+	'RemoteAction',
+	'Crypto',
+	'EncodingUtil',
+	'Url',
+	'Pattern',
+	'Matcher',
+	'AsyncOperation',
+	'FlexQueue',
+	'OrgLimits',
+	'AccessLevel',
+	'SecurityEnforced',
+	'StripInaccessible',
+	'ApplicationReadWriteMode',
+	'StatusCode',
+	'CTRL',
+	'LWC'
 ]);
 
 /** Kern framework prefixes that should exist in the codebase */
 const KERN_PREFIXES = new Set([
-	'API_', 'BATCH_', 'DML_', 'DTO_', 'FLOW_', 'IF_', 'LOG_',
-	'MAP_', 'QRY_', 'REST_', 'SCHED_', 'SEL_', 'SVC_', 'TRG_',
-	'TST_', 'UTIL_'
+	'API_',
+	'BATCH_',
+	'DML_',
+	'DTO_',
+	'FLOW_',
+	'IF_',
+	'LOG_',
+	'MAP_',
+	'QRY_',
+	'REST_',
+	'SCHED_',
+	'SEL_',
+	'SVC_',
+	'TRG_',
+	'TST_',
+	'UTIL_'
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,7 +230,9 @@ const KERN_PREFIXES = new Set([
  */
 function createLogger(silent = false)
 {
-	const noop = () => {};
+	const noop = () =>
+	{
+	};
 	if(silent)
 	{
 		return {info: noop, success: noop, warn: noop, error: noop, file: noop, issue: noop};
@@ -200,9 +324,7 @@ function parseHeadings(content)
 			if(match)
 			{
 				headings.push({
-					level: match[1].length,
-					text: match[2].trim(),
-					line: lineNum
+					level: match[1].length, text: match[2].trim(), line: lineNum
 				});
 			}
 		}
@@ -256,9 +378,7 @@ function parseTocEntries(content)
 			if(linkMatch)
 			{
 				entries.push({
-					text: linkMatch[1],
-					anchor: linkMatch[2],
-					line: lineNum
+					text: linkMatch[1], anchor: linkMatch[2], line: lineNum
 				});
 			}
 		}
@@ -314,12 +434,12 @@ function parseLinks(content)
 function githubSlug(heading, slugCounts)
 {
 	let slug = heading
-		.toLowerCase()
-		.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-		.replace(/<[^>]+>/g, '')
-		.replace(/[^\w\s-]/g, '')
-		.replace(/\s/g, '-')
-		.replace(/^-|-$/g, '');
+	.toLowerCase()
+	.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+	.replace(/<[^>]+>/g, '')
+	.replace(/[^\w\s-]/g, '')
+	.replace(/\s/g, '-')
+	.replace(/^-|-$/g, '');
 
 	if(slugCounts)
 	{
@@ -352,7 +472,10 @@ function checkLineLength(content, filePath)
 	const issues = [];
 	const lines = content.split('\n');
 	const codeBlocks = parseCodeBlocks(content);
-	const codeLineRanges = codeBlocks.map(b => [b.startLine, b.endLine]);
+	const codeLineRanges = codeBlocks.map(b => [
+		b.startLine,
+		b.endLine
+	]);
 
 	for(let i = 0; i < lines.length; i++)
 	{
@@ -376,11 +499,7 @@ function checkLineLength(content, filePath)
 		}
 
 		issues.push({
-			file: filePath,
-			line: lineNum,
-			severity: 'warning',
-			check: 'line-length',
-			message: `Line exceeds ${MAX_LINE_LENGTH} characters (${line.length})`
+			file: filePath, line: lineNum, severity: 'warning', check: 'line-length', message: `Line exceeds ${MAX_LINE_LENGTH} characters (${line.length})`
 		});
 	}
 
@@ -398,7 +517,10 @@ function checkTableAlignment(content, filePath)
 	const issues = [];
 	const lines = content.split('\n');
 	const codeBlocks = parseCodeBlocks(content);
-	const codeLineRanges = codeBlocks.map(b => [b.startLine, b.endLine]);
+	const codeLineRanges = codeBlocks.map(b => [
+		b.startLine,
+		b.endLine
+	]);
 	const tables = [];
 	let currentTable = null;
 
@@ -512,11 +634,7 @@ function checkLinks(content, filePath, fsModule = fs)
 		if(!fsModule.existsSync(resolved))
 		{
 			issues.push({
-				file: filePath,
-				line: link.line,
-				severity: 'error',
-				check: 'link',
-				message: `Broken link: ${link.href}`
+				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken link: ${link.href}`
 			});
 		}
 	}
@@ -568,11 +686,7 @@ function checkAntiPatterns(content, filePath)
 				if(pattern.regex.test(codeLine))
 				{
 					issues.push({
-						file: filePath,
-						line: block.startLine + i + 1,
-						severity: 'warning',
-						check: 'anti-pattern',
-						message: pattern.message
+						file: filePath, line: block.startLine + i + 1, severity: 'warning', check: 'anti-pattern', message: pattern.message
 					});
 				}
 			}
@@ -618,17 +732,10 @@ function checkOldNaming(content, filePath)
 				if(pattern.regex.test(codeLine))
 				{
 					const lowerLine = codeLine.toLowerCase();
-					const isContextual = lowerLine.includes('renamed') ||
-						lowerLine.includes('previously') ||
-						lowerLine.includes('was called') ||
-						lowerLine.includes('formerly');
+					const isContextual = lowerLine.includes('renamed') || lowerLine.includes('previously') || lowerLine.includes('was called') || lowerLine.includes('formerly');
 
 					issues.push({
-						file: filePath,
-						line: block.startLine + i + 1,
-						severity: isContextual ? 'warning' : 'error',
-						check: 'old-naming',
-						message: pattern.message
+						file: filePath, line: block.startLine + i + 1, severity: isContextual ? 'warning' : 'error', check: 'old-naming', message: pattern.message
 					});
 				}
 			}
@@ -693,11 +800,7 @@ function checkSharingDeclarations(content, filePath)
 					}
 
 					issues.push({
-						file: filePath,
-						line: block.startLine + i + 1,
-						severity: 'warning',
-						check: 'sharing',
-						message: `Missing sharing declaration: class ${className}`
+						file: filePath, line: block.startLine + i + 1, severity: 'warning', check: 'sharing', message: `Missing sharing declaration: class ${className}`
 					});
 				}
 			}
@@ -731,11 +834,7 @@ function checkToc(content, filePath)
 		else if(!firstH2Found && heading.level > 2)
 		{
 			issues.push({
-				file: filePath,
-				line: heading.line,
-				severity: 'warning',
-				check: 'toc',
-				message: `H${heading.level} "${heading.text}" appears before any H2 — likely should be H2`
+				file: filePath, line: heading.line, severity: 'warning', check: 'toc', message: `H${heading.level} "${heading.text}" appears before any H2 — likely should be H2`
 			});
 		}
 	}
@@ -748,11 +847,7 @@ function checkToc(content, filePath)
 	if(tocEntries.length === 0)
 	{
 		issues.push({
-			file: filePath,
-			line: 1,
-			severity: 'warning',
-			check: 'toc',
-			message: 'Document has >3 sections but no Table of Contents'
+			file: filePath, line: 1, severity: 'warning', check: 'toc', message: 'Document has >3 sections but no Table of Contents'
 		});
 		return issues;
 	}
@@ -773,11 +868,7 @@ function checkToc(content, filePath)
 		if(!headingSlugs.has(entry.anchor))
 		{
 			issues.push({
-				file: filePath,
-				line: entry.line,
-				severity: 'error',
-				check: 'toc',
-				message: `Orphaned TOC entry: "${entry.text}" (anchor #${entry.anchor} has no matching heading)`
+				file: filePath, line: entry.line, severity: 'error', check: 'toc', message: `Orphaned TOC entry: "${entry.text}" (anchor #${entry.anchor} has no matching heading)`
 			});
 		}
 	}
@@ -789,11 +880,7 @@ function checkToc(content, filePath)
 			if(heading.level <= 3)
 			{
 				issues.push({
-					file: filePath,
-					line: heading.line,
-					severity: 'warning',
-					check: 'toc',
-					message: `Heading not in TOC: "${heading.text}" (H${heading.level})`
+					file: filePath, line: heading.line, severity: 'warning', check: 'toc', message: `Heading not in TOC: "${heading.text}" (H${heading.level})`
 				});
 			}
 		}
@@ -842,11 +929,7 @@ function checkCodeFenceLanguages(content, filePath)
 			}
 
 			issues.push({
-				file: filePath,
-				line: block.startLine,
-				severity: 'warning',
-				check: 'code-fence',
-				message: `Code block without language tag${suggestion}`
+				file: filePath, line: block.startLine, severity: 'warning', check: 'code-fence', message: `Code block without language tag${suggestion}`
 			});
 		}
 	}
@@ -898,8 +981,7 @@ function checkClassReferences(content, filePath, classIndex)
 			{
 				const ref = match[1];
 
-				if(ref.endsWith('__c') || ref.endsWith('__mdt') || ref.endsWith('__e') ||
-					ref.endsWith('__r') || ref.endsWith('__b') || ref.endsWith('__x'))
+				if(ref.endsWith('__c') || ref.endsWith('__mdt') || ref.endsWith('__e') || ref.endsWith('__r') || ref.endsWith('__b') || ref.endsWith('__x'))
 				{
 					continue;
 				}
@@ -925,11 +1007,7 @@ function checkClassReferences(content, filePath, classIndex)
 				{
 					reported.add(reportKey);
 					issues.push({
-						file: filePath,
-						line: block.startLine + i + 1,
-						severity: 'warning',
-						check: 'class-ref',
-						message: `Unknown class reference: ${ref}`
+						file: filePath, line: block.startLine + i + 1, severity: 'warning', check: 'class-ref', message: `Unknown class reference: ${ref}`
 					});
 				}
 			}
@@ -966,7 +1044,10 @@ function checkCrossDocVersionConsistency(fileContents, allowedPathPatterns = [])
 
 	for(const {filePath, content} of fileContents)
 	{
-		if(allowedPathPatterns.some(re => re.test(filePath))) continue;
+		if(allowedPathPatterns.some(re => re.test(filePath)))
+		{
+			continue;
+		}
 		const lines = content.split('\n');
 		for(let i = 0; i < lines.length; i++)
 		{
@@ -976,13 +1057,19 @@ function checkCrossDocVersionConsistency(fileContents, allowedPathPatterns = [])
 			while((m = versionRe.exec(line)) !== null)
 			{
 				const v = m[1];
-				if(!versionRefs.has(v)) versionRefs.set(v, []);
+				if(!versionRefs.has(v))
+				{
+					versionRefs.set(v, []);
+				}
 				versionRefs.get(v).push({filePath, line: i + 1});
 			}
 		}
 	}
 
-	if(versionRefs.size <= 1) return [];
+	if(versionRefs.size <= 1)
+	{
+		return [];
+	}
 
 	const compareVersion = (a, b) =>
 	{
@@ -991,7 +1078,10 @@ function checkCrossDocVersionConsistency(fileContents, allowedPathPatterns = [])
 		for(let i = 0; i < Math.max(pa.length, pb.length); i++)
 		{
 			const da = pa[i] || 0, db = pb[i] || 0;
-			if(da !== db) return da - db;
+			if(da !== db)
+			{
+				return da - db;
+			}
 		}
 		return 0;
 	};
@@ -1001,7 +1091,10 @@ function checkCrossDocVersionConsistency(fileContents, allowedPathPatterns = [])
 	const issues = [];
 	for(const [version, refs] of versionRefs)
 	{
-		if(version === latest) continue;
+		if(version === latest)
+		{
+			continue;
+		}
 		for(const ref of refs)
 		{
 			issues.push({
@@ -1059,10 +1152,10 @@ function buildClassIndex(classesDir, referenceDir, fsModule = fs)
 function extractHeadingText(heading)
 {
 	return heading
-		.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-		.replace(/\*\*([^*]+)\*\*/g, '$1')
-		.replace(/\*([^*]+)\*/g, '$1')
-		.replace(/`/g, '');
+	.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+	.replace(/\*\*([^*]+)\*\*/g, '$1')
+	.replace(/\*([^*]+)\*/g, '$1')
+	.replace(/`/g, '');
 }
 
 /**
@@ -1210,8 +1303,10 @@ const DEFAULT_PROSE_REF_ALLOWLIST = [
 	// Fast Start tutorial-example classes: subscriber creates these in their
 	// own org. Bare `Layer_Name.cls` (no Domain prefix) doesn't match the
 	// extractor's SUBSCRIBER_APEX_RE pattern, so explicit allowlist.
-	'SEL_Accounts.cls', 'SEL_Accounts_TEST.cls',
-	'TRG_AccountSetDefaults.cls', 'TRG_AccountSetDefaults_TEST.cls',
+	'SEL_Accounts.cls',
+	'SEL_Accounts_TEST.cls',
+	'TRG_AccountSetDefaults.cls',
+	'TRG_AccountSetDefaults_TEST.cls',
 	// Synthesized at release time; not in the source tree.
 	'sfdx-project.template.json',
 	// Release-time provenance file referenced from Installation.md.
@@ -1243,22 +1338,40 @@ const DEFAULT_PROSE_REF_ALLOWLIST = [
 ];
 
 let _sourceFileIndex = null;
+
 function buildSourceFileIndex(repoRoot, fsModule)
 {
-	if(_sourceFileIndex && _sourceFileIndex.root === repoRoot) return _sourceFileIndex.index;
+	if(_sourceFileIndex && _sourceFileIndex.root === repoRoot)
+	{
+		return _sourceFileIndex.index;
+	}
 	const byBasename = new Map();
-	const SKIP_DIRS = new Set(['node_modules', '.git', 'tmp', '.planning']);
+	const SKIP_DIRS = new Set([
+		'node_modules',
+		'.git',
+		'tmp',
+		'.planning'
+	]);
 	(function walk(d)
 	{
 		const entries = fsModule.readdirSync(d, {withFileTypes: true});
 		for(const entry of entries)
 		{
-			if(SKIP_DIRS.has(entry.name)) continue;
+			if(SKIP_DIRS.has(entry.name))
+			{
+				continue;
+			}
 			const full = path.join(d, entry.name);
-			if(entry.isDirectory()) walk(full);
+			if(entry.isDirectory())
+			{
+				walk(full);
+			}
 			else if(entry.isFile())
 			{
-				if(!byBasename.has(entry.name)) byBasename.set(entry.name, []);
+				if(!byBasename.has(entry.name))
+				{
+					byBasename.set(entry.name, []);
+				}
 				byBasename.get(entry.name).push(path.relative(repoRoot, full));
 			}
 		}
@@ -1270,7 +1383,10 @@ function buildSourceFileIndex(repoRoot, fsModule)
 function loadSourcePackageScripts(repoRoot, fsModule)
 {
 	const pkgPath = path.join(repoRoot, 'package.json');
-	if(!fsModule.existsSync(pkgPath)) return null;
+	if(!fsModule.existsSync(pkgPath))
+	{
+		return null;
+	}
 	try
 	{
 		const pkg = JSON.parse(fsModule.readFileSync(pkgPath, 'utf8'));
@@ -1303,11 +1419,17 @@ function findUnresolvedClaims(content, treeRoot, fsModule, allowlist)
 
 	for(const claim of claims)
 	{
-		if(docClaimExtractor.isAllowlisted(claim, allowSet)) continue;
+		if(docClaimExtractor.isAllowlisted(claim, allowSet))
+		{
+			continue;
+		}
 
 		if(claim.type === 'npm-script')
 		{
-			if(npmScripts === null) continue;
+			if(npmScripts === null)
+			{
+				continue;
+			}
 			if(!npmScripts.has(claim.ref))
 			{
 				unresolved.push({line: claim.line, type: 'npm-script', claim: 'npm run ' + claim.ref});
@@ -1316,14 +1438,25 @@ function findUnresolvedClaims(content, treeRoot, fsModule, allowlist)
 		}
 
 		const absPath = path.join(treeRoot, claim.ref);
-		if(fsModule.existsSync(absPath)) continue;
+		if(fsModule.existsSync(absPath))
+		{
+			continue;
+		}
 		try
 		{
 			const decoded = decodeURIComponent(claim.ref);
-			if(decoded !== claim.ref && fsModule.existsSync(path.join(treeRoot, decoded))) continue;
+			if(decoded !== claim.ref && fsModule.existsSync(path.join(treeRoot, decoded)))
+			{
+				continue;
+			}
 		}
-		catch(_e) { /* invalid encoding */ }
-		if(!claim.ref.includes('/') && fileIndex.has(claim.ref)) continue;
+		catch(_e)
+		{ /* invalid encoding */
+		}
+		if(!claim.ref.includes('/') && fileIndex.has(claim.ref))
+		{
+			continue;
+		}
 
 		unresolved.push({line: claim.line, type: claim.type, claim: claim.ref});
 	}
@@ -1350,10 +1483,200 @@ function checkProseFileRefs(content, filePath, repoRoot, fsModule, allowlist)
 		line: u.line,
 		severity: 'error',
 		check: 'prose-file-ref',
-		message: u.type === 'npm-script'
-			? `npm script not found in package.json: \`${u.claim}\``
-			: `${u.type} reference not found in source: \`${u.claim}\``
+		message: u.type === 'npm-script' ? `npm script not found in package.json: \`${u.claim}\`` : `${u.type} reference not found in source: \`${u.claim}\``
 	}));
+}
+
+// Committed Apex artifacts that back the Fast Start fences live here.
+const FAST_START_CLASS_DIR = 'release-testing/subscriber/classes';
+
+// Lines that introduce a full-file code fence the reader copies verbatim.
+// Each captures the named file (basename resolved against FAST_START_CLASS_DIR).
+const FENCE_FILE_PROSE_PATTERNS = [
+	/create a new file named `([^`]+\.(?:cls|trigger))`/i,
+	/copy this code exactly as is into `([^`]+\.(?:cls|trigger))`/i,
+	/(?:^|\s)create `([^`]+\.(?:cls|trigger))`/i
+];
+
+// Max line gap between the "create this file" prose and its fence. Guards
+// against pairing the prose with a distant, unrelated fence when the immediate
+// full-file fence is absent.
+const FENCE_PROSE_MAX_GAP = 12;
+
+/**
+ * Truncates a line at its first `//` line comment, honouring single-quoted
+ * Apex strings so a `//` inside a literal (e.g. `'https://example.com'`) is
+ * not mistaken for a comment.
+ *
+ * @param {string} line - One source line
+ * @returns {string} The line up to (not including) a real `//` comment
+ */
+function stripInlineApexComment(line)
+{
+	let inString = false;
+	for(let i = 0; i < line.length; i++)
+	{
+		const c = line[i];
+		if(inString)
+		{
+			if(c === '\\')
+			{
+				i++;
+				continue;
+			}
+			if(c === '\'')
+			{
+				inString = false;
+			}
+			continue;
+		}
+		if(c === '\'')
+		{
+			inString = true;
+			continue;
+		}
+		if(c === '/' && line[i + 1] === '/')
+		{
+			return line.slice(0, i);
+		}
+	}
+	return line;
+}
+
+/**
+ * Reduces an Apex/trigger source body to its comparable code lines for
+ * subset-parity. Each line becomes a whitespace-free key plus its readable
+ * text. The reductions strip everything that legitimately differs between a
+ * teaching fence and its committed-and-hardened artifact:
+ *   - block comments (ApexDoc headers, incl. SPDX `// …` and `@date` lines)
+ *     and `//` line/trailing comments
+ *   - the no-op `SeeAllData=false` default (artifacts state it explicitly; the
+ *     teaching fence omits it — behaviourally identical)
+ *   - ALL whitespace (indentation + the IDE formatter's continuation spacing,
+ *     which touches the committed .cls but never the markdown fence)
+ *   - Allman brace style: a lone `{` the formatter drops onto its own line in
+ *     the committed .cls is re-attached to the previous line, so it matches a
+ *     fence that writes `…{` inline (e.g. `new Map<String, String>{`)
+ *   - `global` vs `public`: a documented, context-dependent visibility choice,
+ *     not copied logic. The Fast Starts teach `global` (the managed package
+ *     resolves the class at runtime with no extra setup); the release-testing
+ *     artifacts use `public` with the harness's Type Resolver. The "Why
+ *     global?" callouts present these as equivalent alternatives.
+ *   - a trigger's event list: explicitly the reader's choice ("declare the
+ *     events you need"), whereas the shared release-testing trigger handles
+ *     every event. Compared on trigger name + object, not the event set.
+ *   - blank / comment-only lines
+ *
+ * @param {string} source - Raw source body
+ * @returns {Array<{key: string, text: string}>} Non-empty code lines
+ */
+function apexCodeLines(source)
+{
+	const withoutBlockComments = source
+	.replace(/\r\n/g, '\n')
+	.replace(/\/\*[\s\S]*?\*\//g, '')
+	.replace(/\n[ \t]*\{/g, ' {');
+	const out = [];
+	for(const raw of withoutBlockComments.split('\n'))
+	{
+		const text = stripInlineApexComment(raw).trim();
+		const key = text
+		.replace(/^global(\s)/, 'public$1')
+		.replace(/^(trigger\s+\w+\s+on\s+\w+\s*\()[^)]*\)/i, '$1)')
+		.replace(/\bSeeAllData\s*=\s*false\b,?/g, '')
+		.replace(/\s+/g, '');
+		if(key.length > 0)
+		{
+			out.push({key, text});
+		}
+	}
+	return out;
+}
+
+/**
+ * Fast Start fence↔file parity (subset model). Each Fast Start doc tells the
+ * reader to create an Apex file and shows the body in the next code fence; the
+ * repo also commits that file under release-testing/subscriber/classes/ as a
+ * compile-and-test-backed reference. The committed artifact is deliberately a
+ * hardened SUPERSET of the teaching fence — it may carry extra test methods,
+ * validation-rule bypasses, and explicit annotations the lean fence omits.
+ *
+ * So the contract is subset, not equality: every code line a reader copies
+ * from the fence must be backed by the committed artifact. The check errors
+ * only when the fence teaches a code line the artifact does not contain (the
+ * reader would be copying untested/divergent code), after the normalisation in
+ * apexCodeLines (comments, indentation, formatter spacing, SeeAllData=false).
+ *
+ * Only runs on `Fast Start - *.md` docs. A named file with no committed
+ * counterpart is skipped (that is a gate-wiring concern, not a parity concern).
+ *
+ * @param {string} content - Markdown content
+ * @param {string} filePath - File path (for error reporting + Fast Start gate)
+ * @param {string} repoRoot - Source repo root
+ * @param {Object} [fsModule=fs] - File system module (for testing)
+ * @returns {Array} Issue objects (check: 'fence-file-parity')
+ */
+function checkFenceFileParity(content, filePath, repoRoot, fsModule = fs)
+{
+	if(!/^Fast Start - .+\.md$/.test(path.basename(filePath)))
+	{
+		return [];
+	}
+
+	const issues = [];
+	const blocks = parseCodeBlocks(content);
+	const lines = content.split('\n');
+
+	for(let i = 0; i < lines.length; i++)
+	{
+		let named = null;
+		for(const re of FENCE_FILE_PROSE_PATTERNS)
+		{
+			const m = lines[i].match(re);
+			if(m)
+			{
+				named = m[1];
+				break;
+			}
+		}
+		if(!named)
+		{
+			continue;
+		}
+
+		const proseLine = i + 1;
+		const basename = path.basename(named);
+		const committedPath = path.join(repoRoot, FAST_START_CLASS_DIR, basename);
+		if(!fsModule.existsSync(committedPath))
+		{
+			continue;
+		}
+
+		const fence = blocks.find(b => b.startLine > proseLine && (b.startLine - proseLine) <= FENCE_PROSE_MAX_GAP);
+		if(!fence)
+		{
+			continue;
+		}
+
+		const fenceLines = apexCodeLines(fence.code);
+		const fileKeys = new Set(apexCodeLines(fsModule.readFileSync(committedPath, 'utf8')).map(l => l.key));
+
+		const unbacked = fenceLines.find(l => !fileKeys.has(l.key));
+		if(!unbacked)
+		{
+			continue;
+		}
+
+		issues.push({
+			file: filePath,
+			line: fence.startLine,
+			severity: 'error',
+			check: 'fence-file-parity',
+			message: `code fence teaches a line not backed by committed reference ${FAST_START_CLASS_DIR}/${basename} (the artifact may add to the fence, but must contain everything in it); unbacked line: \`${unbacked.text}\``
+		});
+	}
+
+	return issues;
 }
 
 /**
@@ -1373,10 +1696,19 @@ function validateReleaseDocs(mirrorDir, allowlist)
 	{
 		for(const entry of fs.readdirSync(d, {withFileTypes: true}))
 		{
-			if(entry.name === 'node_modules' || entry.name === '.git') continue;
+			if(entry.name === 'node_modules' || entry.name === '.git')
+			{
+				continue;
+			}
 			const full = path.join(d, entry.name);
-			if(entry.isDirectory()) walk(full);
-			else if(entry.isFile() && entry.name.endsWith('.md')) mdFiles.push(full);
+			if(entry.isDirectory())
+			{
+				walk(full);
+			}
+			else if(entry.isFile() && entry.name.endsWith('.md'))
+			{
+				mdFiles.push(full);
+			}
 		}
 	})(mirrorDir);
 
@@ -1393,8 +1725,14 @@ function validateReleaseDocs(mirrorDir, allowlist)
 
 	violations.sort((a, b) =>
 	{
-		if(a.file !== b.file) return a.file < b.file ? -1 : 1;
-		if(a.line !== b.line) return a.line - b.line;
+		if(a.file !== b.file)
+		{
+			return a.file < b.file ? -1 : 1;
+		}
+		if(a.line !== b.line)
+		{
+			return a.line - b.line;
+		}
 		return a.claim < b.claim ? -1 : 1;
 	});
 
@@ -1438,8 +1776,8 @@ class DocsValidator
 		if(this.config.overrideFiles && this.config.overrideFiles.length > 0)
 		{
 			return this.config.overrideFiles
-				.map(f => path.resolve(f))
-				.filter(f => this.fs.existsSync(f));
+			.map(f => path.resolve(f))
+			.filter(f => this.fs.existsSync(f));
 		}
 
 		const docsDir = path.resolve(this.config.docsDir);
@@ -1451,15 +1789,15 @@ class DocsValidator
 
 		const files = this.fs.readdirSync(docsDir);
 		const docFiles = files
-			.filter(f => f.endsWith('.md'))
-			.filter(f => this.config.includePattern.test(f))
-			.filter(f => !this.config.excludePattern.test(f))
-			.sort()
-			.map(f => path.join(docsDir, f));
+		.filter(f => f.endsWith('.md'))
+		.filter(f => this.config.includePattern.test(f))
+		.filter(f => !this.config.excludePattern.test(f))
+		.sort()
+		.map(f => path.join(docsDir, f));
 
 		const extraFiles = (this.config.extraFiles || [])
-			.map(f => path.resolve(f))
-			.filter(f => this.fs.existsSync(f));
+		.map(f => path.resolve(f))
+		.filter(f => this.fs.existsSync(f));
 
 		const extraDirFiles = [];
 		for(const dir of (this.config.extraDirs || []))
@@ -1468,14 +1806,18 @@ class DocsValidator
 			if(this.fs.existsSync(dirPath))
 			{
 				const dirFiles = this.fs.readdirSync(dirPath)
-					.filter(f => f.endsWith('.md'))
-					.sort()
-					.map(f => path.join(dirPath, f));
+				.filter(f => f.endsWith('.md'))
+				.sort()
+				.map(f => path.join(dirPath, f));
 				extraDirFiles.push(...dirFiles);
 			}
 		}
 
-		return [...docFiles, ...extraFiles, ...extraDirFiles];
+		return [
+			...docFiles,
+			...extraFiles,
+			...extraDirFiles
+		];
 	}
 
 	/**
@@ -1486,11 +1828,7 @@ class DocsValidator
 	{
 		const startTime = Date.now();
 		const files = this.getFiles();
-		const classIndex = buildClassIndex(
-			path.resolve(this.config.classesDir),
-			path.resolve(this.config.referenceDir),
-			this.fs
-		);
+		const classIndex = buildClassIndex(path.resolve(this.config.classesDir), path.resolve(this.config.referenceDir), this.fs);
 		let allIssues = [];
 
 		this.log.info('docs:validate \u2014 Documentation Validation\n');
@@ -1513,7 +1851,8 @@ class DocsValidator
 				...checkClassReferences(content, filePath, classIndex),
 				...checkLineLength(content, filePath),
 				...checkTableAlignment(content, filePath),
-				...checkProseFileRefs(content, filePath, repoRoot, this.fs, this.config.proseRefAllowlist)
+				...checkProseFileRefs(content, filePath, repoRoot, this.fs, this.config.proseRefAllowlist),
+				...checkFenceFileParity(content, filePath, repoRoot, this.fs)
 			];
 
 			fileIssues.sort((a, b) => a.line - b.line);
@@ -1544,7 +1883,10 @@ class DocsValidator
 			const grouped = new Map();
 			for(const issue of crossDocIssues)
 			{
-				if(!grouped.has(issue.filePath)) grouped.set(issue.filePath, []);
+				if(!grouped.has(issue.filePath))
+				{
+					grouped.set(issue.filePath, []);
+				}
 				grouped.get(issue.filePath).push(issue);
 			}
 			for(const [filePath, issues] of grouped)
@@ -1564,12 +1906,8 @@ class DocsValidator
 		const warnings = allIssues.filter(i => i.severity === 'warning').length;
 
 		return {
-			issues: allIssues,
-			summary: {
-				files: files.length,
-				errors,
-				warnings,
-				duration
+			issues: allIssues, summary: {
+				files: files.length, errors, warnings, duration
 			}
 		};
 	}
@@ -1637,18 +1975,18 @@ class DocsValidator
  * basename, and wave assignment. Source of truth for --fast-start-gate flags.
  */
 const FAST_START_TOPICS = [
-	{topic: 'selectors',       doc: 'Fast Start - Selectors.md',           demo: 'FastStart_Selectors_DEMO',     wave: 1},
-	{topic: 'dml',             doc: 'Fast Start - DML.md',                  demo: 'FastStart_DML_DEMO',           wave: 1},
-	{topic: 'test-data',       doc: 'Fast Start - Test Data.md',            demo: 'FastStart_TestData_DEMO',      wave: 1},
-	{topic: 'logging',         doc: 'Fast Start - Logging.md',              demo: 'FastStart_Logging_DEMO',       wave: 1},
-	{topic: 'feature-flags',   doc: 'Fast Start - Feature Flags.md',        demo: 'FastStart_FeatureFlag_DEMO',   wave: 1},
-	{topic: 'outbound-apis',   doc: 'Fast Start - Outbound APIs.md',        demo: 'FastStart_OutboundAPI_DEMO',   wave: 1},
-	{topic: 'inbound-apis',    doc: 'Fast Start - Inbound APIs.md',         demo: 'FastStart_InboundAPI_DEMO',    wave: 2},
-	{topic: 'trigger-actions', doc: 'Fast Start - Trigger Actions.md',      demo: 'FastStart_TriggerAction_DEMO', wave: 2},
-	{topic: 'validations',     doc: 'Fast Start - Custom Validations.md',   demo: 'FastStart_Validation_DEMO',    wave: 2},
-	{topic: 'async',           doc: 'Fast Start - Async Processing.md',     demo: 'FastStart_AsyncChain_DEMO',    wave: 2},
-	{topic: 'e2e-testing',     doc: 'Fast Start - E2E Testing.md',          demo: 'FastStart_E2E_DEMO',           wave: 2},
-	{topic: 'code-scanning',   doc: 'Fast Start - Code Scanning.md',        demo: 'FastStart_Scanner_DEMO',       wave: 2, noTestClass: true}
+	{topic: 'selectors', doc: 'Fast Start - Selectors.md', demo: 'FastStart_Selectors_DEMO', wave: 1},
+	{topic: 'dml', doc: 'Fast Start - DML.md', demo: 'FastStart_DML_DEMO', wave: 1},
+	{topic: 'test-data', doc: 'Fast Start - Test Data.md', demo: 'FastStart_TestData_DEMO', wave: 1},
+	{topic: 'logging', doc: 'Fast Start - Logging.md', demo: 'FastStart_Logging_DEMO', wave: 1},
+	{topic: 'feature-flags', doc: 'Fast Start - Feature Flags.md', demo: 'FastStart_FeatureFlag_DEMO', wave: 1},
+	{topic: 'outbound-apis', doc: 'Fast Start - Outbound APIs.md', demo: 'FastStart_OutboundAPI_DEMO', wave: 1},
+	{topic: 'inbound-apis', doc: 'Fast Start - Inbound APIs.md', demo: 'FastStart_InboundAPI_DEMO', wave: 2},
+	{topic: 'trigger-actions', doc: 'Fast Start - Trigger Actions.md', demo: 'FastStart_TriggerAction_DEMO', wave: 2},
+	{topic: 'validations', doc: 'Fast Start - Custom Validations.md', demo: 'FastStart_Validation_DEMO', wave: 2},
+	{topic: 'async', doc: 'Fast Start - Async Processing.md', demo: 'FastStart_AsyncChain_DEMO', wave: 2},
+	{topic: 'e2e-testing', doc: 'Fast Start - E2E Testing.md', demo: 'FastStart_E2E_DEMO', wave: 2},
+	{topic: 'code-scanning', doc: 'Fast Start - Code Scanning.md', demo: 'FastStart_Scanner_DEMO', wave: 2, noTestClass: true}
 ];
 
 /** Subscriber test org alias — matches release-testing/RUNBOOK.md.
@@ -1657,7 +1995,11 @@ const FAST_START_TOPICS = [
  *  gate path that actually deploys to an org calls getFastStartOrg() at
  *  invocation time and gets the env-var-required behavior. */
 const {getSubscriberOrgAlias} = require('../release-testing/runner/subscriber-config');
-function getFastStartOrg() { return getSubscriberOrgAlias(); }
+
+function getFastStartOrg()
+{
+	return getSubscriberOrgAlias();
+}
 
 /** Subscriber project root (namespace-free sfdx-project.json) */
 const FAST_START_STAGING_ROOT = path.join('/tmp', 'kern-subscriber');
@@ -1699,7 +2041,13 @@ function stageFastStartArtifacts(record, log)
 	{
 		throw new Error(`Staging root missing: ${FAST_START_STAGING_ROOT}. Provision with release-testing/RUNBOOK.md Phase 1.`);
 	}
-	for(const sub of ['classes', 'customMetadata', 'flows', 'lwc', 'triggers'])
+	for(const sub of [
+		'classes',
+		'customMetadata',
+		'flows',
+		'lwc',
+		'triggers'
+	])
 	{
 		fs.mkdirSync(path.join(stagingForceApp, sub), {recursive: true});
 	}
@@ -1707,18 +2055,33 @@ function stageFastStartArtifacts(record, log)
 	// Clear ALL existing FastStart_* artifacts from staging so each iteration only
 	// deploys files for the current topic. This prevents one topic's bad files from
 	// poisoning subsequent iterations' deploys (the cascade trap).
-	for(const sub of ['classes', 'customMetadata', 'flows', 'lwc', 'triggers'])
+	for(const sub of [
+		'classes',
+		'customMetadata',
+		'flows',
+		'lwc',
+		'triggers'
+	])
 	{
 		const dir = path.join(stagingForceApp, sub);
-		if(!fs.existsSync(dir)) { continue; }
+		if(!fs.existsSync(dir))
+		{
+			continue;
+		}
 		for(const entry of fs.readdirSync(dir))
 		{
 			if(/^FastStart_/i.test(entry) || /^kern__\w+\.FastStart_/i.test(entry))
 			{
 				const full = path.join(dir, entry);
 				const stat = fs.statSync(full);
-				if(stat.isDirectory()) { fs.rmSync(full, {recursive: true, force: true}); }
-				else { fs.unlinkSync(full); }
+				if(stat.isDirectory())
+				{
+					fs.rmSync(full, {recursive: true, force: true});
+				}
+				else
+				{
+					fs.unlinkSync(full);
+				}
 			}
 		}
 	}
@@ -1738,9 +2101,13 @@ function stageFastStartArtifacts(record, log)
 	const cmdtPattern = cmdtPatterns[record.topic] || new RegExp(`^kern__\\w+\\.${topicShortName}\\.`, 'i');
 
 	const buckets = [
-		{src: path.join(FAST_START_SOURCE_ROOT, 'classes'),         pattern: new RegExp(`^${record.demo}(_TEST)?\\.(cls|cls-meta\\.xml)$`), dst: path.join(stagingForceApp, 'classes')},
-		{src: path.join(FAST_START_SOURCE_ROOT, 'customMetadata'),  pattern: cmdtPattern, dst: path.join(stagingForceApp, 'customMetadata')},
-		{src: path.join(FAST_START_SOURCE_ROOT, 'triggers'),        pattern: new RegExp(`^${topicShortName}.*\\.(trigger|trigger-meta\\.xml)$`, 'i'), dst: path.join(stagingForceApp, 'triggers')}
+		{src: path.join(FAST_START_SOURCE_ROOT, 'classes'), pattern: new RegExp(`^${record.demo}(_TEST)?\\.(cls|cls-meta\\.xml)$`), dst: path.join(stagingForceApp, 'classes')},
+		{src: path.join(FAST_START_SOURCE_ROOT, 'customMetadata'), pattern: cmdtPattern, dst: path.join(stagingForceApp, 'customMetadata')},
+		{
+			src: path.join(FAST_START_SOURCE_ROOT, 'triggers'),
+			pattern: new RegExp(`^${topicShortName}.*\\.(trigger|trigger-meta\\.xml)$`, 'i'),
+			dst: path.join(stagingForceApp, 'triggers')
+		}
 	];
 
 	for(const bucket of buckets)
@@ -1757,7 +2124,10 @@ function stageFastStartArtifacts(record, log)
 		}
 	}
 
-	if(log) { log.info(`Staged ${copied.length} artifact(s) for ${record.demo}`); }
+	if(log)
+	{
+		log.info(`Staged ${copied.length} artifact(s) for ${record.demo}`);
+	}
 	return copied;
 }
 
@@ -1770,8 +2140,14 @@ function deployFastStartStaging(log)
 {
 	const org = getFastStartOrg();
 	const cmd = `sf project deploy start -o ${org} -d force-app/main/default --ignore-conflicts --json`;
-	if(log) { log.info(`Deploying staged artifacts to ${org}...`); }
-	const result = spawnSync('bash', ['-lc', cmd], {cwd: FAST_START_STAGING_ROOT, encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
+	if(log)
+	{
+		log.info(`Deploying staged artifacts to ${org}...`);
+	}
+	const result = spawnSync('bash', [
+		'-lc',
+		cmd
+	], {cwd: FAST_START_STAGING_ROOT, encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
 	const output = (result.stdout || '') + (result.stderr || '');
 	if(result.status !== 0)
 	{
@@ -1792,8 +2168,14 @@ function runDemoTest(demoClass, log)
 	const testClass = `${demoClass}_TEST`;
 	const org = getFastStartOrg();
 	const cmd = `sf apex run test -o ${org} --tests ${testClass} --code-coverage --synchronous --result-format json --wait 10`;
-	if(log) { log.info(`Running ${testClass} on ${org}...`); }
-	const result = spawnSync('bash', ['-lc', cmd], {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
+	if(log)
+	{
+		log.info(`Running ${testClass} on ${org}...`);
+	}
+	const result = spawnSync('bash', [
+		'-lc',
+		cmd
+	], {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
 	const stdout = result.stdout || '';
 
 	let parsed = null;
@@ -1821,7 +2203,10 @@ function runDemoTest(demoClass, log)
 	let coveragePct = 0;
 	if(demoCoverage)
 	{
-		if(typeof demoCoverage.coveredPercent === 'number') { coveragePct = demoCoverage.coveredPercent; }
+		if(typeof demoCoverage.coveredPercent === 'number')
+		{
+			coveragePct = demoCoverage.coveredPercent;
+		}
 		else if(demoCoverage.totalLines)
 		{
 			coveragePct = (demoCoverage.totalCovered / demoCoverage.totalLines) * 100;
@@ -1852,8 +2237,14 @@ function runFastStartAnonScript(topic, log)
 		return {ran: false, success: true, output: ''};
 	}
 	const cmd = `sf apex run -o ${getFastStartOrg()} -f '${scriptPath}'`;
-	if(log) { log.info(`Running anonymous Apex: ${path.basename(scriptPath)}`); }
-	const result = spawnSync('bash', ['-lc', `${cmd} 2>&1`], {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
+	if(log)
+	{
+		log.info(`Running anonymous Apex: ${path.basename(scriptPath)}`);
+	}
+	const result = spawnSync('bash', [
+		'-lc',
+		`${cmd} 2>&1`
+	], {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
 	const output = result.stdout || '';
 	const failed = /Execution failed|FATAL_ERROR|EXCEPTION_THROWN/.test(output);
 	return {ran: true, success: !failed && result.status === 0, output};
@@ -1933,8 +2324,14 @@ function fastStartGateDoc(topic, options, log)
 		log.error(anon.output.slice(0, 2000));
 		return {exitCode: 3, topic, reason: 'anon-apex', anon};
 	}
-	if(anon.ran) { log.success('Tier 1 anonymous Apex clean.'); }
-	else { log.info('(No Tier 1 anonymous Apex script for this topic.)'); }
+	if(anon.ran)
+	{
+		log.success('Tier 1 anonymous Apex clean.');
+	}
+	else
+	{
+		log.info('(No Tier 1 anonymous Apex script for this topic.)');
+	}
 
 	return {exitCode: 0, topic, reason: 'pass', test, anon};
 }
@@ -1953,16 +2350,17 @@ function fastStartGateMulti(topics, options, log)
 	{
 		const r = fastStartGateDoc(t.topic, options, log);
 		results.push(r);
-		if(r.exitCode > worstExit) { worstExit = r.exitCode; }
+		if(r.exitCode > worstExit)
+		{
+			worstExit = r.exitCode;
+		}
 	}
 
 	log.file('Fast Start Gate — Summary');
 	for(const r of results)
 	{
 		const marker = r.exitCode === 0 ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
-		const detail = r.exitCode === 0
-			? (r.test ? `${r.test.testsPassed} pass · ${r.test.coveragePct.toFixed(1)}% coverage` : `deploy-only (no _TEST by design)`)
-			: `${r.reason}`;
+		const detail = r.exitCode === 0 ? (r.test ? `${r.test.testsPassed} pass · ${r.test.coveragePct.toFixed(1)}% coverage` : `deploy-only (no _TEST by design)`) : `${r.reason}`;
 		console.log(`  ${marker} ${r.topic.padEnd(20)} ${detail}`);
 	}
 
@@ -1976,8 +2374,7 @@ function fastStartGate(flags, fileArgs)
 {
 	const log = createLogger(false);
 	const options = {
-		extractOnly: flags.includes('--extract-only'),
-		allowStructuralWarnings: !flags.includes('--strict-structural')
+		extractOnly: flags.includes('--extract-only'), allowStructuralWarnings: !flags.includes('--strict-structural')
 	};
 
 	// Re-parse argv from scratch so we correctly read positional values that
@@ -1986,9 +2383,15 @@ function fastStartGate(flags, fileArgs)
 	const positionalAfter = (flagName) =>
 	{
 		const idx = rawArgs.indexOf(flagName);
-		if(idx < 0) { return null; }
+		if(idx < 0)
+		{
+			return null;
+		}
 		const next = rawArgs[idx + 1];
-		if(!next || next.startsWith('--')) { return null; }
+		if(!next || next.startsWith('--'))
+		{
+			return null;
+		}
 		return next;
 	};
 
@@ -2012,7 +2415,11 @@ function fastStartGate(flags, fileArgs)
 	if(flags.includes('--doc'))
 	{
 		const topic = positionalAfter('--doc') || fileArgs[0];
-		if(!topic) { log.error('--doc requires a topic key'); return {exitCode: 4}; }
+		if(!topic)
+		{
+			log.error('--doc requires a topic key');
+			return {exitCode: 4};
+		}
 		const r = fastStartGateDoc(topic, options, log);
 		return {exitCode: r.exitCode, results: [r]};
 	}
@@ -2087,6 +2494,7 @@ module.exports = {
 	checkOldNaming,
 	checkProseFileRefs,
 	checkCrossDocVersionConsistency,
+	checkFenceFileParity,
 	findUnresolvedClaims,
 	validateReleaseDocs,
 	DEFAULT_PROSE_REF_ALLOWLIST,

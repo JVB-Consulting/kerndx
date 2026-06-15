@@ -68,13 +68,21 @@ try
 {
 	List<kern__AsyncChainExecution__c> rows =
 	[
-		SELECT Id, kern__ChainName__c, kern__Status__c, kern__TotalSteps__c, kern__CompletedSteps__c,
-				kern__ErrorMessage__c, kern__ContextData__c, kern__StepLog__c,
-				kern__StartedAt__c, kern__CompletedAt__c, kern__DurationMs__c
-		FROM kern__AsyncChainExecution__c
-		WHERE kern__ChainName__c LIKE 'Section48Load_%'
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT Id,
+					kern__ChainName__c,
+					kern__Status__c,
+					kern__TotalSteps__c,
+					kern__CompletedSteps__c,
+					kern__ErrorMessage__c,
+					kern__ContextData__c,
+					kern__StepLog__c,
+					kern__StartedAt__c,
+					kern__CompletedAt__c,
+					kern__DurationMs__c
+			FROM kern__AsyncChainExecution__c
+			WHERE kern__ChainName__c LIKE 'Section48Load_%'
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 	Assert.areEqual(1, rows.size(), '48b-verify: expected exactly one Section48Load_% chain row, got ' + rows.size()
 			+ ' (was section-48 launched first?)');
@@ -82,33 +90,33 @@ try
 	kern__AsyncChainExecution__c chain = rows[0];
 
 	Assert.areEqual(STATUS_COMPLETED, chain.kern__Status__c,
-		'48b-verify: chain should be Completed; got Status=' + chain.kern__Status__c
+			'48b-verify: chain should be Completed; got Status=' + chain.kern__Status__c
 			+ '. ErrorMessage=' + chain.kern__ErrorMessage__c
 			+ '. CompletedSteps=' + chain.kern__CompletedSteps__c + '/' + chain.kern__TotalSteps__c
 			+ '. If still Running, the 28 Queueables have not finished dequeuing — wait longer (~3-5 min total) and re-run section-48b.');
 
 	Assert.areEqual(EXPECTED_STEP_COUNT, (Integer)chain.kern__TotalSteps__c,
-		'48b-verify: TotalSteps__c should be ' + EXPECTED_STEP_COUNT + '; got ' + chain.kern__TotalSteps__c);
+			'48b-verify: TotalSteps__c should be ' + EXPECTED_STEP_COUNT + '; got ' + chain.kern__TotalSteps__c);
 
 	Assert.areEqual(EXPECTED_STEP_COUNT, (Integer)chain.kern__CompletedSteps__c,
-		'48b-verify: CompletedSteps__c should be ' + EXPECTED_STEP_COUNT + ' (no skipped steps); got '
+			'48b-verify: CompletedSteps__c should be ' + EXPECTED_STEP_COUNT + ' (no skipped steps); got '
 			+ chain.kern__CompletedSteps__c);
 
 	Assert.isNotNull(chain.kern__DurationMs__c,
-		'48b-verify: chain-level DurationMs__c should be populated on terminal status');
+			'48b-verify: chain-level DurationMs__c should be populated on terminal status');
 
 	Assert.isTrue(chain.kern__DurationMs__c > 0,
-		'48b-verify: chain-level DurationMs__c should be > 0 ms; got ' + chain.kern__DurationMs__c);
+			'48b-verify: chain-level DurationMs__c should be > 0 ms; got ' + chain.kern__DurationMs__c);
 
 	Map<String, Object> contextMap = (Map<String, Object>)JSON.deserializeUntyped(chain.kern__ContextData__c);
 	Integer contextBytes = chain.kern__ContextData__c.length();
 
 	Assert.isTrue(contextBytes >= MIN_EXPECTED_CONTEXT_BYTES,
-		'48b-verify: ContextData__c length should be >= ' + MIN_EXPECTED_CONTEXT_BYTES
+			'48b-verify: ContextData__c length should be >= ' + MIN_EXPECTED_CONTEXT_BYTES
 			+ ' chars (' + EXPECTED_STEP_COUNT + ' steps × ' + EXPECTED_PAYLOAD_SIZE + '); got ' + contextBytes);
 
 	Assert.isTrue(contextBytes < DEFAULT_MAX_CONTEXT_SIZE,
-		'48b-verify: ContextData__c length should be < ' + DEFAULT_MAX_CONTEXT_SIZE
+			'48b-verify: ContextData__c length should be < ' + DEFAULT_MAX_CONTEXT_SIZE
 			+ ' chars (default budget); got ' + contextBytes
 			+ '. If this fails, the framework would have marked Status=Failed with overflow message.');
 
@@ -119,14 +127,14 @@ try
 		Assert.isNotNull(payload, '48b-verify: context should contain key ' + key);
 		String payloadString = (String)payload;
 		Assert.areEqual(EXPECTED_PAYLOAD_SIZE, payloadString.length(),
-			'48b-verify: payload at ' + key + ' should be ' + EXPECTED_PAYLOAD_SIZE + ' chars; got '
+				'48b-verify: payload at ' + key + ' should be ' + EXPECTED_PAYLOAD_SIZE + ' chars; got '
 				+ payloadString.length());
 	}
 
 	Object stepLogObj = JSON.deserializeUntyped(chain.kern__StepLog__c);
 	List<Object> stepLog = (List<Object>)stepLogObj;
 	Assert.areEqual(EXPECTED_STEP_COUNT, stepLog.size(),
-		'48b-verify: StepLog__c should be a ' + EXPECTED_STEP_COUNT + '-element JSON array; got ' + stepLog.size());
+			'48b-verify: StepLog__c should be a ' + EXPECTED_STEP_COUNT + '-element JSON array; got ' + stepLog.size());
 
 	Long sumStepDurationsMs = 0;
 	Integer stepsWithDuration = 0;
@@ -138,7 +146,7 @@ try
 		Assert.isNotNull(durationValue, '48b-verify: step ' + index + ' StepLog entry should have durationMs');
 		Long stepDurationMs = (Long)durationValue;
 		Assert.isTrue(stepDurationMs > 0,
-			'48b-verify: step ' + index + ' durationMs should be > 0; got ' + stepDurationMs);
+				'48b-verify: step ' + index + ' durationMs should be > 0; got ' + stepDurationMs);
 		sumStepDurationsMs += stepDurationMs;
 		stepsWithDuration++;
 
@@ -149,9 +157,9 @@ try
 		}
 	}
 	Assert.areEqual(EXPECTED_STEP_COUNT, stepsWithDuration,
-		'48b-verify: every StepLog entry should have a non-null durationMs');
+			'48b-verify: every StepLog entry should have a non-null durationMs');
 	Assert.areEqual(EXPECTED_STEP_COUNT, stepsWithSuccess,
-		'48b-verify: every step should have success=true');
+			'48b-verify: every step should have success=true');
 
 	Long wallMsTotal = (Long)chain.kern__DurationMs__c;
 	Long avgStepDurationMs = stepsWithDuration > 0 ? (sumStepDurationsMs / stepsWithDuration) : 0;
@@ -159,17 +167,17 @@ try
 	Long avgStepWaitMs = (EXPECTED_STEP_COUNT - 1) > 0 ? (leftoverMs / (EXPECTED_STEP_COUNT - 1)) : 0;
 	Long contextSerializationMsApprox = (EXPECTED_STEP_COUNT - 1) > 0 ? (leftoverMs / (EXPECTED_STEP_COUNT - 1)) : 0;
 
-	Map<String, Object> wallRow = new Map<String, Object>{'section' => 48, 'metric' => 'wallMsTotal', 'value' => wallMsTotal};
-	Map<String, Object> waitRow = new Map<String, Object>{'section' => 48, 'metric' => 'avgStepWaitMs', 'value' => avgStepWaitMs};
-	Map<String, Object> durRow = new Map<String, Object>{'section' => 48, 'metric' => 'avgStepDurationMs', 'value' => avgStepDurationMs};
-	Map<String, Object> serRow = new Map<String, Object>{'section' => 48, 'metric' => 'contextSerializationMsApprox', 'value' => contextSerializationMsApprox};
+	Map<String, Object> wallRow = new Map<String, Object> {'section' => 48, 'metric' => 'wallMsTotal', 'value' => wallMsTotal};
+	Map<String, Object> waitRow = new Map<String, Object> {'section' => 48, 'metric' => 'avgStepWaitMs', 'value' => avgStepWaitMs};
+	Map<String, Object> durRow = new Map<String, Object> {'section' => 48, 'metric' => 'avgStepDurationMs', 'value' => avgStepDurationMs};
+	Map<String, Object> serRow = new Map<String, Object> {'section' => 48, 'metric' => 'contextSerializationMsApprox', 'value' => contextSerializationMsApprox};
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(wallRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(waitRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(durRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(serRow));
 
 	System.debug(LoggingLevel.INFO,
-		'48b-verify PASS: chain ' + chain.kern__ChainName__c + ' Completed with '
+			'48b-verify PASS: chain ' + chain.kern__ChainName__c + ' Completed with '
 			+ stepsWithDuration + '/' + EXPECTED_STEP_COUNT + ' steps logged. '
 			+ 'ContextData=' + contextBytes + ' chars (budget ' + DEFAULT_MAX_CONTEXT_SIZE + '). '
 			+ 'wallTotal=' + wallMsTotal + 'ms sumStepCpu=' + sumStepDurationsMs
@@ -188,12 +196,12 @@ try
 {
 	List<kern__AsyncChainExecution__c> residualChains =
 	[
-		SELECT Id
-		FROM kern__AsyncChainExecution__c
-		WHERE kern__ChainName__c LIKE 'Section48Load_%'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM kern__AsyncChainExecution__c
+			WHERE kern__ChainName__c LIKE 'Section48Load_%'
+			AND CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualChains.isEmpty())
 	{

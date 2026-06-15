@@ -46,12 +46,28 @@ const CLASSES_RELATIVE_PATH = 'force-app/main/default/classes';
 /** @description Repo-relative path to Jest's raw istanbul coverage output. */
 const JEST_COVERAGE_SUMMARY_PATH = 'coverage/coverage-final.json';
 
+/**
+ * @description Repo-relative prefix every LWC component source file shares. The
+ * baseline's `lwc.files` must contain only LWC `.js` source under this prefix.
+ * The dedicated capture config (`LWC_COVERAGE_CONFIG`) still surfaces compiled
+ * templates (`.html`), compiled styles (`.css.compiled`), and — in pathological
+ * runs — non-LWC node files, so the summary is filtered to this prefix + a
+ * `.js` suffix in code (see `filterToLwcSource`).
+ */
+const LWC_SOURCE_PREFIX = 'force-app/main/default/lwc/';
+
+/**
+ * @description Repo-relative path to the dedicated Jest config used for the full
+ * LWC coverage capture. It scopes `testMatch` to force-app LWC specs and drops
+ * `collectCoverageFrom` so coverage is collected only from test-loaded modules
+ * (the base config's `collectCoverageFrom` triggers an empty-instrumentation
+ * pass that silently drops components whose imports fail to resolve standalone).
+ */
+const LWC_COVERAGE_CONFIG = 'jest.lwc-coverage.config.cjs';
+
 /** @description Exit codes emitted by the harness. */
 const EXIT = Object.freeze({
-	OK: 0,
-	GATE_FAIL: 1,
-	USAGE: 2,
-	RUNTIME: 3
+	OK: 0, GATE_FAIL: 1, USAGE: 2, RUNTIME: 3
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,17 +133,7 @@ function main(argv, deps)
 function parseArgs(argv)
 {
 	const options = {
-		apex: [],
-		lwc: [],
-		full: false,
-		fixBaseline: false,
-		skipDeploy: false,
-		runTests: false,
-		org: DEFAULT_ORG,
-		waitMinutes: null,
-		format: 'text',
-		help: false,
-		errors: []
+		apex: [], lwc: [], full: false, fixBaseline: false, skipDeploy: false, runTests: false, org: DEFAULT_ORG, waitMinutes: null, format: 'text', help: false, errors: []
 	};
 
 	let index = 0;
@@ -222,7 +228,11 @@ function parseArgs(argv)
 		}
 	}
 
-	const modes = [options.full, options.fixBaseline, options.apex.length > 0 || options.lwc.length > 0].filter(Boolean).length;
+	const modes = [
+		options.full,
+		options.fixBaseline,
+		options.apex.length > 0 || options.lwc.length > 0
+	].filter(Boolean).length;
 	if(!options.help && modes === 0)
 	{
 		options.errors.push('specify at least one of --apex, --lwc, --full, or --fix-baseline');
@@ -266,8 +276,7 @@ function buildDependencies(overrides)
 {
 	const defaults = {
 		logger: {
-			info: (message) => process.stdout.write(`${message}\n`),
-			error: (message) => process.stderr.write(`${message}\n`)
+			info: (message) => process.stdout.write(`${message}\n`), error: (message) => process.stderr.write(`${message}\n`)
 		},
 		runner: defaultRunner,
 		cwd: process.cwd(),
@@ -295,15 +304,10 @@ function defaultRunner(command, args, options)
 {
 	const env = buildSubprocessEnv(command, process.env);
 	const result = spawnSync(command, args, {
-		encoding: 'utf8',
-		stdio: options && options.inherit ? 'inherit' : 'pipe',
-		maxBuffer: 128 * 1024 * 1024,
-		env
+		encoding: 'utf8', stdio: options && options.inherit ? 'inherit' : 'pipe', maxBuffer: 128 * 1024 * 1024, env
 	});
 	return {
-		status: typeof result.status === 'number' ? result.status : EXIT.RUNTIME,
-		stdout: result.stdout || '',
-		stderr: result.stderr || ''
+		status: typeof result.status === 'number' ? result.status : EXIT.RUNTIME, stdout: result.stdout || '', stderr: result.stderr || ''
 	};
 }
 
@@ -361,11 +365,7 @@ function runTargeted(options, deps)
 	}
 
 	const evaluation = lib.evaluateThresholds({
-		apexResult: apexResult ? apexResult.coverage : null,
-		lwcResult,
-		baseline,
-		apexTargets: options.apex,
-		lwcTargets: options.lwc
+		apexResult: apexResult ? apexResult.coverage : null, lwcResult, baseline, apexTargets: options.apex, lwcTargets: options.lwc
 	});
 
 	emitEvaluation(evaluation, options, deps);
@@ -406,11 +406,7 @@ function runFull(options, deps)
 	const lwcResult = runFullLwc(deps);
 
 	const evaluation = lib.evaluateThresholds({
-		apexResult: apexResult.coverage,
-		lwcResult,
-		baseline,
-		apexTargets: Object.keys(baseline.apex && baseline.apex.classes || {}),
-		lwcTargets: listBaselineComponents(baseline)
+		apexResult: apexResult.coverage, lwcResult, baseline, apexTargets: Object.keys(baseline.apex && baseline.apex.classes || {}), lwcTargets: listBaselineComponents(baseline)
 	});
 
 	emitEvaluation(evaluation, options, deps);
@@ -491,10 +487,7 @@ function runFixBaseline(options, deps)
 	const testSetupClasses = findTestSetupClasses(deps);
 
 	const baseline = lib.buildBaseline({
-		apexResult: apexResult.coverage,
-		lwcResult,
-		testSetupClasses,
-		lwcRuntimeSeconds: lwcResult.totalRuntimeSeconds || 0
+		apexResult: apexResult.coverage, lwcResult, testSetupClasses, lwcRuntimeSeconds: lwcResult.totalRuntimeSeconds || 0
 	});
 	const baselinePath = path.join(deps.cwd, BASELINE_RELATIVE_PATH);
 	deps.writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
@@ -529,9 +522,7 @@ function readBaselineFromDeps(baselinePath, deps)
 	if(!deps.fileExists(baselinePath))
 	{
 		return {
-			capturedAt: null,
-			apex: {totalWallClockSeconds: 0, testSetupClasses: [], classes: {}},
-			lwc: {totalRuntimeSeconds: 0, files: {}}
+			capturedAt: null, apex: {totalWallClockSeconds: 0, testSetupClasses: [], classes: {}}, lwc: {totalRuntimeSeconds: 0, files: {}}
 		};
 	}
 	return JSON.parse(deps.readFile(baselinePath));
@@ -581,20 +572,66 @@ function runFullApex(options, deps)
 		executeFullRunLocalTests(options, deps);
 	}
 	deps.logger.info(`querying ApexCodeCoverageAggregate from ${options.org}…`);
-	const coverageRows = queryToolingApi(
-		'SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate',
-		options,
-		deps
-	);
+	const coverageRows = queryToolingApi('SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate', options, deps);
 	const parsed = normaliseAggregateRows(coverageRows);
+	const reconciled = reconcileFlakyAggregateClasses(parsed, options, deps);
 	const allClasses = listAllApexSourceClasses(deps);
 	const exemptCounts = gatherExemptLineCounts(allClasses, deps);
-	const adjusted = lib.applyApexExemptions(parsed, exemptCounts);
+	const adjusted = lib.applyApexExemptions(reconciled, exemptCounts);
 	const testStatus = queryLatestTestRunStatus(options, deps);
 	adjusted.testsPassed = testStatus.testsPassed;
 	adjusted.testFailures = testStatus.testFailures;
 	adjusted.wallClockSeconds = testStatus.wallClockSeconds;
 	return {coverage: adjusted};
+}
+
+/**
+ * @description Salesforce's `ApexCodeCoverageAggregate` under-reports coverage
+ * for heavily-shared classes after a parallel `RunLocalTests` — coverage-record
+ * write contention drops rollup entries even though each class's per-test
+ * `ApexCodeCoverage` rows are complete. For every class the aggregate shows
+ * below 100%, this re-derives the true figure from the per-test union and
+ * upgrades the class when the union is higher (`reconcileAggregateWithPerTestRows`
+ * never downgrades). Classes already at 100% incur no extra query, so the happy
+ * path is unchanged and a genuine gap is still reported.
+ *
+ * @param {{classes: Object<string, Object>}} coverage - Aggregate-derived coverage.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {{classes: Object<string, Object>}}
+ */
+function reconcileFlakyAggregateClasses(coverage, options, deps)
+{
+	const belowFloor = Object.entries((coverage && coverage.classes) || {})
+	.filter(([, entry]) => entry && entry.uncoveredLines > 0)
+	.map(([name]) => name);
+	if(belowFloor.length === 0)
+	{
+		return coverage;
+	}
+	deps.logger.info(`reconciling ${belowFloor.length} below-100% class(es) against per-test coverage: ${belowFloor.join(', ')}`);
+	const perTestRowsByClass = {};
+	for(const className of belowFloor)
+	{
+		perTestRowsByClass[className] = queryPerTestCoverageRows(className, options, deps);
+	}
+	return lib.reconcileAggregateWithPerTestRows(coverage, perTestRowsByClass);
+}
+
+/**
+ * @description Queries the raw per-test `ApexCodeCoverage` rows for one class —
+ * every test method that touched it — so its true union coverage can be computed
+ * when the aggregate rollup is suspected of under-reporting.
+ *
+ * @param {string} className
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Array<Object>}
+ */
+function queryPerTestCoverageRows(className, options, deps)
+{
+	const escaped = String(className).replace(/'/g, "\\'");
+	return queryToolingApi(`SELECT Coverage FROM ApexCodeCoverage WHERE ApexClassOrTrigger.Name = '${escaped}'`, options, deps);
 }
 
 /**
@@ -610,7 +647,20 @@ function executeFullRunLocalTests(options, deps)
 {
 	const outputDir = apexOutputDir(deps);
 	const waitMinutes = options.waitMinutes || 60;
-	const args = ['apex', 'run', 'test', '-o', options.org, '--test-level', 'RunLocalTests', '--code-coverage', '--wait', String(waitMinutes), '--output-dir', outputDir];
+	const args = [
+		'apex',
+		'run',
+		'test',
+		'-o',
+		options.org,
+		'--test-level',
+		'RunLocalTests',
+		'--code-coverage',
+		'--wait',
+		String(waitMinutes),
+		'--output-dir',
+		outputDir
+	];
 	deps.logger.info(`running RunLocalTests against ${options.org} (wait up to ${waitMinutes}m)…`);
 	deps.runner('sf', args, {inherit: true});
 }
@@ -627,7 +677,16 @@ function executeFullRunLocalTests(options, deps)
  */
 function queryToolingApi(soql, options, deps)
 {
-	const result = deps.runner('sf', ['data', 'query', '-o', options.org, '--use-tooling-api', '-q', soql, '--json'], {inherit: false});
+	const result = deps.runner('sf', [
+		'data',
+		'query',
+		'-o',
+		options.org,
+		'--use-tooling-api',
+		'-q',
+		soql,
+		'--json'
+	], {inherit: false});
 	if(result.status !== 0)
 	{
 		const error = new Error(`tooling query failed (exit ${result.status}): ${(result.stderr || result.stdout || '').slice(0, 300)}`);
@@ -675,11 +734,7 @@ function normaliseAggregateRows(rows)
  */
 function queryLatestTestRunStatus(options, deps)
 {
-	const rows = queryToolingApi(
-		'SELECT Status, MethodsEnqueued, MethodsCompleted, MethodsFailed, TestTime FROM ApexTestRunResult ORDER BY StartTime DESC LIMIT 1',
-		options,
-		deps
-	);
+	const rows = queryToolingApi('SELECT Status, MethodsEnqueued, MethodsCompleted, MethodsFailed, TestTime FROM ApexTestRunResult ORDER BY StartTime DESC LIMIT 1', options, deps);
 	const latest = rows[0];
 	if(!latest)
 	{
@@ -689,9 +744,7 @@ function queryLatestTestRunStatus(options, deps)
 	const testTimeMs = Number(latest.TestTime) || 0;
 	const failures = failed > 0 ? new Array(failed).fill({Outcome: 'Fail'}) : [];
 	return {
-		testsPassed: failed === 0,
-		testFailures: failures,
-		wallClockSeconds: testTimeMs / 1000
+		testsPassed: failed === 0, testFailures: failures, wallClockSeconds: testTimeMs / 1000
 	};
 }
 
@@ -706,9 +759,18 @@ function queryLatestTestRunStatus(options, deps)
  */
 function deployApexClasses(classes, options, deps)
 {
-	const metadata = classes.flatMap(name => [`ApexClass:${name}`, `ApexClass:${name}_TEST`]);
+	const metadata = classes.flatMap(name => [
+		`ApexClass:${name}`,
+		`ApexClass:${name}_TEST`
+	]);
 	deps.logger.info(`deploying: ${metadata.join(', ')}`);
-	const args = ['project', 'deploy', 'start', '-o', options.org];
+	const args = [
+		'project',
+		'deploy',
+		'start',
+		'-o',
+		options.org
+	];
 	for(const entry of metadata)
 	{
 		args.push('-m', entry);
@@ -737,7 +799,20 @@ function executeApexTests(testClasses, options, deps)
 {
 	const outputDir = apexOutputDir(deps);
 	const waitMinutes = options.waitMinutes || 15;
-	const args = ['apex', 'run', 'test', '-o', options.org, '--code-coverage', '--result-format', 'json', '--wait', String(waitMinutes), '--output-dir', outputDir];
+	const args = [
+		'apex',
+		'run',
+		'test',
+		'-o',
+		options.org,
+		'--code-coverage',
+		'--result-format',
+		'json',
+		'--wait',
+		String(waitMinutes),
+		'--output-dir',
+		outputDir
+	];
 	for(const name of testClasses)
 	{
 		args.push('-t', name);
@@ -782,13 +857,9 @@ function resolveApexResultFile(outputDir, deps)
 	if(deps.fileExists(outputDir))
 	{
 		const entries = deps.readdir(outputDir);
-		const match = entries.find(name =>
-			name.startsWith('test-result-') &&
-			name.endsWith('.json') &&
-			!name.endsWith('-codecoverage.json') &&
-			!name.endsWith('-junit.json') &&
-			!name.endsWith('-tap.json')
-		);
+		const match = entries.find(
+				name => name.startsWith('test-result-') && name.endsWith('.json') && !name.endsWith('-codecoverage.json') && !name.endsWith('-junit.json') && !name.endsWith(
+						'-tap.json'));
 		if(match)
 		{
 			return path.join(outputDir, match);
@@ -827,25 +898,65 @@ function measureLwc(components, deps)
 {
 	const pattern = `(${components.map(escapeRegex).join('|')})`;
 	const collectArgs = components.map(name => `--collectCoverageFrom=force-app/main/default/lwc/${name}/**/*.js`);
-	const args = ['run', 'test:unit:coverage', '--', '--coverageReporters=json', `--testPathPattern=${pattern}`, ...collectArgs];
+	const args = [
+		'run',
+		'test:unit:coverage',
+		'--',
+		'--coverageReporters=json',
+		`--testPathPattern=${pattern}`,
+		...collectArgs
+	];
 	deps.logger.info(`running jest for components: ${components.join(', ')}`);
 	deps.runner('npm', args, {inherit: true});
 	return loadJestSummary(deps);
 }
 
 /**
- * @description Runs the full jest suite with coverage-summary output for
- * `--full` / `--fix-baseline`.
+ * @description Runs the LWC jest suite with coverage output for `--full` /
+ * `--fix-baseline` using the dedicated `LWC_COVERAGE_CONFIG`, then filters the
+ * summary down to LWC `.js` source. Jest is invoked directly (not via the
+ * `test:unit:coverage` npm script) because that script routes through
+ * sfdx-lwc-jest, which silently drops CLI overrides — the dedicated config is
+ * the only reliable way to scope `testMatch` and drop `collectCoverageFrom`.
  *
  * @param {Object} deps
  * @return {Object}
  */
 function runFullLwc(deps)
 {
-	const args = ['run', 'test:unit:coverage', '--', '--coverageReporters=json'];
-	deps.logger.info('running full jest suite with coverage…');
-	deps.runner('npm', args, {inherit: true});
-	return loadJestSummary(deps);
+	const args = [
+		'jest',
+		'--config',
+		LWC_COVERAGE_CONFIG,
+		'--coverage',
+		'--coverageReporters=json'
+	];
+	deps.logger.info('running lwc jest suite (force-app/main/default/lwc) with coverage…');
+	deps.runner('npx', args, {inherit: true});
+	return filterToLwcSource(loadJestSummary(deps));
+}
+
+/**
+ * @description Keeps only LWC component `.js` source: entries under
+ * `LWC_SOURCE_PREFIX` that end in `.js` and are not test files. This drops the
+ * compiled templates (`.html`) and styles (`.css.compiled`) jest reports, plus
+ * any non-LWC node file, so the baseline holds only files the 95% LWC floor
+ * should apply to.
+ *
+ * @param {{files: Object<string, Object>}} summary
+ * @return {{files: Object<string, Object>}}
+ */
+function filterToLwcSource(summary)
+{
+	const files = {};
+	for(const [key, value] of Object.entries((summary && summary.files) || {}))
+	{
+		if(key.startsWith(LWC_SOURCE_PREFIX) && key.endsWith('.js') && !key.includes('/__tests__/'))
+		{
+			files[key] = value;
+		}
+	}
+	return {...summary, files};
 }
 
 /**
@@ -937,10 +1048,10 @@ function listAllApexSourceClasses(deps)
 		return [];
 	}
 	return deps.readdir(dir)
-		.filter(name => name.endsWith('.cls'))
-		.filter(name => !name.endsWith('_TEST.cls'))
-		.map(name => name.replace(/\.cls$/, ''))
-		.sort();
+	.filter(name => name.endsWith('.cls'))
+	.filter(name => !name.endsWith('_TEST.cls'))
+	.map(name => name.replace(/\.cls$/, ''))
+	.sort();
 }
 
 /**

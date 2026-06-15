@@ -19,9 +19,7 @@ export default class SubscriberFeatureFlag extends ComponentBuilder()
 		{
 			const bypassAuditEnabled = await isFlagEnabled('BypassAudit_Enabled');
 			checks.push({
-				name: 'BypassAudit_Enabled',
-				pass: bypassAuditEnabled === true,
-				detail: `bridge resolved to ${bypassAuditEnabled} (expected true — default-on framework flag)`
+				name: 'BypassAudit_Enabled', pass: bypassAuditEnabled === true, detail: `bridge resolved to ${bypassAuditEnabled} (expected true — default-on framework flag)`
 			});
 		}
 		catch(error)
@@ -33,9 +31,7 @@ export default class SubscriberFeatureFlag extends ComponentBuilder()
 		{
 			const missingFlag = await isFlagEnabled('NonexistentFlag_NeverConfigured_SubscriberE2E');
 			checks.push({
-				name: 'NonexistentFlag_NeverConfigured',
-				pass: missingFlag === false,
-				detail: `bridge resolved to ${missingFlag} (expected false — flag does not exist)`
+				name: 'NonexistentFlag_NeverConfigured', pass: missingFlag === false, detail: `bridge resolved to ${missingFlag} (expected false — flag does not exist)`
 			});
 		}
 		catch(error)
@@ -47,9 +43,7 @@ export default class SubscriberFeatureFlag extends ComponentBuilder()
 		{
 			const userModeQueries = await isFlagEnabled('UserModeQueries_Enabled');
 			checks.push({
-				name: 'UserModeQueries_Enabled',
-				pass: typeof userModeQueries === 'boolean',
-				detail: `bridge resolved to ${userModeQueries} (any boolean accepted — flag exists)`
+				name: 'UserModeQueries_Enabled', pass: typeof userModeQueries === 'boolean', detail: `bridge resolved to ${userModeQueries} (any boolean accepted — flag exists)`
 			});
 		}
 		catch(error)
@@ -58,8 +52,7 @@ export default class SubscriberFeatureFlag extends ComponentBuilder()
 		}
 
 		this.results = checks.map(check => ({
-			...check,
-			label: `${check.name}: ${check.pass ? 'PASS' : 'FAIL'} — ${check.detail}`
+			...check, label: `${check.name}: ${check.pass ? 'PASS' : 'FAIL'} — ${check.detail}`
 		}));
 	}
 }

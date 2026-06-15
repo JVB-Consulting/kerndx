@@ -15,7 +15,9 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_InboundAPI_DEMO_TEST
 {
-	/** @description The API service class name used to identify the handler in assertions. */
+	/**
+	 * @description The API service class name used to identify the handler in assertions.
+	 */
 	private static final String SERVICE_NAME = FastStart_InboundAPI_DEMO.class.getName();
 
 	/**
@@ -27,11 +29,11 @@ private class FastStart_InboundAPI_DEMO_TEST
 		kern.UTIL_ValidationRule.bypassObject('Account');
 
 		FastStart_InboundAPI_DEMO.DTO_Request request = new FastStart_InboundAPI_DEMO.DTO_Request();
-		request.name = 'Acme Corp';
-		request.email = 'info@acme.example.com';
-		request.phone = '415-555-0100';
+		Request.name = 'Acme Corp';
+		Request.email = 'info@acme.example.com';
+		Request.phone = '415-555-0100';
 
-		kern.API_InboundTestHelper.assertCallSuccessful(SERVICE_NAME, request);
+		kern.API_InboundTestHelper.assertCallSuccessful(SERVICE_NAME, Request);
 	}
 
 	/**
@@ -43,8 +45,8 @@ private class FastStart_InboundAPI_DEMO_TEST
 		kern.UTIL_ValidationRule.bypassObject('Account');
 
 		FastStart_InboundAPI_DEMO.DTO_Request request = new FastStart_InboundAPI_DEMO.DTO_Request();
-		request.name = 'Acme Corp';
+		Request.name = 'Acme Corp';
 
-		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, request, 'Email is required');
+		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, Request, 'Email is required');
 	}
 }

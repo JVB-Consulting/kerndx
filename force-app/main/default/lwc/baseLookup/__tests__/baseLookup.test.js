@@ -7,7 +7,7 @@
  *              module structure, exports, and static analysis rather than DOM rendering.
  *
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 
 // Mock dependencies
@@ -983,6 +983,41 @@ describe('c-base-lookup', () =>
 			expect(element).toBeTruthy();
 			expect(element.iconName).toBeUndefined();
 			expect(element.elementName).toBeUndefined();
+		});
+
+		it('reactively seeds the results dropdown when searchOptions is assigned after mount', () =>
+		{
+			const {createElement} = require('lwc');
+			const LwcBaseLookup = require('c/baseLookup').default;
+			const element = createElement('c-base-lookup', {is: LwcBaseLookup});
+			document.body.appendChild(element);
+
+			element.searchOptions = [
+				{Id: '001', Name: 'Alpha'},
+				{Id: '002', Name: 'Beta'}
+			];
+
+			expect(element.searchOptions).toEqual([
+				{Id: '001', Name: 'Alpha'},
+				{Id: '002', Name: 'Beta'}
+			]);
+			return Promise.resolve().then(() =>
+			{
+				const options = element.shadowRoot.querySelectorAll('.search-options');
+				expect(options).toHaveLength(2);
+			});
+		});
+
+		it('coerces a null searchOptions assignment to an empty results list', () =>
+		{
+			const {createElement} = require('lwc');
+			const LwcBaseLookup = require('c/baseLookup').default;
+			const element = createElement('c-base-lookup', {is: LwcBaseLookup});
+			document.body.appendChild(element);
+
+			element.searchOptions = null;
+
+			expect(element.searchOptions).toEqual([]);
 		});
 	});
 });

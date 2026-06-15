@@ -259,7 +259,7 @@ final Integer LOG_POLL_BUDGET_MS = 60000;
 final Integer LOG_POLL_INTERVAL_MS = 2000;
 
 System.debug(LoggingLevel.INFO,
-	'Pre-flight: emitBatchSize=' + EXPECTED_EMIT_BATCH_SIZE + ' (matches section-50 baseline; '
+		'Pre-flight: emitBatchSize=' + EXPECTED_EMIT_BATCH_SIZE + ' (matches section-50 baseline; '
 		+ 'stays under 150 PublishImmediate per-tx cap with 50 of headroom — Task 1.7 finding A18). '
 		+ 'PE delivery to LogEntry__c is async; smoke-test asserts single-tx invariants from the '
 		+ 'persisted SOAK_ITERATION JSON stats once the publishing tx commits.');
@@ -272,13 +272,13 @@ try
 	SCHED_SubscriberLoggerFlood flood = new SCHED_SubscriberLoggerFlood(SMOKE_RUN_STAMP);
 
 	Assert.areEqual(SMOKE_RUN_STAMP, flood.getRunStamp(),
-		'smoke-test: SCHED_SubscriberLoggerFlood.getRunStamp() should reflect the injected run-stamp');
+			'smoke-test: SCHED_SubscriberLoggerFlood.getRunStamp() should reflect the injected run-stamp');
 
 	Assert.areEqual(EXPECTED_SOAK_MARKER, flood.buildSoakIterationClassMethodMarker(),
-		'smoke-test: buildSoakIterationClassMethodMarker() should return CLASS_METHOD_PREFIX + runStamp');
+			'smoke-test: buildSoakIterationClassMethodMarker() should return CLASS_METHOD_PREFIX + runStamp');
 
 	Assert.areEqual(EXPECTED_FLOOD_MARKER_PREFIX + '/iter0', flood.buildFloodClassMethodMarker(0),
-		'smoke-test: buildFloodClassMethodMarker(0) should return FLOOD_CLASS_METHOD_PREFIX + runStamp + /iter0');
+			'smoke-test: buildFloodClassMethodMarker(0) should return FLOOD_CLASS_METHOD_PREFIX + runStamp + /iter0');
 
 	flood.execute(null);
 
@@ -288,26 +288,26 @@ try
 	Decimal heapFraction = ((Decimal)postExecuteHeapBytes / Limits.getLimitHeapSize());
 
 	System.debug(LoggingLevel.INFO,
-		'Smoke iteration finished: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
+			'Smoke iteration finished: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
 			+ ', publishImmediateConsumed=' + Limits.getPublishImmediateDML()
 			+ ', heapStart=' + preExecuteHeapBytes + ', heapEnd=' + postExecuteHeapBytes
 			+ ', heapDelta=' + heapDeltaBytes + ', heapFraction=' + heapFraction.setScale(4));
 
 	Assert.isTrue(iterationWallMs < WALL_GATE_MS,
-		'smoke-test: iteration wallMs (' + iterationWallMs + ') must be < ' + WALL_GATE_MS
+			'smoke-test: iteration wallMs (' + iterationWallMs + ') must be < ' + WALL_GATE_MS
 			+ ' ms (sane per-iteration ceiling for 100 PublishImmediate DMLs)');
 
 	Assert.isTrue(heapFraction < HEAP_GATE_FRACTION,
-		'smoke-test: heap fraction (' + heapFraction.setScale(4) + ') must be < '
+			'smoke-test: heap fraction (' + heapFraction.setScale(4) + ') must be < '
 			+ HEAP_GATE_FRACTION + ' (post-iteration headroom maintained)');
 
 	Assert.isTrue(Limits.getPublishImmediateDML() >= EXPECTED_EMIT_BATCH_SIZE,
-		'smoke-test: publishImmediate consumed (' + Limits.getPublishImmediateDML() + ') must be >= '
+			'smoke-test: publishImmediate consumed (' + Limits.getPublishImmediateDML() + ') must be >= '
 			+ EXPECTED_EMIT_BATCH_SIZE + ' (proves at least the FLOOD batch ran via PublishImmediate, '
 			+ 'plus the SOAK_ITERATION emit). Cap is 150/tx — confirms we have margin.');
 
 	System.debug(LoggingLevel.INFO,
-		'smoke iteration PASS: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
+			'smoke iteration PASS: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
 			+ ', publishImmediateConsumed=' + Limits.getPublishImmediateDML()
 			+ ', heapFraction=' + heapFraction.setScale(4)
 			+ ' (the Schedulable emitted ' + EXPECTED_EMIT_BATCH_SIZE + ' FLOOD entries + 1 SOAK_ITERATION; '
@@ -320,14 +320,20 @@ try
 	{
 		soakRows =
 		[
-			SELECT Id, kern__ShortMessage__c, kern__Message__c, kern__ClassMethod__c,
-				kern__CorrelationId__c, kern__TransactionId__c, kern__UserId__c, CreatedDate
-			FROM kern__LogEntry__c
-			WHERE kern__UserId__c = :UserInfo.getUserId()
-			  AND kern__ClassMethod__c = :EXPECTED_SOAK_MARKER
-			  AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
-			ORDER BY CreatedDate ASC
-			LIMIT 10
+				SELECT Id,
+						kern__ShortMessage__c,
+						kern__Message__c,
+						kern__ClassMethod__c,
+						kern__CorrelationId__c,
+						kern__TransactionId__c,
+						kern__UserId__c,
+						CreatedDate
+				FROM kern__LogEntry__c
+				WHERE kern__UserId__c = :UserInfo.getUserId()
+				AND kern__ClassMethod__c = :EXPECTED_SOAK_MARKER
+				AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
+				ORDER BY CreatedDate ASC
+				LIMIT 10
 		];
 		if(!soakRows.isEmpty())
 		{
@@ -342,21 +348,21 @@ try
 	}
 
 	Assert.isFalse(soakRows.isEmpty(),
-		'smoke-test: SOAK_ITERATION row must persist to kern__LogEntry__c within '
+			'smoke-test: SOAK_ITERATION row must persist to kern__LogEntry__c within '
 			+ LOG_POLL_BUDGET_MS + ' ms (PE delivery latency); none seen after ' + pollElapsedMs
 			+ ' ms for ClassMethod=' + EXPECTED_SOAK_MARKER + '. If PE delivery is lagging '
 			+ 'in scratch org, re-run after ~30 s wait.');
 
 	Assert.areEqual(1, soakRows.size(),
-		'smoke-test: exactly one SOAK_ITERATION row expected from a single direct-fire; got '
+			'smoke-test: exactly one SOAK_ITERATION row expected from a single direct-fire; got '
 			+ soakRows.size());
 
 	String fullMessage = soakRows[0].kern__Message__c == null
-		? soakRows[0].kern__ShortMessage__c
-		: soakRows[0].kern__Message__c;
+			? soakRows[0].kern__ShortMessage__c
+			: soakRows[0].kern__Message__c;
 	String jsonPayload = fullMessage.substringAfter('SOAK_ITERATION: ');
 	Assert.isTrue(String.isNotBlank(jsonPayload),
-		'smoke-test: SOAK_ITERATION row must contain a parseable JSON payload after the prefix; '
+			'smoke-test: SOAK_ITERATION row must contain a parseable JSON payload after the prefix; '
 			+ 'got message="' + fullMessage + '"');
 
 	Map<String, Object> stats = (Map<String, Object>)JSON.deserializeUntyped(jsonPayload);
@@ -369,60 +375,60 @@ try
 	Decimal innerHeapFraction = (Decimal)stats.get('heapFraction');
 	Object innerWallMsObj = stats.get('wallMs');
 	Long innerWallMs = innerWallMsObj instanceof Integer
-		? (Long)((Integer)innerWallMsObj)
-		: (Long)innerWallMsObj;
+			? (Long)((Integer)innerWallMsObj)
+			: (Long)innerWallMsObj;
 
 	Assert.areEqual(0, iterationIndex,
-		'smoke-test: first direct-fire iteration index must be 0 (no prior SOAK_ITERATION rows); got '
+			'smoke-test: first direct-fire iteration index must be 0 (no prior SOAK_ITERATION rows); got '
 			+ iterationIndex);
 
 	Assert.areEqual(EXPECTED_EMIT_BATCH_SIZE, emitCount,
-		'smoke-test: emitCount must equal EMIT_BATCH_SIZE (' + EXPECTED_EMIT_BATCH_SIZE + '); got ' + emitCount);
+			'smoke-test: emitCount must equal EMIT_BATCH_SIZE (' + EXPECTED_EMIT_BATCH_SIZE + '); got ' + emitCount);
 
 	Assert.isTrue(String.isNotBlank(correlationIdFromStats),
-		'smoke-test: correlationId from startCorrelation() must be non-blank; got "'
+			'smoke-test: correlationId from startCorrelation() must be non-blank; got "'
 			+ correlationIdFromStats + '"');
 
 	Assert.isTrue(String.isNotBlank(transactionIdFromStats),
-		'smoke-test: transactionId from Request.getCurrent().getRequestId() must be non-blank; got "'
+			'smoke-test: transactionId from Request.getCurrent().getRequestId() must be non-blank; got "'
 			+ transactionIdFromStats + '"');
 
 	Assert.areEqual(EXPECTED_FLOOD_MARKER_PREFIX + '/iter0', floodMarkerFromStats,
-		'smoke-test: floodClassMethodMarker in stats must equal the predicted iter0 marker; got "'
+			'smoke-test: floodClassMethodMarker in stats must equal the predicted iter0 marker; got "'
 			+ floodMarkerFromStats + '"');
 
 	Assert.areEqual(EXPECTED_EMIT_BATCH_SIZE, publishImmediateCount,
-		'smoke-test: per-iteration publishImmediateCount must equal EMIT_BATCH_SIZE ('
+			'smoke-test: per-iteration publishImmediateCount must equal EMIT_BATCH_SIZE ('
 			+ EXPECTED_EMIT_BATCH_SIZE + ') — proves all 100 FLOOD emits each consumed one PublishImmediate '
 			+ 'DML, no batching (Task 1.7 finding A18). Got ' + publishImmediateCount);
 
 	Assert.isTrue(innerHeapFraction < HEAP_GATE_FRACTION,
-		'smoke-test: persisted iteration heapFraction (' + innerHeapFraction
+			'smoke-test: persisted iteration heapFraction (' + innerHeapFraction
 			+ ') must be < ' + HEAP_GATE_FRACTION + '; the Schedulable measured this at end-of-fire');
 
 	Assert.isTrue(innerWallMs >= 0 && innerWallMs < WALL_GATE_MS,
-		'smoke-test: persisted iteration wallMs (' + innerWallMs + ') must be >= 0 and < '
+			'smoke-test: persisted iteration wallMs (' + innerWallMs + ') must be >= 0 and < '
 			+ WALL_GATE_MS + ' ms');
 
 	Assert.areEqual(correlationIdFromStats, soakRows[0].kern__CorrelationId__c,
-		'smoke-test: SOAK_ITERATION row CorrelationId__c must equal the correlationId reported in '
+			'smoke-test: SOAK_ITERATION row CorrelationId__c must equal the correlationId reported in '
 			+ 'JSON stats (proves startCorrelation() set the engine state and SOAK_ITERATION emit '
 			+ 'inherited it). Stats="' + correlationIdFromStats + '" Persisted="'
 			+ soakRows[0].kern__CorrelationId__c + '"');
 
 	Assert.areEqual(transactionIdFromStats, soakRows[0].kern__TransactionId__c,
-		'smoke-test: SOAK_ITERATION row TransactionId__c must equal the transactionId reported in '
+			'smoke-test: SOAK_ITERATION row TransactionId__c must equal the transactionId reported in '
 			+ 'JSON stats (proves Request.getRequestId() captured at execute() entry equals the value '
 			+ 'LOG_Engine stamps on the LogEntryEvent__e). Stats="' + transactionIdFromStats
 			+ '" Persisted="' + soakRows[0].kern__TransactionId__c + '"');
 
 	Assert.areEqual(UserInfo.getUserId(), soakRows[0].kern__UserId__c,
-		'smoke-test: SOAK_ITERATION row UserId__c must equal the publishing user (per Task 3.4 finding '
+			'smoke-test: SOAK_ITERATION row UserId__c must equal the publishing user (per Task 3.4 finding '
 			+ 'A37 — UserId__c is the right scope marker, not CreatedById which is the Automated '
 			+ 'Process user). Got UserId__c=' + soakRows[0].kern__UserId__c);
 
 	System.debug(LoggingLevel.INFO,
-		'smoke verify PASS: SOAK_ITERATION row found in ' + pollElapsedMs + ' ms — iteration='
+			'smoke verify PASS: SOAK_ITERATION row found in ' + pollElapsedMs + ' ms — iteration='
 			+ iterationIndex + ', emitCount=' + emitCount + ', publishImmediateCount=' + publishImmediateCount
 			+ ', correlationId=' + correlationIdFromStats + ', transactionId=' + transactionIdFromStats
 			+ ', innerHeap=' + innerHeapFraction.setScale(4) + ', innerWallMs=' + innerWallMs);
@@ -432,7 +438,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'smoke-test FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'smoke-test FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('smoke-test: ' + scenarioError.getMessage());
 	fail++;
 }
@@ -442,32 +448,32 @@ try
 {
 	List<kern__LogEntry__c> residualSoakRows =
 	[
-		SELECT Id
-		FROM kern__LogEntry__c
-		WHERE kern__UserId__c = :UserInfo.getUserId()
-		  AND kern__ClassMethod__c = :EXPECTED_SOAK_MARKER
-		LIMIT 9000
+			SELECT Id
+			FROM kern__LogEntry__c
+			WHERE kern__UserId__c = :UserInfo.getUserId()
+			AND kern__ClassMethod__c = :EXPECTED_SOAK_MARKER
+			LIMIT 9000
 	];
 	if(!residualSoakRows.isEmpty())
 	{
 		delete residualSoakRows;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualSoakRows.size() + ' SOAK_ITERATION kern__LogEntry__c row(s)');
+				'Cleanup: deleted ' + residualSoakRows.size() + ' SOAK_ITERATION kern__LogEntry__c row(s)');
 	}
 
 	List<kern__LogEntry__c> residualFloodRows =
 	[
-		SELECT Id
-		FROM kern__LogEntry__c
-		WHERE kern__UserId__c = :UserInfo.getUserId()
-		  AND kern__ClassMethod__c LIKE :(EXPECTED_FLOOD_MARKER_PREFIX + '/iter%')
-		LIMIT 9000
+			SELECT Id
+			FROM kern__LogEntry__c
+			WHERE kern__UserId__c = :UserInfo.getUserId()
+			AND kern__ClassMethod__c LIKE :(EXPECTED_FLOOD_MARKER_PREFIX + '/iter%')
+			LIMIT 9000
 	];
 	if(!residualFloodRows.isEmpty())
 	{
 		delete residualFloodRows;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualFloodRows.size() + ' FLOOD kern__LogEntry__c row(s)');
+				'Cleanup: deleted ' + residualFloodRows.size() + ' FLOOD kern__LogEntry__c row(s)');
 	}
 }
 catch(Exception cleanupError)
@@ -489,6 +495,6 @@ if(fail > 0)
 else
 {
 	System.debug(LoggingLevel.INFO,
-		'=== sustained-logger-pe-flood smoke test COMPLETE: 1 iteration verified end-to-end. '
+			'=== sustained-logger-pe-flood smoke test COMPLETE: 1 iteration verified end-to-end. '
 			+ 'Operational 30-min mode: see header for System.schedule invocation pattern. ===');
 }

@@ -160,41 +160,41 @@ try
 	}
 
 	Assert.isTrue(threw62a,
-		'62a: getTypeForClassName("CustomTypeResolver", Schedulable.class) must throw — '
-		+ 'CustomTypeResolver does not implement Schedulable. No exception was thrown.');
+			'62a: getTypeForClassName("CustomTypeResolver", Schedulable.class) must throw — '
+			+ 'CustomTypeResolver does not implement Schedulable. No exception was thrown.');
 
 	Assert.isTrue(
-		exceptionTypeName62a != null && exceptionTypeName62a.containsIgnoreCase('TypeException'),
-		'62a: exception type must be TypeException (not IllegalArgumentException). '
-		+ 'IllegalArgumentException is only thrown when the class is not found. '
-		+ 'SPEC CORRECTION: §6.11 #1 incorrectly said IllegalArgumentException. '
-		+ 'Actual type: ' + exceptionTypeName62a);
+			exceptionTypeName62a != null && exceptionTypeName62a.containsIgnoreCase('TypeException'),
+			'62a: exception type must be TypeException (not IllegalArgumentException). '
+			+ 'IllegalArgumentException is only thrown when the class is not found. '
+			+ 'SPEC CORRECTION: §6.11 #1 incorrectly said IllegalArgumentException. '
+			+ 'Actual type: ' + exceptionTypeName62a);
 
 	Assert.isTrue(
-		exceptionMessage62a != null && exceptionMessage62a.containsIgnoreCase('not assignable'),
-		'62a: TypeException message must contain "not assignable" — from ERROR_TYPE_NOT_ASSIGNABLE. '
-		+ 'Got: ' + exceptionMessage62a);
+			exceptionMessage62a != null && exceptionMessage62a.containsIgnoreCase('not assignable'),
+			'62a: TypeException message must contain "not assignable" — from ERROR_TYPE_NOT_ASSIGNABLE. '
+			+ 'Got: ' + exceptionMessage62a);
 
 	Assert.isTrue(
-		exceptionMessage62a.containsIgnoreCase('Schedulable'),
-		'62a: TypeException message must name the expected type "Schedulable". '
-		+ 'Got: ' + exceptionMessage62a);
+			exceptionMessage62a.containsIgnoreCase('Schedulable'),
+			'62a: TypeException message must name the expected type "Schedulable". '
+			+ 'Got: ' + exceptionMessage62a);
 
 	Assert.isTrue(
-		exceptionMessage62a.containsIgnoreCase('CustomTypeResolver'),
-		'62a: TypeException message must name the actual resolved type "CustomTypeResolver". '
-		+ 'Got: ' + exceptionMessage62a);
+			exceptionMessage62a.containsIgnoreCase('CustomTypeResolver'),
+			'62a: TypeException message must name the actual resolved type "CustomTypeResolver". '
+			+ 'Got: ' + exceptionMessage62a);
 
 	System.debug(LoggingLevel.INFO,
-		'62a PASS: getTypeForClassName("CustomTypeResolver", Schedulable.class) threw TypeException '
-		+ 'as expected — resolved type CustomTypeResolver is not assignable to Schedulable. '
-		+ 'Exception: ' + exceptionTypeName62a + ' — ' + exceptionMessage62a + '. '
-		+ 'SPEC CORRECTION: §6.11 #1 said IllegalArgumentException; actual is TypeException. '
-		+ 'FRAMEWORK: TypeException is thrown by assertTypeAssignable(); '
-		+ 'IllegalArgumentException is thrown only when the class cannot be found at all '
-		+ '(from getTypeForClassName(String) single-arg overload). '
-		+ 'FRAMEWORK: subscribers must catch(Exception e) and check getTypeName().contains("TypeException") '
-		+ 'as TypeException is not "global" — cannot be caught by type from subscriber code.');
+			'62a PASS: getTypeForClassName("CustomTypeResolver", Schedulable.class) threw TypeException '
+			+ 'as expected — resolved type CustomTypeResolver is not assignable to Schedulable. '
+			+ 'Exception: ' + exceptionTypeName62a + ' — ' + exceptionMessage62a + '. '
+			+ 'SPEC CORRECTION: §6.11 #1 said IllegalArgumentException; actual is TypeException. '
+			+ 'FRAMEWORK: TypeException is thrown by assertTypeAssignable(); '
+			+ 'IllegalArgumentException is thrown only when the class cannot be found at all '
+			+ '(from getTypeForClassName(String) single-arg overload). '
+			+ 'FRAMEWORK: subscribers must catch(Exception e) and check getTypeName().contains("TypeException") '
+			+ 'as TypeException is not "global" — cannot be caught by type from subscriber code.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -216,60 +216,62 @@ try
 {
 	List<kern__ClassTypeResolver__mdt> allResolvers62b =
 	[
-		SELECT DeveloperName, kern__ClassName__c, kern__Order__c
-		FROM kern__ClassTypeResolver__mdt
-		WHERE kern__ClassName__c != null
-		ORDER BY kern__Order__c ASC
+			SELECT DeveloperName,
+					kern__ClassName__c,
+					kern__Order__c
+			FROM kern__ClassTypeResolver__mdt
+			WHERE kern__ClassName__c != NULL
+			ORDER BY kern__Order__c ASC
 	];
 
 	Assert.isFalse(allResolvers62b.isEmpty(),
-		'62b: At least one ClassTypeResolver__mdt with a non-null ClassName__c must be deployed. '
-		+ 'Expected CurrentOrgResolver. Re-check subscriber setup.');
+			'62b: At least one ClassTypeResolver__mdt with a non-null ClassName__c must be deployed. '
+			+ 'Expected CurrentOrgResolver. Re-check subscriber setup.');
 
 	Assert.areEqual(1, allResolvers62b.size(),
-		'62b: Exactly one ClassTypeResolver__mdt should be deployed in this test org — '
-		+ 'CurrentOrgResolver (Order__c = 1.0). Found: ' + allResolvers62b.size()
-		+ ' records. Multiple records indicate an unexpected org state.');
+			'62b: Exactly one ClassTypeResolver__mdt should be deployed in this test org — '
+			+ 'CurrentOrgResolver (Order__c = 1.0). Found: ' + allResolvers62b.size()
+			+ ' records. Multiple records indicate an unexpected org state.');
 
 	kern__ClassTypeResolver__mdt firstResolver62b = allResolvers62b[0];
 	Assert.areEqual('CurrentOrgResolver', firstResolver62b.DeveloperName,
-		'62b: deployed resolver DeveloperName must be "CurrentOrgResolver". '
-		+ 'Got: ' + firstResolver62b.DeveloperName);
+			'62b: deployed resolver DeveloperName must be "CurrentOrgResolver". '
+			+ 'Got: ' + firstResolver62b.DeveloperName);
 
 	Assert.areEqual('CustomTypeResolver', firstResolver62b.kern__ClassName__c,
-		'62b: deployed resolver ClassName__c must be "CustomTypeResolver". '
-		+ 'Got: ' + firstResolver62b.kern__ClassName__c);
+			'62b: deployed resolver ClassName__c must be "CustomTypeResolver". '
+			+ 'Got: ' + firstResolver62b.kern__ClassName__c);
 
 	Assert.areEqual(1.0, firstResolver62b.kern__Order__c,
-		'62b: deployed resolver Order__c must be 1.0. Got: ' + firstResolver62b.kern__Order__c);
+			'62b: deployed resolver Order__c must be 1.0. Got: ' + firstResolver62b.kern__Order__c);
 
 	Map<String, Schema.SObjectField> resolverFields62b =
-		kern__ClassTypeResolver__mdt.SObjectType.getDescribe().fields.getMap();
+			kern__ClassTypeResolver__mdt.SObjectType.getDescribe().fields.getMap();
 
 	Assert.isTrue(
-		resolverFields62b.containsKey('kern__order__c'),
-		'62b: kern__ClassTypeResolver__mdt must have kern__Order__c field (sort key for chain). '
-		+ 'Available fields: ' + resolverFields62b.keySet());
+			resolverFields62b.containsKey('kern__order__c'),
+			'62b: kern__ClassTypeResolver__mdt must have kern__Order__c field (sort key for chain). '
+			+ 'Available fields: ' + resolverFields62b.keySet());
 
 	Assert.isFalse(
-		resolverFields62b.containsKey('kern__tiebreaker__c'),
-		'62b: kern__ClassTypeResolver__mdt has no dedicated tiebreaker field — '
-		+ 'SPEC DEVIATION: lexical tiebreaker is NOT implemented. '
-		+ 'Available fields: ' + resolverFields62b.keySet());
+			resolverFields62b.containsKey('kern__tiebreaker__c'),
+			'62b: kern__ClassTypeResolver__mdt has no dedicated tiebreaker field — '
+			+ 'SPEC DEVIATION: lexical tiebreaker is NOT implemented. '
+			+ 'Available fields: ' + resolverFields62b.keySet());
 
 	System.debug(LoggingLevel.INFO,
-		'62b PASS (end-to-end tie deferred — see header §6.11 #2): '
-		+ '(a) exactly 1 ClassTypeResolver__mdt deployed (CurrentOrgResolver, Order 1.0) — '
-		+ 'no accidental tie in org. '
-		+ '(b) kern__Order__c field confirmed on schema (sort key for chain building). '
-		+ '(c) No secondary tiebreaker field exists — SPEC DEVIATION confirmed. '
-		+ 'FRAMEWORK CONTRACT: with multiple records at the same Order__c, SOQL returns them '
-		+ 'in platform-determined order (non-deterministic across org sessions). '
-		+ 'DEFERRED: two tied records require Metadata Deploy, not achievable from anon Apex. '
-		+ 'Deferred to Subscriber_TypeResolver_TEST (Task 1.16) via @TestVisible '
-		+ 'buildCustomResolverChain(List<ClassTypeResolver__mdt>) seam. '
-		+ 'SPEC DEVIATION: SEL_ClassTypeResolver.findAll() has no secondary orderBy. '
-		+ 'FRAMEWORK FOLLOW-UP: add .orderBy(DeveloperName).ascending() secondary sort.');
+			'62b PASS (end-to-end tie deferred — see header §6.11 #2): '
+			+ '(a) exactly 1 ClassTypeResolver__mdt deployed (CurrentOrgResolver, Order 1.0) — '
+			+ 'no accidental tie in org. '
+			+ '(b) kern__Order__c field confirmed on schema (sort key for chain building). '
+			+ '(c) No secondary tiebreaker field exists — SPEC DEVIATION confirmed. '
+			+ 'FRAMEWORK CONTRACT: with multiple records at the same Order__c, SOQL returns them '
+			+ 'in platform-determined order (non-deterministic across org sessions). '
+			+ 'DEFERRED: two tied records require Metadata Deploy, not achievable from anon Apex. '
+			+ 'Deferred to Subscriber_TypeResolver_TEST (Task 1.16) via @TestVisible '
+			+ 'buildCustomResolverChain(List<ClassTypeResolver__mdt>) seam. '
+			+ 'SPEC DEVIATION: SEL_ClassTypeResolver.findAll() has no secondary orderBy. '
+			+ 'FRAMEWORK FOLLOW-UP: add .orderBy(DeveloperName).ascending() secondary sort.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -291,32 +293,32 @@ try
 {
 	Type customResolverType62c = kern.UTIL_System.getTypeForClassName('CustomTypeResolver');
 	Assert.isNotNull(customResolverType62c,
-		'62c: getTypeForClassName("CustomTypeResolver") must resolve to a non-null Type — '
-		+ 'subscriber class exists in the org without a namespace prefix.');
+			'62c: getTypeForClassName("CustomTypeResolver") must resolve to a non-null Type — '
+			+ 'subscriber class exists in the org without a namespace prefix.');
 
 	Assert.isTrue(
-		customResolverType62c.getName() != null
-		&& customResolverType62c.getName().containsIgnoreCase('CustomTypeResolver'),
-		'62c: resolved Type.getName() must contain "CustomTypeResolver". '
-		+ 'Got: ' + customResolverType62c.getName());
+			customResolverType62c.getName() != null
+			&& customResolverType62c.getName().containsIgnoreCase('CustomTypeResolver'),
+			'62c: resolved Type.getName() must contain "CustomTypeResolver". '
+			+ 'Got: ' + customResolverType62c.getName());
 
 	Assert.isFalse(
-		customResolverType62c.getName().startsWithIgnoreCase('kern.'),
-		'62c: resolved Type.getName() must NOT be prefixed with "kern." — '
-		+ 'subscriber-first lookup resolves the subscriber class (no namespace) before '
-		+ 'checking the kern package namespace. '
-		+ 'Got: ' + customResolverType62c.getName());
+			customResolverType62c.getName().startsWithIgnoreCase('kern.'),
+			'62c: resolved Type.getName() must NOT be prefixed with "kern." — '
+			+ 'subscriber-first lookup resolves the subscriber class (no namespace) before '
+			+ 'checking the kern package namespace. '
+			+ 'Got: ' + customResolverType62c.getName());
 
 	Type echoSubscriberType62c = kern.UTIL_System.getTypeForClassName('API_EchoSubscriber');
 	Assert.isNotNull(echoSubscriberType62c,
-		'62c: getTypeForClassName("API_EchoSubscriber") must resolve — subscriber class deployed. '
-		+ 'If null, re-check subscriber setup (API_EchoSubscriber.cls not deployed).');
+			'62c: getTypeForClassName("API_EchoSubscriber") must resolve — subscriber class deployed. '
+			+ 'If null, re-check subscriber setup (API_EchoSubscriber.cls not deployed).');
 
 	Assert.isTrue(
-		echoSubscriberType62c.getName() != null
-		&& echoSubscriberType62c.getName().containsIgnoreCase('API_EchoSubscriber'),
-		'62c: API_EchoSubscriber resolved type name must contain "API_EchoSubscriber". '
-		+ 'Got: ' + echoSubscriberType62c.getName());
+			echoSubscriberType62c.getName() != null
+			&& echoSubscriberType62c.getName().containsIgnoreCase('API_EchoSubscriber'),
+			'62c: API_EchoSubscriber resolved type name must contain "API_EchoSubscriber". '
+			+ 'Got: ' + echoSubscriberType62c.getName());
 
 	Boolean notFoundThrew62c = false;
 	try
@@ -328,22 +330,22 @@ try
 		notFoundThrew62c = true;
 	}
 	Assert.isTrue(notFoundThrew62c,
-		'62c: getTypeForClassName("kern.CustomTypeResolver") must throw — no kern-namespaced '
-		+ 'CustomTypeResolver class exists in the package. This confirms subscriber-first: '
-		+ 'the bare-name resolution succeeds (subscriber wins) while the qualified kern-prefix '
-		+ 'name fails (package has no such class).');
+			'62c: getTypeForClassName("kern.CustomTypeResolver") must throw — no kern-namespaced '
+			+ 'CustomTypeResolver class exists in the package. This confirms subscriber-first: '
+			+ 'the bare-name resolution succeeds (subscriber wins) while the qualified kern-prefix '
+			+ 'name fails (package has no such class).');
 
 	System.debug(LoggingLevel.INFO,
-		'62c PASS: Subscriber-first resolution confirmed. '
-		+ '"CustomTypeResolver" → resolved as ' + customResolverType62c.getName()
-		+ ' (no kern. prefix — subscriber class wins). '
-		+ '"API_EchoSubscriber" → resolved as ' + echoSubscriberType62c.getName() + '. '
-		+ '"kern.CustomTypeResolver" → threw (no kern-namespaced class by that name). '
-		+ 'FRAMEWORK CONTRACT: UTIL_TypeResolver.getTypeForClassName() calls '
-		+ 'Type.forName("", typeName) before Type.forName("kern", typeName) — '
-		+ 'subscriber classes registered under no namespace are found first. '
-		+ 'Subscribers can shadow package class names by deploying their own class '
-		+ 'with the same bare name in their org (no package prefix).');
+			'62c PASS: Subscriber-first resolution confirmed. '
+			+ '"CustomTypeResolver" → resolved as ' + customResolverType62c.getName()
+			+ ' (no kern. prefix — subscriber class wins). '
+			+ '"API_EchoSubscriber" → resolved as ' + echoSubscriberType62c.getName() + '. '
+			+ '"kern.CustomTypeResolver" → threw (no kern-namespaced class by that name). '
+			+ 'FRAMEWORK CONTRACT: UTIL_TypeResolver.getTypeForClassName() calls '
+			+ 'Type.forName("", typeName) before Type.forName("kern", typeName) — '
+			+ 'subscriber classes registered under no namespace are found first. '
+			+ 'Subscribers can shadow package class names by deploying their own class '
+			+ 'with the same bare name in their org (no package prefix).');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -389,55 +391,55 @@ try
 	}
 
 	Assert.isTrue(threwIllegalArg62d,
-		'62d: getTypeForClassName("NonExistentClass62d_DefinitelyNotDeployed") must throw — '
-		+ 'class does not exist in any namespace. No exception was thrown.');
+			'62d: getTypeForClassName("NonExistentClass62d_DefinitelyNotDeployed") must throw — '
+			+ 'class does not exist in any namespace. No exception was thrown.');
 
 	Assert.isTrue(
-		illegalArgTypeName62d != null
-		&& illegalArgTypeName62d.containsIgnoreCase('IllegalArgumentException'),
-		'62d: exception for unresolved class must be IllegalArgumentException (class not found). '
-		+ 'Got: ' + illegalArgTypeName62d);
+			illegalArgTypeName62d != null
+			&& illegalArgTypeName62d.containsIgnoreCase('IllegalArgumentException'),
+			'62d: exception for unresolved class must be IllegalArgumentException (class not found). '
+			+ 'Got: ' + illegalArgTypeName62d);
 
 	Assert.isTrue(
-		illegalArgMessage62d != null
-		&& illegalArgMessage62d.containsIgnoreCase('Unable to resolve'),
-		'62d: IllegalArgumentException message must contain "Unable to resolve" — '
-		+ 'from UTIL_System.ERROR_TYPE_NOT_FOUND. Got: ' + illegalArgMessage62d);
+			illegalArgMessage62d != null
+			&& illegalArgMessage62d.containsIgnoreCase('Unable to resolve'),
+			'62d: IllegalArgumentException message must contain "Unable to resolve" — '
+			+ 'from UTIL_System.ERROR_TYPE_NOT_FOUND. Got: ' + illegalArgMessage62d);
 
 	Type customTypeResolverInterface62d =
-		Type.forName('kern', 'UTIL_TypeResolver.INT_ClassTypeResolver');
+			Type.forName('kern', 'UTIL_TypeResolver.INT_ClassTypeResolver');
 	Assert.isNotNull(customTypeResolverInterface62d,
-		'62d: Type.forName("kern", "UTIL_TypeResolver.INT_ClassTypeResolver") must return a '
-		+ 'non-null Type — the global interface is visible to subscriber Apex. '
-		+ 'Subscribers can implement it via extending BaseClassResolver.');
+			'62d: Type.forName("kern", "UTIL_TypeResolver.INT_ClassTypeResolver") must return a '
+			+ 'non-null Type — the global interface is visible to subscriber Apex. '
+			+ 'Subscribers can implement it via extending BaseClassResolver.');
 
 	Type customResolverType62d = kern.UTIL_System.getTypeForClassName('CustomTypeResolver');
 	Assert.isNotNull(customResolverType62d,
-		'62d: baseline resolution of CustomTypeResolver (registered resolver) must succeed. '
-		+ 'If null, the resolver chain is broken.');
+			'62d: baseline resolution of CustomTypeResolver (registered resolver) must succeed. '
+			+ 'If null, the resolver chain is broken.');
 
 	Assert.isTrue(
-		customResolverType62d.getName() != null
-		&& customResolverType62d.getName().containsIgnoreCase('CustomTypeResolver'),
-		'62d: CustomTypeResolver resolved type name must contain "CustomTypeResolver". '
-		+ 'Got: ' + customResolverType62d.getName());
+			customResolverType62d.getName() != null
+			&& customResolverType62d.getName().containsIgnoreCase('CustomTypeResolver'),
+			'62d: CustomTypeResolver resolved type name must contain "CustomTypeResolver". '
+			+ 'Got: ' + customResolverType62d.getName());
 
 	System.debug(LoggingLevel.INFO,
-		'62d PASS (end-to-end throwing resolver deferred — see header §6.11 #4): '
-		+ '(a) Null-return fall-through IS implemented: "NonExistentClass62d" → cascaded null '
-		+ 'through all resolvers → IllegalArgumentException ("Unable to resolve ...") from '
-		+ 'UTIL_System.getTypeForClassName(String). Exception type: ' + illegalArgTypeName62d + '. '
-		+ '(b) kern.UTIL_TypeResolver.INT_ClassTypeResolver is resolvable via Type.forName — '
-		+ 'global inner interface is visible to subscriber Apex as type ' + customTypeResolverInterface62d?.getName() + '. '
-		+ '(c) CustomTypeResolver (registered resolver, Order 1.0) resolved successfully '
-		+ 'as type ' + customResolverType62d.getName() + ' — chain operates normally. '
-		+ 'SPEC DEVIATION: §6.11 #4 assumed exception fall-through resilience; '
-		+ 'ACTUAL: PackageClassResolver uses null-coalescent delegation with NO try/catch — '
-		+ 'a throwing custom resolver surfaces the exception to the caller (no fall-through). '
-		+ 'FRAMEWORK FOLLOW-UP: wrap nextResolver?.resolveType(typeName) in try/catch in '
-		+ 'PackageClassResolver or document that resolvers must be exception-safe internally. '
-		+ 'DEFERRED: injecting a throwing resolver requires CMDT DML (blocked) or '
-		+ '@TestVisible buildCustomResolverChain seam. Deferred to Subscriber_TypeResolver_TEST.');
+			'62d PASS (end-to-end throwing resolver deferred — see header §6.11 #4): '
+			+ '(a) Null-return fall-through IS implemented: "NonExistentClass62d" → cascaded null '
+			+ 'through all resolvers → IllegalArgumentException ("Unable to resolve ...") from '
+			+ 'UTIL_System.getTypeForClassName(String). Exception type: ' + illegalArgTypeName62d + '. '
+			+ '(b) kern.UTIL_TypeResolver.INT_ClassTypeResolver is resolvable via Type.forName — '
+			+ 'global inner interface is visible to subscriber Apex as type ' + customTypeResolverInterface62d?.getName() + '. '
+			+ '(c) CustomTypeResolver (registered resolver, Order 1.0) resolved successfully '
+			+ 'as type ' + customResolverType62d.getName() + ' — chain operates normally. '
+			+ 'SPEC DEVIATION: §6.11 #4 assumed exception fall-through resilience; '
+			+ 'ACTUAL: PackageClassResolver uses null-coalescent delegation with NO try/catch — '
+			+ 'a throwing custom resolver surfaces the exception to the caller (no fall-through). '
+			+ 'FRAMEWORK FOLLOW-UP: wrap nextResolver?.resolveType(typeName) in try/catch in '
+			+ 'PackageClassResolver or document that resolvers must be exception-safe internally. '
+			+ 'DEFERRED: injecting a throwing resolver requires CMDT DML (blocked) or '
+			+ '@TestVisible buildCustomResolverChain seam. Deferred to Subscriber_TypeResolver_TEST.');
 	pass++;
 }
 catch(Exception scenarioError)

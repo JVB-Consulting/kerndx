@@ -15,23 +15,30 @@
 // trivially unit-testable.
 
 const FILE_EXTENSIONS = [
-	'md', 'js', 'json', 'yml', 'yaml', 'cls', 'trigger', 'xml',
-	'sh', 'css', 'html', 'mjs', 'cjs', 'txt', 'eta'
+	'md',
+	'js',
+	'json',
+	'yml',
+	'yaml',
+	'cls',
+	'trigger',
+	'xml',
+	'sh',
+	'css',
+	'html',
+	'mjs',
+	'cjs',
+	'txt',
+	'eta'
 ];
 
 const EXT_GROUP = FILE_EXTENSIONS.join('|');
 
 // Path/filename char class includes space (file names like
 // `docs/Code Conventions - Guide.md` are common in this repo).
-const INLINE_PATH_RE = new RegExp(
-	'`((?:[A-Za-z0-9_.\\- ]+\\/)+[A-Za-z0-9_.\\- ]+(?:\\.(?:' + EXT_GROUP + '))?)`',
-	'g'
-);
+const INLINE_PATH_RE = new RegExp('`((?:[A-Za-z0-9_.\\- ]+\\/)+[A-Za-z0-9_.\\- ]+(?:\\.(?:' + EXT_GROUP + '))?)`', 'g');
 
-const INLINE_FILE_RE = new RegExp(
-	'`([A-Za-z0-9_.\\- ]+\\.(?:' + EXT_GROUP + '))`',
-	'g'
-);
+const INLINE_FILE_RE = new RegExp('`([A-Za-z0-9_.\\- ]+\\.(?:' + EXT_GROUP + '))`', 'g');
 
 const NPM_RUN_RE = /\bnpm run ([a-z0-9:_-]+)/g;
 
@@ -54,35 +61,92 @@ const SUFFIX_CONVENTION_RE = /^_[A-Z][A-Za-z]*\.(cls|trigger|js|md|json|xml|yml|
 // platform APIs `lightning/foo`, subscriber-side tutorial paths
 // `force-app/...`, IDE config paths `.vscode/...`, etc.).
 const DEFAULT_TOP_DIRS = new Set([
-	'docs', 'release-notes', 'release-testing', 'bin', 'scripts',
-	'scanner', 'pipeline', 'distribution',
+	'docs',
+	'release-notes',
+	'release-testing',
+	'bin',
+	'scripts',
+	'scanner',
+	'pipeline',
+	'distribution',
 ]);
 
 function shouldSkipPathRef(ref, topDirs)
 {
-	if(ref.startsWith('http://') || ref.startsWith('https://')) return true;
-	if(ref.startsWith('/')) return true;
-	if(ref.startsWith('~')) return true;
-	if(ref.startsWith('#')) return true;
-	if(ref.includes('..')) return true;
-	if(ref.includes('${') || ref.includes('{{')) return true;
-	if(ref.includes('<') || ref.includes('>')) return true;
+	if(ref.startsWith('http://') || ref.startsWith('https://'))
+	{
+		return true;
+	}
+	if(ref.startsWith('/'))
+	{
+		return true;
+	}
+	if(ref.startsWith('~'))
+	{
+		return true;
+	}
+	if(ref.startsWith('#'))
+	{
+		return true;
+	}
+	if(ref.includes('..'))
+	{
+		return true;
+	}
+	if(ref.includes('${') || ref.includes('{{'))
+	{
+		return true;
+	}
+	if(ref.includes('<') || ref.includes('>'))
+	{
+		return true;
+	}
 	const firstSeg = ref.split('/')[0];
-	if(!topDirs.has(firstSeg)) return true;
+	if(!topDirs.has(firstSeg))
+	{
+		return true;
+	}
 	return false;
 }
 
 function shouldSkipFilenameRef(ref)
 {
-	if(ref.startsWith('.')) return true;
-	if(/^[A-Z_][A-Z0-9_]+$/.test(ref)) return true;
-	if(ref.includes('${') || ref.includes('{{')) return true;
-	if(ref.includes('<') || ref.includes('>')) return true;
-	if(SUBSCRIBER_APEX_RE.test(ref)) return true;
-	if(FAST_START_RE.test(ref)) return true;
-	if(TUTORIAL_APEX_RE.test(ref)) return true;
-	if(VERSION_FILE_RE.test(ref)) return true;
-	if(SUFFIX_CONVENTION_RE.test(ref)) return true;
+	if(ref.startsWith('.'))
+	{
+		return true;
+	}
+	if(/^[A-Z_][A-Z0-9_]+$/.test(ref))
+	{
+		return true;
+	}
+	if(ref.includes('${') || ref.includes('{{'))
+	{
+		return true;
+	}
+	if(ref.includes('<') || ref.includes('>'))
+	{
+		return true;
+	}
+	if(SUBSCRIBER_APEX_RE.test(ref))
+	{
+		return true;
+	}
+	if(FAST_START_RE.test(ref))
+	{
+		return true;
+	}
+	if(TUTORIAL_APEX_RE.test(ref))
+	{
+		return true;
+	}
+	if(VERSION_FILE_RE.test(ref))
+	{
+		return true;
+	}
+	if(SUFFIX_CONVENTION_RE.test(ref))
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -96,12 +160,20 @@ function extractRefsFromLine(line)
 	const pathRe = new RegExp(INLINE_PATH_RE.source, 'g');
 	while((m = pathRe.exec(line)) !== null)
 	{
-		if(!seen.has(m[1])) { seen.add(m[1]); refs.push({type: 'path', ref: m[1]}); }
+		if(!seen.has(m[1]))
+		{
+			seen.add(m[1]);
+			refs.push({type: 'path', ref: m[1]});
+		}
 	}
 	const fileRe = new RegExp(INLINE_FILE_RE.source, 'g');
 	while((m = fileRe.exec(line)) !== null)
 	{
-		if(!seen.has(m[1])) { seen.add(m[1]); refs.push({type: 'filename', ref: m[1]}); }
+		if(!seen.has(m[1]))
+		{
+			seen.add(m[1]);
+			refs.push({type: 'filename', ref: m[1]});
+		}
 	}
 	return refs;
 }
@@ -111,7 +183,10 @@ function extractNpmScriptsFromLine(line)
 	const scripts = [];
 	let m;
 	const re = new RegExp(NPM_RUN_RE.source, 'g');
-	while((m = re.exec(line)) !== null) scripts.push(m[1]);
+	while((m = re.exec(line)) !== null)
+	{
+		scripts.push(m[1]);
+	}
 	return scripts;
 }
 
@@ -142,8 +217,16 @@ function extractClaims(content, options)
 		const fenceMatch = line.match(/^```(\w*)/);
 		if(fenceMatch)
 		{
-			if(!inFence) { inFence = true; fenceLang = fenceMatch[1].toLowerCase(); }
-			else { inFence = false; fenceLang = ''; }
+			if(!inFence)
+			{
+				inFence = true;
+				fenceLang = fenceMatch[1].toLowerCase();
+			}
+			else
+			{
+				inFence = false;
+				fenceLang = '';
+			}
 			continue;
 		}
 
@@ -154,13 +237,22 @@ function extractClaims(content, options)
 			claims.push({type: 'npm-script', ref: script, line: lineNum});
 		}
 
-		if(inFence) continue;
+		if(inFence)
+		{
+			continue;
+		}
 
 		const refs = extractRefsFromLine(line);
 		for(const {type, ref} of refs)
 		{
-			if(type === 'path' && shouldSkipPathRef(ref, topDirs)) continue;
-			if(type === 'filename' && shouldSkipFilenameRef(ref)) continue;
+			if(type === 'path' && shouldSkipPathRef(ref, topDirs))
+			{
+				continue;
+			}
+			if(type === 'filename' && shouldSkipFilenameRef(ref))
+			{
+				continue;
+			}
 			claims.push({type, ref, line: lineNum});
 		}
 	}
@@ -179,24 +271,25 @@ function matchesGlobPattern(ref, pattern)
 
 function isAllowlisted(claim, allowSet)
 {
-	if(allowSet.has(claim.ref)) return true;
+	if(allowSet.has(claim.ref))
+	{
+		return true;
+	}
 	// Type-prefixed entry: "npm:scriptname" allowlists an npm-script claim.
-	if(claim.type === 'npm-script' && allowSet.has('npm:' + claim.ref)) return true;
+	if(claim.type === 'npm-script' && allowSet.has('npm:' + claim.ref))
+	{
+		return true;
+	}
 	for(const entry of allowSet)
 	{
-		if(entry.startsWith('pattern:') && matchesGlobPattern(claim.ref, entry.substring(8))) return true;
+		if(entry.startsWith('pattern:') && matchesGlobPattern(claim.ref, entry.substring(8)))
+		{
+			return true;
+		}
 	}
 	return false;
 }
 
 module.exports = {
-	extractClaims,
-	extractRefsFromLine,
-	extractNpmScriptsFromLine,
-	shouldSkipPathRef,
-	shouldSkipFilenameRef,
-	matchesGlobPattern,
-	isAllowlisted,
-	DEFAULT_TOP_DIRS,
-	FILE_EXTENSIONS
+	extractClaims, extractRefsFromLine, extractNpmScriptsFromLine, shouldSkipPathRef, shouldSkipFilenameRef, matchesGlobPattern, isAllowlisted, DEFAULT_TOP_DIRS, FILE_EXTENSIONS
 };

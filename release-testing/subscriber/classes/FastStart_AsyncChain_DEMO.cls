@@ -20,14 +20,20 @@
  */
 global inherited sharing class FastStart_AsyncChain_DEMO extends kern.UTIL_AsyncChain.ChainStep
 {
-	/** @description Chain context key that carries the Account Id to enrich. */
+	/**
+	 * @description Chain context key that carries the Account Id to enrich.
+	 */
 	public static final String CONTEXT_KEY_ACCOUNT_ID = 'accountId';
 
-	/** @description Description value stamped on the enriched Account. */
+	/**
+	 * @description Description value stamped on the enriched Account.
+	 */
 	@TestVisible
 	private static final String ENRICHMENT_NOTE = 'Enriched by Fast Start chain';
 
-	/** @description Error message returned when the context is missing the account Id. */
+	/**
+	 * @description Error message returned when the context is missing the account Id.
+	 */
 	@TestVisible
 	private static final String ERROR_MISSING_ACCOUNT_ID = 'Missing accountId in chain context';
 

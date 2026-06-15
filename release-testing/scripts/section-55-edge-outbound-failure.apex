@@ -122,7 +122,7 @@ try
 					kern__MaxRetries__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55a
+			AND CreatedDate >= :startedAt55a
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -136,7 +136,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55a
+			AND CreatedDate >= :startedAt55a
 	];
 	Assert.isTrue(apiIssueCount55a >= 1, '55a: at least one ApiIssue row should be created (LogIssues=true) for the 400 failure, got ' + apiIssueCount55a);
 	System.debug(LoggingLevel.INFO, '55a PASS: 400 response persisted with StatusCode=400, Status=Failed, Retries=0, ' + apiIssueCount55a + ' ApiIssue(s) created');
@@ -168,7 +168,7 @@ try
 					kern__Retries__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55b
+			AND CreatedDate >= :startedAt55b
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -181,7 +181,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55b
+			AND CreatedDate >= :startedAt55b
 	];
 	Assert.isTrue(apiIssueCount55b >= 1, '55b: at least one ApiIssue row should be created for the 404 failure, got ' + apiIssueCount55b);
 	System.debug(LoggingLevel.INFO, '55b PASS: 404 response persisted with StatusCode=404, Status=Failed, ' + apiIssueCount55b + ' ApiIssue(s) created');
@@ -213,7 +213,7 @@ try
 					kern__Retries__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55c
+			AND CreatedDate >= :startedAt55c
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -225,7 +225,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55c
+			AND CreatedDate >= :startedAt55c
 	];
 	Assert.isTrue(apiIssueCount55c >= 1, '55c: at least one ApiIssue row should be created for the 422 failure, got ' + apiIssueCount55c);
 	System.debug(LoggingLevel.INFO, '55c PASS: 422 response persisted with StatusCode=422, Status=Failed, ' + apiIssueCount55c + ' ApiIssue(s) created');
@@ -259,7 +259,7 @@ try
 					kern__NextRetry__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55d
+			AND CreatedDate >= :startedAt55d
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -274,7 +274,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55d
+			AND CreatedDate >= :startedAt55d
 	];
 	Assert.isTrue(apiIssueCount55d >= 1, '55d: at least one ApiIssue row should be created for the 500 failure, got ' + apiIssueCount55d);
 	System.debug(LoggingLevel.INFO, '55d PASS: 500 response persisted with StatusCode=500, MaxRetries=0, NextRetry__c null, ' + apiIssueCount55d + ' ApiIssue(s) created');
@@ -313,7 +313,7 @@ try
 					kern__NextRetry__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55e
+			AND CreatedDate >= :startedAt55e
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -354,7 +354,7 @@ try
 					kern__NextRetry__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55f
+			AND CreatedDate >= :startedAt55f
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -394,7 +394,7 @@ try
 					kern__Status__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55g
+			AND CreatedDate >= :startedAt55g
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -407,7 +407,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55g
+			AND CreatedDate >= :startedAt55g
 	];
 	Assert.isTrue(apiIssueCount55g >= 1, '55g: at least one ApiIssue row should be created for the statusCode=0 failure, got ' + apiIssueCount55g);
 	System.debug(LoggingLevel.INFO, '55g PASS: statusCode=0 handled gracefully — recorded as "0", Status=Failed, ' + apiIssueCount55g + ' ApiIssue(s) created');
@@ -441,11 +441,11 @@ try
 			.register();
 
 	Set<Id> existingApiCallIds55h = new Map<Id, kern__ApiCall__c>(
-			[
-					SELECT Id
-					FROM kern__ApiCall__c
-					WHERE kern__ServiceName__c = :SERVICE_NAME
-			]).keySet();
+	[
+			SELECT Id
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_NAME
+	]).keySet();
 
 	for(Integer i = 0; i < 20; i++)
 	{
@@ -462,7 +462,7 @@ try
 					kern__Status__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND Id NOT IN :existingApiCallIds55h
+			AND Id NOT IN :existingApiCallIds55h
 	];
 	Assert.areEqual(20, apiCalls55h.size(), '55h: 20 calls should produce 20 ApiCall rows');
 
@@ -524,7 +524,7 @@ try
 					kern__NextRetry__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55i
+			AND CreatedDate >= :startedAt55i
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -539,7 +539,7 @@ try
 			SELECT COUNT()
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt55i
+			AND CreatedDate >= :startedAt55i
 	];
 	Assert.isTrue(apiIssueCount55i >= 1, '55i: at least one ApiIssue row should be created (RETRY_THEN_LOG enables logging), got ' + apiIssueCount55i);
 	System.debug(LoggingLevel.INFO, '55i PASS: onFailure(RETRY_THEN_LOG) with withRetry(2, 5) → Status=Retry, NextRetry__c scheduled, ' + apiIssueCount55i + ' ApiIssue(s) created');
@@ -562,8 +562,8 @@ delete
 		SELECT Id
 		FROM kern__ApiIssue__c
 		WHERE kern__ServiceName__c = :SERVICE_NAME
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedDate = TODAY
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 delete
@@ -571,8 +571,8 @@ delete
 		SELECT Id
 		FROM kern__ApiCall__c
 		WHERE kern__ServiceName__c = :SERVICE_NAME
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedDate = TODAY
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 kern.API_MockFactory.clearMocks();

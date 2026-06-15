@@ -10,18 +10,18 @@ kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
 try
 {
 	kern.LOG_Builder.build()
-		.info('Hello from Logging Fast Start')
-		.withSummary('Tier 1 verification')
-		.withContext('source', 'fast-start-logging.apex')
-		.emitAt('FastStart.Logging.tier1');
+			.info('Hello from Logging Fast Start')
+			.withSummary('Tier 1 verification')
+			.withContext('source', 'fast-start-logging.apex')
+			.emitAt('FastStart.Logging.tier1');
 
 	kern.LOG_Builder.build()
-		.debug('Debug-level entry — filtered in production by default')
-		.emitAt('FastStart.Logging.tier1');
+			.debug('Debug-level entry — filtered in production by default')
+			.emitAt('FastStart.Logging.tier1');
 
 	kern.LOG_Builder.build()
-		.warn('Warn-level entry — use for business-rule violations')
-		.emitAt('FastStart.Logging.tier1');
+			.warn('Warn-level entry — use for business-rule violations')
+			.emitAt('FastStart.Logging.tier1');
 }
 finally
 {

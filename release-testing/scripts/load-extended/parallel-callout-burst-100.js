@@ -98,7 +98,15 @@ function getOrgInfo()
 {
 	const raw = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
 	const result = JSON.parse(raw).result;
-	return {instanceUrl: result.instanceUrl, accessToken: result.accessToken};
+	let accessToken = result.accessToken;
+	// Newer Salesforce CLI redacts the access token in `org display` output; fetch it
+	// un-redacted via `org auth show-access-token` (the redacted form fails REST with 401).
+	if(!accessToken || accessToken.includes('REDACTED'))
+	{
+		const tokenRaw = execSync(`sf org auth show-access-token -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
+		accessToken = JSON.parse(tokenRaw).result.accessToken;
+	}
+	return {instanceUrl: result.instanceUrl, accessToken};
 }
 
 async function sendProbe(instanceUrl, accessToken, body)
@@ -106,19 +114,21 @@ async function sendProbe(instanceUrl, accessToken, body)
 	const requestStart = Date.now();
 	const response = await fetch(`${instanceUrl}${ENDPOINT}`, {
 		method: 'POST', headers: {
-			'Authorization': `Bearer ${accessToken}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify(body)
+			'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json'
+		}, body: JSON.stringify(body)
 	});
 	let parsed;
-	try { parsed = await response.json(); }
-	catch { parsed = {parseError: true}; }
+	try
+	{
+		parsed = await response.json();
+	}
+	catch
+	{
+		parsed = {parseError: true};
+	}
 	const requestEnd = Date.now();
 	return {
-		statusCode: response.status,
-		responseMs: requestEnd - requestStart,
-		body: parsed
+		statusCode: response.status, responseMs: requestEnd - requestStart, body: parsed
 	};
 }
 
@@ -143,36 +153,42 @@ async function resetCircuit(instanceUrl, accessToken, circuitId)
 function querySoql(soql)
 {
 	const escaped = soql.replace(/"/g, '\\"');
-	const raw = execSync(
-		`sf data query -o ${ORG_ALIAS} -q "${escaped}" --json`,
-		{encoding: 'utf8', maxBuffer: 16 * 1024 * 1024}
-	);
+	const raw = execSync(`sf data query -o ${ORG_ALIAS} -q "${escaped}" --json`, {encoding: 'utf8', maxBuffer: 16 * 1024 * 1024});
 	return JSON.parse(raw).result;
 }
 
 function deleteByIds(ids)
 {
-	if(ids.length === 0) { return; }
+	if(ids.length === 0)
+	{
+		return;
+	}
 	const fs = require('fs');
 	const path = require('path');
 	const csvPath = path.join('/tmp', `parallel-callout-burst-100-cleanup-${Date.now()}.csv`);
 	fs.writeFileSync(csvPath, 'Id\n' + ids.join('\n') + '\n');
 	try
 	{
-		execSync(
-			`sf data delete bulk -o ${ORG_ALIAS} -s kern__ApiCall__c --file ${csvPath} --wait 5`,
-			{encoding: 'utf8'}
-		);
+		execSync(`sf data delete bulk -o ${ORG_ALIAS} -s kern__ApiCall__c --file ${csvPath} --wait 5`, {encoding: 'utf8'});
 	}
 	finally
 	{
-		try { fs.unlinkSync(csvPath); } catch {}
+		try
+		{
+			fs.unlinkSync(csvPath);
+		}
+		catch
+		{
+		}
 	}
 }
 
 function percentile(sortedAsc, p)
 {
-	if(sortedAsc.length === 0) { return 0; }
+	if(sortedAsc.length === 0)
+	{
+		return 0;
+	}
 	const idx = Math.min(sortedAsc.length - 1, Math.floor(sortedAsc.length * p));
 	return sortedAsc[idx];
 }
@@ -219,17 +235,14 @@ async function main()
 	const runStartIso = new Date().toISOString();
 	const burstStart = Date.now();
 	const probeBody = {failRate: FAIL_RATE, circuitId: CIRCUIT_ID};
-	const probePromises = Array.from(
-		{length: PARALLEL_COUNT},
-		() => sendProbe(instanceUrl, accessToken, probeBody)
-	);
+	const probePromises = Array.from({length: PARALLEL_COUNT}, () => sendProbe(instanceUrl, accessToken, probeBody));
 	const probeResults = await Promise.allSettled(probePromises);
 	const burstEnd = Date.now();
 	const wallMsTotal = burstEnd - burstStart;
 
 	const fulfilled = probeResults
-		.filter(r => r.status === 'fulfilled')
-		.map(r => r.value);
+	.filter(r => r.status === 'fulfilled')
+	.map(r => r.value);
 	const rejected = probeResults.filter(r => r.status === 'rejected');
 
 	console.log(`  Wall-clock: ${wallMsTotal}ms`);
@@ -244,8 +257,8 @@ async function main()
 	console.log(`  HTTP 200:   ${ok200.length}`);
 
 	const responseTimesSorted = fulfilled
-		.map(r => r.responseMs)
-		.sort((a, b) => a - b);
+	.map(r => r.responseMs)
+	.sort((a, b) => a - b);
 	const p50 = percentile(responseTimesSorted, 0.50);
 	const p95 = percentile(responseTimesSorted, 0.95);
 	console.log(`  p50:        ${p50}ms`);
@@ -264,20 +277,14 @@ async function main()
 	}
 
 	console.log('Phase 2: Server-side ApiCall__c row inspection (scoped by ServiceName + CreatedDate)');
-	const callRowsResult = querySoql(
-		`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, ` +
-		`kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c ` +
-		`WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') ` +
-		`AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`
-	);
+	const callRowsResult = querySoql(`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, ` + `kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c `
+			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') ` + `AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`);
 	const allRows = callRowsResult.records || [];
 	const inboundRows = allRows.filter(r => r.kern__ServiceName__c === INBOUND_SERVICE);
 	const outboundRows = allRows.filter(r => r.kern__ServiceName__c === OUTBOUND_SERVICE);
 	const outboundAborted = outboundRows.filter(r => r.kern__Status__c === 'Aborted');
 	const outboundCompleted = outboundRows.filter(r => r.kern__Status__c === 'Completed');
-	const outboundOther = outboundRows.filter(
-		r => r.kern__Status__c !== 'Aborted' && r.kern__Status__c !== 'Completed'
-	);
+	const outboundOther = outboundRows.filter(r => r.kern__Status__c !== 'Aborted' && r.kern__Status__c !== 'Completed');
 
 	console.log(`  Inbound rows:   ${inboundRows.length}`);
 	console.log(`  Outbound rows:  ${outboundRows.length} (Aborted=${outboundAborted.length}, Completed=${outboundCompleted.length}, Other=${outboundOther.length})`);
@@ -305,9 +312,7 @@ async function main()
 		fail++;
 	}
 
-	const observedAbortPct = outboundRows.length > 0
-		? (outboundAborted.length / outboundRows.length) * 100
-		: 0;
+	const observedAbortPct = outboundRows.length > 0 ? (outboundAborted.length / outboundRows.length) * 100 : 0;
 	const abortDriftPp = Math.abs(observedAbortPct - FAIL_RATE);
 	if(abortDriftPp <= ABORT_RATE_TOLERANCE_PP)
 	{
@@ -316,7 +321,9 @@ async function main()
 	}
 	else
 	{
-		recordFail('B4', `Outbound abort rate ${observedAbortPct.toFixed(1)}% drifted ${abortDriftPp.toFixed(1)}pp from failRate=${FAIL_RATE}% (tolerance ±${ABORT_RATE_TOLERANCE_PP}pp)`, failures);
+		recordFail('B4',
+				`Outbound abort rate ${observedAbortPct.toFixed(1)}% drifted ${abortDriftPp.toFixed(1)}pp from failRate=${FAIL_RATE}% (tolerance ±${ABORT_RATE_TOLERANCE_PP}pp)`,
+				failures);
 		fail++;
 	}
 
@@ -349,10 +356,7 @@ async function main()
 	}
 
 	const allRetriesZero = outboundRows.every(r => Number(r.kern__Retries__c) === 0);
-	const maxRetries = outboundRows.reduce(
-		(max, r) => Math.max(max, Number(r.kern__Retries__c) || 0),
-		0
-	);
+	const maxRetries = outboundRows.reduce((max, r) => Math.max(max, Number(r.kern__Retries__c) || 0), 0);
 	if(allRetriesZero)
 	{
 		recordPass('B7', `All ${outboundRows.length} outbound rows have Retries=0 (no retry storm — aborts and successes bypass retry path)`);
@@ -384,14 +388,11 @@ async function main()
 	console.log(`Phase 5: Post-reset mini-burst (${POST_RESET_BURST} inbound to confirm next-batch-succeeds)`);
 	const postResetStartIso = new Date().toISOString();
 	const postResetBody = {failRate: 0, circuitId: CIRCUIT_ID};
-	const postResetPromises = Array.from(
-		{length: POST_RESET_BURST},
-		() => sendProbe(instanceUrl, accessToken, postResetBody)
-	);
+	const postResetPromises = Array.from({length: POST_RESET_BURST}, () => sendProbe(instanceUrl, accessToken, postResetBody));
 	const postResetResults = await Promise.allSettled(postResetPromises);
 	const postResetFulfilled = postResetResults
-		.filter(r => r.status === 'fulfilled')
-		.map(r => r.value);
+	.filter(r => r.status === 'fulfilled')
+	.map(r => r.value);
 	const postResetOk200 = postResetFulfilled.filter(r => r.statusCode === 200);
 	console.log(`  HTTP 200:   ${postResetOk200.length} / ${POST_RESET_BURST}`);
 	console.log('');
@@ -416,11 +417,9 @@ async function main()
 	console.log('');
 
 	console.log('Phase 6: Cleanup — delete burst rows by Id (main burst + post-reset mini-burst)');
-	const cleanupRowsResult = querySoql(
-		`SELECT Id FROM kern__ApiCall__c ` +
-		`WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') ` +
-		`AND CreatedDate >= ${runStartIso}`
-	);
+	const cleanupRowsResult = querySoql(`SELECT Id
+                                         FROM kern__ApiCall__c ` + `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') `
+			+ `AND CreatedDate >= ${runStartIso}`);
 	const idsToDelete = (cleanupRowsResult.records || []).map(r => r.Id);
 	try
 	{

@@ -15,7 +15,9 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_FeatureFlag_DEMO_TEST
 {
-	/** @description Base amount used across all pricing tests. */
+	/**
+	 * @description Base amount used across all pricing tests.
+	 */
 	private static final Decimal BASE_AMOUNT = 100.00;
 
 	/**

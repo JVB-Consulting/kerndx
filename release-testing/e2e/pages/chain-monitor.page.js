@@ -186,8 +186,8 @@ class ChainMonitorPage
 	async getErrorText()
 	{
 		const errorBox = this.getDetailPanel().locator('[data-testid="error-message"]')
-			.or(this.getDetailPanel().locator('.slds-theme_error'))
-			.first();
+		.or(this.getDetailPanel().locator('.slds-theme_error'))
+		.first();
 		if(await errorBox.isVisible({timeout: 5000}).catch(() => false))
 		{
 			return (await errorBox.textContent()).trim();

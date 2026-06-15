@@ -113,6 +113,11 @@ finally
 
 	if(!cleanup.isEmpty())
 	{
-		delete [SELECT Id FROM Account WHERE Id IN :cleanup];
+		delete
+		[
+				SELECT Id
+				FROM Account
+				WHERE Id IN :cleanup
+		];
 	}
 }

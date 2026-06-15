@@ -9,22 +9,22 @@
  * per Task 1.7 finding A18). 100 stays well under the 150 cap with margin.
  *
  * On each fire:
- *   1. Computes iteration index by counting prior SOAK_ITERATION rows persisted in
- *      kern__LogEntry__c (scoped to this run-stamp via ClassMethod__c marker).
- *   2. Captures pre-state: wallMs, cpuMs, soql count, dml count, heap bytes.
- *   3. Calls kern.LOG_Builder.startCorrelation() so all 100 emits this iteration share a
- *      single correlationId. The launch tx's RequestId is captured as the expected
- *      TransactionId for this iteration.
- *   4. Emits EMIT_BATCH_SIZE LogEntryEvent__e via kern.LOG_Builder.build().info(...).emitAt(...).
- *      Each emit is one PublishImmediate DML; framework BATCH_SIZE=50 does not apply outside
- *      scopes (Task 1.7 finding A18, LOG_Engine.cls line 44).
- *   5. Captures post-state and emits one SOAK_ITERATION JSON line via kern.LOG_Builder so
- *      the operational verify script can compute drift across iterations.
- *   6. Per-iteration cleanup: deletes prior iteration's persisted FLOOD entries (current
- *      iteration's PEs cannot be deleted in-tx — they have not delivered yet). Bounded
- *      LIMIT 9000 for safety.
- *   7. At iteration MAX_ITERATIONS (30), aborts the binding CronTrigger so the soak stops
- *      cleanly without operator intervention.
+ * 1. Computes iteration index by counting prior SOAK_ITERATION rows persisted in
+ *    kern__LogEntry__c (scoped to this run-stamp via ClassMethod__c marker).
+ * 2. Captures pre-state: wallMs, cpuMs, soql count, dml count, heap bytes.
+ * 3. Calls kern.LOG_Builder.startCorrelation() so all 100 emits this iteration share a
+ *    single correlationId. The launch tx's RequestId is captured as the expected
+ *    TransactionId for this iteration.
+ * 4. Emits EMIT_BATCH_SIZE LogEntryEvent__e via kern.LOG_Builder.build().info(...).emitAt(...).
+ *    Each emit is one PublishImmediate DML; framework BATCH_SIZE=50 does not apply outside
+ *    scopes (Task 1.7 finding A18, LOG_Engine.cls line 44).
+ * 5. Captures post-state and emits one SOAK_ITERATION JSON line via kern.LOG_Builder so
+ *    the operational verify script can compute drift across iterations.
+ * 6. Per-iteration cleanup: deletes prior iteration's persisted FLOOD entries (current
+ *    iteration's PEs cannot be deleted in-tx — they have not delivered yet). Bounded
+ *    LIMIT 9000 for safety.
+ * 7. At iteration MAX_ITERATIONS (30), aborts the binding CronTrigger so the soak stops
+ *    cleanly without operator intervention.
  *
  * The class is implemented as a plain Schedulable (not kern.IF_Schedulable) because it
  * takes no parameters — the run-stamp + class-method marker are encoded into the cron job
@@ -56,32 +56,44 @@
  */
 public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 {
-	/** @description Entries emitted per cron fire. Sized to stay well under the 150
+	/**
+	 * @description Entries emitted per cron fire. Sized to stay well under the 150
 	 * PublishImmediate per-tx governor (Task 1.7 finding A18 — non-scoped emits each cost
 	 * one PublishImmediate DML; framework BATCH_SIZE=50 only applies inside scopes). 100
-	 * matches section-50 baseline; 50 of headroom under the cap. */
+	 * matches section-50 baseline; 50 of headroom under the cap.
+	 */
 	public static final Integer EMIT_BATCH_SIZE = 100;
-	/** @description Operational cap on iterations. After this iteration index, the cron
-	 * is aborted by the running fire. Matches the extended-load spec §9.3 (30 min × 1 fire/min). */
+	/**
+	 * @description Operational cap on iterations. After this iteration index, the cron
+	 * is aborted by the running fire. Matches the extended-load spec §9.3 (30 min × 1 fire/min).
+	 */
 	public static final Integer MAX_ITERATIONS = 30;
-	/** @description Heap headroom gate — Limits.getHeapSize() must stay below this fraction
-	 * of Limits.getLimitHeapSize() at end-of-iteration. Per the extended-load spec §9.3 drift signal. */
+	/**
+	 * @description Heap headroom gate — Limits.getHeapSize() must stay below this fraction
+	 * of Limits.getLimitHeapSize() at end-of-iteration. Per the extended-load spec §9.3 drift signal.
+	 */
 	public static final Decimal HEAP_GATE_FRACTION = 0.80;
-	/** @description Prefix used for the kern__LogEntry__c.kern__ClassMethod__c marker on
+	/**
+	 * @description Prefix used for the kern__LogEntry__c.kern__ClassMethod__c marker on
 	 * the FLOOD entries (the 100 per-iteration emits). Each emit's classMethod is built as
 	 * FLOOD_CLASS_METHOD_PREFIX + runStamp + '/iter' + iterationIndex so cumulative + per-iteration
-	 * verify queries can scope to this run. */
+	 * verify queries can scope to this run.
+	 */
 	public static final String FLOOD_CLASS_METHOD_PREFIX = 'SCHED_SubscriberLoggerFlood.flood_';
-	/** @description LogEntry ClassMethod marker prefix for the SOAK_ITERATION row. The verify
+	/**
+	 * @description LogEntry ClassMethod marker prefix for the SOAK_ITERATION row. The verify
 	 * script can ORDER BY CreatedDate ASC and parse the SOAK_ITERATION JSON message body to
-	 * compute per-iteration drift (wallMs, cpuMs, heap, persisted count) across the run. */
+	 * compute per-iteration drift (wallMs, cpuMs, heap, persisted count) across the run.
+	 */
 	public static final String CLASS_METHOD_PREFIX = 'SCHED_SubscriberLoggerFlood.executeIteration_';
 
-	/** @description Per-instance run-stamp. Set by the constructor; encoded into both the
+	/**
+	 * @description Per-instance run-stamp. Set by the constructor; encoded into both the
 	 * FLOOD ClassMethod__c marker and the SOAK_ITERATION ClassMethod__c marker so per-iteration
 	 * cleanup + verify queries are exactly scoped to this run. Initialized via the no-arg
 	 * constructor (used by `System.schedule`) so each scheduled run gets its OWN stamp at
-	 * construction time; subsequent fires share it because the platform serializes the instance. */
+	 * construction time; subsequent fires share it because the platform serializes the instance.
+	 */
 	private final String runStamp;
 
 	/**
@@ -125,6 +137,7 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 	 * predicate without duplicating the marker convention.
 	 *
 	 * @param iterationIndex The zero-based iteration index.
+	 *
 	 * @return The fully-formed ClassMethod__c marker for FLOOD entries from that iteration.
 	 */
 	public String buildFloodClassMethodMarker(Integer iterationIndex)
@@ -173,11 +186,11 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 		Integer startPublishImmediateCount = Limits.getPublishImmediateDML();
 		Long startHeapBytes = Limits.getHeapSize();
 
-		for(Integer index = 0; index < EMIT_BATCH_SIZE; index++)
+		for(Integer index = 0; Index < EMIT_BATCH_SIZE; Index++)
 		{
 			kern.LOG_Builder.build()
-				.info('FLOOD_ENTRY iteration=' + iterationIndex + ' index=' + index + ' runStamp=' + this.runStamp)
-				.emitAt(floodClassMethodMarker);
+					.info('FLOOD_ENTRY iteration=' + iterationIndex + ' index=' + Index + ' runStamp=' + this.runStamp)
+					.emitAt(floodClassMethodMarker);
 		}
 
 		Long wallMs = System.currentTimeMillis() - startWallMs;
@@ -192,28 +205,28 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 
 		Map<String, Object> iterationStats = new Map<String, Object>
 		{
-			'runStamp' => this.runStamp,
-			'iteration' => iterationIndex,
-			'maxIterations' => MAX_ITERATIONS,
-			'emitCount' => EMIT_BATCH_SIZE,
-			'correlationId' => correlationId,
-			'transactionId' => transactionId,
-			'floodClassMethodMarker' => floodClassMethodMarker,
-			'wallMs' => wallMs,
-			'cpuMs' => cpuMs,
-			'soqlCount' => soqlCount,
-			'dmlCount' => dmlCount,
-			'publishImmediateCount' => publishImmediateCount,
-			'heapStartBytes' => startHeapBytes,
-			'heapEndBytes' => endHeapBytes,
-			'heapDeltaBytes' => heapDeltaBytes,
-			'heapLimitBytes' => heapLimitBytes,
-			'heapFraction' => heapFraction
+				'runStamp' => this.runStamp,
+				'iteration' => iterationIndex,
+				'maxIterations' => MAX_ITERATIONS,
+				'emitCount' => EMIT_BATCH_SIZE,
+				'correlationId' => correlationId,
+				'transactionId' => transactionId,
+				'floodClassMethodMarker' => floodClassMethodMarker,
+				'wallMs' => wallMs,
+				'cpuMs' => cpuMs,
+				'soqlCount' => soqlCount,
+				'dmlCount' => dmlCount,
+				'publishImmediateCount' => publishImmediateCount,
+				'heapStartBytes' => startHeapBytes,
+				'heapEndBytes' => endHeapBytes,
+				'heapDeltaBytes' => heapDeltaBytes,
+				'heapLimitBytes' => heapLimitBytes,
+				'heapFraction' => heapFraction
 		};
 
 		kern.LOG_Builder.build()
-			.info('SOAK_ITERATION: ' + JSON.serialize(iterationStats))
-			.emitAt(soakIterationMarker);
+				.info('SOAK_ITERATION: ' + JSON.serialize(iterationStats))
+				.emitAt(soakIterationMarker);
 
 		try
 		{
@@ -222,8 +235,8 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 		catch(Exception cleanupError)
 		{
 			kern.LOG_Builder.build()
-				.warn('SOAK_CLEANUP_WARN: ' + cleanupError.getMessage())
-				.emitAt(soakIterationMarker);
+					.warn('SOAK_CLEANUP_WARN: ' + cleanupError.getMessage())
+					.emitAt(soakIterationMarker);
 		}
 
 		Boolean atTerminalIteration = iterationIndex >= (MAX_ITERATIONS - 1);
@@ -236,8 +249,8 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 			catch(Exception abortError)
 			{
 				kern.LOG_Builder.build()
-					.warn('SOAK_ABORT_WARN: ' + abortError.getMessage())
-					.emitAt(soakIterationMarker);
+						.warn('SOAK_ABORT_WARN: ' + abortError.getMessage())
+						.emitAt(soakIterationMarker);
 			}
 		}
 	}
@@ -272,10 +285,10 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 		String priorFloodMarker = FLOOD_CLASS_METHOD_PREFIX + this.runStamp + '/iter' + (currentIterationIndex - 1);
 		List<kern__LogEntry__c> priorFloodEntries =
 		[
-			SELECT Id
-			FROM kern__LogEntry__c
-			WHERE kern__ClassMethod__c = :priorFloodMarker
-			LIMIT 9000
+				SELECT Id
+				FROM kern__LogEntry__c
+				WHERE kern__ClassMethod__c = :priorFloodMarker
+				LIMIT 9000
 		];
 		if(!priorFloodEntries.isEmpty())
 		{
@@ -294,6 +307,7 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 	 * but this is a known scratch-org constraint documented in the launch-script header.
 	 *
 	 * @param soakIterationMarker The exact ClassMethod marker for this run (CLASS_METHOD_PREFIX + runStamp).
+	 *
 	 * @return Zero-based iteration index — count of prior SOAK_ITERATION rows persisted to LogEntry__c.
 	 */
 	private Integer countPriorIterations(String soakIterationMarker)
@@ -302,10 +316,10 @@ public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 		{
 			Integer priorCount =
 			[
-				SELECT COUNT()
-				FROM kern__LogEntry__c
-				WHERE kern__ClassMethod__c = :soakIterationMarker
-				  AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
+					SELECT COUNT()
+					FROM kern__LogEntry__c
+					WHERE kern__ClassMethod__c = :soakIterationMarker
+					AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
 			];
 			return priorCount;
 		}

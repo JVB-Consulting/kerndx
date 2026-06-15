@@ -47,7 +47,12 @@ insert masked;
 Long maskedWall = System.currentTimeMillis() - maskedWallStart;
 Long maskedCpu = Limits.getCpuTime() - maskedCpuStart;
 
-kern__ApiCall__c sample = [SELECT kern__Request__c FROM kern__ApiCall__c WHERE Id = :masked[0].Id];
+kern__ApiCall__c sample =
+[
+		SELECT kern__Request__c
+		FROM kern__ApiCall__c
+		WHERE Id = :masked[0].Id
+];
 Boolean persisted = sample.kern__Request__c.contains('***SECRET***') && !sample.kern__Request__c.contains('hunter2');
 
 Decimal baselinePerRecord = batchSize == 0 ? 0 : ((Decimal)baselineCpu / batchSize).setScale(2);

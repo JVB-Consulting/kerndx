@@ -5,7 +5,6 @@
  *              creates an Account record, and returns the new record ID.
  *
  * @see FastStart_InboundAPI_REST
- *
  * @see FastStart_InboundAPI_DEMO_TEST
  *
  * @author your.name@company.com
@@ -16,7 +15,9 @@
  */
 public with sharing class FastStart_InboundAPI_DEMO extends kern.API_Inbound
 {
-	/** @description The Account record created by this handler. */
+	/**
+	 * @description The Account record created by this handler.
+	 */
 	private Account newAccount;
 
 	/**
@@ -57,9 +58,9 @@ public with sharing class FastStart_InboundAPI_DEMO extends kern.API_Inbound
 		DTO_Request dto = (DTO_Request)requestPayload;
 
 		newAccount = new Account(
-			Name = dto.name,
-			Phone = dto.phone,
-			Website = dto.email
+				Name = dto.name,
+				Phone = dto.phone,
+				Website = dto.email
 		);
 
 		doInsert(newAccount);
@@ -81,31 +82,47 @@ public with sharing class FastStart_InboundAPI_DEMO extends kern.API_Inbound
 		}
 	}
 
-	/** @description Incoming request payload from the external system. */
+	/**
+	 * @description Incoming request payload from the external system.
+	 */
 	@JsonAccess(Serializable='always' Deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
-		/** @description The account name. */
+		/**
+		 * @description The account name.
+		 */
 		public String name;
 
-		/** @description Contact email address. Required. */
+		/**
+		 * @description Contact email address. Required.
+		 */
 		public String email;
 
-		/** @description Contact phone number. Optional. */
+		/**
+		 * @description Contact phone number. Optional.
+		 */
 		public String phone;
 	}
 
-	/** @description Response returned to the caller after processing. */
+	/**
+	 * @description Response returned to the caller after processing.
+	 */
 	@JsonAccess(Serializable='always' Deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
-		/** @description Whether the request was processed successfully. */
+		/**
+		 * @description Whether the request was processed successfully.
+		 */
 		public Boolean success;
 
-		/** @description The Salesforce ID of the created Account record. */
+		/**
+		 * @description The Salesforce ID of the created Account record.
+		 */
 		public String accountId;
 
-		/** @description A human-readable status message. */
+		/**
+		 * @description A human-readable status message.
+		 */
 		public String message;
 	}
 }

@@ -15,13 +15,19 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_TestData_DEMO_TEST
 {
-	/** @description Industry value used across insert-based tests. */
+	/**
+	 * @description Industry value used across insert-based tests.
+	 */
 	private static final String INDUSTRY_TECH = 'Technology';
 
-	/** @description Industry value used for the mock-based count test. */
+	/**
+	 * @description Industry value used for the mock-based count test.
+	 */
 	private static final String INDUSTRY_FINANCE = 'Finance';
 
-	/** @description Industry value that should return zero results. */
+	/**
+	 * @description Industry value that should return zero results.
+	 */
 	private static final String INDUSTRY_OTHER = 'Education';
 
 	/**
@@ -33,9 +39,9 @@ private class FastStart_TestData_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withCount(5)
-			.buildList();
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withCount(5)
+				.buildList();
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH);
 
@@ -52,9 +58,9 @@ private class FastStart_TestData_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		List<SObject> records = kern.TST_Builder.of(Account.SObjectType)
-			.withCycle(Account.Industry, new List<Object>{ INDUSTRY_TECH, INDUSTRY_FINANCE })
-			.withCount(4)
-			.buildList();
+				.withCycle(Account.Industry, new List<Object> {INDUSTRY_TECH, INDUSTRY_FINANCE})
+				.withCount(4)
+				.buildList();
 
 		Assert.areEqual(4, records.size(), 'buildList should return 4 records');
 
@@ -76,8 +82,8 @@ private class FastStart_TestData_DEMO_TEST
 	private static void shouldCountMockedAccountWithoutDml()
 	{
 		kern.TST_Mock.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_FINANCE)
-			.build();
+				.withOverride(Account.Industry, INDUSTRY_FINANCE)
+				.build();
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE);
 
@@ -92,9 +98,9 @@ private class FastStart_TestData_DEMO_TEST
 	private static void shouldReturnZeroWhenNoMatchingAccounts()
 	{
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withoutInsertion()
+				.build();
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_OTHER);
 

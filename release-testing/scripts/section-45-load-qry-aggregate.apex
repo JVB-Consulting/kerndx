@@ -78,7 +78,7 @@ final Integer BATCH_TOTAL = 5000;
 final Integer DISTINCT_TEXT_VALUES = 1000;
 final Integer RECORDS_PER_BATCH = 1000;
 final Integer BATCH_COUNT = 5;
-final List<String> PICKLIST_VALUES = new List<String>{'Hot', 'Warm', 'Cold'};
+final List<String> PICKLIST_VALUES = new List<String> {'Hot', 'Warm', 'Cold'};
 
 // Build the 1,000 distinct text bucket values once and reuse across all 5 batches.
 List<Object> textBucketValues = new List<Object>();
@@ -92,8 +92,8 @@ Assert.areEqual(DISTINCT_TEXT_VALUES, textBucketValues.size(), 'Setup invariant:
 // Each batch cycles all 1,000 text bucket values exactly once. Across 5 batches each
 // bucket receives exactly 5 records. Picklist + Checkbox cycle independently to give
 // the cube test natural 2-axis distribution.
-List<Object> picklistCycle = new List<Object>{(Object)PICKLIST_VALUES[0], (Object)PICKLIST_VALUES[1], (Object)PICKLIST_VALUES[2]};
-List<Object> checkboxCycle = new List<Object>{(Object)true, (Object)false};
+List<Object> picklistCycle = new List<Object> {(Object)PICKLIST_VALUES[0], (Object)PICKLIST_VALUES[1], (Object)PICKLIST_VALUES[2]};
+List<Object> checkboxCycle = new List<Object> {(Object)true, (Object)false};
 
 try
 {
@@ -112,9 +112,9 @@ try
 
 	Integer persistedCount =
 	[
-		SELECT COUNT()
-		FROM kern__Foobar__c
-		WHERE Name = :NAME_TAG
+			SELECT COUNT()
+			FROM kern__Foobar__c
+			WHERE Name = :NAME_TAG
 	];
 	Assert.areEqual(BATCH_TOTAL, persistedCount, 'Setup invariant: ' + BATCH_TOTAL + ' Foobar__c records must be persisted before measurement. Got: ' + persistedCount);
 }
@@ -140,8 +140,8 @@ try
 			.toAggregateList();
 
 	Assert.areEqual(DISTINCT_TEXT_VALUES, plainRows.size(),
-		'45-Q1: plain groupBy on Text__c (1000 distinct values × 5 records each) must return exactly '
-		+ DISTINCT_TEXT_VALUES + ' rows. Got: ' + plainRows.size());
+			'45-Q1: plain groupBy on Text__c (1000 distinct values × 5 records each) must return exactly '
+			+ DISTINCT_TEXT_VALUES + ' rows. Got: ' + plainRows.size());
 
 	Integer plainTotalCount = 0;
 	for(kern.QRY_Builder.AggregateRow row : plainRows)
@@ -151,7 +151,7 @@ try
 		plainTotalCount += rowCount;
 	}
 	Assert.areEqual(BATCH_TOTAL, plainTotalCount,
-		'45-Q1: sum of count_Id across all groups must equal total inserted (' + BATCH_TOTAL + '). Got: ' + plainTotalCount);
+			'45-Q1: sum of count_Id across all groups must equal total inserted (' + BATCH_TOTAL + '). Got: ' + plainTotalCount);
 
 	// Query 2 — rollup on Text__c with grouping flag for grand-total detection
 	List<kern.QRY_Builder.AggregateRow> rollupRows = kern.QRY_Builder.selectFrom(kern__Foobar__c.SObjectType)
@@ -163,8 +163,8 @@ try
 			.toAggregateList();
 
 	Assert.areEqual(DISTINCT_TEXT_VALUES + 1, rollupRows.size(),
-		'45-Q2: ROLLUP must add exactly 1 grand-total row to the data rows. Expected '
-		+ (DISTINCT_TEXT_VALUES + 1) + '. Got: ' + rollupRows.size());
+			'45-Q2: ROLLUP must add exactly 1 grand-total row to the data rows. Expected '
+			+ (DISTINCT_TEXT_VALUES + 1) + '. Got: ' + rollupRows.size());
 
 	Integer rollupSubtotalRowCount = 0;
 	Integer rollupGrandTotalCount = 0;
@@ -201,8 +201,8 @@ try
 	// Expected: 3 × 2 = 6 leaves (Hot/Warm/Cold × true/false), 3 picklist subtotals, 2 checkbox subtotals, 1 grand total = 12 rows
 	final Integer EXPECTED_CUBE_ROWS = 12;
 	Assert.areEqual(EXPECTED_CUBE_ROWS, cubeRows.size(),
-		'45-Q3: CUBE on Picklist (3 vals) × Checkbox (2 vals) must return exactly '
-		+ EXPECTED_CUBE_ROWS + ' rows (6 leaves + 3 + 2 + 1). Got: ' + cubeRows.size());
+			'45-Q3: CUBE on Picklist (3 vals) × Checkbox (2 vals) must return exactly '
+			+ EXPECTED_CUBE_ROWS + ' rows (6 leaves + 3 + 2 + 1). Got: ' + cubeRows.size());
 
 	Integer leafCellCount = 0;
 	Integer leafSum = 0;
@@ -254,19 +254,19 @@ try
 	Integer allocationsApprox = rowsReturned * 7;
 
 	// PERF_ROW emission (one System.debug per metric, harvested by Task 2.6 perf-history harvester)
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'wallMs', 'value' => wallMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'cpuMs', 'value' => cpuMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'soqlCount', 'value' => soqlCount}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'heapBytesPeak', 'value' => heapBytesPeak}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'rowsReturned', 'value' => rowsReturned}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 45, 'metric' => 'allocationsApprox', 'value' => allocationsApprox}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'wallMs', 'value' => wallMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'cpuMs', 'value' => cpuMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'soqlCount', 'value' => soqlCount}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'heapBytesPeak', 'value' => heapBytesPeak}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'rowsReturned', 'value' => rowsReturned}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 45, 'metric' => 'allocationsApprox', 'value' => allocationsApprox}));
 
 	System.debug(LoggingLevel.INFO,
-		'45 PASS: 3 queries on ' + BATCH_TOTAL + ' rows. '
-		+ 'plain=' + plainRows.size() + ' rows, rollup=' + rollupRows.size() + ' rows (1 grand-total),'
-		+ ' cube=' + cubeRows.size() + ' rows (6 leaves + 5 subtotals + 1 grand-total). '
-		+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount
-		+ ' heap=' + heapBytesPeak + ' bytes rowsReturned=' + rowsReturned + ' allocApprox=' + allocationsApprox);
+			'45 PASS: 3 queries on ' + BATCH_TOTAL + ' rows. '
+			+ 'plain=' + plainRows.size() + ' rows, rollup=' + rollupRows.size() + ' rows (1 grand-total),'
+			+ ' cube=' + cubeRows.size() + ' rows (6 leaves + 5 subtotals + 1 grand-total). '
+			+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount
+			+ ' heap=' + heapBytesPeak + ' bytes rowsReturned=' + rowsReturned + ' allocApprox=' + allocationsApprox);
 	pass++;
 }
 catch(Exception scenarioError)
@@ -282,10 +282,10 @@ try
 {
 	List<kern__Foobar__c> residualRows =
 	[
-		SELECT Id
-		FROM kern__Foobar__c
-		WHERE Name = :NAME_TAG
-		LIMIT 9000
+			SELECT Id
+			FROM kern__Foobar__c
+			WHERE Name = :NAME_TAG
+			LIMIT 9000
 	];
 	if(!residualRows.isEmpty())
 	{

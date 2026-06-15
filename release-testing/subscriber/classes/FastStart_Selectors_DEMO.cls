@@ -32,9 +32,9 @@ public inherited sharing class FastStart_Selectors_DEMO extends kern.SEL_Base
 	{
 		return new List<SObjectField>
 		{
-			Account.Name,
-			Account.Industry,
-			Account.AnnualRevenue
+				Account.Name,
+				Account.Industry,
+				Account.AnnualRevenue
 		};
 	}
 
@@ -49,9 +49,9 @@ public inherited sharing class FastStart_Selectors_DEMO extends kern.SEL_Base
 	public List<Account> findByIndustry(String industry)
 	{
 		return query
-			.condition(Account.Industry).equals(industry)
-			.orderBy(Account.Name).ascending()
-			.toList();
+				.condition(Account.Industry).equals(industry)
+				.orderBy(Account.Name).ascending()
+				.toList();
 	}
 
 	/**
@@ -63,8 +63,8 @@ public inherited sharing class FastStart_Selectors_DEMO extends kern.SEL_Base
 	public List<kern.QRY_Builder.AggregateRow> revenueByIndustry()
 	{
 		return query
-			.groupBy(Account.Industry)
-			.sum(Account.AnnualRevenue)
-			.toAggregateList();
+				.groupBy(Account.Industry)
+				.sum(Account.AnnualRevenue)
+				.toAggregateList();
 	}
 }

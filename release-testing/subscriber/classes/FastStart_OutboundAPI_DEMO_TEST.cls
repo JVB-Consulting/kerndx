@@ -16,10 +16,14 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_OutboundAPI_DEMO_TEST
 {
-	/** @description Fully qualified service name used to identify the handler in the framework. */
+	/**
+	 * @description Fully qualified service name used to identify the handler in the framework.
+	 */
 	private static final String SERVICE_NAME = FastStart_OutboundAPI_DEMO.class.getName();
 
-	/** @description Valid numeric post ID used in success-path tests. */
+	/**
+	 * @description Valid numeric post ID used in success-path tests.
+	 */
 	private static final String TEST_POST_ID = '1';
 
 	/**
@@ -32,7 +36,7 @@ private class FastStart_OutboundAPI_DEMO_TEST
 	{
 		Map<String, String> parameters = new Map<String, String>
 		{
-			FastStart_OutboundAPI_DEMO.PARAM_POST_ID => TEST_POST_ID
+				FastStart_OutboundAPI_DEMO.PARAM_POST_ID => TEST_POST_ID
 		};
 
 		kern.API_OutboundTestHelper.assertCallSuccessful(SERVICE_NAME, null, parameters);
@@ -58,7 +62,7 @@ private class FastStart_OutboundAPI_DEMO_TEST
 	{
 		Map<String, String> parameters = new Map<String, String>
 		{
-			FastStart_OutboundAPI_DEMO.PARAM_POST_ID => 'abc'
+				FastStart_OutboundAPI_DEMO.PARAM_POST_ID => 'abc'
 		};
 
 		kern.API_OutboundTestHelper.assertCallAborted(SERVICE_NAME, null, parameters);
@@ -75,10 +79,10 @@ private class FastStart_OutboundAPI_DEMO_TEST
 
 		Map<String, String> parameters = new Map<String, String>
 		{
-			FastStart_OutboundAPI_DEMO.PARAM_POST_ID => TEST_POST_ID
+				FastStart_OutboundAPI_DEMO.PARAM_POST_ID => TEST_POST_ID
 		};
 
 		kern__ApiCall__c apiCall = kern.TST_Factory.newOutboundApiCall(SERVICE_NAME, null, parameters);
-		kern.API_OutboundTestHelper.assertCallFailed(new List<kern__ApiCall__c>{ apiCall });
+		kern.API_OutboundTestHelper.assertCallFailed(new List<kern__ApiCall__c> {apiCall});
 	}
 }

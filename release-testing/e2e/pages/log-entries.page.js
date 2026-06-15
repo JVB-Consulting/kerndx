@@ -30,7 +30,9 @@ class LogEntriesPage
 			await this.page.locator('.triggerLinkTextAndIconWrapper, .listviewDisplayName, .forceListViewManagerHeader a').first().click();
 		});
 		const options = this.page.locator('ul[role="listbox"] li, ul.listContent li');
-		await options.first().waitFor({state: 'visible', timeout: 5_000}).catch(() => {});
+		await options.first().waitFor({state: 'visible', timeout: 5_000}).catch(() =>
+		{
+		});
 		const allOption = options.filter({hasText: /All/i}).first();
 		await allOption.click().catch(async() =>
 		{

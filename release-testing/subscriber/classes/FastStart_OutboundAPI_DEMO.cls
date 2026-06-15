@@ -18,11 +18,15 @@
  */
 public with sharing class FastStart_OutboundAPI_DEMO extends kern.API_Outbound
 {
-	/** @description Parameter name for the post ID to fetch. */
+	/**
+	 * @description Parameter name for the post ID to fetch.
+	 */
 	@TestVisible
 	private static final String PARAM_POST_ID = 'postId';
 
-	/** @description Validation error message when the post ID is not numeric. */
+	/**
+	 * @description Validation error message when the post ID is not numeric.
+	 */
 	@TestVisible
 	private static final String ERROR_POST_ID_NOT_NUMERIC = 'Post ID must be a numeric value';
 
@@ -112,16 +116,24 @@ public with sharing class FastStart_OutboundAPI_DEMO extends kern.API_Outbound
 	@JsonAccess(Serializable='always' Deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
-		/** @description The ID of the user who created the post. */
+		/**
+		 * @description The ID of the user who created the post.
+		 */
 		private Integer userId;
 
-		/** @description The post ID returned by the API. */
+		/**
+		 * @description The post ID returned by the API.
+		 */
 		private Integer id;
 
-		/** @description The post title. */
+		/**
+		 * @description The post title.
+		 */
 		private String title;
 
-		/** @description The post body text. */
+		/**
+		 * @description The post body text.
+		 */
 		private String body;
 
 		/**

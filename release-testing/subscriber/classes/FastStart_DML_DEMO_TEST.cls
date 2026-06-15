@@ -15,10 +15,14 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_DML_DEMO_TEST
 {
-	/** @description Account name used across parent-child tests. */
+	/**
+	 * @description Account name used across parent-child tests.
+	 */
 	private static final String TEST_ACCOUNT_NAME = 'Demo Corp';
 
-	/** @description Contact last name used for single-contact tests. */
+	/**
+	 * @description Contact last name used for single-contact tests.
+	 */
 	private static final String TEST_CONTACT_LAST_NAME = 'Smith';
 
 	/**
@@ -29,10 +33,10 @@ private class FastStart_DML_DEMO_TEST
 	private static void shouldAutoLinkContactsToAccount()
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
-		List<String> lastNames = new List<String>{ TEST_CONTACT_LAST_NAME, 'Jones' };
+		List<String> lastNames = new List<String> {TEST_CONTACT_LAST_NAME, 'Jones'};
 
 		kern.DML_Builder.TransactionResult result =
-			new FastStart_DML_DEMO().createAccountWithContacts(TEST_ACCOUNT_NAME, lastNames);
+				new FastStart_DML_DEMO().createAccountWithContacts(TEST_ACCOUNT_NAME, lastNames);
 
 		Assert.isTrue(result.isSuccess(), 'Transaction should succeed');
 		Assert.areEqual(3, result.getSuccessCount(), 'Should insert 1 Account + 2 Contacts');
@@ -40,9 +44,9 @@ private class FastStart_DML_DEMO_TEST
 		Id accountId = result.getInsertedIds()[0];
 
 		List<Contact> contacts = kern.QRY_Builder.selectFrom(Contact.SObjectType)
-			.fields(new List<SObjectField>{ Contact.LastName, Contact.AccountId })
-			.condition(Contact.AccountId).equals(accountId)
-			.toList();
+				.fields(new List<SObjectField> {Contact.LastName, Contact.AccountId})
+				.condition(Contact.AccountId).equals(accountId)
+				.toList();
 
 		Assert.areEqual(2, contacts.size(), 'Both Contacts should reference the Account');
 
@@ -61,7 +65,7 @@ private class FastStart_DML_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.DML_Builder.TransactionResult result =
-			new FastStart_DML_DEMO().createAccountWithContacts(TEST_ACCOUNT_NAME, new List<String>());
+				new FastStart_DML_DEMO().createAccountWithContacts(TEST_ACCOUNT_NAME, new List<String>());
 
 		Assert.isTrue(result.isSuccess(), 'Transaction should succeed');
 		Assert.areEqual(1, result.getSuccessCount(), 'Should insert only the Account');
@@ -77,19 +81,19 @@ private class FastStart_DML_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		Account validAccount = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Valid Account')
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Name, 'Valid Account')
+				.withoutInsertion()
+				.build();
 
 		Account invalidAccount = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, null)
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Name, null)
+				.withoutInsertion()
+				.build();
 
-		List<Account> mixedAccounts = new List<Account>{ validAccount, invalidAccount };
+		List<Account> mixedAccounts = new List<Account> {validAccount, invalidAccount};
 
 		kern.DML_Builder.TransactionResult result =
-			new FastStart_DML_DEMO().tryBulkInsertAccounts(mixedAccounts);
+				new FastStart_DML_DEMO().tryBulkInsertAccounts(mixedAccounts);
 
 		Assert.isFalse(result.isSuccess(), 'Overall result should reflect the failure');
 		Assert.isTrue(result.getFailureCount() > 0, 'Should report at least one failure');

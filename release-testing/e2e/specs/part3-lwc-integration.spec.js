@@ -45,13 +45,18 @@ test.describe.serial('Part 3: Subscriber LWC & Account Integration', () =>
 
 	test('V13: Account Creation Integration', async() =>
 	{
-		executeAnonymousApex(`kern.TRG_Base.bypassAction('kern.TRG_InvokeFlow'); Account a = new Account(Name = '${accountName}', Industry = 'Technology', Phone = '555-0100'); insert a; System.debug(a.Id);`);
-		const created = soqlQuery(`SELECT Id, Description FROM Account WHERE Name = '${accountName}' LIMIT 1`);
+		executeAnonymousApex(
+				`kern.TRG_Base.bypassAction('kern.TRG_InvokeFlow'); Account a = new Account(Name = '${accountName}', Industry = 'Technology', Phone = '555-0100'); insert a; System.debug(a.Id);`);
+		const created = soqlQuery(`SELECT Id, Description
+                                   FROM Account
+                                   WHERE Name = '${accountName}' LIMIT 1`);
 		expect(created.length, 'Account should be created').toBe(1);
 		accountId = created[0].Id;
 		expect(created[0].Description, 'Description should be set by TRG_SetAccountDefaults').toBe('Default');
 
-		const tasks = soqlQuery(`SELECT Id, Subject FROM Task WHERE WhatId = '${accountId}'`);
+		const tasks = soqlQuery(`SELECT Id, Subject
+                                 FROM Task
+                                 WHERE WhatId = '${accountId}'`);
 		expect(tasks.length, 'Task should be created by TRG_CreateAccountTask').toBeGreaterThan(0);
 		expect(tasks[0].Subject).toContain('Review New Account');
 	});

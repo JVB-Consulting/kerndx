@@ -270,22 +270,28 @@ private class SubscriberSecureByDefault_TEST
 	 */
 	private static User createStandardUser()
 	{
-		Profile standardProfile = [SELECT Id FROM Profile WHERE Name = 'Standard User' LIMIT 1];
+		Profile standardProfile =
+		[
+				SELECT Id
+				FROM Profile
+				WHERE Name = 'Standard User'
+				LIMIT 1
+		];
 		String suffix = String.valueOf(Crypto.getRandomInteger()).right(8);
 		User user = new User
-		(
-			FirstName = 'Secure',
-			LastName = 'ByDefault',
-			Email = 'secure-by-default-' + suffix + '@kerndx.test',
-			Username = 'secure-by-default-' + suffix + '@kerndx.test.invalid',
-			Alias = 'sbd' + suffix.right(3),
-			TimeZoneSidKey = 'America/New_York',
-			LocaleSidKey = 'en_US',
-			EmailEncodingKey = 'UTF-8',
-			LanguageLocaleKey = 'en_US',
-			ProfileId = standardProfile.Id
-		);
-		insert user;
-		return user;
+				(
+						FirstName = 'Secure',
+						LastName = 'ByDefault',
+						Email = 'secure-by-default-' + suffix + '@kerndx.test',
+						Username = 'secure-by-default-' + suffix + '@kerndx.test.invalid',
+						Alias = 'sbd' + suffix.right(3),
+						TimeZoneSidKey = 'America/New_York',
+						LocaleSidKey = 'en_US',
+						EmailEncodingKey = 'UTF-8',
+						LanguageLocaleKey = 'en_US',
+						ProfileId = standardProfile.Id
+				);
+		insert User;
+		return User;
 	}
 }

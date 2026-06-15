@@ -54,7 +54,9 @@ async function reauthenticate(page)
 	{
 	});
 	await page.locator('one-app-nav-bar, one-appnav').first()
-	.waitFor({state: 'visible', timeout: 15_000}).catch(() => {});
+	.waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+	{
+	});
 }
 
 async function ensureAuthenticated(page)

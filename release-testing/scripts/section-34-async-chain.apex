@@ -23,7 +23,13 @@ try
 				.execute();
 
 		System.assert(String.isNotBlank(executionId), '34a FAIL: executionId should not be blank');
-		kern__AsyncChainExecution__c execution = [SELECT kern__Status__c, kern__TotalSteps__c FROM kern__AsyncChainExecution__c WHERE Id = :executionId];
+		kern__AsyncChainExecution__c execution =
+		[
+				SELECT kern__Status__c,
+						kern__TotalSteps__c
+				FROM kern__AsyncChainExecution__c
+				WHERE Id = :executionId
+		];
 		System.assert(execution.kern__TotalSteps__c == 1, '34a FAIL: TotalSteps should be 1');
 		System.debug('34a PASS: Single-step chain launched — ' + executionId + ' (status: ' + execution.kern__Status__c + ')');
 	}
@@ -35,7 +41,13 @@ try
 				.then(new SubscriberChainSteps.UpdateFoobarStep())
 				.execute();
 
-		kern__AsyncChainExecution__c execution = [SELECT kern__Status__c, kern__TotalSteps__c FROM kern__AsyncChainExecution__c WHERE Id = :executionId];
+		kern__AsyncChainExecution__c execution =
+		[
+				SELECT kern__Status__c,
+						kern__TotalSteps__c
+				FROM kern__AsyncChainExecution__c
+				WHERE Id = :executionId
+		];
 		System.assert(execution.kern__TotalSteps__c == 2, '34b FAIL: TotalSteps should be 2');
 		System.debug('34b PASS: Multi-step chain launched — ' + executionId + ' (status: ' + execution.kern__Status__c + ')');
 	}
@@ -92,7 +104,12 @@ try
 				.then(new SubscriberChainSteps.CreateFoobarStep())
 				.execute();
 
-		kern__AsyncChainExecution__c execution = [SELECT kern__TotalSteps__c FROM kern__AsyncChainExecution__c WHERE Id = :executionId];
+		kern__AsyncChainExecution__c execution =
+		[
+				SELECT kern__TotalSteps__c
+				FROM kern__AsyncChainExecution__c
+				WHERE Id = :executionId
+		];
 		System.assert(execution.kern__TotalSteps__c == 2, '34g FAIL: TotalSteps should be 2');
 		System.debug('34g PASS: ContinueOnError chain launched — ' + executionId);
 	}
@@ -120,7 +137,12 @@ try
 				.execute();
 
 		System.assert(String.isNotBlank(executionId), '34i FAIL: executionId should not be blank');
-		kern__AsyncChainExecution__c execution = [SELECT kern__TotalSteps__c FROM kern__AsyncChainExecution__c WHERE Id = :executionId];
+		kern__AsyncChainExecution__c execution =
+		[
+				SELECT kern__TotalSteps__c
+				FROM kern__AsyncChainExecution__c
+				WHERE Id = :executionId
+		];
 		System.assert(execution.kern__TotalSteps__c == 1, '34i FAIL: TotalSteps should be 1');
 		System.debug('34i PASS: ApiStep bridge chain launched — ' + executionId);
 	}
@@ -132,7 +154,12 @@ try
 				.then(new SubscriberChainSteps.CreateFoobarStep())
 				.execute();
 
-		kern__AsyncChainExecution__c execution = [SELECT kern__ContextData__c FROM kern__AsyncChainExecution__c WHERE Id = :executionId];
+		kern__AsyncChainExecution__c execution =
+		[
+				SELECT kern__ContextData__c
+				FROM kern__AsyncChainExecution__c
+				WHERE Id = :executionId
+		];
 		System.assert(execution.kern__ContextData__c.contains('testKey'), '34j FAIL: Initial context should be persisted');
 		System.debug('34j PASS: Chain with initial context launched — ' + executionId);
 	}

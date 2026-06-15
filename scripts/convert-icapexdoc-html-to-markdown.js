@@ -64,7 +64,9 @@ const FIELD_ATTRIBUTE_ORDER = [
 ];
 
 const CONFIG = {
-	inputDir: path.join(__dirname, '../apexdoc'), outputDir: path.join(__dirname, '../docs/reference'), skipFiles: [
+	inputDir: path.join(__dirname, '../apexdoc'),
+	outputDir: path.join(__dirname, '../docs/reference'),
+	skipFiles: [
 		'index.html',
 		'help.html',
 		'classes.html',
@@ -74,7 +76,11 @@ const CONFIG = {
 		'sobjects.html',
 		'groups.html',
 		'index-all.html'
-	], skipPatterns: [/_group\.html$/, /^kern\./]
+	],
+	skipPatterns: [
+		/_group\.html$/,
+		/^kern\./
+	]
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -783,16 +789,22 @@ function extractMetadata(cheerioApi, filePath)
 		}
 	});
 
-	// Extract since
+	// Extract since — class-level only. The class declaration renders first on the page and its
+	// members follow, each potentially carrying its own "Since:" label. Take the FIRST "Since:"
+	// (the class's own) rather than the last, so a member introduced in a later version does not
+	// overwrite the class's introduction version. Member-level since is extracted separately.
+	// Keep only the first line of the cell: a class header may carry free text (e.g. a Coverage
+	// Note) after @since, which ic-apexdoc renders into the same cell as the version.
 	let since = '';
-	cheerioApi('b:contains("Since:")').each((i, el) =>
+	const classSinceLabel = cheerioApi('b:contains("Since:")').first();
+	if(classSinceLabel.length)
 	{
-		const nextTable = cheerioApi(el).next('table');
+		const nextTable = classSinceLabel.next('table');
 		if(nextTable.length)
 		{
-			since = nextTable.find('td').last().text().trim();
+			since = nextTable.find('td').last().text().trim().split(/\r?\n/)[0].trim();
 		}
-	});
+	}
 
 	// Extract @see references using shared helper
 	const seeAlso = extractSeeAlsoLinks(cheerioApi, cheerioApi('#TopLevelDeclarationMember'), cleanName);
@@ -2193,7 +2205,7 @@ const FRAMEWORK_AREAS = [
 	},
 	{
 		group: 'DML',
-		title: 'DML & Unit of Work',
+		title: 'DML and Unit of Work',
 		description: 'Transactional DML with dependency management, partial success handling, and sharing enforcement. Use `DML_Builder.newTransaction()` for all DML operations.',
 		highlights: [
 			'DML_Builder',
@@ -2396,17 +2408,13 @@ function generateMasterIndex(categories, masterIndexPath)
 		{use: 'Build SOQL queries', primary: 'QRY_Builder', related: ['QRY_Condition']},
 		{use: 'Simple record lookup', primary: 'SEL_Base', related: []},
 		{
-			use: 'Create trigger actions',
-			primary: 'TRG_Dispatcher',
-			related: [
+			use: 'Create trigger actions', primary: 'TRG_Dispatcher', related: [
 				'TRG_Base',
 				'IF_Trigger'
 			]
 		},
 		{
-			use: 'Make REST API calls',
-			primary: 'API_Outbound',
-			related: [
+			use: 'Make REST API calls', primary: 'API_Outbound', related: [
 				'API_OutboundMock',
 				'DTO_JsonBase'
 			]
@@ -2415,9 +2423,7 @@ function generateMasterIndex(categories, masterIndexPath)
 		{use: 'Transactional DML', primary: 'DML_Builder', related: ['DML_Transaction']},
 		{use: 'Log application events', primary: 'LOG_Builder', related: []},
 		{
-			use: 'Create test data',
-			primary: 'TST_Builder',
-			related: [
+			use: 'Create test data', primary: 'TST_Builder', related: [
 				'TST_Factory',
 				'TST_Mock'
 			]
@@ -2427,9 +2433,7 @@ function generateMasterIndex(categories, masterIndexPath)
 		{use: 'Work with strings', primary: 'UTIL_String', related: []},
 		{use: 'Work with dates', primary: 'UTIL_Date', related: []},
 		{
-			use: 'Work with collections',
-			primary: 'UTIL_List',
-			related: [
+			use: 'Work with collections', primary: 'UTIL_List', related: [
 				'UTIL_Map',
 				'UTIL_Set'
 			]

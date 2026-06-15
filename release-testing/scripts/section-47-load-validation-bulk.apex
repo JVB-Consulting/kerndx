@@ -155,25 +155,25 @@ final Integer SETCONTEXT_OPS_PER_RUN = BATCH_SIZE * 3;
 // strict group is gated off so we measure exactly the deployed Accumulate group.
 Integer activeAccountValidationRuleCount =
 [
-	SELECT COUNT()
-	FROM kern__ValidationRule__mdt
-	WHERE kern__ValidationRuleGroup__r.DeveloperName = 'AccountValidation'
-	AND kern__BypassExecution__c = FALSE
+		SELECT COUNT()
+		FROM kern__ValidationRule__mdt
+		WHERE kern__ValidationRuleGroup__r.DeveloperName = 'AccountValidation'
+		AND kern__BypassExecution__c = FALSE
 ];
 System.debug(LoggingLevel.INFO,
-	'Pre-flight: ' + activeAccountValidationRuleCount + ' active ValidationRule__mdt rows in '
-	+ 'AccountValidation group (Strategy=Accumulate). Expected = ' + DEPLOYED_RULE_COUNT
-	+ '. AccountStrictValidation group is gated by EnableStrictValidation feature flag '
-	+ '(default OFF) and is NOT exercised here. '
-	+ 'Total formula evaluations per insert+update cycle = ' + (BATCH_SIZE * activeAccountValidationRuleCount * 2)
-	+ ' (' + BATCH_SIZE + ' records × ' + activeAccountValidationRuleCount + ' rules × 2 contexts).');
+		'Pre-flight: ' + activeAccountValidationRuleCount + ' active ValidationRule__mdt rows in '
+		+ 'AccountValidation group (Strategy=Accumulate). Expected = ' + DEPLOYED_RULE_COUNT
+		+ '. AccountStrictValidation group is gated by EnableStrictValidation feature flag '
+		+ '(default OFF) and is NOT exercised here. '
+		+ 'Total formula evaluations per insert+update cycle = ' + (BATCH_SIZE * activeAccountValidationRuleCount * 2)
+		+ ' (' + BATCH_SIZE + ' records × ' + activeAccountValidationRuleCount + ' rules × 2 contexts).');
 
 if(activeAccountValidationRuleCount != DEPLOYED_RULE_COUNT)
 {
 	System.debug(LoggingLevel.WARN,
-		'47 PRE-FLIGHT WARN: expected ' + DEPLOYED_RULE_COUNT + ' active rules in AccountValidation, '
-		+ 'found ' + activeAccountValidationRuleCount + '. Behaviour assertions may not hold if rule '
-		+ 'composition has drifted; capture the new baseline and update the script header.');
+			'47 PRE-FLIGHT WARN: expected ' + DEPLOYED_RULE_COUNT + ' active rules in AccountValidation, '
+			+ 'found ' + activeAccountValidationRuleCount + '. Behaviour assertions may not hold if rule '
+			+ 'composition has drifted; capture the new baseline and update the script header.');
 }
 
 Long startWallMs = System.currentTimeMillis();
@@ -187,11 +187,11 @@ try
 	{
 		bulkAccounts.add(new Account
 				(
-					Name = NAME_TAG + '-' + index,
-					Industry = EXPECTED_INDUSTRY,
-					Phone = EXPECTED_PHONE,
-					Website = EXPECTED_WEBSITE,
-					Description = EXPECTED_DESCRIPTION
+						Name = NAME_TAG + '-' + index,
+						Industry = EXPECTED_INDUSTRY,
+						Phone = EXPECTED_PHONE,
+						Website = EXPECTED_WEBSITE,
+						Description = EXPECTED_DESCRIPTION
 				));
 	}
 
@@ -199,13 +199,18 @@ try
 
 	List<Account> insertedReadback =
 	[
-		SELECT Id, Industry, Phone, Website, Description, Name
-		FROM Account
-		WHERE Name LIKE :(NAME_TAG + '%')
+			SELECT Id,
+					Industry,
+					Phone,
+					Website,
+					Description,
+					Name
+			FROM Account
+			WHERE Name LIKE :(NAME_TAG + '%')
 	];
 	Assert.areEqual(BATCH_SIZE, insertedReadback.size(),
-		'47: all ' + BATCH_SIZE + ' Accounts must be persisted after bulk insert (validation rules pass for all). '
-		+ 'Got: ' + insertedReadback.size());
+			'47: all ' + BATCH_SIZE + ' Accounts must be persisted after bulk insert (validation rules pass for all). '
+			+ 'Got: ' + insertedReadback.size());
 
 	Integer fullyPopulatedCount = 0;
 	for(Account inserted : insertedReadback)
@@ -220,9 +225,9 @@ try
 		}
 	}
 	Assert.areEqual(BATCH_SIZE, fullyPopulatedCount,
-		'47: every inserted record must retain its populated Industry/Phone/Website/Description '
-		+ '(no validation rule should have stripped them). Fully populated: '
-		+ fullyPopulatedCount + '/' + BATCH_SIZE);
+			'47: every inserted record must retain its populated Industry/Phone/Website/Description '
+			+ '(no validation rule should have stripped them). Fully populated: '
+			+ fullyPopulatedCount + '/' + BATCH_SIZE);
 
 	List<Account> updateBatch = new List<Account>();
 	List<Account> oldRecordsForValidate = new List<Account>();
@@ -261,9 +266,18 @@ try
 
 		if(recordWasMutated)
 		{
-			if(totalErrors == EXPECTED_ERRORS_PER_MUTATED_RECORD) { mutatedRecordsWithExpectedTotalErrors++; }
-			if(blockingErrors == EXPECTED_BLOCKING_ERRORS_PER_MUTATED_RECORD) { mutatedRecordsWithExpectedBlockingErrors++; }
-			if(warningErrors == EXPECTED_WARNINGS_PER_MUTATED_RECORD) { mutatedRecordsWithExpectedWarnings++; }
+			if(totalErrors == EXPECTED_ERRORS_PER_MUTATED_RECORD)
+			{
+				mutatedRecordsWithExpectedTotalErrors++;
+			}
+			if(blockingErrors == EXPECTED_BLOCKING_ERRORS_PER_MUTATED_RECORD)
+			{
+				mutatedRecordsWithExpectedBlockingErrors++;
+			}
+			if(warningErrors == EXPECTED_WARNINGS_PER_MUTATED_RECORD)
+			{
+				mutatedRecordsWithExpectedWarnings++;
+			}
 
 			Boolean sawIndustry = false;
 			Boolean sawPhoneOrWebsite = false;
@@ -271,17 +285,38 @@ try
 			for(kern.UTIL_ValidationRule.ValidationError error : probe.errors)
 			{
 				String message = error.message == null ? '' : error.message;
-				if(message.contains(ERROR_FRAGMENT_INDUSTRY)) { sawIndustry = true; }
-				if(message.contains(ERROR_FRAGMENT_PHONE_OR_WEBSITE)) { sawPhoneOrWebsite = true; }
-				if(message.contains(ERROR_FRAGMENT_WARN_WEBSITE)) { sawWarnWebsite = true; }
+				if(message.contains(ERROR_FRAGMENT_INDUSTRY))
+				{
+					sawIndustry = true;
+				}
+				if(message.contains(ERROR_FRAGMENT_PHONE_OR_WEBSITE))
+				{
+					sawPhoneOrWebsite = true;
+				}
+				if(message.contains(ERROR_FRAGMENT_WARN_WEBSITE))
+				{
+					sawWarnWebsite = true;
+				}
 			}
-			if(sawIndustry) { mutatedRecordsWithIndustryError++; }
-			if(sawPhoneOrWebsite) { mutatedRecordsWithPhoneOrWebsiteError++; }
-			if(sawWarnWebsite) { mutatedRecordsWithWarnWebsiteError++; }
+			if(sawIndustry)
+			{
+				mutatedRecordsWithIndustryError++;
+			}
+			if(sawPhoneOrWebsite)
+			{
+				mutatedRecordsWithPhoneOrWebsiteError++;
+			}
+			if(sawWarnWebsite)
+			{
+				mutatedRecordsWithWarnWebsiteError++;
+			}
 		}
 		else
 		{
-			if(totalErrors == 0) { unchangedRecordsWithZeroErrors++; }
+			if(totalErrors == 0)
+			{
+				unchangedRecordsWithZeroErrors++;
+			}
 		}
 	}
 
@@ -307,70 +342,70 @@ try
 	Integer formulaContextAllocsApprox = SETCONTEXT_OPS_PER_RUN;
 
 	Assert.areEqual(BATCH_SIZE, probeResults.size(),
-		'47: ValidationResult cardinality must equal record count. Got: '
-		+ probeResults.size() + '/' + BATCH_SIZE);
+			'47: ValidationResult cardinality must equal record count. Got: '
+			+ probeResults.size() + '/' + BATCH_SIZE);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithExpectedTotalErrors,
-		'47: every mutated record must have exactly ' + EXPECTED_ERRORS_PER_MUTATED_RECORD
-		+ ' total ValidationError entries (RequireAccountIndustry + WarnMissingWebsite + '
-		+ 'PhoneOrWebsiteRequired, Accumulate strategy). With-3-total: '
-		+ mutatedRecordsWithExpectedTotalErrors + '/' + MUTATION_COUNT);
+			'47: every mutated record must have exactly ' + EXPECTED_ERRORS_PER_MUTATED_RECORD
+			+ ' total ValidationError entries (RequireAccountIndustry + WarnMissingWebsite + '
+			+ 'PhoneOrWebsiteRequired, Accumulate strategy). With-3-total: '
+			+ mutatedRecordsWithExpectedTotalErrors + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithExpectedBlockingErrors,
-		'47: every mutated record must have exactly ' + EXPECTED_BLOCKING_ERRORS_PER_MUTATED_RECORD
-		+ ' Error-severity violations (RequireAccountIndustry + PhoneOrWebsiteRequired). '
-		+ 'With-2-blocking: ' + mutatedRecordsWithExpectedBlockingErrors + '/' + MUTATION_COUNT);
+			'47: every mutated record must have exactly ' + EXPECTED_BLOCKING_ERRORS_PER_MUTATED_RECORD
+			+ ' Error-severity violations (RequireAccountIndustry + PhoneOrWebsiteRequired). '
+			+ 'With-2-blocking: ' + mutatedRecordsWithExpectedBlockingErrors + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithExpectedWarnings,
-		'47: every mutated record must have exactly ' + EXPECTED_WARNINGS_PER_MUTATED_RECORD
-		+ ' Warning-severity violation (WarnMissingWebsite). With-1-warning: '
-		+ mutatedRecordsWithExpectedWarnings + '/' + MUTATION_COUNT);
+			'47: every mutated record must have exactly ' + EXPECTED_WARNINGS_PER_MUTATED_RECORD
+			+ ' Warning-severity violation (WarnMissingWebsite). With-1-warning: '
+			+ mutatedRecordsWithExpectedWarnings + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithIndustryError,
-		'47: every mutated record must include a "' + ERROR_FRAGMENT_INDUSTRY
-		+ '" message from the RequireAccountIndustry rule. Got: '
-		+ mutatedRecordsWithIndustryError + '/' + MUTATION_COUNT);
+			'47: every mutated record must include a "' + ERROR_FRAGMENT_INDUSTRY
+			+ '" message from the RequireAccountIndustry rule. Got: '
+			+ mutatedRecordsWithIndustryError + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithPhoneOrWebsiteError,
-		'47: every mutated record must include a "' + ERROR_FRAGMENT_PHONE_OR_WEBSITE
-		+ '" message from the PhoneOrWebsiteRequired rule. Got: '
-		+ mutatedRecordsWithPhoneOrWebsiteError + '/' + MUTATION_COUNT);
+			'47: every mutated record must include a "' + ERROR_FRAGMENT_PHONE_OR_WEBSITE
+			+ '" message from the PhoneOrWebsiteRequired rule. Got: '
+			+ mutatedRecordsWithPhoneOrWebsiteError + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(MUTATION_COUNT, mutatedRecordsWithWarnWebsiteError,
-		'47: every mutated record must include a "' + ERROR_FRAGMENT_WARN_WEBSITE
-		+ '" message from the WarnMissingWebsite rule. Got: '
-		+ mutatedRecordsWithWarnWebsiteError + '/' + MUTATION_COUNT);
+			'47: every mutated record must include a "' + ERROR_FRAGMENT_WARN_WEBSITE
+			+ '" message from the WarnMissingWebsite rule. Got: '
+			+ mutatedRecordsWithWarnWebsiteError + '/' + MUTATION_COUNT);
 
 	Assert.areEqual(BATCH_SIZE - MUTATION_COUNT, unchangedRecordsWithZeroErrors,
-		'47: every unchanged record must have zero ValidationError entries. With-0-errors: '
-		+ unchangedRecordsWithZeroErrors + '/' + (BATCH_SIZE - MUTATION_COUNT));
+			'47: every unchanged record must have zero ValidationError entries. With-0-errors: '
+			+ unchangedRecordsWithZeroErrors + '/' + (BATCH_SIZE - MUTATION_COUNT));
 
 	Assert.areEqual(MUTATION_COUNT, failureCount,
-		'47: exactly ' + MUTATION_COUNT + ' partial-update results must fail (the mutated records '
-		+ 'with cleared Industry/Phone/Website blocked by 2 Error-severity rules). Got failures: '
-		+ failureCount + '/' + BATCH_SIZE);
+			'47: exactly ' + MUTATION_COUNT + ' partial-update results must fail (the mutated records '
+			+ 'with cleared Industry/Phone/Website blocked by 2 Error-severity rules). Got failures: '
+			+ failureCount + '/' + BATCH_SIZE);
 
 	Assert.areEqual(BATCH_SIZE - MUTATION_COUNT, successCount,
-		'47: exactly ' + (BATCH_SIZE - MUTATION_COUNT) + ' partial-update results must succeed (the '
-		+ 'unchanged records). Got successes: ' + successCount + '/' + BATCH_SIZE);
+			'47: exactly ' + (BATCH_SIZE - MUTATION_COUNT) + ' partial-update results must succeed (the '
+			+ 'unchanged records). Got successes: ' + successCount + '/' + BATCH_SIZE);
 
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 47, 'metric' => 'wallMs', 'value' => wallMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 47, 'metric' => 'cpuMs', 'value' => cpuMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 47, 'metric' => 'soqlCount', 'value' => soqlCount}));
-	Map<String, Object> formulaAllocsRow = new Map<String, Object>{'section' => 47, 'metric' => 'formulaContextAllocsApprox', 'value' => formulaContextAllocsApprox};
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 47, 'metric' => 'wallMs', 'value' => wallMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 47, 'metric' => 'cpuMs', 'value' => cpuMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 47, 'metric' => 'soqlCount', 'value' => soqlCount}));
+	Map<String, Object> formulaAllocsRow = new Map<String, Object> {'section' => 47, 'metric' => 'formulaContextAllocsApprox', 'value' => formulaContextAllocsApprox};
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(formulaAllocsRow));
 
 	System.debug(LoggingLevel.INFO,
-		'47 PASS: ' + BATCH_SIZE + ' Account inserts + 1 explicit validate() probe + '
-		+ BATCH_SIZE + ' partial-update results. '
-		+ 'Insert: ' + insertedReadback.size() + ' persisted, ' + fullyPopulatedCount + ' fully populated. '
-		+ 'Probe: ' + probeResults.size() + ' ValidationResults; '
-		+ mutatedRecordsWithExpectedBlockingErrors + ' mutated records with 2 blocking errors + '
-		+ mutatedRecordsWithExpectedWarnings + ' with 1 warning + '
-		+ unchangedRecordsWithZeroErrors + ' unchanged records with 0 errors. '
-		+ 'Update: ' + successCount + ' succeeded, ' + failureCount + ' failed. '
-		+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount
-		+ ' formulaContextAllocs=' + formulaContextAllocsApprox);
+			'47 PASS: ' + BATCH_SIZE + ' Account inserts + 1 explicit validate() probe + '
+			+ BATCH_SIZE + ' partial-update results. '
+			+ 'Insert: ' + insertedReadback.size() + ' persisted, ' + fullyPopulatedCount + ' fully populated. '
+			+ 'Probe: ' + probeResults.size() + ' ValidationResults; '
+			+ mutatedRecordsWithExpectedBlockingErrors + ' mutated records with 2 blocking errors + '
+			+ mutatedRecordsWithExpectedWarnings + ' with 1 warning + '
+			+ unchangedRecordsWithZeroErrors + ' unchanged records with 0 errors. '
+			+ 'Update: ' + successCount + ' succeeded, ' + failureCount + ' failed. '
+			+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount
+			+ ' formulaContextAllocs=' + formulaContextAllocsApprox);
 	pass++;
 }
 catch(Exception scenarioError)
@@ -387,19 +422,19 @@ try
 {
 	List<Account> residualAccounts =
 	[
-		SELECT Id
-		FROM Account
-		WHERE Name LIKE :(NAME_TAG + '%')
-		LIMIT 9000
+			SELECT Id
+			FROM Account
+			WHERE Name LIKE :(NAME_TAG + '%')
+			LIMIT 9000
 	];
 	if(!residualAccounts.isEmpty())
 	{
 		List<Task> residualTasks =
 		[
-			SELECT Id
-			FROM Task
-			WHERE WhatId IN :residualAccounts
-			LIMIT 9000
+				SELECT Id
+				FROM Task
+				WHERE WhatId IN :residualAccounts
+				LIMIT 9000
 		];
 		if(!residualTasks.isEmpty())
 		{

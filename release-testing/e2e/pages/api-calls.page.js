@@ -20,7 +20,9 @@ class ApiCallsPage
 			const viewPicker = this.page.locator('button[title="Select a List View"], button:has-text("Recently Viewed")').first();
 			await viewPicker.click();
 			const allOption = this.page.getByRole('option', {name: /All/i}).first();
-			await allOption.waitFor({state: 'visible', timeout: 5_000}).catch(() => {});
+			await allOption.waitFor({state: 'visible', timeout: 5_000}).catch(() =>
+			{
+			});
 			await allOption.click().catch(async() =>
 			{
 				const anyOption = this.page.locator('li[role="presentation"] a, lightning-base-combobox-item').first();

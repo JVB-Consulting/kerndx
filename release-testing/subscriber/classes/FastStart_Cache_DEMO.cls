@@ -3,13 +3,13 @@
  * @description Drift-guard demo class for UTIL_Cache transaction-scope additions.
  * Demonstrates the two subscriber-facing factories:
  *
- *   - `kern.UTIL_Cache.inTransaction()` — per-request in-memory memoization. Lifetime is the
- *     current Apex transaction. Use for expensive describes, lazy singletons, or per-request
- *     deduplication.
- *   - `kern.UTIL_Cache.autoWithTransactionFallback()` — Session → Org → IN_TRANSACTION graceful
- *     degradation. Reports `cacheTypeUsed = Scope.IN_TRANSACTION` on the fallback path so callers
- *     can detect a degraded scope. Use when Platform Cache may not be allocated and durability
- *     is not strictly required.
+ * - `kern.UTIL_Cache.inTransaction()` — per-request in-memory memoization. Lifetime is the
+ *   current Apex transaction. Use for expensive describes, lazy singletons, or per-request
+ *   deduplication.
+ * - `kern.UTIL_Cache.autoWithTransactionFallback()` — Session → Org → IN_TRANSACTION graceful
+ *   degradation. Reports `cacheTypeUsed = Scope.IN_TRANSACTION` on the fallback path so callers
+ *   can detect a degraded scope. Use when Platform Cache may not be allocated and durability
+ *   is not strictly required.
  *
  * For durability-required workloads (security keys, distributed counters) subscribers stay on
  * `kern.UTIL_Cache.auto()` so the loud `CACHE_UNAVAILABLE` failure signal stays loud.
@@ -24,11 +24,15 @@
  */
 public with sharing class FastStart_Cache_DEMO
 {
-	/** @description Stable cache key for the per-transaction describe memoization demo. */
+	/**
+	 * @description Stable cache key for the per-transaction describe memoization demo.
+	 */
 	@TestVisible
 	private static final String MEMOIZED_DESCRIBE_KEY = 'fastStartCacheDemoAccountDescribe';
 
-	/** @description Stable cache key for the graceful-fallback demo. */
+	/**
+	 * @description Stable cache key for the graceful-fallback demo.
+	 */
 	@TestVisible
 	private static final String FALLBACK_KEY = 'fastStartCacheDemoFallback';
 

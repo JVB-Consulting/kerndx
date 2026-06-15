@@ -16,14 +16,20 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_QueryMapTerminals_DEMO_TEST
 {
-	/** @description Account name used for the parent fixture in every test. */
+	/**
+	 * @description Account name used for the parent fixture in every test.
+	 */
 	private static final String PARENT_ACCOUNT_NAME = 'Demo Map Terminals Account';
 
-	/** @description Account industry used to verify String-key grouping. */
+	/**
+	 * @description Account industry used to verify String-key grouping.
+	 */
 	private static final String FIXTURE_INDUSTRY = 'Biotechnology';
 
-	/** @description Contact last names used to verify two-children-per-parent grouping. */
-	private static final List<String> CONTACT_LAST_NAMES = new List<String>{'Smith', 'Jones'};
+	/**
+	 * @description Contact last names used to verify two-children-per-parent grouping.
+	 */
+	private static final List<String> CONTACT_LAST_NAMES = new List<String> {'Smith', 'Jones'};
 
 	/**
 	 * @description Verifies asMapById on a non-Id field (Contact.AccountId). The first Contact
@@ -57,7 +63,7 @@ private class FastStart_QueryMapTerminals_DEMO_TEST
 
 		Assert.isTrue(result.containsKey(parent.Id), 'Result should contain the parent AccountId');
 		Assert.areEqual(CONTACT_LAST_NAMES.size(), result.get(parent.Id).size(),
-			'Both Contacts should be grouped under the parent AccountId');
+				'Both Contacts should be grouped under the parent AccountId');
 	}
 
 	/**

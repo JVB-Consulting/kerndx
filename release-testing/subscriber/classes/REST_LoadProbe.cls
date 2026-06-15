@@ -64,7 +64,7 @@ global inherited sharing class REST_LoadProbe
 
 		RestContext.response.statusCode = 200;
 		RestContext.response.responseBody = Blob.valueOf(JSON.serialize(
-				new Map<String, Object>{'reset' => true, 'circuitId' => circuitId}
+				new Map<String, Object> {'reset' => true, 'circuitId' => circuitId}
 		));
 	}
 

@@ -80,9 +80,9 @@ const ACCESS_LEVEL_ARG_PATTERN = /\bAccessLevel\b/;
 function stripCommentsAndStrings(source)
 {
 	return source
-			.replace(/\/\*[\s\S]*?\*\//g, (match) => ' '.repeat(match.length))
-			.replace(/\/\/[^\n]*/g, (match) => ' '.repeat(match.length))
-			.replace(/'(?:\\.|[^'\\])*'/g, (match) => '\'' + ' '.repeat(match.length - 2) + '\'');
+	.replace(/\/\*[\s\S]*?\*\//g, (match) => ' '.repeat(match.length))
+	.replace(/\/\/[^\n]*/g, (match) => ' '.repeat(match.length))
+	.replace(/'(?:\\.|[^'\\])*'/g, (match) => '\'' + ' '.repeat(match.length - 2) + '\'');
 }
 
 function findLineNumber(source, charIndex)
@@ -115,10 +115,10 @@ function findMatchingCloseParen(text, openIndex)
 function listApexClassFiles()
 {
 	return fs.readdirSync(CLASSES_DIR)
-			.filter((name) => name.endsWith('.cls'))
-			.filter((name) => !name.endsWith('_TEST.cls'))
-			.filter((name) => !ALLOWLIST.has(name))
-			.map((name) => path.join(CLASSES_DIR, name));
+	.filter((name) => name.endsWith('.cls'))
+	.filter((name) => !name.endsWith('_TEST.cls'))
+	.filter((name) => !ALLOWLIST.has(name))
+	.map((name) => path.join(CLASSES_DIR, name));
 }
 
 function scanFile(filePath)
@@ -156,9 +156,15 @@ function scanFile(filePath)
 		while((match = re.exec(cleaned)) !== null)
 		{
 			const openParenIndex = cleaned.indexOf('(', match.index);
-			if(openParenIndex < 0) { continue; }
+			if(openParenIndex < 0)
+			{
+				continue;
+			}
 			const closeParenIndex = findMatchingCloseParen(cleaned, openParenIndex);
-			if(closeParenIndex < 0) { continue; }
+			if(closeParenIndex < 0)
+			{
+				continue;
+			}
 			const argsText = cleaned.slice(openParenIndex + 1, closeParenIndex);
 			if(!ACCESS_LEVEL_ARG_PATTERN.test(argsText))
 			{

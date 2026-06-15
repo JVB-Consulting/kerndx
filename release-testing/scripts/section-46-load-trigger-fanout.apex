@@ -118,16 +118,16 @@ final Integer ACTIONS_PER_RECORD_PER_CYCLE = ACTIONS_BEFORE_INSERT + ACTIONS_AFT
 // are not BypassExecution. A drift here would skew assertions and metrics.
 Integer activeActionCount =
 [
-	SELECT COUNT()
-	FROM kern__TriggerAction__mdt
-	WHERE kern__TriggerSetting__r.kern__SObjectType__c = 'Account'
-	AND kern__BypassExecution__c = FALSE
+		SELECT COUNT()
+		FROM kern__TriggerAction__mdt
+		WHERE kern__TriggerSetting__r.kern__SObjectType__c = 'Account'
+		AND kern__BypassExecution__c = FALSE
 ];
 System.debug(LoggingLevel.INFO,
-	'Pre-flight: ' + activeActionCount + ' active TriggerAction__mdt rows on Account (BypassExecution=false). '
-	+ 'Expected dispatch fan-out per record per insert+update cycle = '
-	+ ACTIONS_PER_RECORD_PER_CYCLE + ' (4 BI + 1 AI + 2 BU + 1 AU, with kern.TRG_InvokeFlow bypassed). '
-	+ 'Total dispatches: ' + (BATCH_SIZE * ACTIONS_PER_RECORD_PER_CYCLE));
+		'Pre-flight: ' + activeActionCount + ' active TriggerAction__mdt rows on Account (BypassExecution=false). '
+		+ 'Expected dispatch fan-out per record per insert+update cycle = '
+		+ ACTIONS_PER_RECORD_PER_CYCLE + ' (4 BI + 1 AI + 2 BU + 1 AU, with kern.TRG_InvokeFlow bypassed). '
+		+ 'Total dispatches: ' + (BATCH_SIZE * ACTIONS_PER_RECORD_PER_CYCLE));
 
 // Capture pre-run governor baselines (measurement window covers insert + post-insert query +
 // update + post-update query, matching the spec's "200 records × 8 actions × insert+update"
@@ -144,9 +144,9 @@ try
 	{
 		bulkAccounts.add(new Account
 				(
-					Name = NAME_TAG_INITIAL + '-' + index,
-					Industry = 'Technology',
-					Phone = '555-0046'
+						Name = NAME_TAG_INITIAL + '-' + index,
+						Industry = 'Technology',
+						Phone = '555-0046'
 				));
 	}
 
@@ -156,12 +156,14 @@ try
 	// and trigger-stamped AccountSource. Sums on the loop avoid loading 200 records twice.
 	List<Account> insertedReadback =
 	[
-		SELECT Id, Description, AccountSource
-		FROM Account
-		WHERE Name LIKE :(NAME_TAG_INITIAL + '%')
+			SELECT Id,
+					Description,
+					AccountSource
+			FROM Account
+			WHERE Name LIKE :(NAME_TAG_INITIAL + '%')
 	];
 	Assert.areEqual(BATCH_SIZE, insertedReadback.size(),
-		'46: all ' + BATCH_SIZE + ' Accounts must be persisted after bulk insert. Got: ' + insertedReadback.size());
+			'46: all ' + BATCH_SIZE + ' Accounts must be persisted after bulk insert. Got: ' + insertedReadback.size());
 
 	Integer defaultedDescriptionCount = 0;
 	Integer stampedSourceCount = 0;
@@ -177,22 +179,22 @@ try
 		}
 	}
 	Assert.areEqual(BATCH_SIZE, defaultedDescriptionCount,
-		'46: TRG_SetAccountDefaults BeforeInsert must default Description on every record. '
-		+ 'Defaulted: ' + defaultedDescriptionCount + '/' + BATCH_SIZE);
+			'46: TRG_SetAccountDefaults BeforeInsert must default Description on every record. '
+			+ 'Defaulted: ' + defaultedDescriptionCount + '/' + BATCH_SIZE);
 	Assert.areEqual(BATCH_SIZE, stampedSourceCount,
-		'46: TRG_StampAccountSource BeforeInsert must stamp AccountSource on every record. '
-		+ 'Stamped: ' + stampedSourceCount + '/' + BATCH_SIZE);
+			'46: TRG_StampAccountSource BeforeInsert must stamp AccountSource on every record. '
+			+ 'Stamped: ' + stampedSourceCount + '/' + BATCH_SIZE);
 
 	// Behaviour assertion 2: AfterInsert handler created exactly one Task per Account.
 	Integer insertTaskCount =
 	[
-		SELECT COUNT()
-		FROM Task
-		WHERE WhatId IN :bulkAccounts
+			SELECT COUNT()
+			FROM Task
+			WHERE WhatId IN :bulkAccounts
 	];
 	Assert.areEqual(BATCH_SIZE, insertTaskCount,
-		'46: TRG_CreateAccountTask AfterInsert must create exactly 1 Task per Account. '
-		+ 'A recursion-shield false-positive would yield fewer. Got: ' + insertTaskCount + '/' + BATCH_SIZE);
+			'46: TRG_CreateAccountTask AfterInsert must create exactly 1 Task per Account. '
+			+ 'A recursion-shield false-positive would yield fewer. Got: ' + insertTaskCount + '/' + BATCH_SIZE);
 
 	// Now update all 200 with a Name change to fire BeforeUpdate (2 actions) + AfterUpdate (1 action).
 	// First clear AccountSource so the BeforeUpdate stamper has something to set, then mutate Name
@@ -208,12 +210,13 @@ try
 	// every record (it only re-stamps when Name changes — which it did for all 200).
 	List<Account> updatedReadback =
 	[
-		SELECT Id, AccountSource
-		FROM Account
-		WHERE Name LIKE :(NAME_TAG_UPDATED + '%')
+			SELECT Id,
+					AccountSource
+			FROM Account
+			WHERE Name LIKE :(NAME_TAG_UPDATED + '%')
 	];
 	Assert.areEqual(BATCH_SIZE, updatedReadback.size(),
-		'46: all ' + BATCH_SIZE + ' Accounts must show the updated Name tag. Got: ' + updatedReadback.size());
+			'46: all ' + BATCH_SIZE + ' Accounts must show the updated Name tag. Got: ' + updatedReadback.size());
 
 	Integer reStampedCount = 0;
 	for(Account updated : updatedReadback)
@@ -224,21 +227,21 @@ try
 		}
 	}
 	Assert.areEqual(BATCH_SIZE, reStampedCount,
-		'46: TRG_StampAccountSource BeforeUpdate must re-stamp AccountSource on every Name-changed record. '
-		+ 'Re-stamped: ' + reStampedCount + '/' + BATCH_SIZE);
+			'46: TRG_StampAccountSource BeforeUpdate must re-stamp AccountSource on every Name-changed record. '
+			+ 'Re-stamped: ' + reStampedCount + '/' + BATCH_SIZE);
 
 	// Behaviour assertion 4: AfterUpdate handler created another Task per Account (Name change detected).
 	// Total Task count should now be exactly 2 × BATCH_SIZE (1 from AfterInsert + 1 from AfterUpdate).
 	Integer totalTaskCount =
 	[
-		SELECT COUNT()
-		FROM Task
-		WHERE WhatId IN :insertedReadback
+			SELECT COUNT()
+			FROM Task
+			WHERE WhatId IN :insertedReadback
 	];
 	Assert.areEqual(BATCH_SIZE * 2, totalTaskCount,
-		'46: After insert+update cycle, total Tasks must be 2 × ' + BATCH_SIZE + ' = ' + (BATCH_SIZE * 2)
-		+ ' (1 from TRG_CreateAccountTask AfterInsert + 1 from TRG_DetectNameChange AfterUpdate). '
-		+ 'A recursion-shield false-positive would yield fewer. Got: ' + totalTaskCount);
+			'46: After insert+update cycle, total Tasks must be 2 × ' + BATCH_SIZE + ' = ' + (BATCH_SIZE * 2)
+			+ ' (1 from TRG_CreateAccountTask AfterInsert + 1 from TRG_DetectNameChange AfterUpdate). '
+			+ 'A recursion-shield false-positive would yield fewer. Got: ' + totalTaskCount);
 
 	// Capture post-run governor metrics
 	Long wallMs = System.currentTimeMillis() - startWallMs;
@@ -259,20 +262,20 @@ try
 	Integer recursionCheckOps = ACTIONS_PER_RECORD_PER_CYCLE * BATCH_SIZE;
 
 	// PERF_ROW emission (one System.debug per metric — harvested by Task 2.6 perf-history harvester).
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'wallMs', 'value' => wallMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'cpuMs', 'value' => cpuMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'soqlCount', 'value' => soqlCount}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'dmlCount', 'value' => dmlCount}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'formulaEvalsApprox', 'value' => formulaEvalsApprox}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 46, 'metric' => 'recursionCheckOps', 'value' => recursionCheckOps}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'wallMs', 'value' => wallMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'cpuMs', 'value' => cpuMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'soqlCount', 'value' => soqlCount}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'dmlCount', 'value' => dmlCount}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'formulaEvalsApprox', 'value' => formulaEvalsApprox}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 46, 'metric' => 'recursionCheckOps', 'value' => recursionCheckOps}));
 
 	System.debug(LoggingLevel.INFO,
-		'46 PASS: ' + BATCH_SIZE + ' Accounts × ' + ACTIONS_PER_RECORD_PER_CYCLE + ' chained TriggerActions = '
-		+ (BATCH_SIZE * ACTIONS_PER_RECORD_PER_CYCLE) + ' dispatches. '
-		+ 'Defaulted=' + defaultedDescriptionCount + ' StampedInsert=' + stampedSourceCount
-		+ ' StampedUpdate=' + reStampedCount + ' Tasks=' + totalTaskCount + ' (expect ' + (BATCH_SIZE * 2) + '). '
-		+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount + ' dml=' + dmlCount
-		+ ' formulaEvals=' + formulaEvalsApprox + ' recursionOps=' + recursionCheckOps);
+			'46 PASS: ' + BATCH_SIZE + ' Accounts × ' + ACTIONS_PER_RECORD_PER_CYCLE + ' chained TriggerActions = '
+			+ (BATCH_SIZE * ACTIONS_PER_RECORD_PER_CYCLE) + ' dispatches. '
+			+ 'Defaulted=' + defaultedDescriptionCount + ' StampedInsert=' + stampedSourceCount
+			+ ' StampedUpdate=' + reStampedCount + ' Tasks=' + totalTaskCount + ' (expect ' + (BATCH_SIZE * 2) + '). '
+			+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount + ' dml=' + dmlCount
+			+ ' formulaEvals=' + formulaEvalsApprox + ' recursionOps=' + recursionCheckOps);
 	pass++;
 }
 catch(Exception scenarioError)
@@ -293,19 +296,20 @@ try
 {
 	List<Account> residualAccounts =
 	[
-		SELECT Id
-		FROM Account
-		WHERE Name LIKE :(NAME_TAG_INITIAL + '%') OR Name LIKE :(NAME_TAG_UPDATED + '%')
-		LIMIT 9000
+			SELECT Id
+			FROM Account
+			WHERE Name LIKE :(NAME_TAG_INITIAL + '%')
+			OR Name LIKE :(NAME_TAG_UPDATED + '%')
+			LIMIT 9000
 	];
 	if(!residualAccounts.isEmpty())
 	{
 		List<Task> residualTasks =
 		[
-			SELECT Id
-			FROM Task
-			WHERE WhatId IN :residualAccounts
-			LIMIT 9000
+				SELECT Id
+				FROM Task
+				WHERE WhatId IN :residualAccounts
+				LIMIT 9000
 		];
 		if(!residualTasks.isEmpty())
 		{

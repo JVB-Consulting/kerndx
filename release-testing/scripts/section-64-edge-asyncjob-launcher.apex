@@ -101,8 +101,8 @@ try
 	}
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request64a =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64a)
-			.withLimitAtWhichToBatch(THRESHOLD);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64a)
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id jobId64a = kern.UTIL_AsynchronousJobLauncher.process(request64a, new AccountArchiveProcessor());
 
@@ -110,38 +110,40 @@ try
 
 	List<AsyncApexJob> jobs64a =
 	[
-		SELECT Id, JobType, Status
-		FROM AsyncApexJob
-		WHERE Id = :jobId64a
-		LIMIT 1
+			SELECT Id,
+					JobType,
+					Status
+			FROM AsyncApexJob
+			WHERE Id = :jobId64a
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, jobs64a.size(),
-		'64a: AsyncApexJob row must exist for the returned job ID. Got: ' + jobs64a.size()
+			'64a: AsyncApexJob row must exist for the returned job ID. Got: ' + jobs64a.size()
 	);
 
 	Assert.areEqual('Queueable', jobs64a[0].JobType,
-		'64a: JobType must be "Queueable" for PARALLEL_QUEUEABLES execution (49 < threshold=50). '
-		+ 'Got: ' + jobs64a[0].JobType
+			'64a: JobType must be "Queueable" for PARALLEL_QUEUEABLES execution (49 < threshold=50). '
+			+ 'Got: ' + jobs64a[0].JobType
 	);
 
 	Assert.isTrue(
-		jobs64a[0].Status == 'Queued'
-		|| jobs64a[0].Status == 'Processing'
-		|| jobs64a[0].Status == 'Completed',
-		'64a: Status must be Queued/Processing/Completed immediately after enqueue. Got: ' + jobs64a[0].Status
+			jobs64a[0].Status == 'Queued'
+			|| jobs64a[0].Status == 'Processing'
+			|| jobs64a[0].Status == 'Completed',
+			'64a: Status must be Queued/Processing/Completed immediately after enqueue. Got: ' + jobs64a[0].Status
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64a PASS: 49 items, threshold=50 → JobType=' + jobs64a[0].JobType
-		+ ', Status=' + jobs64a[0].Status + ', JobId=' + jobId64a
+			'64a PASS: 49 items, threshold=50 → JobType=' + jobs64a[0].JobType
+			+ ', Status=' + jobs64a[0].Status + ', JobId=' + jobId64a
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64a FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64a FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64a: ' + scenarioError.getMessage());
 	fail++;
@@ -161,8 +163,8 @@ try
 	}
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request64b =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64b)
-			.withLimitAtWhichToBatch(THRESHOLD);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64b)
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id jobId64b = kern.UTIL_AsynchronousJobLauncher.process(request64b, new AccountArchiveProcessor());
 
@@ -170,39 +172,41 @@ try
 
 	List<AsyncApexJob> jobs64b =
 	[
-		SELECT Id, JobType, Status
-		FROM AsyncApexJob
-		WHERE Id = :jobId64b
-		LIMIT 1
+			SELECT Id,
+					JobType,
+					Status
+			FROM AsyncApexJob
+			WHERE Id = :jobId64b
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, jobs64b.size(),
-		'64b: AsyncApexJob row must exist for the batch job ID. Got: ' + jobs64b.size()
+			'64b: AsyncApexJob row must exist for the batch job ID. Got: ' + jobs64b.size()
 	);
 
 	Assert.areEqual('BatchApex', jobs64b[0].JobType,
-		'64b: JobType must be "BatchApex" for BATCH execution (51 > threshold=50). '
-		+ 'Got: ' + jobs64b[0].JobType
+			'64b: JobType must be "BatchApex" for BATCH execution (51 > threshold=50). '
+			+ 'Got: ' + jobs64b[0].JobType
 	);
 
 	Assert.isTrue(
-		jobs64b[0].Status == 'Queued'
-		|| jobs64b[0].Status == 'Processing'
-		|| jobs64b[0].Status == 'Completed'
-		|| jobs64b[0].Status == 'Holding',
-		'64b: Status must be Queued/Processing/Completed/Holding immediately after submitBatch. Got: ' + jobs64b[0].Status
+			jobs64b[0].Status == 'Queued'
+			|| jobs64b[0].Status == 'Processing'
+			|| jobs64b[0].Status == 'Completed'
+			|| jobs64b[0].Status == 'Holding',
+			'64b: Status must be Queued/Processing/Completed/Holding immediately after submitBatch. Got: ' + jobs64b[0].Status
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64b PASS: 51 items, threshold=50 → JobType=' + jobs64b[0].JobType
-		+ ', Status=' + jobs64b[0].Status + ', JobId=' + jobId64b
+			'64b PASS: 51 items, threshold=50 → JobType=' + jobs64b[0].JobType
+			+ ', Status=' + jobs64b[0].Status + ', JobId=' + jobId64b
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64b FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64b FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64b: ' + scenarioError.getMessage());
 	fail++;
@@ -237,10 +241,10 @@ try
 	Integer usedBefore64c = kern.UTIL_Limits.queueableJobs().used();
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request64c =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64c)
-			.withQueueableJobSize(JOB_SIZE_64C)
-			.withLimitAtWhichToBatch(ITEM_COUNT_64C + 100)
-			.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64c)
+					.withQueueableJobSize(JOB_SIZE_64C)
+					.withLimitAtWhichToBatch(ITEM_COUNT_64C + 100)
+					.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES);
 
 	Id jobId64c = kern.UTIL_AsynchronousJobLauncher.process(request64c, new AccountArchiveProcessor());
 
@@ -250,20 +254,20 @@ try
 	Assert.isNotNull(jobId64c, '64c: process() must return a non-null job ID for PARALLEL_QUEUEABLES');
 
 	Assert.areEqual(EXPECTED_JOBS_64C, enqueuedCount64c,
-		'64c: PARALLEL_QUEUEABLES with 11 items / jobSize=5 must enqueue ceil(11/5)=3 jobs. '
-		+ 'Enqueued: ' + enqueuedCount64c
+			'64c: PARALLEL_QUEUEABLES with 11 items / jobSize=5 must enqueue ceil(11/5)=3 jobs. '
+			+ 'Enqueued: ' + enqueuedCount64c
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64c PASS: 11 items, jobSize=5 → ' + enqueuedCount64c + ' parallel Queueables enqueued '
-		+ '(expected ' + EXPECTED_JOBS_64C + '). JobId=' + jobId64c
+			'64c PASS: 11 items, jobSize=5 → ' + enqueuedCount64c + ' parallel Queueables enqueued '
+			+ '(expected ' + EXPECTED_JOBS_64C + '). JobId=' + jobId64c
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64c FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64c FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64c: ' + scenarioError.getMessage());
 	fail++;
@@ -281,54 +285,56 @@ try
 	List<Object> items64d = new List<Object> {'delayed-item-64d-' + RUN_STAMP_64};
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request64d =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64d)
-			.withDelayMinutes(2);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items64d)
+					.withDelayMinutes(2);
 
 	Id jobId64d = kern.UTIL_AsynchronousJobLauncher.process(request64d, new AccountArchiveProcessor());
 
 	Assert.isNotNull(jobId64d,
-		'64d: process() with withDelayMinutes(2) must return a non-null job ID for the DelayedDispatchHandler Queueable'
+			'64d: process() with withDelayMinutes(2) must return a non-null job ID for the DelayedDispatchHandler Queueable'
 	);
 
 	List<AsyncApexJob> jobs64d =
 	[
-		SELECT Id, JobType, Status
-		FROM AsyncApexJob
-		WHERE Id = :jobId64d
-		LIMIT 1
+			SELECT Id,
+					JobType,
+					Status
+			FROM AsyncApexJob
+			WHERE Id = :jobId64d
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, jobs64d.size(),
-		'64d: AsyncApexJob row must exist for the DelayedDispatchHandler Queueable. '
-		+ 'withDelayMinutes uses System.enqueueJob(handler, minutes) — NOT CronTrigger. '
-		+ 'Got: ' + jobs64d.size()
+			'64d: AsyncApexJob row must exist for the DelayedDispatchHandler Queueable. '
+			+ 'withDelayMinutes uses System.enqueueJob(handler, minutes) — NOT CronTrigger. '
+			+ 'Got: ' + jobs64d.size()
 	);
 
 	Assert.areEqual('Queueable', jobs64d[0].JobType,
-		'64d: JobType must be "Queueable" — DelayedDispatchHandler is a Queueable, not a scheduled job. '
-		+ 'Got: ' + jobs64d[0].JobType
+			'64d: JobType must be "Queueable" — DelayedDispatchHandler is a Queueable, not a scheduled job. '
+			+ 'Got: ' + jobs64d[0].JobType
 	);
 
 	Assert.isTrue(
-		jobs64d[0].Status == 'Queued'
-		|| jobs64d[0].Status == 'Processing'
-		|| jobs64d[0].Status == 'Holding',
-		'64d: Status must be Queued/Processing/Holding for delayed Queueable. Got: ' + jobs64d[0].Status
-		+ '. SPEC DEVIATION: spec said CronTrigger; actual is delayed Queueable via System.enqueueJob(handler, 2).'
+			jobs64d[0].Status == 'Queued'
+			|| jobs64d[0].Status == 'Processing'
+			|| jobs64d[0].Status == 'Holding',
+			'64d: Status must be Queued/Processing/Holding for delayed Queueable. Got: ' + jobs64d[0].Status
+			+ '. SPEC DEVIATION: spec said CronTrigger; actual is delayed Queueable via System.enqueueJob(handler, 2).'
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64d PASS (SPEC DEVIATION — delayed Queueable, not CronTrigger): '
-		+ 'withDelayMinutes(2) → JobType=' + jobs64d[0].JobType + ', Status=' + jobs64d[0].Status + ', JobId=' + jobId64d
-		+ '. SPEC DEVIATION: §6.13 #4 assumed CronTrigger; actual mechanism is System.enqueueJob(handler, 2). '
-		+ 'FRAMEWORK FOLLOW-UP: update spec to reflect delayed-Queueable semantics.'
+			'64d PASS (SPEC DEVIATION — delayed Queueable, not CronTrigger): '
+			+ 'withDelayMinutes(2) → JobType=' + jobs64d[0].JobType + ', Status=' + jobs64d[0].Status + ', JobId=' + jobId64d
+			+ '. SPEC DEVIATION: §6.13 #4 assumed CronTrigger; actual mechanism is System.enqueueJob(handler, 2). '
+			+ 'FRAMEWORK FOLLOW-UP: update spec to reflect delayed-Queueable semantics.'
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64d FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64d FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64d: ' + scenarioError.getMessage());
 	fail++;
@@ -351,8 +357,8 @@ try
 	}
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest batchRequest64e =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(batchItems64e)
-			.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.BATCH);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(batchItems64e)
+					.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.BATCH);
 
 	Id batchJobId64e = kern.UTIL_AsynchronousJobLauncher.process(batchRequest64e, new AccountArchiveProcessor());
 
@@ -360,22 +366,23 @@ try
 
 	List<AsyncApexJob> batchJobs64e =
 	[
-		SELECT Id, JobType
-		FROM AsyncApexJob
-		WHERE Id = :batchJobId64e
-		LIMIT 1
+			SELECT Id,
+					JobType
+			FROM AsyncApexJob
+			WHERE Id = :batchJobId64e
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, batchJobs64e.size(), '64e: AsyncApexJob row must exist for BATCH job');
 	Assert.areEqual('BatchApex', batchJobs64e[0].JobType,
-		'64e: explicit BATCH strategy → JobType=BatchApex. Got: ' + batchJobs64e[0].JobType
+			'64e: explicit BATCH strategy → JobType=BatchApex. Got: ' + batchJobs64e[0].JobType
 	);
 
 	List<Object> queueableItems64e = new List<Object> {'item1', 'item2', 'item3'};
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest queueableRequest64e =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(queueableItems64e)
-			.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(queueableItems64e)
+					.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES);
 
 	Id queueableJobId64e = kern.UTIL_AsynchronousJobLauncher.process(queueableRequest64e, new AccountArchiveProcessor());
 
@@ -383,31 +390,32 @@ try
 
 	List<AsyncApexJob> queueableJobs64e =
 	[
-		SELECT Id, JobType
-		FROM AsyncApexJob
-		WHERE Id = :queueableJobId64e
-		LIMIT 1
+			SELECT Id,
+					JobType
+			FROM AsyncApexJob
+			WHERE Id = :queueableJobId64e
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, queueableJobs64e.size(), '64e: AsyncApexJob row must exist for PARALLEL_QUEUEABLES job');
 	Assert.areEqual('Queueable', queueableJobs64e[0].JobType,
-		'64e: explicit PARALLEL_QUEUEABLES strategy → JobType=Queueable. Got: ' + queueableJobs64e[0].JobType
+			'64e: explicit PARALLEL_QUEUEABLES strategy → JobType=Queueable. Got: ' + queueableJobs64e[0].JobType
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64e PASS (SPEC DEVIATION — no SyncOrAsync enum): '
-		+ 'BATCH(11 items)→BatchApex; '
-		+ 'PARALLEL_QUEUEABLES(3 items)→' + queueableJobs64e[0].JobType + '. '
-		+ 'SPEC DEVIATION: §6.13 #5 "SyncOrAsync" does not exist. Actual enum values: '
-		+ 'AUTO, BATCH, CHAINABLE, PARALLEL_QUEUEABLES. '
-		+ 'FRAMEWORK FOLLOW-UP: update spec §6.13 #5 to reflect actual enum.'
+			'64e PASS (SPEC DEVIATION — no SyncOrAsync enum): '
+			+ 'BATCH(11 items)→BatchApex; '
+			+ 'PARALLEL_QUEUEABLES(3 items)→' + queueableJobs64e[0].JobType + '. '
+			+ 'SPEC DEVIATION: §6.13 #5 "SyncOrAsync" does not exist. Actual enum values: '
+			+ 'AUTO, BATCH, CHAINABLE, PARALLEL_QUEUEABLES. '
+			+ 'FRAMEWORK FOLLOW-UP: update spec §6.13 #5 to reflect actual enum.'
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64e FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64e FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64e: ' + scenarioError.getMessage());
 	fail++;
@@ -434,8 +442,8 @@ try
 	}
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest atThresholdRequest64f =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(atThresholdItems64f)
-			.withLimitAtWhichToBatch(THRESHOLD);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(atThresholdItems64f)
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id atThresholdJobId64f = kern.UTIL_AsynchronousJobLauncher.process(atThresholdRequest64f, new AccountArchiveProcessor());
 
@@ -443,18 +451,19 @@ try
 
 	List<AsyncApexJob> atThresholdJobs64f =
 	[
-		SELECT Id, JobType
-		FROM AsyncApexJob
-		WHERE Id = :atThresholdJobId64f
-		LIMIT 1
+			SELECT Id,
+					JobType
+			FROM AsyncApexJob
+			WHERE Id = :atThresholdJobId64f
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, atThresholdJobs64f.size(), '64f: AsyncApexJob row must exist for threshold-boundary job');
 
 	Assert.areEqual('Queueable', atThresholdJobs64f[0].JobType,
-		'64f: itemCount=50 == threshold=50 → condition is (50 <= 50)=true → Queueable (not Batch). '
-		+ 'Got: ' + atThresholdJobs64f[0].JobType
-		+ '. This confirms AUTO strategy boundary: <= threshold → Queueable, > threshold → Batch.'
+			'64f: itemCount=50 == threshold=50 → condition is (50 <= 50)=true → Queueable (not Batch). '
+			+ 'Got: ' + atThresholdJobs64f[0].JobType
+			+ '. This confirms AUTO strategy boundary: <= threshold → Queueable, > threshold → Batch.'
 	);
 
 	List<Object> aboveThresholdItems64f = new List<Object>();
@@ -464,8 +473,8 @@ try
 	}
 
 	kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest aboveThresholdRequest64f =
-		new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(aboveThresholdItems64f)
-			.withLimitAtWhichToBatch(THRESHOLD);
+			new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(aboveThresholdItems64f)
+					.withLimitAtWhichToBatch(THRESHOLD);
 
 	Id aboveThresholdJobId64f = kern.UTIL_AsynchronousJobLauncher.process(aboveThresholdRequest64f, new AccountArchiveProcessor());
 
@@ -473,35 +482,36 @@ try
 
 	List<AsyncApexJob> aboveThresholdJobs64f =
 	[
-		SELECT Id, JobType
-		FROM AsyncApexJob
-		WHERE Id = :aboveThresholdJobId64f
-		LIMIT 1
+			SELECT Id,
+					JobType
+			FROM AsyncApexJob
+			WHERE Id = :aboveThresholdJobId64f
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, aboveThresholdJobs64f.size(), '64f: AsyncApexJob row must exist for above-threshold job');
 
 	Assert.areEqual('BatchApex', aboveThresholdJobs64f[0].JobType,
-		'64f: itemCount=51 > threshold=50 → Batch at init time. Got: ' + aboveThresholdJobs64f[0].JobType
-		+ '. SPEC DEVIATION: §6.13 #6 "mid-stream escalation" is not a framework capability. '
-		+ 'Strategy is chosen ONCE at initialise() time. No mid-execution growth detection.'
+			'64f: itemCount=51 > threshold=50 → Batch at init time. Got: ' + aboveThresholdJobs64f[0].JobType
+			+ '. SPEC DEVIATION: §6.13 #6 "mid-stream escalation" is not a framework capability. '
+			+ 'Strategy is chosen ONCE at initialise() time. No mid-execution growth detection.'
 	);
 
 	System.debug(LoggingLevel.INFO,
-		'64f PASS (SPEC DEVIATION — no mid-stream escalation): '
-		+ 'itemCount=50 (== threshold) → Queueable; '
-		+ 'itemCount=51 (> threshold) → BatchApex. '
-		+ 'AUTO threshold boundary: itemCount <= limitAtWhichToBatch → Queueable; > → Batch. '
-		+ 'SPEC DEVIATION: §6.13 #6 mid-stream escalation is not implemented. '
-		+ 'Strategy is fixed at initialise() time. '
-		+ 'FRAMEWORK FOLLOW-UP: update spec §6.13 #6 — defer mid-stream escalation to a future PLAN.'
+			'64f PASS (SPEC DEVIATION — no mid-stream escalation): '
+			+ 'itemCount=50 (== threshold) → Queueable; '
+			+ 'itemCount=51 (> threshold) → BatchApex. '
+			+ 'AUTO threshold boundary: itemCount <= limitAtWhichToBatch → Queueable; > → Batch. '
+			+ 'SPEC DEVIATION: §6.13 #6 mid-stream escalation is not implemented. '
+			+ 'Strategy is fixed at initialise() time. '
+			+ 'FRAMEWORK FOLLOW-UP: update spec §6.13 #6 — defer mid-stream escalation to a future PLAN.'
 	);
 	pass++;
 }
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'64f FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
+			'64f FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString()
 	);
 	failures.add('64f: ' + scenarioError.getMessage());
 	fail++;
@@ -510,12 +520,12 @@ catch(Exception scenarioError)
 // Cleanup — delete any Account rows created by the 64c processor fixture.
 delete
 [
-	SELECT Id
-	FROM Account
-	WHERE Name LIKE 'Section64c_Account_%'
-	  AND CreatedDate = TODAY
-	  AND CreatedById = :UserInfo.getUserId()
-	LIMIT 500
+		SELECT Id
+		FROM Account
+		WHERE Name LIKE 'Section64c_Account_%'
+		AND CreatedDate = TODAY
+		AND CreatedById = :UserInfo.getUserId()
+		LIMIT 500
 ];
 
 kern.TRG_Base.clearAllBypasses();

@@ -23,7 +23,7 @@ public with sharing class FastStart_TestData_DEMO
 	public static Integer countAccountsByIndustry(String industry)
 	{
 		return kern.QRY_Builder.selectFrom(Account.SObjectType)
-			.condition(Account.Industry).equals(industry)
-			.count();
+				.condition(Account.Industry).equals(industry)
+				.count();
 	}
 }

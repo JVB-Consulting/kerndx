@@ -34,7 +34,9 @@ class SetupCmdtPage
 		}
 		const postNavFrame = this.page.frameLocator('iframe[name="setupFrame"]').first();
 		await postNavFrame.getByRole('link', {name: 'Manage Records'}).first()
-		.waitFor({state: 'visible', timeout: 10_000}).catch(() => {});
+		.waitFor({state: 'visible', timeout: 10_000}).catch(() =>
+		{
+		});
 	}
 
 	async manageRecords(typeName)
@@ -45,7 +47,9 @@ class SetupCmdtPage
 		{
 		});
 		await iframe.locator('table.list, .pbBody table').first()
-		.waitFor({state: 'visible', timeout: 10_000}).catch(() => {});
+		.waitFor({state: 'visible', timeout: 10_000}).catch(() =>
+		{
+		});
 	}
 
 	async getRecordCount()

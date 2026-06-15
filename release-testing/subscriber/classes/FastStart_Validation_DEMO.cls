@@ -26,6 +26,6 @@ public with sharing class FastStart_Validation_DEMO
 	 */
 	public kern.DML_Builder.TransactionResult validateAndSave(Account account)
 	{
-		return kern.DML_Builder.newTransaction().doInsert(account).allowPartial().execute();
+		return kern.DML_Builder.newTransaction().doInsert(Account).allowPartial().execute();
 	}
 }

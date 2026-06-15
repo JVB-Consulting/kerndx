@@ -16,10 +16,14 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_MockException_DEMO_TEST
 {
-	/** @description Industry value used across catch-path tests; specific Industry text is irrelevant when the mock throws. */
+	/**
+	 * @description Industry value used across catch-path tests; specific Industry text is irrelevant when the mock throws.
+	 */
 	private static final String FIXTURE_INDUSTRY = 'Biotechnology';
 
-	/** @description Custom exception message verifying the String-overload threading. */
+	/**
+	 * @description Custom exception message verifying the String-overload threading.
+	 */
 	private static final String CUSTOM_ERROR_MESSAGE = 'Mocked query failure for negative-path demo';
 
 	/**
@@ -47,7 +51,7 @@ private class FastStart_MockException_DEMO_TEST
 		Integer result = new FastStart_MockException_DEMO().safeCountAccountsByIndustry(FIXTURE_INDUSTRY);
 
 		Assert.areEqual(FastStart_MockException_DEMO.QUERY_FAILED_SENTINEL, result,
-			'Catch path should return the sentinel when the explicit-exception mock fires');
+				'Catch path should return the sentinel when the explicit-exception mock fires');
 	}
 
 	/**
@@ -62,7 +66,7 @@ private class FastStart_MockException_DEMO_TEST
 		Integer result = new FastStart_MockException_DEMO().safeCountAccountsByIndustry(FIXTURE_INDUSTRY);
 
 		Assert.areEqual(FastStart_MockException_DEMO.QUERY_FAILED_SENTINEL, result,
-			'Catch path should return the sentinel when the String-overload mock fires');
+				'Catch path should return the sentinel when the String-overload mock fires');
 	}
 
 	/**
@@ -76,7 +80,7 @@ private class FastStart_MockException_DEMO_TEST
 		Integer result = new FastStart_MockException_DEMO().safeCountAccountsByIndustry(FIXTURE_INDUSTRY);
 
 		Assert.areEqual(FastStart_MockException_DEMO.QUERY_FAILED_SENTINEL, result,
-			'Catch path should return the sentinel when the no-arg overload mock fires');
+				'Catch path should return the sentinel when the no-arg overload mock fires');
 	}
 
 	/**
@@ -92,6 +96,6 @@ private class FastStart_MockException_DEMO_TEST
 		Integer result = new FastStart_MockException_DEMO().safeCountAccountsByIndustry(FIXTURE_INDUSTRY);
 
 		Assert.areEqual(0, result,
-			'After clear(Account.SObjectType), the query should execute normally and return 0');
+				'After clear(Account.SObjectType), the query should execute normally and return 0');
 	}
 }

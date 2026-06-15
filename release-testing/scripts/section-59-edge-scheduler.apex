@@ -213,11 +213,13 @@ try
 	Assert.areEqual(INVALID_TZ, result59b.kern__Timezone__c,
 			'59b: Timezone__c should persist verbatim even when invalid — got: ' + result59b.kern__Timezone__c);
 
-	List<CronTrigger> cronTriggers59b = [
-		SELECT Id, CronExpression
-		FROM CronTrigger
-		WHERE Id = :result59b.kern__ScheduledJobId__c
-		LIMIT 1
+	List<CronTrigger> cronTriggers59b =
+	[
+			SELECT Id,
+					CronExpression
+			FROM CronTrigger
+			WHERE Id = :result59b.kern__ScheduledJobId__c
+			LIMIT 1
 	];
 	Assert.areEqual(1, cronTriggers59b.size(), '59b: CronTrigger should exist for scheduled job');
 	Assert.isNotNull(cronTriggers59b[0].CronExpression,
@@ -348,7 +350,13 @@ catch(Exception scenarioError)
 	fail++;
 	if(firstJob59d != null && firstJob59d.Id != null)
 	{
-		try { delete firstJob59d; } catch(Exception cleanupError) { }
+		try
+		{
+			delete firstJob59d;
+		}
+		catch(Exception cleanupError)
+		{
+		}
 		if(scheduledJobsToClean.contains(firstJob59d.Id))
 		{
 			scheduledJobsToClean.remove(scheduledJobsToClean.indexOf(firstJob59d.Id));
@@ -425,7 +433,13 @@ if(!scheduledJobsToClean.isEmpty())
 {
 	try
 	{
-		List<kern__ScheduledJob__c> residual = [SELECT Id FROM kern__ScheduledJob__c WHERE Id IN :scheduledJobsToClean LIMIT 9000];
+		List<kern__ScheduledJob__c> residual =
+		[
+				SELECT Id
+				FROM kern__ScheduledJob__c
+				WHERE Id IN :scheduledJobsToClean
+				LIMIT 9000
+		];
 		if(!residual.isEmpty())
 		{
 			delete residual;
@@ -448,7 +462,13 @@ List<CronTrigger> residualCronJobs59 =
 ];
 for(CronTrigger residualCron : residualCronJobs59)
 {
-	try { System.abortJob(residualCron.Id); } catch(Exception abortError) { }
+	try
+	{
+		System.abortJob(residualCron.Id);
+	}
+	catch(Exception abortError)
+	{
+	}
 }
 
 System.debug(LoggingLevel.INFO, '');

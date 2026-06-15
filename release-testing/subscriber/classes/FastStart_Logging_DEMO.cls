@@ -18,10 +18,14 @@
  */
 public with sharing class FastStart_Logging_DEMO
 {
-	/** @description Context key for the record count value. */
+	/**
+	 * @description Context key for the record count value.
+	 */
 	@TestVisible private static final String CONTEXT_COUNT = 'count';
 
-	/** @description Class name constant used in all log context strings. */
+	/**
+	 * @description Class name constant used in all log context strings.
+	 */
 	@TestVisible private static final String CLASS_NAME = 'FastStart_Logging_DEMO';
 
 	/**
@@ -39,24 +43,24 @@ public with sharing class FastStart_Logging_DEMO
 		try
 		{
 			kern.LOG_Builder.build()
-				.info('Order processing started')
-				.withSummary('Processing accounts')
-				.withContext(CONTEXT_COUNT, accounts.size())
-				.emitAt(CLASS_NAME + '.processOrders');
+					.info('Order processing started')
+					.withSummary('Processing accounts')
+					.withContext(CONTEXT_COUNT, accounts.size())
+					.emitAt(CLASS_NAME + '.processOrders');
 
 			for(Account account : accounts)
 			{
 				kern.LOG_Builder.build()
-					.debug('Processing account')
-					.forRecord(account.Id)
-					.emitAt(CLASS_NAME + '.processOrders');
+						.debug('Processing account')
+						.forRecord(Account.Id)
+						.emitAt(CLASS_NAME + '.processOrders');
 			}
 
 			kern.LOG_Builder.build()
-				.info('Order processing completed')
-				.withSummary('All accounts processed')
-				.withContext(CONTEXT_COUNT, accounts.size())
-				.emitAt(CLASS_NAME + '.processOrders');
+					.info('Order processing completed')
+					.withSummary('All accounts processed')
+					.withContext(CONTEXT_COUNT, accounts.size())
+					.emitAt(CLASS_NAME + '.processOrders');
 		}
 		finally
 		{
@@ -76,7 +80,7 @@ public with sharing class FastStart_Logging_DEMO
 	public void criticalAlert(String message)
 	{
 		kern.LOG_Builder.build()
-			.error(message)
-			.emitAt(CLASS_NAME + '.criticalAlert');
+				.error(message)
+				.emitAt(CLASS_NAME + '.criticalAlert');
 	}
 }

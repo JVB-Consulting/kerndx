@@ -16,13 +16,19 @@
 @IsTest(SeeAllData=false IsParallel=true)
 private class FastStart_Selectors_DEMO_TEST
 {
-	/** @description Industry value used across tests. */
+	/**
+	 * @description Industry value used across tests.
+	 */
 	private static final String INDUSTRY_TECH = 'Technology';
 
-	/** @description Industry value for negative/contrast tests. */
+	/**
+	 * @description Industry value for negative/contrast tests.
+	 */
 	private static final String INDUSTRY_FINANCE = 'Finance';
 
-	/** @description Annual revenue used for the aggregate test account. */
+	/**
+	 * @description Annual revenue used for the aggregate test account.
+	 */
 	private static final Decimal TEST_REVENUE = 500000;
 
 	/**
@@ -34,10 +40,10 @@ private class FastStart_Selectors_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		Account inserted = (Account)kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Acme Corp')
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withOverride(Account.AnnualRevenue, TEST_REVENUE)
-			.build();
+				.withOverride(Account.Name, 'Acme Corp')
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withOverride(Account.AnnualRevenue, TEST_REVENUE)
+				.build();
 
 		Account result = (Account)new FastStart_Selectors_DEMO().findById(inserted.Id);
 
@@ -55,13 +61,13 @@ private class FastStart_Selectors_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Tech Co')
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.build();
+				.withOverride(Account.Name, 'Tech Co')
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.build();
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Bank Co')
-			.withOverride(Account.Industry, INDUSTRY_FINANCE)
-			.build();
+				.withOverride(Account.Name, 'Bank Co')
+				.withOverride(Account.Industry, INDUSTRY_FINANCE)
+				.build();
 
 		List<Account> results = new FastStart_Selectors_DEMO().findByIndustry(INDUSTRY_TECH);
 
@@ -77,19 +83,23 @@ private class FastStart_Selectors_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Tech Co')
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.build();
+				.withOverride(Account.Name, 'Tech Co')
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.build();
 
 		List<Account> results = new FastStart_Selectors_DEMO().findByIndustry(INDUSTRY_FINANCE);
 
 		Assert.isTrue(results.isEmpty(), 'Should return empty list when industry has no accounts');
 	}
 
-	/** @description Aggregate alias for SUM(AnnualRevenue) produced by QRY_Builder. */
+	/**
+	 * @description Aggregate alias for SUM(AnnualRevenue) produced by QRY_Builder.
+	 */
 	private static final String ALIAS_SUM_REVENUE = 'sum_AnnualRevenue';
 
-	/** @description Aggregate field name for the grouped Industry column. */
+	/**
+	 * @description Aggregate field name for the grouped Industry column.
+	 */
 	private static final String FIELD_INDUSTRY = 'Industry';
 
 	/**
@@ -101,15 +111,15 @@ private class FastStart_Selectors_DEMO_TEST
 	{
 		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Tech A')
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withOverride(Account.AnnualRevenue, 200000)
-			.build();
+				.withOverride(Account.Name, 'Tech A')
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withOverride(Account.AnnualRevenue, 200000)
+				.build();
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Name, 'Tech B')
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withOverride(Account.AnnualRevenue, 300000)
-			.build();
+				.withOverride(Account.Name, 'Tech B')
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withOverride(Account.AnnualRevenue, 300000)
+				.build();
 
 		List<kern.QRY_Builder.AggregateRow> rows = new FastStart_Selectors_DEMO().revenueByIndustry();
 

@@ -8,9 +8,9 @@
 // --- Build and insert a single Account with one field override ---
 // Phone is set to satisfy subscriber-side Account validation rules — adjust to suit your org.
 Account newAccount = (Account)kern.TST_Builder.of(Account.SObjectType)
-	.withOverride(Account.Industry, 'Technology')
-	.withOverride(Account.Phone, '555-0100')
-	.build();
+		.withOverride(Account.Industry, 'Technology')
+		.withOverride(Account.Phone, '555-0100')
+		.build();
 
 System.debug('Account.Id    : ' + newAccount.Id);
 System.debug('Account.Name  : ' + newAccount.Name);
@@ -18,10 +18,10 @@ System.debug('Account.Industry: ' + newAccount.Industry);
 
 // --- Bulk: 3 accounts with cycling industry values ---
 List<SObject> bulkAccounts = kern.TST_Builder.of(Account.SObjectType)
-	.withCycle(Account.Industry, new List<Object>{ 'Technology', 'Finance', 'Healthcare' })
-	.withOverride(Account.Phone, '555-0100')
-	.withCount(3)
-	.buildList();
+		.withCycle(Account.Industry, new List<Object> {'Technology', 'Finance', 'Healthcare'})
+		.withOverride(Account.Phone, '555-0100')
+		.withCount(3)
+		.buildList();
 
 System.debug('Bulk count: ' + bulkAccounts.size());
 for(SObject account : bulkAccounts)
@@ -31,17 +31,17 @@ for(SObject account : bulkAccounts)
 
 // --- In-memory only (no DML, no Id) ---
 Account inMemory = (Account)kern.TST_Builder.of(Account.SObjectType)
-	.withOverride(Account.Name, 'In-Memory Co')
-	.withoutInsertion()
-	.build();
+		.withOverride(Account.Name, 'In-Memory Co')
+		.withoutInsertion()
+		.build();
 
 System.debug('In-memory Id (should be null): ' + inMemory.Id);
 
 // --- In-memory with mock Id (no DML, but Id is populated) ---
 Account mockIdAccount = (Account)kern.TST_Builder.of(Account.SObjectType)
-	.withOverride(Account.Name, 'Mock Id Co')
-	.withoutInsertion(true)
-	.build();
+		.withOverride(Account.Name, 'Mock Id Co')
+		.withoutInsertion(true)
+		.build();
 
 System.debug('Mock Id (not null): ' + mockIdAccount.Id);
 
@@ -54,8 +54,8 @@ for(SObject account : bulkAccounts)
 }
 
 List<SObject> deleteTargets = kern.QRY_Builder.selectFrom(Account.SObjectType)
-	.condition(Account.Id).isIn(toDelete)
-	.toList();
+		.condition(Account.Id).isIn(toDelete)
+		.toList();
 
 kern.DML_Builder.newTransaction().doDelete(deleteTargets).execute();
 System.debug('Cleanup complete. Deleted ' + deleteTargets.size() + ' accounts.');

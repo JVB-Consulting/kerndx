@@ -169,46 +169,46 @@ try
 {
 	List<kern__ApiMock__mdt> regexMock60a =
 	[
-		SELECT DeveloperName,
-			kern__IsRegex__c,
-			kern__Priority__c,
-			kern__StatusCode__c,
-			kern__IsActive__c,
-			kern__MatchRequestBodyPattern__c
-		FROM kern__ApiMock__mdt
-		WHERE DeveloperName = 'EchoSubscriber_Regex'
-		LIMIT 1
+			SELECT DeveloperName,
+					kern__IsRegex__c,
+					kern__Priority__c,
+					kern__StatusCode__c,
+					kern__IsActive__c,
+					kern__MatchRequestBodyPattern__c
+			FROM kern__ApiMock__mdt
+			WHERE DeveloperName = 'EchoSubscriber_Regex'
+			LIMIT 1
 	];
 
 	Assert.isFalse(regexMock60a.isEmpty(),
-		'60a: EchoSubscriber_Regex CMDT record must be deployed — run section-27 setup first');
+			'60a: EchoSubscriber_Regex CMDT record must be deployed — run section-27 setup first');
 
 	kern__ApiMock__mdt regexRecord60a = regexMock60a[0];
 	Assert.isTrue(regexRecord60a.kern__IsRegex__c,
-		'60a: EchoSubscriber_Regex.IsRegex__c must be true — found: ' + regexRecord60a.kern__IsRegex__c);
+			'60a: EchoSubscriber_Regex.IsRegex__c must be true — found: ' + regexRecord60a.kern__IsRegex__c);
 	Assert.isTrue(
-		regexRecord60a.kern__MatchRequestBodyPattern__c != null
-		&& regexRecord60a.kern__MatchRequestBodyPattern__c.containsIgnoreCase('order-'),
-		'60a: EchoSubscriber_Regex pattern should contain "order-" — found: '
-		+ regexRecord60a.kern__MatchRequestBodyPattern__c);
+			regexRecord60a.kern__MatchRequestBodyPattern__c != null
+			&& regexRecord60a.kern__MatchRequestBodyPattern__c.containsIgnoreCase('order-'),
+			'60a: EchoSubscriber_Regex pattern should contain "order-" — found: '
+			+ regexRecord60a.kern__MatchRequestBodyPattern__c);
 	Assert.areEqual(50.0, regexRecord60a.kern__Priority__c,
-		'60a: EchoSubscriber_Regex Priority__c should be 50 — found: ' + regexRecord60a.kern__Priority__c);
+			'60a: EchoSubscriber_Regex Priority__c should be 50 — found: ' + regexRecord60a.kern__Priority__c);
 	Assert.isTrue(regexRecord60a.kern__IsActive__c,
-		'60a: EchoSubscriber_Regex.IsActive__c must be true — found: ' + regexRecord60a.kern__IsActive__c);
+			'60a: EchoSubscriber_Regex.IsActive__c must be true — found: ' + regexRecord60a.kern__IsActive__c);
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'order-42')
-		.invoke();
+			.withParameter('message', 'order-42')
+			.invoke();
 
 	List<kern__ApiCall__c> calls60a =
 	[
-		SELECT kern__StatusCode__c,
-			kern__IsMockedResponse__c,
-			kern__Request__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__StatusCode__c,
+					kern__IsMockedResponse__c,
+					kern__Request__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60a.isEmpty(), '60a: ApiCall__c should be created for the invocation');
@@ -217,23 +217,23 @@ try
 	Assert.isTrue(calls60a[0].kern__IsMockedResponse__c, '60a: IsMockedResponse__c should be true');
 
 	Assert.isTrue(
-		String.isBlank(calls60a[0].kern__Request__c),
-		'60a: Request body must be null/blank for API_EchoSubscriber (no DTO_Request serialization). Got: '
-		+ calls60a[0].kern__Request__c);
+			String.isBlank(calls60a[0].kern__Request__c),
+			'60a: Request body must be null/blank for API_EchoSubscriber (no DTO_Request serialization). Got: '
+			+ calls60a[0].kern__Request__c);
 
 	Assert.areEqual('202', calls60a[0].kern__StatusCode__c,
-		'60a: With null request body, body-blank guard fires before regex evaluation — '
-		+ 'catch-all (Priority 100, status 202) must win over regex mock (Priority 50, status 201). Got: '
-		+ calls60a[0].kern__StatusCode__c);
+			'60a: With null request body, body-blank guard fires before regex evaluation — '
+			+ 'catch-all (Priority 100, status 202) must win over regex mock (Priority 50, status 201). Got: '
+			+ calls60a[0].kern__StatusCode__c);
 
 	System.debug(LoggingLevel.INFO,
-		'60a PASS (partial — end-to-end regex deferred): EchoSubscriber_Regex CMDT verified '
-		+ '(IsRegex=true, pattern=' + regexRecord60a.kern__MatchRequestBodyPattern__c
-		+ ', Priority=50, Active=true). Null request body confirmed → body-blank guard fires '
-		+ 'before Pattern.compile/find — catch-all (202) selected. '
-		+ 'DEFERRED: end-to-end regex selection to Subscriber_MockEdges_TEST (needs handler with non-null body). '
-		+ 'FRAMEWORK: API_MockMatcher IsRegex__c path IS implemented (lines 49-61), '
-		+ 'only unreachable when request body is blank.');
+			'60a PASS (partial — end-to-end regex deferred): EchoSubscriber_Regex CMDT verified '
+			+ '(IsRegex=true, pattern=' + regexRecord60a.kern__MatchRequestBodyPattern__c
+			+ ', Priority=50, Active=true). Null request body confirmed → body-blank guard fires '
+			+ 'before Pattern.compile/find — catch-all (202) selected. '
+			+ 'DEFERRED: end-to-end regex selection to Subscriber_MockEdges_TEST (needs handler with non-null body). '
+			+ 'FRAMEWORK: API_MockMatcher IsRegex__c path IS implemented (lines 49-61), '
+			+ 'only unreachable when request body is blank.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -257,79 +257,79 @@ try
 	kern.API_MockFactory.clearMocks();
 
 	kern.API_MockFactory.forService(SERVICE_ECHO)
-		.body('{"echoed":"{{request.message}}","stamp":"60b1"}')
-		.statusCode(211)
-		.register();
+			.body('{"echoed":"{{request.message}}","stamp":"60b1"}')
+			.statusCode(211)
+			.register();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'hello-60b')
-		.invoke();
+			.withParameter('message', 'hello-60b')
+			.invoke();
 
 	List<kern__ApiCall__c> calls60b1 =
 	[
-		SELECT kern__Response__c,
-			kern__StatusCode__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__Response__c,
+					kern__StatusCode__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60b1.isEmpty(), '60b: round 1 expected 1 ApiCall row');
 	apiCallsToClean.add(calls60b1[0].Id);
 
 	Assert.areEqual('211', calls60b1[0].kern__StatusCode__c,
-		'60b: round 1 memory mock (status 211) should be selected. Got: ' + calls60b1[0].kern__StatusCode__c);
+			'60b: round 1 memory mock (status 211) should be selected. Got: ' + calls60b1[0].kern__StatusCode__c);
 
 	Assert.isTrue(
-		calls60b1[0].kern__Response__c != null
-		&& calls60b1[0].kern__Response__c.contains('{{request.message}}'),
-		'60b: {{request.message}} placeholder should remain literal (null body bypasses interpolation). Got: '
-		+ calls60b1[0].kern__Response__c);
+			calls60b1[0].kern__Response__c != null
+			&& calls60b1[0].kern__Response__c.contains('{{request.message}}'),
+			'60b: {{request.message}} placeholder should remain literal (null body bypasses interpolation). Got: '
+			+ calls60b1[0].kern__Response__c);
 
 	kern.API_MockFactory.clearMocks();
 
 	kern.API_MockFactory.forService(SERVICE_ECHO)
-		.body('{"captured":"$1","also":"\\1","stamp":"60b2"}')
-		.statusCode(212)
-		.register();
+			.body('{"captured":"$1","also":"\\1","stamp":"60b2"}')
+			.statusCode(212)
+			.register();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'hello-60b-backref')
-		.invoke();
+			.withParameter('message', 'hello-60b-backref')
+			.invoke();
 
 	List<kern__ApiCall__c> calls60b2 =
 	[
-		SELECT kern__Response__c,
-			kern__StatusCode__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__Response__c,
+					kern__StatusCode__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60b2.isEmpty(), '60b: round 2 expected 1 ApiCall row');
 	apiCallsToClean.add(calls60b2[0].Id);
 
 	Assert.areEqual('212', calls60b2[0].kern__StatusCode__c,
-		'60b: round 2 memory mock (status 212) should be selected. Got: ' + calls60b2[0].kern__StatusCode__c);
+			'60b: round 2 memory mock (status 212) should be selected. Got: ' + calls60b2[0].kern__StatusCode__c);
 
 	Assert.isTrue(
-		calls60b2[0].kern__Response__c != null
-		&& calls60b2[0].kern__Response__c.contains('$1'),
-		'60b: $1 backreference should remain as literal text — capture-group expansion NOT implemented. Got: '
-		+ calls60b2[0].kern__Response__c);
+			calls60b2[0].kern__Response__c != null
+			&& calls60b2[0].kern__Response__c.contains('$1'),
+			'60b: $1 backreference should remain as literal text — capture-group expansion NOT implemented. Got: '
+			+ calls60b2[0].kern__Response__c);
 
 	kern.API_MockFactory.clearMocks();
 
 	System.debug(LoggingLevel.INFO,
-		'60b PASS: empirically confirmed (1) {{request.field}} placeholder left as literal when '
-		+ 'request body is null — interpolateResponse() short-circuits for blank body; '
-		+ '(2) $1 backreference left as literal — capture-group expansion NOT implemented. '
-		+ 'Both framework gaps empirically confirmed. '
-		+ 'FRAMEWORK FOLLOW-UP: {{request.field}} substitution requires non-null request body; '
-		+ '$1 expansion requires new Matcher.group(N) pass in interpolateResponse(). '
-		+ 'Belongs in Subscriber_MockEdges_TEST with a handler that serialises request body.');
+			'60b PASS: empirically confirmed (1) {{request.field}} placeholder left as literal when '
+			+ 'request body is null — interpolateResponse() short-circuits for blank body; '
+			+ '(2) $1 backreference left as literal — capture-group expansion NOT implemented. '
+			+ 'Both framework gaps empirically confirmed. '
+			+ 'FRAMEWORK FOLLOW-UP: {{request.field}} substitution requires non-null request body; '
+			+ '$1 expansion requires new Matcher.group(N) pass in interpolateResponse(). '
+			+ 'Belongs in Subscriber_MockEdges_TEST with a handler that serialises request body.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -347,27 +347,27 @@ catch(Exception scenarioError)
 try
 {
 	Map<String, Schema.SObjectField> apiMockFields =
-		kern__ApiMock__mdt.SObjectType.getDescribe().fields.getMap();
+			kern__ApiMock__mdt.SObjectType.getDescribe().fields.getMap();
 
 	Assert.isFalse(
-		apiMockFields.containsKey('kern__matchrequestheadername__c'),
-		'60c: kern__ApiMock__mdt should NOT have MatchRequestHeaderName__c — '
-		+ 'header-pattern matching is not implemented (framework gap). '
-		+ 'Present fields: ' + apiMockFields.keySet());
+			apiMockFields.containsKey('kern__matchrequestheadername__c'),
+			'60c: kern__ApiMock__mdt should NOT have MatchRequestHeaderName__c — '
+			+ 'header-pattern matching is not implemented (framework gap). '
+			+ 'Present fields: ' + apiMockFields.keySet());
 
 	Assert.isFalse(
-		apiMockFields.containsKey('kern__matchrequestheaderpattern__c'),
-		'60c: kern__ApiMock__mdt should NOT have MatchRequestHeaderPattern__c — '
-		+ 'header-pattern matching is not implemented (framework gap). '
-		+ 'Present fields: ' + apiMockFields.keySet());
+			apiMockFields.containsKey('kern__matchrequestheaderpattern__c'),
+			'60c: kern__ApiMock__mdt should NOT have MatchRequestHeaderPattern__c — '
+			+ 'header-pattern matching is not implemented (framework gap). '
+			+ 'Present fields: ' + apiMockFields.keySet());
 
 	System.debug(LoggingLevel.INFO,
-		'60c PASS: kern__ApiMock__mdt schema confirmed absent of header-pattern fields — '
-		+ 'MatchRequestHeaderName__c and MatchRequestHeaderPattern__c do not exist. '
-		+ 'Framework gap is real, not assumed. '
-		+ 'FRAMEWORK FOLLOW-UP: add both fields to ApiMock__mdt and extend '
-		+ 'API_MockMatcher.matches() to accept and evaluate a header map. '
-		+ 'Belongs in Subscriber_MockEdges_TEST once implemented.');
+			'60c PASS: kern__ApiMock__mdt schema confirmed absent of header-pattern fields — '
+			+ 'MatchRequestHeaderName__c and MatchRequestHeaderPattern__c do not exist. '
+			+ 'Framework gap is real, not assumed. '
+			+ 'FRAMEWORK FOLLOW-UP: add both fields to ApiMock__mdt and extend '
+			+ 'API_MockMatcher.matches() to accept and evaluate a header map. '
+			+ 'Belongs in Subscriber_MockEdges_TEST once implemented.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -394,16 +394,16 @@ try
 	kern.API_MockFactory.forService(SERVICE_ECHO).body('{"winner":"B"}').statusCode(222).register();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'tiebreak-60d-round1')
-		.invoke();
+			.withParameter('message', 'tiebreak-60d-round1')
+			.invoke();
 
 	List<kern__ApiCall__c> calls60d1 =
 	[
-		SELECT kern__StatusCode__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__StatusCode__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60d1.isEmpty(), '60d: round 1 expected 1 ApiCall row');
@@ -417,16 +417,16 @@ try
 	kern.API_MockFactory.forService(SERVICE_ECHO).body('{"winner":"A"}').statusCode(221).register();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'tiebreak-60d-round2')
-		.invoke();
+			.withParameter('message', 'tiebreak-60d-round2')
+			.invoke();
 
 	List<kern__ApiCall__c> calls60d2 =
 	[
-		SELECT kern__StatusCode__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__StatusCode__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60d2.isEmpty(), '60d: round 2 expected 1 ApiCall row');
@@ -435,23 +435,23 @@ try
 	String round2Winner = calls60d2[0].kern__StatusCode__c;
 
 	Assert.areEqual('222', round1Winner,
-		'60d: round 1 — last-registered (B/222) should win over first-registered (A/221) — '
-		+ 'MEMORY_REGISTRY is a Map; last write wins. Got: ' + round1Winner);
+			'60d: round 1 — last-registered (B/222) should win over first-registered (A/221) — '
+			+ 'MEMORY_REGISTRY is a Map; last write wins. Got: ' + round1Winner);
 
 	Assert.areEqual('221', round2Winner,
-		'60d: round 2 — last-registered (A/221) should win over first-registered (B/222) — '
-		+ 'MEMORY_REGISTRY is a Map; last write wins. Got: ' + round2Winner);
+			'60d: round 2 — last-registered (A/221) should win over first-registered (B/222) — '
+			+ 'MEMORY_REGISTRY is a Map; last write wins. Got: ' + round2Winner);
 
 	kern.API_MockFactory.clearMocks();
 
 	System.debug(LoggingLevel.INFO,
-		'60d PASS: in-memory mock tiebreaker is LIFO (last-registered wins) — '
-		+ 'round 1: A then B → B (222) won; round 2: B then A → A (221) won. '
-		+ 'MEMORY_REGISTRY Map<String,MockResponse> overwrites on each forService().register() call. '
-		+ 'CMDT same-priority tiebreaker remains framework gap — CMDT DML blocked in anon Apex, '
-		+ 'SEL_ApiMock.findByApiSetting() lacks secondary orderBy. '
-		+ 'FRAMEWORK FOLLOW-UP: add .orderBy(DeveloperName).ascending() secondary sort. '
-		+ 'Belongs in Subscriber_MockEdges_TEST with same-priority CMDT records deployed.');
+			'60d PASS: in-memory mock tiebreaker is LIFO (last-registered wins) — '
+			+ 'round 1: A then B → B (222) won; round 2: B then A → A (221) won. '
+			+ 'MEMORY_REGISTRY Map<String,MockResponse> overwrites on each forService().register() call. '
+			+ 'CMDT same-priority tiebreaker remains framework gap — CMDT DML blocked in anon Apex, '
+			+ 'SEL_ApiMock.findByApiSetting() lacks secondary orderBy. '
+			+ 'FRAMEWORK FOLLOW-UP: add .orderBy(DeveloperName).ascending() secondary sort. '
+			+ 'Belongs in Subscriber_MockEdges_TEST with same-priority CMDT records deployed.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -483,9 +483,9 @@ try
 	try
 	{
 		kern.API_MockFactory.forService(SERVICE_ECHO)
-			.body(memoryMockBody60e)
-			.statusCode(203)
-			.register();
+				.body(memoryMockBody60e)
+				.statusCode(203)
+				.register();
 	}
 	catch(Exception registrationError)
 	{
@@ -493,66 +493,66 @@ try
 		System.debug(LoggingLevel.ERROR, '60e UNEXPECTED THROW at registration: ' + registrationError.getMessage());
 	}
 	Assert.isFalse(threw60e,
-		'60e: MockBuilder.register() must NOT throw for any String body content — '
-		+ 'no validation at registration time. SPEC DEVIATION: §6.9 #5 expected ConfigurationException '
-		+ 'at registration; actual: no validation in the memory-mock path.');
+			'60e: MockBuilder.register() must NOT throw for any String body content — '
+			+ 'no validation at registration time. SPEC DEVIATION: §6.9 #5 expected ConfigurationException '
+			+ 'at registration; actual: no validation in the memory-mock path.');
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'edge60e-' + KEY_RUN_STAMP)
-		.invoke();
+			.withParameter('message', 'edge60e-' + KEY_RUN_STAMP)
+			.invoke();
 
 	List<kern__ApiCall__c> calls60eMemory =
 	[
-		SELECT kern__StatusCode__c,
-			kern__Response__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__StatusCode__c,
+					kern__Response__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60eMemory.isEmpty(), '60e: ApiCall__c should be created for memory mock invocation');
 	apiCallsToClean.add(calls60eMemory[0].Id);
 
 	Assert.areEqual('203', calls60eMemory[0].kern__StatusCode__c,
-		'60e: Memory mock (status 203) should override CMDT mocks — memory takes precedence over metadata. Got: '
-		+ calls60eMemory[0].kern__StatusCode__c);
+			'60e: Memory mock (status 203) should override CMDT mocks — memory takes precedence over metadata. Got: '
+			+ calls60eMemory[0].kern__StatusCode__c);
 	Assert.isTrue(
-		calls60eMemory[0].kern__Response__c != null
-		&& calls60eMemory[0].kern__Response__c.containsIgnoreCase('section60e-memory'),
-		'60e: Response body should contain memory mock content. Got: ' + calls60eMemory[0].kern__Response__c);
+			calls60eMemory[0].kern__Response__c != null
+			&& calls60eMemory[0].kern__Response__c.containsIgnoreCase('section60e-memory'),
+			'60e: Response body should contain memory mock content. Got: ' + calls60eMemory[0].kern__Response__c);
 
 	kern.API_MockFactory.clearMocks();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
-		.withParameter('message', 'edge60e-post-clear-' + KEY_RUN_STAMP)
-		.invoke();
+			.withParameter('message', 'edge60e-post-clear-' + KEY_RUN_STAMP)
+			.invoke();
 
 	List<kern__ApiCall__c> calls60eAfterClear =
 	[
-		SELECT kern__StatusCode__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :SERVICE_ECHO
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT kern__StatusCode__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :SERVICE_ECHO
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.isFalse(calls60eAfterClear.isEmpty(), '60e: ApiCall__c should be created after clearMocks()');
 	apiCallsToClean.add(calls60eAfterClear[0].Id);
 
 	Assert.areEqual('202', calls60eAfterClear[0].kern__StatusCode__c,
-		'60e: After clearMocks(), CMDT catch-all (status 202) should resume. Got: '
-		+ calls60eAfterClear[0].kern__StatusCode__c);
+			'60e: After clearMocks(), CMDT catch-all (status 202) should resume. Got: '
+			+ calls60eAfterClear[0].kern__StatusCode__c);
 
 	System.debug(LoggingLevel.INFO,
-		'60e PASS (spec deviation documented): MockBuilder.register() accepted body without throw; '
-		+ 'memory mock (status 203) overrode CMDT; after clearMocks() CMDT default (202) resumed. '
-		+ 'No regex validation at registration — memory mocks bypass API_MockMatcher entirely. '
-		+ 'SPEC DEVIATION: §6.9 #5 expected ConfigurationException at registration; '
-		+ 'actual: no validation at any point in the memory-mock path. '
-		+ 'CMDT invalid-regex silent-false path deferred to Subscriber_MockEdges_TEST. '
-		+ 'FRAMEWORK FOLLOW-UP: add Pattern.compile() validation to MockBuilder.register() '
-		+ 'or a future matchRegex(pattern) builder method.');
+			'60e PASS (spec deviation documented): MockBuilder.register() accepted body without throw; '
+			+ 'memory mock (status 203) overrode CMDT; after clearMocks() CMDT default (202) resumed. '
+			+ 'No regex validation at registration — memory mocks bypass API_MockMatcher entirely. '
+			+ 'SPEC DEVIATION: §6.9 #5 expected ConfigurationException at registration; '
+			+ 'actual: no validation at any point in the memory-mock path. '
+			+ 'CMDT invalid-regex silent-false path deferred to Subscriber_MockEdges_TEST. '
+			+ 'FRAMEWORK FOLLOW-UP: add Pattern.compile() validation to MockBuilder.register() '
+			+ 'or a future matchRegex(pattern) builder method.');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -571,10 +571,10 @@ if(!apiCallsToClean.isEmpty())
 	{
 		List<kern__ApiCall__c> residualCalls =
 		[
-			SELECT Id
-			FROM kern__ApiCall__c
-			WHERE Id IN :apiCallsToClean
-			LIMIT 9000
+				SELECT Id
+				FROM kern__ApiCall__c
+				WHERE Id IN :apiCallsToClean
+				LIMIT 9000
 		];
 		if(!residualCalls.isEmpty())
 		{

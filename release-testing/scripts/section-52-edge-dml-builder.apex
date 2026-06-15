@@ -174,7 +174,7 @@ try
 			SELECT COUNT()
 			FROM kern__LogEntry__c
 			WHERE CreatedById = :UserInfo.getUserId()
-			  AND CreatedDate = TODAY
+			AND CreatedDate = TODAY
 	];
 
 	Object scenario52cBulkObj = kern.TST_Builder.of('kern__Foobar__c')
@@ -195,7 +195,7 @@ try
 			SELECT COUNT()
 			FROM kern__LogEntry__c
 			WHERE CreatedById = :UserInfo.getUserId()
-			  AND CreatedDate = TODAY
+			AND CreatedDate = TODAY
 	];
 	Assert.areEqual(baselineLogs, afterLogs, '52c: suppressLogging on happy-path insert should not produce any new LogEntry__c rows');
 	System.debug(LoggingLevel.INFO, '52c PASS: 50-record insert with suppressLogging produced 0 LogEntry__c rows (baseline=' + baselineLogs + ')');
@@ -250,7 +250,7 @@ try
 			SELECT COUNT()
 			FROM kern__Foobar__c
 			WHERE kern__ExternalId__c LIKE :updatedKeyPattern
-			  AND Name LIKE 'Updated 52d-%'
+			AND Name LIKE 'Updated 52d-%'
 	];
 	Assert.areEqual(5, updatedCount, '52d: expected 5 updated records (matched by externalId, Name updated)');
 
@@ -260,7 +260,7 @@ try
 			SELECT COUNT()
 			FROM kern__Foobar__c
 			WHERE kern__ExternalId__c LIKE :insertedKeyPattern
-			  AND Name LIKE 'Inserted 52d-%'
+			AND Name LIKE 'Inserted 52d-%'
 	];
 	Assert.areEqual(5, insertedCount, '52d: expected 5 newly inserted records');
 
@@ -295,7 +295,7 @@ try
 			SELECT COUNT()
 			FROM kern__Foobar__c
 			WHERE Id IN :scenario52eIds
-			  AND IsDeleted = TRUE
+			AND IsDeleted = TRUE
 			ALL ROWS
 	];
 	Assert.areEqual(3, deletedCount, '52e: all 3 records should be marked IsDeleted=true before undelete');
@@ -427,10 +427,13 @@ try
 
 	List<AsyncApexJob> queued =
 	[
-			SELECT Id, Status, JobType, ApexClass.Name
+			SELECT Id,
+					Status,
+					JobType,
+					ApexClass.Name
 			FROM AsyncApexJob
 			WHERE CreatedById = :UserInfo.getUserId()
-			  AND CreatedDate >= :startedAt
+			AND CreatedDate >= :startedAt
 			ORDER BY CreatedDate DESC
 			LIMIT 5
 	];
@@ -475,7 +478,7 @@ delete
 		SELECT Id
 		FROM kern__Foobar__c
 		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 

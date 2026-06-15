@@ -351,7 +351,7 @@ try
 	orphanRequest58e.success = false;
 	orphanRequest58e.errorMessage = 'no Start preceded this End';
 
-	kern.FLOW_LoggerEnd.execute(new List<kern.FLOW_LoggerEnd.DTO_Request>{orphanRequest58e});
+	kern.FLOW_LoggerEnd.execute(new List<kern.FLOW_LoggerEnd.DTO_Request> {orphanRequest58e});
 
 	System.debug(LoggingLevel.INFO,
 			'58e PASS: FLOW_LoggerEnd accepted orphan correlationId "' + orphanCorrelationId58e + '" without exception (graceful no-op contract + completion log emitted)');

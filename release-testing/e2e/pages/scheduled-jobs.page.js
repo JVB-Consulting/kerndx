@@ -96,7 +96,9 @@ class ScheduledJobsPage
 	{
 		const detail = await this.getDetailComponent();
 		const heading = detail.locator('[data-testid="schedule-heading"]');
-		await heading.waitFor({state: 'visible', timeout: 15_000}).catch(() => {});
+		await heading.waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+		{
+		});
 		return heading.textContent().catch(() => '');
 	}
 
@@ -113,7 +115,9 @@ class ScheduledJobsPage
 		const modal = this.page.locator('div.slds-modal');
 		await modal.waitFor({state: 'visible', timeout: 10_000});
 		await modal.getByRole('button', {name: 'Delete'}).click();
-		await modal.waitFor({state: 'hidden', timeout: 15_000}).catch(() => {});
+		await modal.waitFor({state: 'hidden', timeout: 15_000}).catch(() =>
+		{
+		});
 		await waitForSpinnerGone(this.page);
 	}
 
@@ -174,7 +178,9 @@ class ScheduledJobsPage
 			catch(error)
 			{
 				lastError = error;
-				await this.page.keyboard.press('Escape').catch(() => {});
+				await this.page.keyboard.press('Escape').catch(() =>
+				{
+				});
 				await this.page.waitForTimeout(2000);
 			}
 		}

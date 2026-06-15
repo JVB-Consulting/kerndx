@@ -105,7 +105,15 @@ function getOrgInfo()
 {
 	const raw = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
 	const result = JSON.parse(raw).result;
-	return {instanceUrl: result.instanceUrl, accessToken: result.accessToken};
+	let accessToken = result.accessToken;
+	// Newer Salesforce CLI redacts the access token in `org display` output; fetch it
+	// un-redacted via `org auth show-access-token` (the redacted form fails REST with 401).
+	if(!accessToken || accessToken.includes('REDACTED'))
+	{
+		const tokenRaw = execSync(`sf org auth show-access-token -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
+		accessToken = JSON.parse(tokenRaw).result.accessToken;
+	}
+	return {instanceUrl: result.instanceUrl, accessToken};
 }
 
 /**
@@ -122,8 +130,7 @@ async function postProbe(instanceUrl, accessToken)
 	const requestStart = Date.now();
 	const response = await fetch(`${instanceUrl}${ENDPOINT}`, {
 		method: 'POST', headers: {
-			'Authorization': `Bearer ${accessToken}`,
-			'Content-Type': 'application/json'
+			'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json'
 		}
 	});
 	const text = await response.text();
@@ -143,11 +150,7 @@ async function postProbe(instanceUrl, accessToken)
 	}
 
 	return {
-		statusCode: response.status,
-		responseMs: requestEnd - requestStart,
-		rawBody: text,
-		value,
-		parseError
+		statusCode: response.status, responseMs: requestEnd - requestStart, rawBody: text, value, parseError
 	};
 }
 
@@ -179,7 +182,10 @@ async function deleteCounter(instanceUrl, accessToken)
 
 function percentile(sortedAsc, p)
 {
-	if(sortedAsc.length === 0) { return 0; }
+	if(sortedAsc.length === 0)
+	{
+		return 0;
+	}
 	const idx = Math.min(sortedAsc.length - 1, Math.floor(sortedAsc.length * p));
 	return sortedAsc[idx];
 }
@@ -234,17 +240,14 @@ async function main()
 
 	console.log(`Phase 1: Parallel burst of ${PARALLEL_COUNT} HTTP POSTs (each performs get-modify-put on shared counter)`);
 	const burstStart = Date.now();
-	const probePromises = Array.from(
-		{length: PARALLEL_COUNT},
-		() => postProbe(instanceUrl, accessToken)
-	);
+	const probePromises = Array.from({length: PARALLEL_COUNT}, () => postProbe(instanceUrl, accessToken));
 	const probeResults = await Promise.allSettled(probePromises);
 	const burstEnd = Date.now();
 	const wallMsTotal = burstEnd - burstStart;
 
 	const fulfilled = probeResults
-		.filter(r => r.status === 'fulfilled')
-		.map(r => r.value);
+	.filter(r => r.status === 'fulfilled')
+	.map(r => r.value);
 	const rejected = probeResults.filter(r => r.status === 'rejected');
 
 	console.log(`  Wall-clock: ${wallMsTotal}ms`);
@@ -259,8 +262,8 @@ async function main()
 	console.log(`  HTTP 200:   ${ok200.length}`);
 
 	const responseTimesSorted = fulfilled
-		.map(r => r.responseMs)
-		.sort((a, b) => a - b);
+	.map(r => r.responseMs)
+	.sort((a, b) => a - b);
 	const p50 = percentile(responseTimesSorted, 0.50);
 	const p95 = percentile(responseTimesSorted, 0.95);
 	console.log(`  p50:        ${p50}ms`);
@@ -288,17 +291,33 @@ async function main()
 	}
 	else
 	{
-		recordFail('B3', `${parseFailures.length} response bodies failed to parse (sample: '${parseFailures[0].rawBody?.slice(0, 80)}' → ${parseFailures[0].parseError})`, failures);
+		recordFail('B3', `${parseFailures.length} response bodies failed to parse (sample: '${parseFailures[0].rawBody?.slice(0, 80)}' → ${parseFailures[0].parseError})`,
+				failures);
 		fail++;
 	}
 
 	const valueViolations = fulfilled.filter(r =>
 	{
-		if(r.value === null || r.value === undefined) { return true; }
-		if(typeof r.value !== 'number') { return true; }
-		if(!Number.isInteger(r.value)) { return true; }
-		if(r.value < 1) { return true; }
-		if(r.value > PARALLEL_COUNT) { return true; }
+		if(r.value === null || r.value === undefined)
+		{
+			return true;
+		}
+		if(typeof r.value !== 'number')
+		{
+			return true;
+		}
+		if(!Number.isInteger(r.value))
+		{
+			return true;
+		}
+		if(r.value < 1)
+		{
+			return true;
+		}
+		if(r.value > PARALLEL_COUNT)
+		{
+			return true;
+		}
 		return false;
 	});
 	if(valueViolations.length === 0)
@@ -323,10 +342,7 @@ async function main()
 	console.log(`  final counter=${finalCounterValue}`);
 	console.log('');
 
-	if(typeof finalCounterValue === 'number'
-			&& Number.isInteger(finalCounterValue)
-			&& finalCounterValue >= 1
-			&& finalCounterValue <= PARALLEL_COUNT)
+	if(typeof finalCounterValue === 'number' && Number.isInteger(finalCounterValue) && finalCounterValue >= 1 && finalCounterValue <= PARALLEL_COUNT)
 	{
 		recordPass('B5', `Final counter value ${finalCounterValue} is in [1, ${PARALLEL_COUNT}] (lost updates allowed; no overshoot)`);
 		pass++;
@@ -338,8 +354,8 @@ async function main()
 	}
 
 	const validValues = fulfilled
-		.filter(r => typeof r.value === 'number' && Number.isInteger(r.value))
-		.map(r => r.value);
+	.filter(r => typeof r.value === 'number' && Number.isInteger(r.value))
+	.map(r => r.value);
 	const maxObservedValue = validValues.length > 0 ? Math.max(...validValues) : null;
 	if(maxObservedValue !== null && maxObservedValue === finalCounterValue)
 	{
@@ -378,7 +394,8 @@ async function main()
 	emitPerfRow('lostUpdateCount', lostUpdateCount);
 	console.log('');
 
-	console.log(`Contention summary: ${PARALLEL_COUNT} parallel POSTs → finalCounter=${finalCounterValue} → lostUpdates=${lostUpdateCount} (${((lostUpdateCount / PARALLEL_COUNT) * 100).toFixed(1)}% of writes overwritten by concurrent updates)`);
+	console.log(`Contention summary: ${PARALLEL_COUNT} parallel POSTs → finalCounter=${finalCounterValue} → lostUpdates=${lostUpdateCount} (${((lostUpdateCount / PARALLEL_COUNT)
+			* 100).toFixed(1)}% of writes overwritten by concurrent updates)`);
 	console.log('');
 
 	console.log(`Results: ${pass} passed, ${fail} failed out of 7`);

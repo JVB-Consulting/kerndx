@@ -29,7 +29,12 @@ call.kern__Request__c = '{"noop":"ignored"}';
 call.kern__URL__c = 'https://example.com?password=hunter2';
 insert call;
 
-kern__ApiCall__c stored = [SELECT kern__URL__c FROM kern__ApiCall__c WHERE Id = :call.Id];
+kern__ApiCall__c stored =
+[
+		SELECT kern__URL__c
+		FROM kern__ApiCall__c
+		WHERE Id = :call.Id
+];
 Boolean passUrlPreserved = stored.kern__URL__c.contains('hunter2');
 System.debug((passUrlPreserved ? 'PASS: ' : 'FAIL: ') + 'Rule scoped STRING;TEXTAREA did not fire on URL__c despite explicit target — value preserved');
 passCount += passUrlPreserved ? 1 : 0;

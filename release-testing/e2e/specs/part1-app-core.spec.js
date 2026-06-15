@@ -31,15 +31,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 	{
 		// Clear any leftover SCHED_PurgeRecords ScheduledJob records from prior runs so
 		// V1b/V1d start from a known empty baseline (was previously inline in V1b/V1d).
-		executeAnonymousApex(
-			'delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];'
-		);
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 		// Async-purge accumulated kern__LogEntry__c rows so a long-lived scratch org
 		// doesn't hit STORAGE_LIMIT_EXCEEDED when V1b/V1d insert new ScheduledJob records.
 		// Fire-and-forget batch — runs in the background while subsequent tests start.
-		executeAnonymousApex(
-			'kern.UTIL_PurgeRecords.deleteAllRecords(\'kern__LogEntry__c\');'
-		);
+		executeAnonymousApex('kern.UTIL_PurgeRecords.deleteAllRecords(\'kern__LogEntry__c\');');
 	});
 
 	test('V1: Kern App Home and Health Check', async({page}) =>
@@ -86,9 +82,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const home = new KernHomePage(page);
 
 		const expectedTabApiNames = {
-			apiTestHarness: 'kern__ApiTestHarness',
-			streamingMonitor: 'kern__StreamingEventMonitor',
-			chainMonitor: 'kern__ChainMonitor'
+			apiTestHarness: 'kern__ApiTestHarness', streamingMonitor: 'kern__StreamingEventMonitor', chainMonitor: 'kern__ChainMonitor'
 		};
 
 		for(const [key, apiName] of Object.entries(expectedTabApiNames))
@@ -96,27 +90,16 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 			await home.navigate();
 			await home.launchTool(key);
 			await waitForPageLoad(page);
-			expect(
-				page.url(),
-				`Tool card "${key}" should navigate to namespaced nav item "${apiName}" (not the unprefixed tab name)`
-			).toContain(`/lightning/n/${apiName}`);
+			expect(page.url(), `Tool card "${key}" should navigate to namespaced nav item "${apiName}" (not the unprefixed tab name)`).toContain(`/lightning/n/${apiName}`);
 		}
 	});
 
 	test('V1b: Health Check Data Retention adapts when purge jobs are configured', async({page}) =>
 	{
-		const insertPurgeJob = (objectName, schedulerName) =>
-			executeAnonymousApex(
-				'kern.DTO_NameValues p = new kern.DTO_NameValues();' +
-				`p.add('objectName', '${objectName}');` +
-				'p.add(\'minimumNumberOfDays\', \'90\');' +
-				'insert new kern__ScheduledJob__c(' +
-				`kern__SchedulerName__c = '${schedulerName}',` +
-				'kern__ClassName__c = \'kern.SCHED_PurgeRecords\',' +
-				'kern__CronExpression__c = \'0 0 2 * * ?\',' +
-				'kern__IsActive__c = true,' +
-				'kern__Parameters__c = p.serialize());'
-			);
+		const insertPurgeJob = (objectName, schedulerName) => executeAnonymousApex(
+				'kern.DTO_NameValues p = new kern.DTO_NameValues();' + `p.add('objectName', '${objectName}');` + 'p.add(\'minimumNumberOfDays\', \'90\');'
+				+ 'insert new kern__ScheduledJob__c(' + `kern__SchedulerName__c = '${schedulerName}',` + 'kern__ClassName__c = \'kern.SCHED_PurgeRecords\','
+				+ 'kern__CronExpression__c = \'0 0 2 * * ?\',' + 'kern__IsActive__c = true,' + 'kern__Parameters__c = p.serialize());');
 
 		insertPurgeJob('kern__LogEntry__c', 'Purge Log Entries');
 
@@ -139,9 +122,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const allPassing = await home.allHealthChecksPassing();
 		expect(allPassing, 'All health checks should pass when all 4 purge jobs are configured').toBeTruthy();
 
-		executeAnonymousApex(
-			'delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];'
-		);
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
 
 	test('V1d: Apply Recommended Retention creates all four purge jobs', async({page}) =>
@@ -153,19 +134,15 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await home.clickApplyRetention();
 		await home.confirmApplyRetention();
 
-		const jobs = soqlQuery(
-			'SELECT kern__SchedulerName__c, kern__Parameters__c FROM kern__ScheduledJob__c ' +
-			'WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\' ORDER BY kern__SchedulerName__c'
-		);
+		const jobs = soqlQuery('SELECT kern__SchedulerName__c, kern__Parameters__c FROM kern__ScheduledJob__c '
+				+ 'WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\' ORDER BY kern__SchedulerName__c');
 		expect(jobs.length, 'Four purge jobs should have been created').toBe(4);
 
 		await home.refreshHealthCheck();
 		const passing = await home.allHealthChecksPassing();
 		expect(passing, 'Health check should be all green after apply').toBeTruthy();
 
-		executeAnonymousApex(
-			'delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];'
-		);
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
 
 	test('V1e: Customize each job opens prefilled editor and persists per-object saves', async({page}) =>
@@ -188,9 +165,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await saveBtn.evaluate((el) => el.click());
 		await expect(editor, 'Editor root should be hidden after successful save').toBeHidden({timeout: 15_000});
 
-		const saved = soqlQuery(
-			'SELECT kern__SchedulerName__c FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\''
-		);
+		const saved = soqlQuery('SELECT kern__SchedulerName__c FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'');
 		expect(saved.length, 'One job should be saved after first Set up').toBe(1);
 
 		await home.refreshHealthCheck();
@@ -213,9 +188,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 			}
 		}
 
-		executeAnonymousApex(
-			'delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];'
-		);
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
 
 	test('V1f: Customize-mode header renders headline, help, and back-to-apply link', async({page}) =>
@@ -257,14 +230,8 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 		const box = await editor.boundingBox();
 		expect(box, 'Editor root must have a measurable bounding box').not.toBeNull();
-		expect(
-			box.height,
-			`Modal body height must exceed 300px — the lightning-layout-inside-modal bug rendered a 32px shell (actual: ${box.height}px)`
-		).toBeGreaterThan(300);
-		expect(
-			box.width,
-			`Modal body width must exceed 500px for a usable form layout (actual: ${box.width}px)`
-		).toBeGreaterThan(500);
+		expect(box.height, `Modal body height must exceed 300px — the lightning-layout-inside-modal bug rendered a 32px shell (actual: ${box.height}px)`).toBeGreaterThan(300);
+		expect(box.width, `Modal body width must exceed 500px for a usable form layout (actual: ${box.width}px)`).toBeGreaterThan(500);
 	});
 
 	test('V1h: Locked Class Name renders read-only input, not a combobox placeholder', async({page}) =>
@@ -286,10 +253,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		expect(tag, 'Locked mode must render lightning-input (not lightning-combobox)').toBe('lightning-input');
 
 		const fieldText = (await classNameField.textContent()) || '';
-		expect(
-			fieldText,
-			'Locked Class Name must not show the "Select a class..." combobox placeholder'
-		).not.toMatch(/select a class/i);
+		expect(fieldText, 'Locked Class Name must not show the "Select a class..." combobox placeholder').not.toMatch(/select a class/i);
 
 		const isReadOnly = await classNameField.evaluate((el) => el.readOnly === true || el.getAttribute('read-only') !== null);
 		expect(isReadOnly, 'Locked Class Name lightning-input must be read-only').toBe(true);
@@ -318,16 +282,14 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await editor.waitFor({state: 'visible', timeout: 15_000});
 
 		const apexTypeErrors = consoleMessages.filter(m => /unable to access apex type/i.test(m.text));
-		expect(
-			apexTypeErrors,
-			`Customize flow must not emit "Unable to access Apex type" errors — schedulerClassName is now forwarded from Apex, so any such error indicates a namespace-resolution regression (found: ${JSON.stringify(apexTypeErrors)})`
-		).toEqual([]);
+		expect(apexTypeErrors,
+				`Customize flow must not emit "Unable to access Apex type" errors — schedulerClassName is now forwarded from Apex, so any such error indicates a namespace-resolution regression (found: ${JSON.stringify(
+						apexTypeErrors)})`).toEqual([]);
 
 		const iconWarnings = consoleMessages.filter(m => /invalid icon name/i.test(m.text));
-		expect(
-			iconWarnings,
-			`Customize flow must emit no "<lightning-icon> Invalid icon name" warnings — commit 62b2147 eliminated the disabled-combobox source; any such warning is a regression (found: ${JSON.stringify(iconWarnings)})`
-		).toEqual([]);
+		expect(iconWarnings,
+				`Customize flow must emit no "<lightning-icon> Invalid icon name" warnings — commit 62b2147 eliminated the disabled-combobox source; any such warning is a regression (found: ${JSON.stringify(
+						iconWarnings)})`).toEqual([]);
 	});
 
 	test('V2: Log Entry List and Record', async({page}) =>

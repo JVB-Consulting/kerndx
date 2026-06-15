@@ -52,7 +52,9 @@ class SubscriberLwcTestPage
 		await waitForLightningReady(this.page);
 		await waitForSpinnerGone(this.page);
 		const firstComponent = this.getComponentLocator(EXPECTED_COMPONENTS[0]);
-		await firstComponent.waitFor({state: 'visible', timeout: 15_000}).catch(() => {});
+		await firstComponent.waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+		{
+		});
 	}
 
 	getComponentLocator(name)
@@ -93,7 +95,9 @@ class SubscriberLwcTestPage
 		const section = this.getComponentLocator(componentName);
 		const button = section.getByRole('button', {name: 'Run Tests'});
 		await button.click();
-		await section.locator('li').first().waitFor({state: 'visible', timeout: 15_000}).catch(() => {});
+		await section.locator('li').first().waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+		{
+		});
 	}
 
 	async getSectionResults(componentName)

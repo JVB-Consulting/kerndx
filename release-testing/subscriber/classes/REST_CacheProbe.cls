@@ -39,7 +39,7 @@ global inherited sharing class REST_CacheProbe
 		}
 		current++;
 		cache.put(COUNTER_KEY, current);
-		return JSON.serialize(new Map<String, Object>{'value' => current});
+		return JSON.serialize(new Map<String, Object> {'value' => current});
 	}
 
 	/**
@@ -62,6 +62,6 @@ global inherited sharing class REST_CacheProbe
 	global static String currentValue()
 	{
 		Integer value = (Integer)kern.UTIL_Cache.org().get(COUNTER_KEY);
-		return JSON.serialize(new Map<String, Object>{'value' => (value == null ? 0 : value)});
+		return JSON.serialize(new Map<String, Object> {'value' => (value == null ? 0 : value)});
 	}
 }

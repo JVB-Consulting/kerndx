@@ -14,13 +14,19 @@
  */
 public with sharing class FastStart_FeatureFlag_DEMO
 {
-	/** @description Feature flag name controlling the new pricing calculation. */
+	/**
+	 * @description Feature flag name controlling the new pricing calculation.
+	 */
 	@TestVisible private static final String FLAG_NEW_PRICING = 'FastStart_NewPricing';
 
-	/** @description Legacy surcharge rate applied when the flag is off (5%). */
+	/**
+	 * @description Legacy surcharge rate applied when the flag is off (5%).
+	 */
 	@TestVisible private static final Decimal LEGACY_SURCHARGE = 0.05;
 
-	/** @description New surcharge rate applied when the flag is on (3%). */
+	/**
+	 * @description New surcharge rate applied when the flag is on (3%).
+	 */
 	@TestVisible private static final Decimal NEW_SURCHARGE = 0.03;
 
 	/**

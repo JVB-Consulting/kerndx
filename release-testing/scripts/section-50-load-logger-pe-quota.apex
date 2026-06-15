@@ -163,9 +163,9 @@ try
 	String correlationId = kern.LOG_Builder.startCorrelation();
 
 	Assert.isNotNull(correlationId,
-		'50-launch: startCorrelation() must return a non-null correlationId for downstream verify');
+			'50-launch: startCorrelation() must return a non-null correlationId for downstream verify');
 	Assert.isTrue(String.isNotBlank(correlationId),
-		'50-launch: startCorrelation() correlationId must be non-blank; got: "' + correlationId + '"');
+			'50-launch: startCorrelation() correlationId must be non-blank; got: "' + correlationId + '"');
 
 	String launchTransactionId = Request.getCurrent().getRequestId();
 
@@ -173,36 +173,36 @@ try
 	for(Integer index = 0; index < EMIT_COUNT; index++)
 	{
 		kern.LOG_Builder.build()
-			.info('Section50 PE flood entry ' + index)
-			.emitAt(CLASS_METHOD_MARKER);
+				.info('Section50 PE flood entry ' + index)
+				.emitAt(CLASS_METHOD_MARKER);
 	}
 	Long emitWallMs = System.currentTimeMillis() - startWallMs;
 
 	System.debug(LoggingLevel.INFO,
-		'50-launch (emit) PASS: ' + EMIT_COUNT + ' kern.LOG_Builder emit() calls completed in '
+			'50-launch (emit) PASS: ' + EMIT_COUNT + ' kern.LOG_Builder emit() calls completed in '
 			+ emitWallMs + 'ms (no PublishImmediate governor breach; cap=150/tx). '
 			+ 'CorrelationId=' + correlationId + ', TransactionId=' + launchTransactionId);
 
 	Map<String, Object> handoff = new Map<String, Object>
 	{
-		'runStamp' => RUN_STAMP_50,
-		'correlationId' => correlationId,
-		'transactionId' => launchTransactionId,
-		'classMethodMarker' => CLASS_METHOD_MARKER,
-		'emitCount' => EMIT_COUNT,
-		'emitWallMs' => emitWallMs,
-		'launchCompletedAtMs' => System.currentTimeMillis()
+			'runStamp' => RUN_STAMP_50,
+			'correlationId' => correlationId,
+			'transactionId' => launchTransactionId,
+			'classMethodMarker' => CLASS_METHOD_MARKER,
+			'emitCount' => EMIT_COUNT,
+			'emitWallMs' => emitWallMs,
+			'launchCompletedAtMs' => System.currentTimeMillis()
 	};
 
 	kern__Foobar__c handoffRow = new kern__Foobar__c
-	(
-		Name = HANDOFF_NAME,
-		kern__TextAreaLong__c = JSON.serialize(handoff)
-	);
+			(
+					Name = HANDOFF_NAME,
+					kern__TextAreaLong__c = JSON.serialize(handoff)
+			);
 	insert handoffRow;
 
 	System.debug(LoggingLevel.INFO,
-		'50-launch (handoff) PASS: persisted handoff row ' + handoffRow.Id + ' Name=' + HANDOFF_NAME
+			'50-launch (handoff) PASS: persisted handoff row ' + handoffRow.Id + ' Name=' + HANDOFF_NAME
 			+ ' with runStamp + correlationId + transactionId + emitWallMs. '
 			+ 'Run section-50b after ~10-60 s for persistence verification + PERF_ROW emission.');
 
@@ -211,7 +211,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'50-launch FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'50-launch FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('50-launch: ' + scenarioError.getMessage());
 	fail++;
 }

@@ -86,7 +86,7 @@ final String SCENARIO_RUN_STAMP = String.valueOf(Datetime.now().getTime());
 try
 {
 	RestRequest malformedRequest = new RestRequest();
-	malformedRequest.requestUri = CONTACT_FORM_URI;
+	malformedRequest.requestURI = CONTACT_FORM_URI;
 	malformedRequest.httpMethod = 'POST';
 	malformedRequest.addHeader(CONTENT_TYPE_HEADER, 'application/json');
 	malformedRequest.requestBody = Blob.valueOf('{"firstName":"Jane","lastName":');
@@ -108,7 +108,7 @@ try
 					kern__ErrorMessages__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt54a
+			AND CreatedDate >= :startedAt54a
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -130,7 +130,7 @@ catch(Exception scenarioError)
 try
 {
 	RestRequest plainTextRequest = new RestRequest();
-	plainTextRequest.requestUri = CONTACT_FORM_URI;
+	plainTextRequest.requestURI = CONTACT_FORM_URI;
 	plainTextRequest.httpMethod = 'POST';
 	plainTextRequest.addHeader(CONTENT_TYPE_HEADER, 'text/plain');
 	plainTextRequest.requestBody = Blob.valueOf('lastName=Doe&email=jane@example.com');
@@ -153,7 +153,7 @@ try
 					kern__ErrorMessages__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt54b
+			AND CreatedDate >= :startedAt54b
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -174,7 +174,7 @@ catch(Exception scenarioError)
 try
 {
 	RestRequest emptyBodyRequest = new RestRequest();
-	emptyBodyRequest.requestUri = CONTACT_FORM_URI;
+	emptyBodyRequest.requestURI = CONTACT_FORM_URI;
 	emptyBodyRequest.httpMethod = 'POST';
 	emptyBodyRequest.addHeader(CONTENT_TYPE_HEADER, 'application/json');
 	emptyBodyRequest.requestBody = Blob.valueOf('');
@@ -197,7 +197,7 @@ try
 					kern__ErrorMessages__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt54c
+			AND CreatedDate >= :startedAt54c
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -229,7 +229,7 @@ try
 	String validBody54d = '{"firstName":"Edge","lastName":"Case54d","email":"edge54d-' + SCENARIO_RUN_STAMP + '@example.com","message":"Idempotency header probe"}';
 
 	RestRequest idempotentRequest = new RestRequest();
-	idempotentRequest.requestUri = CONTACT_FORM_URI;
+	idempotentRequest.requestURI = CONTACT_FORM_URI;
 	idempotentRequest.httpMethod = 'POST';
 	idempotentRequest.addHeader(CONTENT_TYPE_HEADER, 'application/json');
 	idempotentRequest.addHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey54d);
@@ -251,7 +251,7 @@ try
 					kern__IsIdempotencyHit__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
-			  AND CreatedDate >= :startedAt54d
+			AND CreatedDate >= :startedAt54d
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
@@ -279,8 +279,8 @@ delete
 		SELECT Id
 		FROM Lead
 		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		  AND LeadSource = 'Web'
+		AND CreatedById = :UserInfo.getUserId()
+		AND LeadSource = 'Web'
 		LIMIT 9000
 ];
 delete
@@ -288,8 +288,8 @@ delete
 		SELECT Id
 		FROM kern__ApiCall__c
 		WHERE kern__ServiceName__c = :SERVICE_NAME
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+		AND CreatedDate = TODAY
+		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
 

@@ -48,7 +48,9 @@ class ApiTestHarnessPage
 		await option.waitFor({state: 'visible', timeout: 10_000});
 		await option.click();
 		await combobox.locator(`input[value*="${serviceLabel.replace(/"/g, '\\"')}"], [title="${serviceLabel}"]`).first()
-		.waitFor({state: 'attached', timeout: 5_000}).catch(() => {});
+		.waitFor({state: 'attached', timeout: 5_000}).catch(() =>
+		{
+		});
 	}
 
 	async setRecordId(recordId)
@@ -137,7 +139,9 @@ class ApiTestHarnessPage
 	async reset()
 	{
 		await this.form().locator('[data-testid="harness-reset"]').click();
-		await this.form().locator('[data-testid="empty-response"]').waitFor({state: 'visible', timeout: 5_000}).catch(() => {});
+		await this.form().locator('[data-testid="empty-response"]').waitFor({state: 'visible', timeout: 5_000}).catch(() =>
+		{
+		});
 	}
 
 	async getStatusBadge()

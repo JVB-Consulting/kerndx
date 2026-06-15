@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date September 2022, May 2026
+ * @date September 2022, June 2026
  */
 import Component from '@salesforce/messageChannel/Component__c';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -160,18 +160,11 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	 * @type {string}
 	 */
 	@api idField = 'Id';
-
-	/**
-	 * @description Options to pre-populate results with
-	 * @type {[]}
-	 */
-	@api searchOptions = [];
-
-	// ── Internal State ───────────────────────────────────────────────────
-
 	templateHTML = lookupTemplate;
 	searchResults = [];
 	searchTerm = '';
+
+	// ── Internal State ───────────────────────────────────────────────────
 	isSearchLoading = false;
 	hasRecords = false;
 	record;
@@ -179,6 +172,27 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	delayTimeout;
 	currentFocusedSearchOption = NO_FOCUSED_OPTION;
 	valueSelectEventParams = {};
+
+	_searchOptions = [];
+
+	/**
+	 * @description Options to pre-populate the results list with. Assigning this reactively
+	 * (re)seeds the displayed results, so a consumer that supplies the list asynchronously —
+	 * for example after an awaited Apex call in its own connectedCallback, by which point this
+	 * component has already mounted — still gets a populated, searchable dropdown. The one-shot
+	 * seed in connectedCallback covers the case where the list is already present at mount.
+	 * @type {[]}
+	 */
+	@api get searchOptions()
+	{
+		return this._searchOptions;
+	}
+
+	set searchOptions(value)
+	{
+		this._searchOptions = value || [];
+		this.searchResults = [...this._searchOptions];
+	}
 
 	// ── Computed Properties ──────────────────────────────────────────────
 

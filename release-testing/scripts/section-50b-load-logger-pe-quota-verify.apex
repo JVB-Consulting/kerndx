@@ -132,15 +132,17 @@ try
 {
 	List<kern__Foobar__c> handoffRows =
 	[
-		SELECT Id, Name, kern__TextAreaLong__c
-		FROM kern__Foobar__c
-		WHERE Name LIKE 'Section50Load_%'
-		ORDER BY CreatedDate DESC
-		LIMIT 1
+			SELECT Id,
+					Name,
+					kern__TextAreaLong__c
+			FROM kern__Foobar__c
+			WHERE Name LIKE 'Section50Load_%'
+			ORDER BY CreatedDate DESC
+			LIMIT 1
 	];
 
 	Assert.areEqual(1, handoffRows.size(),
-		'50b-verify: expected exactly one Section50Load_% handoff row, got ' + handoffRows.size()
+			'50b-verify: expected exactly one Section50Load_% handoff row, got ' + handoffRows.size()
 			+ ' (was section-50 launched first?)');
 
 	kern__Foobar__c handoffRow = handoffRows[0];
@@ -156,11 +158,11 @@ try
 	Long launchCompletedAtMs = (Long)handoff.get('launchCompletedAtMs');
 
 	Assert.areEqual(EXPECTED_COUNT, expectedCount,
-		'50b-verify: handoff emitCount must be ' + EXPECTED_COUNT + '; got ' + expectedCount
+			'50b-verify: handoff emitCount must be ' + EXPECTED_COUNT + '; got ' + expectedCount
 			+ ' (handoff/launch script drift?)');
 
 	System.debug(LoggingLevel.INFO,
-		'50b-verify: read handoff ' + handoffName + ' runStamp=' + runStamp
+			'50b-verify: read handoff ' + handoffName + ' runStamp=' + runStamp
 			+ ' correlationId=' + expectedCorrelationId + ' transactionId=' + expectedTransactionId
 			+ ' classMethodMarker=' + classMethodMarker + ' emitWallMs=' + emitWallMs + 'ms');
 
@@ -174,11 +176,11 @@ try
 	{
 		persistedCount =
 		[
-			SELECT COUNT()
-			FROM kern__LogEntry__c
-			WHERE kern__ClassMethod__c LIKE :classMethodPattern
-			  AND CreatedDate = TODAY
-			  AND kern__UserId__c = :UserInfo.getUserId()
+				SELECT COUNT()
+				FROM kern__LogEntry__c
+				WHERE kern__ClassMethod__c LIKE :classMethodPattern
+				AND CreatedDate = TODAY
+				AND kern__UserId__c = :UserInfo.getUserId()
 		];
 		pollIterations++;
 
@@ -197,7 +199,7 @@ try
 		if(Limits.getCpuTime() >= 8000)
 		{
 			System.debug(LoggingLevel.WARN,
-				'50b-verify: approaching sync CPU governor (' + Limits.getCpuTime() + '/10000 ms) — '
+					'50b-verify: approaching sync CPU governor (' + Limits.getCpuTime() + '/10000 ms) — '
 					+ 'aborting poll loop. If persistedCount < ' + EXPECTED_COUNT + ', re-run '
 					+ 'section-50b only (handoff row persists for re-poll).');
 			break;
@@ -209,12 +211,12 @@ try
 	Integer droppedCount = EXPECTED_COUNT - persistedCount;
 
 	System.debug(LoggingLevel.INFO,
-		'50b-verify (poll) ' + pollIterations + ' iterations over ' + pollElapsedMs
+			'50b-verify (poll) ' + pollIterations + ' iterations over ' + pollElapsedMs
 			+ 'ms; persistedCount=' + persistedCount + '/' + EXPECTED_COUNT
 			+ ' droppedCount=' + droppedCount);
 
 	Assert.areEqual(EXPECTED_COUNT, persistedCount,
-		'50b-verify: persistedCount must be ' + EXPECTED_COUNT + ' (no PEs dropped by '
+			'50b-verify: persistedCount must be ' + EXPECTED_COUNT + ' (no PEs dropped by '
 			+ 'TRG_PersistLogEntry / quota / subscriber chain); got ' + persistedCount
 			+ ' droppedCount=' + droppedCount + ' after ' + pollIterations + ' polls / '
 			+ pollElapsedMs + 'ms wall. ClassMethod marker=' + classMethodMarker
@@ -222,21 +224,22 @@ try
 			+ 'wait longer + re-run section-50b only.');
 
 	Assert.areEqual(0, droppedCount,
-		'50b-verify: droppedCount must be 0 (HARD GATE — any drop indicates subscriber chain '
+			'50b-verify: droppedCount must be 0 (HARD GATE — any drop indicates subscriber chain '
 			+ 'breakage); got ' + droppedCount);
 
 	List<AggregateResult> txGroups =
 	[
-		SELECT kern__TransactionId__c txId, COUNT(Id) rowCount
-		FROM kern__LogEntry__c
-		WHERE kern__ClassMethod__c LIKE :classMethodPattern
-		  AND CreatedDate = TODAY
-		  AND kern__UserId__c = :UserInfo.getUserId()
-		GROUP BY kern__TransactionId__c
+			SELECT kern__TransactionId__c txId,
+					COUNT(Id) rowCount
+			FROM kern__LogEntry__c
+			WHERE kern__ClassMethod__c LIKE :classMethodPattern
+			AND CreatedDate = TODAY
+			AND kern__UserId__c = :UserInfo.getUserId()
+			GROUP BY kern__TransactionId__c
 	];
 
 	Assert.areEqual(1, txGroups.size(),
-		'50b-verify: all ' + EXPECTED_COUNT + ' persisted entries must share a single '
+			'50b-verify: all ' + EXPECTED_COUNT + ' persisted entries must share a single '
 			+ 'TransactionId__c (single launch tx); got ' + txGroups.size() + ' distinct '
 			+ 'TransactionId__c values. Per-group: ' + txGroups);
 
@@ -244,25 +247,26 @@ try
 	Integer observedTxRowCount = (Integer)txGroups[0].get('rowCount');
 
 	Assert.areEqual(expectedTransactionId, observedTransactionId,
-		'50b-verify: persisted TransactionId__c must equal the LAUNCH tx RequestId; '
+			'50b-verify: persisted TransactionId__c must equal the LAUNCH tx RequestId; '
 			+ 'expected="' + expectedTransactionId + '" observed="' + observedTransactionId + '"');
 
 	Assert.areEqual(EXPECTED_COUNT, observedTxRowCount,
-		'50b-verify: TransactionId__c group rowCount must equal ' + EXPECTED_COUNT
+			'50b-verify: TransactionId__c group rowCount must equal ' + EXPECTED_COUNT
 			+ '; got ' + observedTxRowCount);
 
 	List<AggregateResult> correlationGroups =
 	[
-		SELECT kern__CorrelationId__c correlationId, COUNT(Id) rowCount
-		FROM kern__LogEntry__c
-		WHERE kern__ClassMethod__c LIKE :classMethodPattern
-		  AND CreatedDate = TODAY
-		  AND kern__UserId__c = :UserInfo.getUserId()
-		GROUP BY kern__CorrelationId__c
+			SELECT kern__CorrelationId__c correlationId,
+					COUNT(Id) rowCount
+			FROM kern__LogEntry__c
+			WHERE kern__ClassMethod__c LIKE :classMethodPattern
+			AND CreatedDate = TODAY
+			AND kern__UserId__c = :UserInfo.getUserId()
+			GROUP BY kern__CorrelationId__c
 	];
 
 	Assert.areEqual(1, correlationGroups.size(),
-		'50b-verify: all ' + EXPECTED_COUNT + ' persisted entries must share a single '
+			'50b-verify: all ' + EXPECTED_COUNT + ' persisted entries must share a single '
 			+ 'CorrelationId__c (single startCorrelation()); got ' + correlationGroups.size()
 			+ ' distinct CorrelationId__c values. Per-group: ' + correlationGroups);
 
@@ -270,64 +274,64 @@ try
 	Integer observedCorrelationRowCount = (Integer)correlationGroups[0].get('rowCount');
 
 	Assert.areEqual(expectedCorrelationId, observedCorrelationId,
-		'50b-verify: persisted CorrelationId__c must equal the LAUNCH correlationId; '
+			'50b-verify: persisted CorrelationId__c must equal the LAUNCH correlationId; '
 			+ 'expected="' + expectedCorrelationId + '" observed="' + observedCorrelationId + '"');
 
 	Assert.areEqual(EXPECTED_COUNT, observedCorrelationRowCount,
-		'50b-verify: CorrelationId__c group rowCount must equal ' + EXPECTED_COUNT
+			'50b-verify: CorrelationId__c group rowCount must equal ' + EXPECTED_COUNT
 			+ '; got ' + observedCorrelationRowCount);
 
 	Integer ourErrorCount =
 	[
-		SELECT COUNT()
-		FROM kern__LogEntry__c
-		WHERE kern__LogLevel__c = 'ERROR'
-		  AND CreatedDate = TODAY
-		  AND kern__UserId__c = :UserInfo.getUserId()
-		  AND kern__ClassMethod__c LIKE :classMethodPattern
+			SELECT COUNT()
+			FROM kern__LogEntry__c
+			WHERE kern__LogLevel__c = 'ERROR'
+			AND CreatedDate = TODAY
+			AND kern__UserId__c = :UserInfo.getUserId()
+			AND kern__ClassMethod__c LIKE :classMethodPattern
 	];
 
 	Assert.areEqual(0, ourErrorCount,
-		'50b-verify: zero ERROR-level kern__LogEntry__c rows must persist under OUR run marker '
+			'50b-verify: zero ERROR-level kern__LogEntry__c rows must persist under OUR run marker '
 			+ classMethodMarker + ' (we only emit INFO; an ERROR under our marker indicates the '
 			+ 'framework injection-flipped a level OR TRG_PersistLogEntry corrupted the LogLevel '
 			+ 'field during persistence); got ' + ourErrorCount + ' unexpected ERROR rows under marker');
 
 	Integer apiIssueCount =
 	[
-		SELECT COUNT()
-		FROM kern__ApiIssue__c
-		WHERE CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
+			SELECT COUNT()
+			FROM kern__ApiIssue__c
+			WHERE CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
 	];
 
 	Assert.areEqual(0, apiIssueCount,
-		'50b-verify: zero kern__ApiIssue__c rows must surface from current user TODAY '
+			'50b-verify: zero kern__ApiIssue__c rows must surface from current user TODAY '
 			+ '(integration-side errors as a side-effect of the PE flood); got ' + apiIssueCount);
 
 	Map<String, Object> emitWallRow = new Map<String, Object>
 	{
-		'section' => 50,
-		'metric' => 'emitWallMs',
-		'value' => emitWallMs
+			'section' => 50,
+			'metric' => 'emitWallMs',
+			'value' => emitWallMs
 	};
 	Map<String, Object> peDeliveryRow = new Map<String, Object>
 	{
-		'section' => 50,
-		'metric' => 'peDeliveryWallMs',
-		'value' => peDeliveryWallMs
+			'section' => 50,
+			'metric' => 'peDeliveryWallMs',
+			'value' => peDeliveryWallMs
 	};
 	Map<String, Object> persistedRow = new Map<String, Object>
 	{
-		'section' => 50,
-		'metric' => 'persistedCount',
-		'value' => persistedCount
+			'section' => 50,
+			'metric' => 'persistedCount',
+			'value' => persistedCount
 	};
 	Map<String, Object> droppedRow = new Map<String, Object>
 	{
-		'section' => 50,
-		'metric' => 'droppedCount',
-		'value' => droppedCount
+			'section' => 50,
+			'metric' => 'droppedCount',
+			'value' => droppedCount
 	};
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(emitWallRow));
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(peDeliveryRow));
@@ -335,7 +339,7 @@ try
 	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(droppedRow));
 
 	System.debug(LoggingLevel.INFO,
-		'50b-verify PASS: ' + persistedCount + '/' + EXPECTED_COUNT + ' LogEntry__c rows persisted '
+			'50b-verify PASS: ' + persistedCount + '/' + EXPECTED_COUNT + ' LogEntry__c rows persisted '
 			+ '(droppedCount=' + droppedCount + '); all share TransactionId="' + observedTransactionId
 			+ '" + CorrelationId="' + observedCorrelationId + '". '
 			+ 'emitWallMs=' + emitWallMs + 'ms peDeliveryWallMs=' + peDeliveryWallMs + 'ms '
@@ -349,7 +353,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'50b-verify FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'50b-verify FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('50b-verify: ' + scenarioError.getMessage());
 	fail++;
 }
@@ -358,40 +362,40 @@ try
 {
 	List<kern__Foobar__c> residualHandoff =
 	[
-		SELECT Id
-		FROM kern__Foobar__c
-		WHERE Name LIKE 'Section50Load_%'
-		  AND CreatedDate = TODAY
-		  AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM kern__Foobar__c
+			WHERE Name LIKE 'Section50Load_%'
+			AND CreatedDate = TODAY
+			AND CreatedById = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualHandoff.isEmpty())
 	{
 		delete residualHandoff;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualHandoff.size() + ' Section50Load_% handoff Foobar__c row(s)');
+				'Cleanup: deleted ' + residualHandoff.size() + ' Section50Load_% handoff Foobar__c row(s)');
 	}
 
 	List<kern__LogEntry__c> residualLogEntries =
 	[
-		SELECT Id
-		FROM kern__LogEntry__c
-		WHERE kern__ClassMethod__c LIKE 'LOG_TestSection50_%'
-		  AND CreatedDate = TODAY
-		  AND kern__UserId__c = :UserInfo.getUserId()
-		LIMIT 9000
+			SELECT Id
+			FROM kern__LogEntry__c
+			WHERE kern__ClassMethod__c LIKE 'LOG_TestSection50_%'
+			AND CreatedDate = TODAY
+			AND kern__UserId__c = :UserInfo.getUserId()
+			LIMIT 9000
 	];
 	if(!residualLogEntries.isEmpty())
 	{
 		delete residualLogEntries;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualLogEntries.size() + ' LOG_TestSection50_% kern__LogEntry__c row(s)');
+				'Cleanup: deleted ' + residualLogEntries.size() + ' LOG_TestSection50_% kern__LogEntry__c row(s)');
 	}
 }
 catch(Exception cleanupError)
 {
 	System.debug(LoggingLevel.WARN,
-		'50b cleanup warning (handoff/LogEntry delete failed): ' + cleanupError.getMessage());
+			'50b cleanup warning (handoff/LogEntry delete failed): ' + cleanupError.getMessage());
 }
 
 System.debug(LoggingLevel.INFO, '');

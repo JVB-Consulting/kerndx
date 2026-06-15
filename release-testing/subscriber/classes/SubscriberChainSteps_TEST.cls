@@ -15,7 +15,9 @@
 @IsTest(SeeAllData=false)
 private class SubscriberChainSteps_TEST
 {
-	/** @description Chain name used across tests. */
+	/**
+	 * @description Chain name used across tests.
+	 */
 	private static final String CHAIN_NAME = 'SubscriberTest';
 
 	/**
@@ -38,7 +40,12 @@ private class SubscriberChainSteps_TEST
 		Assert.isNotNull(contextData.get(SubscriberChainSteps.KEY_FOOBAR_ID), 'Foobar ID should be in context');
 
 		Id foobarId = (Id)contextData.get(SubscriberChainSteps.KEY_FOOBAR_ID);
-		List<kern__Foobar__c> foobars = [SELECT Id FROM kern__Foobar__c WHERE Id = :foobarId];
+		List<kern__Foobar__c> foobars =
+		[
+				SELECT Id
+				FROM kern__Foobar__c
+				WHERE Id = :foobarId
+		];
 		Assert.areEqual(1, foobars.size(), 'Foobar record should exist');
 	}
 
@@ -61,7 +68,12 @@ private class SubscriberChainSteps_TEST
 
 		Map<String, Object> contextData = parseContext(execution);
 		Id foobarId = (Id)contextData.get(SubscriberChainSteps.KEY_FOOBAR_ID);
-		kern__Foobar__c record = [SELECT Name FROM kern__Foobar__c WHERE Id = :foobarId];
+		kern__Foobar__c record =
+		[
+				SELECT Name
+				FROM kern__Foobar__c
+				WHERE Id = :foobarId
+		];
 		Assert.isTrue(record.Name.contains('Updated'), 'Foobar should be updated by second step');
 	}
 
@@ -267,7 +279,12 @@ private class SubscriberChainSteps_TEST
 		Assert.areEqual('invoked', contextData.get(SubscriberChainSteps.KEY_API_RESPONSE), 'API step should set response flag');
 
 		Id foobarId = (Id)contextData.get(SubscriberChainSteps.KEY_FOOBAR_ID);
-		kern__Foobar__c record = [SELECT Name FROM kern__Foobar__c WHERE Id = :foobarId];
+		kern__Foobar__c record =
+		[
+				SELECT Name
+				FROM kern__Foobar__c
+				WHERE Id = :foobarId
+		];
 		Assert.isTrue(record.Name.contains('Updated'), 'Foobar should be updated by third step');
 	}
 
@@ -293,7 +310,12 @@ private class SubscriberChainSteps_TEST
 		Assert.areEqual(correlationId, execution.kern__CorrelationId__c, 'Chain should inherit subscriber correlation ID');
 		Assert.areEqual('Completed', execution.kern__Status__c, 'Chain should complete');
 
-		List<kern__LogEntry__c> correlatedLogs = [SELECT kern__CorrelationId__c FROM kern__LogEntry__c WHERE kern__CorrelationId__c = :correlationId];
+		List<kern__LogEntry__c> correlatedLogs =
+		[
+				SELECT kern__CorrelationId__c
+				FROM kern__LogEntry__c
+				WHERE kern__CorrelationId__c = :correlationId
+		];
 		Assert.isTrue(correlatedLogs.size() >= 1, 'At least 1 log entry should share the correlation ID (continueOnError warn)');
 	}
 
@@ -320,10 +342,12 @@ private class SubscriberChainSteps_TEST
 		Assert.areEqual('Completed', execution.kern__Status__c, 'Chain should complete');
 		Assert.isNotNull(execution.kern__DurationMs__c, 'DurationMs should be set on execution record');
 
-		List<kern__LogEntry__c> perfLogs = [
-				SELECT kern__DurationMs__c, kern__Message__c
+		List<kern__LogEntry__c> perfLogs =
+		[
+				SELECT kern__DurationMs__c,
+						kern__Message__c
 				FROM kern__LogEntry__c
-				WHERE kern__DurationMs__c != null
+				WHERE kern__DurationMs__c != NULL
 				ORDER BY CreatedDate DESC
 		];
 		Assert.isFalse(perfLogs.isEmpty(), 'At least one performance log should have DurationMs populated');
@@ -493,9 +517,9 @@ private class SubscriberChainSteps_TEST
 		Assert.areEqual(3, execution.kern__CompletedSteps__c, 'All 3 WriteContextStep instances should complete');
 
 		Map<String, Object> contextData = parseContext(execution);
-		for(Integer index = 0; index < 3; index++)
+		for(Integer index = 0; Index < 3; Index++)
 		{
-			String key = SubscriberChainSteps.CONTEXT_KEY_PREFIX + index;
+			String key = SubscriberChainSteps.CONTEXT_KEY_PREFIX + Index;
 			Object payload = contextData.get(key);
 			Assert.isNotNull(payload, 'Payload should be present at ' + key);
 			Assert.areEqual(SubscriberChainSteps.WRITE_CONTEXT_PAYLOAD_SIZE, ((String)payload).length(),
@@ -563,9 +587,16 @@ private class SubscriberChainSteps_TEST
 	 */
 	private static kern__AsyncChainExecution__c queryExecution(String executionId)
 	{
-		return [
-				SELECT kern__ChainName__c, kern__Status__c, kern__TotalSteps__c, kern__CompletedSteps__c,
-						kern__ErrorMessage__c, kern__ContextData__c, kern__CorrelationId__c, kern__DurationMs__c
+		return
+		[
+				SELECT kern__ChainName__c,
+						kern__Status__c,
+						kern__TotalSteps__c,
+						kern__CompletedSteps__c,
+						kern__ErrorMessage__c,
+						kern__ContextData__c,
+						kern__CorrelationId__c,
+						kern__DurationMs__c
 				FROM kern__AsyncChainExecution__c
 				WHERE Id = :executionId
 		];

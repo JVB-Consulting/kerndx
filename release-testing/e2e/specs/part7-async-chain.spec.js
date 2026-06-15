@@ -22,9 +22,9 @@ async function pollUntilTerminal(executionId, page, testInfo)
 	for(let attempt = 1; attempt <= maxAttempts && status === 'Running'; attempt++)
 	{
 		await page.waitForTimeout(POLL_INTERVAL_MS);
-		const records = soqlQuery(
-				`SELECT kern__Status__c FROM kern__AsyncChainExecution__c WHERE Id = '${executionId}'`
-		);
+		const records = soqlQuery(`SELECT kern__Status__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${executionId}'`);
 		expect(records.length, 'Execution record should exist').toBe(1);
 		status = records[0].kern__Status__c;
 		testInfo.annotations.push({type: 'notes', description: `Poll ${attempt}/${maxAttempts}: ${status}`});
@@ -71,12 +71,20 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 
 	test('V12: Verify all execution record fields', async({page}, testInfo) =>
 	{
-		const records = soqlQuery(
-				`SELECT Name, kern__ChainName__c, kern__Status__c, kern__TotalSteps__c, kern__CompletedSteps__c,
-						kern__CorrelationId__c, kern__StartedAt__c, kern__CompletedAt__c, kern__ContextData__c,
-						kern__CurrentStepName__c, kern__StepLog__c, kern__ErrorMessage__c
-				FROM kern__AsyncChainExecution__c WHERE Id = '${chainExecutionId}'`
-		);
+		const records = soqlQuery(`SELECT Name,
+                                          kern__ChainName__c,
+                                          kern__Status__c,
+                                          kern__TotalSteps__c,
+                                          kern__CompletedSteps__c,
+                                          kern__CorrelationId__c,
+                                          kern__StartedAt__c,
+                                          kern__CompletedAt__c,
+                                          kern__ContextData__c,
+                                          kern__CurrentStepName__c,
+                                          kern__StepLog__c,
+                                          kern__ErrorMessage__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${chainExecutionId}'`);
 		expect(records.length).toBe(1);
 
 		const execution = records[0];
@@ -122,7 +130,10 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 		// ErrorMessage__c — should be null on success
 		expect(execution.kern__ErrorMessage__c, 'ErrorMessage should be null on successful chain').toBeNull();
 
-		testInfo.annotations.push({type: 'notes', description: `${execution.Name}: ${execution.kern__CompletedSteps__c}/${execution.kern__TotalSteps__c} steps, correlation=${execution.kern__CorrelationId__c}`});
+		testInfo.annotations.push({
+			type: 'notes',
+			description: `${execution.Name}: ${execution.kern__CompletedSteps__c}/${execution.kern__TotalSteps__c} steps, correlation=${execution.kern__CorrelationId__c}`
+		});
 	});
 
 	test('V13: AsyncChainExecution tab visible in Kern app', async({page}) =>
@@ -139,8 +150,7 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 	test('V14: Navigate to execution record page', async({page}) =>
 	{
 		const instanceUrl = getInstanceUrl();
-		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${chainExecutionId}/view`,
-				{waitUntil: 'domcontentloaded'});
+		await page.goto(`${instanceUrl}/lightning/r/kern__AsyncChainExecution__c/${chainExecutionId}/view`, {waitUntil: 'domcontentloaded'});
 		await waitForPageLoad(page);
 
 		const recordPage = page.locator('records-record-layout-event-broker, records-lwc-detail-panel').first();
@@ -162,9 +172,9 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 		const status = await pollUntilTerminal(failedId, page, testInfo);
 		expect(status).toBe('Failed');
 
-		const records = soqlQuery(
-				`SELECT kern__ErrorMessage__c FROM kern__AsyncChainExecution__c WHERE Id = '${failedId}'`
-		);
+		const records = soqlQuery(`SELECT kern__ErrorMessage__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${failedId}'`);
 		expect(records[0].kern__ErrorMessage__c).toContain('Deliberate subscriber failure');
 	});
 
@@ -183,11 +193,13 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 		const status = await pollUntilTerminal(apiChainId, page, testInfo);
 		expect(status, '4-step chain should complete').toBe('Completed');
 
-		const records = soqlQuery(
-				`SELECT kern__CompletedSteps__c, kern__TotalSteps__c, kern__ContextData__c,
-						kern__CurrentStepName__c, kern__ErrorMessage__c
-				FROM kern__AsyncChainExecution__c WHERE Id = '${apiChainId}'`
-		);
+		const records = soqlQuery(`SELECT kern__CompletedSteps__c,
+                                          kern__TotalSteps__c,
+                                          kern__ContextData__c,
+                                          kern__CurrentStepName__c,
+                                          kern__ErrorMessage__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${apiChainId}'`);
 		const execution = records[0];
 		expect(execution.kern__TotalSteps__c, 'Should have 4 total steps').toBe(4);
 		expect(execution.kern__CompletedSteps__c, 'All 4 steps should complete').toBe(4);
@@ -214,9 +226,9 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 		const status = await pollUntilTerminal(handlerChainId, page, testInfo);
 		expect(status, 'Chain with DML step + callout handler should complete').toBe('Completed');
 
-		const records = soqlQuery(
-				`SELECT kern__ContextData__c FROM kern__AsyncChainExecution__c WHERE Id = '${handlerChainId}'`
-		);
+		const records = soqlQuery(`SELECT kern__ContextData__c
+                                   FROM kern__AsyncChainExecution__c
+                                   WHERE Id = '${handlerChainId}'`);
 		const context = JSON.parse(records[0].kern__ContextData__c);
 		expect(context.apiResponse, 'onComplete handler should have invoked API callout').toBe('invoked');
 
