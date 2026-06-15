@@ -26,12 +26,12 @@ private class API_ContactFormSubmit_TEST
 	private static void shouldCreateLeadFromValidSubmission()
 	{
 		API_ContactFormSubmit.DTO_Request request = new API_ContactFormSubmit.DTO_Request();
-		Request.firstName = 'Jane';
-		Request.lastName = 'Doe';
-		Request.email = 'jane.doe@example.com';
-		Request.message = 'I want to learn more';
+		request.firstName = 'Jane';
+		request.lastName = 'Doe';
+		request.email = 'jane.doe@example.com';
+		request.message = 'I want to learn more';
 
-		kern.API_InboundTestHelper.assertCallSuccessful(SERVICE_NAME, Request);
+		kern.API_InboundTestHelper.assertCallSuccessful(SERVICE_NAME, request);
 	}
 
 	/**
@@ -41,9 +41,9 @@ private class API_ContactFormSubmit_TEST
 	private static void shouldAbortWhenLastNameMissing()
 	{
 		API_ContactFormSubmit.DTO_Request request = new API_ContactFormSubmit.DTO_Request();
-		Request.email = 'jane@example.com';
+		request.email = 'jane@example.com';
 
-		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, Request, 'Last name is required');
+		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, request, 'Last name is required');
 	}
 
 	/**
@@ -53,8 +53,8 @@ private class API_ContactFormSubmit_TEST
 	private static void shouldAbortWhenEmailMissing()
 	{
 		API_ContactFormSubmit.DTO_Request request = new API_ContactFormSubmit.DTO_Request();
-		Request.lastName = 'Doe';
+		request.lastName = 'Doe';
 
-		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, Request, 'Email is required');
+		kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, request, 'Email is required');
 	}
 }
