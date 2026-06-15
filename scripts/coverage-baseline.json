@@ -1,27 +1,48 @@
 {
-  "capturedAt": "2026-04-16T18:00:00.000Z",
+  "capturedAt": "2026-06-09T20:58:09.197Z",
   "apex": {
-    "totalWallClockSeconds": 342.691,
+    "totalWallClockSeconds": 688.06,
     "testSetupClasses": [
+      "API_Dispatcher_TEST",
+      "API_GetPwndPasswords_TEST",
+      "CTRL_ExecuteSearch_TEST",
       "CTRL_FieldSet_TEST",
-      "FLOW_SendEmail_TEST",
-      "PROC_LoginFrequencyAggregator_TEST",
-      "SCHED_ProcessLoginHistory_TEST",
-      "SCHED_PurgeRecords_TEST",
+      "CTRL_Search_TEST",
+      "DML_Builder_TEST",
+      "LOG_Engine_TEST",
+      "PROC_ExecuteDML_TEST",
+      "PROC_UpdateFields_TEST",
+      "QRY_Builder_TEST",
+      "QRY_Condition_TEST",
+      "SEL_ApiCall_TEST",
+      "SEL_ApiIssue_TEST",
+      "SEL_AsyncChainExecution_TEST",
+      "SEL_Base_TEST",
       "SEL_CustomPermission_TEST",
       "SEL_Group_TEST",
       "SEL_Hierarchy_TEST",
+      "SEL_LogEntry_TEST",
       "SEL_PermissionSetAssignment_TEST",
       "SEL_TriggerAction_TEST",
       "SEL_User_TEST",
+      "TRG_DeleteApiCallDocuments_TEST",
+      "TRG_ScheduleJob_TEST",
+      "TRG_SetFoobarDefaults_TEST",
+      "TST_BuilderInternal_TEST",
+      "TST_Builder_TEST",
+      "UTIL_AsyncChain_TEST",
+      "UTIL_AsynchronousJobLauncher_TEST",
+      "UTIL_BulkUpdates_TEST",
       "UTIL_FeatureFlag_TEST",
+      "UTIL_FrameworkMasker_TEST",
       "UTIL_PurgeRecords_TEST",
-      "UTIL_Sharing_TEST"
+      "UTIL_Sharing_TEST",
+      "UTIL_ValidationRule_TEST"
     ],
     "classes": {
       "API_Base": {
         "percentage": 100,
-        "coveredLines": 279,
+        "coveredLines": 284,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -33,7 +54,7 @@
       },
       "API_Dispatcher": {
         "percentage": 100,
-        "coveredLines": 160,
+        "coveredLines": 158,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -51,13 +72,13 @@
       },
       "API_Inbound": {
         "percentage": 100,
-        "coveredLines": 164,
+        "coveredLines": 165,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "API_InboundInvoker": {
         "percentage": 100,
-        "coveredLines": 84,
+        "coveredLines": 82,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -87,7 +108,7 @@
       },
       "API_Outbound": {
         "percentage": 100,
-        "coveredLines": 267,
+        "coveredLines": 272,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -129,7 +150,7 @@
       },
       "CTRL_EventMonitor": {
         "percentage": 100,
-        "coveredLines": 126,
+        "coveredLines": 141,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -139,21 +160,33 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "CTRL_FeatureFlag": {
+        "percentage": 100,
+        "coveredLines": 2,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "CTRL_FieldSet": {
         "percentage": 100,
-        "coveredLines": 155,
+        "coveredLines": 156,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "CTRL_HealthCheck": {
         "percentage": 100,
-        "coveredLines": 192,
+        "coveredLines": 248,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "CTRL_Logger": {
         "percentage": 100,
         "coveredLines": 25,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "CTRL_MaskingAdvisor": {
+        "percentage": 100,
+        "coveredLines": 766,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -165,7 +198,7 @@
       },
       "CTRL_SObjectInformation": {
         "percentage": 100,
-        "coveredLines": 35,
+        "coveredLines": 17,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -177,7 +210,7 @@
       },
       "CTRL_Search": {
         "percentage": 100,
-        "coveredLines": 29,
+        "coveredLines": 30,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -189,19 +222,19 @@
       },
       "DML_Builder": {
         "percentage": 100,
-        "coveredLines": 240,
+        "coveredLines": 271,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "DML_SharingProxy": {
         "percentage": 100,
-        "coveredLines": 45,
+        "coveredLines": 47,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "DML_Transaction": {
         "percentage": 100,
-        "coveredLines": 259,
+        "coveredLines": 261,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -214,6 +247,12 @@
       "DTO_BaseTable": {
         "percentage": 100,
         "coveredLines": 18,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "DTO_ChangeEventHeader": {
+        "percentage": 100,
+        "coveredLines": 14,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -267,7 +306,7 @@
       },
       "FLOW_BypassTrigger": {
         "percentage": 100,
-        "coveredLines": 14,
+        "coveredLines": 13,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -351,7 +390,7 @@
       },
       "FLOW_SendEmailInternal": {
         "percentage": 100,
-        "coveredLines": 174,
+        "coveredLines": 177,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -375,19 +414,19 @@
       },
       "IF_Trigger": {
         "percentage": 100,
-        "coveredLines": 0,
+        "coveredLines": 4,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "LOG_Builder": {
         "percentage": 100,
-        "coveredLines": 127,
+        "coveredLines": 158,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "LOG_Engine": {
         "percentage": 100,
-        "coveredLines": 397,
+        "coveredLines": 473,
         "uncoveredLines": 0,
         "exemptLines": 2
       },
@@ -399,19 +438,19 @@
       },
       "PROC_ExecuteDML": {
         "percentage": 100,
-        "coveredLines": 30,
+        "coveredLines": 37,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "PROC_LoginFrequencyAggregator": {
         "percentage": 100,
-        "coveredLines": 82,
+        "coveredLines": 84,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "PROC_UpdateFields": {
         "percentage": 100,
-        "coveredLines": 39,
+        "coveredLines": 48,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -423,7 +462,7 @@
       },
       "QRY_Builder": {
         "percentage": 100,
-        "coveredLines": 874,
+        "coveredLines": 921,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -441,13 +480,19 @@
       },
       "QRY_Engine": {
         "percentage": 100,
-        "coveredLines": 258,
+        "coveredLines": 284,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "QRY_Function": {
+        "percentage": 100,
+        "coveredLines": 30,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "QRY_Generator": {
         "percentage": 100,
-        "coveredLines": 349,
+        "coveredLines": 358,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -489,37 +534,37 @@
       },
       "SEL_ApexClass": {
         "percentage": 100,
-        "coveredLines": 19,
+        "coveredLines": 21,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ApiCall": {
         "percentage": 100,
-        "coveredLines": 48,
+        "coveredLines": 51,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ApiIssue": {
         "percentage": 100,
-        "coveredLines": 27,
+        "coveredLines": 29,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ApiMock": {
         "percentage": 100,
-        "coveredLines": 14,
+        "coveredLines": 17,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ApiSetting": {
         "percentage": 100,
-        "coveredLines": 31,
+        "coveredLines": 33,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_AsyncChainExecution": {
         "percentage": 100,
-        "coveredLines": 19,
+        "coveredLines": 26,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -531,43 +576,43 @@
       },
       "SEL_Base": {
         "percentage": 100,
-        "coveredLines": 73,
+        "coveredLines": 78,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ClassTypeResolver": {
         "percentage": 100,
-        "coveredLines": 13,
+        "coveredLines": 16,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ContentVersion": {
         "percentage": 100,
-        "coveredLines": 22,
+        "coveredLines": 24,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_CustomPermission": {
         "percentage": 100,
-        "coveredLines": 128,
+        "coveredLines": 133,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_EmailTemplate": {
         "percentage": 100,
-        "coveredLines": 6,
+        "coveredLines": 8,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_EntityDefinition": {
         "percentage": 100,
-        "coveredLines": 49,
+        "coveredLines": 77,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_FeatureFlag": {
         "percentage": 100,
-        "coveredLines": 33,
+        "coveredLines": 43,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -577,21 +622,27 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "SEL_FieldDefinition": {
+        "percentage": 100,
+        "coveredLines": 12,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "SEL_FieldSetGroup": {
         "percentage": 100,
-        "coveredLines": 11,
+        "coveredLines": 13,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_Foobar": {
         "percentage": 100,
-        "coveredLines": 35,
+        "coveredLines": 37,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_Group": {
         "percentage": 100,
-        "coveredLines": 53,
+        "coveredLines": 55,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -603,97 +654,103 @@
       },
       "SEL_LogEntry": {
         "percentage": 100,
-        "coveredLines": 15,
+        "coveredLines": 35,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_LoginFrequency": {
         "percentage": 100,
-        "coveredLines": 11,
+        "coveredLines": 13,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_LoginHistory": {
         "percentage": 100,
-        "coveredLines": 10,
+        "coveredLines": 12,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_MaskingRule": {
         "percentage": 100,
-        "coveredLines": 4,
+        "coveredLines": 6,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_MaskingTarget": {
         "percentage": 100,
-        "coveredLines": 21,
+        "coveredLines": 83,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_NamedCredential": {
         "percentage": 100,
-        "coveredLines": 16,
+        "coveredLines": 18,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ObjectPermission": {
         "percentage": 100,
-        "coveredLines": 32,
+        "coveredLines": 34,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ObjectShare": {
         "percentage": 100,
-        "coveredLines": 32,
+        "coveredLines": 30,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_OrgWideEmailAddress": {
         "percentage": 100,
-        "coveredLines": 10,
+        "coveredLines": 12,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_PermissionSet": {
         "percentage": 100,
-        "coveredLines": 21,
+        "coveredLines": 23,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_PermissionSetAssignment": {
         "percentage": 100,
-        "coveredLines": 25,
+        "coveredLines": 27,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_PermissionSetGroup": {
         "percentage": 100,
-        "coveredLines": 15,
+        "coveredLines": 17,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_PlatformEventUsageMetric": {
         "percentage": 100,
-        "coveredLines": 6,
+        "coveredLines": 54,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "SEL_PostTriggerAction": {
+        "percentage": 100,
+        "coveredLines": 38,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_Profile": {
         "percentage": 100,
-        "coveredLines": 12,
+        "coveredLines": 14,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_PushTopic": {
         "percentage": 100,
-        "coveredLines": 6,
+        "coveredLines": 8,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_RecordType": {
         "percentage": 100,
-        "coveredLines": 17,
+        "coveredLines": 19,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -705,37 +762,37 @@
       },
       "SEL_ScheduledJob": {
         "percentage": 100,
-        "coveredLines": 9,
+        "coveredLines": 11,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_StreamingChannel": {
         "percentage": 100,
-        "coveredLines": 10,
+        "coveredLines": 12,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_TriggerAction": {
         "percentage": 100,
-        "coveredLines": 141,
+        "coveredLines": 145,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_User": {
         "percentage": 100,
-        "coveredLines": 111,
+        "coveredLines": 116,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_UserRole": {
         "percentage": 100,
-        "coveredLines": 14,
+        "coveredLines": 16,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_ValidationRules": {
         "percentage": 100,
-        "coveredLines": 175,
+        "coveredLines": 167,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -765,7 +822,7 @@
       },
       "TRG_Base": {
         "percentage": 100,
-        "coveredLines": 112,
+        "coveredLines": 131,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -777,7 +834,7 @@
       },
       "TRG_Dispatcher": {
         "percentage": 100,
-        "coveredLines": 110,
+        "coveredLines": 182,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -793,6 +850,12 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "TRG_InvokeFlow": {
+        "percentage": 100,
+        "coveredLines": 213,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "TRG_LogEntryEvent": {
         "percentage": 100,
         "coveredLines": 1,
@@ -801,7 +864,7 @@
       },
       "TRG_PersistLogEntry": {
         "percentage": 100,
-        "coveredLines": 24,
+        "coveredLines": 105,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -831,31 +894,37 @@
       },
       "TST_BuilderInternal": {
         "percentage": 100,
-        "coveredLines": 355,
+        "coveredLines": 356,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "TST_Factory": {
         "percentage": 100,
-        "coveredLines": 467,
+        "coveredLines": 497,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "TST_InvokeFlowMock": {
+        "percentage": 100,
+        "coveredLines": 85,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "TST_Mock": {
         "percentage": 100,
-        "coveredLines": 90,
+        "coveredLines": 98,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "UTIL_AdaptiveAsynchronousProcessor": {
         "percentage": 100,
-        "coveredLines": 182,
+        "coveredLines": 171,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "UTIL_AsyncChain": {
         "percentage": 100,
-        "coveredLines": 513,
+        "coveredLines": 517,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -877,9 +946,15 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "UTIL_BypassAudit": {
+        "percentage": 100,
+        "coveredLines": 57,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "UTIL_Cache": {
         "percentage": 100,
-        "coveredLines": 332,
+        "coveredLines": 494,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -903,7 +978,7 @@
       },
       "UTIL_CronExpression": {
         "percentage": 100,
-        "coveredLines": 185,
+        "coveredLines": 186,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -915,7 +990,7 @@
       },
       "UTIL_Date": {
         "percentage": 100,
-        "coveredLines": 90,
+        "coveredLines": 92,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -927,13 +1002,13 @@
       },
       "UTIL_Exceptions": {
         "percentage": 100,
-        "coveredLines": 0,
+        "coveredLines": 3,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "UTIL_FeatureFlag": {
         "percentage": 100,
-        "coveredLines": 194,
+        "coveredLines": 186,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -951,7 +1026,7 @@
       },
       "UTIL_FrameworkMasker": {
         "percentage": 100,
-        "coveredLines": 344,
+        "coveredLines": 448,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -985,6 +1060,12 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "UTIL_MaskerPerformanceTimer": {
+        "percentage": 100,
+        "coveredLines": 58,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "UTIL_NumberRange": {
         "percentage": 100,
         "coveredLines": 63,
@@ -994,6 +1075,12 @@
       "UTIL_PerformanceTimer": {
         "percentage": 100,
         "coveredLines": 38,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
+      "UTIL_PostTriggerAction": {
+        "percentage": 100,
+        "coveredLines": 75,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1017,7 +1104,7 @@
       },
       "UTIL_Retry": {
         "percentage": 100,
-        "coveredLines": 90,
+        "coveredLines": 131,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1035,7 +1122,7 @@
       },
       "UTIL_SObjectDescribe": {
         "percentage": 100,
-        "coveredLines": 507,
+        "coveredLines": 541,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1065,19 +1152,19 @@
       },
       "UTIL_String": {
         "percentage": 100,
-        "coveredLines": 341,
+        "coveredLines": 387,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "UTIL_System": {
         "percentage": 100,
-        "coveredLines": 88,
+        "coveredLines": 123,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "UTIL_TriggerPerformanceTimer": {
         "percentage": 100,
-        "coveredLines": 99,
+        "coveredLines": 111,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1089,7 +1176,7 @@
       },
       "UTIL_ValidationRule": {
         "percentage": 100,
-        "coveredLines": 292,
+        "coveredLines": 299,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1107,8 +1194,14 @@
       "force-app/main/default/lwc/apiTestHarnessForm/apiTestHarnessForm.js": {
         "statements": 100,
         "branches": 95,
-        "functions": 97.3,
-        "lines": 98.4
+        "functions": 98.7,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/applyRetentionModal/applyRetentionModal.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
       },
       "force-app/main/default/lwc/baseComponent/baseComponent.js": {
         "statements": 100,
@@ -1119,8 +1212,8 @@
       "force-app/main/default/lwc/baseLookup/baseLookup.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 97.9,
-        "lines": 98.5
+        "functions": 100,
+        "lines": 100
       },
       "force-app/main/default/lwc/chainMonitor/chainMonitor.js": {
         "statements": 100,
@@ -1194,11 +1287,35 @@
         "functions": 100,
         "lines": 100
       },
+      "force-app/main/default/lwc/dataMaskingAdvisor/dataMaskingAdvisor.js": {
+        "statements": 100,
+        "branches": 98.2,
+        "functions": 99.6,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/featureFlag/featureFlag.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
       "force-app/main/default/lwc/flowFooter/flowFooter.js": {
         "statements": 100,
         "branches": 100,
         "functions": 100,
         "lines": 100
+      },
+      "force-app/main/default/lwc/generateBundleModal/generateBundleModal.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/healthCheck/healthCheck.js": {
+        "statements": 97.3,
+        "branches": 95.3,
+        "functions": 97.3,
+        "lines": 97
       },
       "force-app/main/default/lwc/jsonViewer/jsonViewer.js": {
         "statements": 97,
@@ -1207,6 +1324,54 @@
         "lines": 96.9
       },
       "force-app/main/default/lwc/kernHome/kernHome.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingAddObjectDialog/maskingAddObjectDialog.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingAddRuleMenu/maskingAddRuleMenu.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingExportModal/maskingExportModal.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingFieldTypeLabels/maskingFieldTypeLabels.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingInventoryExportDialog/maskingInventoryExportDialog.js": {
+        "statements": 100,
+        "branches": 96.9,
+        "functions": 98.7,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingReviewDialog/maskingReviewDialog.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingRuleDetail/maskingRuleDetail.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 95.5,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/maskingRulePicker/maskingRulePicker.js": {
         "statements": 100,
         "branches": 100,
         "functions": 100,
@@ -1282,7 +1447,19 @@
         "statements": 100,
         "branches": 100,
         "functions": 96.2,
-        "lines": 96.7
+        "lines": 100
+      },
+      "force-app/main/default/lwc/scheduledJobEditor/scheduledJobEditor.js": {
+        "statements": 100,
+        "branches": 97.1,
+        "functions": 96.6,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/scheduledJobEditorModal/scheduledJobEditorModal.js": {
+        "statements": 99.2,
+        "branches": 95.5,
+        "functions": 96.7,
+        "lines": 99.2
       },
       "force-app/main/default/lwc/searchLookup/searchLookup.js": {
         "statements": 100,
@@ -1292,7 +1469,7 @@
       },
       "force-app/main/default/lwc/streamingActions/streamingActions.js": {
         "statements": 100,
-        "branches": 98.1,
+        "branches": 98.3,
         "functions": 97.7,
         "lines": 100
       },
@@ -1322,7 +1499,7 @@
       },
       "force-app/main/default/lwc/streamingMonitor/streamingMonitor.js": {
         "statements": 100,
-        "branches": 95.1,
+        "branches": 95.3,
         "functions": 98.1,
         "lines": 100
       },
@@ -1396,7 +1573,7 @@
         "statements": 100,
         "branches": 100,
         "functions": 100,
-        "lines": 93.9
+        "lines": 100
       },
       "force-app/main/default/lwc/validationErrors/validationErrors.js": {
         "statements": 100,
@@ -1409,152 +1586,7 @@
         "branches": 100,
         "functions": 94.7,
         "lines": 100
-      },
-      "release-testing/e2e/helpers/reporter.js": {
-        "statements": 100,
-        "branches": 92.9,
-        "functions": 100,
-        "lines": 100
-      },
-      "release-testing/e2e/helpers/sf-auth.js": {
-        "statements": 0,
-        "branches": 0,
-        "functions": 0,
-        "lines": 0
-      },
-      "release-testing/e2e/helpers/sf-cli.js": {
-        "statements": 98,
-        "branches": 93.3,
-        "functions": 100,
-        "lines": 98
-      },
-      "release-testing/e2e/helpers/sf-navigation.js": {
-        "statements": 0,
-        "branches": 0,
-        "functions": 0,
-        "lines": 0
-      },
-      "release-testing/e2e/helpers/sf-selectors.js": {
-        "statements": 100,
-        "branches": 100,
-        "functions": 100,
-        "lines": 100
-      },
-      "release-testing/e2e/helpers/wait-helpers.js": {
-        "statements": 0,
-        "branches": 0,
-        "functions": 0,
-        "lines": 0
-      },
-      "release-testing/runner/cmdt-deployer.js": {
-        "statements": 97.1,
-        "branches": 83.3,
-        "functions": 100,
-        "lines": 97.1
-      },
-      "release-testing/runner/result-compiler.js": {
-        "statements": 92,
-        "branches": 93.3,
-        "functions": 100,
-        "lines": 91.5
-      },
-      "release-testing/runner/run-all.js": {
-        "statements": 0,
-        "branches": 0,
-        "functions": 0,
-        "lines": 0
-      },
-      "release-testing/runner/run-phase2.js": {
-        "statements": 23.8,
-        "branches": 20.8,
-        "functions": 36.8,
-        "lines": 23.2
-      },
-      "release-testing/runner/run-phase3.js": {
-        "statements": 0,
-        "branches": 0,
-        "functions": 0,
-        "lines": 0
-      },
-      "scanner/eslint-plugin-kerndx/index.js": {
-        "statements": 0,
-        "branches": 100,
-        "functions": 100,
-        "lines": 0
-      },
-      "scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js": {
-        "statements": 96.7,
-        "branches": 87.5,
-        "functions": 100,
-        "lines": 96.7
-      },
-      "scanner/eslint-plugin-kerndx/rules/no-console-log.js": {
-        "statements": 100,
-        "branches": 100,
-        "functions": 100,
-        "lines": 100
-      },
-      "scanner/eslint-plugin-kerndx/rules/use-component-builder.js": {
-        "statements": 100,
-        "branches": 100,
-        "functions": 100,
-        "lines": 100
-      },
-      "scripts/build-docs.js": {
-        "statements": 96.2,
-        "branches": 78.8,
-        "functions": 95.7,
-        "lines": 96.2
-      },
-      "scripts/build-package.js": {
-        "statements": 87.1,
-        "branches": 86.8,
-        "functions": 90.9,
-        "lines": 87
-      },
-      "scripts/convert-icapexdoc-html-to-markdown.js": {
-        "statements": 33,
-        "branches": 30.6,
-        "functions": 30.2,
-        "lines": 33.3
-      },
-      "scripts/coverage-lib.js": {
-        "statements": 99.6,
-        "branches": 93.7,
-        "functions": 100,
-        "lines": 99.6
-      },
-      "scripts/evaluate-coverage.js": {
-        "statements": 100,
-        "branches": 95.2,
-        "functions": 100,
-        "lines": 100
-      },
-      "scripts/jest.config.js": {
-        "statements": 0,
-        "branches": 100,
-        "functions": 100,
-        "lines": 0
-      },
-      "scripts/prepare-package-build.js": {
-        "statements": 90,
-        "branches": 82.1,
-        "functions": 100,
-        "lines": 90
-      },
-      "scripts/setup-scratch-org.js": {
-        "statements": 97.5,
-        "branches": 96.9,
-        "functions": 95,
-        "lines": 97.5
-      },
-      "scripts/validate-docs.js": {
-        "statements": 86.9,
-        "branches": 83.5,
-        "functions": 75,
-        "lines": 87.6
       }
     }
-  },
-  "notes": "Manually patched post Phase 2A/2B + Phase 1 Batches 1/2/3 + Phase 3 — sf CLI 2.130.9 emitted corrupt totalCovered=0 across all classes when RunLocalTests completed with 1 assertion failure; full RunLocalTests refresh pending a clean test run."
+  }
 }

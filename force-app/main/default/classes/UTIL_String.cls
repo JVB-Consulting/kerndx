@@ -48,6 +48,11 @@ global inherited sharing class UTIL_String
 	public static final String DOT = '.';
 
 	/**
+	 * @description Double-quote character constant '"'
+	 */
+	public static final String DOUBLE_QUOTE = '"';
+
+	/**
 	 * @description Empty string constant ''
 	 */
 	public static final String EMPTY = '';
@@ -66,6 +71,11 @@ global inherited sharing class UTIL_String
 	 * @description Line feed character constant '\n'
 	 */
 	public static final String LF = '\n';
+
+	/**
+	 * @description Pipe/vertical-bar character constant '|'
+	 */
+	public static final String PIPE = '|';
 
 	/**
 	 * @description Question mark character constant '?'

@@ -4,7 +4,7 @@ type: class
 description: "Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, pro"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---
@@ -490,7 +490,18 @@ The company name can be used as a unique identifier to later retrieve this speci
 
 **Example:**
 
-```apex @TestSetup private static void setupTestData() { User testUser = TST_Factory.newUser('Standard User', 'my-test-user'); insert testUser; } private static User getTestUser() { return new SEL_User().findByCompanyName('my-test-user'); } }
+```apex
+@TestSetup
+private static void setupTestData()
+{
+    User testUser = TST_Factory.newUser('Standard User', 'my-test-user');
+    insert testUser;
+}
+private static User getTestUser()
+{
+    return new SEL_User().findByCompanyName('my-test-user');
+}
+```
 
 ### newUsers
 

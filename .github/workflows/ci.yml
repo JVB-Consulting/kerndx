@@ -1,15 +1,22 @@
 name: ci
 
 # Lightweight read-only validation. Runs on pull requests + master/main pushes:
-#   - npm ci          — clean install (exercises postinstall paths)
-#   - docs:validate   — markdown + prose-file-ref check (zero errors required)
-#   - test:scripts    — Jest suite for scripts/__tests__/ (~10s, ~1665 tests)
-#   - scanner tests   — node --test (eslint-plugin-kerndx rules; 6 suites)
+#   - npm ci             — clean install (exercises postinstall paths)
+#   - validate-docs.js   — markdown + prose-file-ref check (zero errors required)
+#   - test:scripts       — Jest suite for scripts/__tests__/ (~10s)
+#   - scanner tests      — node --test (eslint-plugin-kerndx rules; 6 suites)
+#
+# Scope is dev correctness only. Two release-time concerns are deliberately NOT
+# gated here: the strategic-metrics drift counter and the full release-artifact
+# build (its content gates). Those run at release time, where the canonical
+# counts and the packaged tree are authoritative. Gating them on every push made
+# unrelated pushes red whenever a metric moved or a release-only doc reference
+# drifted — each masking the next. They still bite at release time.
 #
 # Read-only by design: no secrets consumed, no auth to external services, no
 # pushes. Subscribers cloning the repo can run the same commands locally
-# (`nvm use && npm ci && npm run docs:validate && npm run test:scripts`) and
-# reproduce the result.
+# (`nvm use && npm ci && node scripts/validate-docs.js && npm run test:scripts`)
+# and reproduce the result.
 #
 # Runs on both `master` and `main` (the on-branches list covers both).
 
@@ -66,16 +73,60 @@ jobs:
         run: npm ci
 
       - name: Validate documentation
-        run: npm run docs:validate
+        id: docs
+        # Structure / link / prose-file-ref gate only (still hard-fails on real
+        # doc errors). The strategic-metrics drift counter that `npm run
+        # docs:validate` chains on is a release-time check, run by the release
+        # build + clone checks — not gated per dev push.
+        run: node scripts/validate-docs.js
 
       - name: Run script tests
+        id: scripts
         # `--if-present` no-ops when the script isn't declared (the
         # scripts/__tests__/ Jest suite is omitted from subscriber clones).
         run: npm run test:scripts --if-present
 
       - name: Run scanner plugin tests
+        id: scanner
         # The scanner package isn't a root workspace child; its eslint peer
         # dep doesn't hoist to root node_modules, so a fresh `npm ci` is
         # required before `npm test` (otherwise eslint imports fail at
         # module load and every test reports "test failed").
         run: cd scanner/eslint-plugin-kerndx && npm ci && npm test
+
+      - name: Explain failure
+        # Turn the generic "All jobs have failed" email into something
+        # actionable: name the check that bit and the exact local repro command.
+        # Only steps.*.outcome (a controlled enum) is interpolated — no
+        # untrusted event payload reaches the shell.
+        if: failure()
+        run: |
+          {
+            echo "## CI failed"
+            echo ""
+            echo "This workflow gates **dev correctness only** — not the release-artifact"
+            echo "build or the strategic-metrics counter (those run at release time)."
+            echo "One of the checks below failed:"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          matched=0
+          if [ "${{ steps.docs.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Docs validation failed::Markdown structure / link / prose check failed. Reproduce locally: node scripts/validate-docs.js"
+            echo "- ❌ **Docs validation** — reproduce: \`node scripts/validate-docs.js\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.scripts.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Script tests failed::A scripts/__tests__ Jest test or validate-strategic-guides failed. Reproduce locally: npm run test:scripts"
+            echo "- ❌ **Script tests** — reproduce: \`npm run test:scripts\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.scanner.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Scanner tests failed::eslint-plugin-kerndx rule tests failed. Reproduce locally: cd scanner/eslint-plugin-kerndx && npm ci && npm test"
+            echo "- ❌ **Scanner tests** — reproduce: \`cd scanner/eslint-plugin-kerndx && npm ci && npm test\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$matched" = "0" ]; then
+            # Failure came from an earlier step (dependency install or the
+            # merge-commit gate), which self-annotates its own log.
+            echo "- ❌ **Setup / pre-check** — a step before the named checks failed; see the failed step's log above." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -39,7 +39,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -78,6 +78,27 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @description Suffix for relationship fields (e.g., `Account__r`).
 	 */
 	public static final String RELATIONSHIP_SUFFIX = '__r';
+
+	/**
+	 * @description Suffix for platform events (e.g., `LogEntryEvent__e`). Namespace-immune — a
+	 * managed platform event (`ns__Foo__e`) still ends with this suffix.
+	 */
+	public static final String PLATFORM_EVENT_SUFFIX = '__e';
+
+	/**
+	 * @description Suffix marking a Change Data Capture change event. Matches both standard
+	 * (`AccountChangeEvent`) and custom (`Foo__ChangeEvent`, namespaced `ns__Foo__ChangeEvent`)
+	 * change events — use {@link #CUSTOM_CHANGE_EVENT_SUFFIX} when only custom-object change events
+	 * should match.
+	 */
+	public static final String CHANGE_EVENT_SUFFIX = 'ChangeEvent';
+
+	/**
+	 * @description Suffix marking a custom-object Change Data Capture change event
+	 * (e.g., `Foo__ChangeEvent`). Narrower than {@link #CHANGE_EVENT_SUFFIX}: standard change
+	 * events (`AccountChangeEvent`) do NOT end with `__ChangeEvent`.
+	 */
+	public static final String CUSTOM_CHANGE_EVENT_SUFFIX = '__ChangeEvent';
 
 	/**
 	 * @description Default batch size for DML and query operations (200 records).
@@ -719,6 +740,174 @@ global inherited sharing class UTIL_SObjectDescribe
 	}
 
 	/**
+	 * @description Builds display metadata — field label, DisplayType enum name, and (for lookups) the
+	 * related object's API name — for a specific list of fields on the given SObject. Shared internally by
+	 * the package's Lightning controllers; not part of the global API surface.
+	 *
+	 * @param objectName The SObject API name.
+	 * @param fieldList The field API names to inspect.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getFieldInformation(String objectName, List<String> fieldList)
+	{
+		return getFieldInformation(objectName, fieldList, null, false);
+	}
+
+	/**
+	 * @description Builds display metadata for a specific list of fields, restricted to a set of
+	 * `DisplayType`s. See the four-argument overload — this is that overload with system-managed fields
+	 * included.
+	 *
+	 * @param objectName The SObject API name.
+	 * @param fieldList The field API names to inspect.
+	 * @param allowedTypes The `DisplayType`s to include, or `null` to include every field.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getFieldInformation(String objectName, List<String> fieldList, Set<DisplayType> allowedTypes)
+	{
+		return getFieldInformation(objectName, fieldList, allowedTypes, false);
+	}
+
+	/**
+	 * @description Builds display metadata — field label, DisplayType enum name, and (for lookups) the
+	 * related object's API name — for a specific list of fields, optionally restricted to a set of
+	 * `DisplayType`s and optionally excluding system-managed read-only fields. When `allowedTypes` is
+	 * non-null, a field whose type is not in the set is skipped *before* its DTO (and, for a lookup, its
+	 * related-object describe) is built, so a caller that only handles certain field types never pays to
+	 * construct — then discard — metadata for the rest. When `excludeSystemManagedFields` is true, formula
+	 * and roll-up summary fields (`isCalculated`) and auto-number fields (`isAutoNumber`) are skipped too —
+	 * fields Salesforce computes or assigns under the hood and that no caller can write. Field-level
+	 * security is deliberately NOT consulted, so the result does not vary with the running user's edit
+	 * permissions. Shared internally by the package's Lightning controllers; not part of the global API
+	 * surface.
+	 *
+	 * @param objectName The SObject API name.
+	 * @param fieldList The field API names to inspect.
+	 * @param allowedTypes The `DisplayType`s to include, or `null` to include every field.
+	 * @param excludeSystemManagedFields When true, skip formula / roll-up / auto-number system-managed
+	 * read-only fields.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getFieldInformation(String objectName, List<String> fieldList, Set<DisplayType> allowedTypes, Boolean excludeSystemManagedFields)
+	{
+		if(String.isBlank(objectName))
+		{
+			return null;
+		}
+
+		Map<String, SObjectField> fieldTokensByName = getDescribe(objectName).getFieldsMap();
+		Map<String, DTO_FieldInformation> result = new Map<String, DTO_FieldInformation>();
+
+		for(String apiName : fieldList)
+		{
+			SObjectField token = fieldTokensByName.get(apiName.toLowerCase());
+
+			if(token == null)
+			{
+				continue;
+			}
+
+			DescribeFieldResult fieldDescribe = getCachedFieldDescribe(token);
+
+			if(allowedTypes != null && !allowedTypes.contains(fieldDescribe.type))
+			{
+				continue;
+			}
+
+			if(excludeSystemManagedFields && (fieldDescribe.isCalculated() || fieldDescribe.isAutoNumber()))
+			{
+				continue;
+			}
+
+			DTO_FieldInformation field = new DTO_FieldInformation();
+			field.fieldLabel = fieldDescribe.label;
+			field.fieldType = fieldDescribe.type.name();
+			field.lookupObjectApiName = fieldDescribe.type == DisplayType.REFERENCE ? fieldDescribe.referenceTo.iterator().next().getDescribe().name : null;
+
+			result.put(fieldDescribe.name, field);
+		}
+
+		return result;
+	}
+
+	/**
+	 * @description Builds display metadata for every field on the given SObject. Shared internally by the
+	 * package's Lightning controllers; not part of the global API surface.
+	 *
+	 * @param objectName The SObject API name.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getAllFieldInformation(String objectName)
+	{
+		return getAllFieldInformation(objectName, null, false);
+	}
+
+	/**
+	 * @description Builds display metadata for every field on the given SObject whose `DisplayType` is in
+	 * `allowedTypes` (or every field when `allowedTypes` is `null`). See the three-argument overload —
+	 * this is that overload with system-managed fields included.
+	 *
+	 * @param objectName The SObject API name.
+	 * @param allowedTypes The `DisplayType`s to include, or `null` to include every field.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getAllFieldInformation(String objectName, Set<DisplayType> allowedTypes)
+	{
+		return getAllFieldInformation(objectName, allowedTypes, false);
+	}
+
+	/**
+	 * @description Builds display metadata for every field on the given SObject whose `DisplayType` is in
+	 * `allowedTypes` (or every field when `allowedTypes` is `null`), optionally excluding system-managed
+	 * read-only fields. Lets a caller that only handles certain writable field types — for example the
+	 * masking advisor, which can only mask text-shaped fields the framework can write — avoid building
+	 * metadata for fields it would immediately discard (formula, roll-up summary, and auto-number fields
+	 * are skipped when `excludeSystemManagedFields` is true). Field-level security is not consulted.
+	 * Shared internally by the package's Lightning controllers; not part of the global API surface.
+	 *
+	 * @param objectName The SObject API name.
+	 * @param allowedTypes The `DisplayType`s to include, or `null` to include every field.
+	 * @param excludeSystemManagedFields When true, skip formula / roll-up / auto-number system-managed
+	 * read-only fields.
+	 *
+	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
+	 */
+	public static Map<String, DTO_FieldInformation> getAllFieldInformation(String objectName, Set<DisplayType> allowedTypes, Boolean excludeSystemManagedFields)
+	{
+		return getFieldInformation(objectName, new List<String>(getDescribe(objectName).getFieldsMap().keySet()), allowedTypes, excludeSystemManagedFields);
+	}
+
+	/**
+	 * @description Display metadata for a single SObject field, surfaced to Lightning components for dynamic
+	 * form rendering.
+	 */
+	public class DTO_FieldInformation
+	{
+		/**
+		 * @description The user-facing label of the field.
+		 */
+		@AuraEnabled
+		public String fieldLabel;
+
+		/**
+		 * @description The DisplayType enum name (e.g., STRING, REFERENCE, PICKLIST).
+		 */
+		@AuraEnabled
+		public String fieldType;
+
+		/**
+		 * @description For lookup/master-detail fields, the API name of the related object.
+		 */
+		@AuraEnabled
+		public String lookupObjectApiName;
+	}
+
+	/**
 	 * @description Returns the field metadata for a specific field by name.
 	 *
 	 * @param fieldName The API name of the field (case-insensitive).
@@ -1087,6 +1276,36 @@ global inherited sharing class UTIL_SObjectDescribe
 	global static Id getRecordTypeByDeveloperName(SObjectType objectType, String recordTypeName)
 	{
 		return getRecordTypeInfo(objectType, recordTypeName)?.recordTypeId;
+	}
+
+	/**
+	 * @description Reports whether a record type, identified by its developer name, is available to the
+	 * running user for the given SObject. A record type is available only when it exists, is active, and
+	 * is assigned to the running user's profile or a permission set. Check this before stamping a
+	 * RecordTypeId so an insert does not fail with INVALID_CROSS_REFERENCE_KEY when the type is not
+	 * assigned to the running user — for example a packaged record type that a subscriber has not
+	 * assigned to the profile the code runs under.
+	 *
+	 * @param objectType The SObject type.
+	 * @param recordTypeName The developer name of the record type.
+	 *
+	 * @return true when the record type exists and is available to the running user; false otherwise.
+	 *
+	 * @since 1.1
+	 *
+	 * @example
+	 * ```apex
+	 * if(UTIL_SObjectDescribe.isRecordTypeAvailable(Account.SObjectType, 'Customer'))
+	 * {
+	 *     account.RecordTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Account.SObjectType, 'Customer');
+	 * }
+	 * ```
+	 */
+	global static Boolean isRecordTypeAvailable(SObjectType objectType, String recordTypeName)
+	{
+		RecordTypeInfo recordTypeInfo = getRecordTypeInfo(objectType, recordTypeName);
+
+		return recordTypeInfo != null && recordTypeInfo.isAvailable();
 	}
 
 	/**

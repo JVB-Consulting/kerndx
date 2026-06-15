@@ -8,7 +8,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -158,9 +158,9 @@ private class DML_SharingProxy_TEST
 	@IsTest
 	private static void shouldEnforceSharingForExternalIdUpsert()
 	{
-		Foobar__c existingRecord = TST_Factory.newFoobar();
-		existingRecord.Name = 'New Record';
-		insert existingRecord;
+		// Commit through the SYSTEM_MODE factory path: a raw insert validates against the test-running
+		// user, who lacks the packaged record type and field access in namespaced packaging/subscriber orgs.
+		Foobar__c existingRecord = TST_Factory.insertFoobar();
 
 		DML_SharingProxy.DatabaseProxy proxy = DML_SharingProxy.getSharingProxy(DML_SharingProxy.SharingType.ENFORCE);
 

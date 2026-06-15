@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CyclomaticComplexity')
@@ -444,12 +444,7 @@ private class UTIL_HttpClient_TEST
 		assertSend(builder);
 
 		String serviceName = builder.handlerInstance.apiCall.ServiceName__c;
-		List<ApiIssue__c> failures =
-		[
-				SELECT ServiceName__c
-				FROM ApiIssue__c
-				WHERE ServiceName__c = :serviceName
-		];
+		List<ApiIssue__c> failures = new SEL_ApiIssue().findUnresolvedByService(serviceName);
 
 		Assert.areEqual(1, failures.size(), 'Should create one failure record');
 	}

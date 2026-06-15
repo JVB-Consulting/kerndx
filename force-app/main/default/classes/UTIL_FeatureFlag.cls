@@ -871,30 +871,9 @@ global inherited sharing class UTIL_FeatureFlag
 	@TestVisible
 	private static List<FeatureFlagStrategy__mdt> sortByOrder(List<FeatureFlagStrategy__mdt> strategies)
 	{
-		Map<Decimal, List<FeatureFlagStrategy__mdt>> strategiesByOrder = new Map<Decimal, List<FeatureFlagStrategy__mdt>>();
-
-		for(FeatureFlagStrategy__mdt strategy : strategies)
-		{
-			Decimal orderValue = strategy.Order__c ?? 0;
-
-			if(!strategiesByOrder.containsKey(orderValue))
-			{
-				strategiesByOrder.put(orderValue, new List<FeatureFlagStrategy__mdt>());
-			}
-
-			strategiesByOrder.get(orderValue).add(strategy);
-		}
-
-		List<Decimal> sortedOrders = new List<Decimal>(strategiesByOrder.keySet());
-		sortedOrders.sort();
-
-		List<FeatureFlagStrategy__mdt> sorted = new List<FeatureFlagStrategy__mdt>();
-
-		for(Decimal orderValue : sortedOrders)
-		{
-			sorted.addAll(strategiesByOrder.get(orderValue));
-		}
-
+		List<FeatureFlagStrategy__mdt> sorted = new List<FeatureFlagStrategy__mdt>(strategies);
+		sorted.sort(new UTIL_Comparators.SObjectFieldComparator(
+				UTIL_SObjectDescribe.getCachedFieldName(FeatureFlagStrategy__mdt.Order__c), true));
 		return sorted;
 	}
 

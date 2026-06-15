@@ -21,10 +21,9 @@ public inherited sharing class CTRL_SObjectInformation
 	 * @return Map keyed by field API name to its metadata wrapper, or null when objectName is blank.
 	 */
 	@AuraEnabled(Cacheable=true)
-	public static Map<String, DTO_FieldInformation> getSObjectAllFieldsInformation(String objectName)
+	public static Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> getSObjectAllFieldsInformation(String objectName)
 	{
-		Set<String> allFields = UTIL_SObjectDescribe.getDescribe(objectName).getFieldsMap().keySet();
-		return getSObjectFieldInformation(objectName, new List<String>(allFields));
+		return UTIL_SObjectDescribe.getAllFieldInformation(objectName);
 	}
 
 	/**
@@ -36,38 +35,9 @@ public inherited sharing class CTRL_SObjectInformation
 	 * @return Map keyed by field API name to its metadata wrapper, or null when objectName is blank.
 	 */
 	@AuraEnabled(Cacheable=true)
-	public static Map<String, DTO_FieldInformation> getSObjectFieldInformation(String objectName, List<String> fieldList)
+	public static Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> getSObjectFieldInformation(String objectName, List<String> fieldList)
 	{
-		if(String.isBlank(objectName))
-		{
-			return null;
-		}
-
-		Map<String, SObjectField> fieldTokensByName = UTIL_SObjectDescribe.getDescribe(objectName).getFieldsMap();
-		Map<String, DTO_FieldInformation> result = new Map<String, DTO_FieldInformation>();
-
-		for(String apiName : fieldList)
-		{
-			SObjectField token = fieldTokensByName.get(apiName.toLowerCase());
-
-			if(token == null)
-			{
-				continue;
-			}
-
-			DescribeFieldResult describe = UTIL_SObjectDescribe.getCachedFieldDescribe(token);
-
-			DTO_FieldInformation field = new DTO_FieldInformation();
-			field.fieldLabel = describe.label;
-			field.fieldType = describe.type.name();
-			field.lookupObjectApiName = describe.type == DisplayType.REFERENCE
-					? describe.referenceTo.iterator().next().getDescribe().name
-					: null;
-
-			result.put(describe.name, field);
-		}
-
-		return result;
+		return UTIL_SObjectDescribe.getFieldInformation(objectName, fieldList);
 	}
 
 	/**
@@ -95,28 +65,6 @@ public inherited sharing class CTRL_SObjectInformation
 		}
 
 		return items;
-	}
-
-	/**
-	 * @description Wrapper for a single SObject field's display metadata.
-	 */
-	public class DTO_FieldInformation
-	{
-		/**
-		 * @description The user-facing label of the field.
-		 */
-		@AuraEnabled
-		public String fieldLabel;
-		/**
-		 * @description The DisplayType enum name (e.g., STRING, REFERENCE, PICKLIST).
-		 */
-		@AuraEnabled
-		public String fieldType;
-		/**
-		 * @description For lookup/master-detail fields, the API name of the related object.
-		 */
-		@AuraEnabled
-		public String lookupObjectApiName;
 	}
 
 	/**

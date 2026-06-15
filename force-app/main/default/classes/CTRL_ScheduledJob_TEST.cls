@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date March 2026, May 2026
+ * @date March 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -44,10 +44,17 @@ private class CTRL_ScheduledJob_TEST
 
 	/**
 	 * @description Tests that getSchedulableClasses returns cached values from the platform cache.
+	 * Requires Platform Cache capacity — without it the seeded entry cannot persist and the
+	 * controller recomputes the real class list.
 	 */
 	@IsTest
 	private static void shouldReturnSchedulableClassesFromCache()
 	{
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+
 		List<String> cached = new List<String> {'CachedSchedulable'};
 		UTIL_Cache.org().put(CTRL_ScheduledJob.CACHE_KEY_SCHEDULABLE_CLASSES, cached);
 

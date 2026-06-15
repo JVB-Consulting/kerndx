@@ -26,7 +26,7 @@ private class CTRL_SObjectInformation_TEST
 	private static void shouldReturnAllFieldMetadata()
 	{
 		Test.startTest();
-		Map<String, CTRL_SObjectInformation.DTO_FieldInformation> fields =
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields =
 				CTRL_SObjectInformation.getSObjectAllFieldsInformation(TARGET_OBJECT);
 		Test.stopTest();
 
@@ -41,11 +41,11 @@ private class CTRL_SObjectInformation_TEST
 	private static void shouldReturnRequestedFieldMetadata()
 	{
 		Test.startTest();
-		Map<String, CTRL_SObjectInformation.DTO_FieldInformation> fields =
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields =
 				CTRL_SObjectInformation.getSObjectFieldInformation(TARGET_OBJECT, new List<String> {'Name'});
 		Test.stopTest();
 
-		CTRL_SObjectInformation.DTO_FieldInformation nameField = fields.get('Name');
+		UTIL_SObjectDescribe.DTO_FieldInformation nameField = fields.get('Name');
 		Assert.isNotNull(nameField, 'Name field should be included');
 	}
 
@@ -56,7 +56,7 @@ private class CTRL_SObjectInformation_TEST
 	private static void shouldReturnNullForBlankObjectName()
 	{
 		Test.startTest();
-		Map<String, CTRL_SObjectInformation.DTO_FieldInformation> result =
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> result =
 				CTRL_SObjectInformation.getSObjectFieldInformation('', new List<String> {'Name'});
 		Test.stopTest();
 
@@ -73,12 +73,12 @@ private class CTRL_SObjectInformation_TEST
 		String lookupFieldName = SEL_Foobar.FIELD_LOOKUP;
 
 		Test.startTest();
-		Map<String, CTRL_SObjectInformation.DTO_FieldInformation> fields =
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields =
 				CTRL_SObjectInformation.getSObjectFieldInformation(TARGET_OBJECT, new List<String> {lookupFieldName, 'NonExistentField__x'});
 		Test.stopTest();
 
 		Assert.areEqual(1, fields.size(), 'Non-existent field should be skipped');
-		CTRL_SObjectInformation.DTO_FieldInformation lookupField = fields.get(lookupFieldName);
+		UTIL_SObjectDescribe.DTO_FieldInformation lookupField = fields.get(lookupFieldName);
 		Assert.isNotNull(lookupField, 'Lookup field should be included');
 		Assert.areEqual('REFERENCE', lookupField.fieldType, 'Field type should be REFERENCE');
 		Assert.isNotNull(lookupField.lookupObjectApiName, 'Lookup object API name should be populated');
