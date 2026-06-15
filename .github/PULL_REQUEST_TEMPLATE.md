@@ -31,4 +31,4 @@
 
 ---
 
-> ⚠️ **Note on PRs in v1.0:** External PRs are not accepted at this stage of the project — see [`CONTRIBUTING.md`](../CONTRIBUTING.md). If you've opened this PR without a green-light on an associated issue, please [open an issue](../../issues/new/choose) describing the change first. The maintainer reviews each issue and either implements the fix directly or asks you to convert it into a PR.
+> ⚠️ **Note on PRs:** External PRs aren't supported yet — see [`CONTRIBUTING.md`](../CONTRIBUTING.md). If you've opened this PR without a green-light on an associated issue, please [open an issue](../../issues/new/choose) describing the change first. The maintainer reviews each issue and either implements the fix directly or asks you to convert it into a PR.

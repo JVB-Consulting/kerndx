@@ -2,9 +2,9 @@
 
 Thank you for considering a contribution. KernDX is published here so adopters can clone, review, and learn from a transparent codebase.
 
-## v1.0 contribution model: issues only
+## Contribution model: issues only
 
-KernDX v1.0 is single-maintainer. To keep the framework predictable while it stabilises, **external pull requests are not accepted at this time**. Instead, the project relies on issues — bug reports and feature requests — to surface problems and improvements. The maintainer reviews each issue and may implement the fix; the fix then arrives here on the next release.
+KernDX is single-maintainer today. To keep the framework predictable while it stabilises, **external pull requests are not supported yet**. Instead, the project relies on issues — bug reports and feature requests — to surface problems and improvements. The maintainer reviews each issue and may implement the fix; the fix then arrives here on the next release.
 
 This policy is explicit in [Strategic Guide - Risks.md](./docs/Strategic%20Guide%20-%20Risks.md) under "Governance Model": *"Contribution policy: Internal — no external contributions accepted at this time."*
 
