@@ -21,7 +21,7 @@
         <nameSegment>FLOW_CallApiAsync</nameSegment>
         <offset>0</offset>
     </actionCalls>
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>67.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <description>Retries a failed outbound API call at the scheduled NextRetry date/time, then sets status to Retrying.</description>
     <environments>Default</environments>

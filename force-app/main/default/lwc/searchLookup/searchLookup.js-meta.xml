@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Search lookup component. Can either provide a JS reference to a controller, or the name of a controller which implements IF_Search.
 	</description>
 	<isExposed>true</isExposed>

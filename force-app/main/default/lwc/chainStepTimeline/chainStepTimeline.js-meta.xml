@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Step timeline visualization for async chain executions. Shows each step with status, duration, and error details.</description>
 	<masterLabel>Chain Step Timeline</masterLabel>
 	<isExposed>true</isExposed>

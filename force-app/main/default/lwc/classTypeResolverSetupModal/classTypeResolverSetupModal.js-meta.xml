@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Guided setup modal for creating a subscriber Class Type Resolver Apex class. Presents a progress-path plus tabs with generated resolver and test class code, copy and download actions, and a confirmation footer.</description>
 	<masterLabel>Class Type Resolver Setup Modal</masterLabel>
 	<isExposed>false</isExposed>

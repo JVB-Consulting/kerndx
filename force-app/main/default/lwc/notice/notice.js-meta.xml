@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata" fqn="notice">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Simple notice component displaying an info icon with slotted content. Uses SLDS media object pattern for consistent layout.</description>
 	<isExposed>false</isExposed>
 	<masterLabel>Notice</masterLabel>

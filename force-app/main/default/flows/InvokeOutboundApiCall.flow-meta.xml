@@ -18,7 +18,7 @@
         <nameSegment>FLOW_CallApiAsync</nameSegment>
         <offset>0</offset>
     </actionCalls>
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>67.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <description>Invokes the outbound API callout asynchronously when an ApiCall record is queued for processing.</description>
     <environments>Default</environments>

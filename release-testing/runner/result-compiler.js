@@ -18,7 +18,12 @@ function compile(version)
 
 	let md = `# KernDX Release Test Results — ${version}\n\n`;
 	md += `**Test Date:** ${data.testDate || new Date().toISOString().split('T')[0]}\n`;
-	md += `**Package Version ID:** ${data.subscriberPackageVersionId || 'N/A'}\n\n`;
+	md += `**Package Version ID:** ${data.subscriberPackageVersionId || 'N/A'}\n`;
+	if(data.apiVersion)
+	{
+		md += `**Platform / API Version:** ${data.apiVersion}\n`;
+	}
+	md += '\n';
 
 	md += '## Phase 2 — Automated Tests\n\n';
 	md += '### Apex Scripts\n\n';
@@ -63,25 +68,31 @@ function compile(version)
 
 	md += '\n## Phase 3 — Visual Tests\n\n';
 
-	const partNames = [
-		'App Home & Core Pages',
-		'API Results, Config & Login',
-		'Subscriber LWC & Account Integration',
-		'Scheduler Execution',
-		'Streaming — Setup & Subscribe',
-		'Streaming — Advanced & Cleanup'
-	];
+	const partNames = {
+		1: 'App Home & Core Pages',
+		2: 'API Results, Config & Login',
+		3: 'Subscriber LWC & Account Integration',
+		4: 'Scheduler Execution',
+		5: 'Streaming — Setup & Subscribe',
+		6: 'Streaming — Advanced & Cleanup',
+		7: 'Async Chain Orchestration',
+		8: 'Chain Monitor UI'
+	};
 
-	for(let i = 1; i <= 6; i++)
+	const partKeys = Object.keys(data.phase3 || {})
+	.filter(key => /^part\d+$/.test(key))
+	.sort((a, b) => parseInt(a.slice(4)) - parseInt(b.slice(4)));
+
+	for(const partKey of partKeys)
 	{
-		const partKey = `part${i}`;
-		const partData = data.phase3?.[partKey];
+		const i = parseInt(partKey.slice(4));
+		const partData = data.phase3[partKey];
 		if(!partData)
 		{
 			continue;
 		}
 
-		md += `### Part ${i}: ${partNames[i - 1]}\n\n`;
+		md += `### Part ${i}: ${partNames[i] || 'Additional Checks'}\n\n`;
 		md += '| # | Check | Result | Notes |\n';
 		md += '|---|-------|--------|-------|\n';
 
@@ -95,6 +106,17 @@ function compile(version)
 		for(const [check, val] of sorted)
 		{
 			md += `| ${check} | ${val.result} | ${val.notes || ''} |\n`;
+		}
+		md += '\n';
+	}
+
+	if(data.extendedLoad)
+	{
+		md += '## Extended Load\n\n';
+		md += `- **Status:** ${data.extendedLoad.status}\n`;
+		if(data.extendedLoad.notes)
+		{
+			md += `- **Notes:** ${data.extendedLoad.notes}\n`;
 		}
 		md += '\n';
 	}

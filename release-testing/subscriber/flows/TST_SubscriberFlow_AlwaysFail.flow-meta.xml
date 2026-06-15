@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>67.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <description>Subscriber-namespace test flow used by the flow-as-trigger-action release-testing Phase 5B. Creates a Contact without LastName so the platform raises REQUIRED_FIELD_MISSING at runtime. The unhandled fault propagates to Flow.Interview.start() as a runtime exception that the trigger framework routes through FailureAction__c. Used to exercise the LogAndContinue and BlockDml strategies end-to-end across the subscriber namespace boundary.</description>
     <interviewLabel>TST_SubscriberFlow_AlwaysFail {!$Flow.CurrentDateTime}</interviewLabel>

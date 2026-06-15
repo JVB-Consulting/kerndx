@@ -140,6 +140,77 @@ describe('result-compiler', () =>
 		expect(output).toContain('All green');
 	});
 
+	it('should render phase 3 parts 7 and 8 with their names', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase3: {
+				part7: {V30: {result: 'PASS'}}, part8: {V40: {result: 'PASS'}}
+			}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.1.0-1');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('### Part 7: Async Chain Orchestration');
+		expect(output).toContain('### Part 8: Chain Monitor UI');
+		expect(output).toContain('V30');
+		expect(output).toContain('V40');
+	});
+
+	it('should include the platform/API version line when present', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			apiVersion: '67.0', subscriberPackageVersionId: '04txx'
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.1.0-1');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**Platform / API Version:** 67.0');
+	});
+
+	it('should omit the platform/API version line when absent', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			subscriberPackageVersionId: '04txx'
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).not.toContain('Platform / API Version');
+	});
+
+	it('should render the extended-load status when present', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			extendedLoad: {status: 'NOT_RUN', notes: 'Pre-tag-only gate — not executed this cycle.'}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.1.0-1');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('## Extended Load');
+		expect(output).toContain('**Status:** NOT_RUN');
+		expect(output).toContain('Pre-tag-only gate');
+	});
+
 	it('should sort visual checks by V-number', () =>
 	{
 		fs.existsSync.mockReturnValue(true);

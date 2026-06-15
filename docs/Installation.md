@@ -9,29 +9,29 @@
 <summary>Expand</summary>
 
 1. [Path 1: Install the KernDX Managed Package](#path-1-install-the-kerndx-managed-package)
-   - [Installation](#installation)
-   - [Post-Install Configuration](#post-install-configuration)
-   - [Subscriber Integration Gotchas](#subscriber-integration-gotchas)
-   - [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission)
-   - [Upgrading](#upgrading)
-   - [Release Testing](#release-testing)
+    - [Installation](#installation)
+    - [Post-Install Configuration](#post-install-configuration)
+    - [Subscriber Integration Gotchas](#subscriber-integration-gotchas)
+    - [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission)
+    - [Upgrading](#upgrading)
+    - [Release Testing](#release-testing)
 2. [Path 2: Repackage Under Your Own Namespace](#path-2-repackage-under-your-own-namespace)
-   - [What You'll Do](#what-youll-do)
+    - [What You'll Do](#what-youll-do)
 3. [Prerequisites](#prerequisites)
 4. [Step 1: Enable Your Dev Hub](#step-1-enable-your-dev-hub)
 5. [Step 2: Register and Link Your Namespace](#step-2-register-and-link-your-namespace)
-   - [2.1 Register Namespace in Namespace Org](#21-register-namespace-in-namespace-org)
-   - [2.2 Link Namespace to Dev Hub (UI Only)](#22-link-namespace-to-dev-hub-ui-only)
+    - [Register Namespace in Namespace Org](#register-namespace-in-namespace-org)
+    - [Link Namespace to Dev Hub (UI Only)](#link-namespace-to-dev-hub-ui-only)
 6. [Step 3: Rebrand the Project Tree](#step-3-rebrand-the-project-tree)
-   - [3.1 Confirm your starting tree](#31-confirm-your-starting-tree)
-   - [3.2 Run the swap script](#32-run-the-swap-script)
-   - [3.3 Verify the swap](#33-verify-the-swap)
+    - [Confirm your starting tree](#confirm-your-starting-tree)
+    - [Run the swap script](#run-the-swap-script)
+    - [Verify the swap](#verify-the-swap)
 7. [Step 4: Configure Your Package](#step-4-configure-your-package)
 8. [Step 5: Create Your Managed Package](#step-5-create-your-managed-package)
-   - [5.1 Create the Package](#51-create-the-package)
-   - [5.2 Create Your First Package Version](#52-create-your-first-package-version)
-   - [5.3 Test Your Beta Version](#53-test-your-beta-version)
-   - [5.4 Promote to Released](#54-promote-to-released)
+    - [Create the Package](#create-the-package)
+    - [Create Your First Package Version](#create-your-first-package-version)
+    - [Test Your Beta Version](#test-your-beta-version)
+    - [Promote to Released](#promote-to-released)
 9. [Complete Example: Acme Corp](#complete-example-acme-corp)
 10. [Troubleshooting](#troubleshooting)
     - ["Namespace not found"](#namespace-not-found)
@@ -58,12 +58,12 @@ The simplest path — install the pre-built managed package into your org.
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.0.0-121):** `04tfj000000JN0vAAG`
+**Current SubscriberPackageVersionId (1.1.0-11):** `04tfj000000KesXAAS`
 
 **One-click install** (browser, no CLI required — Salesforce login prompts in-page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000JN0vAAG)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000JN0vAAG)
+[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000KesXAAS)
+[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000KesXAAS)
 
 The same buttons are mirrored on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases) — pick the release matching the version you want to install.
 
@@ -72,34 +72,48 @@ The same buttons are mirrored on every entry of the [Releases page](https://gith
 **CLI install** — install in production:
 
 ```bash
-sf package install --package 04tfj000000JN0vAAG --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000KesXAAS --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install** — install in sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000JN0vAAG --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000KesXAAS --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
-**Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and carries the `subscriber_package_version_id` field as authoritative truth, so tooling can fetch + parse it directly:
+**Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and
+carries the `subscriber_package_version_id` field as authoritative truth, so tooling can fetch + parse it directly:
 
 ```bash
 jq -r '.subscriber_package_version_id' RELEASE-PROVENANCE.json
 ```
 
-For specific older versions, see the [Releases page](https://github.com/JVB-Consulting/kerndx/releases) — each release's description carries its 04t id. Email fallback: `jason@jvb-consulting.io`.
+For specific older versions, see the [Releases page](https://github.com/JVB-Consulting/kerndx/releases) — each release's description carries its 04t id. Email fallback:
+`jason@jvb-consulting.io`.
 
 ### Post-Install Configuration
 
-After installing, finish setup with the **Health Check** built into the **Kern** app. If you installed the package as a System Administrator, the app is available to you by default — open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. Its **Home** tab runs the Health Check automatically: it verifies the configuration below, sorts anything outstanding to the top (**Action required** for hard prerequisites, **Review recommended** for optional settings, **Passing** for everything already set), and offers in-place fixes — including a **Class Type Resolver** generator that writes a resolver class and test for you, and a one-click **Data Retention** scheduler. The Home tab also provides quick-launch **Administration Tools**: API Test Harness, Streaming Event Monitor, and Chain Monitor.
+After installing, finish setup with the **Health Check** built into the **Kern** app. If you installed the package as a System Administrator, the app is available to you by
+default — open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. Its **Home** tab runs the Health Check automatically: it verifies the
+configuration below, sorts anything outstanding to the top (**Action required** for hard prerequisites, **Review recommended** for optional settings, **Passing** for everything
+already set), and offers in-place fixes — including a **Class Type Resolver** generator that writes a resolver class and test for you, and a one-click **Data Retention** scheduler.
+The Home tab also provides quick-launch **Administration Tools**: API Test Harness, Streaming Event Monitor, and Chain Monitor.
 
 What the Health Check looks for, and how to satisfy it:
 
-1. **Platform Cache.** KernDX ships its own Platform Cache partition — **LibraryCache** (under the `kern` namespace) — so you don't create one. A managed package's capacity allocation doesn't transfer to a subscriber org, so you allocate the space yourself: in **Setup > Platform Cache**, edit the **LibraryCache** partition. Give it **Organisation** cache — Kern uses this to remember state between requests, so without it automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working. Add **Session** cache where you can — Kern keeps per-user data such as encryption keys there, and without it that data falls back to Org Cache, using more of your org-cache allocation and slowing user-specific operations.
-2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org — for example, pushing to streaming channels. If you use them, add a Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**); otherwise you can skip this step.
-3. **Class Type Resolver (optional).** Only needed if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global` — Kern then needs a resolver to locate them across its namespace. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you; see also [Subscriber Integration Gotchas](#subscriber-integration-gotchas) below.
+1. **Platform Cache.** KernDX ships its own Platform Cache partition — **LibraryCache** (under the `kern` namespace) — so you don't create one. A managed package's capacity
+   allocation doesn't transfer to a subscriber org, so you allocate the space yourself: in **Setup > Platform Cache**, edit the **LibraryCache** partition. Give it **Organisation**
+   cache — Kern uses this to remember state between requests, so without it automatic retries on failing integrations, protection from repeated errors, and shared configuration
+   lookups stop working. Add **Session** cache where you can — Kern keeps per-user data such as encryption keys there, and without it that data falls back to Org Cache, using more
+   of your org-cache allocation and slowing user-specific operations.
+2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org — for example, pushing to streaming channels. If you use them, add a
+   Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**); otherwise you can skip this step.
+3. **Class Type Resolver (optional).** Only needed if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global` —
+   Kern then needs a resolver to locate them across its namespace. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you; see
+   also [Subscriber Integration Gotchas](#subscriber-integration-gotchas) below.
 
-To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission) below). For a full walkthrough of every check and what each result means, see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.
+To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission) below). For a full walkthrough of every check and what each result means,
+see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.
 
 ### Subscriber Integration Gotchas
 
@@ -163,7 +177,8 @@ For sandbox/production orgs, push upgrades are managed by the KernDX team.
 
 ### Release Testing
 
-Each release candidate goes through a four-phase internal test cycle before publication: environment setup, automated Apex scripts, subscriber test classes, and visual browser checks. Test results for your subscriber version are summarised in the release notes.
+Each release candidate goes through a four-phase internal test cycle before publication: environment setup, automated Apex scripts, subscriber test classes, and visual browser
+checks. Test results for your subscriber version are summarised in the release notes.
 
 ---
 
@@ -179,10 +194,14 @@ For teams that want full source ownership — repackage KernDX under your own na
 4. Package and release your own managed package
 
 **Two ways to start:**
-- **Clone the public source repo** — `git clone https://github.com/JVB-Consulting/kerndx my-company-framework` gives you a complete Salesforce DX project ready to swap (this is the canonical entry point for Path 2).
-- **Or extract a `docs+source` distribution** — older subscribers may have received this as a tarball/zip; once extracted, the working tree is identical to a clone of the public repo and the rest of this guide applies the same way.
 
-Either entry path lands you at the same starting point: a working tree containing `force-app/`, `bin/swap-namespace.js`, `sfdx-project.template.json`, and the rest of the project files. The instructions below assume that starting state.
+- **Clone the public source repo** — `git clone https://github.com/JVB-Consulting/kerndx my-company-framework` gives you a complete Salesforce DX project ready to swap (this is the
+  canonical entry point for Path 2).
+- **Or extract a `docs+source` distribution** — older subscribers may have received this as a tarball/zip; once extracted, the working tree is identical to a clone of the public
+  repo and the rest of this guide applies the same way.
+
+Either entry path lands you at the same starting point: a working tree containing `force-app/`, `bin/swap-namespace.js`, `sfdx-project.template.json`, and the rest of the project
+files. The instructions below assume that starting state.
 
 ---
 
@@ -194,8 +213,8 @@ Before starting, ensure you have:
 - **Git** for version control
 - **Visual Studio Code** with Salesforce Extension Pack (recommended)
 - **Two Salesforce Orgs:**
-  - **Dev Hub Org**: Production org or Partner Business Org (to manage packages)
-  - **Namespace Org**: Developer Edition org (to register your namespace)
+    - **Dev Hub Org**: Production org or Partner Business Org (to manage packages)
+    - **Namespace Org**: Developer Edition org (to register your namespace)
 - A working tree of the KernDX project — either a clone of `JVB-Consulting/kerndx` or an extracted `docs+source` distribution (both produce the same starting state)
 
 ---
@@ -227,7 +246,7 @@ A namespace is your unique prefix (e.g., `acmecorp`) that will be part of all yo
 > Salesforce CLI does **NOT** support namespace linking via command line. You will need to complete Step 2.2 manually
 > in your browser.
 
-### 2.1 Register Namespace in Namespace Org
+### Register Namespace in Namespace Org
 
 **Use a Developer Edition Org as your Namespace Org.**
 
@@ -240,7 +259,7 @@ A namespace is your unique prefix (e.g., `acmecorp`) that will be part of all yo
 
 > **Important:** Once registered, a namespace cannot be changed or reused. Choose carefully!
 
-### 2.2 Link Namespace to Dev Hub (UI Only)
+### Link Namespace to Dev Hub (UI Only)
 
 **IMPORTANT:** You **MUST** link the namespace to your Dev Hub using the Salesforce UI. Command-line linking via
 Salesforce CLI is **NOT available** — this is a UI-only operation.
@@ -264,9 +283,10 @@ with status "Linked".
 
 ## Step 3: Rebrand the Project Tree
 
-The project ships with a one-shot rebrand script that handles all namespace rewriting automatically. No manual `find`/`sed` recipe required — the script is the single source of truth for the swap.
+The project ships with a one-shot rebrand script that handles all namespace rewriting automatically. No manual `find`/`sed` recipe required — the script is the single source of
+truth for the swap.
 
-### 3.1 Confirm your starting tree
+### Confirm your starting tree
 
 From the directory where you cloned the public repo (or extracted the `docs+source` distribution), confirm the project structure is in place:
 
@@ -274,11 +294,14 @@ From the directory where you cloned the public repo (or extracted the `docs+sour
 ls bin/swap-namespace.js sfdx-project.template.json force-app/
 ```
 
-If those three paths exist, you have the canonical starting state and can skip to Step 3.2. The tree is already a full Salesforce DX project — `sfdx-project.template.json`, `force-app/`, `scripts/`, `bin/`, `package.json` are all in place. No `sf project generate` step needed.
+If those three paths exist, you have the canonical starting state and can skip to Step 3.2. The tree is already a full Salesforce DX project — `sfdx-project.template.json`,
+`force-app/`, `scripts/`, `bin/`, `package.json` are all in place. No `sf project generate` step needed.
 
-> **Note for top-level `README.md`:** the swap script does not rewrite the public repo's top-level `README.md`. Its Quick Start and Path-1/2/3 framing describe the upstream KernDX project, not your post-swap fork. Treat it as historical content and follow Steps 3–5 of this guide for the canonical rebrand-then-package recipe. See `bin/README.md` § "Post-Swap Action Required" for details.
+> **Note for top-level `README.md`:** the swap script does not rewrite the public repo's top-level `README.md`. Its Quick Start and Path-1/2/3 framing describe the upstream KernDX
+> project, not your post-swap fork. Treat it as historical content and follow Steps 3–5 of this guide for the canonical rebrand-then-package recipe. See `bin/README.md` § "Post-Swap
+> Action Required" for details.
 
-### 3.2 Run the swap script
+### Run the swap script
 
 ```bash
 node bin/swap-namespace.js <your-namespace>
@@ -288,13 +311,17 @@ node bin/swap-namespace.js <your-namespace> --keep-readme     # opt out of READM
 
 Replace `<your-namespace>` with the namespace you registered in Step 2 (e.g. `acmecorp`).
 
-The script rewrites every `kern.ClassName`, `kern__Field__c`, `<kern>` namespace declaration, filesystem path (`kernHome/`, `KernHome.tab-meta.xml`, `KernLogo.asset`), and produces a finalised `sfdx-project.json` from the template in this repo. It writes `.namespace-origin.json` at the working-copy root as proof the swap completed; the script refuses to run a second time on the same tree.
+The script rewrites every `kern.ClassName`, `kern__Field__c`, `<kern>` namespace declaration, filesystem path (`kernHome/`, `KernHome.tab-meta.xml`, `KernLogo.asset`), and produces
+a finalised `sfdx-project.json` from the template in this repo. It writes `.namespace-origin.json` at the working-copy root as proof the swap completed; the script refuses to run a
+second time on the same tree.
 
-After a successful swap, the script replaces the top-level `README.md` with a short subscriber stub that attributes KernDX, names your namespace, and points at the rebranded `docs/` content — the upstream KernDX README isn't appropriate for your post-swap fork. Pass `--keep-readme` to preserve your own README content (subscribers who wrote a custom README before swap should opt out).
+After a successful swap, the script replaces the top-level `README.md` with a short subscriber stub that attributes KernDX, names your namespace, and points at the rebranded
+`docs/` content — the upstream KernDX README isn't appropriate for your post-swap fork. Pass `--keep-readme` to preserve your own README content (subscribers who wrote a custom
+README before swap should opt out).
 
 See `bin/README.md` in this repo for full script details, the `--dry-run` audit format, the `--keep-readme` opt-out, and the **post-swap PNG-logo replacement step** (`<TargetPascal>Logo.asset` is renamed correctly but its byte content remains the KernDX logo — replace before shipping to your subscribers).
 
-### 3.3 Verify the swap
+### Verify the swap
 
 ```bash
 cat .namespace-origin.json                                   # confirms swap target + timestamp
@@ -303,6 +330,7 @@ grep -r "kern__" force-app --include="*.xml" | head                       # shou
 ```
 
 **Checkpoint:**
+
 - `.namespace-origin.json` shows your target namespace and an ISO timestamp = swap completed
 - `grep` returns no results = no residual `kern.*` references in source
 
@@ -312,15 +340,18 @@ If `grep` returns results, the swap is incomplete. Inspect the matches and repor
 
 ## Step 4: Configure Your Package
 
-The swap script in Step 3.2 already wrote your `sfdx-project.json` from the template (with your namespace, `sfdcLoginUrl`, and `sourceApiVersion: 66.0` in place). **You do not need to edit `sfdx-project.json` manually at this point.**
+The swap script in Step 3.2 already wrote your `sfdx-project.json` from the template (with your namespace, `sfdcLoginUrl`, and `sourceApiVersion: 67.0` in place). **You do not need
+to edit `sfdx-project.json` manually at this point.**
 
-Skip ahead to Step 5: `sf package create` (5.1) appends a `packageAliases` entry and completes `packageDirectories[0]` with the new `package` field — the template ships without a `package` field on purpose so this merge lands in place rather than duplicating an entry. Step 5.2 then writes the first package version's `versionName` / `versionNumber` into `packageDirectories[0]`.
+Skip ahead to Step 5: `sf package create` (5.1) appends a `packageAliases` entry and completes `packageDirectories[0]` with the new `package` field — the template ships without a
+`package` field on purpose so this merge lands in place rather than duplicating an entry. Step 5.2 then writes the first package version's `versionName` / `versionNumber` into
+`packageDirectories[0]`.
 
 ---
 
 ## Step 5: Create Your Managed Package
 
-### 5.1 Create the Package
+### Create the Package
 
 ```bash
 sf package create \
@@ -332,9 +363,10 @@ sf package create \
 
 **Checkpoint:** Run `sf package list --target-dev-hub MyCompanyDevHub` to see your package listed.
 
-### 5.2 Create Your First Package Version
+### Create Your First Package Version
 
-**First, commit your rebrand to a local branch.** The build script requires a clean `force-app/` tree because it applies namespace prefixes temporarily during the build and reverts them via `git checkout`. From your project root:
+**First, commit your rebrand to a local branch.** The build script requires a clean `force-app/` tree because it applies namespace prefixes temporarily during the build and reverts
+them via `git checkout`. From your project root:
 
 ```bash
 git init                                          # if you haven't already
@@ -349,18 +381,23 @@ node scripts/build-package.js --package "YourCompanyFramework" --no-resync
 
 This takes 10-30 minutes. Save the **Package Version ID** (starts with `04t`) and **Installation URL**.
 
-**Why `build-package.js` instead of `sf package version create` directly?** Custom Metadata records (e.g. `ApiSetting`, `TriggerAction`), Flow metadata, FlexiPages, and LWC `apex://` references store class and field names as plain strings — Salesforce does *not* automatically apply your namespace prefix to those values during a managed-package build. `scripts/build-package.js` Step 1 calls `scripts/prepare-package-build.js`, which injects the prefix into those string fields (e.g. `ClassName__c = "API_PostExample"` → `ClassName__c = "yournamespace.API_PostExample"`) for the duration of the build, then reverts the working tree to its committed state. Running `sf package version create` directly skips this step, and the resulting package will fail at runtime with `API setting record not found for service "yournamespace.<class>"` errors.
+**Why `build-package.js` instead of `sf package version create` directly?** Custom Metadata records (e.g. `ApiSetting`, `TriggerAction`), Flow metadata, FlexiPages, and LWC
+`apex://` references store class and field names as plain strings — Salesforce does *not* automatically apply your namespace prefix to those values during a managed-package build.
+`scripts/build-package.js` Step 1 calls `scripts/prepare-package-build.js`, which injects the prefix into those string fields (e.g. `ClassName__c = "API_PostExample"` →
+`ClassName__c = "yournamespace.API_PostExample"`) for the duration of the build, then reverts the working tree to its committed state. Running `sf package version create` directly
+skips this step, and the resulting package will fail at runtime with `API setting record not found for service "yournamespace.<class>"` errors.
 
-`--no-resync` is used because the resync step targets the KernDX maintainer's dev org; you don't have one. Pass `--skip-validation` only for fast smoke builds — release candidates should always run with validation.
+`--no-resync` is used because the resync step targets the KernDX maintainer's dev org; you don't have one. Pass `--skip-validation` only for fast smoke builds — release candidates
+should always run with validation.
 
-### 5.3 Test Your Beta Version
+### Test Your Beta Version
 
 1. Open the **Package Installation URL** from the previous step
 2. Install in a scratch org or sandbox
 3. Test all functionality thoroughly
 4. Verify your namespace prefix appears on all components
 
-### 5.4 Promote to Released
+### Promote to Released
 
 ```bash
 sf package version promote \
@@ -493,14 +530,14 @@ Update fieldset references, component references, and record type references to 
 
 These metadata types enforce global uniqueness and may cause conflicts during coexistence:
 
-| Metadata Type | Uniqueness Field | Resolution |
-|---------------|------------------|------------|
-| **CustomNotificationType** | `customNotifTypeName` | Rename XML label |
-| **DuplicateRule** | `masterLabel` | Rename label |
-| **MatchingRule** | `masterLabel` | Rename label |
-| **ExternalDataSource** | `endpoint` + `principalType` | Change endpoint |
-| **RemoteSiteSetting** | `url` | Use different URL |
-| **ContentSecurityPolicy** | `masterLabel` | Rename label |
+| Metadata Type              | Uniqueness Field             | Resolution        |
+|----------------------------|------------------------------|-------------------|
+| **CustomNotificationType** | `customNotifTypeName`        | Rename XML label  |
+| **DuplicateRule**          | `masterLabel`                | Rename label      |
+| **MatchingRule**           | `masterLabel`                | Rename label      |
+| **ExternalDataSource**     | `endpoint` + `principalType` | Change endpoint   |
+| **RemoteSiteSetting**      | `url`                        | Use different URL |
+| **ContentSecurityPolicy**  | `masterLabel`                | Rename label      |
 
 ---
 
@@ -517,13 +554,15 @@ Once your package is released:
 6. **Governance:** Establish release management and versioning strategies
 
 For more detail on framework architecture, see the comprehensive guides in the `docs/` folder:
+
 - Triggers Guide, Selectors Guide, Web Services Guide, DTOs Guide, etc.
 
 ---
 
 ## Path 3: CI Tooling Only
 
-For teams that want the KernDX CI pipeline (ESLint plugin + PMD rulesets + GitHub Actions workflow templates) without taking on the framework itself. The pipeline distribution ships as a standalone zip, lives entirely in your repo's `.kerndx-pipeline/` directory, and adds no Apex, LWC, or managed-package dependencies to your org.
+For teams that want the KernDX CI pipeline (ESLint plugin + PMD rulesets + GitHub Actions workflow templates) without taking on the framework itself. The pipeline distribution
+ships as a standalone zip, lives entirely in your repo's `.kerndx-pipeline/` directory, and adds no Apex, LWC, or managed-package dependencies to your org.
 
 ### What's Inside
 
@@ -543,9 +582,11 @@ unzip /path/to/KernDX-<version>-pipeline.zip -d .kerndx-pipeline
 ./.kerndx-pipeline/bin/kerndx init
 ```
 
-`kerndx init` interactively configures `.kerndx/config.yml` (your prefix/domain conventions, Slack webhook, CI-tool adapter) and wires the workflow templates into `.github/workflows/`. It is safe to re-run after upgrades.
+`kerndx init` interactively configures `.kerndx/config.yml` (your prefix/domain conventions, Slack webhook, CI-tool adapter) and wires the workflow templates into
+`.github/workflows/`. It is safe to re-run after upgrades.
 
-The 9 rendered workflow examples are also browsable in the public repo at [`examples/workflows/`](https://github.com/JVB-Consulting/kerndx/tree/main/examples/workflows) — preview them before installing.
+The 9 rendered workflow examples are also browsable in the public repo at [`examples/workflows/`](https://github.com/JVB-Consulting/kerndx/tree/main/examples/workflows) — preview
+them before installing.
 
 ### Upgrading
 
@@ -642,10 +683,10 @@ import {ComponentBuilder} from '{{LWC_NAMESPACE}}/componentBuilder';
 
 ### Placeholders Reference
 
-| Placeholder | Description | Example |
-|-------------|-------------|---------|
-| `{{NAMESPACE}}` | KernDX package namespace | `ClientLib`, `ACME` |
-| `{{ORG_ALIAS}}` | Salesforce org alias | `DevOrg`, `ClientDevOrg` |
-| `{{PREFIX}}` | Project class prefix (optional) | `PRJ_`, `ACME_`, or empty |
-| `{{LWC_NAMESPACE}}` | LWC import namespace | `acme`, `clientlib` |
-| `{{AUTHOR_EMAIL}}` | Developer email | `developer@client.com` |
+| Placeholder         | Description                     | Example                   |
+|---------------------|---------------------------------|---------------------------|
+| `{{NAMESPACE}}`     | KernDX package namespace        | `ClientLib`, `ACME`       |
+| `{{ORG_ALIAS}}`     | Salesforce org alias            | `DevOrg`, `ClientDevOrg`  |
+| `{{PREFIX}}`        | Project class prefix (optional) | `PRJ_`, `ACME_`, or empty |
+| `{{LWC_NAMESPACE}}` | LWC import namespace            | `acme`, `clientlib`       |
+| `{{AUTHOR_EMAIL}}`  | Developer email                 | `developer@client.com`    |

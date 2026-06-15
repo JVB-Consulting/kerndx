@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Detail panel for the Chain Monitor showing step timeline, timing, and error details for a selected chain execution.</description>
 	<masterLabel>Chain Monitor Detail</masterLabel>
 	<isExposed>false</isExposed>

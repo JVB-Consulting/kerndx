@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Interactive D3.js timeline visualization for streaming events. Plots events by timestamp (X-axis) and channel (Y-axis) with hover tooltips, locale-aware time
 		formatting, and click-to-select functionality.
 	</description>

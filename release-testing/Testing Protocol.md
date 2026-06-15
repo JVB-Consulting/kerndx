@@ -1,14 +1,18 @@
 # Release Testing
 
-> **`<repo-root>` placeholder.** Commands below reference `<repo-root>` where the absolute path to your project clone goes. Substitute mentally with the output of `pwd` from your project's root directory, or set an env var (`REPO_ROOT=$(pwd)`) and run `cd "$REPO_ROOT"`.
+> **`<repo-root>` placeholder.** Commands below reference `<repo-root>` where the absolute path to your project clone goes. Substitute mentally with the output of `pwd` from your
+> project's root directory, or set an env var (`REPO_ROOT=$(pwd)`) and run `cd "$REPO_ROOT"`.
 
 ## Configuration
 
-Set `SF_SUBSCRIBER_ORG_ALIAS` to the alias of your subscriber test scratch org before running any runner script. The runners read this env var via `release-testing/runner/subscriber-config.js` and throw a clear error if it is unset.
+Set `SF_SUBSCRIBER_ORG_ALIAS` to the alias of your subscriber test scratch org before running any runner script. The runners read this env var via
+`release-testing/runner/subscriber-config.js`; if unset, they default to `$SF_SUBSCRIBER_ORG_ALIAS` (the internal kern team's alias).
 
 ```bash
 export SF_SUBSCRIBER_ORG_ALIAS=YourSubscriberScratchAlias
 ```
+
+and (2) the public KernDX repository, where `subscriber-config.js` throws if the env var is unset instead of defaulting to the kern-internal alias.
 
 ## Subscriber Test Cycle
 
@@ -25,7 +29,7 @@ sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
 # CRITICAL: Must run from /tmp/kern-subscriber/ — NOT dev project (has "namespace":"kern")
 mkdir -p /tmp/kern-subscriber/force-app
 cat > /tmp/kern-subscriber/sfdx-project.json << 'TMPEOF'
-{"packageDirectories":[{"path":"force-app","default":true}],"name":"KernSubscriber","sourceApiVersion":"66.0"}
+{"packageDirectories":[{"path":"force-app","default":true}],"name":"KernSubscriber","sourceApiVersion":"67.0"}
 TMPEOF
 cd /tmp/kern-subscriber && sf org create scratch -f <repo-root>/config/project-scratch-def.json -a $SF_SUBSCRIBER_ORG_ALIAS -v DevHub -y 30 --wait 10
 
@@ -48,7 +52,8 @@ cd <repo-root>
 rm -f release-testing/e2e/.auth/state.json release-testing/e2e/.auth/instance.json
 ```
 
-The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via `node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
+The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via
+`node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
 
 ## Load Test Isolation Guarantee
 
@@ -84,7 +89,8 @@ Only the specified section's entry in the baseline JSON is updated. All other se
 node release-testing/runner/perf-history.js --reset --section=44
 ```
 
-This clears the stored baseline for section 44 so the next run establishes a new baseline from scratch. The baseline JSON file (`release-testing/runner/perf-history.json`) is committed to source control — after resetting and re-running, commit the updated JSON alongside the code change that caused the intentional perf shift.
+This clears the stored baseline for section 44 so the next run establishes a new baseline from scratch. The baseline JSON file (`release-testing/runner/perf-history.json`) is
+committed to source control — after resetting and re-running, commit the updated JSON alongside the code change that caused the intentional perf shift.
 
 ## PERF_ROW Emission Convention
 
@@ -123,8 +129,12 @@ Runs four extended scripts:
 
 ## Common Subscriber Pitfalls
 
-- **`kern__LogEntry__c` queries: use `kern__UserId__c`, NOT `CreatedById`** (A37) — `TRG_PersistLogEntry` runs as the Automated Process user. Querying by `CreatedById` will miss all log entries.
-- **PE flood >150 emits per transaction hits the PublishImmediate governor** (A18) — non-scoped `LOG_Builder.build()...emit()` calls bypass batching. Use `LOG_Builder.scope()` to batch emits within a single transaction.
-- **Cache get-modify-put loses ~85-94% of writes under 100-parallel contention** (A40) — Platform Cache has no compare-and-swap. Design for eventual consistency or use a different concurrency strategy for high-contention keys.
-- **`TST_Factory.newTriggerAction` is `@TestVisible private`** (A31) — callable only from `@IsTest` classes, not from anonymous Apex. Use `CustomMetadata UPSERT` in anonymous Apex setup scripts instead.
+- **`kern__LogEntry__c` queries: use `kern__UserId__c`, NOT `CreatedById`** (A37) — `TRG_PersistLogEntry` runs as the Automated Process user. Querying by `CreatedById` will miss
+  all log entries.
+- **PE flood >150 emits per transaction hits the PublishImmediate governor** (A18) — non-scoped `LOG_Builder.build()...emit()` calls bypass batching. Use `LOG_Builder.scope()` to
+  batch emits within a single transaction.
+- **Cache get-modify-put loses ~85-94% of writes under 100-parallel contention** (A40) — Platform Cache has no compare-and-swap. Design for eventual consistency or use a different
+  concurrency strategy for high-contention keys.
+- **`TST_Factory.newTriggerAction` is `@TestVisible private`** (A31) — callable only from `@IsTest` classes, not from anonymous Apex. Use `CustomMetadata UPSERT` in anonymous Apex
+  setup scripts instead.
 - **Anonymous Apex sync CPU governor is 10 s, not 60 s** — keep busy-waits short; split long-running setup across multiple anonymous Apex executions if needed.

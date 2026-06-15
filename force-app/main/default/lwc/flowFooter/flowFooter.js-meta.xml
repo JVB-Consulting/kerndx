@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Reusable flow screen footer with Back/Next navigation.
 		Supports custom titles, button visibility, LMS-based disabling,
 		and override to Finish. Works in Flow screens or embedded

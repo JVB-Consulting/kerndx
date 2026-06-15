@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata" fqn="streamingUtility">
-	<apiVersion>66.0</apiVersion>
+	<apiVersion>67.0</apiVersion>
 	<description>Utility module for Streaming API event handling. Exports constants for event types, channel prefixes, filters, and functions for channel validation, event
 		normalization, time formatting, and sorting.
 	</description>
