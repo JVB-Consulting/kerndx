@@ -5,10 +5,11 @@
  * `FlowName__c` (the framework dispatches through `TRG_InvokeFlow` automatically;
  * subscribers leave `ApexClassName__c` blank). `FailureAction__c` controls how
  * runtime exceptions surface. The framework reads its configuration via the
- * `IF_Trigger.Configurable` hook and invokes the target flow via the 2-arg form
- * `Flow.Interview.createInterview(flowName, variables).start()`. The 3-arg form
- * is not used because passing `null` as the namespace argument raises an
- * uncatchable `System.UnexpectedException` on `start()`.
+ * `IF_Trigger.Configurable` hook and invokes the target flow via the 3-arg form
+ * `Flow.Interview.createInterview(namespace, flowName, variables).start()` with an
+ * empty-string namespace parsed from any `namespace__name` prefix. Only a literal
+ * `null` namespace raises an uncatchable `System.UnexpectedException` on `start()`,
+ * which is why the empty-string form is used.
  *
  * For each trigger record the framework constructs a per-record interview, supplies
  * `record` (in/out) and — for update contexts — `recordPrior` (in only), executes the
@@ -37,7 +38,7 @@
  *
  * @group Triggers
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  *
  * @since 1.0
  */
@@ -64,6 +65,21 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @description Name of the flow input variable carrying the pre-update record (update contexts only).
 	 */
 	private static final String RECORD_PRIOR_VAR = 'recordPrior';
+
+	/**
+	 * @description Name of the flow input variable carrying the typed `DTO_ChangeEventHeader` for
+	 * Change Event (CDC) dispatches. Subscriber flows registered against a Change Event entity
+	 * declare an Apex-defined variable named `header` (Apex Class = `DTO_ChangeEventHeader`) to
+	 * receive the change-event metadata. Non-CDC dispatches omit this variable.
+	 */
+	private static final String HEADER_VAR = 'header';
+
+	/**
+	 * @description Field name on a Change Event SObject carrying the platform
+	 * `EventBus.ChangeEventHeader`. Read once per CDC record and projected onto
+	 * `DTO_ChangeEventHeader` for the flow input variable.
+	 */
+	private static final String CHANGE_EVENT_HEADER_FIELD = 'ChangeEventHeader';
 
 	/**
 	 * @description `LogSetting__c.EnableFlowActionLogging__c` value emitting per-record entries on error only.
@@ -100,6 +116,34 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * Tokens: `{0}` flow API name, `{1}` original error message, `{2}` triggering record Id (or "null").
 	 */
 	private static final String BLOCK_DML_MESSAGE_TEMPLATE = '[{0}] {1} (record: {2})';
+
+	/**
+	 * @description Maximum number of underlying record Ids surfaced in the CDC aggregate
+	 * audit's `CONTEXT_RECORD_IDS` payload. A single CDC dispatch can carry far more than
+	 * 200 underlying record Ids when multiple Change Event records aggregate into one
+	 * dispatch loop. The audit's purpose is "what was the dispatch targeting" — the first
+	 * MAX_AUDITED_IDS Ids surface in `CONTEXT_RECORD_IDS` for spot-checking while
+	 * `CONTEXT_RECORD_COUNT` carries the true uncapped total.
+	 */
+	private static final Integer MAX_AUDITED_IDS = 200;
+
+	/**
+	 * @description `errorKind` value tagged on the warning audit entry emitted when a
+	 * Change Event dispatch resolves a `BlockDml` failure policy. The framework cannot
+	 * actually call `record.addError(...)` on a Change Event record (the underlying change
+	 * has already committed — there is nothing to roll back), so the policy is degraded
+	 * to `LogAndContinue` semantics and a distinct queryable signal is emitted naming the
+	 * degrade so subscribers can pivot diagnostic queries on the degrade event.
+	 */
+	private static final String ERROR_KIND_CDC_BLOCK_DML_DEGRADED = 'cdc-block-dml-degraded';
+
+	/**
+	 * @description Warning message template for the BlockDml-on-CDC degrade emission.
+	 * Tokens: `{0}` flow API name. Substitutes into the audit entry's `Message__c` so
+	 * subscribers reading the log see why the configured `BlockDml` policy did not block.
+	 */
+	private static final String CDC_BLOCK_DML_DEGRADE_MESSAGE_TEMPLATE =
+			'BlockDml is not supported on Change Event dispatch (cannot roll back a committed change) — degraded to LogAndContinue: {0}';
 
 	/**
 	 * @description Discriminator distinguishing classes of flow-action failure for downstream
@@ -147,6 +191,26 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 */
 	@TestVisible
 	private static Exception simulateCreateInterviewExceptionForTest = null;
+
+	/**
+	 * @description Test-only seam — when set to a non-null `DTO_ChangeEventHeader`,
+	 * the CDC dispatch path uses it as the injected `header` flow input variable instead
+	 * of projecting one from the platform `EventBus.ChangeEventHeader` on the record.
+	 *
+	 * Why this seam exists: the production cast
+	 * `(EventBus.ChangeEventHeader)record.get('ChangeEventHeader')` works for real
+	 * platform-delivered Change Event records, but crashes the platform with
+	 * `UNKNOWN_EXCEPTION` (an uncatchable runtime error, not a normal Apex exception)
+	 * when applied to a JSON-deserialized Change Event SObject. Both `TST_Builder` and
+	 * `TST_Mock` serialize → deserialize through JSON for `withoutInsertion()` builds,
+	 * so any in-memory Change Event SObject constructed in unit tests carries the same
+	 * platform-unsafe `ChangeEventHeader` shape. The real CDC delivery path is exercised
+	 * end-to-end by subscriber-org integration tests via `Test.enableChangeDataCapture()`
+	 * + `Test.getEventBus().deliver()`, where Salesforce-internal CDC infrastructure
+	 * produces a castable header.
+	 */
+	@TestVisible
+	private static DTO_ChangeEventHeader simulateChangeEventHeaderForTest = null;
 
 	/**
 	 * @description Stores the active TriggerAction__mdt configuration for this dispatch.
@@ -265,6 +329,8 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 			{
 				return;
 			}
+			String resolvedObjectName = TRG_Base.resolveSObjectName(newRecords, oldRecords);
+			stats.isCdcDispatch = String.isNotBlank(resolvedObjectName) && resolvedObjectName.endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX);
 			processRecords(drivingRecords, oldRecordsById, flowName, failureAction, stats);
 		}
 		finally
@@ -276,13 +342,18 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 
 	/**
 	 * @description Loops the trigger records invoking the flow per-record, accumulating
-	 * attempted / failed Ids onto `stats` for the closing audit emission.
+	 * attempted / failed Ids onto `stats` for the closing audit emission. For CDC dispatches
+	 * the per-record loop projects the platform `EventBus.ChangeEventHeader` onto a
+	 * `DTO_ChangeEventHeader`, accumulates the header's underlying record Ids into the
+	 * audit list (capped at `MAX_AUDITED_IDS`), and threads the typed header into
+	 * `invokeSingle` so the Flow input variables map carries the `header` variable.
 	 *
 	 * @param drivingRecords The post- or pre-image records driving dispatch.
 	 * @param oldRecordsById Pre-image records indexed by Id for `recordPrior` lookup, or null.
 	 * @param flowName The configured flow API name.
 	 * @param failureAction The resolved `FailureAction__c` policy for the dispatch.
-	 * @param stats The mutable run-statistics accumulator.
+	 * @param stats The mutable run-statistics accumulator. `stats.isCdcDispatch` is read to
+	 * decide whether to project the change-event header and accumulate audit ids from it.
 	 */
 	@SuppressWarnings('PMD.ExcessiveParameterList')
 	private static void processRecords
@@ -297,44 +368,127 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		Boolean isMocked = TST_InvokeFlowMock.isMocked(flowName);
 		for(SObject record : drivingRecords)
 		{
-			if(record.Id != null)
+			DTO_ChangeEventHeader changeEventHeader = null;
+			if(stats.isCdcDispatch)
+			{
+				changeEventHeader = buildChangeEventHeaderDto(record);
+				accumulateCdcAuditIds(stats, changeEventHeader);
+			}
+			else if(record.Id != null)
 			{
 				stats.attemptedRecordIds.add(record.Id);
 			}
 			SObject priorRecord = (record.Id != null && oldRecordsById != null) ? oldRecordsById.get(record.Id) : null;
-			Boolean recordSucceeded = invokeSingle(record, priorRecord, flowName, failureAction, isMocked);
-			if(!recordSucceeded && record.Id != null)
+			Boolean recordSucceeded = invokeSingle(record, priorRecord, flowName, failureAction, isMocked, changeEventHeader);
+			if(!recordSucceeded)
 			{
-				stats.failedRecordIds.add(record.Id);
+				if(stats.isCdcDispatch)
+				{
+					stats.failedCdcRecordCount++;
+				}
+				else if(record.Id != null)
+				{
+					stats.failedRecordIds.add(record.Id);
+				}
 			}
 		}
 	}
 
 	/**
-	 * @description Mutable accumulator carrying per-dispatch run statistics (record count and
-	 * the attempted / failed Id lists). Built once per `run()` call.
+	 * @description Accumulates the underlying record Ids carried on a Change Event header
+	 * into the dispatch's audit list and increments the running total. The audit list is
+	 * capped at `MAX_AUDITED_IDS` (the first N Ids surface in `CONTEXT_RECORD_IDS` for
+	 * spot-checking), but the running total reflects the full uncapped sum surfaced in
+	 * `CONTEXT_RECORD_COUNT` so subscribers querying the audit always see "how many
+	 * underlying records did the dispatch target". A header carrying a null `recordIds`
+	 * (defensive; production CDC always populates it) is a no-op.
+	 *
+	 * @param stats The mutable run-statistics accumulator.
+	 * @param header The projected Change Event header carrying the underlying record Ids.
+	 */
+	private static void accumulateCdcAuditIds(RunStats stats, DTO_ChangeEventHeader header)
+	{
+		List<String> headerIds = header.recordIds;
+		if(headerIds == null)
+		{
+			return;
+		}
+		stats.totalCdcRecordIdCount += headerIds.size();
+		Integer remainingCapacity = MAX_AUDITED_IDS - stats.attemptedCdcRecordIds.size();
+		if(remainingCapacity <= 0)
+		{
+			return;
+		}
+		Integer take = Math.min(remainingCapacity, headerIds.size());
+		for(Integer i = 0; i < take; i++)
+		{
+			stats.attemptedCdcRecordIds.add(headerIds[i]);
+		}
+	}
+
+	/**
+	 * @description Mutable accumulator carrying per-dispatch run statistics. For non-CDC
+	 * dispatches the `recordCount` / `attemptedRecordIds` / `failedRecordIds` triad surfaces
+	 * in the closing audit. For CDC dispatches the dispatch counters do not match user-meaningful
+	 * "records affected" semantics (one change-event record can carry many underlying record
+	 * Ids), so a parallel `totalCdcRecordIdCount` / `attemptedCdcRecordIds` / `failedCdcRecordCount`
+	 * triad is populated from the projected change-event header and surfaces instead of the
+	 * dispatch counters. `isCdcDispatch` is set by `run()` once per dispatch and read by
+	 * `processRecords` + `emitAuditEvent` to choose which triad to use.
 	 */
 	private class RunStats
 	{
 		/**
-		 * @description Total records the dispatch is iterating, captured up-front.
+		 * @description Total records the dispatch is iterating, captured up-front. For CDC
+		 * dispatches this is the change-event record count (not the underlying record Id
+		 * count surfaced in the audit) — the audit uses `totalCdcRecordIdCount` instead.
 		 */
 		final Integer recordCount;
 		/**
-		 * @description Ids the dispatch attempted to process (excludes records without an Id).
-		 * Includes Ids whose invocation subsequently failed — `attempted` is a superset of `failed`.
+		 * @description Ids the non-CDC dispatch attempted to process (excludes records without
+		 * an Id). Includes Ids whose invocation subsequently failed — `attempted` is a superset
+		 * of `failed`. Unused for CDC dispatches; see `attemptedCdcRecordIds`.
 		 */
 		final List<Id> attemptedRecordIds;
 		/**
-		 * @description Ids whose flow invocation failed (subset of `attemptedRecordIds`).
+		 * @description Ids whose non-CDC flow invocation failed (subset of `attemptedRecordIds`).
+		 * Unused for CDC dispatches; see `failedCdcRecordCount`.
 		 */
 		final List<Id> failedRecordIds;
+		/**
+		 * @description True when the dispatch targets a Change Event entity. Set once in `run()`
+		 * after the empty-records short-circuit; read by `processRecords` and `emitAuditEvent`
+		 * to route through the CDC accumulator + audit branches.
+		 */
+		Boolean isCdcDispatch;
+		/**
+		 * @description Total underlying record Ids across all change-event records in the
+		 * dispatch (uncapped sum of `header.recordIds.size()`). Surfaces in `CONTEXT_RECORD_COUNT`
+		 * for CDC dispatches. Unused for non-CDC dispatches.
+		 */
+		Integer totalCdcRecordIdCount;
+		/**
+		 * @description Underlying record Ids surfaced in the CDC audit, capped at `MAX_AUDITED_IDS`.
+		 * The first N Ids encountered across all change-event records — `totalCdcRecordIdCount`
+		 * carries the full count. Unused for non-CDC dispatches.
+		 */
+		final List<String> attemptedCdcRecordIds;
+		/**
+		 * @description Number of change-event records whose flow invocation failed. Surfaces in
+		 * `CONTEXT_ERROR_COUNT` for CDC dispatches. Per-record error context (one entry per
+		 * failed change-event record) emits via `emitErrorEntry` regardless of this counter.
+		 */
+		Integer failedCdcRecordCount;
 
 		RunStats(List<SObject> drivingRecords)
 		{
-			recordCount = drivingRecords?.size() ?? 0;
+			attemptedCdcRecordIds = new List<String>();
 			attemptedRecordIds = new List<Id>();
+			failedCdcRecordCount = 0;
 			failedRecordIds = new List<Id>();
+			isCdcDispatch = false;
+			recordCount = drivingRecords?.size() ?? 0;
+			totalCdcRecordIdCount = 0;
 		}
 	}
 
@@ -353,6 +507,10 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @param flowName The flow API name to invoke.
 	 * @param failureAction The configured `FailureAction__c` value driving error routing.
 	 * @param isMocked True when running under `TST_InvokeFlowMock`; bypasses `Flow.Interview` lookup and routes through the mock recorder.
+	 * @param changeEventHeader The projected `DTO_ChangeEventHeader` for CDC dispatches, or null
+	 * for non-CDC dispatches. When non-null, the header is injected as the `header` flow input
+	 * variable and threaded to the mock recorder; a non-null value also signals the CDC
+	 * branch in failure routing (BlockDml is degraded to LogAndContinue).
 	 *
 	 * @return True when the flow completed without error, false otherwise.
 	 */
@@ -360,22 +518,27 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	// mock short-circuit + mock-result handling fan out to ~11 branches; combining them in one
 	// method keeps the read-flow linear so reviewers can trace the per-record happy/error path.
 	@SuppressWarnings('PMD.CyclomaticComplexity,PMD.ExcessiveParameterList')
-	private static Boolean invokeSingle(SObject record, SObject priorRecord, String flowName, String failureAction, Boolean isMocked)
+	private static Boolean invokeSingle(SObject record, SObject priorRecord, String flowName, String failureAction, Boolean isMocked, DTO_ChangeEventHeader changeEventHeader)
 	{
+		Boolean isChangeEvent = (changeEventHeader != null);
 		Map<String, Object> variables = new Map<String, Object> {RECORD_VAR => record};
 		if(priorRecord != null)
 		{
 			variables.put(RECORD_PRIOR_VAR, priorRecord);
 		}
+		if(isChangeEvent)
+		{
+			variables.put(HEADER_VAR, changeEventHeader);
+		}
 
 		Flow.Interview interview = null;
 		if(isMocked)
 		{
-			TST_InvokeFlowMock.recordInvocation(flowName, record, priorRecord);
+			TST_InvokeFlowMock.recordInvocation(flowName, record, priorRecord, changeEventHeader);
 		}
 		else
 		{
-			interview = createInterviewOrFail(record, flowName, failureAction, variables);
+			interview = createInterviewOrFail(record, flowName, failureAction, variables, isChangeEvent);
 			if(interview == null)
 			{
 				return false;
@@ -391,7 +554,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 				{
 					throw mockResult.exceptionToThrow;
 				}
-				return handleMockResult(record, flowName, failureAction, mockResult);
+				return handleMockResult(record, flowName, failureAction, mockResult, isChangeEvent);
 			}
 			interview.start();
 		}
@@ -401,12 +564,32 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 			{
 				throw caught;
 			}
-			handleFailure(new FailureContext(record, flowName, failureAction, caught.getMessage(), caught, ErrorKind.RUNTIME));
+			handleFailure(new FailureContext(record, flowName, failureAction, caught.getMessage(), caught, ErrorKind.RUNTIME, isChangeEvent));
 			return false;
 		}
 
 		applyResults(record, (SObject)interview.getVariableValue(RECORD_VAR));
 		return true;
+	}
+
+	/**
+	 * @description Projects the platform `EventBus.ChangeEventHeader` carried on a Change
+	 * Event SObject onto a Flow-accessible `DTO_ChangeEventHeader`. When
+	 * `simulateChangeEventHeaderForTest` is set, returns the simulated DTO instead — the
+	 * production cast `(EventBus.ChangeEventHeader)record.get(...)` cannot be exercised
+	 * from unit-mode Apex tests because `TST_Builder`, `TST_Mock`, and raw `JSON.deserialize`
+	 * construct in-memory Change Event SObjects whose `ChangeEventHeader` field crashes
+	 * the platform on cast (`UNKNOWN_EXCEPTION`, uncatchable). Real CDC delivery via
+	 * `Test.enableChangeDataCapture()` produces castable headers and is covered by the
+	 * subscriber-org integration tests.
+	 *
+	 * @param record The Change Event SObject (e.g. `AccountChangeEvent`, `Foobar__ChangeEvent`).
+	 *
+	 * @return The projected `DTO_ChangeEventHeader` for injection as the `header` flow input variable.
+	 */
+	private static DTO_ChangeEventHeader buildChangeEventHeaderDto(SObject record)
+	{
+		return simulateChangeEventHeaderForTest ?? new DTO_ChangeEventHeader((EventBus.ChangeEventHeader)record.get(CHANGE_EVENT_HEADER_FIELD));
 	}
 
 	/**
@@ -421,10 +604,12 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @param flowName The flow API name to instantiate (may include `namespace__name` prefix for cross-namespace flows).
 	 * @param failureAction The configured `FailureAction__c` value driving error routing.
 	 * @param variables The flow input variables map.
+	 * @param isChangeEvent True when the dispatch targets a Change Event entity (threaded into `FailureContext` for CDC-aware failure routing).
 	 *
 	 * @return The constructed `Flow.Interview`, or `null` when construction failed.
 	 */
-	private static Flow.Interview createInterviewOrFail(SObject record, String flowName, String failureAction, Map<String, Object> variables)
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static Flow.Interview createInterviewOrFail(SObject record, String flowName, String failureAction, Map<String, Object> variables, Boolean isChangeEvent)
 	{
 		try
 		{
@@ -436,7 +621,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		}
 		catch(System.TypeException configError)
 		{
-			handleFailure(new FailureContext(record, flowName, failureAction, CONFIG_ERROR_PREFIX + configError.getMessage(), configError, ErrorKind.CONFIGURATION));
+			handleFailure(new FailureContext(record, flowName, failureAction, CONFIG_ERROR_PREFIX + configError.getMessage(), configError, ErrorKind.CONFIGURATION, isChangeEvent));
 			return null;
 		}
 		catch(Exception unexpectedConfigError)
@@ -452,7 +637,8 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 							failureAction,
 							CONFIG_ERROR_PREFIX + unexpectedConfigError.getMessage(),
 							unexpectedConfigError,
-							ErrorKind.CONFIGURATION_UNEXPECTED
+							ErrorKind.CONFIGURATION_UNEXPECTED,
+							isChangeEvent
 					);
 			handleFailure(failure);
 			return null;
@@ -467,23 +653,25 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @param flowName The flow API name (for failure formatting and audit context).
 	 * @param failureAction The configured `FailureAction__c` value driving error routing.
 	 * @param mockResult The registered mock result.
+	 * @param isChangeEvent True when the dispatch targets a Change Event entity (threaded into `FailureContext` for CDC-aware failure routing).
 	 *
 	 * @return True when the mock represents success, false when it represents failure.
 	 */
-	private static Boolean handleMockResult(SObject record, String flowName, String failureAction, TST_InvokeFlowMock.MockResult mockResult)
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static Boolean handleMockResult(SObject record, String flowName, String failureAction, TST_InvokeFlowMock.MockResult mockResult, Boolean isChangeEvent)
 	{
 		if(mockResult.success)
 		{
 			applyResults(record, mockResult.outputRecord);
 			return true;
 		}
-		handleFailure(new FailureContext(record, flowName, failureAction, mockResult.errorMessage, null, ErrorKind.RUNTIME));
+		handleFailure(new FailureContext(record, flowName, failureAction, mockResult.errorMessage, null, ErrorKind.RUNTIME, isChangeEvent));
 		return false;
 	}
 
 	/**
 	 * @description Bundles the parameters describing a single flow failure so failure-routing helpers
-	 * can take one argument instead of six. Built at the failure call site; never reused across records.
+	 * can take one argument instead of seven. Built at the failure call site; never reused across records.
 	 */
 	@SuppressWarnings('PMD.ExcessiveParameterList')
 	private class FailureContext
@@ -494,8 +682,9 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		final String errorMessage;
 		final Exception sourceException;
 		final ErrorKind errorKind;
+		final Boolean isChangeEvent;
 
-		FailureContext(SObject record, String flowName, String failureAction, String errorMessage, Exception sourceException, ErrorKind errorKind)
+		FailureContext(SObject record, String flowName, String failureAction, String errorMessage, Exception sourceException, ErrorKind errorKind, Boolean isChangeEvent)
 		{
 			this.record = record;
 			this.flowName = flowName;
@@ -503,6 +692,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 			this.errorMessage = errorMessage;
 			this.sourceException = sourceException;
 			this.errorKind = errorKind;
+			this.isChangeEvent = isChangeEvent;
 		}
 	}
 
@@ -581,20 +771,32 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * `LogAndContinue` emits a structured `LogEntryEvent__e` and lets DML proceed;
 	 * `BlockDml` calls `record.addError(...)` with `[flowName] errorMessage (record: id)`.
 	 *
+	 * For Change Event dispatches `BlockDml` is **degraded** to `LogAndContinue` semantics
+	 * because the underlying change has already committed by the time CDC fires — calling
+	 * `record.addError(...)` cannot roll back a committed change. The degrade emits a
+	 * distinct warning audit entry tagged `errorKind = cdc-block-dml-degraded` so
+	 * subscribers can pivot queries on the policy switch.
+	 *
 	 * @param context The bundled failure context for the record being routed.
 	 */
 	private static void handleFailure(FailureContext context)
 	{
 		emitErrorEntry(context);
-		if(context.failureAction == SEL_TriggerAction.FAILURE_ACTION_BLOCK_DML)
+		if(context.failureAction != SEL_TriggerAction.FAILURE_ACTION_BLOCK_DML)
 		{
-			String formattedMessage = String.format
-					(
-							BLOCK_DML_MESSAGE_TEMPLATE,
-							new List<Object> {context.flowName, context.errorMessage, String.valueOf(context.record.Id)}
-					);
-			context.record.addError(formattedMessage);
+			return;
 		}
+		if(context.isChangeEvent)
+		{
+			emitCdcBlockDmlDegradeWarning(context);
+			return;
+		}
+		String formattedMessage = String.format
+				(
+						BLOCK_DML_MESSAGE_TEMPLATE,
+						new List<Object> {context.flowName, context.errorMessage, String.valueOf(context.record.Id)}
+				);
+		context.record.addError(formattedMessage);
 	}
 
 	/**
@@ -615,6 +817,33 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 				.withContext(LOG_Engine.CONTEXT_FLOW_NAME, context.flowName)
 				.withContext(LOG_Engine.CONTEXT_ERROR_MESSAGE, context.errorMessage)
 				.withContext(LOG_Engine.CONTEXT_ERROR_KIND, ERROR_KIND_LABEL.get(context.errorKind))
+				.emit();
+	}
+
+	/**
+	 * @description Emits a warning-level audit log entry naming the `BlockDml`-on-CDC
+	 * degrade. Carries `errorKind = cdc-block-dml-degraded` + `failureAction = BlockDml`
+	 * so subscribers can pivot diagnostic queries on the degrade event. The parallel
+	 * `emitErrorEntry` still emits for the underlying flow failure; this warning is the
+	 * additional signal naming the policy switch.
+	 *
+	 * @param context The bundled failure context for the record being degraded.
+	 */
+	private static void emitCdcBlockDmlDegradeWarning(FailureContext context)
+	{
+		String warningMessage = String.format
+				(
+						CDC_BLOCK_DML_DEGRADE_MESSAGE_TEMPLATE,
+						new List<Object> {context.flowName}
+				);
+		LOG_Builder.build()
+				.warn(warningMessage)
+				.at(AT_LOCATION)
+				.forRecord(context.record?.Id)
+				.withContext(LOG_Engine.CONTEXT_EVENT_NAME, EVENT_NAME)
+				.withContext(LOG_Engine.CONTEXT_FLOW_NAME, context.flowName)
+				.withContext(LOG_Engine.CONTEXT_ERROR_KIND, ERROR_KIND_CDC_BLOCK_DML_DEGRADED)
+				.withContext(LOG_Engine.CONTEXT_FAILURE_ACTION, SEL_TriggerAction.FAILURE_ACTION_BLOCK_DML)
 				.emit();
 	}
 
@@ -642,7 +871,9 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 			return;
 		}
 
-		Integer errorCount = stats.failedRecordIds.size();
+		Integer errorCount = stats.isCdcDispatch ? stats.failedCdcRecordCount : stats.failedRecordIds.size();
+		Integer auditRecordCount = stats.isCdcDispatch ? stats.totalCdcRecordIdCount : stats.recordCount;
+		Object auditRecordIds = stats.isCdcDispatch ? (Object)stats.attemptedCdcRecordIds : (Object)stats.attemptedRecordIds;
 		Boolean success = (errorCount == 0);
 		LOG_Builder.build()
 				.info(EVENT_NAME + ': ' + flowName)
@@ -650,11 +881,11 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 				.withContext(LOG_Engine.CONTEXT_EVENT_NAME, EVENT_NAME)
 				.withContext(LOG_Engine.CONTEXT_FLOW_NAME, flowName)
 				.withContext(LOG_Engine.CONTEXT_TRIGGER_OPERATION, triggerContext?.name())
-				.withContext(LOG_Engine.CONTEXT_RECORD_COUNT, stats.recordCount)
+				.withContext(LOG_Engine.CONTEXT_RECORD_COUNT, auditRecordCount)
 				.withContext(LOG_Engine.CONTEXT_DURATION_MS, durationMs)
 				.withContext(LOG_Engine.CONTEXT_SUCCESS, success)
 				.withContext(LOG_Engine.CONTEXT_ERROR_COUNT, errorCount)
-				.withContext(LOG_Engine.CONTEXT_RECORD_IDS, stats.attemptedRecordIds)
+				.withContext(LOG_Engine.CONTEXT_RECORD_IDS, auditRecordIds)
 				.emit();
 	}
 

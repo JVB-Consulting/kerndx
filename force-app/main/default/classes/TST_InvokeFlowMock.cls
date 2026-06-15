@@ -20,7 +20,7 @@
  *
  * @author Jason van Beukering
  *
- * @group Trigger Framework
+ * @group Triggers
  *
  * @date April 2026, May 2026
  *
@@ -225,6 +225,33 @@ global inherited sharing class TST_InvokeFlowMock
 	}
 
 	/**
+	 * @description Returns the `header` Change Event input variable the mocked flow
+	 * received on its most recent invocation. Null when the flow has not been invoked
+	 * or when the dispatch was not a Change Event context (standard / custom-object
+	 * triggers do not inject a header).
+	 *
+	 * Returned as `Object` (rather than `DTO_ChangeEventHeader`) to keep this mock's
+	 * compile-time surface decoupled from the CDC header type — callers cast at the
+	 * call site:
+	 *
+	 * ```apex
+	 * DTO_ChangeEventHeader header =
+	 *     (DTO_ChangeEventHeader)TST_InvokeFlowMock.getLastInputHeader('Foobar_OnChange');
+	 * ```
+	 *
+	 * @param flowName The flow API name to check
+	 *
+	 * @return The `header` input variable from the last invocation, or null when the flow has not been invoked or the context did not carry a header
+	 *
+	 * @since 1.1
+	 */
+	global static Object getLastInputHeader(String flowName)
+	{
+		MockInvocation last = lastInvocation(flowName);
+		return last == null ? null : last.header;
+	}
+
+	/**
 	 * @description Checks whether a mock is registered for the given flow.
 	 *
 	 * Used by `TRG_InvokeFlow.invokeSingle` to short-circuit before constructing
@@ -256,18 +283,37 @@ global inherited sharing class TST_InvokeFlowMock
 	/**
 	 * @description Records that a mocked flow was invoked, capturing the input variables
 	 * the flow received so subscriber tests can verify them via `getLastInputRecord` /
-	 * `getLastInputPriorRecord`.
-	 *
-	 * Called by `TRG_InvokeFlow.invokeSingle` each time it short-circuits via the mock
-	 * harness, so `assertInvoked`, `wasInvoked`, and the input-record getters reflect
-	 * runtime usage. The supplied SObjects are stored by reference; the registry holds
-	 * the same instances the trigger framework passed to the flow input map.
+	 * `getLastInputPriorRecord`. Delegates to the 4-arg overload with a null `header`
+	 * — used by non-CDC dispatches (standard/custom-object trigger contexts).
 	 *
 	 * @param flowName The flow API name that was invoked
 	 * @param record The `record` input variable the flow received
 	 * @param priorRecord The `recordPrior` input variable the flow received, or null when none
 	 */
 	public static void recordInvocation(String flowName, SObject record, SObject priorRecord)
+	{
+		recordInvocation(flowName, record, priorRecord, null);
+	}
+
+	/**
+	 * @description Records that a mocked flow was invoked, capturing the input variables
+	 * the flow received — including the optional Change Event header. Used by
+	 * `TRG_InvokeFlow.invokeSingle` to track CDC dispatches that inject a typed `header`
+	 * variable into the flow input map. Returns the captured header via
+	 * `getLastInputHeader(flowName)` so subscriber tests can verify the flow received the
+	 * correct change-event metadata.
+	 *
+	 * The supplied SObjects + header are stored by reference; the registry holds the
+	 * same instances the trigger framework passed to the flow input map.
+	 *
+	 * @param flowName The flow API name that was invoked
+	 * @param record The `record` input variable the flow received
+	 * @param priorRecord The `recordPrior` input variable the flow received, or null when none
+	 * @param header The `header` Change Event input variable (a `DTO_ChangeEventHeader`) the flow received, or null for non-CDC dispatches
+	 *
+	 * @since 1.1
+	 */
+	public static void recordInvocation(String flowName, SObject record, SObject priorRecord, Object header)
 	{
 		String key = normalizeKey(flowName);
 		List<MockInvocation> history = INVOCATION_HISTORY.get(key);
@@ -276,7 +322,7 @@ global inherited sharing class TST_InvokeFlowMock
 			history = new List<MockInvocation>();
 			INVOCATION_HISTORY.put(key, history);
 		}
-		history.add(new MockInvocation(record, priorRecord));
+		history.add(new MockInvocation(record, priorRecord, header));
 	}
 
 	/**
@@ -343,15 +389,23 @@ global inherited sharing class TST_InvokeFlowMock
 		private final SObject priorRecord;
 
 		/**
+		 * @description The Change Event `header` input variable the flow received
+		 * (a `DTO_ChangeEventHeader`), or null for non-CDC dispatches.
+		 */
+		private final Object header;
+
+		/**
 		 * @description Constructs a snapshot of the inputs passed to one flow invocation.
 		 *
 		 * @param record The `record` input variable
 		 * @param priorRecord The `recordPrior` input variable, or null when none
+		 * @param header The Change Event header, or null when the dispatch is not CDC
 		 */
-		private MockInvocation(SObject record, SObject priorRecord)
+		private MockInvocation(SObject record, SObject priorRecord, Object header)
 		{
 			this.record = record;
 			this.priorRecord = priorRecord;
+			this.header = header;
 		}
 	}
 

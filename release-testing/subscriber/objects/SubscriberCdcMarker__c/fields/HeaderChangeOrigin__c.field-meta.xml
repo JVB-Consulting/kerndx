@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>HeaderChangeOrigin__c</fullName>
+    <description>The DTO_ChangeEventHeader changeOrigin the subscriber Flow received (typically user/&lt;userId&gt; for user-initiated changes). Captured for diagnostics; not asserted on directly.</description>
+    <externalId>false</externalId>
+    <label>Header Change Origin</label>
+    <length>255</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

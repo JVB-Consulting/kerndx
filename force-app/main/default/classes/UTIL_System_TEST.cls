@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -34,6 +34,11 @@ private class UTIL_System_TEST
 	 * @description Non-existent flow name used in createInterview probes.
 	 */
 	private static final String NONEXISTENT_FLOW = 'UTIL_System_TEST_FlowDoesNotExist';
+
+	/**
+	 * @description Fallback returned when the stack contains no external frame.
+	 */
+	private static final String STACK_FALLBACK = 'fallback.value';
 
 	/**
 	 * @description Tests retrieving the namespace from a class name.
@@ -434,6 +439,158 @@ private class UTIL_System_TEST
 			Assert.isFalse(error.getMessage().contains(UTIL_String.DOT + NONEXISTENT_FLOW),
 					'Error should not contain a `.flowName` form because no namespace was parsed: ' + error.getMessage());
 		}
+	}
+
+	/**
+	 * @description Tests that `resolveExternalCaller` walks past this utility and the supplied
+	 * framework helper to return the calling test method as the external caller.
+	 *
+	 * @see UTIL_System.resolveExternalCaller
+	 */
+	@IsTest
+	private static void shouldResolveCallingMethodAsExternalCaller()
+	{
+		String caller = UTIL_System.resolveExternalCaller(new Set<String> {'UTIL_BypassAudit'}, STACK_FALLBACK);
+
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			Assert.areNotEqual(STACK_FALLBACK, caller, 'A test method is an external frame, so the fallback should not be used');
+			Assert.isTrue(caller.startsWith('UTIL_System_TEST'), 'The resolved caller should name the calling test method');
+		}
+		else
+		{
+			Assert.areEqual(STACK_FALLBACK, caller, 'In a namespaced org the test frame carries the package namespace and is skipped, so the fallback is returned');
+		}
+	}
+
+	/**
+	 * @description Tests that `resolveExternalCaller` tolerates a `null` framework-class set, still
+	 * skipping its own frames and returning the calling method.
+	 *
+	 * @see UTIL_System.resolveExternalCaller
+	 */
+	@IsTest
+	private static void shouldTolerateNullFrameworkClassSet()
+	{
+		String caller = UTIL_System.resolveExternalCaller(null, STACK_FALLBACK);
+
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			Assert.isTrue(caller.startsWith('UTIL_System_TEST'), 'A null framework-class set should still resolve the calling method');
+		}
+		else
+		{
+			Assert.areEqual(STACK_FALLBACK, caller, 'A null framework-class set must not break the namespace skip, which yields the fallback in a namespaced org');
+		}
+	}
+
+	/**
+	 * @description Tests that `findExternalFrame` returns the first frame that is neither this
+	 * utility nor a supplied framework class.
+	 *
+	 * @see UTIL_System.findExternalFrame
+	 */
+	@IsTest
+	private static void shouldReturnFirstExternalFrame()
+	{
+		List<String> stackLines = new List<String>
+		{
+				'Class.UTIL_System.resolveExternalCaller: line 60, column 1',
+				'Class.UTIL_BypassAudit.emit: line 258, column 1',
+				'Class.AccountService.recalculate: line 42, column 3'
+		};
+
+		Assert.areEqual('AccountService.recalculate',
+				UTIL_System.findExternalFrame(stackLines, '', new Set<String> {'UTIL_System', 'UTIL_BypassAudit'}, STACK_FALLBACK),
+				'findExternalFrame should return the first non-framework frame');
+	}
+
+	/**
+	 * @description Tests that `findExternalFrame` returns the fallback when every frame is a
+	 * framework frame.
+	 *
+	 * @see UTIL_System.findExternalFrame
+	 */
+	@IsTest
+	private static void shouldReturnFallbackWhenAllFramesAreFramework()
+	{
+		List<String> stackLines = new List<String>
+		{
+				'Class.UTIL_System.resolveExternalCaller: line 60, column 1',
+				'Class.UTIL_BypassAudit.emit: line 258, column 1'
+		};
+
+		Assert.areEqual(STACK_FALLBACK,
+				UTIL_System.findExternalFrame(stackLines, '', new Set<String> {'UTIL_System', 'UTIL_BypassAudit'}, STACK_FALLBACK),
+				'findExternalFrame should return the fallback when no external frame exists');
+	}
+
+	/**
+	 * @description Tests that `externalFrame` skips framework frames — a supplied framework class
+	 * (unmanaged, by class name), a package-namespaced top-level frame, and a package-namespaced
+	 * inner-class frame (the 4-segment managed shape that the dev org cannot otherwise exercise) —
+	 * and skips a blank frame rather than returning it as a junk caller.
+	 *
+	 * @see UTIL_System.externalFrame
+	 */
+	@IsTest
+	private static void shouldSkipFrameworkFrames()
+	{
+		Assert.isNull(UTIL_System.externalFrame('Class.UTIL_BypassAudit.emit: line 258, column 1', '', new Set<String> {'UTIL_BypassAudit'}),
+				'A named framework frame should be skipped in an unmanaged org');
+		Assert.isNull(UTIL_System.externalFrame('Class.kern.UTIL_ValidationRule.bypassObject: line 531, column 1', 'kern', new Set<String>()),
+				'A package-namespaced framework frame should be skipped in a managed install');
+		Assert.isNull(UTIL_System.externalFrame('Class.kern.UTIL_BypassAudit.AuditQueue.flush: line 383, column 1', 'kern', new Set<String>()),
+				'A package-namespaced inner-class framework frame (4 segments) should be skipped in a managed install');
+		Assert.isNull(UTIL_System.externalFrame('(kern)', 'kern', new Set<String>()),
+				'A subscriber-org obfuscated package frame should be skipped in a managed install');
+		Assert.isNull(UTIL_System.externalFrame('(kern): line 297, column 1', 'kern', new Set<String>()),
+				'An obfuscated package frame with a location suffix should be skipped');
+		Assert.isNull(UTIL_System.externalFrame('', '', new Set<String>()),
+				'A blank frame should be skipped rather than returned as a junk caller');
+	}
+
+	/**
+	 * @description Tests that `findExternalFrame` walks past the subscriber-org obfuscated package
+	 * run (the platform collapses contiguous managed frames to a single `(namespace)` line) and
+	 * resolves the real subscriber frame below it.
+	 *
+	 * @see UTIL_System.findExternalFrame
+	 */
+	@IsTest
+	private static void shouldResolveSubscriberFrameBelowObfuscatedPackageRun()
+	{
+		List<String> stackLines = new List<String>
+		{
+				'(kern)',
+				'Class.AccountService.recalculate: line 42, column 3'
+		};
+
+		Assert.areEqual('AccountService.recalculate',
+				UTIL_System.findExternalFrame(stackLines, 'kern', new Set<String>(), STACK_FALLBACK),
+				'Frames below an obfuscated package run should resolve as the external caller');
+	}
+
+	/**
+	 * @description Tests that `externalFrame` parses subscriber frame formats — class frames,
+	 * trigger frames, an anonymous block, and a subscriber's own namespaced class — into the
+	 * `Class.method` form without a leading `Class.`/`Trigger.` qualifier or location suffix.
+	 *
+	 * @see UTIL_System.externalFrame
+	 */
+	@IsTest
+	private static void shouldExtractSubscriberFrameFormats()
+	{
+		Assert.areEqual('AccountService.recalculate', UTIL_System.externalFrame('Class.AccountService.recalculate: line 42, column 3', '', new Set<String>()),
+				'A class frame should yield Class.method without the Class. qualifier');
+		Assert.areEqual('AccountTrigger', UTIL_System.externalFrame('Trigger.AccountTrigger: line 3, column 1', '', new Set<String>()),
+				'A trigger frame should yield the trigger name without the Trigger. qualifier');
+		Assert.areEqual('AnonymousBlock', UTIL_System.externalFrame('AnonymousBlock', '', new Set<String>()),
+				'A frame without a location suffix should pass through unchanged');
+		Assert.areEqual('acme.AcmeService.run', UTIL_System.externalFrame('Class.acme.AcmeService.run: line 7, column 1', 'kern', new Set<String>()),
+				'A subscriber-namespaced frame should be returned intact when it is not the package namespace');
+		Assert.areEqual('(acme)', UTIL_System.externalFrame('(acme)', 'kern', new Set<String>()),
+				'Another package\'s obfuscated frame is an external caller, not framework');
 	}
 
 	/**

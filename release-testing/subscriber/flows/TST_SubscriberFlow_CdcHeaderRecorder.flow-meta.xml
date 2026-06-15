@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <actionCalls>
+        <description>Hands the change-event header to the subscriber Apex sink, which records a SubscriberCdcMarker__c capturing the header scalars for release-test verification. The whole injected DTO_ChangeEventHeader is mapped to the request wrapper's single header field.</description>
+        <name>PersistHeader</name>
+        <label>Persist Header</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <actionName>TST_CdcHeaderSink</actionName>
+        <actionType>apex</actionType>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>header</name>
+            <value>
+                <elementReference>header</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>TST_CdcHeaderSink</nameSegment>
+    </actionCalls>
+    <description>Subscriber-namespace release-test flow bound to a kern__TriggerAction row for the SubscriberCdcProbe__ChangeEvent dispatch. Declares the typed header input variable (kern__DTO_ChangeEventHeader) the framework injects on a Change Data Capture dispatch and hands the whole header object to the TST_CdcHeaderSink Apex invocable. Proves a subscriber Flow can receive the platform change-event header through DTO_ChangeEventHeader and pass it to subscriber Apex across the namespace boundary.</description>
+    <interviewLabel>TST_SubscriberFlow_CdcHeaderRecorder {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>TST Subscriber Flow CDC Header Recorder</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <runInMode>DefaultMode</runInMode>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>PersistHeader</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <description>Change-event record passed in by kern.TRG_InvokeFlow. Read-only here; the header carries the data this flow records.</description>
+        <name>record</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>SubscriberCdcProbe__ChangeEvent</objectType>
+    </variables>
+    <variables>
+        <description>Typed Change Data Capture header injected by kern.TRG_InvokeFlow for a change-event dispatch. The whole point of the test: a subscriber flow declaring this Apex-defined variable receives the platform header and hands it to subscriber Apex.</description>
+        <name>header</name>
+        <apexClass>kern__DTO_ChangeEventHeader</apexClass>
+        <dataType>Apex</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <description>Pre-update change-event record passed in by kern.TRG_InvokeFlow on update dispatches. Read-only; declared so the framework can supply it without an unused-key error.</description>
+        <name>recordPrior</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>SubscriberCdcProbe__ChangeEvent</objectType>
+    </variables>
+</Flow>

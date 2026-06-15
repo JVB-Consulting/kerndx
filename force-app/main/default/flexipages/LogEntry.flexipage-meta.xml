@@ -472,6 +472,26 @@
                 <identifier>RecordTransactionId_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Fingerprint__c</fieldItem>
+                <identifier>RecordFingerprint_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.OccurrenceCount__c</fieldItem>
+                <identifier>RecordOccurrenceCount_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-061f9885-991b-42e2-aa00-16831461f36d</name>
         <type>Facet</type>
     </flexiPageRegions>

@@ -26,23 +26,6 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 {
 
 	/**
-	 * @description The maximum length of the JobScope field on BatchApexErrorEvent.
-	 */
-	private static final Integer BATCH_ERROR_EVENT_JOB_SCOPE_LENGTH = 40000;
-
-	/**
-	 * @description The maximum length of text-based fields (Message, StackTrace) on BatchApexErrorEvent.
-	 */
-	private static final Integer BATCH_ERROR_EVENT_TEXT_LENGTH = 5000;
-
-	/**
-	 * @description Test-visible storage for the last fired BatchApexErrorEvent.
-	 * Used for testing error handling behavior.
-	 */
-	@TestVisible
-	private static BatchApexErrorEvent firedErrorEvent;
-
-	/**
 	 * @description Set this value to true in an unit test to ensure we test that events are processed via batch
 	 * to simulate scenarios where query governor limits will be breached
 	 */
@@ -538,7 +521,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		{
 			if(ParentJobResult.UNHANDLED_EXCEPTION.equals(context.getResult()))
 			{
-				fireBatchApexErrorEvent(context);
+				logUnhandledException(context);
 			}
 			else if
 			(
@@ -576,11 +559,14 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		}
 
 		/**
-		 * @description Publishes a BatchApexErrorEvent for unhandled exceptions with detailed context.
+		 * @description Logs an unhandled exception raised during Queueable execution, capturing the failed
+		 * job's record scope as context. Queueable jobs have no platform auto-fired BatchApexErrorEvent
+		 * (unlike Batch jobs, which implement Database.RaisesPlatformEvents), so the exception is surfaced
+		 * through the framework log for subscribers to observe via LogEntryEvent__e / LogEntry__c.
 		 *
-		 * @param context The FinalizerContext containing error information.
+		 * @param context The FinalizerContext containing the unhandled exception and job Id.
 		 */
-		private void fireBatchApexErrorEvent(FinalizerContext context)
+		private void logUnhandledException(FinalizerContext context)
 		{
 			List<String> itemsInScope = new List<String>();
 
@@ -589,29 +575,12 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				itemsInScope.add(item instanceof SObject ? ((SObject)item).Id : item.toString());
 			}
 
-			String fullLengthJobScope = String.join(itemsInScope, UTIL_String.COMMA);
-
-			Exception error = context.getException();
-
-			BatchApexErrorEvent errorEvent = new BatchApexErrorEvent();
-
-			errorEvent.AsyncApexJobId = context.getAsyncApexJobId();
-			errorEvent.DoesExceedJobScopeMaxLength = fullLengthJobScope.length() > BATCH_ERROR_EVENT_JOB_SCOPE_LENGTH;
-			errorEvent.ExceptionType = error.getTypeName();
-			errorEvent.JobScope = UTIL_String.abbreviate(fullLengthJobScope, BATCH_ERROR_EVENT_JOB_SCOPE_LENGTH);
-			errorEvent.Message = UTIL_String.abbreviate(error.getMessage(), BATCH_ERROR_EVENT_TEXT_LENGTH);
-			errorEvent.Phase = 'EXECUTE';
-			errorEvent.StackTrace = UTIL_String.abbreviate(error.getStackTraceString(), BATCH_ERROR_EVENT_TEXT_LENGTH);
-			Database.SaveResult saveResult = EventBus.publish(errorEvent);
-
-			LOG_Builder.errorDMLOperationResults(new List<Object> {saveResult}, UTIL_System.getRuntimeTypeName(this) + '/fireBatchApexErrorEvent');
-
-			if(Test.isRunningTest())
-			{
-				firedErrorEvent = saveResult.success ? errorEvent : firedErrorEvent;
-			}
-
-			LOG_Builder.build().error(error).at(UTIL_System.getRuntimeTypeName(this) + '/fireBatchApexErrorEvent').forRecord(errorEvent.AsyncApexJobId).emit();
+			LOG_Builder.build()
+					.error(context.getException())
+					.at(UTIL_System.getRuntimeTypeName(this) + '/logUnhandledException')
+					.forRecord(context.getAsyncApexJobId())
+					.withContext(LOG_Engine.CONTEXT_JOB_SCOPE, String.join(itemsInScope, UTIL_String.COMMA))
+					.emit();
 		}
 	}
 

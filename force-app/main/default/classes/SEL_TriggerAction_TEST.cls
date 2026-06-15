@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -323,6 +323,65 @@ private class SEL_TriggerAction_TEST
 	}
 
 	/**
+	 * @description Confirms the trigger-action skip log is flood-controlled. Two identical
+	 * feature-flag-gated skips collapse to ONE detail row carrying a stable
+	 * `trigger-action-skip:<object>:<action>` fingerprint plus a rollup counting both, and the entry
+	 * persists at DEBUG (a routine skip is not INFO-worthy). Regression guard for the skip-log flood
+	 * that defeated flood control on the high-frequency trigger-dispatch path: before this guard each
+	 * skip persisted a separate un-fingerprinted INFO row, so change-event redelivery turned a handful
+	 * of inserts into thousands of persisted rows.
+	 *
+	 * @see SEL_TriggerAction.logSkipped
+	 */
+	@IsTest
+	private static void skipLoggingCollapsesToFloodControlledDebugEntry()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		final String requiredFlag = 'TestActionRequiredFlag';
+		setupDisabledFeatureFlag(requiredFlag);
+
+		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting('Account');
+		TriggerAction__mdt triggerAction = TST_Factory.newTriggerAction('TestAction', triggerSetting, null, requiredFlag);
+
+		Test.startTest();
+		SEL_TriggerAction.shouldExecute(triggerSetting, triggerAction);
+		SEL_TriggerAction.shouldExecute(triggerSetting, triggerAction);
+		Test.stopTest();
+
+		String key = SEL_TriggerAction.FINGERPRINT_SKIP_PREFIX + UTIL_String.COLON + 'Account' + UTIL_String.COLON + 'TestAction';
+		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + key;
+		String rollupPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + key;
+		Integer persistedSkipRows = 0;
+		Integer detailRows = 0;
+		Integer rollupTotal = 0;
+		String detailLevel = null;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(SEL_TriggerAction.AT_LOCATION_SHOULD_EXECUTE.equals(row.ClassMethod__c))
+			{
+				persistedSkipRows++;
+			}
+			if(row.Fingerprint__c == detailKey)
+			{
+				detailRows++;
+				detailLevel = row.LogLevel__c;
+			}
+			else if(row.Fingerprint__c != null && row.Fingerprint__c.startsWith(rollupPrefix))
+			{
+				rollupTotal += row.OccurrenceCount__c?.intValue() ?? 0;
+			}
+		}
+
+		String evidence = ' (persistedSkipRows=' + persistedSkipRows + ', detailRows=' + detailRows
+				+ ', rollupTotal=' + rollupTotal + ', detailLevel=' + detailLevel + ')';
+		Assert.areEqual(1, detailRows, 'Identical trigger-action skips must collapse to one detail row' + evidence);
+		Assert.areEqual(2, rollupTotal, 'Both skips must be counted in the rollup' + evidence);
+		Assert.areEqual('DEBUG', detailLevel, 'A routine flag-gated skip must persist at DEBUG, not INFO' + evidence);
+	}
+
+	/**
 	 * @description Verifies shouldExecute returns true when all conditions pass (no bypass, required met).
 	 *
 	 * @see SEL_TriggerAction.shouldExecute
@@ -430,5 +489,109 @@ private class SEL_TriggerAction_TEST
 		Test.stopTest();
 
 		Assert.isTrue(actionByOperationMap.isEmpty(), 'Bypassed action should not be added to the operation map');
+	}
+
+	/**
+	 * @description Verifies that resolveObjectName returns ObjectApiNameOverride__c when populated,
+	 * taking precedence over the SObjectType__c relationship resolution. This is the CDC registration
+	 * path: the relationship cannot reference Change Event entities, so a CDC TriggerSetting populates
+	 * the override with the Change Event API name (e.g. AccountChangeEvent). Standard-object values
+	 * (Account / AccountChangeEvent) are used so the assertions are namespace-immune when the test
+	 * ships with the managed package and runs in a subscriber org.
+	 *
+	 * @see SEL_TriggerAction.resolveObjectName
+	 */
+	@IsTest
+	private static void resolveObjectNameReturnsOverrideWhenPopulated()
+	{
+		TriggerSetting__mdt setting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.SObjectType__c, 'Account')
+				.withOverride(TriggerSetting__mdt.ObjectApiNameOverride__c, 'AccountChangeEvent')
+				.withoutInsertion()
+				.build();
+
+		Test.startTest();
+		String resolved = SEL_TriggerAction.resolveObjectName(setting);
+		Test.stopTest();
+
+		Assert.areEqual('AccountChangeEvent', resolved,
+				'ObjectApiNameOverride__c should take precedence over SObjectType__c');
+	}
+
+	/**
+	 * @description Verifies that resolveObjectName falls back to SObjectType__c when the override
+	 * field is blank — preserves the existing behavior for standard objects, custom objects, and
+	 * platform events (which the relationship already supports). Uses Account (a standard object)
+	 * so the assertion is namespace-immune.
+	 *
+	 * @see SEL_TriggerAction.resolveObjectName
+	 */
+	@IsTest
+	private static void resolveObjectNameFallsBackToSObjectTypeWhenOverrideBlank()
+	{
+		TriggerSetting__mdt setting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.SObjectType__c, 'Account')
+				.withoutInsertion()
+				.build();
+
+		Test.startTest();
+		String resolved = SEL_TriggerAction.resolveObjectName(setting);
+		Test.stopTest();
+
+		Assert.areEqual('Account', resolved,
+				'When override is blank, resolveObjectName should fall back to SObjectType__c');
+	}
+
+	/**
+	 * @description Verifies that resolveObjectName returns null when both the override and
+	 * SObjectType__c are blank. Upstream callers silently skip null-keyed rows (lookup miss),
+	 * matching the existing degenerate-config behavior.
+	 *
+	 * @see SEL_TriggerAction.resolveObjectName
+	 */
+	@IsTest
+	private static void resolveObjectNameReturnsNullWhenBothBlank()
+	{
+		TriggerSetting__mdt setting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withoutInsertion()
+				.build();
+
+		Test.startTest();
+		String resolved = SEL_TriggerAction.resolveObjectName(setting);
+		Test.stopTest();
+
+		Assert.isNull(resolved, 'When neither override nor SObjectType__c is populated, resolveObjectName returns null');
+	}
+
+	/**
+	 * @description Verifies that a populated ObjectApiNameOverride__c is normalised to the
+	 * platform-canonical API-name casing so the registered map key matches the dispatch-time
+	 * lookup key (which is always canonical) — and that an override the running context cannot
+	 * describe is returned unchanged rather than dropped. Uses a standard object
+	 * ('account' → 'Account') so the assertion is namespace-immune and always describable.
+	 *
+	 * @see SEL_TriggerAction.resolveObjectName
+	 */
+	@IsTest
+	private static void resolveObjectNameCanonicalizesDescribableOverrideAndPreservesUnresolvable()
+	{
+		TriggerSetting__mdt describable = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.ObjectApiNameOverride__c, 'account')
+				.withoutInsertion()
+				.build();
+		TriggerSetting__mdt unresolvable = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.ObjectApiNameOverride__c, 'NoSuchEntity__c')
+				.withoutInsertion()
+				.build();
+
+		Test.startTest();
+		String canonical = SEL_TriggerAction.resolveObjectName(describable);
+		String preserved = SEL_TriggerAction.resolveObjectName(unresolvable);
+		Test.stopTest();
+
+		Assert.areEqual('Account', canonical,
+				'A mis-cased describable override should normalise to the platform-canonical API name');
+		Assert.areEqual('NoSuchEntity__c', preserved,
+				'An override that does not resolve via describe should be returned unchanged');
 	}
 }

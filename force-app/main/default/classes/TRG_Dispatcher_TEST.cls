@@ -25,7 +25,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, April 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -42,6 +42,8 @@ private class TRG_Dispatcher_TEST
 	private static final String TEST_BEFORE_INSERT = TRG_Dispatcher_TEST.class.getName() + '.TestBeforeInsert';
 	private static final String TEST_BEFORE_UPDATE = TRG_Dispatcher_TEST.class.getName() + '.TestBeforeUpdate';
 	private static final String TEST_CONFIGURABLE = TRG_Dispatcher_TEST.class.getName() + '.TestConfigurable';
+	private static final String TEST_LOGGING_AFTER_INSERT = TRG_Dispatcher_TEST.class.getName() + '.LoggingAfterInsert';
+	private static final String LOGGING_ACTION_FINGERPRINT = 'trg-dispatcher-test-logging-action';
 	private static final String MIXED_APEX_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestMixedApexBeforeInsert';
 	private static final String MIXED_FLOW_ACTION = TRG_InvokeFlow.class.getName();
 	private static final String MIXED_FLOW_NAME = 'TRG_Dispatcher_TEST_MixedStackFlow';
@@ -70,6 +72,7 @@ private class TRG_Dispatcher_TEST
 	private static Boolean wasBeforeInsertCalled = false;
 	private static Boolean wasBeforeUpdateCalled = false;
 	private static Boolean wasThrowingActionCalled = false;
+	private static Boolean wasLoggingActionCalled = false;
 
 	/**
 	 * @description Per-DeveloperName tally of `setConfig` invocations on `TestConfigurable`,
@@ -100,6 +103,25 @@ private class TRG_Dispatcher_TEST
 	 * so tests can assert the Apex side of a mixed Apex+Flow stack actually executed.
 	 */
 	private static Boolean wasMixedApexBeforeInsertCalled = false;
+
+	/**
+	 * @description Apex class name of the post-trigger action mock injected via
+	 * `SEL_PostTriggerAction.overrideRows`, used to assert the dispatcher's outermost-unwind
+	 * hook fires `UTIL_PostTriggerAction.run` the expected number of times.
+	 */
+	private static final String POST_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestPostAction';
+	/**
+	 * @description Count of `TestPostAction.execute` invocations in the current transaction.
+	 * Reset by `registerSinglePostAction`. The outermost-unwind hook must drive this to exactly
+	 * one per top-level dispatch that completes normally — and to zero when the dispatch aborts.
+	 */
+	private static Integer postActionInvocationCount = 0;
+	/**
+	 * @description The `touchedSObjectTypes` set most recently delivered to `TestPostAction.execute`,
+	 * captured so tests can assert which object types the dispatcher accumulated and that the set is
+	 * cleared between top-level dispatches.
+	 */
+	private static Set<SObjectType> capturedTouchedTypes;
 
 	/**
 	 * @description Tests the after delete trigger action
@@ -861,6 +883,29 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description Mock after-insert action that emits a fingerprinted DEBUG log — the real
+	 * skip-log shape that floods under change-event redelivery — simulating an action that logs
+	 * while the dispatcher is processing a change-event / platform-event. DEBUG exercises the
+	 * buffered branch end-to-end (begin suspends saving, the emit buffers, the dispatch-boundary
+	 * flush persists via DML). Used by `changeEventDispatchPersistsActionLogsViaDmlWithoutPublishing`
+	 * to prove the dispatcher enters event-trigger context so the log persists via DML rather than
+	 * republishing and looping.
+	 */
+	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	public class LoggingAfterInsert implements IF_Trigger.AfterInsert
+	{
+		public void afterInsert(List<SObject> triggerNew)
+		{
+			TRG_Dispatcher_TEST.wasLoggingActionCalled = true;
+			LOG_Builder.build()
+					.debug('logging action fired during change-event dispatch')
+					.withFingerprintInternal(LOGGING_ACTION_FINGERPRINT)
+					.at(TRG_Dispatcher_TEST.class.getName() + '.LoggingAfterInsert.afterInsert')
+					.emit();
+		}
+	}
+
+	/**
 	 * @description Mock implementation for before update trigger action
 	 */
 	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
@@ -942,6 +987,57 @@ private class TRG_Dispatcher_TEST
 		FACTORY_TRIGGER_ACTION.run();
 
 		Assert.areEqual(0, UTIL_MaskerPerformanceTimer.logCountThisTransaction, 'Masker timer must not run when masking framework flag is off');
+	}
+
+	/**
+	 * @description Loop-fix integration guard: when the dispatcher runs on a change-event (here
+	 * `AccountChangeEvent`), a log emitted by one of its actions must be persisted to `LogEntry__c`
+	 * via direct DML — NOT published as a `LogEntryEvent__e`. Publishing a platform event from inside
+	 * a change-event/platform-event trigger makes the platform redeliver the source event, re-running
+	 * the dispatcher unbounded. `getPublishImmediateDML` staying flat across `run()` proves no publish
+	 * occurred; the persisted flood-control detail row proves the action's log was not lost. This
+	 * verifies the dispatcher actually enters `LOG_Engine` event-trigger context for event dispatches.
+	 *
+	 * @see LOG_Engine.beginEventTriggerContext
+	 * @see TRG_Dispatcher.run
+	 */
+	@IsTest
+	private static void changeEventDispatchPersistsActionLogsViaDmlWithoutPublishing()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		wasLoggingActionCalled = false;
+
+		TriggerAction__mdt loggingAction = TST_Factory.newTriggerActionForContext(
+				TEST_LOGGING_AFTER_INSERT, TRIGGER_SETTING, TriggerOperation.AFTER_INSERT);
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<SObject> {new AccountChangeEvent()};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt> {loggingAction}
+		};
+
+		Test.startTest();
+		Integer publishBefore = Limits.getPublishImmediateDML();
+		FACTORY_TRIGGER_ACTION.run();
+		Integer publishAfter = Limits.getPublishImmediateDML();
+		Test.stopTest();
+
+		Assert.isTrue(wasLoggingActionCalled, 'The logging action should have executed during the change-event dispatch');
+		Assert.areEqual(publishBefore, publishAfter,
+				'A log emitted during a change-event dispatch must persist via DML, never publish (no redelivery loop)');
+
+		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + LOGGING_ACTION_FINGERPRINT;
+		Boolean detailFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(detailKey.equals(row.Fingerprint__c))
+			{
+				detailFound = true;
+			}
+		}
+		Assert.isTrue(detailFound, 'The action log must persist via direct DML during change-event dispatch');
 	}
 
 	/**
@@ -1326,6 +1422,253 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description Verifies the outermost-unwind hook fires post-trigger actions exactly once
+	 * when a self-initiated DML stacks a second dispatch frame. A `Configurable` action with
+	 * `AllowRecursion__c = true` re-enters the dispatcher from `beforeInsert`; the inner dispatch
+	 * unwinds while the outer action frame is still on `ACTION_STACK`, so the inner unwind is NOT
+	 * the outermost and must not fire. Only the outer unwind — when `ACTION_STACK` is empty —
+	 * fires. Guards the "use the stack, not a depth counter" outermost-detection contract.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see UTIL_PostTriggerAction
+	 */
+	@IsTest
+	private static void shouldFirePostActionsOnceAtOutermostUnwindWhenDispatchesStacked()
+	{
+		registerSinglePostAction();
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+
+		TriggerAction__mdt triggerAction = TST_Factory.newTriggerActionForContext(
+				TEST_CONFIGURABLE, TRIGGER_SETTING, TriggerOperation.BEFORE_INSERT);
+		triggerAction.DeveloperName = 'TestConfigurable_StackedDispatch';
+		triggerAction.AllowRecursion__c = true;
+
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt> {triggerAction}
+		};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+
+		configurableShouldReenter = true;
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(1, postActionInvocationCount,
+				'Post-actions must fire exactly once at the outermost unwind even when a self-initiated dispatch stacks a second frame');
+	}
+
+	/**
+	 * @description Verifies clean-completion-only firing and exception-safe state cleanup. A
+	 * trigger action rethrows out of `run()`; the aborted dispatch must NOT fire post-actions.
+	 * A subsequent clean dispatch on a different object then fires once and delivers ONLY its own
+	 * object type — proving the aborted dispatch cleared `touchedSObjectTypes` (no stale-state
+	 * leak across top-level DML when an Apex caller catches the failure and continues).
+	 *
+	 * The abort is driven through the fatal-governor simulation seam so the rethrow happens before
+	 * any failure-action logging: a logging failure path persists a log entry, which itself fires a
+	 * trigger dispatch that would drive the globally-registered post-action mock and confound the
+	 * count. The governor path keeps this test scoped to exactly the dispatch under test.
+	 *
+	 * @see TRG_Dispatcher
+	 */
+	@IsTest
+	private static void shouldNotFirePostActionsAndShouldClearStateWhenActionThrows()
+	{
+		registerSinglePostAction();
+
+		TriggerAction__mdt throwingAction = TST_Factory.newTriggerActionForContext(
+				THROWING_ACTION, TRIGGER_SETTING, TriggerOperation.BEFORE_INSERT);
+		throwingAction.FailureAction__c = FAILURE_LOG_AND_CONTINUE;
+
+		TRG_Dispatcher throwingDispatcher = new TRG_Dispatcher();
+		throwingDispatcher.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		throwingDispatcher.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt> {throwingAction}
+		};
+		throwingDispatcher.context = TriggerOperation.BEFORE_INSERT;
+		UTIL_Exceptions.simulateFatalGovernorErrorForTest = true;
+
+		Test.startTest();
+		try
+		{
+			throwingDispatcher.run();
+			Assert.fail('A fatal action exception should rethrow out of run()');
+		}
+		catch(IllegalArgumentException expected)
+		{
+			Assert.areEqual(THROWING_ACTION_MESSAGE, expected.getMessage(), 'Original action exception should propagate unmodified');
+		}
+		finally
+		{
+			UTIL_Exceptions.simulateFatalGovernorErrorForTest = false;
+		}
+
+		Assert.areEqual(0, postActionInvocationCount,
+				'A dispatch aborted by a throwing action must NOT fire post-actions (clean-completion-only semantics)');
+
+		TRG_Dispatcher cleanDispatcher = new TRG_Dispatcher();
+		cleanDispatcher.triggerNew = new List<Account> {(Account)TST_Builder.of(Account.SObjectType).withoutInsertion().build()};
+		cleanDispatcher.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt>()
+		};
+		cleanDispatcher.context = TriggerOperation.BEFORE_INSERT;
+
+		cleanDispatcher.run();
+		Test.stopTest();
+
+		Assert.areEqual(1, postActionInvocationCount, 'The subsequent clean dispatch must fire post-actions exactly once');
+		Assert.areEqual(new Set<SObjectType> {Account.SObjectType}, capturedTouchedTypes,
+				'The aborted dispatch must have cleared touched types — the clean dispatch delivers only its own object, not the prior Foobar');
+	}
+
+	/**
+	 * @description Verifies the dispatcher accumulates the dispatched object's `SObjectType` and
+	 * delivers it to the post-action via `IF_Trigger.PostActionContext.touchedSObjectTypes`.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see IF_Trigger.PostActionContext
+	 */
+	@IsTest
+	private static void shouldDeliverTouchedSObjectTypesToPostActionContext()
+	{
+		registerSinglePostAction();
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(1, postActionInvocationCount, 'Post-action should fire once on a clean dispatch');
+		Assert.areEqual(new Set<SObjectType> {Foobar__c.SObjectType}, capturedTouchedTypes,
+				'The dispatched object type should be delivered to the post-action context');
+	}
+
+	/**
+	 * @description Verifies the hook consults the selector but fires nothing when no post-actions
+	 * are configured (empty selector result). The dispatch completes without error.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see SEL_PostTriggerAction.findActiveOrdered
+	 */
+	@IsTest
+	private static void shouldConsultSelectorButFireNothingWhenNoPostActionsConfigured()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>();
+		postActionInvocationCount = 0;
+		capturedTouchedTypes = null;
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(0, postActionInvocationCount,
+				'No configured post-actions → nothing executes, and the dispatch completes without error');
+	}
+
+	/**
+	 * @description Verifies an unresolvable object name is dropped fail-soft from the touched-type
+	 * set rather than breaking dispatch. The post-action still fires; the delivered touched-type
+	 * set is empty because the bogus name does not resolve via `UTIL_SObjectDescribe`.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldDropUnresolvableSObjectNameFromTouchedTypesFailSoft()
+	{
+		registerSinglePostAction();
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.sObjectName = 'NoSuchObject__x';
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(1, postActionInvocationCount,
+				'An unresolvable object name must not break dispatch — the post-action still fires');
+		Assert.isTrue(capturedTouchedTypes.isEmpty(),
+				'An unresolvable object name must be dropped fail-soft, leaving the delivered touched-type set empty');
+	}
+
+	/**
+	 * @description Verifies the post-trigger-action hook is suppressed when the dispatch is the
+	 * framework's own `LogEntryEvent__e` delivery. Persisting a log entry is itself a dispatch, so
+	 * firing the hook on each delivered log event would re-enter the dispatcher and — should the
+	 * hook path emit any further log event — self-feed a logging cascade (one log write fanning out
+	 * into ~120). The companion `shouldDeliverTouchedSObjectTypesToPostActionContext` proves the
+	 * hook DOES fire for a normal object, so this isolates the `LogEntryEvent__e` suppression.
+	 *
+	 * @see TRG_Dispatcher.run
+	 */
+	@IsTest
+	private static void shouldSuppressPostActionsForFrameworkLogEntryEventDispatch()
+	{
+		registerSinglePostAction();
+
+		LogEntryEvent__e logEvent = (LogEntryEvent__e)TST_Builder.of(LogEntryEvent__e.SObjectType)
+				.withoutInsertion()
+				.build();
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<LogEntryEvent__e> {logEvent};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(0, postActionInvocationCount,
+				'The post-trigger-action hook must be suppressed for the framework LogEntryEvent__e dispatch to prevent a logging re-entrancy cascade');
+	}
+
+	/**
+	 * @description Registers a single post-trigger action row (pointing at `TestPostAction`) via
+	 * the selector override seam and resets the invocation tally + captured-types capture. Lets the
+	 * outermost-unwind tests assert firing behaviour without deploying real `PostTriggerAction__mdt`.
+	 */
+	private static void registerSinglePostAction()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				(PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+						.withOverride(PostTriggerAction__mdt.DeveloperName, 'TestDispatcherPostAction')
+						.withOverride(PostTriggerAction__mdt.ApexClassName__c, POST_ACTION)
+						.withOverride(PostTriggerAction__mdt.Order__c, 10)
+						.withOverride(PostTriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+						.withoutInsertion()
+						.build()
+		};
+		postActionInvocationCount = 0;
+		capturedTouchedTypes = null;
+	}
+
+	/**
 	 * @description Mock implementation for before delete trigger action
 	 */
 	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
@@ -1663,6 +2006,21 @@ private class TRG_Dispatcher_TEST
 				TRG_Dispatcher_TEST.configurableShouldReenter = false;
 				TRG_Dispatcher_TEST.FACTORY_TRIGGER_ACTION.run();
 			}
+		}
+	}
+
+	/**
+	 * @description Mock `IF_Trigger.PostAction` injected via `SEL_PostTriggerAction.overrideRows`
+	 * so the dispatcher's outermost-unwind hook drives it. Records each invocation and captures the
+	 * delivered `touchedSObjectTypes` so tests can assert firing count and accumulated object types.
+	 */
+	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	public class TestPostAction implements IF_Trigger.PostAction
+	{
+		public void execute(IF_Trigger.PostActionContext context)
+		{
+			TRG_Dispatcher_TEST.postActionInvocationCount++;
+			TRG_Dispatcher_TEST.capturedTouchedTypes = context.touchedSObjectTypes;
 		}
 	}
 }

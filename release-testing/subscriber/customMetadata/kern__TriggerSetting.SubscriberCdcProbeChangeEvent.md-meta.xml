@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Subscriber CDC Probe Change Event</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__BypassFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__EnablePerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__ObjectApiNameOverride__c</field>
+        <value xsi:type="xsd:string">SubscriberCdcProbe__ChangeEvent</value>
+    </values>
+    <values>
+        <field>kern__PerformanceThresholdMs__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__RequiredFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__SObjectType__c</field>
+        <value xsi:type="xsd:string">SubscriberCdcProbe__c</value>
+    </values>
+</CustomMetadata>

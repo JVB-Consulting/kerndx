@@ -78,7 +78,7 @@
  *
  * @group Logging
  *
- * @date October 2024, May 2026
+ * @date October 2024, June 2026
  *
  * @since 1.0
  *
@@ -88,9 +88,22 @@
  * LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters,PMD.ExcessiveClassLength')
 global inherited sharing class LOG_Builder
 {
+	/**
+	 * @description Maximum raw fingerprint key length stored as-is; longer keys are hashed.
+	 */
+	@TestVisible
+	private static final Integer MAXIMUM_RAW_FINGERPRINT_LENGTH = 200;
+
+	/**
+	 * @description Key prefix reserved for framework bypass-audit fingerprints; subscriber keys
+	 * invading it are hashed so they can never collide with framework keys. Public so the framework
+	 * producer (`UTIL_BypassAudit`) and the normalizer share one source of truth for the prefix.
+	 */
+	public static final String RESERVED_FINGERPRINT_PREFIX = 'bypass:';
+
 	/**
 	 * @description Controls whether logging events are published during test execution.
 	 * When set to true, enables logging in test mode for debugging test-specific issues.
@@ -513,6 +526,78 @@ global inherited sharing class LOG_Builder
 	 *     .emit();
 	 * ```
 	 */
+	/**
+	 * @description Normalizes a subscriber-supplied fingerprint key: trims; blank → null;
+	 * oversized or reserved-prefix keys → SHA-256 hex (never truncated — truncation would
+	 * silently collapse distinct events whose keys differ only past the cut).
+	 *
+	 * @param key The raw subscriber key.
+	 *
+	 * @return The normalized key, or null when blank.
+	 */
+	private static String normalizeFingerprintKey(String key)
+	{
+		if(String.isBlank(key))
+		{
+			return null;
+		}
+		String trimmed = key.trim();
+		if(trimmed.startsWith(RESERVED_FINGERPRINT_PREFIX))
+		{
+			return UTIL_Crypto.generateSHA256Hash(trimmed);
+		}
+		return capFingerprintLength(trimmed);
+	}
+
+	/**
+	 * @description Length-caps a fingerprint key to the raw budget by SHA-256 hashing anything
+	 * longer, so the prefixed `detail:`/`rollup:` keys always fit the Fingerprint__c field. Shared
+	 * by the subscriber normalizer and the framework-internal setter so neither path can overflow.
+	 *
+	 * @param key The already-trimmed or pre-composed key to length-check.
+	 *
+	 * @return The key unchanged when within budget, otherwise its SHA-256 hash.
+	 */
+	private static String capFingerprintLength(String key)
+	{
+		if(key != null && key.length() > MAXIMUM_RAW_FINGERPRINT_LENGTH)
+		{
+			return UTIL_Crypto.generateSHA256Hash(key);
+		}
+		return key;
+	}
+
+	/**
+	 * @description Test-only window onto normalizeFingerprintKey so normalization rules are
+	 * pinned without exposing the helper to subscribers.
+	 *
+	 * @param key The raw key to normalize.
+	 *
+	 * @return The normalized key.
+	 */
+	@TestVisible
+	private static String normalizeFingerprintKeyForTest(String key)
+	{
+		return normalizeFingerprintKey(key);
+	}
+
+	/**
+	 * @description Fluent builder for constructing rich log entries with context.
+	 * Provides a chainable API for setting log level, location, record association,
+	 * and contextual metadata before emitting the log.
+	 *
+	 * @since 1.0
+	 *
+	 * @example
+	 * ```apex
+	 * LOG_Builder.build()
+	 *     .error(caughtException)
+	 *     .at('PaymentService.charge')
+	 *     .forRecord(paymentId)
+	 *     .withContext('amount', payment.Amount__c)
+	 *     .emit();
+	 * ```
+	 */
 	global class LogEntry
 	{
 		/**
@@ -554,6 +639,11 @@ global inherited sharing class LOG_Builder
 		 * @description Per-entry context key-value pairs.
 		 */
 		private final Map<String, Object> context = new Map<String, Object>();
+
+		/**
+		 * @description Normalized grouping key for flood control, or null when ungrouped.
+		 */
+		private String fingerprintKey;
 
 		/**
 		 * @description Sets the log level to DEBUG with the given message.
@@ -760,6 +850,53 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
+		 * @description Sets a grouping fingerprint for this entry, enabling flood control: the first
+		 * occurrence persists as a full detail row, repeats roll up into daily counter rows. Use a
+		 * STABLE event-template identity (e.g. 'payment-retry-loop') — never per-occurrence data
+		 * such as record ids or timestamps, which would make every entry unique and produce MORE
+		 * rows than plain logging. Keys are trimmed; keys longer than 200 characters or starting
+		 * with the reserved 'bypass:' prefix are SHA-256 hashed. When a key is hashed, the original
+		 * key is recorded in this entry's context (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`) so the
+		 * opaque stored fingerprint stays reconcilable with what you supplied.
+		 *
+		 * @param key The stable grouping key.
+		 *
+		 * @return This LogEntry for chaining
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * LOG_Builder.build().warn('Retry failed').withFingerprint('order-sync-retry').emitAt('OrderSync.run');
+		 * ```
+		 */
+		global LogEntry withFingerprint(String key)
+		{
+			this.fingerprintKey = normalizeFingerprintKey(key);
+			if(this.fingerprintKey != null && this.fingerprintKey != key.trim())
+			{
+				this.context.put(LOG_Engine.CONTEXT_FINGERPRINT_SOURCE, key.trim());
+			}
+			return this;
+		}
+
+		/**
+		 * @description Framework-internal fingerprint setter that skips subscriber normalization so
+		 * the framework can stamp reserved-prefix keys verbatim (e.g. bypass-audit fingerprints), but
+		 * still length-caps an oversized key (SHA-256 hash beyond the raw budget) so the framework can
+		 * never overflow the Fingerprint__c field. Public-but-not-global so subscribers cannot bind to it.
+		 *
+		 * @param key The pre-composed framework fingerprint key.
+		 *
+		 * @return This LogEntry for chaining
+		 */
+		public LogEntry withFingerprintInternal(String key)
+		{
+			this.fingerprintKey = capFingerprintLength(key);
+			return this;
+		}
+
+		/**
 		 * @description Adds a context key-value pair to this log entry.
 		 * Context is scoped to this entry only and does not affect other logs.
 		 *
@@ -860,6 +997,11 @@ global inherited sharing class LOG_Builder
 				LOG_Engine.setGlobalContext(key, context.get(key));
 			}
 
+			if(String.isNotBlank(fingerprintKey))
+			{
+				LOG_Engine.setCurrentFingerprint(fingerprintKey);
+			}
+
 			try
 			{
 				if(isAudit)
@@ -892,6 +1034,8 @@ global inherited sharing class LOG_Builder
 				{
 					LOG_Engine.clearGlobalContext(key);
 				}
+
+				LOG_Engine.clearCurrentFingerprint();
 			}
 		}
 	}

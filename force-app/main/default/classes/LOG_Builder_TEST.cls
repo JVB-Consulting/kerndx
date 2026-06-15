@@ -32,7 +32,7 @@
  *
  * @group Logging
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.UnusedLocalVariable,ApexUnusedDeclaration,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -1249,5 +1249,191 @@ private class LOG_Builder_TEST
 
 		Assert.isNotNull(logEntry, 'Log should be published after scope is closed');
 		Assert.areEqual(LEVEL_DEBUG, logEntry.LogLevel__c, ERROR_INVALID_LOG_LEVEL);
+	}
+
+	/**
+	 * @description Tests the full real path: a subscriber entry built with withFingerprint
+	 * persists as a detail: row plus a rollup: counter (first occurrence of a novel key).
+	 */
+	@IsTest
+	private static void shouldPersistFingerprintedEntryAsDetailPlusRollup()
+	{
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+		LOG_Builder.build().warn('Fingerprinted entry').withFingerprint('builder-test-key').emitAt('BuilderTest.run');
+		Test.stopTest();
+
+		Boolean detailFound = false;
+		Boolean rollupFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if('detail:builder-test-key'.equals(row.Fingerprint__c))
+			{
+				detailFound = true;
+			}
+			if(row.Fingerprint__c != null && row.Fingerprint__c.startsWith('rollup:builder-test-key:'))
+			{
+				rollupFound = true;
+				Assert.areEqual(1, row.OccurrenceCount__c?.intValue(), 'First occurrence counts once');
+			}
+		}
+		Assert.isTrue(detailFound, 'withFingerprint must produce the detail row through the real emit path');
+		Assert.isTrue(rollupFound, 'withFingerprint must produce the windowed rollup row');
+	}
+
+	/**
+	 * @description Tests that the fingerprint channel is cleared after emit — a subsequent
+	 * un-fingerprinted entry must persist as a plain row, not inherit the previous key.
+	 */
+	@IsTest
+	private static void shouldNotLeakFingerprintIntoSubsequentEntries()
+	{
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+		LOG_Builder.build().warn('Fingerprinted entry').withFingerprint('leak-test-key').emitAt('BuilderTest.first');
+		LOG_Builder.build().warn('Plain entry').emitAt('BuilderTest.second');
+		Test.stopTest();
+
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if('BuilderTest.second'.equals(row.ClassMethod__c))
+			{
+				Assert.isNull(row.Fingerprint__c, 'Fingerprint must not leak into the next entry');
+				return;
+			}
+		}
+		Assert.fail('The plain entry should have persisted');
+	}
+
+	/**
+	 * @description Tests key normalization: keys over 200 characters and keys invading the
+	 * reserved bypass: prefix are SHA-256 hashed (never truncated, never colliding with
+	 * framework keys); blank keys are ignored.
+	 */
+	@IsTest
+	private static void shouldNormalizeOversizedAndReservedFingerprintKeys()
+	{
+		String oversized = 'k'.repeat(LOG_Builder.MAXIMUM_RAW_FINGERPRINT_LENGTH + 1);
+		String reserved = LOG_Builder.RESERVED_FINGERPRINT_PREFIX + 'sneaky-subscriber-key';
+
+		Assert.areEqual(UTIL_Crypto.generateSHA256Hash(oversized), LOG_Builder.normalizeFingerprintKeyForTest(oversized),
+				'Oversized keys are hashed, not truncated');
+		Assert.areEqual(UTIL_Crypto.generateSHA256Hash(reserved), LOG_Builder.normalizeFingerprintKeyForTest(reserved),
+				'Keys invading the reserved bypass: prefix are hashed');
+		Assert.areEqual('plain-key', LOG_Builder.normalizeFingerprintKeyForTest(' plain-key '),
+				'Short keys are trimmed and stored as-is for readability');
+		Assert.isNull(LOG_Builder.normalizeFingerprintKeyForTest('   '), 'Blank keys normalize to null');
+	}
+
+	/**
+	 * @description Tests that withFingerprintInternal stamps a reserved-prefix key verbatim
+	 * (no normalization/hashing) — the framework path that lets bypass-audit keep readable
+	 * `bypass:` keys, in contrast to the subscriber-facing withFingerprint which would hash them.
+	 */
+	@IsTest
+	private static void shouldStampReservedFingerprintVerbatimViaInternalSetter()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String reservedKey = LOG_Builder.RESERVED_FINGERPRINT_PREFIX + 'health-check';
+
+		Test.startTest();
+		LOG_Builder.build().warn('Internal fingerprint').withFingerprintInternal(reservedKey).emitAt('BuilderTest.internal');
+		Test.stopTest();
+
+		Boolean detailFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(('detail:' + reservedKey).equals(row.Fingerprint__c))
+			{
+				detailFound = true;
+			}
+		}
+		Assert.isTrue(detailFound, 'withFingerprintInternal must stamp the reserved key verbatim, producing detail:' + reservedKey);
+	}
+
+	/**
+	 * @description Tests that withFingerprintInternal length-caps an oversized pre-composed key by
+	 * SHA-256 hashing it (the same 200-char budget the subscriber path enforces), so a future
+	 * framework caller cannot overflow the 216-char Fingerprint__c field and sink the persist batch.
+	 */
+	@IsTest
+	private static void shouldLengthCapOversizedKeyViaInternalSetter()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String oversized = 'x'.repeat(LOG_Builder.MAXIMUM_RAW_FINGERPRINT_LENGTH + 1);
+		String expectedDetailKey = 'detail:' + UTIL_Crypto.generateSHA256Hash(oversized);
+
+		Test.startTest();
+		LOG_Builder.build().warn('Oversized internal fingerprint').withFingerprintInternal(oversized).emitAt('BuilderTest.internalCap');
+		Test.stopTest();
+
+		Boolean cappedDetailFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(expectedDetailKey.equals(row.Fingerprint__c))
+			{
+				cappedDetailFound = true;
+			}
+		}
+		Assert.isTrue(cappedDetailFound, 'withFingerprintInternal must SHA-256 hash an oversized key, producing ' + expectedDetailKey);
+	}
+
+	/**
+	 * @description Tests the reconciliation breadcrumb: when withFingerprint hashes a key (here an
+	 * oversized one), the original key is recorded in the detail row's context under
+	 * LOG_Engine.CONTEXT_FINGERPRINT_SOURCE so the opaque hash stays traceable to the input.
+	 */
+	@IsTest
+	private static void shouldRecordOriginalKeyBreadcrumbWhenFingerprintHashed()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String oversized = 'k'.repeat(LOG_Builder.MAXIMUM_RAW_FINGERPRINT_LENGTH + 1);
+
+		Test.startTest();
+		LOG_Builder.build().warn('Hashed key entry').withFingerprint(oversized).emitAt('BuilderTest.breadcrumb');
+		Test.stopTest();
+
+		Boolean breadcrumbFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(row.Fingerprint__c == null || !row.Fingerprint__c.startsWith('detail:'))
+			{
+				continue;
+			}
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(row);
+			if(context != null && oversized.equals(context.get(LOG_Engine.CONTEXT_FINGERPRINT_SOURCE)))
+			{
+				breadcrumbFound = true;
+			}
+		}
+		Assert.isTrue(breadcrumbFound, 'A hashed fingerprint must record the original key in ContextData for reconciliation');
+	}
+
+	/**
+	 * @description Tests that a verbatim (short, non-reserved) fingerprint adds no breadcrumb — the
+	 * stored fingerprint already shows the key, so no context noise is added.
+	 */
+	@IsTest
+	private static void shouldNotAddBreadcrumbForVerbatimFingerprint()
+	{
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+		LOG_Builder.build().warn('Verbatim key entry').withFingerprint('plain-readable-key').emitAt('BuilderTest.verbatim');
+		Test.stopTest();
+
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if('detail:plain-readable-key'.equals(row.Fingerprint__c))
+			{
+				Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(row);
+				Boolean hasBreadcrumb = context != null && context.containsKey(LOG_Engine.CONTEXT_FINGERPRINT_SOURCE);
+				Assert.isFalse(hasBreadcrumb, 'Verbatim keys need no breadcrumb — the fingerprint already shows the key');
+				return;
+			}
+		}
+		Assert.fail('The verbatim-key detail row should have persisted');
 	}
 }

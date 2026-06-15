@@ -11,7 +11,7 @@
  *
  * @group Logging
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class SEL_LogEntry extends SEL_Base
 {
@@ -54,11 +54,13 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 				LogEntry__c.DurationMs__c,
 				LogEntry__c.ExceptionType__c,
 				LogEntry__c.ExecutionEvent__c,
+				LogEntry__c.Fingerprint__c,
 				LogEntry__c.Limits__c,
 				LogEntry__c.LineNumber__c,
 				LogEntry__c.LogLevel__c,
 				LogEntry__c.Message__c,
 				LogEntry__c.Name,
+				LogEntry__c.OccurrenceCount__c,
 				LogEntry__c.ParentTransactionId__c,
 				LogEntry__c.RecordId__c,
 				LogEntry__c.RecordLink__c,
@@ -238,5 +240,27 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	public Integer getRecordCount()
 	{
 		return count();
+	}
+
+	/**
+	 * @description Returns log entries whose `Fingerprint__c` exactly matches one of the supplied
+	 * keys (`detail:` and/or `rollup:` prefixed). Equality IN on the unique external-ID index —
+	 * selective by construction, safe on the production hot path (used at log persist time for
+	 * fingerprint presence checks and rollup-count reads).
+	 *
+	 * @param fingerprints The exact fingerprint key values to find.
+	 *
+	 * @return Matching LogEntry__c rows, or an empty list for blank input.
+	 *
+	 * @example
+	 * ```apex
+	 * List<LogEntry__c> rows = new SEL_LogEntry().findByFingerprints(new Set<String> {'detail:my-key'});
+	 * ```
+	 */
+	public List<LogEntry__c> findByFingerprints(Set<String> fingerprints)
+	{
+		return fingerprints?.isEmpty() == false
+				? query.condition(LogEntry__c.Fingerprint__c).isIn(new List<String>(fingerprints)).toList()
+				: new List<LogEntry__c>();
 	}
 }

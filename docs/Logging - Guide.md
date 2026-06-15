@@ -2,11 +2,13 @@
 
 **Framework:** KernDX
 **Package Type:** Managed Package
-**API Version:** 66.0
+**API Version:** 67.0
 
-> **Note for Subscriber Implementations:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`). See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
+> **Note for Subscriber Implementations:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`). See
+> the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
 
 **Target Audience:**
+
 - **Developers** - Implementing logging across Apex, LWC, and Flows
 - **Architects** - Designing observability and traceability patterns
 - **DevOps** - Monitoring and debugging production systems
@@ -22,25 +24,27 @@
 2. [Overview](#overview)
 3. [Architecture](#architecture)
 4. [Quick Start](#quick-start)
-   - [Apex - Log an Error](#apex---log-an-error)
-   - [LWC - Log with Correlation](#lwc---log-with-correlation)
-   - [Flow - Correlated Logging](#flow---correlated-logging)
+    - [Apex - Log an Error](#apex---log-an-error)
+    - [LWC - Log with Correlation](#lwc---log-with-correlation)
+    - [Flow - Correlated Logging](#flow---correlated-logging)
 5. [Apex Logging (LOG_Builder)](#apex-logging-log_builder)
-   - [Log Levels](#log-levels)
-   - [Exception Logging](#exception-logging)
-   - [DML Error Logging](#dml-error-logging)
-   - [Batch Logging](#batch-logging)
+    - [Log Levels](#log-levels)
+    - [Exception Logging](#exception-logging)
+    - [DML Error Logging](#dml-error-logging)
+    - [Batch Logging](#batch-logging)
+    - [Log Grouping & Flood Control](#log-grouping--flood-control)
+    - [Logging Inside Platform Event & Change Event Triggers](#logging-inside-platform-event--change-event-triggers)
 6. [Correlation Tracking](#correlation-tracking)
-   - [Starting Correlation](#starting-correlation)
-   - [Async Context Propagation](#async-context-propagation)
-   - [External Correlation](#external-correlation)
+    - [Starting Correlation](#starting-correlation)
+    - [Async Context Propagation](#async-context-propagation)
+    - [External Correlation](#external-correlation)
 7. [Structured Context](#structured-context)
-   - [Global Context](#global-context)
-   - [Operation Context Stack](#operation-context-stack)
+    - [Global Context](#global-context)
+    - [Operation Context Stack](#operation-context-stack)
 8. [Performance Logging](#performance-logging)
-   - [What Gets Automatically Timed](#what-gets-automatically-timed)
-   - [Custom Timing in Subscriber Code](#custom-timing-in-subscriber-code)
-   - [Performance Configuration](#performance-configuration)
+    - [What Gets Automatically Timed](#what-gets-automatically-timed)
+    - [Custom Timing in Subscriber Code](#custom-timing-in-subscriber-code)
+    - [Performance Configuration](#performance-configuration)
 9. [Log Buffering](#log-buffering)
 10. [LWC Client-Side Logging](#lwc-client-side-logging)
     - [LWC Setup](#lwc-setup)
@@ -65,12 +69,12 @@
     - [TriggerAction__mdt Fields (Action-Level Control)](#triggeraction__mdt-fields-action-level-control)
 15. [Anti-Patterns](#anti-patterns)
 16. [Best Practices](#best-practices)
-    - [1. Always Include Context](#1-always-include-context)
-    - [2. Use Appropriate Log Levels](#2-use-appropriate-log-levels)
-    - [3. Never Log Sensitive Data](#3-never-log-sensitive-data)
-    - [4. Use Correlation for Async Operations](#4-use-correlation-for-async-operations)
-    - [5. Clean Up Context](#5-clean-up-context)
-    - [6. Enable Performance Logging for Critical Operations](#6-enable-performance-logging-for-critical-operations)
+    - [Always Include Context](#always-include-context)
+    - [Use Appropriate Log Levels](#use-appropriate-log-levels)
+    - [Never Log Sensitive Data](#never-log-sensitive-data)
+    - [Use Correlation for Async Operations](#use-correlation-for-async-operations)
+    - [Clean Up Context](#clean-up-context)
+    - [Enable Performance Logging for Critical Operations](#enable-performance-logging-for-critical-operations)
 17. [Troubleshooting](#troubleshooting)
     - [Logs Not Appearing](#logs-not-appearing)
     - [Missing Correlation](#missing-correlation)
@@ -84,36 +88,38 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                                                               |
-|---------------|-----------------------------------|--------------------------------------------------------------------------------------------------------|
-| **Architect** | Design observability patterns     | [Architecture](#architecture)                                                                          |
-| **Architect** | Plan correlation tracking         | [Correlation Tracking](#correlation-tracking)                                                          |
-| **Developer** | Log my first error                | [Quick Start](#quick-start)                                                                            |
-| **Developer** | Add client-side logging           | [LWC Client-Side Logging](#lwc-client-side-logging)                                                    |
-| **Developer** | Test logging behavior             | [Testing](#testing)                                                                                    |
-| **Developer** | Query persisted log entries       | [Querying Log Entries](#querying-log-entries)                                                          |
-| **Analyst**   | Configure log filtering           | [Configuration Reference](#configuration-reference)                                                    |
-| **Analyst**   | Integrate logging in Flows        | [Flow Logging](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend)                           |
+| I am a...     | I need to...                  | Go to...                                                                     |
+|---------------|-------------------------------|------------------------------------------------------------------------------|
+| **Architect** | Design observability patterns | [Architecture](#architecture)                                                |
+| **Architect** | Plan correlation tracking     | [Correlation Tracking](#correlation-tracking)                                |
+| **Developer** | Log my first error            | [Quick Start](#quick-start)                                                  |
+| **Developer** | Add client-side logging       | [LWC Client-Side Logging](#lwc-client-side-logging)                          |
+| **Developer** | Test logging behavior         | [Testing](#testing)                                                          |
+| **Developer** | Query persisted log entries   | [Querying Log Entries](#querying-log-entries)                                |
+| **Analyst**   | Configure log filtering       | [Configuration Reference](#configuration-reference)                          |
+| **Analyst**   | Integrate logging in Flows    | [Flow Logging](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend) |
 
 ---
 
 ## Overview
 
-The KernDX Logging Framework provides end-to-end observability across all Salesforce execution contexts. Unlike `System.debug()` which produces ephemeral debug logs, this framework persists logs to a queryable custom object (`LogEntry__c`) via [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`).
+The KernDX Logging Framework provides end-to-end observability across all Salesforce execution contexts. Unlike `System.debug()` which produces ephemeral debug logs, this framework
+persists logs to a queryable custom object (`LogEntry__c`)
+via [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`).
 
 > **Responsibilities:** The Logging Framework persists diagnostic and operational data to `LogEntry__c`. It does not enforce business rules,
 > perform DML on business objects, or control execution flow. Use it for observability only.
 
 **Key Capabilities:**
 
-| Feature | Description |
-|---------|-------------|
-| **Multi-Channel** | Log from Apex, LWC, and Flows with consistent API |
-| **Correlation Tracking** | Link related logs across async boundaries with correlation IDs |
-| **Context Stack** | Capture nested operation context (query details, trigger info, etc.) |
-| **Performance Monitoring** | Automatic timing with configurable thresholds |
-| **Structured Context** | Attach key-value metadata to log entries |
-| **Log Buffering** | Batch logs for efficient publishing |
+| Feature                    | Description                                                          |
+|----------------------------|----------------------------------------------------------------------|
+| **Multi-Channel**          | Log from Apex, LWC, and Flows with consistent API                    |
+| **Correlation Tracking**   | Link related logs across async boundaries with correlation IDs       |
+| **Context Stack**          | Capture nested operation context (query details, trigger info, etc.) |
+| **Performance Monitoring** | Automatic timing with configurable thresholds                        |
+| **Structured Context**     | Attach key-value metadata to log entries                             |
+| **Log Buffering**          | Batch logs for efficient publishing                                  |
 
 > **Logging Framework Scope:** 4 `LOG_*` classes, 1 platform event (`LogEntryEvent__e`), and multi-channel support (Apex, LWC, Flow). Logging
 > is integrated across all 14 API outbound services, all trigger handlers, and the async processing framework.
@@ -159,6 +165,7 @@ The KernDX Logging Framework provides end-to-end observability across all Salesf
 ```
 
 **Flow:**
+
 1. Code calls logging methods ([`LOG_Builder`](reference/apex/LOG_Builder.md), `utilityLogger`, [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md) / [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md) / [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
 2. `LOG_Engine` manages correlation IDs and context
 3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking)
@@ -222,12 +229,12 @@ For deeper coverage, continue reading the sections below.
 
 ### Log Levels
 
-| Level | Method | Use Case |
-|-------|--------|----------|
+| Level | Method    | Use Case                                  |
+|-------|-----------|-------------------------------------------|
 | DEBUG | `debug()` | Development tracing, detailed diagnostics |
-| INFO | `info()` | Operational events, business milestones |
-| WARN | `warn()` | Potential issues, degraded functionality |
-| ERROR | `error()` | Failures requiring attention |
+| INFO  | `info()`  | Operational events, business milestones   |
+| WARN  | `warn()`  | Potential issues, degraded functionality  |
+| ERROR | `error()` | Failures requiring attention              |
 
 ```apex
 // DEBUG - Development tracing
@@ -271,7 +278,8 @@ catch(Exception e)
 
 ### DML Error Logging
 
-For partial DML operations, use `errorDMLOperationResults()` to extract and log all errors from `Database.SaveResult`, `Database.DeleteResult`, or `Database.UpsertResult` collections.
+For partial DML operations, use `errorDMLOperationResults()` to extract and log all errors from `Database.SaveResult`, `Database.DeleteResult`, or `Database.UpsertResult`
+collections.
 
 ```apex
 // Automatically extract and log all DML errors
@@ -298,9 +306,51 @@ LOG_Builder.build().warn(messages).emitAt('BatchProcessor.execute');
 
 ---
 
+### Log Grouping & Flood Control
+
+When the same event recurs at high frequency — a retry loop, a flaky integration, a batch job logging per record — give it a fingerprint:
+
+```apex
+LOG_Builder.build()
+		.warn('Payment gateway retry failed')
+		.withFingerprint('payment-gateway-retry')
+		.emitAt('PaymentSync.run');
+```
+
+The first occurrence persists as a full log entry — the row whose **Fingerprint** starts with `detail:`. Repeats roll up into one counter row per day (the `rollup:` prefix) carrying an **Occurrence Count**, so thousands of identical entries collapse to two rows.
+
+**Choosing a key:** use a stable identity for the *kind* of event, never per-occurrence data. `'payment-gateway-retry'` groups; a key containing a record Id or timestamp makes every entry unique and produces more rows than plain logging. Keys are trimmed; a key longer than 200 characters, or one starting with the reserved `bypass:` prefix, is hashed automatically. When a key is hashed, the original key is recorded on the detail row's context under `fingerprintSource`, so a hashed fingerprint always traces back to what you passed.
+
+**Reading grouped logs:**
+
+- **Forensics:** filter **Fingerprint** starting with `detail:` — one full sample per event kind.
+- **Volumes:** SUM **Occurrence Count** over rows whose Fingerprint starts with `rollup:`. The sampled occurrence is already included in the count, so rollup rows alone are the true total — counting detail and rollup rows together double-counts.
+- A detail row's **Created Date** means "oldest retained sample": if your log purge job removes it, the next occurrence simply re-creates it. Rollup rows are counts, not forensic records — their message reflects the window's first occurrence.
+
+**Framework bypass audit** uses this mechanism automatically: every security-bypass identity (who, which surface, what target) keeps exactly one detail row in retained logs plus daily counters, so a bypass in a hot loop can no longer flood the log table. A *new* bypass identity appearing in production — new code path, new user — still lands loudly as a fresh detail row.
+
+> **Note:** flood control collapses *storage*, not emission. Each occurrence still publishes a platform event and consumes event allocations; the `BypassAudit_Enabled` feature flag remains the emission-side off switch for bypass auditing.
+
+### Logging Inside Platform Event & Change Event Triggers
+
+Log entries are normally published as a `LogEntryEvent__e` platform event and persisted asynchronously (see [Architecture](#architecture)). That
+publish-then-persist path needs one adjustment in a specific place: code that logs **while running inside a platform event (`__e`) or Change Data Capture
+(`*ChangeEvent`) trigger**. Publishing a new platform event from inside an event trigger can cause the platform to redeliver the original event, and a
+"log on every delivery" pattern then becomes a redelivery loop.
+
+The framework handles this for you. When a log is emitted while a platform-event or change-event trigger is on the stack, the engine **suppresses the event
+publish and persists the entry synchronously, in the same transaction, via DML** — the same `LogEntry__c` rows, with no second platform event and no loop.
+There is nothing to configure: logging from a Change Data Capture trigger action or a platform-event subscriber is safe by default.
+
+Flood control applies on this path too. Fingerprinted entries collapse into one detail row plus per-day rollup counters exactly as they do on the asynchronous
+path (see [Log Grouping & Flood Control](#log-grouping--flood-control)), so a high-volume change-event stream cannot flood `LogEntry__c`.
+
+---
+
 ## Correlation Tracking
 
-Correlation IDs link related log entries across transaction boundaries, making it possible to trace a user action from LWC through to async processing. The correlation ID is stored on each `LogEntryEvent__e` and subsequently on every `LogEntry__c` record, enabling filtering in `SEL_LogEntry` queries.
+Correlation IDs link related log entries across transaction boundaries, making it possible to trace a user action from LWC through to async processing. The correlation ID is stored
+on each `LogEntryEvent__e` and subsequently on every `LogEntry__c` record, enabling filtering in `SEL_LogEntry` queries.
 
 ### Starting Correlation
 
@@ -351,6 +401,12 @@ public with sharing class MyQueueable implements Queueable
 	}
 }
 ```
+
+> **Automatic capture for async chains.** The pattern above is the manual approach for a hand-rolled Queueable. The
+> [async chain framework](Async%20Processing%20-%20Guide.md) does this for you — it serializes and restores the logging context across every step, and attaches a
+> [Transaction Finalizer](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_transaction_finalizers.htm) that logs any **unhandled**
+> exception (including governor-limit crashes a step's own `try/catch` cannot trap) and marks the chain Failed rather than leaving it stuck in a Running state.
+> An async step that dies still produces a correlated error log.
 
 ### External Correlation
 
@@ -420,7 +476,8 @@ public void processAccount(Account account)
 
 ### Operation Context Stack
 
-The framework maintains an internal operation-context stack that is pushed and popped automatically at every dispatcher entry point — `TRG_Dispatcher` around each trigger action, `API_Dispatcher` around each inbound and outbound call, `UTIL_AsyncChain` around each chain step. Subscribers do not interact with the stack directly (`LOG_Engine.pushOperationContext` / `popOperationContext` are `public` framework-internal methods, not callable from subscriber Apex).
+The framework maintains an internal operation-context stack that is pushed and popped automatically at every dispatcher entry point — `TRG_Dispatcher` around each trigger action,
+`API_Dispatcher` around each inbound and outbound call, `UTIL_AsyncChain` around each chain step. Subscribers do not interact with the stack directly (`LOG_Engine.pushOperationContext` / `popOperationContext` are `public` framework-internal methods, not callable from subscriber Apex).
 
 For per-call subscriber context, attach it directly to the log entry via `.withContext(key, value)`:
 
@@ -433,27 +490,34 @@ kern.LOG_Builder.build()
 	.emitAt('MyClass.runQuery');
 ```
 
-The framework-managed operation types you will see in `LogEntry__c` records are `API_CALL`, `API_BATCH`, `TRIGGER_ACTION`, `QUERY`, `FLOW`, `LWC`, and `VALIDATION` — all set automatically by the dispatchers.
+The framework-managed operation types you will see in `LogEntry__c` records are `API_CALL`, `API_BATCH`, `TRIGGER_ACTION`, `QUERY`, `FLOW`, `LWC`, and `VALIDATION` — all set
+automatically by the dispatchers.
 
 ---
 
 ## Performance Logging
 
-The framework automatically times operations across queries, triggers, and API calls. No subscriber code is needed — timing is built into the framework infrastructure. All timers track governor limit deltas (CPU time, heap, SOQL queries, DML) and log only when configured thresholds are exceeded.
+The framework automatically times operations across queries, triggers, and API calls. No subscriber code is needed — timing is built into the framework infrastructure. All timers
+track governor limit deltas (CPU time, heap, SOQL queries, DML) and log only when configured thresholds are exceeded.
 
 ### What Gets Automatically Timed
 
 **Query performance** — Every `QRY_Builder` and `SEL_*` query is timed automatically. Log entries include the SOQL statement, row count, object name, and cache status (hit/miss/stored). This helps identify slow queries and N+1 patterns without instrumenting individual selectors.
 
-**Trigger action performance** — Each action dispatched by `TRG_Dispatcher` is timed with full context: action class name, trigger operation (e.g., `BEFORE_INSERT`), object name, and record count. This surfaces which trigger actions contribute most to transaction time.
+**Trigger action performance** — Each action dispatched by `TRG_Dispatcher` is timed with full context: action class name, trigger operation (e.g., `BEFORE_INSERT`), object name,
+and record count. This surfaces which trigger actions contribute most to transaction time.
 
-**API operation performance** — Outbound and inbound API calls processed through the web services framework are timed automatically, capturing HTTP method, endpoint, and response status.
+**API operation performance** — Outbound and inbound API calls processed through the web services framework are timed automatically, capturing HTTP method, endpoint, and response
+status.
 
-All performance logging is threshold-based and disabled by default. Enable and configure thresholds via `LogSetting__c` (see [Performance Configuration](#performance-configuration) below).
+All performance logging is threshold-based and disabled by default. Enable and configure thresholds via `LogSetting__c` (see [Performance Configuration](#performance-configuration)
+below).
 
 ### Custom Timing in Subscriber Code
 
-`UTIL_StopWatch` is the framework-internal base class used by the three specialised performance timers. It is declared `public` and is not intended for direct subscriber use. For ad-hoc timing around a custom batch step or callout, wrap the work in a `LOG_Builder.scope()` block — the scope captures start/end timestamps and emits a `LogEntryEvent__e` that joins the same correlation pipeline as the framework's automatic timers.
+`UTIL_StopWatch` is the framework-internal base class used by the three specialised performance timers. It is declared `public` and is not intended for direct subscriber use. For
+ad-hoc timing around a custom batch step or callout, wrap the work in a `LOG_Builder.scope()` block — the scope captures start/end timestamps and emits a `LogEntryEvent__e` that
+joins the same correlation pipeline as the framework's automatic timers.
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -471,26 +535,29 @@ finally
 
 Configure via `LogSetting__c` (Setup > Custom Settings > Log Setting):
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| `EnablePerformanceLogging__c` | Enable general performance logging | `true` |
-| `PerformanceThresholdMs__c` | Threshold for general operations (ms) | `10000` |
-| `EnableQueryPerformanceLogging__c` | Enable query performance logging | `true` |
-| `QueryPerformanceThresholdMs__c` | Threshold for queries (ms) | `1000` |
-| `EnableTriggerPerformanceLogging__c` | Enable trigger performance logging | `true` |
-| `TriggerPerformanceThresholdMs__c` | Threshold for trigger actions (ms) | `500` |
-| `EnableValidationPerformanceLogging__c` | Enable validation performance logging | `true` |
-| `ValidationPerformanceThresholdMs__c` | Threshold for validation processing (ms) | `100` |
-| `EnableMaskerPerformanceLogging__c` | Enable data-masking performance logging (default OFF) | `false` |
-| `MaskerPerformanceThresholdMs__c` | Threshold for masking on a trigger batch (ms) | `100` |
+| Field                                   | Description                                           | Default |
+|-----------------------------------------|-------------------------------------------------------|---------|
+| `EnablePerformanceLogging__c`           | Enable general performance logging                    | `true`  |
+| `PerformanceThresholdMs__c`             | Threshold for general operations (ms)                 | `10000` |
+| `EnableQueryPerformanceLogging__c`      | Enable query performance logging                      | `true`  |
+| `QueryPerformanceThresholdMs__c`        | Threshold for queries (ms)                            | `1000`  |
+| `EnableTriggerPerformanceLogging__c`    | Enable trigger performance logging                    | `true`  |
+| `TriggerPerformanceThresholdMs__c`      | Threshold for trigger actions (ms)                    | `500`   |
+| `EnableValidationPerformanceLogging__c` | Enable validation performance logging                 | `true`  |
+| `ValidationPerformanceThresholdMs__c`   | Threshold for validation processing (ms)              | `100`   |
+| `EnableMaskerPerformanceLogging__c`     | Enable data-masking performance logging (default OFF) | `false` |
+| `MaskerPerformanceThresholdMs__c`       | Threshold for masking on a trigger batch (ms)         | `100`   |
 
-Masker performance logging emits one aggregate `LogEntryEvent__e` per trigger batch when `EnableMaskerPerformanceLogging__c` is true and the masker's elapsed time meets the threshold. Default off so subscribers pay zero log volume by default — turn on during investigation of slow commits to attribute the time to masking. Entries carry the target SObject name in `ClassMethod__c` (e.g., `UTIL_MaskerPerformanceTimer/Foobar__c`) for per-object aggregation.
+Masker performance logging emits one aggregate `LogEntryEvent__e` per trigger batch when `EnableMaskerPerformanceLogging__c` is true and the masker's elapsed time meets the
+threshold. Default off so subscribers pay zero log volume by default — turn on during investigation of slow commits to attribute the time to masking. Entries carry the target
+SObject name in `ClassMethod__c` (e.g., `UTIL_MaskerPerformanceTimer/Foobar__c`) for per-object aggregation.
 
 ---
 
 ## Log Buffering
 
-For batch operations, buffer logs to reduce [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm) publishes:
+For batch operations, buffer logs to reduce [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm)
+publishes:
 
 ```apex
 public void processBulkRecords(List<SObject> records)
@@ -637,7 +704,8 @@ async loadData()
 
 ### Server Persistence
 
-The `utilityLogger` module automatically persists buffered logs to the server. A framework controller bridges client-side and server-side logging, linking correlation IDs from the client with server-side log entries.
+The `utilityLogger` module automatically persists buffered logs to the server. A framework controller bridges client-side and server-side logging, linking correlation IDs from the
+client with server-side log entries.
 
 **How It Works:**
 
@@ -653,17 +721,18 @@ The `utilityLogger` module automatically persists buffered logs to the server. A
 
 **Client Log Entry Structure:**
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `timestamp` | Datetime | When the log was created |
-| `level` | LoggingLevel | DEBUG, INFO, WARN, ERROR |
-| `message` | String | Log message |
-| `correlationId` | String | Links related logs |
-| `context` | Map<String, Object> | Additional context data |
+| Property        | Type                | Description              |
+|-----------------|---------------------|--------------------------|
+| `timestamp`     | Datetime            | When the log was created |
+| `level`         | LoggingLevel        | DEBUG, INFO, WARN, ERROR |
+| `message`       | String              | Log message              |
+| `correlationId` | String              | Links related logs       |
+| `context`       | Map<String, Object> | Additional context data  |
 
 **Server-Side Processing:**
 
 When logs arrive from LWC, the server controller:
+
 1. Extracts the correlation ID from the first log entry
 2. Links it with any subsequent server-side logs
 3. Pushes an LWC operation context onto the context stack
@@ -692,6 +761,7 @@ If Apex persistence fails, logs automatically fall back to browser console:
 For logging without correlation, use [`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md):
 
 **[`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md)** (Full control):
+
 - `message` (Required) - The message to log
 - `logLevel` (Optional) - DEBUG, INFO, WARN, ERROR
 - `shortMessage` (Optional) - Brief summary
@@ -705,34 +775,34 @@ For correlated logging across a Flow, use the bookend pattern with three invocab
 
 **1. [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md)** - Begin correlation
 
-| Input | Description |
-|-------|-------------|
-| `flowName` (Required) | Name of the Flow |
+| Input                    | Description         |
+|--------------------------|---------------------|
+| `flowName` (Required)    | Name of the Flow    |
 | `flowVersion` (Optional) | Flow version number |
-| `recordId` (Optional) | Associated record |
+| `recordId` (Optional)    | Associated record   |
 
-| Output | Description |
-|--------|-------------|
+| Output          | Description              |
+|-----------------|--------------------------|
 | `correlationId` | Generated correlation ID |
 
 **2. [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md)** - Log messages
 
-| Input | Description |
-|-------|-------------|
-| `correlationId` (Required) | From FLOW_LoggerStart |
-| `message` (Required) | Log message |
-| `logLevel` (Optional) | DEBUG, INFO, WARN, ERROR |
-| `shortMessage` (Optional) | Brief summary |
-| `recordId` (Optional) | Associated record |
-| `stepName` (Optional) | Current Flow step |
+| Input                      | Description              |
+|----------------------------|--------------------------|
+| `correlationId` (Required) | From FLOW_LoggerStart    |
+| `message` (Required)       | Log message              |
+| `logLevel` (Optional)      | DEBUG, INFO, WARN, ERROR |
+| `shortMessage` (Optional)  | Brief summary            |
+| `recordId` (Optional)      | Associated record        |
+| `stepName` (Optional)      | Current Flow step        |
 
 **3. [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md)** - End correlation
 
-| Input | Description |
-|-------|-------------|
-| `correlationId` (Required) | From FLOW_LoggerStart |
-| `status` (Optional) | SUCCESS, FAILURE, etc. |
-| `message` (Optional) | Final message |
+| Input                      | Description            |
+|----------------------------|------------------------|
+| `correlationId` (Required) | From FLOW_LoggerStart  |
+| `status` (Optional)        | SUCCESS, FAILURE, etc. |
+| `message` (Optional)       | Final message          |
 
 **Example Flow:**
 
@@ -890,39 +960,40 @@ keyed on `UserId__c` closes that visibility gap.
 
 Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom Settings > Log Setting.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `IsEnabled__c` | Checkbox | true | Master kill switch. When false, all non-ERROR logs are dropped. |
-| `LogLevelThreshold__c` | Text(10) | DEBUG | Minimum level to log (DEBUG, INFO, WARN, ERROR) |
-| `ClassFilter__c` | Text(255) | blank | Comma-separated class name patterns with trailing `*` wildcard (e.g., `API_*,SVC_Payment*`). Blank = all classes. |
-| `MaxContextDataSize__c` | Number | 32768 | Max characters for ContextData__c |
-| `EnablePerformanceLogging__c` | Checkbox | true | Enable general performance logging |
-| `PerformanceThresholdMs__c` | Number | 10000 | Threshold for general timers (ms) |
-| `EnableQueryPerformanceLogging__c` | Checkbox | true | Enable query performance logging |
-| `QueryPerformanceThresholdMs__c` | Number | 1000 | Threshold for query timers (ms) |
-| `EnableTriggerPerformanceLogging__c` | Checkbox | true | Enable trigger performance logging |
-| `TriggerPerformanceThresholdMs__c` | Number | 500 | Threshold for trigger timers (ms) |
-| `EnableValidationPerformanceLogging__c` | Checkbox | true | Enable validation performance logging |
-| `ValidationPerformanceThresholdMs__c` | Number | 100 | Threshold for validation timers (ms) |
-| `EnableMaskerPerformanceLogging__c` | Checkbox | false | Enable masker performance logging (default OFF — opt-in) |
-| `MaskerPerformanceThresholdMs__c` | Number | 100 | Threshold for masking on a trigger batch (ms) |
+| Field                                   | Type      | Default | Description                                                                                                       |
+|-----------------------------------------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
+| `IsEnabled__c`                          | Checkbox  | true    | Master kill switch. When false, all non-ERROR logs are dropped.                                                   |
+| `LogLevelThreshold__c`                  | Text(10)  | DEBUG   | Minimum level to log (DEBUG, INFO, WARN, ERROR)                                                                   |
+| `ClassFilter__c`                        | Text(255) | blank   | Comma-separated class name patterns with trailing `*` wildcard (e.g., `API_*,SVC_Payment*`). Blank = all classes. |
+| `MaxContextDataSize__c`                 | Number    | 32768   | Max characters for ContextData__c                                                                                 |
+| `EnablePerformanceLogging__c`           | Checkbox  | true    | Enable general performance logging                                                                                |
+| `PerformanceThresholdMs__c`             | Number    | 10000   | Threshold for general timers (ms)                                                                                 |
+| `EnableQueryPerformanceLogging__c`      | Checkbox  | true    | Enable query performance logging                                                                                  |
+| `QueryPerformanceThresholdMs__c`        | Number    | 1000    | Threshold for query timers (ms)                                                                                   |
+| `EnableTriggerPerformanceLogging__c`    | Checkbox  | true    | Enable trigger performance logging                                                                                |
+| `TriggerPerformanceThresholdMs__c`      | Number    | 500     | Threshold for trigger timers (ms)                                                                                 |
+| `EnableValidationPerformanceLogging__c` | Checkbox  | true    | Enable validation performance logging                                                                             |
+| `ValidationPerformanceThresholdMs__c`   | Number    | 100     | Threshold for validation timers (ms)                                                                              |
+| `EnableMaskerPerformanceLogging__c`     | Checkbox  | false   | Enable masker performance logging (default OFF — opt-in)                                                          |
+| `MaskerPerformanceThresholdMs__c`       | Number    | 100     | Threshold for masking on a trigger batch (ms)                                                                     |
 
 ### `TriggerSetting__mdt` Fields (Trigger Performance)
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field                         | Type     | Description                            |
+|-------------------------------|----------|----------------------------------------|
 | `EnablePerformanceLogging__c` | Checkbox | Override LogSetting__c for this object |
-| `PerformanceThresholdMs__c` | Number | Threshold for this object's triggers |
+| `PerformanceThresholdMs__c`   | Number   | Threshold for this object's triggers   |
 
 ### `TriggerAction__mdt` Fields (Action-Level Control)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ForcePerformanceLogging__c` | Checkbox | Always log this action |
-| `SuppressPerformanceLogging__c` | Checkbox | Never log this action |
-| `PerformanceThresholdMs__c` | Number | Custom threshold for this action |
+| Field                           | Type     | Description                      |
+|---------------------------------|----------|----------------------------------|
+| `ForcePerformanceLogging__c`    | Checkbox | Always log this action           |
+| `SuppressPerformanceLogging__c` | Checkbox | Never log this action            |
+| `PerformanceThresholdMs__c`     | Number   | Custom threshold for this action |
 
 **Configuration Hierarchy** (highest priority first):
+
 1. TriggerAction__mdt (action-specific)
 2. TriggerSetting__mdt (object-specific)
 3. LogSetting__c (global)
@@ -931,19 +1002,19 @@ Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why It's Wrong | Instead |
-|---|---|---|
-| Using `System.debug()` | Output is ephemeral, not queryable, and lost after debug log rotation | Use `LOG_Builder.build().error(e).emitAt('Class.method')` |
-| Logging without class.method context | Impossible to trace which code generated a log entry | Always provide context via `.emitAt('ClassName.methodName')` or `.at('ClassName.methodName')` |
+| Anti-Pattern                                     | Why It's Wrong                                                        | Instead                                                                                                                                                                                                                |
+|--------------------------------------------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Using `System.debug()`                           | Output is ephemeral, not queryable, and lost after debug log rotation | Use `LOG_Builder.build().error(e).emitAt('Class.method')`                                                                                                                                                              |
+| Logging without class.method context             | Impossible to trace which code generated a log entry                  | Always provide context via `.emitAt('ClassName.methodName')` or `.at('ClassName.methodName')`                                                                                                                          |
 | Logging PII or secrets (passwords, tokens, SSNs) | Violates compliance requirements and creates security vulnerabilities | The data masking framework (`MaskingRule__mdt` + `MaskingTarget__mdt`) is on by default and redacts configured patterns on every `LogEntryEvent__e`. Ship custom rules if your payload shape needs additional patterns |
-| Missing correlation in async operations | Cannot trace a logical operation across transaction boundaries | Use `LOG_Builder.setCorrelationId(correlationId)` or `serializeContext()`/`hydrateContext()` to propagate correlation IDs across async boundaries |
-| Forgetting to close log scopes | Buffered log entries may not be emitted, causing silent data loss | Always call `scope.close()` in a `finally` block |
+| Missing correlation in async operations          | Cannot trace a logical operation across transaction boundaries        | Use `LOG_Builder.setCorrelationId(correlationId)` or `serializeContext()`/`hydrateContext()` to propagate correlation IDs across async boundaries                                                                      |
+| Forgetting to close log scopes                   | Buffered log entries may not be emitted, causing silent data loss     | Always call `scope.close()` in a `finally` block                                                                                                                                                                       |
 
 ---
 
 ## Best Practices
 
-### 1. Always Include Context
+### Always Include Context
 
 ```apex
 // Good - includes class.method context and record correlation
@@ -953,16 +1024,16 @@ LOG_Builder.build().error(e).at('OrderService.processOrder').forRecord(orderId).
 LOG_Builder.build().error(e.getMessage()).emit();
 ```
 
-### 2. Use Appropriate Log Levels
+### Use Appropriate Log Levels
 
-| Level | When to Use |
-|-------|-------------|
-| DEBUG | Detailed tracing during development |
-| INFO | Business events, milestones |
-| WARN | Potential issues, recoverable errors |
-| ERROR | Failures requiring attention |
+| Level | When to Use                          |
+|-------|--------------------------------------|
+| DEBUG | Detailed tracing during development  |
+| INFO  | Business events, milestones          |
+| WARN  | Potential issues, recoverable errors |
+| ERROR | Failures requiring attention         |
 
-### 3. Never Log Sensitive Data
+### Never Log Sensitive Data
 
 ```apex
 // Bad - logs password
@@ -972,7 +1043,7 @@ LOG_Builder.build().debug('Password: ' + password).emitAt('AuthService.login');
 LOG_Builder.build().debug('Login attempt for user: ' + username).emitAt('AuthService.login');
 ```
 
-### 4. Use Correlation for Async Operations
+### Use Correlation for Async Operations
 
 ```apex
 // Always propagate context to async jobs
@@ -984,7 +1055,7 @@ public void initiateProcess(Id recordId)
 }
 ```
 
-### 5. Clean Up Context
+### Clean Up Context
 
 ```apex
 // Always use try/finally for context cleanup
@@ -999,9 +1070,10 @@ finally
 }
 ```
 
-### 6. Enable Performance Logging for Critical Operations
+### Enable Performance Logging for Critical Operations
 
-Enable performance logging via `LogSetting__c` to surface slow operations. The framework automatically times queries, trigger actions, and API calls — no code changes required. For custom timing in subscriber code, wrap the work in a `LOG_Builder.scope()` block:
+Enable performance logging via `LogSetting__c` to surface slow operations. The framework automatically times queries, trigger actions, and API calls — no code changes required. For
+custom timing in subscriber code, wrap the work in a `LOG_Builder.scope()` block:
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -1025,7 +1097,8 @@ finally
 2. **Check IsEnabled**: Verify `LogSetting__c.IsEnabled__c` is `true` (Setup > Custom Settings > Log Setting)
 3. **Check threshold**: Ensure `LogLevelThreshold__c` allows your log level (e.g., `DEBUG` captures all)
 4. **Check class filter**: If `ClassFilter__c` is set, verify your class matches the pattern
-5. **Check platform event limits**: Monitor [event publishing limits](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_event_limits.htm)
+5. **Check platform event limits**:
+   Monitor [event publishing limits](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_event_limits.htm)
 
 ### Missing Correlation
 

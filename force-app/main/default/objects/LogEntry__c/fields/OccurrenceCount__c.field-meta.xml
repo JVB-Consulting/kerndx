@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>OccurrenceCount__c</fullName>
+    <description>Total occurrences counted in this rollup row's window, including the occurrence sampled by the fingerprint's detail row. Populated only on rollup rows; SUM this field over rollup rows for true occurrence totals.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>How many times this fingerprinted event occurred in the window. Only set on rollup rows.</inlineHelpText>
+    <label>Occurrence Count</label>
+    <precision>12</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

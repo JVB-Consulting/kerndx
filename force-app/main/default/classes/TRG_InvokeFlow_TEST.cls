@@ -19,7 +19,7 @@
  *
  * @date April 2026, May 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
 private class TRG_InvokeFlow_TEST
 {
@@ -1241,6 +1241,378 @@ private class TRG_InvokeFlow_TEST
 
 		Assert.isFalse(triggerRecord.hasErrors(), 'Blank FlowName__c should short-circuit without raising addError');
 		TST_InvokeFlowMock.assertNotInvoked(FLOW_NAME);
+	}
+
+	/**
+	 * @description Verifies a Change Event dispatch injects a `DTO_ChangeEventHeader` into
+	 * the Flow input variables map and threads it through to the mock recorder. The dispatch
+	 * is driven by an in-memory `AccountChangeEvent` SObject built via `TST_Builder` —
+	 * standard `AccountChangeEvent` resolves identically in both unmanaged dev orgs and
+	 * managed subscriber installs, and `String.endsWith('ChangeEvent')` fires on the API
+	 * name to flag the CDC branch.
+	 *
+	 * The header is supplied via the `simulateChangeEventHeaderForTest` seam rather than
+	 * populated on the SObject because the platform crashes on
+	 * `(EventBus.ChangeEventHeader)record.get('ChangeEventHeader')` for any JSON-roundtripped
+	 * Change Event SObject (`TST_Builder`/`TST_Mock`/raw deserialize all share this
+	 * limitation). The real-CDC cast path is covered by the subscriber-org integration tests.
+	 *
+	 * @see TRG_InvokeFlow.buildChangeEventHeaderDto
+	 * @see TST_InvokeFlowMock.getLastInputHeader
+	 * @see DTO_ChangeEventHeader
+	 */
+	@IsTest
+	private static void shouldInjectChangeEventHeaderForCdcDispatchViaMock()
+	{
+		String cdcFlowName = 'TRG_InvokeFlow_TEST_AcctChangeFlow';
+		TST_InvokeFlowMock.forFlow(cdcFlowName).succeed().register();
+
+		TriggerAction__mdt config = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.DeveloperName, 'TRG_InvokeFlow_TEST_CdcStub')
+				.withOverride(TriggerAction__mdt.FlowName__c, cdcFlowName)
+				.withOverride(TriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+				.withoutInsertion()
+				.build();
+
+		DTO_ChangeEventHeader simulatedHeader = new DTO_ChangeEventHeader();
+		simulatedHeader.entityName = 'Account';
+		simulatedHeader.changeType = 'CREATE';
+		simulatedHeader.recordIds = new List<String> {String.valueOf(UTIL_Random.randomId(Account.SObjectType))};
+		TRG_InvokeFlow.simulateChangeEventHeaderForTest = simulatedHeader;
+
+		AccountChangeEvent cdcRecord = (AccountChangeEvent)TST_Builder.of(AccountChangeEvent.SObjectType)
+				.withoutInsertion()
+				.build();
+
+		TRG_InvokeFlow action = new TRG_InvokeFlow();
+		action.setConfig(config);
+
+		Test.startTest();
+		try
+		{
+			action.afterInsert(new List<SObject> {cdcRecord});
+		}
+		finally
+		{
+			TRG_InvokeFlow.simulateChangeEventHeaderForTest = null;
+		}
+		Test.stopTest();
+
+		DTO_ChangeEventHeader captured = (DTO_ChangeEventHeader)TST_InvokeFlowMock.getLastInputHeader(cdcFlowName);
+		Assert.isNotNull(captured, 'CDC dispatch should inject a DTO_ChangeEventHeader for the mocked flow');
+		Assert.areEqual('CREATE', captured.changeType, 'Header changeType should flow through to the mock recorder');
+		Assert.areEqual('Account', captured.entityName, 'Header entityName should flow through to the mock recorder');
+		Assert.areEqual(simulatedHeader.recordIds, captured.recordIds, 'Header recordIds should flow through to the mock recorder');
+		TST_InvokeFlowMock.assertInvoked(cdcFlowName, 1);
+	}
+
+	/**
+	 * @description Verifies the CDC aggregate audit path: with `AlwaysOn` flow-action logging
+	 * enabled, a Change Event dispatch emits exactly one per-batch audit `LogEntry__c` whose
+	 * serialized context carries the underlying `header.recordIds` (not the synthetic
+	 * change-event record Id) and whose `recordCount` reflects the total recordIds across
+	 * all change-event records (not the change-event record count). The simulator seam
+	 * supplies a known header so the assertion can match exact recordId values.
+	 *
+	 * Confirms the design intent: subscribers querying the flow-action audit for "what
+	 * records did this CDC dispatch target?" see the underlying object Ids the platform
+	 * delivered in `header.recordIds`, capped at MAX_AUDITED_IDS for spot-checking while
+	 * the total count surfaces in `CONTEXT_RECORD_COUNT`.
+	 *
+	 * @see TRG_InvokeFlow.emitAuditEvent
+	 */
+	@IsTest
+	private static void shouldEmitAggregateCdcAuditWithHeaderRecordIdsAndTotalCount()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LogSetting__c logSetting = LOG_Engine.logSettingOverride;
+		logSetting.EnableFlowActionLogging__c = 'AlwaysOn';
+
+		String cdcFlowName = 'TRG_InvokeFlow_TEST_AcctAggregateFlow';
+		TST_InvokeFlowMock.forFlow(cdcFlowName).succeed().register();
+
+		TriggerAction__mdt config = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.DeveloperName, 'TRG_InvokeFlow_TEST_CdcAggregate')
+				.withOverride(TriggerAction__mdt.FlowName__c, cdcFlowName)
+				.withOverride(TriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+				.withoutInsertion()
+				.build();
+
+		String firstRecordId = String.valueOf(UTIL_Random.randomId(Account.SObjectType));
+		String secondRecordId = String.valueOf(UTIL_Random.randomId(Account.SObjectType));
+		String thirdRecordId = String.valueOf(UTIL_Random.randomId(Account.SObjectType));
+
+		DTO_ChangeEventHeader simulatedHeader = new DTO_ChangeEventHeader();
+		simulatedHeader.entityName = 'Account';
+		simulatedHeader.changeType = 'CREATE';
+		simulatedHeader.recordIds = new List<String> {firstRecordId, secondRecordId, thirdRecordId};
+		TRG_InvokeFlow.simulateChangeEventHeaderForTest = simulatedHeader;
+
+		AccountChangeEvent cdcRecord = (AccountChangeEvent)TST_Builder.of(AccountChangeEvent.SObjectType)
+				.withoutInsertion()
+				.build();
+
+		TRG_InvokeFlow action = new TRG_InvokeFlow();
+		action.setConfig(config);
+
+		Test.startTest();
+		try
+		{
+			action.afterInsert(new List<SObject> {cdcRecord});
+		}
+		finally
+		{
+			TRG_InvokeFlow.simulateChangeEventHeaderForTest = null;
+		}
+		Test.stopTest();
+
+		LogEntry__c auditLog = new SEL_LogEntry().findByMethod(TRIGGER_ACTION + '.run');
+		Assert.isNotNull(auditLog, 'AlwaysOn audit should emit a per-batch entry for the CDC dispatch');
+		Assert.isNotNull(auditLog.ContextData__c, 'Audit context data must be populated');
+		Map<String, Object> ctx = extractAuditContextData(auditLog.ContextData__c);
+		Assert.areEqual('3', String.valueOf(ctx.get('recordCount')),
+				'recordCount must equal total header.recordIds (3), not change-event record count (1): ' + auditLog.ContextData__c);
+		String serializedIds = String.valueOf(ctx.get('recordIds'));
+		Assert.isTrue(serializedIds.contains(firstRecordId), 'Audit should carry the first underlying recordId from header');
+		Assert.isTrue(serializedIds.contains(secondRecordId), 'Audit should carry the second underlying recordId from header');
+		Assert.isTrue(serializedIds.contains(thirdRecordId), 'Audit should carry the third underlying recordId from header');
+	}
+
+	/**
+	 * @description Verifies the CDC aggregate audit caps the recordIds list at `MAX_AUDITED_IDS`
+	 * while the total count reflects the full uncapped sum. Dispatches three change-event
+	 * records whose combined header.recordIds total 300 (3 × 100) — the audit list caps at 200
+	 * (first 200 ids surface in `CONTEXT_RECORD_IDS`) while `CONTEXT_RECORD_COUNT` reports 300.
+	 *
+	 * Drives the cap-saturation branch where `remaining <= 0` short-circuits subsequent
+	 * accumulation, plus the per-list-add branch where take is bounded by remaining capacity
+	 * rather than the list size.
+	 */
+	@IsTest
+	private static void shouldCapCdcAuditRecordIdsAtMaxWhileTotalCountReflectsFullSum()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LogSetting__c logSetting = LOG_Engine.logSettingOverride;
+		logSetting.EnableFlowActionLogging__c = 'AlwaysOn';
+
+		String cdcFlowName = 'TRG_InvokeFlow_TEST_AcctCappedFlow';
+		TST_InvokeFlowMock.forFlow(cdcFlowName).succeed().register();
+
+		TriggerAction__mdt config = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.DeveloperName, 'TRG_InvokeFlow_TEST_CdcCapped')
+				.withOverride(TriggerAction__mdt.FlowName__c, cdcFlowName)
+				.withOverride(TriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+				.withoutInsertion()
+				.build();
+
+		List<String> bulkIds = new List<String>();
+		for(Integer i = 0; i < 100; i++)
+		{
+			bulkIds.add(String.valueOf(UTIL_Random.randomId(Account.SObjectType)));
+		}
+
+		DTO_ChangeEventHeader simulatedHeader = new DTO_ChangeEventHeader();
+		simulatedHeader.entityName = 'Account';
+		simulatedHeader.changeType = 'UPDATE';
+		simulatedHeader.recordIds = bulkIds;
+		TRG_InvokeFlow.simulateChangeEventHeaderForTest = simulatedHeader;
+
+		List<SObject> cdcRecords = new List<SObject>();
+		for(Integer i = 0; i < 3; i++)
+		{
+			cdcRecords.add(TST_Builder.of(AccountChangeEvent.SObjectType).withoutInsertion().build());
+		}
+
+		TRG_InvokeFlow action = new TRG_InvokeFlow();
+		action.setConfig(config);
+
+		Test.startTest();
+		try
+		{
+			action.afterInsert(cdcRecords);
+		}
+		finally
+		{
+			TRG_InvokeFlow.simulateChangeEventHeaderForTest = null;
+		}
+		Test.stopTest();
+
+		LogEntry__c auditLog = new SEL_LogEntry().findByMethod(TRIGGER_ACTION + '.run');
+		Assert.isNotNull(auditLog, 'AlwaysOn audit should emit a per-batch entry for the CDC dispatch');
+		Map<String, Object> ctx = extractAuditContextData(auditLog.ContextData__c);
+		Assert.areEqual('300', String.valueOf(ctx.get('recordCount')),
+				'recordCount must reflect full uncapped total (300 = 3 × 100): ' + auditLog.ContextData__c);
+		String serializedIds = String.valueOf(ctx.get('recordIds'));
+		Assert.isTrue(serializedIds.contains(bulkIds[0]), 'First id should be in audit list (below cap)');
+		List<Object> capturedIds = (List<Object>)JSON.deserializeUntyped(serializedIds);
+		Assert.areEqual(200, capturedIds.size(),
+				'attemptedCdcRecordIds must cap at MAX_AUDITED_IDS (200) — full uncapped total surfaces only via recordCount');
+	}
+
+	/**
+	 * @description Verifies a CDC dispatch with a header carrying null `recordIds` does not
+	 * throw and emits an audit entry with `recordCount = 0`. Covers the defensive early
+	 * return in `accumulateCdcAuditIds` when the simulator seam produces a DTO without a
+	 * populated `recordIds` list (default-constructor case) — production CDC delivery
+	 * always populates `recordIds`, but the framework must not crash on a malformed
+	 * synthetic header.
+	 */
+	@IsTest
+	private static void shouldSkipAccumulationWhenCdcHeaderRecordIdsIsNull()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LogSetting__c logSetting = LOG_Engine.logSettingOverride;
+		logSetting.EnableFlowActionLogging__c = 'AlwaysOn';
+
+		String cdcFlowName = 'TRG_InvokeFlow_TEST_NullIdsFlow';
+		TST_InvokeFlowMock.forFlow(cdcFlowName).succeed().register();
+
+		TriggerAction__mdt config = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.DeveloperName, 'TRG_InvokeFlow_TEST_CdcNullIds')
+				.withOverride(TriggerAction__mdt.FlowName__c, cdcFlowName)
+				.withOverride(TriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+				.withoutInsertion()
+				.build();
+
+		DTO_ChangeEventHeader simulatedHeader = new DTO_ChangeEventHeader();
+		simulatedHeader.entityName = 'Account';
+		simulatedHeader.changeType = 'GAP_OVERFLOW';
+		TRG_InvokeFlow.simulateChangeEventHeaderForTest = simulatedHeader;
+
+		AccountChangeEvent cdcRecord = (AccountChangeEvent)TST_Builder.of(AccountChangeEvent.SObjectType)
+				.withoutInsertion()
+				.build();
+
+		TRG_InvokeFlow action = new TRG_InvokeFlow();
+		action.setConfig(config);
+
+		Test.startTest();
+		try
+		{
+			action.afterInsert(new List<SObject> {cdcRecord});
+		}
+		finally
+		{
+			TRG_InvokeFlow.simulateChangeEventHeaderForTest = null;
+		}
+		Test.stopTest();
+
+		LogEntry__c auditLog = new SEL_LogEntry().findByMethod(TRIGGER_ACTION + '.run');
+		Assert.isNotNull(auditLog, 'AlwaysOn audit should still emit even when header.recordIds is null');
+		Map<String, Object> ctx = extractAuditContextData(auditLog.ContextData__c);
+		Assert.areEqual('0', String.valueOf(ctx.get('recordCount')),
+				'recordCount must be 0 when header carries no recordIds: ' + auditLog.ContextData__c);
+	}
+
+	/**
+	 * @description Verifies a `BlockDml` failure on a Change Event dispatch is degraded to
+	 * `LogAndContinue` semantics: `record.addError` is NOT called (because a committed
+	 * change cannot be rolled back), and a distinct warning audit entry is emitted with
+	 * `errorKind = cdc-block-dml-degraded` so subscribers can pivot queries on the degrade
+	 * event. The per-record error log entry still emits (it carries the underlying flow
+	 * failure context); the degrade warning is a parallel signal naming the policy switch.
+	 *
+	 * @see TRG_InvokeFlow.handleFailure
+	 */
+	@IsTest
+	private static void shouldDegradeBlockDmlToLogAndContinueOnCdcDispatch()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		String cdcFlowName = 'TRG_InvokeFlow_TEST_CdcBlockDmlFlow';
+		TST_InvokeFlowMock.forFlow(cdcFlowName).fail(FAILURE_MESSAGE).register();
+
+		TriggerAction__mdt config = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.DeveloperName, 'TRG_InvokeFlow_TEST_CdcBlockDml')
+				.withOverride(TriggerAction__mdt.FlowName__c, cdcFlowName)
+				.withOverride(TriggerAction__mdt.FailureAction__c, FAILURE_BLOCK_DML)
+				.withoutInsertion()
+				.build();
+
+		DTO_ChangeEventHeader simulatedHeader = new DTO_ChangeEventHeader();
+		simulatedHeader.entityName = 'Account';
+		simulatedHeader.changeType = 'CREATE';
+		simulatedHeader.recordIds = new List<String> {String.valueOf(UTIL_Random.randomId(Account.SObjectType))};
+		TRG_InvokeFlow.simulateChangeEventHeaderForTest = simulatedHeader;
+
+		AccountChangeEvent cdcRecord = (AccountChangeEvent)TST_Builder.of(AccountChangeEvent.SObjectType)
+				.withoutInsertion()
+				.build();
+
+		TRG_InvokeFlow action = new TRG_InvokeFlow();
+		action.setConfig(config);
+
+		Test.startTest();
+		try
+		{
+			action.afterInsert(new List<SObject> {cdcRecord});
+		}
+		finally
+		{
+			TRG_InvokeFlow.simulateChangeEventHeaderForTest = null;
+		}
+		Test.stopTest();
+
+		Assert.isFalse(cdcRecord.hasErrors(),
+				'BlockDml on Change Event must degrade to LogAndContinue — addError cannot roll back a committed change');
+		List<LogEntry__c> allEntries = new SEL_LogEntry().findAllByMethod(TRIGGER_ACTION + '.run');
+		Boolean foundDegradeWarning = false;
+		for(LogEntry__c entry : allEntries)
+		{
+			if(entry.ContextData__c != null && entry.ContextData__c.contains('cdc-block-dml-degraded'))
+			{
+				foundDegradeWarning = true;
+				Assert.isTrue(entry.ContextData__c.contains(cdcFlowName),
+						'Degrade warning should name the offending flow');
+				Assert.isTrue(entry.ContextData__c.contains('BlockDml'),
+						'Degrade warning should name the rejected failure action');
+				break;
+			}
+		}
+		Assert.isTrue(foundDegradeWarning,
+				'A warning audit entry with errorKind=cdc-block-dml-degraded must be emitted on BlockDml+CDC: ' + allEntries);
+
+		Boolean foundUnderlyingError = false;
+		for(LogEntry__c entry : allEntries)
+		{
+			if(entry.ContextData__c != null && entry.ContextData__c.contains('runtime') && !entry.ContextData__c.contains('cdc-block-dml-degraded'))
+			{
+				foundUnderlyingError = true;
+				break;
+			}
+		}
+		Assert.isTrue(foundUnderlyingError,
+				'The underlying flow-failure audit entry (errorKind=runtime) must still emit alongside the degrade warning: ' + allEntries);
+	}
+
+	/**
+	 * @description Parses the `LogEntry__c.ContextData__c` JSON string and returns the inner
+	 * `contextData` map. LOG_Builder wraps the user-supplied context map in a `{"contextData":
+	 * {...}}` envelope before serializing, so test assertions on individual context keys must
+	 * navigate one level into the outer object. Returns an empty map when the field is null
+	 * or the inner envelope is missing — callers should follow up with explicit value checks.
+	 *
+	 * @param contextDataJson The raw `ContextData__c` field value (LOG_Builder-serialized JSON).
+	 *
+	 * @return The inner `contextData` map containing the per-emit context keys.
+	 */
+	private static Map<String, Object> extractAuditContextData(String contextDataJson)
+	{
+		if(String.isBlank(contextDataJson))
+		{
+			return new Map<String, Object>();
+		}
+		Map<String, Object> envelope = (Map<String, Object>)JSON.deserializeUntyped(contextDataJson);
+		Object payload = envelope.get('contextData');
+		if(!(payload instanceof Map<String, Object>))
+		{
+			return new Map<String, Object>();
+		}
+		return (Map<String, Object>)payload;
 	}
 
 	/**

@@ -55,22 +55,17 @@ test.describe.serial('Part 5: Streaming — Setup & Subscribe', () =>
 		const monitor = new StreamingMonitorPage(page);
 		await monitor.navigate();
 
-		try
-		{
-			await monitor.clickSubscribe();
-			await monitor.selectEventType('Change Data Capture event');
-			await monitor.selectEventName('AccountChangeEvent');
-			await monitor.clickSubscribeButton();
-			const subCount = await monitor.getActiveSubscriptionCount();
-			expect(subCount, 'Should have subscriptions').toBeGreaterThanOrEqual(1);
-		}
-		catch
-		{
-			test.info().annotations.push({type: 'notes', description: 'CDC subscription skipped — AccountChangeEvent not available in dropdown'});
-			await page.keyboard.press('Escape').catch(() =>
-			{
-			});
-		}
+		// The harness ships a CDC-enabled SubscriberCdcProbe__c (selected on the standard
+		// ChangeEvents channel), so its change event surfaces in the CDC dropdown. The option
+		// label is the __ChangeEvent entity's own label — 'Change Event: <object label>' —
+		// passed through unmodified (CTRL_EventMonitor.addChangeEventDefinition).
+		await monitor.clickSubscribe();
+		await monitor.selectEventType('Change Data Capture event');
+		await monitor.selectEventName('Change Event: Subscriber CDC Probe');
+		await monitor.clickSubscribeButton();
+
+		const subCount = await monitor.getActiveSubscriptionCount();
+		expect(subCount, 'Should have at least 1 CDC subscription').toBeGreaterThanOrEqual(1);
 	});
 
 	test('V22: Subscribe to Standard Platform Event', async({page}) =>
@@ -88,20 +83,44 @@ test.describe.serial('Part 5: Streaming — Setup & Subscribe', () =>
 		expect(subCount, 'Should have subscriptions').toBeGreaterThanOrEqual(1);
 	});
 
-	test('V23: Trigger CDC Event via Account Update', async({page}) =>
+	test('V23: Trigger CDC Event via SubscriberCdcProbe Insert', async({page}) =>
 	{
 		test.setTimeout(120_000);
-
-		executeAnonymousApex('insert new Account(Name = \'CDC Streaming Test\', Industry = \'Technology\', Phone = \'555-0300\');');
-
 		await navigateToApp(page, 'Kern');
 		const monitor = new StreamingMonitorPage(page);
 		await monitor.navigate();
-		await page.waitForTimeout(5000);
 
-		const eventCount = await monitor.getEventCount();
-		test.info().annotations.push({type: 'notes', description: `Events visible: ${eventCount}`});
-		expect(eventCount, 'Should have events from subscriptions').toBeGreaterThanOrEqual(0);
+		// Subscribe to the probe's CDC change event. Re-subscribing is idempotent and covers the
+		// case where navigating back into the monitor re-mounted it and dropped V21's subscription.
+		await monitor.clickSubscribe();
+		await monitor.selectEventType('Change Data Capture event');
+		await monitor.selectEventName('Change Event: Subscriber CDC Probe');
+		await monitor.clickSubscribeButton();
+
+		const subCount = await monitor.getActiveSubscriptionCount();
+		expect(subCount, 'CDC subscription must be active before the probe insert').toBeGreaterThanOrEqual(1);
+
+		// Let the CometD/EMP handshake fully establish before inserting: with replay -1 the
+		// monitor only receives events published after the subscription is live.
+		await page.waitForTimeout(4000);
+
+		const beforeCount = await monitor.getEventCount();
+
+		// Inserting a probe makes the platform emit a CREATE change event on
+		// /data/SubscriberCdcProbe__ChangeEvent, delivered to the monitor's EMP subscription.
+		// Asserting an increase (not merely > 0) keeps the check meaningful even when earlier
+		// subscriptions left events on screen.
+		executeAnonymousApex('insert new SubscriberCdcProbe__c(Name = \'CDC Streaming Test\', ProbeLabel__c = \'E2E_V23\');');
+
+		let afterCount = beforeCount;
+		for(let attempt = 0; attempt < 20 && afterCount <= beforeCount; attempt++)
+		{
+			await page.waitForTimeout(2000);
+			afterCount = await monitor.getEventCount();
+		}
+
+		test.info().annotations.push({type: 'notes', description: `CDC events before=${beforeCount} after=${afterCount}`});
+		expect(afterCount, 'Probe insert should deliver a CDC change event to the monitor').toBeGreaterThan(beforeCount);
 	});
 
 	test('V24: Multi-Channel Display and View Controls', async({page}) =>

@@ -14,47 +14,39 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class CTRL_EventMonitor
 {
 	/**
 	 * @description Publishes a streaming event based on its type.This is the main
-	 * entry point for publishing events from the UI.
+	 * entry point for publishing events from the UI. Subscriber-facing failure messages are
+	 * label-sourced so they stay translatable; raw failure detail is logged where the failure
+	 * occurs and never reaches the UI.
 	 *
 	 * @param eventType The type of event to publish(see EVT_ constants).
 	 * @param eventName The API name of the event or channel.
 	 * @param eventPayload The JSON payload for the event.
 	 *
-	 * @throws IllegalArgumentException if the event type is unsupported.
+	 * @throws AuraHandledException if the event type is unsupported, the event or channel is
+	 * unknown, or the publish fails.
 	 */
 	@AuraEnabled
 	public static void publishStreamingEvent(String eventType, String eventName, String eventPayload)
 	{
-		try
+		if(eventType == StreamingEventTypes.PlatformEvent.name())
 		{
-			if(eventType == StreamingEventTypes.PlatformEvent.name())
-			{
-				publishCustomPlatformEvent(eventName, eventPayload);
-			}
-			else if(eventType == StreamingEventTypes.GenericEvent.name())
-			{
-				publishGenericEvent(eventName, eventPayload);
-			}
-			else
-			{
-				throw new IllegalArgumentException('Unsupported event type: ' + eventType);
-			}
+			publishCustomPlatformEvent(eventName, eventPayload);
 		}
-		catch(Exception error)
+		else if(eventType == StreamingEventTypes.GenericEvent.name())
 		{
-			LOG_Builder.build().error(error).at(CTRL_EventMonitor.class.getName() + '.publishStreamingEvent').emit();
-
-			error.setMessage('Unable to publish event due to following error' + UTIL_String.LF + error.getMessage());
-
-			throw error;
+			publishGenericEvent(eventName, eventPayload);
 		}
-
+		else
+		{
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_UnsupportedEventType, new List<Object> {eventType}));
+		}
 	}
 
 	/**
@@ -105,23 +97,107 @@ public inherited sharing class CTRL_EventMonitor
 	}
 
 	/**
-	 * @description Retrieves platform event usage metrics, ordered by start date.
+	 * @description Indicates whether this org exposes Enhanced Usage Metrics (the TimeSegment
+	 * field on PlatformEventUsageMetric). The UI uses this to enable sub-daily granularity.
 	 *
-	 * @return List of found items
+	 * @return `true` when Enhanced Usage Metrics is enabled in the org.
 	 */
 	@AuraEnabled
-	public static List<PlatformEventUsageMetric> getEventUsageMetrics()
+	public static Boolean isEnhancedUsageMetricEnabled()
 	{
-		return new SEL_PlatformEventUsageMetric().getAllOrderByStartDate();
+		return SEL_PlatformEventUsageMetric.isTimeSegmentAvailable();
+	}
+
+	/**
+	 * @description Retrieves platform event usage metrics for a time segment and date range,
+	 * ordered by start date. Blank segment defaults to Daily, preserving the pre-Enhanced-Usage-
+	 * Metrics call shape. Null dates default to the segment's maximum valid window ending now. The
+	 * platform rejects ranges wider than the per-segment window (Daily 30 days, Hourly 24 hours,
+	 * FifteenMinutes 1 hour), so an over-window or inverted range is rejected here before the query
+	 * reaches the platform's UDD metrics validator.
+	 *
+	 * @param timeSegment Daily, Hourly, or FifteenMinutes; blank defaults to Daily.
+	 * @param startDate Inclusive lower bound on StartDate; null defaults to endDate minus the segment window.
+	 * @param endDate Inclusive upper bound on EndDate; null defaults to now.
+	 *
+	 * @return List of found usage metric rows.
+	 *
+	 * @throws AuraHandledException if the segment is unsupported, the start is after the end, the
+	 * range is wider than the segment allows, or the range is narrower than one segment bucket (the
+	 * platform rejects sub-bucket ranges outright instead of returning empty).
+	 */
+	@AuraEnabled
+	public static List<PlatformEventUsageMetric> getEventUsageMetrics(String timeSegment, Datetime startDate, Datetime endDate)
+	{
+		String requestedSegment = String.isBlank(timeSegment) ? SEL_PlatformEventUsageMetric.TimeSegment.Daily.name() : timeSegment;
+
+		SEL_PlatformEventUsageMetric.TimeSegment segment = SEL_PlatformEventUsageMetric.toTimeSegment(requestedSegment);
+
+		if(segment == null)
+		{
+			throw buildAuraHandledException(System.Label.EventUsageMetrics_Validation_UnsupportedSegment);
+		}
+
+		Integer windowMinutes = SEL_PlatformEventUsageMetric.maxRangeMinutes(segment);
+		Datetime effectiveEndDate = endDate ?? Datetime.now();
+		Datetime effectiveStartDate = startDate ?? effectiveEndDate.addMinutes(-windowMinutes);
+
+		if(effectiveStartDate > effectiveEndDate)
+		{
+			throw buildAuraHandledException(System.Label.EventUsageMetrics_Validation_StartAfterEnd);
+		}
+
+		if((effectiveEndDate.getTime() - effectiveStartDate.getTime()) > windowMinutes * UTIL_Date.MILLISECONDS_PER_MINUTE)
+		{
+			throw buildAuraHandledException(String.format(
+					System.Label.EventUsageMetrics_Validation_RangeTooWide,
+					new List<Object> {SEL_PlatformEventUsageMetric.maxRangeHuman(segment)}));
+		}
+
+		if((effectiveEndDate.getTime() - effectiveStartDate.getTime()) < SEL_PlatformEventUsageMetric.minRangeMinutes(segment) * UTIL_Date.MILLISECONDS_PER_MINUTE)
+		{
+			throw buildAuraHandledException
+					(
+							String.format
+									(
+											System.Label.EventUsageMetrics_Validation_RangeTooNarrow,
+											new List<Object> {SEL_PlatformEventUsageMetric.minRangeHuman(segment)}
+									)
+					);
+		}
+
+		return new SEL_PlatformEventUsageMetric().getBySegmentAndDateRange(segment, effectiveStartDate, effectiveEndDate);
+	}
+
+	/**
+	 * @description Builds an AuraHandledException that carries the given subscriber-facing message
+	 * both client-side and server-side. The bare constructor only sets the client-facing message and
+	 * leaves `getMessage()` returning 'Script-thrown exception', which would make the message
+	 * unreadable in logs and unassertable in tests.
+	 *
+	 * @param message The label-sourced, subscriber-safe message.
+	 *
+	 * @return The exception, ready to throw.
+	 */
+	private static AuraHandledException buildAuraHandledException(String message)
+	{
+		AuraHandledException error = new AuraHandledException(message);
+		error.setMessage(message);
+
+		return error;
 	}
 
 	/**
 	 * @description Generates a blank payload map(field name -> default value)
-	 * for a given platform event.This excludes standard platform event fields.
+	 * for a given platform event. Only fields a publisher can set (createable) are included;
+	 * the event's read-only system fields are excluded.
 	 *
 	 * @param eventName The API name of the platform event(e.g., 'MyEvent__e').
 	 *
 	 * @return Map<String, Object> A map representing the blank event payload.
+	 *
+	 * @throws AuraHandledException if the payload template cannot be prepared; the raw failure
+	 * detail goes to the logger only.
 	 */
 	@AuraEnabled
 	public static SObject getInitialisedEvent(String eventName)
@@ -130,23 +206,15 @@ public inherited sharing class CTRL_EventMonitor
 		{
 			UTIL_SObjectDescribe objectDescribe = UTIL_SObjectDescribe.getDescribe(eventName);
 
-			final List<String> fieldsToIgnore = new List<String>
-			{
-					LogEntryEvent__e.CreatedById.getDescribe().name.toLowerCase(),
-					LogEntryEvent__e.CreatedDate.getDescribe().name.toLowerCase(),
-					LogEntryEvent__e.EventUuid.getDescribe().name.toLowerCase(),
-					LogEntryEvent__e.ReplayId.getDescribe().name.toLowerCase()
-			};
-
-			Map<String, SObjectField> objectFieldMap = objectDescribe.getFieldsMap();
-
 			List<SObjectField> fieldsToDefault = new List<SObjectField>();
 
-			for(String fieldName : objectFieldMap.keySet())
+			for(SObjectField field : objectDescribe.getFieldsMap().values())
 			{
-				if(!fieldsToIgnore.contains(fieldName))
+				// Createable fields are the payload a publisher can set; the event's system fields
+				// (CreatedById, CreatedDate, EventUuid, ReplayId) are read-only plumbing.
+				if(UTIL_SObjectDescribe.getCachedFieldDescribe(field).isCreateable())
 				{
-					fieldsToDefault.add(objectFieldMap.get(fieldName));
+					fieldsToDefault.add(field);
 				}
 			}
 
@@ -158,16 +226,23 @@ public inherited sharing class CTRL_EventMonitor
 		}
 		catch(Exception error)
 		{
-			error.setMessage('Following error occured for event name "' + eventName + '"' + UTIL_String.LF + error.getMessage());
-			throw error;
+			// Raw describe/builder detail belongs in the log, not the UI.
+			LOG_Builder.build().error(error).at(CTRL_EventMonitor.class.getName() + '.getInitialisedEvent').emit();
+
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_PayloadTemplateFailed, new List<Object> {eventName}));
 		}
 	}
 
 	/**
-	 * @description Private helper to publish a specific Platform Event.
+	 * @description Private helper to publish a specific Platform Event. An unknown event name
+	 * throws a label-sourced AuraHandledException; a failed parse or publish routes its raw
+	 * detail (JSON parser text, DML errors) to the logger and surfaces the translated
+	 * publish-failure message.
 	 *
 	 * @param eventName The API name of the platform event.
 	 * @param eventPayload The JSON payload to deserialize and publish.
+	 *
+	 * @throws AuraHandledException if the event name is unknown or the publish fails.
 	 */
 	@TestVisible
 	private static void publishCustomPlatformEvent(String eventName, String eventPayload)
@@ -176,27 +251,39 @@ public inherited sharing class CTRL_EventMonitor
 
 		if(objectType == null)
 		{
-			throw new IllegalArgumentException('Unknown platform event type: ' + eventName);
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_UnknownPlatformEventType, new List<Object> {eventName}));
 		}
 
-		SObject platformEvent = (SObject)JSON.deserialize(eventPayload, UTIL_System.getRuntimeType(objectType.newSObject()));
-
-		Database.SaveResult saveResult = EventBus.publish(platformEvent);
-
-		if(!saveResult.success)
+		try
 		{
-			throw new DmlException(LOG_Engine.extractErrorMessage(saveResult.errors));
+			SObject platformEvent = (SObject)JSON.deserialize(eventPayload, UTIL_System.getRuntimeType(objectType.newSObject()));
+
+			Database.SaveResult saveResult = EventBus.publishWithAccessLevel(platformEvent, AccessLevel.USER_MODE);
+
+			if(!saveResult.success)
+			{
+				throw new DmlException(LOG_Engine.extractErrorMessage(saveResult.errors));
+			}
+		}
+		catch(Exception error)
+		{
+			// Raw detail (JSON parser text, DML errors) belongs in the log, not the UI.
+			LOG_Builder.build().error(error).at(CTRL_EventMonitor.class.getName() + '.publishCustomPlatformEvent').emit();
+
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_PublishFailed, new List<Object> {eventName}));
 		}
 	}
 
 	/**
 	 * @description Private helper to publish a generic streaming event.
-	 * Enqueues a Queueable job to make the necessary REST API callout.
+	 * Enqueues a Queueable job to make the necessary REST API callout. An unknown channel name and
+	 * a failed callout both throw a label-sourced AuraHandledException; the raw failure detail of a
+	 * failed callout is already logged and persisted by the API framework, so it is not rethrown.
 	 *
 	 * @param eventName The name of the StreamingChannel(without the '/u/').
 	 * @param eventPayload The string payload to publish.
 	 *
-	 * @throws IllegalArgumentException if the StreamingChannel is not found.
+	 * @throws AuraHandledException if the StreamingChannel is not found or the publish fails.
 	 */
 	private static void publishGenericEvent(String eventName, String eventPayload)
 	{
@@ -204,7 +291,7 @@ public inherited sharing class CTRL_EventMonitor
 
 		if(foundChannel == null)
 		{
-			throw new IllegalArgumentException('Unknown generic event type: ' + eventName);
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_UnknownGenericEventType, new List<Object> {eventName}));
 		}
 
 		API_Base handler = API_Dispatcher.execute
@@ -220,7 +307,8 @@ public inherited sharing class CTRL_EventMonitor
 
 		if(!handler.result.isSuccess)
 		{
-			throw new IllegalArgumentException(handler.errorText);
+			// The dispatcher has already logged the failure and persisted its raw detail on the API call records.
+			throw buildAuraHandledException(String.format(System.Label.EventMonitor_PublishFailed, new List<Object> {eventName}));
 		}
 	}
 
@@ -273,8 +361,8 @@ public inherited sharing class CTRL_EventMonitor
 	{
 		List<ComboBoxItem> comboBoxItems = new List<ComboBoxItem>();
 
-		addChangeEventDefinition(new SEL_EntityDefinition().getAllStandardChangeCaptureEvents(), comboBoxItems, false);
-		addChangeEventDefinition(new SEL_EntityDefinition().getAllCustomChangeCaptureEvents(), comboBoxItems, true);
+		addChangeEventDefinition(new SEL_EntityDefinition().getAllStandardChangeCaptureEvents(), comboBoxItems);
+		addChangeEventDefinition(new SEL_EntityDefinition().getAllCustomChangeCaptureEvents(), comboBoxItems);
 
 		comboBoxItems.sort();
 
@@ -282,19 +370,18 @@ public inherited sharing class CTRL_EventMonitor
 	}
 
 	/**
-	 * @description Will loop through definitions and add them to combo box list
+	 * @description Will loop through definitions and add them to combo box list. Both standard
+	 * and custom ChangeEvent entities expose their channel api name directly on QualifiedApiName,
+	 * so labels and values pass through unmodified.
 	 *
 	 * @param definitions The entity definitions to process
 	 * @param comboBoxItems The items to which to add definition details
-	 * @param isCustom Indicates if the entity definition is for a custom change capture event; requires special processing
 	 */
-	private static void addChangeEventDefinition(List<EntityDefinition> definitions, List<ComboBoxItem> comboBoxItems, Boolean isCustom)
+	private static void addChangeEventDefinition(List<EntityDefinition> definitions, List<ComboBoxItem> comboBoxItems)
 	{
 		for(EntityDefinition entity : definitions)
 		{
-			String label = isCustom ? entity.Label + ' Change Event' : entity.Label;
-			String value = isCustom ? entity.QualifiedApiName.replace(UTIL_SObjectDescribe.CUSTOM_FIELD_SUFFIX, '__ChangeEvent') : entity.QualifiedApiName;
-			comboBoxItems.add(new ComboBoxItem(label, value));
+			comboBoxItems.add(new ComboBoxItem(entity.Label, entity.QualifiedApiName));
 		}
 	}
 

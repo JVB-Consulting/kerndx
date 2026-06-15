@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>CDC BlockDml Degrade - After Insert</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__AllowNonSelfInitiated__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__AllowRecursion__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__BypassExecution__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__BypassFeatureFlag__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Bound to TST_SubscriberFlow_CdcAlwaysFail to exercise the BlockDml-to-LogAndContinue degrade on a change-event dispatch (a committed change cannot be rolled back). Bypassed in baseline; activated only by the cdc-blockdml-degrade-active fixture.</value>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaContextClassName__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__EntryCriteriaFormula__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Event__c</field>
+        <value xsi:type="xsd:string">After Insert</value>
+    </values>
+    <values>
+        <field>kern__FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>kern__FlowName__c</field>
+        <value xsi:type="xsd:string">TST_SubscriberFlow_CdcAlwaysFail</value>
+    </values>
+    <values>
+        <field>kern__ForcePerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Order__c</field>
+        <value xsi:type="xsd:double">20.0</value>
+    </values>
+    <values>
+        <field>kern__PerformanceThresholdMs__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__RequiredFeatureFlag__c</field>
+        <value xsi:type="xsd:string">EnableCdcHeaderReleaseTest</value>
+    </values>
+    <values>
+        <field>kern__SuppressPerformanceLogging__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__TriggerSetting__c</field>
+        <value xsi:type="xsd:string">SubscriberCdcProbeChangeEvent</value>
+    </values>
+</CustomMetadata>

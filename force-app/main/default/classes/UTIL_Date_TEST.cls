@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -435,5 +435,38 @@ private class UTIL_Date_TEST
 		Assert.areEqual('1h', UTIL_Date.formatDuration(3600000), 'Even hours should not show 0m');
 		Assert.areEqual('1h 5m', UTIL_Date.formatDuration(3900000), 'Hours with minutes');
 		Assert.areEqual('24h', UTIL_Date.formatDuration(86400000), '24 hours');
+	}
+
+	/**
+	 * @description Tests that toUtcDayBucket formats the GMT calendar date as yyyyMMdd,
+	 * independent of the running user's timezone.
+	 */
+	@IsTest
+	private static void shouldFormatUtcDayBucket()
+	{
+		Datetime gmtMidday = Datetime.newInstanceGmt(2026, 6, 7, 12, 0, 0);
+
+		Assert.areEqual('20260607', UTIL_Date.toUtcDayBucket(gmtMidday), 'Bucket should be the GMT calendar date as yyyyMMdd');
+	}
+
+	/**
+	 * @description Tests that toUtcDayBucket buckets by the GMT date even when the local
+	 * date differs (a GMT timestamp just past midnight belongs to the GMT day).
+	 */
+	@IsTest
+	private static void shouldBucketByGmtDateAcrossMidnight()
+	{
+		Datetime justPastGmtMidnight = Datetime.newInstanceGmt(2026, 6, 8, 0, 0, 1);
+
+		Assert.areEqual('20260608', UTIL_Date.toUtcDayBucket(justPastGmtMidnight), 'Bucket must follow the GMT day boundary');
+	}
+
+	/**
+	 * @description Tests that toUtcDayBucket returns null for null input rather than throwing.
+	 */
+	@IsTest
+	private static void shouldReturnNullBucketForNullInput()
+	{
+		Assert.isNull(UTIL_Date.toUtcDayBucket(null), 'Null input should yield null, not an exception');
 	}
 }

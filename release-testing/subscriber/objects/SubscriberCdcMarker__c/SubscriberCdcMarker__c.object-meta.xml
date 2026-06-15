@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Release-testing harness object the CDC header sink writes one record into per change-event dispatch, capturing the DTO_ChangeEventHeader scalars (change type, entity, record ids) the subscriber Flow received. Change Data Capture is deliberately NOT enabled here so the sink insert never re-fires the dispatch. Inserted from the CDC automated-process transaction, then queried by the release-test verify scripts after the change-event delivery window. Not part of the managed package.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>false</enableReports>
+    <enableSearch>false</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <label>Subscriber CDC Marker</label>
+    <nameField>
+        <displayFormat>CDC-MARK-{0000}</displayFormat>
+        <label>Marker Name</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Subscriber CDC Markers</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

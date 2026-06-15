@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class SEL_TriggerAction
 {
@@ -60,6 +60,27 @@ public inherited sharing class SEL_TriggerAction
 	 * Apex actions) so the originating DML rolls back and the error surfaces to the user.
 	 */
 	public static final String FAILURE_ACTION_BLOCK_DML = 'BlockDml';
+
+	/**
+	 * @description Stable fingerprint key prefix for routine flag-gated trigger-action skip logs.
+	 * Combined with the object and action names into `trigger-action-skip:<object>:<action>` so that
+	 * identical skips — which fire once per dispatch and flood under change-event redelivery —
+	 * collapse via `LOG_Builder` flood control into one detail row plus a daily rollup counter
+	 * instead of one persisted row per skip.
+	 */
+	@TestVisible
+	private static final String FINGERPRINT_SKIP_PREFIX = 'trigger-action-skip';
+
+	/**
+	 * @description Class+method location passed to `logSkipped`'s `LOG_Builder.at(...)` call.
+	 * Computed via `class.getName()` so the emitted `ClassMethod__c` is namespace-aware
+	 * (`SEL_TriggerAction.shouldExecute` in unmanaged dev orgs / `kern.SEL_TriggerAction.shouldExecute`
+	 * in managed subscriber installs) — matching the `.at(...)` convention used across the framework
+	 * (e.g. `TRG_Dispatcher.AT_LOCATION_DISPATCH_ACTION`). Attributed to `shouldExecute`, the
+	 * semantically meaningful method that decides the skip, not the private `logSkipped` helper.
+	 */
+	@TestVisible
+	private static final String AT_LOCATION_SHOULD_EXECUTE = SEL_TriggerAction.class.getName() + '.shouldExecute';
 
 	/**
 	 * @description Maps Event__c picklist values to TriggerOperation enum values.
@@ -202,6 +223,7 @@ public inherited sharing class SEL_TriggerAction
 				TriggerSetting__mdt.EnablePerformanceLogging__c.getDescribe().name,
 				TriggerSetting__mdt.PerformanceThresholdMs__c.getDescribe().name,
 				TriggerSetting__mdt.SObjectType__c.getDescribe().name,
+				TriggerSetting__mdt.ObjectApiNameOverride__c.getDescribe().name,
 				PATH_SOBJECT_TYPE_QUALIFIED_API_NAME
 		};
 	}
@@ -255,12 +277,12 @@ public inherited sharing class SEL_TriggerAction
 	private static void buildTriggerActionMap()
 	{
 		QRY_Builder.Builder settingQuery = QRY_Builder.selectFrom(TriggerSetting__mdt.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String>(getTriggerSettingFields()))
 				.condition(FIELD_TS_BYPASS_EXECUTION).equals(false);
 
 		QRY_Builder.Builder childQuery = QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.fields(new List<String>(getTriggerActionFields()))
 				.condition(FIELD_TA_BYPASS_EXECUTION).equals(false);
 
@@ -372,7 +394,13 @@ public inherited sharing class SEL_TriggerAction
 	}
 
 	/**
-	 * @description Logs when a trigger action is skipped due to permission/feature flag conditions
+	 * @description Logs when a trigger action is skipped due to permission/feature flag conditions.
+	 * Emitted at DEBUG, not INFO: a flag-gated skip is routine, expected behaviour, not news worth
+	 * surfacing at the default threshold once a subscriber narrows it. Carries a stable
+	 * `trigger-action-skip:<object>:<action>` fingerprint so identical skips — which fire once per
+	 * dispatch and can be amplified into thousands by change-event redelivery — collapse via
+	 * `LOG_Builder` flood control into one detail row plus a daily rollup counter rather than one
+	 * persisted row per skip.
 	 *
 	 * @param actionName The trigger action DeveloperName
 	 * @param objectName The object API name
@@ -380,7 +408,11 @@ public inherited sharing class SEL_TriggerAction
 	 */
 	private static void logSkipped(String actionName, String objectName, String reason)
 	{
-		LOG_Builder.build().info('Trigger action "' + actionName + '" on ' + objectName + ' SKIPPED. ' + reason).at('SEL_TriggerAction.shouldExecute').emit();
+		LOG_Builder.build()
+				.debug('Trigger action "' + actionName + '" on ' + objectName + ' SKIPPED. ' + reason)
+				.withFingerprintInternal(FINGERPRINT_SKIP_PREFIX + UTIL_String.COLON + objectName + UTIL_String.COLON + actionName)
+				.at(AT_LOCATION_SHOULD_EXECUTE)
+				.emit();
 	}
 
 	/**
@@ -397,48 +429,55 @@ public inherited sharing class SEL_TriggerAction
 	@TestVisible
 	private static List<TriggerAction__mdt> sortByOrder(List<TriggerAction__mdt> actions)
 	{
-		Map<Decimal, List<TriggerAction__mdt>> actionsByOrder = new Map<Decimal, List<TriggerAction__mdt>>();
-
-		for(TriggerAction__mdt action : actions)
-		{
-			Decimal orderValue = action.Order__c ?? 0;
-
-			if(!actionsByOrder.containsKey(orderValue))
-			{
-				actionsByOrder.put(orderValue, new List<TriggerAction__mdt>());
-			}
-
-			actionsByOrder.get(orderValue).add(action);
-		}
-
-		List<Decimal> sortedOrders = new List<Decimal>(actionsByOrder.keySet());
-		sortedOrders.sort();
-
-		List<TriggerAction__mdt> sorted = new List<TriggerAction__mdt>();
-
-		for(Decimal orderValue : sortedOrders)
-		{
-			sorted.addAll(actionsByOrder.get(orderValue));
-		}
-
+		List<TriggerAction__mdt> sorted = new List<TriggerAction__mdt>(actions);
+		sorted.sort(new UTIL_Comparators.SObjectFieldComparator(UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Order__c), true));
 		return sorted;
 	}
 
 	/**
-	 * @description Resolves the SObject API name from a TriggerSetting__mdt record.
-	 * Uses the EntityDefinition relationship (QualifiedApiName) when available from real queries,
-	 * falling back to SObjectType__c for test-constructed records where the relationship cannot be populated.
+	 * @description Resolves the SObject API name from a TriggerSetting__mdt record. When the
+	 * ObjectApiNameOverride__c text field is populated, it takes precedence — used to register
+	 * entity types the SObjectType__c relationship cannot reference (primary case: Change Data
+	 * Capture entities, which the platform excludes from the relationship's restricted-picklist
+	 * filter). The override text is normalised to the platform-canonical API-name casing so it
+	 * matches the dispatch-time lookup key (which is derived from the live record's SObjectType
+	 * and is always canonical) regardless of how the admin cased it. Otherwise resolves via the
+	 * EntityDefinition relationship (QualifiedApiName) when available from real queries, falling
+	 * back to SObjectType__c for test-constructed records where the relationship cannot be populated.
 	 *
 	 * @param setting The trigger setting record
 	 *
-	 * @return The fully qualified SObject API name
+	 * @return The fully qualified SObject API name, or null when neither the override nor the relationship is populated.
 	 */
+	@TestVisible
 	private static String resolveObjectName(TriggerSetting__mdt setting)
 	{
+		if(String.isNotBlank(setting.ObjectApiNameOverride__c))
+		{
+			return canonicalizeObjectName(setting.ObjectApiNameOverride__c);
+		}
 		if(setting.SObjectType__r != null)
 		{
 			return setting.SObjectType__r.QualifiedApiName;
 		}
 		return setting.SObjectType__c;
+	}
+
+	/**
+	 * @description Normalises a free-text object API name to the platform-canonical casing so
+	 * it matches the dispatch-time lookup key (derived from the live record's SObjectType via
+	 * UTIL_SObjectDescribe and therefore always canonical). When the name resolves via
+	 * `UTIL_SObjectDescribe.getSObjectTypeByName`, the describe's canonical name is returned;
+	 * otherwise the input is returned unchanged so a name the running context cannot describe
+	 * still registers under exactly what the admin typed (no silent loss).
+	 *
+	 * @param objectApiName The admin-typed override text
+	 *
+	 * @return The canonical object API name when describable, else the input unchanged.
+	 */
+	private static String canonicalizeObjectName(String objectApiName)
+	{
+		SObjectType resolvedType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
+		return resolvedType != null ? UTIL_SObjectDescribe.getObjectNameFromType(resolvedType) : objectApiName;
 	}
 }

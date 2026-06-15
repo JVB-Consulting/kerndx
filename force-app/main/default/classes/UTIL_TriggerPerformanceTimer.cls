@@ -39,6 +39,7 @@
  * timer.stop(); // Automatically logs if duration exceeds configured threshold
  * ```
  */
+@SuppressWarnings('PMD.CognitiveComplexity')
 public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWatch
 {
 	/**
@@ -232,6 +233,35 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 			if(String.isNotBlank(triggerActionMetadata.FlowName__c))
 			{
 				flowName = triggerActionMetadata.FlowName__c;
+			}
+		}
+		return this;
+	}
+
+	/**
+	 * @description Configures the timer from `PostTriggerAction__mdt` settings — mirrors
+	 * `withActionSettings(TriggerAction__mdt)` but covers the two perf knobs that exist on
+	 * the post-action CMDT: `ForcePerformanceLogging__c` and `PerformanceThresholdMs__c`.
+	 * `SuppressPerformanceLogging__c` is intentionally not part of the post-action CMDT —
+	 * subscribers needing to silence a chatty post-action raise the threshold instead.
+	 *
+	 * @param postTriggerActionMetadata The PostTriggerAction__mdt record
+	 *
+	 * @return This timer instance for method chaining
+	 */
+	public UTIL_TriggerPerformanceTimer withPostActionSettings(PostTriggerAction__mdt postTriggerActionMetadata)
+	{
+		if(postTriggerActionMetadata != null)
+		{
+			if(postTriggerActionMetadata.ForcePerformanceLogging__c)
+			{
+				forceLog = true;
+				suppressLog = false;
+			}
+
+			if(postTriggerActionMetadata.PerformanceThresholdMs__c != null)
+			{
+				customThresholdMs = (Integer)postTriggerActionMetadata.PerformanceThresholdMs__c;
 			}
 		}
 		return this;

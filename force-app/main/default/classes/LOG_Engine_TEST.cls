@@ -33,9 +33,9 @@
  *
  * @group Logging
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 @IsTest(SeeAllData=false IsParallel=false)
 private class LOG_Engine_TEST
 {
@@ -298,10 +298,9 @@ private class LOG_Engine_TEST
 
 		Test.stopTest();
 
-		List<LogEntry__c> entries = new SEL_LogEntry().getAll();
-
-		Assert.areEqual(1, entries.size(), MSG_CORRECT_SIZE);
-		Assert.isTrue(entries[0].ClassMethod__c.startsWith('API_'),
+		Assert.areEqual(1, new SEL_LogEntry().findAllByMethod('API_SendEmail/send').size(),
+				MSG_CORRECT_SIZE);
+		Assert.isTrue(new SEL_LogEntry().findAllByMethod('TST_NoisyJob/run').isEmpty(),
 				'Denylisted TST_ class should be suppressed; only API_ class should be logged');
 	}
 
@@ -1082,14 +1081,15 @@ private class LOG_Engine_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 		List<String> messages = new List<String> {'Message one', 'Message two'};
+		String classMethod = LOG_Engine_TEST.class.getName() + '/shouldLogListOfStringMessages';
 
 		Test.startTest();
 
-		LOG_Engine.log(messages, LOG_Engine_TEST.class.getName() + '/shouldLogListOfStringMessages', LoggingLevel.ERROR);
+		LOG_Engine.log(messages, classMethod, LoggingLevel.ERROR);
 
 		Test.stopTest();
 
-		List<LogEntry__c> entries = new SEL_LogEntry().getAll();
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(classMethod);
 		Assert.areEqual(2, entries.size(), 'Should create one log entry per message');
 	}
 
@@ -1128,7 +1128,9 @@ private class LOG_Engine_TEST
 		LOG_Builder.ignoreTestMode = true;
 		Foobar__c record = TST_Factory.newFoobar();
 		// Raw Database.upsert required to obtain Database.UpsertResult instances for LOG_Engine.log(List<Object>, method).
-		List<Database.UpsertResult> results = Database.upsert(new List<SObject> {record}, false);
+		// SYSTEM_MODE keeps the fixture independent of the running user's record-type and field access,
+		// which the test-running user lacks in namespaced packaging/subscriber orgs.
+		List<Database.UpsertResult> results = Database.upsert(new List<SObject> {record}, false, System.AccessLevel.SYSTEM_MODE);
 		List<Object> resultObjects = new List<Object>();
 		resultObjects.addAll(results);
 
@@ -1540,5 +1542,199 @@ private class LOG_Engine_TEST
 	private static User getLowPrivilegeUser()
 	{
 		return new SEL_User().findByCompanyName(LOW_PRIVILEGE_COMPANY);
+	}
+
+	/**
+	 * @description Confirms the event-trigger-context detector recognises platform events (`__e`)
+	 * and change events (`*ChangeEvent`) — the contexts where publishing a `LogEntryEvent__e` makes
+	 * the platform redeliver the source event and loop — while leaving ordinary SObjects (and empty
+	 * or null lists) classified as non-event so normal logging is never re-routed.
+	 *
+	 * @see LOG_Engine.isChangeEventOrPlatformEvent
+	 */
+	@IsTest
+	private static void eventTriggerContextDetectionClassifiesEventSObjects()
+	{
+		Assert.isTrue(LOG_Engine.isChangeEventOrPlatformEvent(new List<SObject> {new LogEntryEvent__e()}),
+				'A platform event (__e) must be detected as event-trigger context');
+		Assert.isTrue(LOG_Engine.isChangeEventOrPlatformEvent(new List<SObject> {new AccountChangeEvent()}),
+				'A change event (ChangeEvent) must be detected as event-trigger context');
+		Assert.isFalse(LOG_Engine.isChangeEventOrPlatformEvent(new List<SObject> {new Account()}),
+				'An ordinary SObject must not be detected as event-trigger context');
+		Assert.isFalse(LOG_Engine.isChangeEventOrPlatformEvent(new List<SObject>()),
+				'An empty record list must not be detected as event-trigger context');
+		Assert.isFalse(LOG_Engine.isChangeEventOrPlatformEvent(null),
+				'A null record list must not be detected as event-trigger context');
+	}
+
+	/**
+	 * @description Only the outermost event dispatch owns the event-trigger context: a second
+	 * `beginEventTriggerContext` while already in context returns `false` so a nested re-entrant
+	 * dispatch leaves teardown to the owner. This guards against a nested dispatch's
+	 * `endEventTriggerContext` clearing the flag while the outer dispatch is still emitting logs —
+	 * which would let those outer logs publish and reopen the loop.
+	 *
+	 * @see LOG_Engine.beginEventTriggerContext
+	 */
+	@IsTest
+	private static void nestedEventTriggerContextDoesNotReenter()
+	{
+		Boolean outerEntered = LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		Boolean nestedEntered = LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		LOG_Engine.endEventTriggerContext();
+
+		Assert.isTrue(outerEntered, 'The outermost event dispatch must enter and own the context');
+		Assert.isFalse(nestedEntered, 'A nested event dispatch must not re-enter (the outer owner tears the context down)');
+	}
+
+	/**
+	 * @description When entering event-trigger context switches suspended-saving on (the common
+	 * case — no outer `LogScope`), `endEventTriggerContext` must switch it back off. Guards the
+	 * ownership-restore logic: a failure here would silently leave saving suspended for the rest of
+	 * the transaction, swallowing subsequent logging.
+	 *
+	 * @see LOG_Engine.endEventTriggerContext
+	 */
+	@IsTest
+	private static void endEventTriggerContextRestoresSuspendedSavingWhenItOwnedTheFlip()
+	{
+		Assert.isFalse(LOG_Engine.isSavingSuspended, 'Precondition: saving is not suspended');
+
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		Assert.isTrue(LOG_Engine.isSavingSuspended, 'Entering event context buffers emits by suspending saving');
+
+		LOG_Engine.endEventTriggerContext();
+		Assert.isFalse(LOG_Engine.isSavingSuspended, 'The owner that switched suspended-saving on must switch it back off');
+		Assert.isFalse(LOG_Engine.isEventTriggerContext, 'Event-trigger context must be cleared on exit');
+	}
+
+	/**
+	 * @description When an OUTER `suspendSaving`/`LogScope` already suspended saving before an event
+	 * dispatch begins, `endEventTriggerContext` must NOT switch saving back off — the outer scope
+	 * owns that lifecycle. Guards against a nested event context stealing the outer scope's suspension
+	 * (which would prematurely resume the outer scope's buffered logging).
+	 *
+	 * @see LOG_Engine.endEventTriggerContext
+	 */
+	@IsTest
+	private static void endEventTriggerContextLeavesOuterSuspendedSavingUntouched()
+	{
+		LOG_Engine.suspendSaving();
+		Assert.isTrue(LOG_Engine.isSavingSuspended, 'Precondition: an outer scope suspended saving');
+
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		LOG_Engine.endEventTriggerContext();
+
+		Assert.isTrue(LOG_Engine.isSavingSuspended, 'A nested event context must leave an outer scope\'s suspended-saving on');
+		Assert.isFalse(LOG_Engine.isEventTriggerContext, 'Event-trigger context must still be cleared on exit');
+
+		LOG_Engine.resumeSaving();
+	}
+
+	/**
+	 * @description The core loop-fix invariant for buffered (non-ERROR) logs: a routine
+	 * fingerprinted DEBUG entry emitted while inside a change-event/platform-event trigger context
+	 * must NOT publish a `LogEntryEvent__e` (publishing would make the platform redeliver the source
+	 * event and loop). Instead it persists directly to `LogEntry__c` via DML at the dispatch
+	 * boundary, collapsed by the shared flood-control persister into one detail row. `getPublishImmediateDML`
+	 * staying flat proves no platform-event publish occurred; the detail row proves the log was not lost.
+	 *
+	 * @see LOG_Engine.beginEventTriggerContext
+	 * @see LOG_Engine.endEventTriggerContext
+	 */
+	@IsTest
+	private static void eventTriggerContextBuffersAndPersistsViaDmlWithoutPublishing()
+	{
+		setupTestData();
+		LOG_Engine.ignoreTestMode = true;
+		String fingerprint = 'event-context-debug:' + UTIL_Random.randomName();
+
+		Test.startTest();
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		Integer publishBefore = Limits.getPublishImmediateDML();
+		LOG_Builder.build().debug('routine skip during change-event dispatch').withFingerprintInternal(fingerprint).at(CLASS_METHOD).emit();
+		LOG_Engine.endEventTriggerContext();
+		Integer publishAfter = Limits.getPublishImmediateDML();
+		Test.stopTest();
+
+		Assert.areEqual(publishBefore, publishAfter,
+				'No LogEntryEvent__e may be published from inside a change-event/platform-event trigger context');
+		Assert.isTrue(hasDetailRowForFingerprint(fingerprint),
+				'The in-context log must still persist via direct DML (flood-controlled detail row)');
+	}
+
+	/**
+	 * @description The loop-fix invariant for ERROR logs: an ERROR emitted inside a change-event /
+	 * platform-event trigger context must persist its forensic row (observability during CDC
+	 * dispatch is preserved) WITHOUT publishing a `LogEntryEvent__e`. ERROR bypasses buffering, so
+	 * this exercises the immediate-flush branch routing to DML rather than to `EventBus.publish`.
+	 *
+	 * @see LOG_Engine.beginEventTriggerContext
+	 */
+	@IsTest
+	private static void eventTriggerContextErrorPersistsWithoutPublishing()
+	{
+		setupTestData();
+		LOG_Engine.ignoreTestMode = true;
+		String fingerprint = 'event-context-error:' + UTIL_Random.randomName();
+
+		Test.startTest();
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		Integer publishBefore = Limits.getPublishImmediateDML();
+		LOG_Builder.build().error('action failed during change-event dispatch').withFingerprintInternal(fingerprint).at(CLASS_METHOD).emit();
+		LOG_Engine.endEventTriggerContext();
+		Integer publishAfter = Limits.getPublishImmediateDML();
+		Test.stopTest();
+
+		Assert.areEqual(publishBefore, publishAfter,
+				'An ERROR inside change-event/platform-event trigger context must not publish a LogEntryEvent__e');
+		Assert.isTrue(hasDetailRowForFingerprint(fingerprint),
+				'The in-context ERROR must persist via direct DML so observability survives the loop fix');
+	}
+
+	/**
+	 * @description Regression guard: outside any event-trigger context, logs must STILL publish
+	 * immediately via `EventBus.publish` (the deliberate `PublishImmediately` behaviour that lets
+	 * ERROR rows survive a business-transaction rollback). Proven by `getPublishImmediateDML`
+	 * advancing on emit — the loop fix must change nothing for ordinary logging.
+	 *
+	 * @see LOG_Engine.publishEvents
+	 */
+	@IsTest
+	private static void normalContextStillPublishesImmediately()
+	{
+		setupTestData();
+		LOG_Engine.ignoreTestMode = true;
+
+		Test.startTest();
+		Integer publishBefore = Limits.getPublishImmediateDML();
+		LOG_Builder.build().error('ordinary error outside any event trigger').at(CLASS_METHOD).emit();
+		Integer publishAfter = Limits.getPublishImmediateDML();
+		Test.stopTest();
+
+		Assert.isTrue(publishAfter > publishBefore,
+				'Outside event-trigger context, logs must still publish immediately (PublishImmediately preserved)');
+	}
+
+	/**
+	 * @description Scans persisted log rows for the flood-control detail row carrying the given
+	 * fingerprint. Used by the event-trigger-context tests to prove an in-context emit persisted via
+	 * direct DML rather than being lost when the platform-event publish was suppressed.
+	 *
+	 * @param fingerprint The raw fingerprint key passed to `withFingerprintInternal`.
+	 *
+	 * @return `true` when a `LogEntry__c` row exists whose `Fingerprint__c` is the detail key for the fingerprint.
+	 */
+	private static Boolean hasDetailRowForFingerprint(String fingerprint)
+	{
+		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + fingerprint;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(detailKey.equals(row.Fingerprint__c))
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 }

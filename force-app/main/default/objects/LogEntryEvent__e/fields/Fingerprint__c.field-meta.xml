@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fingerprint__c</fullName>
+    <description>Grouping key carried from LOG_Builder.withFingerprint to the persist trigger, where fingerprinted events collapse into a detail row plus windowed rollup counters.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Log-grouping key set via LOG_Builder.withFingerprint. Blank when the entry is not grouped.</inlineHelpText>
+    <isFilteringDisabled>false</isFilteringDisabled>
+    <isNameField>false</isNameField>
+    <isSortingDisabled>false</isSortingDisabled>
+    <label>Fingerprint</label>
+    <length>216</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -5,6 +5,7 @@
     <columns>ShortMessage__c</columns>
     <columns>ClassMethod__c</columns>
     <columns>LogLevel__c</columns>
+    <columns>OccurrenceCount__c</columns>
     <columns>RecordLink__c</columns>
     <columns>UserLink__c</columns>
     <columns>CREATED_DATE</columns>

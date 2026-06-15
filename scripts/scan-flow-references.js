@@ -49,8 +49,14 @@ const FLOW_DIR = path.join(PROJECT_ROOT, 'force-app/main/default/flows');
 
 const {getDevOrgAlias} = require('./dev-org-config');
 
-const RECORD_TRIGGERED_TYPES = new Set(['RecordAfterSave', 'RecordBeforeSave']);
-const UPDATE_EVENTS = new Set(['Before Update', 'After Update']);
+const RECORD_TRIGGERED_TYPES = new Set([
+	'RecordAfterSave',
+	'RecordBeforeSave'
+]);
+const UPDATE_EVENTS = new Set([
+	'Before Update',
+	'After Update'
+]);
 const DEFAULT_ORG = getDevOrgAlias();
 
 function parseCliOptions(argv)
@@ -72,11 +78,20 @@ function extractFieldValue(xml, fieldName)
 	const escapedName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const blockPattern = new RegExp(`<values>\\s*<field>${escapedName}</field>\\s*([\\s\\S]*?)</values>`, 'm');
 	const blockMatch = blockPattern.exec(xml);
-	if(!blockMatch) { return null; }
+	if(!blockMatch)
+	{
+		return null;
+	}
 	const inner = blockMatch[1];
-	if(/<value\s+xsi:nil="true"\s*\/?>/i.test(inner)) { return null; }
+	if(/<value\s+xsi:nil="true"\s*\/?>/i.test(inner))
+	{
+		return null;
+	}
 	const valueMatch = /<value[^>]*>([\s\S]*?)<\/value>/.exec(inner);
-	if(!valueMatch) { return null; }
+	if(!valueMatch)
+	{
+		return null;
+	}
 	return valueMatch[1].trim();
 }
 
@@ -84,66 +99,110 @@ function parseTriggerActionFile(filePath)
 {
 	const xml = fs.readFileSync(filePath, 'utf8');
 	const flowName = extractFieldValue(xml, 'FlowName__c');
-	if(!flowName) { return null; }
+	if(!flowName)
+	{
+		return null;
+	}
 	const cmdtName = path.basename(filePath, '.md-meta.xml').replace(/^TriggerAction\./, '');
 	return {
 		cmdtName,
 		filePath,
 		flowName,
 		triggerSetting: extractFieldValue(xml, 'TriggerSetting__c'),
-		event: extractFieldValue(xml, 'Event__c')
+		event: extractFieldValue(xml, 'Event__c'),
+		failureAction: extractFieldValue(xml, 'FailureAction__c')
 	};
 }
 
 function loadTriggerActionRecords()
 {
-	if(!fs.existsSync(CMDT_DIR)) { return []; }
+	if(!fs.existsSync(CMDT_DIR))
+	{
+		return [];
+	}
 	const records = [];
 	const files = fs.readdirSync(CMDT_DIR).filter((name) => name.startsWith('TriggerAction.') && name.endsWith('.md-meta.xml'));
 	for(const file of files)
 	{
 		const record = parseTriggerActionFile(path.join(CMDT_DIR, file));
-		if(record) { records.push(record); }
+		if(record)
+		{
+			records.push(record);
+		}
 	}
 	return records;
 }
 
 function loadTriggerSettingMap()
 {
-	if(!fs.existsSync(CMDT_DIR)) { return {}; }
+	if(!fs.existsSync(CMDT_DIR))
+	{
+		return {};
+	}
 	const map = {};
 	const files = fs.readdirSync(CMDT_DIR).filter((name) => name.startsWith('TriggerSetting.') && name.endsWith('.md-meta.xml'));
 	for(const file of files)
 	{
 		const xml = fs.readFileSync(path.join(CMDT_DIR, file), 'utf8');
 		const developerName = path.basename(file, '.md-meta.xml').replace(/^TriggerSetting\./, '');
+		// Mirror SEL_TriggerAction.resolveObjectName precedence: the text-based
+		// ObjectApiNameOverride__c wins when populated (CDC entities can only be
+		// registered through it because the SObjectType__c restricted picklist
+		// rejects Change Event entities), and SObjectType__c is the fallback for
+		// every other entity type.
+		const override = extractFieldValue(xml, 'ObjectApiNameOverride__c');
 		const sobjectType = extractFieldValue(xml, 'SObjectType__c');
-		if(sobjectType) { map[developerName] = sobjectType; }
+		const resolved = override || sobjectType;
+		if(resolved)
+		{
+			map[developerName] = resolved;
+		}
 	}
 	return map;
 }
 
 function localFlowFilesExist()
 {
-	if(!fs.existsSync(FLOW_DIR)) { return false; }
+	if(!fs.existsSync(FLOW_DIR))
+	{
+		return false;
+	}
 	return fs.readdirSync(FLOW_DIR).some((name) => name.endsWith('.flow-meta.xml'));
 }
 
 function runSoql(query, options)
 {
-	const args = ['data', 'query', '-q', query, '-o', options.org, '--json'];
-	if(options.useToolingApi) { args.push('--use-tooling-api'); }
+	const args = [
+		'data',
+		'query',
+		'-q',
+		query,
+		'-o',
+		options.org,
+		'--json'
+	];
+	if(options.useToolingApi)
+	{
+		args.push('--use-tooling-api');
+	}
 	let stdout;
 	try
 	{
-		stdout = execFileSync('sf', args, {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+		stdout = execFileSync('sf', args, {
+			encoding: 'utf8', stdio: [
+				'ignore',
+				'pipe',
+				'pipe'
+			]
+		});
 	}
 	catch(spawnError)
 	{
 		const stderrText = (spawnError.stderr && spawnError.stderr.toString()) || '';
 		const stdoutText = (spawnError.stdout && spawnError.stdout.toString()) || '';
 		const detail = (stderrText || stdoutText || spawnError.message || '').trim();
-		throw new Error(`Failed to run 'sf data query' against org '${options.org}'. Verify 'sf' is on PATH, the org alias resolves, and the user is authenticated. Underlying error: ${detail}`);
+		throw new Error(
+				`Failed to run 'sf data query' against org '${options.org}'. Verify 'sf' is on PATH, the org alias resolves, and the user is authenticated. Underlying error: ${detail}`);
 	}
 	let parsed;
 	try
@@ -171,7 +230,7 @@ function runProbeSentinel(options, deps)
 	{
 		return {
 			ok: false,
-			message: "Scanner cannot see any flows in the dev org. Either (a) the running user is missing the 'Manage Flow' user permission (assign it via the Kern Administrator permset, a sysadmin profile, or a custom permset that grants Manage Flow), or (b) the dev org has no flows deployed. Re-run after granting permissions or deploying flows."
+			message: 'Scanner cannot see any flows in the dev org. Either (a) the running user is missing the \'Manage Flow\' user permission (assign it via the Kern Administrator permset, a sysadmin profile, or a custom permset that grants Manage Flow), or (b) the dev org has no flows deployed. Re-run after granting permissions or deploying flows.'
 		};
 	}
 	return {ok: true};
@@ -182,12 +241,16 @@ function buildExistenceQueryPlan(records)
 	const flowNames = new Set();
 	for(const record of records)
 	{
-		if(record.flowName) { flowNames.add(record.flowName); }
+		if(record.flowName)
+		{
+			flowNames.add(record.flowName);
+		}
 	}
-	if(flowNames.size === 0) { return null; }
-	const inClause = [...flowNames]
-		.map((name) => `'${name.replace(/'/g, "\\'")}'`)
-		.join(',');
+	if(flowNames.size === 0)
+	{
+		return null;
+	}
+	const inClause = [...flowNames].map((name) => `'${name.replace(/'/g, '\\\'')}'`).join(',');
 	return {
 		flowNames: [...flowNames],
 		soql: `SELECT Id, ApiName, IsActive, ActiveVersionId, TriggerType, NamespacePrefix FROM FlowDefinitionView WHERE NamespacePrefix = NULL AND ApiName IN (${inClause})`
@@ -196,7 +259,10 @@ function buildExistenceQueryPlan(records)
 
 function buildMetadataQuery(activeVersionIds)
 {
-	if(activeVersionIds.length === 0) { return null; }
+	if(activeVersionIds.length === 0)
+	{
+		return null;
+	}
 	const inClause = activeVersionIds.map((id) => `'${id}'`).join(',');
 	return `SELECT Id, Metadata FROM Flow WHERE Id IN (${inClause})`;
 }
@@ -209,25 +275,30 @@ function validateVariableContract(record, flow, version, sobjectType)
 	const recordVariable = variables.find((variable) => variable.name === 'record');
 	if(!recordVariable)
 	{
-		errors.push(`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'record: ${sobjectType}' (in/out). Either fix the flow declaration or correct the CMDT row's FlowName__c.`);
+		errors.push(
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'record: ${sobjectType}' (in/out). Either fix the flow declaration or correct the CMDT row's FlowName__c.`);
 		return errors;
 	}
 	const recordType = recordVariable.objectType || recordVariable.dataType;
 	if(recordVariable.dataType !== 'SObject' || recordVariable.objectType !== sobjectType)
 	{
-		errors.push(`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' has type '${recordVariable.dataType}/${recordType}' but TriggerSetting requires '${sobjectType}'.`);
+		errors.push(
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' has type '${recordVariable.dataType}/${recordType}' but TriggerSetting requires '${sobjectType}'.`);
 		return errors;
 	}
 	if(!recordVariable.isInput || !recordVariable.isOutput)
 	{
-		errors.push(`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' must be both input and output (isInput=true, isOutput=true). Found isInput=${Boolean(recordVariable.isInput)}, isOutput=${Boolean(recordVariable.isOutput)}.`);
+		errors.push(
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' must be both input and output (isInput=true, isOutput=true). Found isInput=${Boolean(
+						recordVariable.isInput)}, isOutput=${Boolean(recordVariable.isOutput)}.`);
 	}
 	if(UPDATE_EVENTS.has(record.event))
 	{
 		const priorVariable = variables.find((variable) => variable.name === 'recordPrior');
 		if(!priorVariable || priorVariable.dataType !== 'SObject' || priorVariable.objectType !== sobjectType || !priorVariable.isInput)
 		{
-			errors.push(`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'recordPrior: ${sobjectType}' (input). Update-context flow actions must accept the prior record snapshot.`);
+			errors.push(
+					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'recordPrior: ${sobjectType}' (input). Update-context flow actions must accept the prior record snapshot.`);
 		}
 	}
 	return errors;
@@ -249,9 +320,7 @@ function scan(options, deps)
 	const triggerSettings = (deps && typeof deps.loadTriggerSettingMap === 'function') ? deps.loadTriggerSettingMap() : loadTriggerSettingMap();
 	const errors = [];
 	const plan = buildExistenceQueryPlan(triggerActions);
-	const existenceResult = plan
-		? queryRunner(plan.soql, {org: options.org})
-		: {records: []};
+	const existenceResult = plan ? queryRunner(plan.soql, {org: options.org}) : {records: []};
 	const flowsByName = {};
 	for(const flow of (existenceResult.records || []))
 	{
@@ -263,6 +332,18 @@ function scan(options, deps)
 		if(!record.flowName)
 		{
 			errors.push(`TriggerAction '${record.cmdtName}': missing FlowName__c value. Set FlowName__c to the API name of the flow to invoke.`);
+			continue;
+		}
+		// Resolve the target object up-front so the BlockDml-on-CDC rule fires
+		// independently of whether the flow itself resolves — a CMDT row carrying
+		// an unsupported failure policy is a config error regardless of the flow's
+		// deploy state. Mirrors SEL_TriggerAction.resolveObjectName precedence
+		// (override wins, then SObjectType__c).
+		const sobjectType = record.triggerSetting ? triggerSettings[record.triggerSetting] : null;
+		if(sobjectType && sobjectType.endsWith('ChangeEvent') && record.failureAction === 'BlockDml')
+		{
+			errors.push(
+					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' targets a Change Event entity, where BlockDml is not supported (a committed change cannot be rolled back). Set FailureAction__c to LogAndContinue.`);
 			continue;
 		}
 		const flow = flowsByName[record.flowName];
@@ -280,10 +361,10 @@ function scan(options, deps)
 		{
 			continue;
 		}
-		const sobjectType = record.triggerSetting ? triggerSettings[record.triggerSetting] : null;
 		if(!sobjectType)
 		{
-			errors.push(`TriggerAction '${record.cmdtName}': cannot resolve TriggerSetting '${record.triggerSetting}' to an SObjectType. Verify the TriggerSetting CMDT record exists and declares SObjectType__c.`);
+			errors.push(
+					`TriggerAction '${record.cmdtName}': cannot resolve TriggerSetting '${record.triggerSetting}' to an SObjectType. Verify the TriggerSetting CMDT record exists and declares SObjectType__c or ObjectApiNameOverride__c.`);
 			continue;
 		}
 		activeFlowsNeedingMetadata.push({record, flow, sobjectType});
@@ -304,7 +385,8 @@ function scan(options, deps)
 		const version = versionsById[flow.ActiveVersionId];
 		if(!version)
 		{
-			errors.push(`TriggerAction '${record.cmdtName}': could not load metadata for flow '${record.flowName}' (active version ${flow.ActiveVersionId}). The Tooling API returned no rows; verify the CI user has Manage Flow.`);
+			errors.push(
+					`TriggerAction '${record.cmdtName}': could not load metadata for flow '${record.flowName}' (active version ${flow.ActiveVersionId}). The Tooling API returned no rows; verify the CI user has Manage Flow.`);
 			continue;
 		}
 		errors.push(...validateVariableContract(record, flow, version, sobjectType));
@@ -326,7 +408,8 @@ function main()
 	{
 		console.error(`  - ${message}`);
 	}
-	console.error('\nEvery TriggerAction__mdt row with FlowName__c populated must point at an active flow that declares the required variable contract. This protects subscribers from runtime System.UnexpectedException errors that abort the entire trigger transaction.');
+	console.error(
+			'\nEvery TriggerAction__mdt row with FlowName__c populated must point at an active flow that declares the required variable contract. This protects subscribers from runtime System.UnexpectedException errors that abort the entire trigger transaction.');
 	process.exit(1);
 }
 

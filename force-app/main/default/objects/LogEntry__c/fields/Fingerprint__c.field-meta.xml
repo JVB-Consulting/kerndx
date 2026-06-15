@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fingerprint__c</fullName>
+    <caseSensitive>true</caseSensitive>
+    <description>Grouping key for log flood control. Detail rows store detail:&lt;key&gt; (at most one per fingerprint, enforced by uniqueness); daily rollup rows store rollup:&lt;key&gt;:&lt;yyyyMMdd&gt;. Blank on ungrouped entries. The framework reserves the bypass: key prefix for bypass-audit fingerprints.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>Log-grouping key. Filter detail: rows for forensics and rollup: rows for volume counts. Blank for entries logged without a fingerprint.</inlineHelpText>
+    <label>Fingerprint</label>
+    <length>216</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

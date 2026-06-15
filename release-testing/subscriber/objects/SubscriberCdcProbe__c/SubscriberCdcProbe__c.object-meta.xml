@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Release-testing harness object. Selected for Change Data Capture (the standard ChangeEvents channel drives the Apex change-event trigger; the SubscriberCdcProbe__chn custom channel additionally exposes it to streaming subscribers) so inserting a record emits a SubscriberCdcProbe__ChangeEvent that the harness change-event trigger dispatches through kern.TRG_Dispatcher — exercising the subscriber-side CDC + DTO_ChangeEventHeader Flow contract end-to-end. Not part of the managed package; deployed unmanaged into the subscriber test org alongside the rest of the harness.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>false</enableReports>
+    <enableSearch>false</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <label>Subscriber CDC Probe</label>
+    <nameField>
+        <label>Probe Name</label>
+        <type>Text</type>
+    </nameField>
+    <pluralLabel>Subscriber CDC Probes</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

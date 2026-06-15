@@ -26,7 +26,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -38,13 +38,38 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CyclomaticComplexity')
 global inherited sharing class TRG_Dispatcher
 {
 	/**
 	 * @description Stack of action frames tracking the current trigger execution chain.
+	 * Doubles as the outermost-unwind signal for the post-trigger-action hook: when `run()`
+	 * finishes and `ACTION_STACK` is empty, the current dispatch is the outermost one and
+	 * post-trigger actions fire. No separate depth counter is kept — the stack is the single
+	 * source of truth for dispatch depth.
 	 */
 	private static final List<Object> ACTION_STACK = new List<Object>();
+
+	/**
+	 * @description Distinct `SObjectType`s whose triggers participated in the current
+	 * transaction's dispatch chain. Each `run()` adds the dispatched object's type (when it
+	 * resolves) before executing actions. At the outermost unwind the set is snapshotted into
+	 * an `IF_Trigger.PostActionContext` and handed to `UTIL_PostTriggerAction.run`, then cleared.
+	 *
+	 * Clearing happens at every outermost unwind — including when a trigger action throws — so a
+	 * later top-level DML in the same transaction (for example, an Apex caller that catches a
+	 * `BlockDml` failure and continues) never inherits a stale touched-type set. Bounded by the
+	 * distinct-SObject count, so its heap footprint is independent of `Trigger.new` size.
+	 */
+	private static final Set<SObjectType> TOUCHED_SOBJECT_TYPES = new Set<SObjectType>();
+
+	/**
+	 * @description Format string for the `TypeException` message surfaced by
+	 * `assertActionImplementsInterface` when a configured action class does not implement the
+	 * interface its trigger context requires. Placeholders: `{0}` the action class name,
+	 * `{1}` the required interface, `{2}` the trigger operation, `{3}` the SObject name. The
+	 * trailing sentence directs the admin to the `TriggerAction__mdt` configuration to correct it.
+	 */
 	private static final String INVALID_TYPE_ERROR = 'Action class "{0}" does not implement {1} as required for the {2} context on {3}. ' +
 			'Verify the TriggerAction__mdt configuration.';
 
@@ -147,7 +172,19 @@ global inherited sharing class TRG_Dispatcher
 
 	/**
 	 * @description Entry point for trigger execution. Reads the trigger context, checks bypass status,
-	 * and dispatches to configured trigger action handlers.
+	 * dispatches to configured trigger action handlers, and — at the outermost dispatch unwind — runs
+	 * any configured post-trigger actions.
+	 *
+	 * **Post-trigger-action hook.** Each invocation records the dispatched object's `SObjectType` and,
+	 * when the current dispatch is the outermost one (`ACTION_STACK` empty after action execution) and
+	 * it completed without an unhandled exception, hands the accumulated touched-type set to
+	 * `UTIL_PostTriggerAction.run`. Outermost detection reuses `ACTION_STACK` — a self-initiated DML
+	 * that re-enters `run()` unwinds while the outer action frame is still on the stack, so only the
+	 * true outermost unwind fires. A dispatch that is object-bypassed or that aborts via a throwing
+	 * action does not fire post-actions (post-actions run only after the trigger-action chain
+	 * completes). Because each trigger timing (before/after) is a separate top-level dispatch,
+	 * post-actions can fire once per timing per DML operation; post-actions are expected to be
+	 * idempotent or to gate on `touchedSObjectTypes`.
 	 *
 	 * @throws UTIL_Exceptions.ConfigurationException If a TriggerAction__mdt row reaches dispatch with both `ApexClassName__c` and `FlowName__c` blank.
 	 * The `MutuallyExclusiveTarget` validation rule blocks this configuration at deploy time, so the path is reachable only via Tooling-API insertion that bypasses the VR.
@@ -175,9 +212,86 @@ global inherited sharing class TRG_Dispatcher
 			return;
 		}
 
-		applyMaskingIfConfigured();
+		// Enter event-trigger context when dispatching a platform event / change event. While in it,
+		// LOG_Engine persists logs to LogEntry__c via direct DML instead of publishing a
+		// LogEntryEvent__e — publishing a platform event from inside a platform-event/change-event
+		// trigger makes the platform redeliver the source event, re-running this dispatcher unbounded.
+		// Only the outermost event dispatch enters (returns true); nested dispatches inherit it.
+		Boolean enteredEventTriggerContext = LOG_Engine.beginEventTriggerContext(triggerNew);
+		Boolean completedNormally = false;
+		try
+		{
+			recordTouchedSObjectType();
+			applyMaskingIfConfigured();
+			executeActions(context, triggerNew, triggerOld);
+			completedNormally = true;
+		}
+		finally
+		{
+			// Suppress the post-trigger-action hook for the framework's own LogEntryEvent__e
+			// delivery. The hook runs SEL_PostTriggerAction.findActiveOrdered() at every outermost
+			// unwind; because persisting a log entry is itself a dispatch, running the hook on each
+			// delivered log event re-enters the dispatcher and — should the hook path emit a further
+			// log event — can self-feed a logging cascade. Log persistence is internal plumbing:
+			// logic that must run when a log row is persisted belongs in a TriggerAction__mdt, not a
+			// transaction-scoped post-trigger action.
+			Boolean isFrameworkLoggingEvent = triggerNew != null && !triggerNew.isEmpty()
+					&& triggerNew[0].getSObjectType() == LogEntryEvent__e.SObjectType;
+			if(!isFrameworkLoggingEvent)
+			{
+				dispatchPostActionsAtOutermostUnwind(completedNormally);
+			}
+			// Flush in-context logs via DML and exit event-trigger context AFTER the post-action
+			// hook, so any logs the hook emits are captured by the same direct-DML persist.
+			if(enteredEventTriggerContext)
+			{
+				LOG_Engine.endEventTriggerContext();
+			}
+		}
+	}
 
-		executeActions(context, triggerNew, triggerOld);
+	/**
+	 * @description Records the dispatched object's `SObjectType` in `TOUCHED_SOBJECT_TYPES` so the
+	 * outermost-unwind hook can report which objects' triggers participated in the transaction. The
+	 * name is resolved through `UTIL_SObjectDescribe.getSObjectTypeByName`, which returns null for a
+	 * name that is not in the global describe (for example, a Platform-Event or Change-Data-Capture
+	 * entity that does not resolve to a queryable `SObjectType`). A null resolution is dropped
+	 * fail-soft: a post-action scoped to that object simply sees nothing for it.
+	 */
+	private void recordTouchedSObjectType()
+	{
+		SObjectType currentType = UTIL_SObjectDescribe.getSObjectTypeByName(sObjectName);
+		if(currentType != null)
+		{
+			TOUCHED_SOBJECT_TYPES.add(currentType);
+		}
+	}
+
+	/**
+	 * @description Runs the post-trigger-action hook when the current dispatch is the outermost one.
+	 * Called from `run()`'s `finally` so the touched-type set is cleared on every outermost unwind —
+	 * including an aborted dispatch — preventing a stale set from leaking into a later top-level DML.
+	 * Post-actions themselves fire only when the dispatch completed normally; an aborted dispatch
+	 * clears state but runs no post-action (post-actions run after the action chain completes, and
+	 * must never replace the in-flight exception that aborted it).
+	 *
+	 * When the current dispatch is not the outermost (a nested re-entrant dispatch, signalled by a
+	 * non-empty `ACTION_STACK`), this is a no-op — the outer dispatch owns the hook.
+	 *
+	 * @param completedNormally `true` when `run()`'s action execution completed without an unhandled exception.
+	 */
+	private static void dispatchPostActionsAtOutermostUnwind(Boolean completedNormally)
+	{
+		if(!ACTION_STACK.isEmpty())
+		{
+			return;
+		}
+		Set<SObjectType> snapshot = new Set<SObjectType>(TOUCHED_SOBJECT_TYPES);
+		TOUCHED_SOBJECT_TYPES.clear();
+		if(completedNormally)
+		{
+			UTIL_PostTriggerAction.run(new IF_Trigger.PostActionContext(snapshot));
+		}
 	}
 
 	/**

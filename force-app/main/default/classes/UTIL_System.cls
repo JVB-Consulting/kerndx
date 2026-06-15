@@ -10,7 +10,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -29,6 +29,39 @@ global inherited sharing class UTIL_System
 
 	@TestVisible
 	private static final String ERROR_TYPE_NOT_FOUND = 'Unable to resolve type for class "{0}".';
+
+	/**
+	 * @description Name of this utility, always skipped so its own frames are never returned as the
+	 * external caller by `resolveExternalCaller`. Derived from `class.getName()` so it stays correct
+	 * if the class is renamed; in a managed install this is the namespaced form, but the namespace
+	 * skip already covers this utility's frames there, so the value only needs to match in an
+	 * unmanaged org (where `getName()` yields the bare class name).
+	 */
+	private static final String STACK_SELF_CLASS_NAME = UTIL_System.class.getName();
+
+	/**
+	 * @description Stack-frame location suffix (`: line N, column M`) trimmed off each frame
+	 * before the class/method portion is extracted.
+	 */
+	private static final String STACK_LOCATION_DELIMITER = ': line ';
+
+	/**
+	 * @description Leading qualifier on Apex class stack frames (`Class.<name>.<method>`).
+	 */
+	private static final String STACK_CLASS_PREFIX = 'Class.';
+
+	/**
+	 * @description Leading qualifier on Apex trigger stack frames (`Trigger.<name>`).
+	 */
+	private static final String STACK_TRIGGER_PREFIX = 'Trigger.';
+
+	/**
+	 * @description Frame format rendered in a subscriber org for managed-package code, where the
+	 * platform obfuscates package internals: each contiguous run of package frames collapses to a
+	 * single parenthesized-namespace line (e.g. `(kern)`), with no `Class.` qualifier and no
+	 * location suffix. Such a frame is framework-internal and is never the external caller.
+	 */
+	private static final String STACK_OBFUSCATED_FRAME_FORMAT = '({0})';
 
 	private static final String apiEnabledSessionId
 	{
@@ -152,6 +185,108 @@ global inherited sharing class UTIL_System
 		}
 
 		return namespaceOfClass;
+	}
+
+	/**
+	 * @description Returns the first frame on the current call stack that is outside the framework —
+	 * the external (subscriber) caller — formatted as `Class.method`. A frame is treated as
+	 * framework when it carries the managed-package namespace prefix (managed install), is the
+	 * subscriber-org obfuscated form `(namespace)`, belongs to this utility, or names one of
+	 * `frameworkClassNames` (used in an unmanaged org, where frames are not namespace-qualified).
+	 * Returns `fallback` when no external frame can be identified.
+	 *
+	 * Framework-internal (`public`, not `global`): provenance plumbing for callers such as
+	 * `UTIL_BypassAudit`, not a subscriber-facing API.
+	 *
+	 * @param frameworkClassNames Bare class names whose frames are skipped in addition to this
+	 *                            utility — supply the calling framework helpers so an unmanaged org
+	 *                            walks past them to the real caller. May be `null`.
+	 * @param fallback The value returned when the stack contains no external frame.
+	 *
+	 * @return The first external caller frame as `Class.method`, or `fallback`.
+	 *
+	 * @since 1.0
+	 *
+	 * @example
+	 * ```apex
+	 * String caller = UTIL_System.resolveExternalCaller(new Set<String>{'UTIL_BypassAudit'}, 'unknown');
+	 * ```
+	 */
+	public static String resolveExternalCaller(Set<String> frameworkClassNames, String fallback)
+	{
+		Set<String> skipClasses = frameworkClassNames == null ? new Set<String>() : frameworkClassNames.clone();
+		skipClasses.add(STACK_SELF_CLASS_NAME);
+		return findExternalFrame(new DmlException().getStackTraceString().split(UTIL_String.LF), getManagedPackageNamespace(), skipClasses, fallback);
+	}
+
+	/**
+	 * @description Returns the first frame in `stackLines` that is not a framework frame, formatted
+	 * as `Class.method`, or `fallback` when every frame is a framework frame.
+	 *
+	 * @param stackLines The split stack-trace lines, innermost first.
+	 * @param namespace The managed-package namespace (`kern`), or blank in an unmanaged org.
+	 * @param frameworkClassNames Bare class names whose frames are skipped (alongside any namespaced frame).
+	 * @param fallback The value returned when no external frame exists.
+	 *
+	 * @return The first non-framework frame as `Class.method`, or `fallback`.
+	 */
+	@TestVisible
+	private static String findExternalFrame(List<String> stackLines, String namespace, Set<String> frameworkClassNames, String fallback)
+	{
+		for(String stackLine : stackLines)
+		{
+			String frame = externalFrame(stackLine, namespace, frameworkClassNames);
+			if(frame != null)
+			{
+				return frame;
+			}
+		}
+		return fallback;
+	}
+
+	/**
+	 * @description Extracts the `Class.method` portion of a single stack-trace line, or returns
+	 * `null` when the line is a framework frame that should be skipped. A frame is framework when it
+	 * carries the package namespace prefix (managed install), is the subscriber-org obfuscated form
+	 * `(namespace)`, or its top-level class is in `frameworkClassNames`.
+	 *
+	 * @param stackLine A single stack-trace line (e.g. `Class.Foo.bar: line 3, column 1`).
+	 * @param namespace The managed-package namespace (`kern`), or blank in an unmanaged org.
+	 * @param frameworkClassNames Bare class names whose frames are treated as framework.
+	 *
+	 * @return The frame as `Class.method`, or `null` if it is a framework frame.
+	 */
+	@TestVisible
+	private static String externalFrame(String stackLine, String namespace, Set<String> frameworkClassNames)
+	{
+		Integer locationIndex = stackLine.indexOf(STACK_LOCATION_DELIMITER);
+		String frame = locationIndex >= 0 ? stackLine.substring(0, locationIndex) : stackLine;
+
+		if(frame.startsWith(STACK_CLASS_PREFIX))
+		{
+			frame = frame.substring(STACK_CLASS_PREFIX.length());
+		}
+		else if(frame.startsWith(STACK_TRIGGER_PREFIX))
+		{
+			frame = frame.substring(STACK_TRIGGER_PREFIX.length());
+		}
+
+		if(String.isBlank(frame))
+		{
+			return null;
+		}
+
+		List<String> segments = frame.split('\\.');
+		Boolean namespaced = String.isNotBlank(namespace) && namespace.equals(segments[0]) && segments.size() > 1;
+		Boolean obfuscatedNamespaced = String.isNotBlank(namespace)
+				&& frame.startsWith(String.format(STACK_OBFUSCATED_FRAME_FORMAT, new List<String> {namespace}));
+		String topLevelClass = namespaced ? segments[1] : segments[0];
+
+		if(namespaced || obfuscatedNamespaced || frameworkClassNames.contains(topLevelClass))
+		{
+			return null;
+		}
+		return frame;
 	}
 
 	/**

@@ -8,7 +8,7 @@
  *
  * @group Logging
  *
- * @date September 2025, May 2026
+ * @date September 2025, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -50,7 +50,7 @@ private class FLOW_WriteLog_TEST
 
 		Test.stopTest();
 
-		List<LogEntry__c> foundLogs = new SEL_LogEntry().getAll();
+		List<LogEntry__c> foundLogs = new SEL_LogEntry().findAllByMethod(classMethod);
 		Assert.areEqual(dtoRequests.size(), foundLogs.size(), 'Incorrect number of logs written');
 
 		LogEntry__c foundLog = foundLogs.iterator().next();
@@ -145,7 +145,7 @@ private class FLOW_WriteLog_TEST
 
 		Test.stopTest();
 
-		List<LogEntry__c> foundLogs = new SEL_LogEntry().getAll();
+		List<LogEntry__c> foundLogs = new SEL_LogEntry().findAllByMethod(classMethod);
 		Assert.areEqual(1, foundLogs.size(), 'Should have one log entry');
 		Assert.areEqual(LoggingLevel.ERROR.name(), foundLogs[0].LogLevel__c, 'Log level should be ERROR');
 	}
@@ -175,7 +175,7 @@ private class FLOW_WriteLog_TEST
 
 		Test.stopTest();
 
-		List<LogEntry__c> foundLogs = new SEL_LogEntry().getAll();
+		List<LogEntry__c> foundLogs = new SEL_LogEntry().findAllByMethod(classMethod);
 		Assert.areEqual(1, foundLogs.size(), 'Should have one log entry');
 		Assert.areEqual(LoggingLevel.DEBUG.name(), foundLogs[0].LogLevel__c, 'Log level should be DEBUG');
 	}
@@ -205,7 +205,7 @@ private class FLOW_WriteLog_TEST
 
 		Test.stopTest();
 
-		List<LogEntry__c> foundLogs = new SEL_LogEntry().getAll();
+		List<LogEntry__c> foundLogs = new SEL_LogEntry().findAllByMethod(classMethod);
 		Assert.areEqual(1, foundLogs.size(), 'Should have one log entry');
 		Assert.areEqual(LoggingLevel.WARN.name(), foundLogs[0].LogLevel__c, 'Log level should be WARN');
 	}

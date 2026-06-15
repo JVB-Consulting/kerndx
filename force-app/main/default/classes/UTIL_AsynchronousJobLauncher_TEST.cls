@@ -113,7 +113,6 @@ private class UTIL_AsynchronousJobLauncher_TEST
 					Boolean shouldRunQueueable
 			)
 	{
-		UTIL_AdaptiveAsynchronousProcessor.firedErrorEvent = null;
 		LOG_Builder.ignoreTestMode = true;
 		executeWasCalled = false;
 		finishWasCalled = false;
@@ -211,21 +210,18 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	}
 
 	/**
-	 * @description Verifies that an exception processed by Queueable Job is caught and surfaces error events.
-	 *
-	 * Carve-out: intentionally NOT wrapped in System.runAs(getTestAdmin()) unlike every other test
-	 * in this class. Under runAs, the queueable path hits `System.SObjectException: Field is not writeable:
-	 * BatchApexErrorEvent.AsyncApexJobId` before the TestException surfaces — a platform-event field-write
-	 * restriction that only applies inside a runAs scope for freshly-created users. The sibling
-	 * `batchExceptionFiresErrorEvent` does not hit this restriction because the batch path skips the
-	 * BatchApexErrorEvent population block (see `assertExceptionFiresEvents` line-level `if(!runBatchJob)`).
-	 * This test exercises no kern__ DML directly (MockFailingProcessor throws before real work; SEL_LogEntry
-	 * elevates via systemModeRequired) so the test does not require FLS grants to pass.
+	 * @description Verifies that an unhandled exception in a Queueable job is caught and surfaces a durable
+	 * error log. Queueable jobs have no platform auto-fired BatchApexErrorEvent (unlike Batch jobs), so the
+	 * finalizer logs the unhandled exception — including the failed job's record scope — for subscribers to
+	 * observe via LogEntryEvent__e / LogEntry__c.
 	 */
 	@IsTest
-	private static void queueableExceptionFiresErrorEvent()
+	private static void queueableExceptionIsLogged()
 	{
-		assertExceptionFiresEvents(false);
+		System.runAs(getTestAdmin())
+		{
+			assertExceptionFiresEvents(false);
+		}
 	}
 
 	/**
@@ -237,8 +233,9 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	{
 		final Integer numberOfRecords = 1;
 
-		//Force Batch mode by setting the threshold lower than the list size.
-		UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request = new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(TST_Factory.newFoobars(numberOfRecords))
+		List<Foobar__c> foobars = TST_Factory.insertFoobars(numberOfRecords);
+
+		UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request = new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(foobars)
 				.withBatchSize(numberOfRecords)
 				.withQueueableJobSize(numberOfRecords);
 
@@ -257,19 +254,30 @@ private class UTIL_AsynchronousJobLauncher_TEST
 			List<LogEntry__c> logs = new SEL_LogEntry().getAll();
 			Assert.isFalse(logs.isEmpty(), 'LOG_Builder should have logged the error');
 
-			//We only create Batch error event in Queueable jobs, as batch jobs that fail will create this automatically
+			//Queueable failures are surfaced via the framework log; Batch failures auto-fire a platform
+			//BatchApexErrorEvent, so the durable-log scope assertion only applies to the queueable path.
 			if(!runBatchJob)
 			{
-				Assert.isNotNull
-						(
-								UTIL_AdaptiveAsynchronousProcessor.firedErrorEvent,
-								'A BatchApexErrorEvent should have been fired by the engine.'
-						);
+				LogEntry__c unhandledExceptionLog = null;
+
+				for(LogEntry__c log : logs)
+				{
+					if(TestException.class.getName().equals(log.ExceptionType__c))
+					{
+						unhandledExceptionLog = log;
+						break;
+					}
+				}
+
+				Assert.isNotNull(unhandledExceptionLog, 'The queueable unhandled exception should be logged with its exception type.');
+
+				Map<String, Object> logContext = SEL_LogEntry.parseContextDataForTest(unhandledExceptionLog);
+				Assert.isNotNull(logContext, 'The unhandled-exception log should carry context data.');
 				Assert.areEqual
 						(
-								TestException.class.getName(),
-								UTIL_AdaptiveAsynchronousProcessor.firedErrorEvent.ExceptionType,
-								'Invalid Type logged'
+								String.valueOf(foobars[0].Id),
+								String.valueOf(logContext.get(LOG_Engine.CONTEXT_JOB_SCOPE)),
+								'The unhandled-exception log should capture the failed job scope.'
 						);
 			}
 		}

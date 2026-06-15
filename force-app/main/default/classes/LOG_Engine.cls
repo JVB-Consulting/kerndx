@@ -36,10 +36,10 @@
  *
  * @group Logging
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
-@SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount')
-public without sharing class LOG_Engine
+@SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
+public inherited sharing class LOG_Engine
 {
 	/**
 	 * @description Cached running-user Id captured once per transaction. Stamped onto every
@@ -255,6 +255,10 @@ public without sharing class LOG_Engine
 	 */
 	public static final String CONTEXT_BATCH_SIZE = 'batchSize';
 	/**
+	 * @description Context key for the record scope (Ids in process) of a failed asynchronous job.
+	 */
+	public static final String CONTEXT_JOB_SCOPE = 'jobScope';
+	/**
 	 * @description Context key for the Flow name.
 	 */
 	public static final String CONTEXT_FLOW_NAME = 'flowName';
@@ -350,6 +354,12 @@ public without sharing class LOG_Engine
 	 * @description Context key for the failure-routing policy applied to an unhandled action exception.
 	 */
 	public static final String CONTEXT_FAILURE_ACTION = 'failureAction';
+	/**
+	 * @description Context key recording the original fingerprint key a caller passed, written only
+	 * when the key was transformed (hashed) during normalization so the opaque stored fingerprint
+	 * stays reconcilable with what the caller supplied.
+	 */
+	public static final String CONTEXT_FINGERPRINT_SOURCE = 'fingerprintSource';
 
 	/**
 	 * @description Transaction-scoped correlation id propagated onto every emitted
@@ -358,6 +368,13 @@ public without sharing class LOG_Engine
 	 */
 	@TestVisible
 	private static String currentCorrelationId;
+
+	/**
+	 * @description Per-emit fingerprint channel — set by `LOG_Builder.LogEntry.emitInternal` just
+	 * before the log call and cleared in its finally, mirroring the per-entry context push/pop.
+	 * Carried onto every `LogEntryEvent__e` built while set.
+	 */
+	private static String currentFingerprint;
 
 	/**
 	 * @description Transaction-scoped parent-transaction id stamped onto every emitted
@@ -414,6 +431,24 @@ public without sharing class LOG_Engine
 	 */
 	@TestVisible
 	private static Boolean isSavingSuspended = false;
+
+	/**
+	 * @description Whether the current transaction is executing inside a platform-event /
+	 * change-event trigger dispatch where publishing a `LogEntryEvent__e` would make the platform
+	 * redeliver the source event and loop. Set by `beginEventTriggerContext` (owned by the outermost
+	 * event dispatch) and cleared by `endEventTriggerContext`. While true, `dispatchEvents` persists
+	 * logs via direct DML instead of publishing.
+	 */
+	@TestVisible
+	private static Boolean isEventTriggerContext = false;
+
+	/**
+	 * @description Whether `beginEventTriggerContext` was the caller that switched suspended-saving
+	 * on (it buffers in-context emits for a single bulk persist). When `true`, `endEventTriggerContext`
+	 * restores `isSavingSuspended` to `false`; when `false` an outer `LogScope`/`suspendSaving` already
+	 * owned suspension and its lifecycle is left untouched.
+	 */
+	private static Boolean eventContextDidSuspendSaving = false;
 
 	/**
 	 * @description Application log buffer. Accumulates `LogEntryEvent__e` events while
@@ -769,9 +804,12 @@ public without sharing class LOG_Engine
 			{
 				publishEvents(events);
 			}
-			if(Test.isRunningTest())
+			//Ensure that the events are published in unit tests — but never deliver re-entrantly
+			//from inside a platform-event/change-event trigger: the test event bus would redeliver
+			//the in-flight batch, double-persisting every delivered event. In event-trigger context
+			//the engine persists via direct DML and never publishes, so there is nothing to deliver.
+			if(Test.isRunningTest() && !isInEventTriggerContext())
 			{
-				//Ensure that the events are published in unit tests
 				Test.getEventBus().deliver();
 			}
 		}
@@ -955,6 +993,25 @@ public without sharing class LOG_Engine
 	}
 
 	/**
+	 * @description Sets the fingerprint applied to events built during the current emit call.
+	 * Public-but-not-global so subscribers route through `LOG_Builder.withFingerprint`.
+	 *
+	 * @param fingerprintKey The normalized grouping key.
+	 */
+	public static void setCurrentFingerprint(String fingerprintKey)
+	{
+		currentFingerprint = fingerprintKey;
+	}
+
+	/**
+	 * @description Clears the per-emit fingerprint channel so it cannot leak into later entries.
+	 */
+	public static void clearCurrentFingerprint()
+	{
+		currentFingerprint = null;
+	}
+
+	/**
 	 * @description Sets the parent transaction ID for hierarchical tracking.
 	 *
 	 * @param parentTransactionId The parent's transaction ID
@@ -1029,7 +1086,10 @@ public without sharing class LOG_Engine
 		{
 			publishEvents(dtoLogMessages.getEvents());
 
-			if(Test.isRunningTest())
+			//See log(DTO_LogMessages, Boolean): never deliver re-entrantly from inside a
+			//platform-event/change-event trigger — the test event bus would redeliver the
+			//in-flight batch and double-persist every delivered event.
+			if(Test.isRunningTest() && !isInEventTriggerContext())
 			{
 				Test.getEventBus().deliver();
 			}
@@ -1319,6 +1379,116 @@ public without sharing class LOG_Engine
 	}
 
 	/**
+	 * @description Enters event-trigger context for the remainder of the current dispatch when the
+	 * dispatched records are a platform event (`__e`) or change event (`*ChangeEvent`). In that
+	 * context every log this transaction emits is persisted to `LogEntry__c` via direct DML instead
+	 * of being published as a `LogEntryEvent__e` — publishing a platform event from inside a
+	 * platform-event / change-event trigger makes the platform redeliver the source event, which
+	 * would loop the dispatcher unbounded. Buffering is switched on so the suppressed-publish persist
+	 * coalesces into one bulk DML at the dispatch boundary (`endEventTriggerContext`) rather than one
+	 * per emit. Only the outermost event dispatch owns the context; a nested re-entrant dispatch
+	 * returns `false` and leaves teardown to the owner.
+	 *
+	 * @param records The dispatched trigger's `Trigger.new` records.
+	 *
+	 * @return `true` when this call entered (and therefore owns) the event-trigger context.
+	 */
+	public static Boolean beginEventTriggerContext(List<SObject> records)
+	{
+		if(isEventTriggerContext)
+		{
+			return false;
+		}
+		if(!isChangeEventOrPlatformEvent(records))
+		{
+			return false;
+		}
+		isEventTriggerContext = true;
+		eventContextDidSuspendSaving = !isSavingSuspended;
+		isSavingSuspended = true;
+		return true;
+	}
+
+	/**
+	 * @description Exits the event-trigger context entered by `beginEventTriggerContext`. Drains any
+	 * buffered in-context logs FIRST — while the context flag is still set, so the flush routes
+	 * through `dispatchEvents` to direct DML rather than `EventBus.publish` — then restores the prior
+	 * suspended-saving state (only if this owner switched it on) and clears the context flag. Called
+	 * from the dispatcher's `finally` so an aborted dispatch still tears the context down.
+	 */
+	public static void endEventTriggerContext()
+	{
+		flushBuffer();
+		if(eventContextDidSuspendSaving)
+		{
+			isSavingSuspended = false;
+			eventContextDidSuspendSaving = false;
+		}
+		isEventTriggerContext = false;
+	}
+
+	/**
+	 * @description Reports whether the supplied records belong to a platform event (`__e`) or a
+	 * change event (`*ChangeEvent`) — the SObject kinds whose triggers cause the platform to
+	 * redeliver the source event when a platform event is published during their execution. Reads the
+	 * API name straight off the record's `SObjectType` token (no describe call). Returns `false` for
+	 * a null or empty list so a delete-context dispatch (no `Trigger.new`) is treated as non-event.
+	 *
+	 * @param records The records to classify.
+	 *
+	 * @return `true` when the records are a platform event or change event.
+	 */
+	@TestVisible
+	private static Boolean isChangeEventOrPlatformEvent(List<SObject> records)
+	{
+		if(records == null || records.isEmpty())
+		{
+			return false;
+		}
+		String objectName = String.valueOf(records[0].getSObjectType());
+		return objectName.endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX) || objectName.endsWith(UTIL_SObjectDescribe.PLATFORM_EVENT_SUFFIX);
+	}
+
+	/**
+	 * @description Single egress for a chunk of log events. In event-trigger context the events are
+	 * persisted to `LogEntry__c` via `TRG_PersistLogEntry.persist` (direct DML, no publish, loop-safe);
+	 * otherwise they publish normally as `LogEntryEvent__e`. Both the immediate path
+	 * (`publishEventsTo`) and the buffered flush path (`safePublish`) route through here so the
+	 * publish-suppression decision is made in exactly one place.
+	 *
+	 * @param events The events to dispatch.
+	 *
+	 * @return The publish save results, or `null` when persisted via DML in event-trigger context.
+	 */
+	private static List<Database.SaveResult> dispatchEvents(List<LogEntryEvent__e> events)
+	{
+		if(isInEventTriggerContext())
+		{
+			TRG_PersistLogEntry.persist(events);
+			return null;
+		}
+		return EventBus.publishWithAccessLevel(events, AccessLevel.SYSTEM_MODE);
+	}
+
+	/**
+	 * @description Whether the current execution is inside a platform-event / change-event trigger
+	 * and must therefore suppress `LogEntryEvent__e` publishing. True when the dispatcher has entered
+	 * the context explicitly (`beginEventTriggerContext`), or — as a backstop for a subscriber
+	 * platform-event trigger that calls kern logging without going through `TRG_Dispatcher` — when an
+	 * event trigger is currently executing.
+	 *
+	 * @return `true` when log publishing must be suppressed in favour of direct-DML persistence.
+	 */
+	private static Boolean isInEventTriggerContext()
+	{
+		if(isEventTriggerContext)
+		{
+			return true;
+		}
+		return Trigger.isExecuting && isChangeEventOrPlatformEvent(Trigger.new);
+	}
+
+	/**
 	 * @description Flushes all buffered logs in chunked batches to avoid 1MB payload limit.
 	 * Salesforce Platform Events have a 1MB limit per publish call. With large ContextData__c
 	 * (up to 32KB), we conservatively batch 50 events per publish (~1.6MB headroom).
@@ -1381,7 +1551,7 @@ public without sharing class LOG_Engine
 			{
 				throw new TestSimulatedException('Simulated publish failure for testing');
 			}
-			EventBus.publish(events);
+			dispatchEvents(events);
 		}
 		catch(Exception error)
 		{
@@ -1507,7 +1677,7 @@ public without sharing class LOG_Engine
 					{
 						throw new TestSimulatedException('Simulated publish failure for testing');
 					}
-					saveResults = EventBus.publish(events);
+					saveResults = dispatchEvents(events);
 				}
 				catch(Exception error)
 				{
@@ -1739,6 +1909,7 @@ public without sharing class LOG_Engine
 				event.CorrelationId__c = currentCorrelationId;
 				event.TransactionId__c = Request.getCurrent().getRequestId();
 				event.ParentTransactionId__c = currentParentTransactionId;
+				event.Fingerprint__c = currentFingerprint;
 
 				// Context data and duration
 				event.ContextData__c = serializeContextData();
@@ -1888,7 +2059,7 @@ public without sharing class LOG_Engine
 				logEvents.add((LogEntryEvent__e)item);
 			}
 
-			EventBus.publish(logEvents);
+			EventBus.publishWithAccessLevel(logEvents, AccessLevel.SYSTEM_MODE);
 		}
 	}
 

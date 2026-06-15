@@ -11,7 +11,7 @@
  *
  * @author Jason van Beukering
  *
- * @group Trigger Framework
+ * @group Triggers
  *
  * @date April 2026, May 2026
  */
@@ -324,6 +324,60 @@ private class TST_InvokeFlowMock_TEST
 
 		Assert.isNull(TST_InvokeFlowMock.getLastInputRecord(FLOW_NAME), 'Uninvoked flow returns null record');
 		Assert.isNull(TST_InvokeFlowMock.getLastInputPriorRecord(FLOW_NAME), 'Uninvoked flow returns null priorRecord');
+		Assert.isNull(TST_InvokeFlowMock.getLastInputHeader(FLOW_NAME), 'Uninvoked flow returns null header');
 		Assert.isNull(TST_InvokeFlowMock.getLastInputRecord(OTHER_FLOW_NAME), 'Unregistered flow returns null record');
+	}
+
+	/**
+	 * @description Verifies the 4-arg recordInvocation overload captures the injected
+	 * Change Event header and getLastInputHeader returns it. This is the CDC-aware path
+	 * used by TRG_InvokeFlow when dispatching change-event triggers — subscriber tests
+	 * read the captured header to verify the flow received the correct change metadata.
+	 */
+	@IsTest
+	private static void shouldCaptureInjectedChangeEventHeader()
+	{
+		String recordId = String.valueOf(UTIL_Random.randomId(Account.SObjectType));
+		DTO_ChangeEventHeader header = new DTO_ChangeEventHeader();
+		header.entityName = 'Account';
+		header.changeType = 'CREATE';
+		header.recordIds = new List<String> {recordId};
+
+		Account record = (Account)TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Industry, INDUSTRY_VALUE)
+				.withoutInsertion()
+				.build();
+
+		TST_InvokeFlowMock.forFlow(FLOW_NAME).succeed().register();
+		TST_InvokeFlowMock.recordInvocation(FLOW_NAME, record, null, header);
+
+		DTO_ChangeEventHeader captured = (DTO_ChangeEventHeader)TST_InvokeFlowMock.getLastInputHeader(FLOW_NAME);
+
+		Assert.areNotEqual(null, captured, 'getLastInputHeader should return the captured DTO');
+		Assert.areEqual('Account', captured.entityName, 'Captured header should expose entityName');
+		Assert.areEqual('CREATE', captured.changeType, 'Captured header should expose changeType');
+		Assert.areEqual(new List<String> {recordId}, captured.recordIds, 'Captured header should expose recordIds');
+	}
+
+	/**
+	 * @description Verifies the existing 3-arg recordInvocation overload continues to
+	 * work for non-CDC dispatches (no header), and that getLastInputHeader returns
+	 * null in that case. Confirms backward compatibility of the overloaded API.
+	 */
+	@IsTest
+	private static void shouldReturnNullHeaderForNonChangeEventInvocation()
+	{
+		Account record = (Account)TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Industry, INDUSTRY_VALUE)
+				.withoutInsertion()
+				.build();
+
+		TST_InvokeFlowMock.forFlow(FLOW_NAME).succeed().register();
+		TST_InvokeFlowMock.recordInvocation(FLOW_NAME, record, null);
+
+		Assert.isNull(TST_InvokeFlowMock.getLastInputHeader(FLOW_NAME),
+				'Non-CDC dispatch via 3-arg overload should leave the captured header null');
+		Assert.areEqual(record, TST_InvokeFlowMock.getLastInputRecord(FLOW_NAME),
+				'3-arg overload should still capture the record');
 	}
 }

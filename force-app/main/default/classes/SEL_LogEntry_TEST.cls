@@ -8,7 +8,7 @@
  *
  * @group Logging
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -228,6 +228,27 @@ private class SEL_LogEntry_TEST
 		Assert.isNull(SEL_LogEntry.parseContextDataForTest(null), 'Should return null for null entry');
 		Assert.isNull(SEL_LogEntry.parseContextDataForTest(new LogEntry__c()), 'Should return null for null ContextData__c');
 		Assert.isNull(SEL_LogEntry.parseContextDataForTest(new LogEntry__c(ContextData__c = '')), 'Should return null for blank ContextData__c');
+	}
+
+	/**
+	 * @description Tests that findByFingerprints returns only rows whose Fingerprint__c is in
+	 * the requested set, and an empty list for blank input. This pins the selector contract.
+	 */
+	@IsTest
+	private static void shouldFindRowsByFingerprintKeys()
+	{
+		LogEntry__c matching = new LogEntry__c(Fingerprint__c = 'detail:selector-test-key', LogLevel__c = 'WARN');
+		LogEntry__c other = new LogEntry__c(Fingerprint__c = 'detail:selector-other-key', LogLevel__c = 'WARN');
+		DML_Builder.newTransaction().systemModeInternal().doInsert(new List<LogEntry__c> {matching, other}).execute();
+
+		Test.startTest();
+		List<LogEntry__c> found = new SEL_LogEntry().findByFingerprints(new Set<String> {'detail:selector-test-key'});
+		List<LogEntry__c> none = new SEL_LogEntry().findByFingerprints(new Set<String>());
+		Test.stopTest();
+
+		Assert.areEqual(1, found.size(), 'Exactly the matching fingerprint row should return');
+		Assert.areEqual('detail:selector-test-key', found[0].Fingerprint__c, 'Returned row should carry the requested key');
+		Assert.isTrue(none.isEmpty(), 'Empty input set should return an empty list without querying');
 	}
 
 	/**

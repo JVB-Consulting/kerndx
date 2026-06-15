@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <description>Subscriber-namespace release-test flow bound to a BlockDml kern__TriggerAction row for the SubscriberCdcProbe__ChangeEvent dispatch. Declares the change-event record and typed header inputs (so createInterview succeeds), then creates a Contact without LastName so the platform raises REQUIRED_FIELD_MISSING. The unhandled fault propagates to Flow.Interview.start() as a runtime exception; on a change-event dispatch the framework degrades the configured BlockDml policy to LogAndContinue (a committed change cannot be rolled back) and emits a warning tagged errorKind=cdc-block-dml-degraded. Exercises that degrade path end-to-end across the subscriber namespace boundary.</description>
+    <interviewLabel>TST_SubscriberFlow_CdcAlwaysFail {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>TST Subscriber Flow CDC Always Fail</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordCreates>
+        <description>Creates a Contact without LastName. Platform raises REQUIRED_FIELD_MISSING at runtime; with no fault connector, the flow surfaces an unhandled fault to Flow.Interview.start().</description>
+        <name>CreateInvalidContact</name>
+        <label>Create Invalid Contact</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <inputAssignments>
+            <field>FirstName</field>
+            <value>
+                <stringValue>Subscriber CDC deliberate failure</stringValue>
+            </value>
+        </inputAssignments>
+        <object>Contact</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <runInMode>DefaultMode</runInMode>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>CreateInvalidContact</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <description>Change-event record passed in by kern.TRG_InvokeFlow. Required so createInterview succeeds before the deliberate runtime fault.</description>
+        <name>record</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>SubscriberCdcProbe__ChangeEvent</objectType>
+    </variables>
+    <variables>
+        <description>Typed Change Data Capture header injected by kern.TRG_InvokeFlow for a change-event dispatch. Declared so createInterview accepts the injected variable; not used before the fault.</description>
+        <name>header</name>
+        <apexClass>kern__DTO_ChangeEventHeader</apexClass>
+        <dataType>Apex</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <description>Pre-update change-event record passed in by kern.TRG_InvokeFlow on update dispatches. Read-only.</description>
+        <name>recordPrior</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+        <objectType>SubscriberCdcProbe__ChangeEvent</objectType>
+    </variables>
+</Flow>
