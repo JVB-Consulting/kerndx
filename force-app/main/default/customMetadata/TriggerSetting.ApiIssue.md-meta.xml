@@ -19,6 +19,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>ObjectApiNameOverride__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>PerformanceThresholdMs__c</field>
         <value xsi:nil="true"/>
     </values>
