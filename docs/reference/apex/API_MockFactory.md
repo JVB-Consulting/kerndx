@@ -4,7 +4,7 @@ type: class
 description: "Central factory for mock response management. Provides test isolation via scoped registries and supports both memory-based (unit tests) and metadata-based (runtime) mocking. Features: Memory mocks for"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, April 2026, May 2026"
+date: "February 2026, May 2026"
 since: "1.0"
 category: apex
 ---

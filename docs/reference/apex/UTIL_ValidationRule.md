@@ -4,7 +4,7 @@ type: class
 description: "Formula-driven declarative validation framework for advanced validation scenarios that standard Salesforce validation rules cannot handle. This framework enables: Cross-object validation requiring que"
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, May 2026"
+date: "January 2026, June 2026"
 since: "1.0"
 category: apex
 ---
@@ -234,7 +234,10 @@ UTIL_ValidationRule.clearAllBypasses();
 global static void clearBypass(String identifier)
 ```
 
-Clears a specific bypass (object, group, or rule).
+Clears a specific bypass (object, group, or rule). For each bypass type the
+identifier was actually registered under, emits a `validation` `CLEAR` audit entry carrying the
+matching prefixed target (`object:`/`group:`/`rule:`) so the clear correlates to its originating
+bypass. An identifier that is not currently bypassed removes nothing and emits nothing.
 
 **Parameters:**
 
@@ -245,7 +248,7 @@ Clears a specific bypass (object, group, or rule).
 **Example:**
 
 ```apex
-UTIL_ValidationRule.clearBypass('value');
+UTIL_ValidationRule.clearBypass('Account');
 ```
 
 ### executeForTrigger

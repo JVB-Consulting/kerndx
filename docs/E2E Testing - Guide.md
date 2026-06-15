@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Building and running Playwright E2E tests against Salesforce orgs with KernDX
 - **Architects** - Designing E2E test strategies for Lightning applications
 - **QA Engineers** - Automating browser-based verification of Salesforce features
@@ -17,62 +18,64 @@
 
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
-   - [Why E2E Testing for Salesforce?](#why-e2e-testing-for-salesforce)
-   - [Why Playwright?](#why-playwright)
-   - [Architecture](#architecture)
-   - [Key Design Decisions](#key-design-decisions)
+    - [Why E2E Testing for Salesforce?](#why-e2e-testing-for-salesforce)
+    - [Why Playwright?](#why-playwright)
+    - [Architecture](#architecture)
+    - [Key Design Decisions](#key-design-decisions)
 3. [Project Setup](#project-setup)
-   - [Directory Structure](#directory-structure)
-   - [Dependencies](#dependencies)
-   - [Configuration Deep Dive](#configuration-deep-dive)
-   - [Org Alias](#org-alias)
+    - [Directory Structure](#directory-structure)
+    - [Dependencies](#dependencies)
+    - [Configuration Deep Dive](#configuration-deep-dive)
+    - [Org Alias](#org-alias)
 4. [Authentication](#authentication)
-   - [How Frontdoor URL Works](#how-frontdoor-url-works)
-   - [Global Setup Flow](#global-setup-flow)
-   - [Session State Reuse](#session-state-reuse)
-   - [Re-authentication Mid-Test](#re-authentication-mid-test)
-   - [Expired Sessions](#expired-sessions)
-   - [Package Upgrade in E2E Context](#package-upgrade-in-e2e-context)
+    - [How Frontdoor URL Works](#how-frontdoor-url-works)
+    - [Global Setup Flow](#global-setup-flow)
+    - [Session State Reuse](#session-state-reuse)
+    - [Re-authentication Mid-Test](#re-authentication-mid-test)
+    - [Expired Sessions](#expired-sessions)
+    - [Package Upgrade in E2E Context](#package-upgrade-in-e2e-context)
 5. [Salesforce Lightning Challenges](#salesforce-lightning-challenges)
-   - [Shadow DOM](#shadow-dom)
-   - [Spinners and Loading States](#spinners-and-loading-states)
-   - [Toasts](#toasts)
-   - [Navigation and Page Loading](#navigation-and-page-loading)
-   - [List Views](#list-views)
-   - [Record Pages](#record-pages)
-   - [Modals](#modals)
-   - [Combobox and Picklist](#combobox-and-picklist)
+    - [Shadow DOM](#shadow-dom)
+    - [Spinners and Loading States](#spinners-and-loading-states)
+    - [Toasts](#toasts)
+    - [Navigation and Page Loading](#navigation-and-page-loading)
+    - [List Views](#list-views)
+    - [Record Pages](#record-pages)
+    - [Modals](#modals)
+    - [Combobox and Picklist](#combobox-and-picklist)
 6. [Helper Library Reference](#helper-library-reference)
-   - [sf-auth.js](#sf-authjs)
-   - [sf-cli.js](#sf-clijs)
-   - [sf-navigation.js](#sf-navigationjs)
-   - [wait-helpers.js](#wait-helpersjs)
-   - [sf-selectors.js](#sf-selectorsjs)
+    - [sf-auth.js](#sf-authjs)
+    - [sf-cli.js](#sf-clijs)
+    - [sf-navigation.js](#sf-navigationjs)
+    - [wait-helpers.js](#wait-helpersjs)
+    - [sf-selectors.js](#sf-selectorsjs)
 7. [Page Object Patterns](#page-object-patterns)
-   - [Why Page Objects for Salesforce](#why-page-objects-for-salesforce)
-   - [Base Structure](#base-structure)
-   - [Locator Strategies](#locator-strategies)
-   - [Dynamic Content Handling](#dynamic-content-handling)
-   - [Example: List View Page](#example-list-view-page)
-   - [Example: Record Page](#example-record-page)
-   - [Example: Custom LWC Page](#example-custom-lwc-page)
+    - [Why Page Objects for Salesforce](#why-page-objects-for-salesforce)
+    - [Base Structure](#base-structure)
+    - [Locator Strategies](#locator-strategies)
+    - [Dynamic Content Handling](#dynamic-content-handling)
+    - [Example: List View Page](#example-list-view-page)
+    - [Example: Record Page](#example-record-page)
+    - [Example: Custom LWC Page](#example-custom-lwc-page)
 8. [Testing Common Salesforce Features](#testing-common-salesforce-features)
-   - [Record CRUD and Field Verification](#record-crud-and-field-verification)
-   - [Trigger Side Effects](#trigger-side-effects)
-   - [Validation Error Messages](#validation-error-messages)
-   - [List View Filtering](#list-view-filtering)
-   - [Related Lists](#related-lists)
-   - [LWC Component Interaction](#lwc-component-interaction)
-   - [Toast Assertions](#toast-assertions)
-   - [Modal Workflows](#modal-workflows)
-   - [Log Entry Verification](#log-entry-verification)
-   - [API Call Verification](#api-call-verification)
+    - [Record CRUD and Field Verification](#record-crud-and-field-verification)
+    - [Trigger Side Effects](#trigger-side-effects)
+    - [Validation Error Messages](#validation-error-messages)
+    - [List View Filtering](#list-view-filtering)
+    - [Related Lists](#related-lists)
+    - [LWC Component Interaction](#lwc-component-interaction)
+    - [Toast Assertions](#toast-assertions)
+    - [Modal Workflows](#modal-workflows)
+    - [Log Entry Verification](#log-entry-verification)
+    - [API Call Verification](#api-call-verification)
+    - [Streaming and Change Data Capture Monitor](#streaming-and-change-data-capture-monitor)
+    - [Event Usage Metrics](#event-usage-metrics)
 9. [Data Management](#data-management)
-   - [Creating Test Data](#creating-test-data)
-   - [SOQL Queries with Namespace](#soql-queries-with-namespace)
-   - [Cleanup Patterns](#cleanup-patterns)
-   - [Deploying Metadata](#deploying-metadata)
-   - [Custom Metadata States](#custom-metadata-states)
+    - [Creating Test Data](#creating-test-data)
+    - [SOQL Queries with Namespace](#soql-queries-with-namespace)
+    - [Cleanup Patterns](#cleanup-patterns)
+    - [Deploying Metadata](#deploying-metadata)
+    - [Custom Metadata States](#custom-metadata-states)
 10. [Debugging](#debugging)
     - [Headed Mode](#headed-mode)
     - [Debug Mode](#debug-mode)
@@ -96,17 +99,17 @@
 
 ## Quick Navigation
 
-| I want to... | Go to |
-|--------------|-------|
-| Get started quickly | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) |
-| Understand the authentication flow | [Authentication](#authentication) |
-| Handle Lightning-specific challenges | [Salesforce Lightning Challenges](#salesforce-lightning-challenges) |
-| Look up a helper function | [Helper Library Reference](#helper-library-reference) |
-| Write page objects | [Page Object Patterns](#page-object-patterns) |
-| Write tests for a specific feature | [Testing Common Salesforce Features](#testing-common-salesforce-features) |
-| Debug a failing test | [Debugging](#debugging) |
-| Set up CI/CD | [CI/CD Integration](#cicd-integration) |
-| Fix a common issue | [Troubleshooting](#troubleshooting) |
+| I want to...                         | Go to                                                                     |
+|--------------------------------------|---------------------------------------------------------------------------|
+| Get started quickly                  | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)           |
+| Understand the authentication flow   | [Authentication](#authentication)                                         |
+| Handle Lightning-specific challenges | [Salesforce Lightning Challenges](#salesforce-lightning-challenges)       |
+| Look up a helper function            | [Helper Library Reference](#helper-library-reference)                     |
+| Write page objects                   | [Page Object Patterns](#page-object-patterns)                             |
+| Write tests for a specific feature   | [Testing Common Salesforce Features](#testing-common-salesforce-features) |
+| Debug a failing test                 | [Debugging](#debugging)                                                   |
+| Set up CI/CD                         | [CI/CD Integration](#cicd-integration)                                    |
+| Fix a common issue                   | [Troubleshooting](#troubleshooting)                                       |
 
 ---
 
@@ -127,14 +130,14 @@ applications, E2E tests catch issues that unit tests cannot:
 
 ### Why Playwright?
 
-| Feature | Benefit for Salesforce |
-|---------|----------------------|
-| [Auto-waiting](https://playwright.dev/docs/actionability) | Handles Lightning's dynamic DOM without explicit sleeps |
-| [CSS + text locators](https://playwright.dev/docs/locators) | Works with Lightning component selectors and visible text |
-| [Browser contexts](https://playwright.dev/docs/browser-contexts) | Session state management via `storageState` |
-| [Trace viewer](https://playwright.dev/docs/trace-viewer) | Visual debugging of Lightning page interactions |
-| Cross-browser | Chromium, Firefox, WebKit (Chromium recommended for Salesforce) |
-| [Network interception](https://playwright.dev/docs/network) | Mock or monitor Salesforce API calls |
+| Feature                                                          | Benefit for Salesforce                                          |
+|------------------------------------------------------------------|-----------------------------------------------------------------|
+| [Auto-waiting](https://playwright.dev/docs/actionability)        | Handles Lightning's dynamic DOM without explicit sleeps         |
+| [CSS + text locators](https://playwright.dev/docs/locators)      | Works with Lightning component selectors and visible text       |
+| [Browser contexts](https://playwright.dev/docs/browser-contexts) | Session state management via `storageState`                     |
+| [Trace viewer](https://playwright.dev/docs/trace-viewer)         | Visual debugging of Lightning page interactions                 |
+| Cross-browser                                                    | Chromium, Firefox, WebKit (Chromium recommended for Salesforce) |
+| [Network interception](https://playwright.dev/docs/network)      | Mock or monitor Salesforce API calls                            |
 
 ### Architecture
 
@@ -167,13 +170,13 @@ applications, E2E tests catch issues that unit tests cannot:
 └─────────────────────────────────────────────────────┘
 ```
 
-| Layer | Purpose |
-|-------|---------|
-| **Global setup** | Authenticates once, saves session cookies to `.auth/state.json` |
-| **Specs** | Test files — run serially in a single browser worker |
-| **Helpers** | Reusable functions for auth, CLI, navigation, waiting, and selectors |
-| **Browser** | Chromium renders Lightning pages, Playwright interacts with the DOM |
-| **sf CLI** | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
+| Layer            | Purpose                                                                    |
+|------------------|----------------------------------------------------------------------------|
+| **Global setup** | Authenticates once, saves session cookies to `.auth/state.json`            |
+| **Specs**        | Test files — run serially in a single browser worker                       |
+| **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
+| **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
+| **sf CLI**       | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
 
 ### Key Design Decisions
 
@@ -277,27 +280,28 @@ module.exports = defineConfig({
 });
 ```
 
-| Setting | Value | Why |
-|---------|-------|-----|
-| `testDir` | `specs/` | Separates test files from helpers and pages |
-| `globalSetup` | `global-setup.js` | Runs authentication before any tests |
-| `timeout` | `120_000` | Lightning pages can take 30-60s on first load |
-| `expect.timeout` | `15_000` | [Assertions](https://playwright.dev/docs/test-assertions) need time for Lightning re-renders |
-| `fullyParallel` | `false` | Shared session cookie causes CSRF token conflicts in parallel |
-| `workers` | `1` | Single browser context, single authenticated session |
-| `retries` | `0` | Retries mask real issues — fix flakiness in helpers instead |
-| `reporter` | `'list'` | Simple output — add `'html'` for detailed reports |
-| `storageState` | `.auth/state.json` | Session cookies saved by global setup |
-| `viewport` | `1920x1080` | Full desktop layout — Lightning responsive breakpoints matter |
-| `screenshot` | `'on'` | Capture screenshot for every test (useful for visual verification) |
-| `trace` | `'retain-on-failure'` | Full trace for debugging, only kept for failed tests |
-| `video` | `'retain-on-failure'` | Video recording for failed tests |
-| `navigationTimeout` | `30_000` | Page.goto and waitForURL timeout |
-| `actionTimeout` | `15_000` | Click, fill, and other action timeouts |
+| Setting             | Value                 | Why                                                                                          |
+|---------------------|-----------------------|----------------------------------------------------------------------------------------------|
+| `testDir`           | `specs/`              | Separates test files from helpers and pages                                                  |
+| `globalSetup`       | `global-setup.js`     | Runs authentication before any tests                                                         |
+| `timeout`           | `120_000`             | Lightning pages can take 30-60s on first load                                                |
+| `expect.timeout`    | `15_000`              | [Assertions](https://playwright.dev/docs/test-assertions) need time for Lightning re-renders |
+| `fullyParallel`     | `false`               | Shared session cookie causes CSRF token conflicts in parallel                                |
+| `workers`           | `1`                   | Single browser context, single authenticated session                                         |
+| `retries`           | `0`                   | Retries mask real issues — fix flakiness in helpers instead                                  |
+| `reporter`          | `'list'`              | Simple output — add `'html'` for detailed reports                                            |
+| `storageState`      | `.auth/state.json`    | Session cookies saved by global setup                                                        |
+| `viewport`          | `1920x1080`           | Full desktop layout — Lightning responsive breakpoints matter                                |
+| `screenshot`        | `'on'`                | Capture screenshot for every test (useful for visual verification)                           |
+| `trace`             | `'retain-on-failure'` | Full trace for debugging, only kept for failed tests                                         |
+| `video`             | `'retain-on-failure'` | Video recording for failed tests                                                             |
+| `navigationTimeout` | `30_000`              | Page.goto and waitForURL timeout                                                             |
+| `actionTimeout`     | `15_000`              | Click, fill, and other action timeouts                                                       |
 
 ### Org Alias
 
-The Playwright suite is bound to a single hard-coded org alias — declared as the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js:5`. The helper does not read any environment variable for the alias; the constant is the only configuration surface.
+The Playwright suite is bound to a single hard-coded org alias — declared as the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js:5`. The helper does not read any
+environment variable for the alias; the constant is the only configuration surface.
 
 If your scratch org already uses that alias, no setup is required beyond defaulting your CLI to it:
 
@@ -415,7 +419,8 @@ sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <NewSubscriberPackageVe
 rm -f release-testing/e2e/.auth/state.json release-testing/e2e/.auth/instance.json
 ```
 
-The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via `node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
+The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via
+`node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
 
 ---
 
@@ -582,13 +587,13 @@ await page.locator(COMBOBOX_OPTION).filter({hasText: 'Technology'}).click();
 
 Authentication and session management.
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `ORG_ALIAS` | `string` | Hardcoded constant in `sf-auth.js:5`; rename your local alias with `sf alias set` or fork the helper to change it |
-| `getFrontdoorUrl()` | `function` | Returns one-time frontdoor URL from `sf org open` |
-| `getInstanceUrl()` | `function` | Returns org instance URL (e.g., `https://example.my.salesforce.com`) |
-| `reauthenticate(page)` | `async function` | Re-authenticates via frontdoor URL in the current page |
-| `ensureAuthenticated(page)` | `async function` | Checks if page is on Salesforce; re-authenticates if not |
+| Export                      | Type             | Description                                                                                                       |
+|-----------------------------|------------------|-------------------------------------------------------------------------------------------------------------------|
+| `ORG_ALIAS`                 | `string`         | Hardcoded constant in `sf-auth.js:5`; rename your local alias with `sf alias set` or fork the helper to change it |
+| `getFrontdoorUrl()`         | `function`       | Returns one-time frontdoor URL from `sf org open`                                                                 |
+| `getInstanceUrl()`          | `function`       | Returns org instance URL (e.g., `https://example.my.salesforce.com`)                                              |
+| `reauthenticate(page)`      | `async function` | Re-authenticates via frontdoor URL in the current page                                                            |
+| `ensureAuthenticated(page)` | `async function` | Checks if page is on Salesforce; re-authenticates if not                                                          |
 
 **`getFrontdoorUrl()`**
 
@@ -641,13 +646,13 @@ await ensureAuthenticated(page);
 
 Salesforce CLI commands for data operations.
 
-| Export | Signature | Description |
-|--------|-----------|-------------|
-| `executeAnonymousApex` | `(apex, options?) → string` | Executes anonymous Apex code |
-| `soqlQuery` | `(query, options?) → Array` | Runs SOQL query, returns records |
-| `createRecord` | `(sobjectType, values, options?) → object` | Creates a record via CLI |
-| `deleteRecord` | `(sobjectType, recordId, options?) → void` | Deletes a record by ID |
-| `deployMetadata` | `(sourcePath, options?) → object` | Deploys metadata from a directory |
+| Export                 | Signature                                  | Description                       |
+|------------------------|--------------------------------------------|-----------------------------------|
+| `executeAnonymousApex` | `(apex, options?) → string`                | Executes anonymous Apex code      |
+| `soqlQuery`            | `(query, options?) → Array`                | Runs SOQL query, returns records  |
+| `createRecord`         | `(sobjectType, values, options?) → object` | Creates a record via CLI          |
+| `deleteRecord`         | `(sobjectType, recordId, options?) → void` | Deletes a record by ID            |
+| `deployMetadata`       | `(sourcePath, options?) → object`          | Deploys metadata from a directory |
 
 **`executeAnonymousApex(apex, options?)`**
 
@@ -715,16 +720,16 @@ deployMetadata('../force-app/main/default/customMetadata');
 
 Lightning page navigation with authentication checks.
 
-| Export | Signature | Description |
-|--------|-----------|-------------|
-| `navigateToApp` | `(page, appDeveloperName) → void` | Navigate to a Lightning app |
-| `navigateToAppItem` | `(page, itemName) → void` | Navigate to an object list view |
-| `navigateToRecord` | `(page, recordId) → void` | Navigate to a record page |
-| `clickNavTab` | `(page, tabName) → void` | Click a navigation tab by title |
-| `navigateToSetup` | `(page, setupPath) → void` | Navigate to a setup page |
-| `waitForLightningReady` | `(page) → void` | Wait for Lightning nav bar to load |
-| `waitForPageLoad` | `(page) → void` | Wait for page content to attach |
-| `getBaseUrl` | `(page) → string` | Extract base URL from current page |
+| Export                  | Signature                         | Description                        |
+|-------------------------|-----------------------------------|------------------------------------|
+| `navigateToApp`         | `(page, appDeveloperName) → void` | Navigate to a Lightning app        |
+| `navigateToAppItem`     | `(page, itemName) → void`         | Navigate to an object list view    |
+| `navigateToRecord`      | `(page, recordId) → void`         | Navigate to a record page          |
+| `clickNavTab`           | `(page, tabName) → void`          | Click a navigation tab by title    |
+| `navigateToSetup`       | `(page, setupPath) → void`        | Navigate to a setup page           |
+| `waitForLightningReady` | `(page) → void`                   | Wait for Lightning nav bar to load |
+| `waitForPageLoad`       | `(page) → void`                   | Wait for page content to attach    |
+| `getBaseUrl`            | `(page) → string`                 | Extract base URL from current page |
 
 **`navigateToApp(page, appDeveloperName)`**
 
@@ -767,16 +772,16 @@ await clickNavTab(page, 'Log Entries');
 
 Wait strategies for Lightning-specific UI patterns.
 
-| Export | Signature | Description |
-|--------|-----------|-------------|
-| `waitForSpinnerGone` | `(page, timeout?) → void` | Wait for spinner to appear then disappear |
-| `waitForToast` | `(page, timeout?) → void` | Wait for any toast notification |
-| `waitForToastMessage` | `(page, expectedText, timeout?) → void` | Wait for toast with specific text |
-| `dismissToast` | `(page) → void` | Close visible toast notification |
-| `waitForRecordPage` | `(page, timeout?) → void` | Wait for record page layout |
-| `waitForListView` | `(page, timeout?) → void` | Wait for list view table |
-| `waitForModal` | `(page, timeout?) → void` | Wait for modal dialog |
-| `pollUntil` | `(page, conditionFn, options?) → any` | Poll a condition until true or timeout |
+| Export                | Signature                               | Description                               |
+|-----------------------|-----------------------------------------|-------------------------------------------|
+| `waitForSpinnerGone`  | `(page, timeout?) → void`               | Wait for spinner to appear then disappear |
+| `waitForToast`        | `(page, timeout?) → void`               | Wait for any toast notification           |
+| `waitForToastMessage` | `(page, expectedText, timeout?) → void` | Wait for toast with specific text         |
+| `dismissToast`        | `(page) → void`                         | Close visible toast notification          |
+| `waitForRecordPage`   | `(page, timeout?) → void`               | Wait for record page layout               |
+| `waitForListView`     | `(page, timeout?) → void`               | Wait for list view table                  |
+| `waitForModal`        | `(page, timeout?) → void`               | Wait for modal dialog                     |
+| `pollUntil`           | `(page, conditionFn, options?) → any`   | Poll a condition until true or timeout    |
 
 **`pollUntil(page, conditionFn, options?)`**
 
@@ -803,25 +808,25 @@ Reusable CSS selectors for Lightning UI components. Import individual selectors:
 const {TOAST, SPINNER, NAV_BAR, RECORD_HEADER} = require('../helpers/sf-selectors');
 ```
 
-| Constant | Selector | Matches |
-|----------|----------|---------|
-| `TOAST` | Toast container icons | Any toast notification |
-| `TOAST_SUCCESS` | Success icon in toast | Success toast specifically |
-| `TOAST_ERROR` | Error icon in toast | Error toast specifically |
-| `TOAST_MESSAGE` | Toast message text | Toast content span |
-| `TOAST_CLOSE` | Toast close button | Dismiss button |
-| `SPINNER` | Lightning spinner | Loading indicator |
-| `MODAL` | Modal dialog | SLDS modal container |
-| `MODAL_FOOTER` | Modal footer | Modal action buttons area |
-| `LIST_VIEW` | List view table/header | List view component |
-| `LIST_VIEW_RECORDS` | Table body rows | Individual list view records |
-| `RECORD_HEADER` | Record highlights panel | Record page header section |
-| `RECORD_DETAIL` | Record layout | Record page detail section |
-| `RECORD_TAB` | Record page tabs | Tab navigation links |
-| `NAV_BAR` | App navigation bar | Top-level nav component |
-| `NAV_BAR_ITEM` | Navigation tab items | Individual nav tabs |
-| `COMBOBOX_OPTION` | Combobox dropdown items | Picklist/combobox options |
-| `DATATABLE_ROW` | Data table rows | Rows in lightning-datatable |
+| Constant            | Selector                | Matches                      |
+|---------------------|-------------------------|------------------------------|
+| `TOAST`             | Toast container icons   | Any toast notification       |
+| `TOAST_SUCCESS`     | Success icon in toast   | Success toast specifically   |
+| `TOAST_ERROR`       | Error icon in toast     | Error toast specifically     |
+| `TOAST_MESSAGE`     | Toast message text      | Toast content span           |
+| `TOAST_CLOSE`       | Toast close button      | Dismiss button               |
+| `SPINNER`           | Lightning spinner       | Loading indicator            |
+| `MODAL`             | Modal dialog            | SLDS modal container         |
+| `MODAL_FOOTER`      | Modal footer            | Modal action buttons area    |
+| `LIST_VIEW`         | List view table/header  | List view component          |
+| `LIST_VIEW_RECORDS` | Table body rows         | Individual list view records |
+| `RECORD_HEADER`     | Record highlights panel | Record page header section   |
+| `RECORD_DETAIL`     | Record layout           | Record page detail section   |
+| `RECORD_TAB`        | Record page tabs        | Tab navigation links         |
+| `NAV_BAR`           | App navigation bar      | Top-level nav component      |
+| `NAV_BAR_ITEM`      | Navigation tab items    | Individual nav tabs          |
+| `COMBOBOX_OPTION`   | Combobox dropdown items | Picklist/combobox options    |
+| `DATATABLE_ROW`     | Data table rows         | Rows in lightning-datatable  |
 
 ---
 
@@ -856,13 +861,13 @@ module.exports = SalesforcePage;
 
 Use these selectors in order of preference:
 
-| Strategy | Example | Reliability |
-|----------|---------|-------------|
-| `getByText()` | `page.getByText('Account Name')` | High — visible text rarely changes |
-| `getByRole()` | `page.getByRole('button', {name: 'Save'})` | High — semantic roles are stable |
-| Component tag | `page.locator('lightning-formatted-text')` | Medium — LWC tag names are stable |
-| `field-label` attribute | `page.locator('[field-label="Industry"]')` | Medium — field labels can change |
-| CSS class | `page.locator('.slds-page-header__title')` | Low — SLDS classes change between releases |
+| Strategy                | Example                                    | Reliability                                |
+|-------------------------|--------------------------------------------|--------------------------------------------|
+| `getByText()`           | `page.getByText('Account Name')`           | High — visible text rarely changes         |
+| `getByRole()`           | `page.getByRole('button', {name: 'Save'})` | High — semantic roles are stable           |
+| Component tag           | `page.locator('lightning-formatted-text')` | Medium — LWC tag names are stable          |
+| `field-label` attribute | `page.locator('[field-label="Industry"]')` | Medium — field labels can change           |
+| CSS class               | `page.locator('.slds-page-header__title')` | Low — SLDS classes change between releases |
 
 > **SLDS release impact:** Salesforce updates SLDS classes with each major release (Spring, Summer, Winter).
 > CSS-class-based selectors that work today may break after a platform upgrade. This is the primary reason to
@@ -1232,6 +1237,144 @@ test('should log API call record', async ({page}) =>
 });
 ```
 
+### Streaming and Change Data Capture Monitor
+
+KernDX ships a real-time **Streaming Event Monitor** (the `kern-streaming-monitor` component) that subscribes to Platform Events,
+Change Data Capture channels, PushTopics, and Generic events. Launch it from the **Kern Home** tool cards; its controls expose stable
+`data-testid` hooks, so target those rather than SLDS classes. The pattern is the same as any event test — subscribe to a channel, emit an
+event out-of-band, then assert the received-event count rises.
+
+```javascript
+const {test, expect} = require('@playwright/test');
+const {navigateToApp} = require('../helpers/sf-navigation');
+const {executeAnonymousApex} = require('../helpers/sf-cli');
+const {waitForSpinnerGone, pollUntil} = require('../helpers/wait-helpers');
+
+async function openStreamingMonitor(page)
+{
+	await navigateToApp(page, 'kern__Kern');
+	await page.locator('[data-testid="kern-home-root"] lightning-button[data-key="streamingMonitor"]').click();
+	await waitForSpinnerGone(page);
+}
+
+async function pickOption(page, testId, label)
+{
+	const combobox = page.locator(`[data-testid="${testId}"]`).first();
+	await combobox.locator('input, button').first().click();
+	await page.getByRole('option', {name: label}).first().click();
+	await page.keyboard.press('Escape');
+}
+
+async function selectChannel(page, eventType, eventName)
+{
+	await pickOption(page, 'event-type', eventType);
+	await pickOption(page, 'event-name', eventName);
+}
+
+async function eventCount(page)
+{
+	// The "Showing N events" badge is view-independent — the monitor defaults to the
+	// timeline view, where the per-row datatable is not rendered. Read the badge, not rows.
+	const badge = page.getByText(/Showing \d+ event/).first();
+	if(!(await badge.isVisible().catch(() => false))) { return 0; }
+	const match = (await badge.textContent()).match(/Showing (\d+)/);
+	return match ? parseInt(match[1], 10) : 0;
+}
+```
+
+Subscribe to the Log Entry Event platform-event channel, emit a log entry, and assert the monitor receives it. `kern.LOG_Builder`
+publishes via platform event, so the row arrives asynchronously — poll for it:
+
+```javascript
+test.describe.serial('Streaming Event Monitor', () =>
+{
+	test('surfaces a Log Entry Event after emit', async ({page}) =>
+	{
+		test.setTimeout(120_000);
+		await openStreamingMonitor(page);
+
+		await page.getByText('Subscribe to a channel', {exact: true}).click();
+		await selectChannel(page, 'Custom Platform event', 'Log Entry Event');
+		await page.locator('[data-testid="subscribe-button"]').click();
+		await waitForSpinnerGone(page);
+
+		executeAnonymousApex(`
+			kern.LOG_Builder.build()
+				.info('Streaming monitor E2E')
+				.emitAt('E2E.streamingCheck');
+		`);
+
+		await pollUntil(page, async () => (await eventCount(page)) > 0,
+			{interval: 2000, timeout: 30_000, message: 'No streaming event received'});
+	});
+});
+```
+
+For Change Data Capture, subscribe to the **Change Data Capture event** type and pick the object's change event, then commit a DML change.
+The platform delivers the change event to the live subscription — let the CometD handshake settle before committing, and assert the
+received-event count increases:
+
+```javascript
+test('surfaces a change event after a record commit', async ({page}) =>
+{
+	test.setTimeout(120_000);
+	await openStreamingMonitor(page);
+
+	await page.getByText('Subscribe to a channel', {exact: true}).click();
+	await selectChannel(page, 'Change Data Capture event', 'Change Event: Account');
+	await page.locator('[data-testid="subscribe-button"]').click();
+	await waitForSpinnerGone(page);
+
+	// Replay -1 only delivers events published after the subscription is live.
+	await page.waitForTimeout(4000);
+	const before = await eventCount(page);
+
+	executeAnonymousApex("insert new Account(Name = 'CDC E2E');");
+
+	await pollUntil(page, async () => (await eventCount(page)) > before,
+		{interval: 2000, timeout: 40_000, message: 'No change event delivered'});
+});
+```
+
+> **CDC prerequisite:** the object must have a Change Data Capture entity selected (Setup > Change Data Capture). `Change Event: Account`
+> only appears in the channel list once Account CDC is enabled — the monitor lists only real change-event entities.
+
+The monitor can also publish an event for you: open **Publish an event**, fill the `[data-testid="publish-payload"]` textarea, and click
+`[data-testid="publish-button"]`. Reset subscriptions between runs with `[data-testid="unsubscribe-all"]`.
+
+### Event Usage Metrics
+
+The Streaming Event Monitor's **Event usage metrics** view charts platform-event publish and delivery volume from `PlatformEventUsageMetric`.
+It ships a chart/table toggle, a date-range preset, a series legend, and a granularity switch. Daily granularity is always available; hourly
+and 15-minute granularity require **Enhanced Usage Metrics** in the org, so a default org renders them disabled with a notice. Controls expose
+`data-spec-id` hooks (chart bars use `[data-testid="usage-bar"]`):
+
+```javascript
+test('Event usage metrics renders its controls', async ({page}) =>
+{
+	test.setTimeout(120_000);
+	await openStreamingMonitor(page);
+	await page.getByText('Event usage metrics', {exact: true}).click();
+	await page.locator('[data-spec-id="usage-card-title"]').waitFor({state: 'visible'});
+	await waitForSpinnerGone(page);
+
+	// Daily granularity is selected by default; sub-daily needs Enhanced Usage Metrics.
+	await expect(page.locator('[data-spec-id="usage-granularity-daily"]')).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.locator('[data-spec-id="usage-count-badge"]')).toBeVisible();
+	await expect(page.locator('[data-spec-id="usage-range-preset"]')).toBeVisible();
+
+	// Toggle from the chart to the table rendering of the same data.
+	await page.locator('[data-spec-id="usage-view-table"]').click();
+	await expect(page.locator('[data-spec-id="usage-table"]')).toBeVisible();
+	await page.locator('[data-spec-id="usage-view-chart"]').click();
+	await expect(page.locator('[data-spec-id="usage-table"]')).toBeHidden();
+});
+```
+
+> **Aggregation lag:** `PlatformEventUsageMetric` rows are populated by the platform on a delay (daily rows can take hours), so a
+> freshly-seeded org may legitimately render the empty state. Assert on the controls and the chart/table toggle — always present — rather than
+> on a specific bar count.
+
 ---
 
 ## Data Management
@@ -1485,7 +1628,10 @@ automatically. Key considerations:
   field as a GitHub secret
 - **Timeout:** CI environments can be slower. Consider increasing `timeout` to `180_000`
 - **Headless:** Always `true` in CI (default)
-- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), authenticate each one under the canonical alias — `sf org login sfdx-url --alias <ORG_ALIAS> ...` per run, substituting the value of the `ORG_ALIAS` constant from `sf-auth.js:5`. The helper is alias-bound, not URL-bound; every test run targets whichever org is currently registered under that alias. Forking the helper to read an env-var is the alternative if your release-management tool cannot rename aliases.
+- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), authenticate each one under the canonical alias —
+  `sf org login sfdx-url --alias <ORG_ALIAS> ...` per run, substituting the value of the `ORG_ALIAS` constant from `sf-auth.js:5`. The helper is alias-bound, not URL-bound; every
+  test run targets whichever org is currently registered under that alias. Forking the helper to read an env-var is the alternative if your release-management tool cannot rename
+  aliases.
 
 ### Artifact Collection
 
@@ -1538,46 +1684,46 @@ and permission sets.
 
 ## Anti-Patterns
 
-| Anti-Pattern | Problem | Better Approach |
-|-------------|---------|----------------|
-| **Flaky selectors** — `div:nth-child(3) > span` | Breaks when layout changes | Use `getByText()`, component tags, or `field-label` attributes |
-| **Missing auth checks** — navigating without `ensureAuthenticated()` | Random failures when session expires | Use navigation helpers that call `ensureAuthenticated()` automatically |
-| **Empty list view assertions** — asserting immediately after navigation | List data loads asynchronously | Use `waitForListView()` then assert on rows |
-| **Deployment propagation** — testing immediately after metadata deploy | Metadata may not be active yet | Add a short wait or verify via SOQL after deployment |
-| **Testing platform internals** — verifying Salesforce standard behavior | Wastes time, breaks on platform updates | Focus on your custom trigger actions, LWC, and API integrations |
-| **Browser-based data creation** — filling forms for test setup | Slow, flaky, depends on page layout | Use `createRecord()` or `executeAnonymousApex()` via CLI |
-| **Shared state between tests** — relying on data from previous test | One failure cascades to all subsequent tests | Each test creates its own data, cleans up in `afterAll` |
+| Anti-Pattern                                                            | Problem                                      | Better Approach                                                        |
+|-------------------------------------------------------------------------|----------------------------------------------|------------------------------------------------------------------------|
+| **Flaky selectors** — `div:nth-child(3) > span`                         | Breaks when layout changes                   | Use `getByText()`, component tags, or `field-label` attributes         |
+| **Missing auth checks** — navigating without `ensureAuthenticated()`    | Random failures when session expires         | Use navigation helpers that call `ensureAuthenticated()` automatically |
+| **Empty list view assertions** — asserting immediately after navigation | List data loads asynchronously               | Use `waitForListView()` then assert on rows                            |
+| **Deployment propagation** — testing immediately after metadata deploy  | Metadata may not be active yet               | Add a short wait or verify via SOQL after deployment                   |
+| **Testing platform internals** — verifying Salesforce standard behavior | Wastes time, breaks on platform updates      | Focus on your custom trigger actions, LWC, and API integrations        |
+| **Browser-based data creation** — filling forms for test setup          | Slow, flaky, depends on page layout          | Use `createRecord()` or `executeAnonymousApex()` via CLI               |
+| **Shared state between tests** — relying on data from previous test     | One failure cascades to all subsequent tests | Each test creates its own data, cleans up in `afterAll`                |
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Solution |
-|---------|-------------|----------|
-| `Could not extract frontdoor URL` | CLI not authenticated | Run `sf org display -o YourOrgAlias` and re-authenticate if needed |
-| `Error: Timeout 30000ms exceeded` on nav bar | Lightning not fully loaded | Increase timeout in `waitForLightningReady`, check network |
-| `Error: strict mode violation` | Multiple elements match locator | Add `.first()` or use `.filter({hasText: ...})` to narrow |
-| `Error: locator.click: Target closed` | Page navigated during action | Ensure page is fully loaded before interacting |
-| `ECONNREFUSED` | Chromium not installed | Run `npx playwright install chromium` |
-| Tests pass locally, fail in CI | Different timing, missing deps | Add `--with-deps` to Chromium install, increase timeouts |
-| SOQL returns empty array | Missing namespace prefix | Use `kern__ObjectName__c` and `kern__FieldName__c` |
-| `JSON.parse` error on CLI output | ANSI color codes in output | Helpers strip ANSI automatically — use `soqlQuery()` not raw `execSync` |
-| Record page shows "Loading..." | Record not yet committed | Use `await waitForRecordPage(page)` after navigation (Best Practices bans bare `waitForTimeout`) |
-| Toast assertion fails | Toast already dismissed | Use `waitForToastMessage()` which waits for toast to appear |
-| Session expired mid-test | Long-running test suite | Call `reauthenticate(page)` in `test.beforeEach` |
-| `ERR_NAME_NOT_RESOLVED` | Instance URL changed (scratch org) | Delete `.auth/state.json` and re-run |
-| Screenshots show login page | Session state not loaded | Verify `storageState` path in config matches global setup output |
+| Symptom                                      | Likely Cause                       | Solution                                                                                         |
+|----------------------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------|
+| `Could not extract frontdoor URL`            | CLI not authenticated              | Run `sf org display -o YourOrgAlias` and re-authenticate if needed                               |
+| `Error: Timeout 30000ms exceeded` on nav bar | Lightning not fully loaded         | Increase timeout in `waitForLightningReady`, check network                                       |
+| `Error: strict mode violation`               | Multiple elements match locator    | Add `.first()` or use `.filter({hasText: ...})` to narrow                                        |
+| `Error: locator.click: Target closed`        | Page navigated during action       | Ensure page is fully loaded before interacting                                                   |
+| `ECONNREFUSED`                               | Chromium not installed             | Run `npx playwright install chromium`                                                            |
+| Tests pass locally, fail in CI               | Different timing, missing deps     | Add `--with-deps` to Chromium install, increase timeouts                                         |
+| SOQL returns empty array                     | Missing namespace prefix           | Use `kern__ObjectName__c` and `kern__FieldName__c`                                               |
+| `JSON.parse` error on CLI output             | ANSI color codes in output         | Helpers strip ANSI automatically — use `soqlQuery()` not raw `execSync`                          |
+| Record page shows "Loading..."               | Record not yet committed           | Use `await waitForRecordPage(page)` after navigation (Best Practices bans bare `waitForTimeout`) |
+| Toast assertion fails                        | Toast already dismissed            | Use `waitForToastMessage()` which waits for toast to appear                                      |
+| Session expired mid-test                     | Long-running test suite            | Call `reauthenticate(page)` in `test.beforeEach`                                                 |
+| `ERR_NAME_NOT_RESOLVED`                      | Instance URL changed (scratch org) | Delete `.auth/state.json` and re-run                                                             |
+| Screenshots show login page                  | Session state not loaded           | Verify `storageState` path in config matches global setup output                                 |
 
 ---
 
 ## Related Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) | Quick setup guide — get 3 tests passing in 25 minutes |
-| [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) | Build trigger actions to test E2E |
-| [Fast Start - Logging](Fast%20Start%20-%20Logging.md) | Application logging to verify in Kern app |
-| [LWC - Guide](LWC%20-%20Guide.md) | Build LWC components to test E2E |
-| [Playwright Documentation](https://playwright.dev) | Official Playwright reference |
-| [Playwright Locators](https://playwright.dev/docs/locators) | Locator strategies and best practices |
-| [Playwright Trace Viewer](https://playwright.dev/docs/trace-viewer) | Visual debugging tool |
+| Document                                                                | Description                                           |
+|-------------------------------------------------------------------------|-------------------------------------------------------|
+| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)         | Quick setup guide — get 3 tests passing in 25 minutes |
+| [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) | Build trigger actions to test E2E                     |
+| [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                   | Application logging to verify in Kern app             |
+| [LWC - Guide](LWC%20-%20Guide.md)                                       | Build LWC components to test E2E                      |
+| [Playwright Documentation](https://playwright.dev)                      | Official Playwright reference                         |
+| [Playwright Locators](https://playwright.dev/docs/locators)             | Locator strategies and best practices                 |
+| [Playwright Trace Viewer](https://playwright.dev/docs/trace-viewer)     | Visual debugging tool                                 |

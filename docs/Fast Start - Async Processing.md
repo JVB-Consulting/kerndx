@@ -36,10 +36,10 @@ chain orchestration, persistent status, error recovery, all built in.
 1. [How It Works](#how-it-works)
 2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
 3. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-   - [Step 1: Create the chain step](#step-1-create-the-chain-step)
-   - [Step 2: Execute the chain](#step-2-execute-the-chain)
-   - [Step 3: Write the test class](#step-3-write-the-test-class)
-   - [Step 4: Deploy and verify](#step-4-deploy-and-verify)
+    - [Step 1: Create the chain step](#step-1-create-the-chain-step)
+    - [Step 2: Execute the chain](#step-2-execute-the-chain)
+    - [Step 3: Write the test class](#step-3-write-the-test-class)
+    - [Step 4: Deploy and verify](#step-4-deploy-and-verify)
 4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
 5. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
 6. [Common Issues](#common-issues)
@@ -55,13 +55,13 @@ chain orchestration, persistent status, error recovery, all built in.
 An async chain sequences steps across separate Queueable transactions. Each step gets a fresh set of
 governor limits and a shared `ChainContext` that carries state between steps.
 
-| Component | Role |
-|-----------|------|
-| `kern.UTIL_AsyncChain.newChain('Name')` | Entry point — returns a `ChainBuilder` |
-| `kern.UTIL_AsyncChain.ChainStep` | Abstract base — extend it and implement `work()` |
-| `kern.UTIL_AsyncChain.ChainContext` | Shared state between steps (`get` / `put` / `has`) |
-| `kern.UTIL_AsyncChain.StepResult` | Return value — `succeeded()` / `failed()` |
-| `kern__AsyncChainExecution__c` | Tracking row — status, step counts, error message, context data |
+| Component                               | Role                                                            |
+|-----------------------------------------|-----------------------------------------------------------------|
+| `kern.UTIL_AsyncChain.newChain('Name')` | Entry point — returns a `ChainBuilder`                          |
+| `kern.UTIL_AsyncChain.ChainStep`        | Abstract base — extend it and implement `work()`                |
+| `kern.UTIL_AsyncChain.ChainContext`     | Shared state between steps (`get` / `put` / `has`)              |
+| `kern.UTIL_AsyncChain.StepResult`       | Return value — `succeeded()` / `failed()`                       |
+| `kern__AsyncChainExecution__c`          | Tracking row — status, step counts, error message, context data |
 
 **Why a chain instead of a single Queueable?** Each step runs in its own transaction, so callouts +
 DML do not conflict, governor limits reset between steps, and the framework records progress and
@@ -365,7 +365,7 @@ See the [Async Processing Guide](Async%20Processing%20-%20Guide.md) for delayed 
 
 Chain state persisted on `AsyncChainExecution__c` (context data, step logs, error messages) is
 redacted by the data masking framework before storage. Out of the box, `MaskSecretKeys` redacts
-common secret JSON keys (`password`, `token`, `apiKey`, etc.) and `MaskCreditCard` redacts
+common secret JSON keys (`password`, `token`, `apiKey`, etc.) and `MaskPaymentCard` redacts
 Luhn-validated card numbers. So `context.put('password', userPassword)` is safe at rest — but the
 redaction is destructive, so downstream steps re-reading the persisted row see the redacted form.
 Don't rely on chain context for authenticated callouts; use a Named Credential instead.
@@ -374,14 +374,14 @@ Don't rely on chain context for authenticated callouts; use a Named Credential i
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Failed (Class Not Found: MyStep)` | Step class is `public`, invisible across the package namespace | Make the step class `global`, or register a Type Resolver |
-| Test assertions fail — Description never stamped | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest` |
-| `Status: Running` indefinitely | First step threw an unhandled exception before persisting status | Check the `kern__LogEntry__c` rows for the chain's `correlationId` |
-| Chain test only runs first step | Default `maximumQueueableStackDepth` is 1 in tests | Pass `.withAsyncOptions(options)` with `maximumQueueableStackDepth` raised |
-| `context.get()` returns null | Value not JSON-serialisable, or key spelling mismatch | Store only Ids, primitives, and simple collections; verify the key |
-| `Chain has already been executed` | Reusing a `ChainBuilder` after `.execute()` | Build a fresh chain via `kern.UTIL_AsyncChain.newChain(...)` |
+| Problem                                          | Cause                                                             | Fix                                                                        |
+|--------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `Failed (Class Not Found: MyStep)`               | Step class is `public`, invisible across the package namespace    | Make the step class `global`, or register a Type Resolver                  |
+| Test assertions fail — Description never stamped | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest`                |
+| `Status: Running` indefinitely                   | First step threw an unhandled exception before persisting status  | Check the `kern__LogEntry__c` rows for the chain's `correlationId`         |
+| Chain test only runs first step                  | Default `maximumQueueableStackDepth` is 1 in tests                | Pass `.withAsyncOptions(options)` with `maximumQueueableStackDepth` raised |
+| `context.get()` returns null                     | Value not JSON-serialisable, or key spelling mismatch             | Store only Ids, primitives, and simple collections; verify the key         |
+| `Chain has already been executed`                | Reusing a `ChainBuilder` after `.execute()`                       | Build a fresh chain via `kern.UTIL_AsyncChain.newChain(...)`               |
 
 ---
 
@@ -406,11 +406,11 @@ Don't rely on chain context for authenticated callouts; use a Named Credential i
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Outbound HTTP calls | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) |
-| DML Builder (sync and async) | [Fast Start - DML](Fast%20Start%20-%20DML.md) |
-| Logging and correlation | [Fast Start - Logging](Fast%20Start%20-%20Logging.md) |
-| Feature flag gating | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Complete async reference | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
-| `UTIL_AsyncChain` API | [reference/apex/UTIL_AsyncChain.md](reference/apex/UTIL_AsyncChain.md) |
+| Topic                        | Link                                                                   |
+|------------------------------|------------------------------------------------------------------------|
+| Outbound HTTP calls          | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)    |
+| DML Builder (sync and async) | [Fast Start - DML](Fast%20Start%20-%20DML.md)                          |
+| Logging and correlation      | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                  |
+| Feature flag gating          | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)    |
+| Complete async reference     | [Async Processing - Guide](Async%20Processing%20-%20Guide.md)          |
+| `UTIL_AsyncChain` API        | [reference/apex/UTIL_AsyncChain.md](reference/apex/UTIL_AsyncChain.md) |

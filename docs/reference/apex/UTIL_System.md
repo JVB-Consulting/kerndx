@@ -4,7 +4,7 @@ type: class
 description: "Namespace, type resolution, and platform utility methods. Provides runtime introspection for managed package namespace detection, class type resolution, API version retrieval, and session management."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---

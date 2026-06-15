@@ -4,7 +4,7 @@ type: class
 description: "The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API calls that are queued for outbound processing. This class retrieves a list of queued API calls, updates"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---

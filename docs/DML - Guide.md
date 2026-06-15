@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Implementing secure DML operations using Unit of Work, bulk processing, and test data factories
 - **Architects** - Designing transactional patterns with proper sharing enforcement and permission checking
 - **Business Analysts** - Understanding data operation capabilities, security controls, and testing patterns
@@ -18,57 +19,58 @@
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Architecture](#architecture)
-   - [Architecture Diagram](#architecture-diagram)
-   - [Layer 1: DML_Transaction](#layer-1-dml_transaction)
-   - [Layer 2: DML_Builder](#layer-2-dml_builder)
-   - [Layer 3: Sharing Proxy](#layer-3-sharing-proxy)
-   - [Layer 4: FLOW_CheckObjectPermissions](#layer-4-flow_checkobjectpermissions)
+    - [Architecture Diagram](#architecture-diagram)
+    - [Layer 1: DML_Transaction](#layer-1-dml_transaction)
+    - [Layer 2: DML_Builder](#layer-2-dml_builder)
+    - [Layer 3: Sharing Proxy](#layer-3-sharing-proxy)
+    - [Layer 4: FLOW_CheckObjectPermissions](#layer-4-flow_checkobjectpermissions)
 4. [Quick Start](#quick-start)
-5. [Transactional DML Pattern (DML_Builder)](#transactional-dml-pattern-dml_builder)
-   - [Basic Usage](#basic-usage)
-   - [Managing Dependencies](#managing-dependencies)
-   - [Registering Relationships](#registering-relationships)
-   - [Upsert with External ID](#upsert-with-external-id)
-   - [Mixed Operations](#mixed-operations)
+5. [Escape Hatches](#escape-hatches)
+6. [Transactional DML Pattern (DML_Builder)](#transactional-dml-pattern-dml_builder)
+    - [Basic Usage](#basic-usage)
+    - [Managing Dependencies](#managing-dependencies)
+    - [Registering Relationships](#registering-relationships)
+    - [Upsert with External ID](#upsert-with-external-id)
+    - [Mixed Operations](#mixed-operations)
 6. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
-   - [Insert Operations](#insert-operations)
-   - [Update Operations](#update-operations)
-   - [Delete Operations](#delete-operations)
-   - [Upsert Operations](#upsert-operations)
-   - [Undelete Operations](#undelete-operations)
+    - [Insert Operations](#insert-operations)
+    - [Update Operations](#update-operations)
+    - [Delete Operations](#delete-operations)
+    - [Upsert Operations](#upsert-operations)
+    - [Undelete Operations](#undelete-operations)
 7. [Sharing Enforcement](#sharing-enforcement)
-   - [Context-Driven Sharing](#context-driven-sharing)
-   - [Operation-Level Sharing](#operation-level-sharing)
-   - [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)
-   - [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)
+    - [Context-Driven Sharing](#context-driven-sharing)
+    - [Operation-Level Sharing](#operation-level-sharing)
+    - [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)
+    - [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)
 8. [Permission Checking (FLOW_CheckObjectPermissions)](#permission-checking-flow_checkobjectpermissions)
-   - [Object-Level Permissions](#object-level-permissions)
-   - [Before DML Checks](#before-dml-checks)
-   - [Field-Level Security](#field-level-security)
+    - [Object-Level Permissions](#object-level-permissions)
+    - [Before DML Checks](#before-dml-checks)
+    - [Field-Level Security](#field-level-security)
 9. [Test Data Factory](#test-data-factory)
-   - [TST_Builder](#tst_builder)
-   - [Basic Usage](#basic-usage-1)
-   - [Field Overrides](#field-overrides)
-   - [Bulk Record Creation](#bulk-record-creation)
-   - [Record Type Support](#record-type-support)
-   - [Parent-Child Relationships](#parent-child-relationships)
-     - [Pattern 1: Simple Child Creation (No Field Overrides)](#pattern-1-simple-child-creation-no-field-overrides)
-     - [Pattern 2: Children with Field Overrides](#pattern-2-children-with-field-overrides)
-     - [Pattern 3: Children Using Builder (Complex Configuration)](#pattern-3-children-using-builder-complex-configuration)
-     - [Pattern 4: Multiple Child Types](#pattern-4-multiple-child-types)
-     - [Pattern 5: Explicit Relationship Name (Edge Cases)](#pattern-5-explicit-relationship-name-edge-cases)
-     - [In-Memory Parent-Child Graphs (No DML)](#in-memory-parent-child-graphs-no-dml)
-     - [Bulk Parents with Children](#bulk-parents-with-children)
-   - [Optional and Defaulted Fields](#optional-and-defaulted-fields)
-     - [Force Optional Fields to be Populated](#force-optional-fields-to-be-populated)
-     - [Multi-Level Relationship Paths](#multi-level-relationship-paths)
-     - [Mark Required Fields as Optional](#mark-required-fields-as-optional)
-   - [Advanced Features](#advanced-features)
-     - [Mock ID Generation for Query Mocking](#mock-id-generation-for-query-mocking)
-     - [Auto-Default Marker](#auto-default-marker)
-     - [Custom Default Value Provider](#custom-default-value-provider)
-     - [Custom Factory Provider](#custom-factory-provider)
-   - [Complete Example](#complete-example)
+    - [TST_Builder](#tst_builder)
+    - [Basic Usage](#basic-usage-1)
+    - [Field Overrides](#field-overrides)
+    - [Bulk Record Creation](#bulk-record-creation)
+    - [Record Type Support](#record-type-support)
+    - [Parent-Child Relationships](#parent-child-relationships)
+        - [Pattern 1: Simple Child Creation (No Field Overrides)](#pattern-1-simple-child-creation-no-field-overrides)
+        - [Pattern 2: Children with Field Overrides](#pattern-2-children-with-field-overrides)
+        - [Pattern 3: Children Using Builder (Complex Configuration)](#pattern-3-children-using-builder-complex-configuration)
+        - [Pattern 4: Multiple Child Types](#pattern-4-multiple-child-types)
+        - [Pattern 5: Explicit Relationship Name (Edge Cases)](#pattern-5-explicit-relationship-name-edge-cases)
+        - [In-Memory Parent-Child Graphs (No DML)](#in-memory-parent-child-graphs-no-dml)
+        - [Bulk Parents with Children](#bulk-parents-with-children)
+    - [Optional and Defaulted Fields](#optional-and-defaulted-fields)
+        - [Force Optional Fields to be Populated](#force-optional-fields-to-be-populated)
+        - [Multi-Level Relationship Paths](#multi-level-relationship-paths)
+        - [Mark Required Fields as Optional](#mark-required-fields-as-optional)
+    - [Advanced Features](#advanced-features)
+        - [Mock ID Generation for Query Mocking](#mock-id-generation-for-query-mocking)
+        - [Auto-Default Marker](#auto-default-marker)
+        - [Custom Default Value Provider](#custom-default-value-provider)
+        - [Custom Factory Provider](#custom-factory-provider)
+    - [Complete Example](#complete-example)
 10. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
     - [Bulk Field Updates](#bulk-field-updates)
     - [Purge Records (UTIL_PurgeRecords)](#purge-records-util_purgerecords)
@@ -78,20 +80,20 @@
 12. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
 13. [Anti-Patterns](#anti-patterns)
 14. [Best Practices](#best-practices)
-    - [1. Use Transactional DML for Complex Transactions](#1-use-transactional-dml-for-complex-transactions)
-    - [2. Always Use DML_Builder for DML](#2-always-use-dml_builder-for-dml)
-    - [3. Be Explicit About Sharing](#3-be-explicit-about-sharing)
-    - [4. Check Permissions Before DML](#4-check-permissions-before-dml)
-    - [5. Use TST_Builder in Tests](#5-use-tst_builder-in-tests)
-    - [6. Handle DML Errors Properly](#6-handle-dml-errors-properly)
-    - [7. Use Bulk Operations](#7-use-bulk-operations)
-    - [8. Leverage Batch Apex for Large Volumes](#8-leverage-batch-apex-for-large-volumes)
-    - [9. Use UTIL_BulkUpdates for Common Bulk Operations](#9-use-util_bulkupdates-for-common-bulk-operations)
-    - [10. Create Fresh Transactions](#10-create-fresh-transactions)
-    - [11. Document DML Operations](#11-document-dml-operations)
-    - [12. Use All-or-Nothing Appropriately](#12-use-all-or-nothing-appropriately)
-    - [13. Reset Sharing After Operations](#13-reset-sharing-after-operations)
-    - [14. Use Purge Utilities for Cleanup](#14-use-purge-utilities-for-cleanup)
+    - [Use Transactional DML for Complex Transactions](#use-transactional-dml-for-complex-transactions)
+    - [Always Use DML_Builder for DML](#always-use-dml_builder-for-dml)
+    - [Be Explicit About Sharing](#be-explicit-about-sharing)
+    - [Check Permissions Before DML](#check-permissions-before-dml)
+    - [Use TST_Builder in Tests](#use-tst_builder-in-tests)
+    - [Handle DML Errors Properly](#handle-dml-errors-properly)
+    - [Use Bulk Operations](#use-bulk-operations)
+    - [Leverage Batch Apex for Large Volumes](#leverage-batch-apex-for-large-volumes)
+    - [Use UTIL_BulkUpdates for Common Bulk Operations](#use-util_bulkupdates-for-common-bulk-operations)
+    - [Create Fresh Transactions](#create-fresh-transactions)
+    - [Document DML Operations](#document-dml-operations)
+    - [Use All-or-Nothing Appropriately](#use-all-or-nothing-appropriately)
+    - [Reset Sharing After Operations](#reset-sharing-after-operations)
+    - [Use Purge Utilities for Cleanup](#use-purge-utilities-for-cleanup)
 15. [Related Documentation](#related-documentation)
 
 </details>
@@ -100,21 +102,23 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                                     |
-|---------------|-----------------------------------|------------------------------------------------------------------------------|
-| **Architect** | Design transaction patterns       | [Architecture](#architecture)                                                |
-| **Architect** | Understand sharing enforcement    | [Sharing Enforcement](#sharing-enforcement)                                  |
-| **Developer** | Perform DML operations            | [Quick Start](#quick-start)                                                  |
-| **Developer** | Build test data                   | [Test Data Factory](#test-data-factory)                                      |
-| **Developer** | Handle complex transactions       | [Transactional DML Pattern](#transactional-dml-pattern-dml_builder)          |
-| **Analyst**   | Understand permission checking    | [Permission Checking](#permission-checking-flow_checkobjectpermissions)      |
-| **Analyst**   | Know DML capabilities             | [Capability Matrix](#capability-matrix-for-analysts)                         |
+| I am a...     | I need to...                   | Go to...                                                                |
+|---------------|--------------------------------|-------------------------------------------------------------------------|
+| **Architect** | Design transaction patterns    | [Architecture](#architecture)                                           |
+| **Architect** | Understand sharing enforcement | [Sharing Enforcement](#sharing-enforcement)                             |
+| **Developer** | Perform DML operations         | [Quick Start](#quick-start)                                             |
+| **Developer** | Build test data                | [Test Data Factory](#test-data-factory)                                 |
+| **Developer** | Handle complex transactions    | [Transactional DML Pattern](#transactional-dml-pattern-dml_builder)     |
+| **Analyst**   | Understand permission checking | [Permission Checking](#permission-checking-flow_checkobjectpermissions) |
+| **Analyst**   | Know DML capabilities          | [Capability Matrix](#capability-matrix-for-analysts)                    |
 
 ---
 
 ## Overview
 
-The DML Operations framework provides enterprise-grade patterns for managing [database operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) in Salesforce. It implements industry-standard patterns including Unit of Work, bulk DML processing, sharing enforcement, and permission checking to ensure secure, performant, and maintainable data operations.
+The DML Operations framework provides enterprise-grade patterns for
+managing [database operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) in Salesforce. It implements industry-standard
+patterns including Unit of Work, bulk DML processing, sharing enforcement, and permission checking to ensure secure, performant, and maintainable data operations.
 
 The framework consists of four complementary layers:
 
@@ -124,6 +128,7 @@ The framework consists of four complementary layers:
 4. **[`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md)** - Permission checking utilities
 
 Additional utilities include:
+
 - **[`TST_Builder`](reference/apex/TST_Builder.md)** - Test data factory with builder pattern
 - **`UTIL_PurgeRecords`** - Bulk record deletion utilities
 - **`UTIL_BulkUpdates`** - Bulk update operations
@@ -140,6 +145,7 @@ Additional utilities include:
 > - Anonymous Apex scripts or data loader operations where the overhead of `DML_Builder` adds no value
 
 **Key Benefits:**
+
 - **Transaction Management** - Unit of Work pattern for complex multi-object transactions
 - **Bulk Processing** - Efficient handling of large data volumes
 - **Sharing Control** - Explicit enforcement or bypass of [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm)
@@ -202,11 +208,13 @@ Additional utilities include:
 
 ### Layer 1: [`DML_Transaction`](reference/apex/DML_Transaction.md)
 
-**Purpose:** Implements Martin Fowler's [Unit of Work](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_transaction.htm) pattern to manage complex DML operations across multiple SObjects in a single transaction.
+**Purpose:** Implements Martin Fowler's [Unit of Work](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_transaction.htm) pattern to manage
+complex DML operations across multiple SObjects in a single transaction.
 
 **When to Use:** When you need to perform multiple DML operations that must succeed or fail as a single unit, especially with relationship management between objects.
 
 **Key Features:**
+
 - Register records for insert, update, delete, upsert, and undelete
 - Automatic dependency management
 - Parent-child relationship resolution
@@ -214,6 +222,7 @@ Additional utilities include:
 - Rollback on failure
 
 **Example:**
+
 ```apex
 // Creates an Account with related Contacts in a single transaction
 DML_Builder.newTransaction()
@@ -225,18 +234,24 @@ DML_Builder.newTransaction()
 
 ### Layer 2: [`DML_Builder`](reference/apex/DML_Builder.md)
 
-**Purpose:** Provides standardized methods for performing [DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) with built-in sharing control and error handling.
+**Purpose:** Provides standardized methods for performing [DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) with
+built-in sharing control and error handling.
 
-**When to Use:** For all database [insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm), [update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm), [delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm), [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm), and [undelete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_undelete.htm) operations.
+**When to Use:** For all
+database [insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm), [update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm), [delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm), [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm),
+and [undelete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_undelete.htm) operations.
 
 **Key Features:**
+
 - Bulk processing support
 - Sharing enforcement options
 - All-or-nothing vs partial commit
 - Comprehensive error handling
-- [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm) management
+- [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
+  management
 
 **Example:**
+
 ```apex
 // Bulk inserts accounts with sharing enforced
 List<Account> accounts = new List<Account>
@@ -253,11 +268,13 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 ### Layer 3: Sharing Proxy
 
-**Purpose:** Controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) and access mode are applied during DML operations.
+**Purpose:** Controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) and access mode are applied
+during DML operations.
 
 **When to Use:** When you need explicit control over access mode (USER_MODE / SYSTEM_MODE) or sharing (proxy class selection) for specific operations.
 
 **Key Features:**
+
 - Secure-by-default: USER_MODE (CRUD + FLS + sharing enforced) via `FeatureFlag.UserModeDml_Enabled`
 - `.withUserMode()` / `.withSystemMode()` for explicit access-mode selection
 - `.bypassSharing()` for `without sharing` proxy routing (in SYSTEM_MODE)
@@ -265,6 +282,7 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 - [AccessLevel.SYSTEM_MODE](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_enforce_usermode.htm) support
 
 **Example:**
+
 ```apex
 // Default (USER_MODE): CRUD + FLS + sharing all enforced at the database level
 DML_Builder.newTransaction().doInsert(accounts).execute();
@@ -278,17 +296,20 @@ DML_Builder.newTransaction().doInsert(logEntries).withSystemMode().execute();
 
 ### Layer 4: [`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md)
 
-**Purpose:** Validates user [permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) before attempting DML operations.
+**Purpose:** Validates user [permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) before attempting DML
+operations.
 
 **When to Use:** Before performing DML operations in user-facing features or public sites/communities.
 
 **Key Features:**
+
 - [Object-level permission](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_methods_system_sobject_describe.htm) checking
 - Create, read, update, delete access validation
 - Invocable method for Flow integration
 - SObject describe-based checks
 
 **Example:**
+
 ```apex
 // Checks if user can create Account records
 FLOW_CheckObjectPermissions.DTO_Request request = new FLOW_CheckObjectPermissions.DTO_Request();
@@ -345,15 +366,35 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
+## Escape Hatches
+
+The framework is opt-in. Every common edge case the layered API doesn't cover by default has a documented hatch on the same fluent builder — and raw `Database.*` is always still
+available when you need it.
+
+| You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
+|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()` — failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
+| **>10K rows in one logical transaction**                              | `DML_Builder.async()` — streams operations through queueables/batches; the chosen access mode propagates. The platform throws a catchable pre-flight exception with `.async()` named as the remediation when sync would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
+| **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE — overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
+| **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
+| **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
+| **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified — nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
+
+Use the framework for the 95% common case; reach for the hatch (or raw `Database.*`) for the 5% edge case. Both paths are first-class.
+
+---
+
 ## Transactional DML Pattern ([`DML_Builder`](reference/apex/DML_Builder.md))
 
-The transactional DML pattern tracks changes to SObjects and commits them in a single transaction, maintaining referential integrity and dependency order. `DML_Builder` is the public facade; [`DML_Transaction`](reference/apex/DML_Transaction.md) is the internal engine.
+The transactional DML pattern tracks changes to SObjects and commits them in a single transaction, maintaining referential integrity and dependency order. `DML_Builder` is the
+public facade; [`DML_Transaction`](reference/apex/DML_Transaction.md) is the internal engine.
 
 ### Basic Usage
 
 Use `DML_Builder.newTransaction()` to create a fluent transaction and chain DML operations.
 
 **Example:**
+
 ```apex
 // Basic transactional DML for creating related records
 Account account = new Account(Name = 'Acme Corporation', Industry = 'Technology');
@@ -369,9 +410,11 @@ DML_Builder.newTransaction()
 
 ### Managing Dependencies
 
-The framework automatically resolves parent-child dependency order using the relationship fields specified in `doInsert` calls. Parents are inserted before children, and child foreign keys are populated automatically.
+The framework automatically resolves parent-child dependency order using the relationship fields specified in `doInsert` calls. Parents are inserted before children, and child
+foreign keys are populated automatically.
 
 **Example:**
+
 ```apex
 // DML_Builder resolves dependency order automatically from relationship fields
 Account account1 = new Account(Name = 'Account 1');
@@ -393,9 +436,11 @@ DML_Builder.newTransaction()
 
 ### Registering Relationships
 
-Use the three-argument `doInsert` to register relationships between new records that don't have Ids yet. The framework automatically populates foreign keys after parent records are inserted.
+Use the three-argument `doInsert` to register relationships between new records that don't have Ids yet. The framework automatically populates foreign keys after parent records are
+inserted.
 
 **Example:**
+
 ```apex
 // Register relationships between new records
 Account account = new Account(Name = 'Parent Account');
@@ -419,9 +464,11 @@ DML_Builder.newTransaction()
 
 ### Upsert with External ID
 
-Use `doUpsert` with an external ID field to match existing records for [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm) operations.
+Use `doUpsert` with an external ID field to match existing records
+for [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm) operations.
 
 **Single Record:**
+
 ```apex
 // Upsert using external ID field for matching
 Account account = new Account(Name = 'Acme Corp', ExternalId__c = 'EXT-001');
@@ -432,6 +479,7 @@ DML_Builder.newTransaction()
 ```
 
 **Multiple Records:**
+
 ```apex
 // Bulk upsert using external ID field
 List<Account> accounts = new List<Account>
@@ -447,6 +495,7 @@ DML_Builder.newTransaction()
 ```
 
 **With Parent-Child Relationships:**
+
 ```apex
 // Upsert parent with related child inserts
 Account account = new Account(Name = 'Parent Account', ExternalId__c = 'EXT-PARENT');
@@ -458,9 +507,11 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-> **Important:** All records of the same SObjectType within a single transaction must use the same external ID field. Attempting to register records with different external ID fields for the same SObjectType throws an `IllegalStateException`.
+> **Important:** All records of the same SObjectType within a single transaction must use the same external ID field. Attempting to register records with different external ID
+> fields for the same SObjectType throws an `IllegalStateException`.
 
 **Example - Conflicting External ID Fields (Invalid):**
+
 ```apex
 // This will throw an IllegalStateException
 Account account1 = new Account(Name = 'Account 1', ExternalId__c = 'EXT-001');
@@ -479,6 +530,7 @@ DML_Builder.newTransaction()
 Combine inserts, updates, and deletes in a single transaction.
 
 **Example:**
+
 ```apex
 // Mixed DML operations with error handling
 try
@@ -519,6 +571,7 @@ catch(Exception error)
 [Insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm) single or multiple records with sharing control.
 
 **Example:**
+
 ```apex
 // Bulk insert with error handling
 List<Account> accounts = new List<Account>();
@@ -539,6 +592,7 @@ DML_Builder.newTransaction()
 [Update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm) existing records with sharing control.
 
 **Example:**
+
 ```apex
 // Bulk update with sharing enforced
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -564,6 +618,7 @@ DML_Builder.newTransaction()
 [Delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm) records with sharing control.
 
 **Example:**
+
 ```apex
 // Bulk delete with permission check
 // Check delete permission first
@@ -597,6 +652,7 @@ else
 Insert or update records based on external ID or record Id. The external ID field determines how records are matched for updates.
 
 **Basic Upsert (by Record Id):**
+
 ```apex
 // Upsert using record Id for matching (default behavior)
 List<Account> accounts = new List<Account>
@@ -611,6 +667,7 @@ DML_Builder.newTransaction()
 ```
 
 **Upsert with External ID Field:**
+
 ```apex
 // Bulk upsert using external ID field for matching
 List<Account> accounts = new List<Account>
@@ -637,6 +694,7 @@ DML_Builder.newTransaction()
 ```
 
 **Upsert with Sharing Enforcement:**
+
 ```apex
 // External ID upsert with sharing rules enforced
 DML_Builder.newTransaction()
@@ -649,6 +707,7 @@ DML_Builder.newTransaction()
 Restore previously deleted records.
 
 **Example:**
+
 ```apex
 // Undelete soft-deleted records
 List<Account> deletedAccounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -677,6 +736,7 @@ per-call fluent methods (`.bypassSharing()`, `.withUserMode()`, `.withSystemMode
 control.
 
 **Example:**
+
 ```apex
 // USER_MODE default + with-sharing class for community/portal contexts
 public with sharing class CommunityAccountController
@@ -744,8 +804,8 @@ DML_Builder.newTransaction()
 deploy. Takes effect on next transaction — every call without explicit `.withUserMode()` / `.withSystemMode()`
 reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
 
-
 **Example:**
+
 ```apex
 // Operation-level sharing control
 Account account = new Account(Name = 'Test Account');
@@ -762,6 +822,7 @@ DML_Builder.newTransaction()
 Understanding the three sharing modes.
 
 **Example:**
+
 ```apex
 // Sharing mode examples
 List<Account> accounts = new List<Account>{new Account(Name = 'Test')};
@@ -790,6 +851,7 @@ DML_Builder.newTransaction()
 Check user [permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) before DML operations.
 
 **Example:**
+
 ```apex
 // Check object permissions before DML
 public static void safeCreateAccount(String accountName)
@@ -822,6 +884,7 @@ public static void safeCreateAccount(String accountName)
 Validate permissions for multiple operations.
 
 **Example:**
+
 ```apex
 // Check all CRUD permissions
 public with sharing class AccountManager
@@ -876,6 +939,7 @@ public with sharing class AccountManager
 Check [field-level access](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) using describe methods.
 
 **Example:**
+
 ```apex
 // Check field-level security
 public static Boolean canUpdateAccountRevenue()
@@ -902,9 +966,11 @@ public static void safeUpdateRevenue(Id accountId, Decimal newRevenue)
 
 ### [TST_Builder](reference/apex/TST_Builder.md)
 
-The [`TST_Builder`](reference/apex/TST_Builder.md) provides a powerful, fluent builder pattern for creating test data in Apex tests. It automatically handles required fields, supports complex parent-child relationships, and offers fine-grained control over field population.
+The [`TST_Builder`](reference/apex/TST_Builder.md) provides a powerful, fluent builder pattern for creating test data in Apex tests. It automatically handles required fields,
+supports complex parent-child relationships, and offers fine-grained control over field population.
 
 **Key Features:**
+
 - **Automatic Required Field Population** - Framework automatically fills required fields with valid defaults
 - **Flexible Field Overrides** - Override specific fields using String names or type-safe SObjectField tokens
 - **Bulk Record Creation** - Create multiple records efficiently with `withCount()` and `buildList()`
@@ -962,6 +1028,7 @@ private static void testInMemoryAccount()
 Override specific fields using **String field names** or **type-safe SObjectField tokens**:
 
 **Single Field Override:**
+
 ```apex
 @IsTest
 private static void testFieldOverrides()
@@ -984,6 +1051,7 @@ private static void testFieldOverrides()
 ```
 
 **Multiple Field Overrides:**
+
 ```apex
 @IsTest
 private static void testBulkOverrides()
@@ -1009,6 +1077,7 @@ private static void testBulkOverrides()
 ```
 
 **String-Based Overrides** (when SObjectField tokens aren't available):
+
 ```apex
 Contact contact = (Contact)TST_Builder.of(Contact.SObjectType)
 	.withOverride('FirstName', 'John')
@@ -1044,6 +1113,7 @@ private static void testBulkCreation()
 ```
 
 **Pattern for Custom Bulk Data:**
+
 ```apex
 @IsTest
 private static void testCustomBulkData()
@@ -1106,6 +1176,7 @@ private static void testRecordType()
 ```
 
 **Error Handling:**
+
 ```apex
 try
 {
@@ -1381,6 +1452,7 @@ private static void testDefaultedFields()
 ```
 
 **Using List:**
+
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.withDefaultedFields(new List<Object>
@@ -1394,7 +1466,8 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 
 #### Multi-Level Relationship Paths
 
-Use dot notation to automatically populate fields in parent or grandparent relationships. The framework accepts both **relationship names** (e.g., `'Account.Parent'`) and **field names** (e.g., `'AccountId.ParentId'`) interchangeably:
+Use dot notation to automatically populate fields in parent or grandparent relationships. The framework accepts both **relationship names** (e.g., `'Account.Parent'`) and **field
+names** (e.g., `'AccountId.ParentId'`) interchangeably:
 
 ```apex
 @IsTest
@@ -1426,6 +1499,7 @@ private static void testMultiLevelRelationships()
 ```
 
 **Custom Lookup Fields:**
+
 ```apex
 // For custom lookups, both formats work
 // Relationship name: Lookup__r.Lookup__r.Name
@@ -1438,7 +1512,8 @@ Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 
 **Polymorphic Fields:**
 
-Polymorphic lookup fields (fields that can reference multiple object types, like `OwnerId` which can be User or Queue) are automatically skipped. The framework logs an informational message when this occurs:
+Polymorphic lookup fields (fields that can reference multiple object types, like `OwnerId` which can be User or Queue) are automatically skipped. The framework logs an
+informational message when this occurs:
 
 ```apex
 @IsTest
@@ -1482,6 +1557,7 @@ private static void testOptionalFields()
 ```
 
 **Using List:**
+
 ```apex
 Case caseRecord = (Case)TST_Builder.of(Case.SObjectType)
 	.withOptionalFields(new List<Object>
@@ -1494,6 +1570,7 @@ Case caseRecord = (Case)TST_Builder.of(Case.SObjectType)
 ```
 
 **Global Optional Fields** (transaction-wide):
+
 ```apex
 @IsTest
 private static void testGlobalOptionalFields()
@@ -1524,9 +1601,9 @@ Use `withoutInsertion(true)` to create records with auto-generated mock IDs with
 
 **Difference between `withoutInsertion()` and `withoutInsertion(true)`:**
 
-| Method | ID Generated | Use Case |
-|--------|--------------|----------|
-| `withoutInsertion()` | No (null) | Simple in-memory objects for unit testing |
+| Method                   | ID Generated  | Use Case                                    |
+|--------------------------|---------------|---------------------------------------------|
+| `withoutInsertion()`     | No (null)     | Simple in-memory objects for unit testing   |
 | `withoutInsertion(true)` | Yes (mock ID) | Query mocking, code that requires valid IDs |
 
 **Example - Creating mock records with IDs:**
@@ -1598,6 +1675,7 @@ private static void testWithQueryMocking()
 ```
 
 **When to use `withoutInsertion(true)`:**
+
 - Query mocking scenarios (records need realistic IDs)
 - Testing code that validates `record.Id != null`
 - Creating records for Map keys or Set membership based on Id
@@ -1743,6 +1821,7 @@ private static void testCompleteExample()
 `UTIL_BulkUpdates` provides utility methods for batch updating fields across multiple records.
 
 **Example:**
+
 ```apex
 // Invalidate email fields in bulk
 // Invalidate all Account email addresses
@@ -1756,12 +1835,14 @@ UTIL_BulkUpdates.invalidateEmailFields('Lead', 'Email', 100, true);
 ```
 
 **Bulk Owner Updates:**
+
 ```apex
 // Update record ownership in bulk
 UTIL_BulkUpdates.updateOwner('Account', 'Support Rep', 'jane.smith@example.com', 200, true);
 ```
 
 **Generic Field Updates:**
+
 ```apex
 // Update any field with search conditions
 // Archive all Closed Won opportunities with Status__c = 'Archived'
@@ -1779,6 +1860,7 @@ UTIL_BulkUpdates.updateField(
 ```
 
 **Deactivate Users in Bulk:**
+
 ```apex
 // Deactivate inactive users by profile
 // Deactivate users inactive for 180 days
@@ -1800,6 +1882,7 @@ UTIL_BulkUpdates.deactivateUsers(
 Delete all or old records for data cleanup.
 
 **Example:**
+
 ```apex
 // Purge old records using batch processing
 // Delete all test data
@@ -1820,6 +1903,7 @@ UTIL_PurgeRecords.deleteAllRecords('Lead', false, 200);
 Batch deactivate inactive users.
 
 **Example:**
+
 ```apex
 // Schedule user deactivation job
 // Schedule job to deactivate users inactive for 180 days
@@ -1842,6 +1926,7 @@ System.schedule('Deactivate Inactive Users', cronExpression, job);
 Leverage [batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) for large-scale DML operations.
 
 **Example:**
+
 ```apex
 // Custom batch for bulk updates
 public with sharing class BATCH_UpdateAccountIndustry implements Database.Batchable<SObject>
@@ -1956,40 +2041,41 @@ private static void shouldProcessMockedRecords()
 
 ## Capability Matrix (for Analysts)
 
-| Capability | Control Point | Class/Method | Notes |
-|---|---|---|---|
-| Transactional DML | Unit of Work pattern | `DML_Builder.newTransaction()` | Commits all changes atomically |
-| USER_MODE default | Database-level access enforcement | `DML_Builder` (default) | CRUD + FLS + sharing enforced; shipped via `FeatureFlag.UserModeDml_Enabled = true` |
-| USER_MODE / SYSTEM_MODE (per-op) | Access-mode override | `.withUserMode()` / `.withSystemMode()` | Explicit per-transaction override of the flag-driven default |
-| Access-mode kill-switch | Metadata-only emergency rollback | `FeatureFlag.UserModeDml_Enabled` | Flip `IsEnabledByDefault__c = false` to revert all DML to SYSTEM_MODE |
-| Sharing enforcement (per-op) | Proxy class routing | `.bypassSharing()` | Routes through `without sharing` proxy (only meaningful in SYSTEM_MODE) |
-| Async DML preserves access mode | Access-level propagation | `.async().execute()` | The chosen access mode propagates through queueable execution |
-| Partial success | Error handling | `.allowPartial()` | Continues on individual record failures |
-| Object permission checking | Flow invocable | `FLOW_CheckObjectPermissions` | Validates CRUD before DML in Flows |
-| Field-level security | Query-level enforcement | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level |
-| Parent-child chaining | Relationship linking | `.doInsert(child, field, parent)` | Auto-sets lookup after parent insert |
+| Capability                       | Control Point                     | Class/Method                                          | Notes                                                                               |
+|----------------------------------|-----------------------------------|-------------------------------------------------------|-------------------------------------------------------------------------------------|
+| Transactional DML                | Unit of Work pattern              | `DML_Builder.newTransaction()`                        | Commits all changes atomically                                                      |
+| USER_MODE default                | Database-level access enforcement | `DML_Builder` (default)                               | CRUD + FLS + sharing enforced; shipped via `FeatureFlag.UserModeDml_Enabled = true` |
+| USER_MODE / SYSTEM_MODE (per-op) | Access-mode override              | `.withUserMode()` / `.withSystemMode()`               | Explicit per-transaction override of the flag-driven default                        |
+| Access-mode kill-switch          | Metadata-only emergency rollback  | `FeatureFlag.UserModeDml_Enabled`                     | Flip `IsEnabledByDefault__c = false` to revert all DML to SYSTEM_MODE               |
+| Sharing enforcement (per-op)     | Proxy class routing               | `.bypassSharing()`                                    | Routes through `without sharing` proxy (only meaningful in SYSTEM_MODE)             |
+| Async DML preserves access mode  | Access-level propagation          | `.async().execute()`                                  | The chosen access mode propagates through queueable execution                       |
+| Partial success                  | Error handling                    | `.allowPartial()`                                     | Continues on individual record failures                                             |
+| Object permission checking       | Flow invocable                    | `FLOW_CheckObjectPermissions`                         | Validates CRUD before DML in Flows                                                  |
+| Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level                                                  |
+| Parent-child chaining            | Relationship linking              | `.doInsert(child, field, parent)`                     | Auto-sets lookup after parent insert                                                |
 
 ---
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why It's Wrong | Instead |
-|---|---|---|
-| Raw `insert`/`update`/`delete` statements | Bypasses sharing enforcement, error handling, and framework consistency | Use `DML_Builder.newTransaction().doInsert(records).execute()` |
-| Separate DML calls for related objects | If the second DML fails, the first remains committed -- no rollback | Use `DML_Transaction` (Unit of Work) to commit all changes atomically |
-| DML inside a loop | Hits governor limits on bulk operations | Collect records into a list, then perform a single bulk DML call |
-| Ignoring `Database.SaveResult` errors | Silent failures corrupt data and hide bugs | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder` |
-| Performing DML in a selector or query class | Violates separation of concerns and makes the selector untestable in isolation | Keep DML in trigger actions, service classes, or controllers |
+| Anti-Pattern                                | Why It's Wrong                                                                 | Instead                                                                     |
+|---------------------------------------------|--------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| Raw `insert`/`update`/`delete` statements   | Bypasses sharing enforcement, error handling, and framework consistency        | Use `DML_Builder.newTransaction().doInsert(records).execute()`              |
+| Separate DML calls for related objects      | If the second DML fails, the first remains committed -- no rollback            | Use `DML_Transaction` (Unit of Work) to commit all changes atomically       |
+| DML inside a loop                           | Hits governor limits on bulk operations                                        | Collect records into a list, then perform a single bulk DML call            |
+| Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder` |
+| Performing DML in a selector or query class | Violates separation of concerns and makes the selector untestable in isolation | Keep DML in trigger actions, service classes, or controllers                |
 
 ---
 
 ## Best Practices
 
-### 1. **Use Transactional DML for Complex Transactions**
+### **Use Transactional DML for Complex Transactions**
 
 When dealing with multiple related objects, always use `DML_Builder.newTransaction()`.
 
 **DO:**
+
 ```apex
 // Use DML_Builder for related objects to maintain transactional integrity
 Account account = new Account(Name = 'Test');
@@ -2002,6 +2088,7 @@ DML_Builder.newTransaction()
 ```
 
 **DON'T:**
+
 ```apex
 // Don't manually manage relationships - leads to poor error handling and inconsistency
 Account account = new Account(Name = 'Test');
@@ -2010,23 +2097,25 @@ Contact contact = new Contact(LastName = 'Doe', AccountId = account.Id);
 insert contact; // If this fails, Account remains in database - no rollback
 ```
 
-### 2. **Always Use [DML_Builder](reference/apex/DML_Builder.md) for DML**
+### **Always Use [DML_Builder](reference/apex/DML_Builder.md) for DML**
 
 Centralize DML operations through the framework.
 
 **DO:**
+
 ```apex
 // Use framework methods for consistent DML operations
 DML_Builder.newTransaction().doInsert(account).execute();
 ```
 
 **DON'T:**
+
 ```apex
 // Avoid direct DML - bypasses framework's sharing and error handling capabilities
 insert account; // No sharing control, no standardized error handling
 ```
 
-### 3. **Be Explicit About Sharing**
+### **Be Explicit About Sharing**
 
 Always set sharing enforcement when security is a concern.
 
@@ -2039,7 +2128,7 @@ DML_Builder.newTransaction().doInsert(records).execute();
 DML_Builder.newTransaction().doInsert(records).bypassSharing().execute();
 ```
 
-### 4. **Check Permissions Before DML**
+### **Check Permissions Before DML**
 
 Validate user permissions in user-facing features.
 
@@ -2056,11 +2145,12 @@ if(perms[0].hasCreateAccess)
 }
 ```
 
-### 5. **Use [TST_Builder](reference/apex/TST_Builder.md) in Tests**
+### **Use [TST_Builder](reference/apex/TST_Builder.md) in Tests**
 
 Create test data with the builder pattern for maintainability and readability.
 
 **DO:**
+
 ```apex
 // Use builder pattern with type-safe field tokens and parent-child relationships
 @IsTest
@@ -2090,6 +2180,7 @@ private static void testMethod()
 ```
 
 **Use key builder features:**
+
 - **Type-safe overrides** - Use `SObjectField` tokens instead of strings (e.g., `Account.Name` not `'Name'`)
 - **Parent-child relationships** - Use `withChildren()` to create object graphs atomically
 - **Record types** - Use `withRecordType('DeveloperName')` for record type-specific testing
@@ -2097,6 +2188,7 @@ private static void testMethod()
 - **Optional field control** - Use `withDefaultedField()` or `withOptionalField()` for fine control
 
 **DON'T:**
+
 ```apex
 // Avoid manual DML and relationship management in tests
 @IsTest
@@ -2114,9 +2206,11 @@ private static void testMethod()
 }
 ```
 
-### 6. **Handle DML Errors Properly**
+### **Handle DML Errors Properly**
 
-Always check [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm) for errors.
+Always
+check [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
+for errors.
 
 ```apex
 // Always check and handle DML operation results
@@ -2126,11 +2220,12 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-### 7. **Use Bulk Operations**
+### **Use Bulk Operations**
 
 Process records in bulk, not one at a time.
 
 **DO:**
+
 ```apex
 // Process records in bulk to avoid governor limits
 List<Account> accounts = getAccountsToUpdate();
@@ -2138,6 +2233,7 @@ DML_Builder.newTransaction().doUpdate(accounts).execute();
 ```
 
 **DON'T:**
+
 ```apex
 // Don't process records individually in a loop - causes governor limit violations
 for(Account account : accounts)
@@ -2146,7 +2242,7 @@ for(Account account : accounts)
 }
 ```
 
-### 8. **Leverage Batch Apex for Large Volumes**
+### **Leverage Batch Apex for Large Volumes**
 
 Use [batch processing](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) for operations on thousands of records.
 
@@ -2155,11 +2251,12 @@ Use [batch processing](https://developer.salesforce.com/docs/atlas.en-us.apexcod
 Database.executeBatch(new BATCH_ProcessRecords(), 200);
 ```
 
-### 9. **Use UTIL_BulkUpdates for Common Bulk Operations**
+### **Use UTIL_BulkUpdates for Common Bulk Operations**
 
 Leverage built-in utilities for common bulk update scenarios.
 
 **DO:**
+
 ```apex
 // Use utility methods for common bulk operations
 // Invalidate all Contact email addresses with built-in batch processing
@@ -2167,6 +2264,7 @@ UTIL_BulkUpdates.invalidateEmailFields(Contact.Email, 200);
 ```
 
 **DON'T:**
+
 ```apex
 // Don't reinvent the wheel with custom batch classes for common operations
 // Bad: Manual query + loop + single DML (no batch processing, no error handling)
@@ -2181,7 +2279,7 @@ for(Contact contact : contacts)
 update contacts; // Missing batch processing, error handling, transaction control
 ```
 
-### 10. **Create Fresh Transactions**
+### **Create Fresh Transactions**
 
 Each `DML_Builder.newTransaction()` call creates a clean transaction context.
 
@@ -2197,7 +2295,7 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-### 11. **Document DML Operations**
+### **Document DML Operations**
 
 All DML methods must have comprehensive ApexDoc.
 
@@ -2214,14 +2312,16 @@ All DML methods must have comprehensive ApexDoc.
  * ```apex
  * Account account = createAccountWithContacts('Acme Corp', new List<String>{'Smith', 'Jones'});
  * ```
- */
+
+*/
 public static Account createAccountWithContacts(String accountName, List<String> contactNames)
 {
-	// Implementation
+// Implementation
 }
+
 ```
 
-### 12. **Use All-or-Nothing Appropriately**
+### **Use All-or-Nothing Appropriately**
 
 Choose between atomic and partial commits based on requirements.
 
@@ -2234,7 +2334,7 @@ DML_Builder.newTransaction().doInsert(records).execute();
 DML_Builder.newTransaction().doInsert(records).allowPartial().execute();
 ```
 
-### 13. **Reset Sharing After Operations**
+### **Reset Sharing After Operations**
 
 Use operation-level sharing control instead of global state when possible.
 
@@ -2245,7 +2345,7 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-### 14. **Use Purge Utilities for Cleanup**
+### **Use Purge Utilities for Cleanup**
 
 Leverage built-in utilities for data cleanup operations.
 

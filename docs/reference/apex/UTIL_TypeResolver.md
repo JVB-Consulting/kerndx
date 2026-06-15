@@ -4,7 +4,7 @@ type: class
 description: "Utility class containing type resolution components for resolving Apex class types."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "March 2025, February 2026, May 2026"
+date: "March 2025, June 2026"
 since: "1.0"
 category: apex
 ---

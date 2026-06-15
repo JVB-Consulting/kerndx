@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Building inbound and outbound REST integrations with automatic logging and retry mechanisms
 - **Architects** - Designing API integration patterns with DTO serialization, mock testing, and orchestration
 - **Business Analysts** - Understanding API capabilities, configuration options, error handling, and monitoring
@@ -17,125 +18,125 @@
 
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
-   - [What is the Web Services Framework?](#what-is-the-web-services-framework)
-   - [Key Benefits](#key-benefits)
-   - [UTIL_HttpClient (Fluent HTTP Client)](#util_httpclient-fluent-http-client)
-   - [KernDX vs OOTB: Web Services Comparison](#kerndx-vs-ootb-web-services-comparison)
-     - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
-     - [Pros & Cons Comparison](#pros--cons-comparison)
-     - [When to Use KernDX Web Services Framework](#when-to-use-kerndx-web-services-framework)
-     - [When to Use OOTB HttpRequest/Response](#when-to-use-ootb-httprequestresponse)
-     - [When to Use External Services](#when-to-use-external-services)
-   - [Framework Orchestration Pattern](#framework-orchestration-pattern)
+    - [What is the Web Services Framework?](#what-is-the-web-services-framework)
+    - [Key Benefits](#key-benefits)
+    - [UTIL_HttpClient (Fluent HTTP Client)](#util_httpclient-fluent-http-client)
+    - [KernDX vs OOTB: Web Services Comparison](#kerndx-vs-ootb-web-services-comparison)
+        - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
+        - [Pros & Cons Comparison](#pros--cons-comparison)
+        - [When to Use KernDX Web Services Framework](#when-to-use-kerndx-web-services-framework)
+        - [When to Use OOTB HttpRequest/Response](#when-to-use-ootb-httprequestresponse)
+        - [When to Use External Services](#when-to-use-external-services)
+    - [Framework Orchestration Pattern](#framework-orchestration-pattern)
 3. [Quick Start](#quick-start)
 4. [Architecture](#architecture)
-   - [Architecture Diagram](#architecture-diagram)
-   - [Class Hierarchy](#class-hierarchy)
-   - [Key Design Patterns](#key-design-patterns)
-   - [The Orchestration Pattern Explained](#the-orchestration-pattern-explained)
+    - [Architecture Diagram](#architecture-diagram)
+    - [Class Hierarchy](#class-hierarchy)
+    - [Key Design Patterns](#key-design-patterns)
+    - [The Orchestration Pattern Explained](#the-orchestration-pattern-explained)
 5. [Core Components](#core-components)
-   - [1. ApiCall__c (Custom Object)](#1-apicall__c-custom-object)
-   - [2. ApiSetting__mdt (Custom Metadata Type)](#2-apisetting__mdt-custom-metadata-type)
-   - [3. MaskingRule__mdt + MaskingTarget__mdt](#3-maskingrule__mdt--maskingtarget__mdt)
-   - [4. ApiRuntimeSwitch__c (Hierarchy Custom Setting)](#4-apiruntimeswitch__c-hierarchy-custom-setting)
-   - [5. Named Credentials](#5-named-credentials)
+    - [ApiCall__c (Custom Object)](#apicall__c-custom-object)
+    - [ApiSetting__mdt (Custom Metadata Type)](#apisetting__mdt-custom-metadata-type)
+    - [MaskingRule__mdt + MaskingTarget__mdt](#maskingrule__mdt--maskingtarget__mdt)
+    - [ApiRuntimeSwitch__c (Hierarchy Custom Setting)](#apiruntimeswitch__c-hierarchy-custom-setting)
+    - [Named Credentials](#named-credentials)
 6. [Working with a Managed Package](#working-with-a-managed-package)
-   - [CRITICAL Requirements for Managed Package Usage](#critical-requirements-for-managed-package-usage)
-     - [Complete Example with Namespace](#complete-example-with-namespace)
-   - [Calling Framework Methods](#calling-framework-methods)
-   - [API Dispatcher Usage](#api-dispatcher-usage)
+    - [CRITICAL Requirements for Managed Package Usage](#critical-requirements-for-managed-package-usage)
+        - [Complete Example with Namespace](#complete-example-with-namespace)
+    - [Calling Framework Methods](#calling-framework-methods)
+    - [API Dispatcher Usage](#api-dispatcher-usage)
 7. [Building Outbound APIs](#building-outbound-apis)
-   - [Step 1: Choose Your Base Class](#step-1-choose-your-base-class)
-   - [Step 2: Override Virtual Methods](#step-2-override-virtual-methods)
-     - [Minimal Implementation](#minimal-implementation)
-   - [Complete Real-World Example: REST GET with Parameters](#complete-real-world-example-rest-get-with-parameters)
-   - [Complete Real-World Example: REST POST with DML](#complete-real-world-example-rest-post-with-dml)
-   - [Step 3: Create ApiSetting__mdt Record](#step-3-create-apisetting__mdt-record)
-   - [Step 4: Execute Your API](#step-4-execute-your-api)
+    - [Step 1: Choose Your Base Class](#step-1-choose-your-base-class)
+    - [Step 2: Override Virtual Methods](#step-2-override-virtual-methods)
+        - [Minimal Implementation](#minimal-implementation)
+    - [Complete Real-World Example: REST GET with Parameters](#complete-real-world-example-rest-get-with-parameters)
+    - [Complete Real-World Example: REST POST with DML](#complete-real-world-example-rest-post-with-dml)
+    - [Step 3: Create ApiSetting__mdt Record](#step-3-create-apisetting__mdt-record)
+    - [Step 4: Execute Your API](#step-4-execute-your-api)
 8. [Building Inbound APIs](#building-inbound-apis)
-   - [Architecture Overview](#architecture-overview)
-   - [Minimal Inbound Example](#minimal-inbound-example)
-   - [Advanced Example: Multiple Operations on One URL](#advanced-example-multiple-operations-on-one-url)
-   - [Multi-method routing](#multi-method-routing)
-   - [Naming Conventions for Inbound APIs](#naming-conventions-for-inbound-apis)
+    - [Architecture Overview](#architecture-overview)
+    - [Minimal Inbound Example](#minimal-inbound-example)
+    - [Advanced Example: Multiple Operations on One URL](#advanced-example-multiple-operations-on-one-url)
+    - [Multi-method routing](#multi-method-routing)
+    - [Naming Conventions for Inbound APIs](#naming-conventions-for-inbound-apis)
 9. [Intra-Org API Calls](#intra-org-api-calls)
-   - [Overview](#overview-1)
-   - [Key Features](#key-features)
-   - [When to Use](#when-to-use)
-   - [Basic Usage](#basic-usage)
-   - [How It Works](#how-it-works)
-   - [Configuration](#configuration)
+    - [Overview](#overview-1)
+    - [Key Features](#key-features)
+    - [When to Use](#when-to-use)
+    - [Basic Usage](#basic-usage)
+    - [How It Works](#how-it-works)
+    - [Configuration](#configuration)
 10. [Virtual Methods Reference](#virtual-methods-reference)
     - [Common Base Methods (API_Base)](#common-base-methods-api_base)
-      - [getValidationErrors()](#getvalidationerrors)
-      - [getBody()](#getbody)
-      - [getServiceName()](#getservicename)
-      - [onSuccess()](#onsuccess)
-      - [setUnitOfWorksObjectTypes()](#setunitofworksobjecttypes)
+        - [getValidationErrors()](#getvalidationerrors)
+        - [getBody()](#getbody)
+        - [getServiceName()](#getservicename)
+        - [onSuccess()](#onsuccess)
+        - [setUnitOfWorksObjectTypes()](#setunitofworksobjecttypes)
     - [Outbound-Specific Methods (API_Outbound)](#outbound-specific-methods-api_outbound)
-      - [getAuthorisationToken()](#getauthorisationtoken)
-      - [getHttpMethod()](#gethttpmethod)
-      - [getQueryParameters()](#getqueryparameters)
-      - [getRequiredInputs()](#getrequiredinputs)
-      - [getResponseBody()](#getresponsebody)
-      - [getResponseReplacementTokens(List<String> searchTokens, List<String> replaceTokens)](#getresponsereplacementtokenslist-searchtokens-list-replacetokens)
-      - [getTimeout()](#gettimeout)
-      - [getWebServiceEndPoint()](#getwebserviceendpoint)
-      - [prepareRequest()](#preparerequest)
-      - [setHeaders()](#setheaders)
-      - [requiresTriggeringRecord](#requirestriggeringrecord)
+        - [getAuthorisationToken()](#getauthorisationtoken)
+        - [getHttpMethod()](#gethttpmethod)
+        - [getQueryParameters()](#getqueryparameters)
+        - [getRequiredInputs()](#getrequiredinputs)
+        - [getResponseBody()](#getresponsebody)
+        - [getResponseReplacementTokens()](#getresponsereplacementtokens)
+        - [getTimeout()](#gettimeout)
+        - [getWebServiceEndPoint()](#getwebserviceendpoint)
+        - [prepareRequest()](#preparerequest)
+        - [setHeaders()](#setheaders)
+        - [requiresTriggeringRecord](#requirestriggeringrecord)
     - [Inbound-Specific Methods (API_Inbound)](#inbound-specific-methods-api_inbound)
-      - [processRequest()](#processrequest)
-      - [updateCallResult()](#updatecallresult)
-      - [updateResponseDTO()](#updateresponsedto)
-      - [writeResponse()](#writeresponse)
+        - [processRequest()](#processrequest)
+        - [updateCallResult()](#updatecallresult)
+        - [updateResponseDTO()](#updateresponsedto)
+        - [writeResponse()](#writeresponse)
 11. [Advanced Features](#advanced-features)
-    - [1. Automatic Retries](#1-automatic-retries)
-      - [Custom Retry Strategies](#custom-retry-strategies)
-    - [2. Circuit Breaker Pattern](#2-circuit-breaker-pattern)
-      - [How It Works in the Framework](#how-it-works-in-the-framework)
-      - [State Transitions Example](#state-transitions-example)
-      - [Circuit State Persistence](#circuit-state-persistence)
-      - [Default Behavior (No Configuration)](#default-behavior-no-configuration)
-      - [Best Practices](#best-practices)
-      - [Advanced: Custom Circuit Breaker Configuration](#advanced-custom-circuit-breaker-configuration)
-      - [Troubleshooting](#troubleshooting)
-    - [3. Data Masking](#3-data-masking)
-    - [4. Mock Mode and API_MockFactory](#4-mock-mode-and-api_mockfactory)
-      - [defaultMockBody (Handler-Level Mocking)](#defaultmockbody-handler-level-mocking)
-      - [API_MockFactory (Programmatic Mocking)](#api_mockfactory-programmatic-mocking)
-      - [Call Verification](#call-verification)
-      - [Response Interpolation](#response-interpolation)
-      - [Fault Injection](#fault-injection)
-      - [Declarative Mock Mode](#declarative-mock-mode)
-    - [5. Disabling APIs](#5-disabling-apis)
-    - [6. Performance Monitoring](#6-performance-monitoring)
-    - [7. Batched Outbound Calls](#7-batched-outbound-calls)
-    - [8. Safe Mode](#8-safe-mode)
-      - [Framework usage (reference)](#framework-usage-reference)
-      - [Behavior](#behavior)
-      - [Use Cases](#use-cases)
-    - [9. API Test Harness (LWC + Tab)](#9-api-test-harness-lwc--tab)
-      - [Features](#features)
-      - [Deployment](#deployment)
-    - [10. Idempotency (Inbound APIs)](#10-idempotency-inbound-apis)
-      - [What gets stored](#what-gets-stored)
-      - [Replay behaviour](#replay-behaviour)
-      - [Handling 409 in callers](#handling-409-in-callers)
-      - [Backward compatibility](#backward-compatibility)
+    - [Automatic Retries](#automatic-retries)
+        - [Custom Retry Strategies](#custom-retry-strategies)
+    - [Circuit Breaker Pattern](#circuit-breaker-pattern)
+        - [How It Works in the Framework](#how-it-works-in-the-framework)
+        - [State Transitions Example](#state-transitions-example)
+        - [Circuit State Persistence](#circuit-state-persistence)
+        - [Default Behavior (No Configuration)](#default-behavior-no-configuration)
+        - [Best Practices](#best-practices)
+        - [Advanced: Custom Circuit Breaker Configuration](#advanced-custom-circuit-breaker-configuration)
+        - [Troubleshooting](#troubleshooting)
+    - [Data Masking](#data-masking)
+    - [Mock Mode and API_MockFactory](#mock-mode-and-api_mockfactory)
+        - [defaultMockBody (Handler-Level Mocking)](#defaultmockbody-handler-level-mocking)
+        - [API_MockFactory (Programmatic Mocking)](#api_mockfactory-programmatic-mocking)
+        - [Call Verification](#call-verification)
+        - [Response Interpolation](#response-interpolation)
+        - [Fault Injection](#fault-injection)
+        - [Declarative Mock Mode](#declarative-mock-mode)
+    - [Disabling APIs](#disabling-apis)
+    - [Performance Monitoring](#performance-monitoring)
+    - [Batched Outbound Calls](#batched-outbound-calls)
+    - [Safe Mode](#safe-mode)
+        - [Framework usage (reference)](#framework-usage-reference)
+        - [Behavior](#behavior)
+        - [Use Cases](#use-cases)
+    - [API Test Harness (LWC + Tab)](#api-test-harness-lwc--tab)
+        - [Features](#features)
+        - [Deployment](#deployment)
+    - [Idempotency (Inbound APIs)](#idempotency-inbound-apis)
+        - [What gets stored](#what-gets-stored)
+        - [Replay behaviour](#replay-behaviour)
+        - [Handling 409 in callers](#handling-409-in-callers)
+        - [Backward compatibility](#backward-compatibility)
 12. [Integration with Flows](#integration-with-flows)
     - [Understanding Synchronous vs Asynchronous Callouts](#understanding-synchronous-vs-asynchronous-callouts)
-      - [When to Use Synchronous Callouts](#when-to-use-synchronous-callouts)
-      - [When to Use Asynchronous Callouts](#when-to-use-asynchronous-callouts)
+        - [When to Use Synchronous Callouts](#when-to-use-synchronous-callouts)
+        - [When to Use Asynchronous Callouts](#when-to-use-asynchronous-callouts)
     - [Synchronous Callouts from Screen Flows](#synchronous-callouts-from-screen-flows)
-      - [Use Case: External API Call from Screen Flow](#use-case-external-api-call-from-screen-flow)
+        - [Use Case: External API Call from Screen Flow](#use-case-external-api-call-from-screen-flow)
     - [Asynchronous Callouts from Record-Triggered Flows](#asynchronous-callouts-from-record-triggered-flows)
-      - [Use Case: Notify External System When Account is Created](#use-case-notify-external-system-when-account-is-created)
+        - [Use Case: Notify External System When Account is Created](#use-case-notify-external-system-when-account-is-created)
     - [Comparison Matrix: Sync vs Async Callouts](#comparison-matrix-sync-vs-async-callouts)
     - [Best Practices for Flow Integration](#best-practices-for-flow-integration)
     - [Testing Flow Callouts](#testing-flow-callouts)
-      - [Test Synchronous Flow Callout](#test-synchronous-flow-callout)
-      - [Test Asynchronous Flow Callout](#test-asynchronous-flow-callout)
+        - [Test Synchronous Flow Callout](#test-synchronous-flow-callout)
+        - [Test Asynchronous Flow Callout](#test-asynchronous-flow-callout)
 13. [Logging and Monitoring](#logging-and-monitoring)
     - [Where Things Are Logged](#where-things-are-logged)
     - [Automatic Web Service Context](#automatic-web-service-context)
@@ -144,27 +145,27 @@
 14. [Testing](#testing)
     - [Overview of Test Helper Classes](#overview-of-test-helper-classes)
     - [Testing Outbound APIs](#testing-outbound-apis)
-      - [Using API_OutboundTestHelper](#using-api_outboundtesthelper)
-      - [Complete Outbound Test Example](#complete-outbound-test-example)
-      - [Using TST_Factory for Queue Items](#using-tst_factory-for-queue-items)
+        - [Using API_OutboundTestHelper](#using-api_outboundtesthelper)
+        - [Complete Outbound Test Example](#complete-outbound-test-example)
+        - [Using TST_Factory for Queue Items](#using-tst_factory-for-queue-items)
     - [Testing Inbound APIs](#testing-inbound-apis)
-      - [Using API_InboundTestHelper](#using-api_inboundtesthelper)
-      - [Complete Inbound Test Example](#complete-inbound-test-example)
-      - [Using SEL_ApiCall for Assertions](#using-sel_apicall-for-assertions)
+        - [Using API_InboundTestHelper](#using-api_inboundtesthelper)
+        - [Complete Inbound Test Example](#complete-inbound-test-example)
+        - [Using SEL_ApiCall for Assertions](#using-sel_apicall-for-assertions)
     - [Testing Best Practices](#testing-best-practices)
     - [Common Test Patterns](#common-test-patterns)
 15. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
 16. [Anti-Patterns](#anti-patterns)
 17. [Best Practices](#best-practices-1)
-    - [1. Code Standards](#1-code-standards)
-    - [2. Naming Conventions](#2-naming-conventions)
-    - [3. Override Only What You Need](#3-override-only-what-you-need)
-    - [4. Error Handling](#4-error-handling)
-    - [5. Logging Best Practices](#5-logging-best-practices)
-    - [6. Inbound API Architecture](#6-inbound-api-architecture)
-    - [7. Security Considerations](#7-security-considerations)
-    - [8. Performance Optimization](#8-performance-optimization)
-    - [9. Understanding the Orchestration](#9-understanding-the-orchestration)
+    - [Code Standards](#code-standards)
+    - [Naming Conventions](#naming-conventions)
+    - [Override Only What You Need](#override-only-what-you-need)
+    - [Error Handling](#error-handling)
+    - [Logging Best Practices](#logging-best-practices)
+    - [Inbound API Architecture](#inbound-api-architecture)
+    - [Security Considerations](#security-considerations)
+    - [Performance Optimization](#performance-optimization)
+    - [Understanding the Orchestration](#understanding-the-orchestration)
 18. [Troubleshooting](#troubleshooting-1)
     - [Common Issues](#common-issues)
 19. [Support and Resources](#support-and-resources)
@@ -178,15 +179,15 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                   |
-|---------------|-----------------------------------|------------------------------------------------------------|
-| **Architect** | Understand API architecture       | [Architecture](#architecture)                              |
-| **Architect** | Review advanced features          | [Advanced Features](#advanced-features)                    |
-| **Developer** | Build my first API                | [Quick Start](#quick-start)                                |
-| **Developer** | Build outbound APIs               | [Building Outbound APIs](#building-outbound-apis)          |
-| **Developer** | Build inbound APIs                | [Building Inbound APIs](#building-inbound-apis)            |
-| **Analyst**   | Configure API settings            | [Capability Matrix](#capability-matrix-for-analysts)       |
-| **Analyst**   | Monitor API health                | [Logging and Monitoring](#logging-and-monitoring)          |
+| I am a...     | I need to...                | Go to...                                             |
+|---------------|-----------------------------|------------------------------------------------------|
+| **Architect** | Understand API architecture | [Architecture](#architecture)                        |
+| **Architect** | Review advanced features    | [Advanced Features](#advanced-features)              |
+| **Developer** | Build my first API          | [Quick Start](#quick-start)                          |
+| **Developer** | Build outbound APIs         | [Building Outbound APIs](#building-outbound-apis)    |
+| **Developer** | Build inbound APIs          | [Building Inbound APIs](#building-inbound-apis)      |
+| **Analyst**   | Configure API settings      | [Capability Matrix](#capability-matrix-for-analysts) |
+| **Analyst**   | Monitor API health          | [Logging and Monitoring](#logging-and-monitoring)    |
 
 ---
 
@@ -194,7 +195,8 @@
 
 ### What is the Web Services Framework?
 
-The Salesforce Web Services Framework is a comprehensive, enterprise-grade solution for managing both **inbound** (receiving) and **outbound** (sending) API integrations within Salesforce. It provides:
+The Salesforce Web Services Framework is a comprehensive, enterprise-grade solution for managing both **inbound** (receiving) and **outbound** (sending) API integrations within
+Salesforce. It provides:
 
 - **Standardized patterns** for REST web services
 - **Automatic logging** of all API calls to [`ApiCall__c`](reference/objects/ApiCall__c.md)
@@ -241,12 +243,12 @@ without writing a dedicated API class.
 
 **When to use UTIL_HttpClient vs API_Outbound:**
 
-| Scenario | Recommended Approach |
-|----------|---------------------|
-| Simple ad-hoc HTTP calls (GET, POST, PUT, DELETE, PATCH) | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) |
-| Complex integrations with DTOs, validation, or orchestration | [`API_Outbound`](reference/apex/API_Outbound.md) |
-| Quick prototypes or one-off calls that still need logging | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) |
-| Subscriber handlers with custom processing logic | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) with `useHandler()` |
+| Scenario                                                     | Recommended Approach                                                       |
+|--------------------------------------------------------------|----------------------------------------------------------------------------|
+| Simple ad-hoc HTTP calls (GET, POST, PUT, DELETE, PATCH)     | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md)                     |
+| Complex integrations with DTOs, validation, or orchestration | [`API_Outbound`](reference/apex/API_Outbound.md)                           |
+| Quick prototypes or one-off calls that still need logging    | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md)                     |
+| Subscriber handlers with custom processing logic             | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) with `useHandler()` |
 
 **Ad-hoc mode** -- direct calls with a Named Credential (or [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md) DeveloperName) and URL path:
 
@@ -281,14 +283,14 @@ API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
 Caller-provided settings override the handler's [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) defaults. Unspecified settings fall back to the
 handler's CMDT values:
 
-| Builder method | Overrides |
-|---|---|
-| `.credential(name)` | Named Credential |
-| `.path(urlPath)` | `EndpointPath__c` |
-| `.withRetry(n)` | `MaxRetryCount__c` |
-| `.withRetry(n, backoff)` | `MaxRetryCount__c` + `RetryBackoffSeconds__c` |
-| `.withCircuitBreaker()` | `CircuitBreakerEnabled__c` |
-| `.onFailure(LOG_FAILURE)` | `LogIssues__c` |
+| Builder method            | Overrides                                     |
+|---------------------------|-----------------------------------------------|
+| `.credential(name)`       | Named Credential                              |
+| `.path(urlPath)`          | `EndpointPath__c`                             |
+| `.withRetry(n)`           | `MaxRetryCount__c`                            |
+| `.withRetry(n, backoff)`  | `MaxRetryCount__c` + `RetryBackoffSeconds__c` |
+| `.withCircuitBreaker()`   | `CircuitBreakerEnabled__c`                    |
+| `.onFailure(LOG_FAILURE)` | `LogIssues__c`                                |
 
 For full API details, see the [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) reference.
 
@@ -302,30 +304,32 @@ Salesforce provides several native web service capabilities:
 
 1. **[HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) / [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)** - Manual HTTP callout classes for custom integrations
 2. **Http.send()** - Send HTTP requests directly
-3. **[RestContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restcontext.htm)** - Handle inbound REST requests (@RestResource annotation)
-4. **[External Services](https://developer.salesforce.com/docs/atlas.en-us.api_action.meta/api_action/external_services.htm)** - Import OpenAPI 2.0/3.0 schemas, auto-generate invocable actions (no code required)
+3. **[RestContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restcontext.htm)** - Handle inbound REST requests (@RestResource
+   annotation)
+4. **[External Services](https://developer.salesforce.com/docs/atlas.en-us.api_action.meta/api_action/external_services.htm)** - Import OpenAPI 2.0/3.0 schemas, auto-generate
+   invocable actions (no code required)
 
 #### Pros & Cons Comparison
 
-| Feature | KernDX Web Services Framework | OOTB HttpRequest/Response | OOTB External Services |
-|---------|-----------------------------------|---------------------------|------------------------|
-| **Code Required** | ⚠️ Apex class extending base class | ⚠️ Full Apex implementation | ✅ No code (OpenAPI import only) |
-| **Request/Response Logging** | ✅ Automatic to [`ApiCall__c`](reference/objects/ApiCall__c.md) | ❌ Manual implementation | ⚠️ Limited via Debug Logs only |
-| **Retry Logic** | ✅ Built-in linear/exponential/custom strategies | ❌ Manual implementation | ❌ No built-in retry |
-| **Data Masking** | ✅ Regex/JSON-key/literal rules via [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) + [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md) | ❌ Manual implementation | ❌ No data masking |
-| **Mock Testing** | ✅ Framework mock pattern | ✅ `HttpCalloutMock` interface | ⚠️ Cannot mock in unit tests |
-| **Performance Metrics** | ✅ Automatic timing (callout, processing, total) | ❌ Manual tracking | ❌ No built-in metrics |
-| **Error Tracking** | ✅ [`ApiIssue__c`](reference/objects/ApiIssue__c.md) for retry management | ❌ Manual implementation | ⚠️ Error captured in debug logs |
-| **Callout/DML Orchestration** | ✅ [`API_Dispatcher`](reference/apex/API_Dispatcher.md) pattern | ❌ Manual code structure | ⚠️ Flow handles sequencing |
-| **DTO Pattern** | ✅ [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md) | ❌ Manual DTO creation | ✅ Auto-generated from OpenAPI |
-| **Named Credentials** | ✅ Via [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md) | ✅ `callout:` syntax | ✅ Direct integration |
-| **Flow Integration** | ✅ Built-in invocable methods | ❌ Must create invocables | ✅ Auto-generated invocable actions |
-| **Metadata Configuration** | ✅ [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) | ❌ Hardcoded or Custom Settings | ✅ External Service registration |
-| **Circuit Breaker** | ✅ [`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md) integration | ❌ Manual implementation | ❌ No circuit breaker |
-| **OpenAPI Support** | ⚠️ Manual DTO creation | ❌ No OpenAPI support | ✅ OpenAPI 2.0/3.0 import |
-| **Setup Complexity** | ⚠️ Base class + metadata config | ✅ Direct Apex coding | ✅ UI-based OpenAPI import |
-| **Flexibility** | ✅ Full control over logic | ✅ Full control | ⚠️ Limited to OpenAPI operations |
-| **Performance** | ⚠️ Framework overhead | ✅ Minimal overhead | ✅ Platform-optimized |
+| Feature                       | KernDX Web Services Framework                                                                                                                                      | OOTB HttpRequest/Response      | OOTB External Services             |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|------------------------------------|
+| **Code Required**             | ⚠️ Apex class extending base class                                                                                                                                 | ⚠️ Full Apex implementation    | ✅ No code (OpenAPI import only)    |
+| **Request/Response Logging**  | ✅ Automatic to [`ApiCall__c`](reference/objects/ApiCall__c.md)                                                                                                     | ❌ Manual implementation        | ⚠️ Limited via Debug Logs only     |
+| **Retry Logic**               | ✅ Built-in linear/exponential/custom strategies                                                                                                                    | ❌ Manual implementation        | ❌ No built-in retry                |
+| **Data Masking**              | ✅ Regex/JSON-key/literal rules via [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) + [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md) | ❌ Manual implementation        | ❌ No data masking                  |
+| **Mock Testing**              | ✅ Framework mock pattern                                                                                                                                           | ✅ `HttpCalloutMock` interface  | ⚠️ Cannot mock in unit tests       |
+| **Performance Metrics**       | ✅ Automatic timing (callout, processing, total)                                                                                                                    | ❌ Manual tracking              | ❌ No built-in metrics              |
+| **Error Tracking**            | ✅ [`ApiIssue__c`](reference/objects/ApiIssue__c.md) for retry management                                                                                           | ❌ Manual implementation        | ⚠️ Error captured in debug logs    |
+| **Callout/DML Orchestration** | ✅ [`API_Dispatcher`](reference/apex/API_Dispatcher.md) pattern                                                                                                     | ❌ Manual code structure        | ⚠️ Flow handles sequencing         |
+| **DTO Pattern**               | ✅ [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md)                                                                                                                 | ❌ Manual DTO creation          | ✅ Auto-generated from OpenAPI      |
+| **Named Credentials**         | ✅ Via [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                                                                                             | ✅ `callout:` syntax            | ✅ Direct integration               |
+| **Flow Integration**          | ✅ Built-in invocable methods                                                                                                                                       | ❌ Must create invocables       | ✅ Auto-generated invocable actions |
+| **Metadata Configuration**    | ✅ [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                                                                                                       | ❌ Hardcoded or Custom Settings | ✅ External Service registration    |
+| **Circuit Breaker**           | ✅ [`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md) integration                                                                                       | ❌ Manual implementation        | ❌ No circuit breaker               |
+| **OpenAPI Support**           | ⚠️ Manual DTO creation                                                                                                                                             | ❌ No OpenAPI support           | ✅ OpenAPI 2.0/3.0 import           |
+| **Setup Complexity**          | ⚠️ Base class + metadata config                                                                                                                                    | ✅ Direct Apex coding           | ✅ UI-based OpenAPI import          |
+| **Flexibility**               | ✅ Full control over logic                                                                                                                                          | ✅ Full control                 | ⚠️ Limited to OpenAPI operations   |
+| **Performance**               | ⚠️ Framework overhead                                                                                                                                              | ✅ Minimal overhead             | ✅ Platform-optimized               |
 
 #### When to Use KernDX Web Services Framework
 
@@ -366,7 +370,8 @@ The framework uses a sophisticated orchestration pattern in [`API_Dispatcher`](r
 3. **Errors are handled gracefully** at each stage
 
 This pattern prevents the dreaded "Callout from triggers with uncommitted work pending is not allowed" error by separating callout execution from database commits.
-> **Namespace Note:** Code examples in this guide omit the namespace prefix for readability. In subscriber orgs, prefix framework class references with your namespace (e.g., `ClientNS.API_Outbound`). See the Subscriber Context section for details.
+> **Namespace Note:** Code examples in this guide omit the namespace prefix for readability. In subscriber orgs, prefix framework class references with your namespace (e.g.,
+`ClientNS.API_Outbound`). See the Subscriber Context section for details.
 
 ---
 
@@ -490,6 +495,7 @@ API_Base (Abstract Base)
 The `API_Dispatcher.execute()` method implements a critical orchestration pattern:
 
 **Phase 1: Process (Execute HTTP Callouts)**
+
 ```apex
 for(ApiCall__c queueRecord : queueRecords)
 {
@@ -500,6 +506,7 @@ for(ApiCall__c queueRecord : queueRecords)
 ```
 
 **Phase 2: Commit (Persist DML Operations)**
+
 ```apex
 for(API_Base handlerToCommit : handlersToCommit)
 {
@@ -508,6 +515,7 @@ for(API_Base handlerToCommit : handlersToCommit)
 ```
 
 This two-phase approach ensures:
+
 - All HTTP callouts complete before any DML
 - No "uncommitted work" errors
 - Transactional integrity across multiple APIs
@@ -516,56 +524,63 @@ This two-phase approach ensures:
 
 ## Core Components
 
-### 1. [ApiCall__c](reference/objects/ApiCall__c.md) (Custom Object)
+### [ApiCall__c](reference/objects/ApiCall__c.md) (Custom Object)
 
 This custom object logs every API interaction. Key fields:
 
-| Field | Description |
-|-------|-------------|
-| `ServiceName__c` | API class name (e.g., `API_PostExample`) |
-| `Direction__c` | `Inbound` or `Outbound` |
-| `Status__c` | `Queued`, `Completed`, `Failed`, `Aborted`, `Retry`, `Retrying`, `Batched` |
-| `TriggeringRecordId__c` | Record that triggered the API call |
-| `Request__c` | Request body (auto-truncated if too large) |
-| `Response__c` | Response body (auto-truncated if too large) |
-| `RequestParameters__c` | JSON serialized parameters |
-| `URL__c` | Endpoint URL |
-| `StatusCode__c` | HTTP status code |
-| `ErrorMessages__c` | Error messages if call failed |
-| `NextRetry__c` | Scheduled retry datetime (populated when retry is needed) |
-| `Retries__c` | Number of retry attempts made |
-| `IsMockedResponse__c` | Indicates if response was mocked |
-| `CalloutDurationMs__c` | Time spent in HTTP callout (milliseconds) |
-| `HandlerDurationMs__c` | Time spent in handler logic |
-| `CommitDurationMs__c` | Time spent committing DML |
-| `TotalDurationMs__c` | Total end-to-end time |
-| `LoggerContext__c` | Serialized logger context for transaction correlation |
+| Field                   | Description                                                                |
+|-------------------------|----------------------------------------------------------------------------|
+| `ServiceName__c`        | API class name (e.g., `API_PostExample`)                                   |
+| `Direction__c`          | `Inbound` or `Outbound`                                                    |
+| `Status__c`             | `Queued`, `Completed`, `Failed`, `Aborted`, `Retry`, `Retrying`, `Batched` |
+| `TriggeringRecordId__c` | Record that triggered the API call                                         |
+| `Request__c`            | Request body (auto-truncated if too large)                                 |
+| `Response__c`           | Response body (auto-truncated if too large)                                |
+| `RequestParameters__c`  | JSON serialized parameters                                                 |
+| `URL__c`                | Endpoint URL                                                               |
+| `StatusCode__c`         | HTTP status code                                                           |
+| `ErrorMessages__c`      | Error messages if call failed                                              |
+| `NextRetry__c`          | Scheduled retry datetime (populated when retry is needed)                  |
+| `Retries__c`            | Number of retry attempts made                                              |
+| `IsMockedResponse__c`   | Indicates if response was mocked                                           |
+| `CalloutDurationMs__c`  | Time spent in HTTP callout (milliseconds)                                  |
+| `HandlerDurationMs__c`  | Time spent in handler logic                                                |
+| `CommitDurationMs__c`   | Time spent committing DML                                                  |
+| `TotalDurationMs__c`    | Total end-to-end time                                                      |
+| `LoggerContext__c`      | Serialized logger context for transaction correlation                      |
+
+**Scope — what `ApiCall__c` does and does not log.** `ApiCall__c` records callouts that flow through the KernDX Web Services framework: outbound calls via
+`API_Outbound` / `UTIL_HttpClient` / `API_Dispatcher`, and inbound calls handled by `API_Inbound`. It is **not** an org-wide API-usage log — direct
+`Http` / `HttpRequest` callouts, managed-package callouts, and platform API consumption never reach it. For org-wide API, login, and limit monitoring, use
+Salesforce Event Monitoring rather than `ApiCall__c`.
 
 **Large Content Handling**: If request/response bodies exceed field limits, they're stored as **ContentVersion** files linked to the queue item.
 
-**Automatic Transaction Correlation**: The `LoggerContext__c` field enables automatic correlation of logs across async boundaries. When queue items are created via `TST_Factory.newOutboundApiCall()` or `newInboundApiCall()`, the current logger context (correlation ID, transaction ID, global context) is automatically captured.
+**Automatic Transaction Correlation**: The `LoggerContext__c` field enables automatic correlation of logs across async boundaries. When queue items are created via
+`TST_Factory.newOutboundApiCall()` or `newInboundApiCall()`, the current logger context (correlation ID, transaction ID, global context) is automatically captured.
 
-When `API_Dispatcher.execute()` processes the queue item asynchronously, it hydrates this context, ensuring all logs in the async transaction share the same correlation ID as the originating transaction. This requires **zero code changes** in subscriber orgs.
+When `API_Dispatcher.execute()` processes the queue item asynchronously, it hydrates this context, ensuring all logs in the async transaction share the same correlation ID as the
+originating transaction. This requires **zero code changes** in subscriber orgs.
 
-### 2. [ApiSetting__mdt](reference/metadata/ApiSetting__mdt.md) (Custom Metadata Type)
+### [ApiSetting__mdt](reference/metadata/ApiSetting__mdt.md) (Custom Metadata Type)
 
 Stores configuration per API service:
 
-| Field | Description |
-|-------|-------------|
-| `ClassName__c` | API class name (must match exactly) |
-| `EndpointPath__c` | API endpoint path (appended to Named Credential) |
-| `ApiCredential__c` | Lookup to credentials metadata |
-| `IsActive__c` | Whether the API service is active (default: true). Inactive services abort with an error. |
-| `RequiredFeatureFlag__c` | MetadataRelationship lookup to `FeatureFlag__mdt` — required for the service to execute |
-| `BypassFeatureFlag__c` | MetadataRelationship lookup to `FeatureFlag__mdt` — bypasses the service when enabled |
-| `MaxRetryCount__c` | Maximum retry attempts (e.g., 3) |
-| `RetryBackoffSeconds__c` | Seconds to wait before first retry (e.g., 30) |
-| `CircuitBreakerFailureThreshold__c` | Number of consecutive failures before circuit opens (e.g., 5) |
-| `CircuitBreakerTimeout__c` | Seconds to keep circuit open before testing recovery (e.g., 60) |
-| `CircuitBreakerSuccessThreshold__c` | Number of consecutive successes in half-open state to close the circuit (e.g., 2) |
-| `LogIssues__c` | Create `ApiIssue__c` records |
-| `ResolveIssues__c` | Auto-resolve failures on success |
+| Field                               | Description                                                                               |
+|-------------------------------------|-------------------------------------------------------------------------------------------|
+| `ClassName__c`                      | API class name (must match exactly)                                                       |
+| `EndpointPath__c`                   | API endpoint path (appended to Named Credential)                                          |
+| `ApiCredential__c`                  | Lookup to credentials metadata                                                            |
+| `IsActive__c`                       | Whether the API service is active (default: true). Inactive services abort with an error. |
+| `RequiredFeatureFlag__c`            | MetadataRelationship lookup to `FeatureFlag__mdt` — required for the service to execute   |
+| `BypassFeatureFlag__c`              | MetadataRelationship lookup to `FeatureFlag__mdt` — bypasses the service when enabled     |
+| `MaxRetryCount__c`                  | Maximum retry attempts (e.g., 3)                                                          |
+| `RetryBackoffSeconds__c`            | Seconds to wait before first retry (e.g., 30)                                             |
+| `CircuitBreakerFailureThreshold__c` | Number of consecutive failures before circuit opens (e.g., 5)                             |
+| `CircuitBreakerTimeout__c`          | Seconds to keep circuit open before testing recovery (e.g., 60)                           |
+| `CircuitBreakerSuccessThreshold__c` | Number of consecutive successes in half-open state to close the circuit (e.g., 2)         |
+| `LogIssues__c`                      | Create `ApiIssue__c` records                                                              |
+| `ResolveIssues__c`                  | Auto-resolve failures on success                                                          |
 
 **Centralized Validation:** `API_Base.performValidation()` automatically checks these three fields before any API handler executes:
 
@@ -575,50 +590,73 @@ Stores configuration per API service:
 
 These checks run in both inbound and outbound flows, before `getValidationErrors()` is called.
 
-### 3. [MaskingRule__mdt](reference/metadata/MaskingRule__mdt.md) + [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md)
+### [MaskingRule__mdt](reference/metadata/MaskingRule__mdt.md) + [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md)
 
 Redaction is split across two metadata types so a single rule can be reused against many fields on many objects without duplicating the pattern.
 
 **[`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)** — the reusable *what to find* definition:
 
-| Field | Description |
-|-------|-------------|
-| `Mode__c` | `Regex`, `JsonKey` (picklist label "JSON by Key"), `ExactMatch`, or `CreditCard` (Luhn-validated, issuer-prefix union) |
-| `Pattern__c` | Regex pattern, JSON key regex, or literal string (depending on Mode) |
-| `Replacement__c` | Replacement text (e.g., `[CARD_REDACTED]`) |
-| `CaseSensitive__c` | Toggle case-insensitive matching |
-| `FailureAction__c` | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws |
-| `IsActive__c` | Enable/disable rule globally |
-| `MinInputLength__c` | Optional minimum input length — rule skipped for values shorter than this (zero-cost short-circuit for short fields like URLs) |
+| Field                     | Description                                                                                                                                                                                    |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Mode__c`                 | `Regex`, `JsonKey` (picklist label "JSON by Key"), `ExactMatch`, or `CreditCard` (the pattern match plus a Luhn checksum)                                                                      |
+| `Pattern__c`              | Regex pattern, JSON key regex, or literal string (depending on Mode)                                                                                                                           |
+| `Replacement__c`          | Replacement text (e.g., `[CARD_REDACTED]`)                                                                                                                                                     |
+| `CaseSensitive__c`        | Toggle case-insensitive matching                                                                                                                                                               |
+| `FailureAction__c`        | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws                                                                                                                    |
+| `IsActive__c`             | Enable/disable rule globally                                                                                                                                                                   |
+| `MinInputLength__c`       | Optional minimum input length — rule skipped for values shorter than this (zero-cost short-circuit for short fields like URLs)                                                                 |
 | `ApplicableFieldTypes__c` | Optional semicolon-delimited `System.DisplayType.name()` list (e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`) restricting the rule to specific field types; blank applies to every text-shaped field |
 
 **[`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)** — the wiring from rules to fields:
 
-| Field | Description |
-|-------|-------------|
-| `Rule__c` | The `MaskingRule__mdt` to apply |
-| `SObjectType__c` | Target SObject (e.g., `ApiCall__c`) |
-| `Field__c` | Specific field path, or blank for a wildcard across every text field |
-| `CallerClass__c` | Optional scope: only fire when the caller class name matches |
-| `IsActive__c` | Enable/disable this wiring without touching the rule |
+| Field            | Description                                                          |
+|------------------|----------------------------------------------------------------------|
+| `Rule__c`        | The `MaskingRule__mdt` to apply                                      |
+| `SObjectType__c` | Target SObject (e.g., `ApiCall__c`)                                  |
+| `Field__c`       | Specific field path, or blank for a wildcard across every text field |
+| `CallerClass__c` | Optional scope: only fire when the caller class name matches         |
+| `IsActive__c`    | Enable/disable this wiring without touching the rule                 |
 
-**Default ship set (2 rules active, 8 targets):** `MaskSecretKeys` (JSON key redaction for password/token/apiKey/authorization/bearer and similar, scoped to `STRING;TEXTAREA` since JSON payloads only live in free-text fields) and `MaskCreditCard` (`CreditCard` mode: Luhn-validated 13-19 digit sequences matching Visa / Mastercard / Amex / Discover / Diners Club / JCB / UnionPay issuer prefixes, `MinInputLength = 15`, restricted to `STRING;TEXTAREA;ENCRYPTEDSTRING` field types), each wildcarded onto `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, and `LogEntryEvent__e`. Eleven other rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header) ship as inactive templates — flip `IsActive__c = true` and add a `MaskingTarget__mdt` when your org's data profile calls for them.
+**Default ship set (3 rules active, 12 targets):** `MaskSecretKeys` (JSON key redaction for password/token/apiKey/authorization/bearer and similar, scoped to `STRING;TEXTAREA` since
+JSON payloads only live in free-text fields) and `MaskPaymentCard` (`CreditCard` mode: 13-19 digit sequences passing the Luhn checksum, spaces or hyphens allowed,
+`MinInputLength = 13`, restricted to `STRING;TEXTAREA;ENCRYPTEDSTRING` field types), each wildcarded onto `ApiCall__c`, `ApiIssue__c`,
+`AsyncChainExecution__c`, and `LogEntryEvent__e`. `MaskPaymentCard` replaces the original `MaskCreditCard` rule, which still ships active — with its own four targets — for
+compatibility with configurations that reference it; where both rules are wired to the same object the payment-card rule does the work. Fifteen other rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth,
+authorization header, private IPv4, postal address, free text, and international phone) ship as inactive templates — flip `IsActive__c = true` and add a `MaskingTarget__mdt` when
+your org's data profile calls for them.
 
-**Rule-level filters override explicit target wiring.** If a `MaskingTarget__mdt` wires a rule to a specific `Field__c` (non-wildcard) whose `DisplayType` is excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field — rule-level filters take precedence over per-target wiring. The framework emits a one-time `warn`-level `LogEntry__c` with `ClassMethod__c = 'UTIL_FrameworkMasker.filterTargetsByFieldType'` to surface the misconfiguration. Either widen the rule's `ApplicableFieldTypes__c` to include the field's type or remove the target. `MinInputLength__c` behaves similarly but is a value-length check at mask time — it does not warn, and a rule whose minimum exceeds the field's schema max length will silently never fire.
+**Rule-level filters override explicit target wiring.** If a `MaskingTarget__mdt` wires a rule to a specific `Field__c` (non-wildcard) whose `DisplayType` is excluded by the rule's
+`ApplicableFieldTypes__c`, the rule will **not** fire on that field — rule-level filters take precedence over per-target wiring. The framework emits a one-time `warn`-level
+`LogEntry__c` with `ClassMethod__c = 'UTIL_FrameworkMasker.filterTargetsByFieldType'` to surface the misconfiguration. Either widen the rule's `ApplicableFieldTypes__c` to include
+the field's type or remove the target. `MinInputLength__c` behaves similarly but is a value-length check at mask time — it does not warn, and a rule whose minimum exceeds the
+field's schema max length will silently never fire.
 
-### 4. [ApiRuntimeSwitch__c](reference/objects/ApiRuntimeSwitch__c.md) (Hierarchy Custom Setting)
+### [ApiRuntimeSwitch__c](reference/objects/ApiRuntimeSwitch__c.md) (Hierarchy Custom Setting)
 
 Emergency kill switch for all APIs at the org, profile, or user level:
 
-| Field | Description |
-|-------|-------------|
+| Field               | Description                             |
+|---------------------|-----------------------------------------|
 | `DisableAllApis__c` | Disable all APIs (inbound and outbound) |
 
-For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs` feature flags.
+For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs`
+feature flags.
 
-### 5. [Named Credentials](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_named_credentials.htm)
+### [Named Credentials](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_named_credentials.htm)
 
-Stores authentication details securely via [External Credentials](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/external_credentials.htm). Referenced by `ApiSetting__mdt`.
+Stores authentication details securely
+via [External Credentials](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/external_credentials.htm). Referenced by `ApiSetting__mdt`.
+
+**The two named credentials KernDX ships.** Both back the framework's outbound examples and call public, unauthenticated endpoints, so they store no secrets:
+
+| Named Credential     | Label           | Endpoint                              | Authentication   | Used by                                       |
+|----------------------|-----------------|---------------------------------------|------------------|-----------------------------------------------|
+| `API_ExampleRestApi` | Example REST API | `https://jsonplaceholder.typicode.com` | Anonymous (none) | The outbound REST example `API_PostExample`   |
+| `API_PwndPasswords`  | Pwnd Passwords  | `https://api.pwnedpasswords.com`      | Anonymous (none) | The breach-check example `API_GetPwndPasswords` |
+
+Replace or remove these when you wire up your own integrations — they are demonstrations, not production endpoints. Keeping an inventory of *your org's*
+named credentials and their criticality is org configuration: use native Setup or a posture tool such as AppOmni. A managed package does not catalogue your
+credentials for you.
 
 ---
 
@@ -628,7 +666,7 @@ Stores authentication details securely via [External Credentials](https://develo
 
 When using KernDX as a managed package, subscriber orgs **MUST** follow these critical requirements to avoid runtime failures:
 
-#### 1. [@JsonAccess](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_annotation_JsonAccess.htm) Annotation (MANDATORY)
+#### [@JsonAccess](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_annotation_JsonAccess.htm) Annotation (MANDATORY)
 
 **⚠️ ALL DTOs extending managed package classes MUST include `@JsonAccess` annotation:**
 
@@ -649,15 +687,17 @@ public class DTO_Request extends DTO_JsonBase
 ```
 
 **When to use each setting:**
+
 - `Serializable='always'` - Required when managed package calls `serialize()` on your DTO (outbound requests)
 - `Deserializable='always'` - Required when managed package calls `deserialize()` on your DTO (inbound responses)
 - Use **both** for bidirectional scenarios (most common)
 
-#### 2. Type Resolution (MANDATORY)
+#### Type Resolution (MANDATORY)
 
 **⚠️ You MUST implement type resolution using ONE of these three approaches:**
 
 **Option A: Make DTOs Global (simple but exposes classes)**
+
 ```apex
 @JsonAccess(Serializable='always' Deserializable='always')
 global class DTO_Request extends DTO_JsonBase
@@ -667,6 +707,7 @@ global class DTO_Request extends DTO_JsonBase
 ```
 
 **Option B: Implement getObjectType() in Every DTO (repetitive but explicit)**
+
 ```apex
 @JsonAccess(Serializable='always' Deserializable='always')
 public class DTO_Request extends DTO_JsonBase
@@ -683,6 +724,7 @@ public class DTO_Request extends DTO_JsonBase
 **Option C: Register Type Resolver (RECOMMENDED - flexible and maintainable)**
 
 1. Create resolver class:
+
 ```apex
 /**
  * @description Custom type resolver for subscriber org classes
@@ -734,13 +776,14 @@ global with sharing class CustomTypeResolver extends kern.UTIL_TypeResolver.Base
 ```
 
 2. Register in `ClassTypeResolver__mdt`:
-   - **Label:** Custom Type Resolver
-   - **DeveloperName:** CustomTypeResolver
-   - **ClassName__c:** CustomTypeResolver
+    - **Label:** Custom Type Resolver
+    - **DeveloperName:** CustomTypeResolver
+    - **ClassName__c:** CustomTypeResolver
 
 3. No need to implement `getObjectType()` in any DTO!
 
 **Without type resolution, you will encounter:**
+
 ```text
 System.JSONException: Type cannot be deserialized as it is not globally visible - DTO_Request
 ```
@@ -881,7 +924,8 @@ Outbound APIs **send** HTTP requests to external systems.
 
 ### Step 2: Override Virtual Methods
 
-**You only need to override methods where defaults aren't sufficient.** The framework provides sensible defaults for most scenarios. See the [Virtual Methods Reference](#virtual-methods-reference) section for detailed explanations of each method.
+**You only need to override methods where defaults aren't sufficient.** The framework provides sensible defaults for most scenarios. See
+the [Virtual Methods Reference](#virtual-methods-reference) section for detailed explanations of each method.
 
 #### Minimal Implementation
 
@@ -1136,16 +1180,16 @@ public inherited sharing class API_SendMail extends API_Outbound
 
 Create a custom metadata record:
 
-| Field | Value |
-|-------|-------|
-| Label | `API Send Mail` |
-| ClassName__c | `API_SendMail` |
-| EndpointPath__c | `/api/v1/send` |
-| ApiCredential__c | (Lookup to credential) |
-| MaxRetryCount__c | `3` |
-| RetryBackoffSeconds__c | `30` |
-| LogIssues__c | `true` |
-| ResolveIssues__c | `true` |
+| Field                  | Value                  |
+|------------------------|------------------------|
+| Label                  | `API Send Mail`        |
+| ClassName__c           | `API_SendMail`         |
+| EndpointPath__c        | `/api/v1/send`         |
+| ApiCredential__c       | (Lookup to credential) |
+| MaxRetryCount__c       | `3`                    |
+| RetryBackoffSeconds__c | `30`                   |
+| LogIssues__c           | `true`                 |
+| ResolveIssues__c       | `true`                 |
 
 ### Step 4: Execute Your API
 
@@ -1182,7 +1226,8 @@ if(handler.result.isSuccess)
 
 Inbound APIs **receive** HTTP requests from external systems.
 
-**IMPORTANT**: The framework uses a **two-class architecture** that separates URL routing from business logic. This pattern provides better maintainability, flexibility, and reusability.
+**IMPORTANT**: The framework uses a **two-class architecture** that separates URL routing from business logic. This pattern provides better maintainability, flexibility, and
+reusability.
 
 ### Architecture Overview
 
@@ -1192,6 +1237,7 @@ Inbound REST APIs use two separate classes:
 2. **API Implementation Class** (`API_*` prefix): Contains business logic and extends [`API_Inbound`](reference/apex/API_Inbound.md)
 
 **Benefits of this pattern:**
+
 - ✅ **Separation of Concerns**: REST routing is separate from business logic
 - ✅ **Multiple Operations**: One REST endpoint can handle multiple HTTP methods
 - ✅ **Reusability**: Same API implementation can be exposed at different endpoints
@@ -1236,6 +1282,7 @@ global inherited sharing class REST_Echo
 ```
 
 **Key Points for REST Routing Classes:**
+
 - Use [`@RestResource`](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_rest_intro.htm) annotation with `UrlMapping`
 - Methods must be `global static` with HTTP method annotations (`@HttpPost`, `@HttpGet`, etc.)
 - Delegate to `API_Dispatcher.processInboundService()` with the API class name
@@ -1292,6 +1339,7 @@ public inherited sharing class API_Echo extends API_Inbound
 ```
 
 **Key Points for API Implementation Classes:**
+
 - Extend [`API_Inbound`](reference/apex/API_Inbound.md) (or a custom base class)
 - Do NOT use `@RestResource` annotation (that's on the URL routing class)
 - Use `public` access modifier (not global)
@@ -1564,31 +1612,37 @@ public inherited sharing class API_PersonUpdate extends API_Inbound
 
 ### Multi-method routing
 
-When one URL responds to multiple HTTP verbs (the `REST_Person` example above handles both GET and PATCH), each verb routes to a different inbound handler class. Salesforce REST plumbing dispatches by verb based on the `@HttpGet`/`@HttpPost`/`@HttpPut`/`@HttpPatch`/`@HttpDelete` annotation on each method of the `REST_*` routing class. Each annotated method delegates to a different `API_*` handler by passing that handler's class name to `processInboundService()`:
+When one URL responds to multiple HTTP verbs (the `REST_Person` example above handles both GET and PATCH), each verb routes to a different inbound handler class. Salesforce REST
+plumbing dispatches by verb based on the `@HttpGet`/`@HttpPost`/`@HttpPut`/`@HttpPatch`/`@HttpDelete` annotation on each method of the `REST_*` routing class. Each annotated method
+delegates to a different `API_*` handler by passing that handler's class name to `processInboundService()`:
 
-| Custom Metadata Record | `ClassName__c` | Routing Method |
-|---|---|---|
-| `ApiSetting.GetPerson` | `API_PersonRetrieve` | `@HttpGet getPerson()` |
-| `ApiSetting.EditPerson` | `API_PersonUpdate` | `@HttpPatch editPerson()` |
+| Custom Metadata Record  | `ClassName__c`       | Routing Method            |
+|-------------------------|----------------------|---------------------------|
+| `ApiSetting.GetPerson`  | `API_PersonRetrieve` | `@HttpGet getPerson()`    |
+| `ApiSetting.EditPerson` | `API_PersonUpdate`   | `@HttpPatch editPerson()` |
 
-One `ApiSetting__mdt` record per handler — `ClassName__c` ties the metadata to the implementation. When a request arrives, Salesforce's `@Http*` dispatch selects the routing method, which calls `API_Dispatcher.processInboundService(API_PersonRetrieve.class.getName())` (or the corresponding handler) to run the framework's pre-validation, authorisation, and `onSuccess()` pipeline.
+One `ApiSetting__mdt` record per handler — `ClassName__c` ties the metadata to the implementation. When a request arrives, Salesforce's `@Http*` dispatch selects the routing
+method, which calls `API_Dispatcher.processInboundService(API_PersonRetrieve.class.getName())` (or the corresponding handler) to run the framework's pre-validation, authorisation,
+and `onSuccess()` pipeline.
 
 ### Naming Conventions for Inbound APIs
 
 **REST Routing Classes:**
+
 - **Pattern**: `REST_*`
 - **Examples**:
-  - `REST_Echo` - Simple routing class
-  - `REST_Person` - Resource routing class
-  - `REST_Invoices` - Domain-specific routing class
+    - `REST_Echo` - Simple routing class
+    - `REST_Person` - Resource routing class
+    - `REST_Invoices` - Domain-specific routing class
 
 **API Implementation Classes:**
+
 - **Pattern**: `API_*` or `[Domain]_API_[Operation][Resource]`
 - **Examples**:
-  - `API_Echo` - Simple implementation
-  - `API_PersonRetrieve` - Domain + Operation + Resource
-  - `API_PersonUpdate` - Domain + Operation + Resource
-  - `DOMAIN_API_CreateCase` - Domain + Operation + Resource
+    - `API_Echo` - Simple implementation
+    - `API_PersonRetrieve` - Domain + Operation + Resource
+    - `API_PersonUpdate` - Domain + Operation + Resource
+    - `DOMAIN_API_CreateCase` - Domain + Operation + Resource
 
 ---
 
@@ -1596,7 +1650,8 @@ One `ApiSetting__mdt` record per handler — `ClassName__c` ties the metadata to
 
 ### Overview
 
-The [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) class is a specialized base class for making API calls **back into the same Salesforce org**. This is useful when you need to call standard Salesforce REST APIs (like Composite API, Tooling API, or custom REST services) from within your org using the current user's session.
+The [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) class is a specialized base class for making API calls **back into the same Salesforce org**. This is useful when
+you need to call standard Salesforce REST APIs (like Composite API, Tooling API, or custom REST services) from within your org using the current user's session.
 
 ### Key Features
 
@@ -1608,6 +1663,7 @@ The [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) class is a spec
 ### When to Use
 
 Use [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) when you need to:
+
 - Call Salesforce REST APIs from within the same org
 - Use the Composite API to perform multiple operations in a single call
 - Access Tooling API endpoints
@@ -1729,21 +1785,24 @@ global protected virtual override String getWebServiceEndPoint()
 
 In your `ApiSetting__mdt` record:
 
-| Field | Value |
-|-------|-------|
-| ClassName__c | `API_CompositeExample` |
-| EndpointPath__c | `/services/data/v66.0/composite` |
+| Field            | Value                                   |
+|------------------|-----------------------------------------|
+| ClassName__c     | `API_CompositeExample`                  |
+| EndpointPath__c  | `/services/data/v67.0/composite`        |
 | ApiCredential__c | (Leave blank - session ID handles auth) |
 
-**Note**: You do not need a Named Credential for intra-org calls since authentication is handled via the session ID. The org base URL is resolved dynamically at runtime via `URL.getOrgDomainURL()`.
+**Note**: You do not need a Named Credential for intra-org calls since authentication is handled via the session ID. The org base URL is resolved dynamically at runtime via
+`URL.getOrgDomainURL()`.
 
-> **Subscriber Setup**: Add a [Remote Site Setting](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_remote_site_settings.htm) for your My Domain URL (Setup > Remote Site Settings > New). Without this, callouts to the current org will fail with a `System.CalloutException`.
+> **Subscriber Setup**: Add a [Remote Site Setting](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_remote_site_settings.htm) for your My
+> Domain URL (Setup > Remote Site Settings > New). Without this, callouts to the current org will fail with a `System.CalloutException`.
 
 ---
 
 ## Virtual Methods Reference
 
-This section provides detailed explanations of all virtual methods available for override in the framework. Each method includes its purpose, default behavior, when to override, and examples.
+This section provides detailed explanations of all virtual methods available for override in the framework. Each method includes its purpose, default behavior, when to override,
+and examples.
 
 ### Common Base Methods ([API_Base](reference/apex/API_Base.md))
 
@@ -1757,9 +1816,11 @@ These methods are available in both inbound and outbound APIs.
 
 **Signature**: `global protected virtual List<String> getValidationErrors()`
 
-**Default Behavior**: Returns an empty list (no validation errors). Framework-level checks (disabled APIs, feature flags, runtime switches) are handled internally by `performValidation()` -- no `super` call needed.
+**Default Behavior**: Returns an empty list (no validation errors). Framework-level checks (disabled APIs, feature flags, runtime switches) are handled internally by
+`performValidation()` -- no `super` call needed.
 
 **When to Override**:
+
 - Validating required parameters
 - Checking user permissions
 - Validating request payload structure
@@ -1768,6 +1829,7 @@ These methods are available in both inbound and outbound APIs.
 **Return Value**: List of error message strings. An empty list means validation passed; non-empty aborts the request.
 
 **Example**:
+
 ```apex
 /**
  * @description Validates required parameters before proceeding with API call.
@@ -1799,6 +1861,7 @@ public override List<String> getValidationErrors()
 **Default Behavior**: Serializes `requestPayload` to JSON or XML.
 
 **When to Override**:
+
 - Custom body formatting (multi-part form data, binary content)
 - Non-standard serialization
 - Custom XML structure
@@ -1832,14 +1895,17 @@ public override List<String> getValidationErrors()
 **Default Behavior**: No operations registered (empty method).
 
 **When to Override**:
+
 - Creating records from API responses
 - Updating records based on API results
 - Logging activity (Tasks, Events, etc.)
 - Managing relationships
 
-**Important**: `API_Base` extends `DML_Transaction`, so DML methods (`doInsert()`, `doUpdate()`, `doDelete()`, `doUpsert()`) are inherited directly. Call them within `onSuccess()` to register DML operations that will be committed after all callouts complete. **Never call DML statements (insert/update/delete) directly**.
+**Important**: `API_Base` extends `DML_Transaction`, so DML methods (`doInsert()`, `doUpdate()`, `doDelete()`, `doUpsert()`) are inherited directly. Call them within `onSuccess()`
+to register DML operations that will be committed after all callouts complete. **Never call DML statements (insert/update/delete) directly**.
 
 **Example**:
+
 ```apex
 /**
  * @description Creates Account and updates Contact based on API response.
@@ -1876,7 +1942,8 @@ public override void onSuccess()
 
 **Default Behavior**: Empty method (no-op).
 
-**When to Override**: Rarely needed. DML operations are registered directly via inherited `doInsert()`, `doUpdate()`, `doDelete()`, `doUpsert()` methods in `onSuccess()`. The framework resolves SObject type ordering automatically during `commitWork()`.
+**When to Override**: Rarely needed. DML operations are registered directly via inherited `doInsert()`, `doUpdate()`, `doDelete()`, `doUpsert()` methods in `onSuccess()`. The
+framework resolves SObject type ordering automatically during `commitWork()`.
 
 ---
 
@@ -1895,6 +1962,7 @@ These methods are only available in outbound APIs.
 **Default Behavior**: Returns empty string (authentication handled by Named Credential).
 
 **When to Override**:
+
 - Custom authentication (OAuth, API keys, session-based)
 - Dynamic token management
 - Custom auth schemes
@@ -1902,6 +1970,7 @@ These methods are only available in outbound APIs.
 **Return Value**: Authorization header value (e.g., `Bearer {token}`)
 
 **Example**:
+
 ```apex
 /**
  * @description Provides OAuth token for API authentication.
@@ -1930,6 +1999,7 @@ public override String getAuthorisationToken()
 **Return Value**: `HttpMethod` enum value (`HttpMethod.GET`, `HttpMethod.POST`, `HttpMethod.PUT`, `HttpMethod.PATCH`, `HttpMethod.DELETE`)
 
 **Example**:
+
 ```apex
 /**
  * @description Specifies GET method for this API.
@@ -1957,6 +2027,7 @@ public override HttpMethod getHttpMethod()
 **Return Value**: Query string (without leading `?`)
 
 **Example**:
+
 ```apex
 /**
  * @description Builds query parameters for the API call.
@@ -1987,6 +2058,7 @@ public override String getQueryParameters()
 **Return Value**: Set of required parameter names
 
 **Example**:
+
 ```apex
 /**
  * @description Defines required parameters for validation.
@@ -2013,6 +2085,7 @@ public override Set<String> getRequiredInputs()
 **Default Behavior**: Returns `response.getBody()`.
 
 **When to Override**:
+
 - Unwrapping nested response structure
 - Decoding encoded content
 
@@ -2020,7 +2093,7 @@ public override Set<String> getRequiredInputs()
 
 ---
 
-#### getResponseReplacementTokens(List<String> searchTokens, List<String> replaceTokens)
+#### getResponseReplacementTokens()
 
 **Purpose**: Defines token replacements for response JSON before deserialization.
 
@@ -2029,15 +2102,18 @@ public override Set<String> getRequiredInputs()
 **Default Behavior**: No replacements.
 
 **When to Override**: When response contains:
+
 - Reserved Apex keywords (`class`, `type`)
 - Hyphens in JSON keys (`user-id` → `userId`)
 - Special characters incompatible with Apex
 
 **Parameters**:
+
 - `searchTokens` - List to populate with strings to find
 - `replaceTokens` - List to populate with replacement strings
 
 **Example**:
+
 ```apex
 /**
  * @description Replaces reserved keywords and hyphens in response JSON.
@@ -2070,6 +2146,7 @@ public override void getResponseReplacementTokens(List<String> searchTokens, Lis
 **Return Value**: Timeout in milliseconds (max 120000)
 
 **Example**:
+
 ```apex
 /**
  * @description Sets timeout to 1 minute.
@@ -2093,6 +2170,7 @@ public override Integer getTimeout()
 **Default Behavior**: Combines Named Credential URL with path from `ApiSetting__mdt.EndpointPath__c`.
 
 **When to Override**:
+
 - Dynamic URL construction
 - URL parameter substitution
 - Path variables
@@ -2101,6 +2179,7 @@ public override Integer getTimeout()
 **Return Value**: Complete endpoint URL
 
 **Example**:
+
 ```apex
 /**
  * @description Builds endpoint URL with userId path parameter.
@@ -2126,12 +2205,14 @@ public override String getWebServiceEndPoint()
 **Default Behavior**: Calls `requestPayload.populate(recordId, inputs)`.
 
 **When to Override**:
+
 - Complex data transformations
 - Querying related data
 - Combining multiple data sources
 - Parameter processing
 
 **Example**:
+
 ```apex
 /**
  * @description Populates request with timestamp and user info.
@@ -2157,11 +2238,13 @@ public override void prepareRequest()
 **Default Behavior**: Sets `Content-Type` and `Accept` headers to JSON.
 
 **When to Override**:
+
 - Custom headers (API keys, tokens, correlation IDs)
 - Different content types
 - Additional authentication headers
 
 **Example**:
+
 ```apex
 /**
  * @description Adds custom headers for API call.
@@ -2186,12 +2269,14 @@ public override void setHeaders()
 **Default Behavior**: `true`.
 
 **When to Set to `false`**:
+
 - API doesn't need a specific record context (GET requests)
 - Uses only parameters
 - Operates on multiple records
 - Utility/system operation
 
 **Example**:
+
 ```apex
 public override void configure()
 {
@@ -2219,12 +2304,14 @@ These methods are only available in inbound APIs.
 **Default Behavior**: No-op (does nothing).
 
 **When to Override**:
+
 - Parse request body
 - Query Salesforce data
 - Perform business logic
 - Validate complex rules
 
 **Example**:
+
 ```apex
 /**
  * @description Processes incoming request and queries related data.
@@ -2263,6 +2350,7 @@ public override void processRequest()
 **When to Override**: When custom response formatting is needed.
 
 **Example**:
+
 ```apex
 /**
  * @description Formats response as pretty-printed JSON.
@@ -2287,11 +2375,13 @@ public override void updateCallResult()
 **Default Behavior**: No-op (does nothing).
 
 **When to Override**:
+
 - Include committed record IDs in response
 - Add calculated fields from committed data
 - Include related data from database
 
 **Example**:
+
 ```apex
 /**
  * @description Updates response with committed Account ID.
@@ -2317,12 +2407,14 @@ public override void updateResponseDTO()
 **Default Behavior**: Serializes `responsePayload` to JSON or writes errors.
 
 **When to Override**:
+
 - Custom response formatting
 - Different content types
 - Custom error structures
 - Response headers
 
 **Example**:
+
 ```apex
 /**
  * @description Writes response with custom headers.
@@ -2341,17 +2433,20 @@ public override void writeResponse()
 
 ## Advanced Features
 
-### 1. Automatic Retries
+### Automatic Retries
+
+> The retry *strategies* themselves — backoff shapes, jitter, and exception filters — are documented in depth in the **[Resilience - Guide](Resilience%20-%20Guide.md)**. This section covers how the web services framework applies retry to outbound calls via `ApiSetting__mdt`.
 
 The framework automatically handles retries for failed outbound API calls when configured in `ApiSetting__mdt`.
 
 **How It Works**:
 
 When an API call fails, the framework:
+
 1. Checks if `MaxRetryCount__c` is configured and not exceeded
 2. Calculates the next retry time using linear backoff (default strategy):
-   - Each retry uses `RetryBackoffSeconds__c` seconds as the delay
-   - Example: With `RetryBackoffSeconds__c = 30`, all retries wait 30 seconds
+    - Each retry uses `RetryBackoffSeconds__c` seconds as the delay
+    - Example: With `RetryBackoffSeconds__c = 30`, all retries wait 30 seconds
 3. Sets `NextRetry__c` datetime field
 4. Sets `Status__c` to `'Retry'`
 5. Increments `Retries__c` counter
@@ -2359,10 +2454,12 @@ When an API call fails, the framework:
 **Configuration**:
 
 In `ApiSetting__mdt`:
+
 - **MaxRetryCount__c**: Maximum number of retry attempts (e.g., `3`)
 - **RetryBackoffSeconds__c**: Backoff in seconds between retries (e.g., `30`)
 
 **Example Retry Schedule** (with `RetryBackoffSeconds__c = 30`):
+
 - Original call fails at 10:00:00
 - First retry scheduled for 10:00:30 (30 seconds later)
 - If first retry fails, second retry scheduled for 10:01:00 (30 seconds later)
@@ -2370,7 +2467,9 @@ In `ApiSetting__mdt`:
 
 **Automatic Retry Processing**:
 
-The framework ships with a built-in record-triggered flow (`RetryOutboundApiCall`) that automatically processes retries. When an API call fails and the framework sets `Status__c = 'Retry'` with a `NextRetry__c` datetime, the flow uses a time-based scheduled path to wait until the scheduled time, then invokes `FLOW_CallApiAsync` to re-execute the callout and sets `Status__c` to `'Retrying'` to prevent re-triggering.
+The framework ships with a built-in record-triggered flow (`RetryOutboundApiCall`) that automatically processes retries. When an API call fails and the framework sets
+`Status__c = 'Retry'` with a `NextRetry__c` datetime, the flow uses a time-based scheduled path to wait until the scheduled time, then invokes `FLOW_CallApiAsync` to re-execute the
+callout and sets `Status__c` to `'Retrying'` to prevent re-triggering.
 
 No custom scheduled jobs or platform events are needed — retry processing is fully automated out of the box.
 
@@ -2378,25 +2477,14 @@ No custom scheduled jobs or platform events are needed — retry processing is f
 
 #### Custom Retry Strategies
 
-The framework uses [`UTIL_Retry`](reference/apex/UTIL_Retry.md) for retry logic and provides extensibility for custom retry behavior.
-
-**Default Behavior**:
-
-By default, [`API_Outbound`](reference/apex/API_Outbound.md) uses linear backoff strategy with `RetryBackoffSeconds__c` and `MaxRetryCount__c` from settings.
-
-**Customizing Retry Strategy**:
-
-Override the `createRetryStrategy()` method in your API subclass to implement custom retry logic:
+By default, [`API_Outbound`](reference/apex/API_Outbound.md) retries with a linear backoff built from `RetryBackoffSeconds__c` and `MaxRetryCount__c`. To use a different strategy on a handler, override `createRetryStrategy()` to return any [`UTIL_Retry.Strategy`](reference/apex/UTIL_Retry.md):
 
 ```apex
-/**
- * @description Custom SendGrid API with intelligent retry strategy
- */
 public inherited sharing class API_SendGridEmail extends API_Outbound
 {
 	global override UTIL_Retry.Strategy createRetryStrategy()
 	{
-		// Use exponential backoff with jitter for rate-limited APIs
+		// Exponential backoff with jitter for a rate-limited API
 		return UTIL_Retry.exponential()
 			.withBaseBackoff(10)
 			.withMaximumBackoff(300)
@@ -2406,122 +2494,15 @@ public inherited sharing class API_SendGridEmail extends API_Outbound
 }
 ```
 
-**Advanced: Custom Strategy Logic**:
-
-For complex scenarios (e.g., HTTP status code-specific backoff), implement a custom strategy:
-
-```apex
-/**
- * @description HTTP status code-aware retry strategy
- */
-public inherited sharing class API_PaymentGateway extends API_Outbound
-{
-	global override UTIL_Retry.Strategy createRetryStrategy()
-	{
-		// Custom strategy with HTTP status-aware backoff
-		return new HttpStatusRetryStrategy()
-			.withBaseBackoff(10)
-			.withMaxRetries(5);
-	}
-
-	/**
-	 * @description Custom retry strategy based on HTTP status codes
-	 */
-	private class HttpStatusRetryStrategy implements UTIL_Retry.Strategy
-	{
-		private Integer baseBackoff = 10;
-		private Integer maxRetries = 3;
-
-		public Boolean shouldRetry(UTIL_Retry.Context context)
-		{
-			return context.getRetryCount() < this.maxRetries;
-		}
-
-		public Integer calculateBackoff(UTIL_Retry.Context context)
-		{
-			Integer retryCount = context.getRetryCount();
-
-			// Check if we have HTTP status info in custom data
-			Object customData = context.getCustomData();
-			if(customData instanceof ApiCall__c)
-			{
-				ApiCall__c queueItem = (ApiCall__c)customData;
-				Integer statusCode = Integer.valueOf(queueItem.StatusCode__c);
-
-				// Rate limit - wait longer
-				if(statusCode == 429)
-				{
-					return 60;
-				}
-
-				// Server error - exponential backoff
-				if(statusCode >= 500)
-				{
-					return this.baseBackoff * (Integer)Math.pow(2, retryCount);
-				}
-			}
-
-			// Default linear backoff
-			return this.baseBackoff;
-		}
-
-		public UTIL_Retry.Strategy withBaseBackoff(Integer seconds)
-		{
-			this.baseBackoff = seconds;
-			return this;
-		}
-
-		public UTIL_Retry.Strategy withMaxRetries(Integer retries)
-		{
-			this.maxRetries = retries;
-			return this;
-		}
-
-		public UTIL_Retry.Strategy withMaximumBackoff(Integer seconds) { return this; }
-		public UTIL_Retry.Strategy withExponentialMultiplier(Decimal multiplier) { return this; }
-		public UTIL_Retry.Strategy withJitter(Boolean enabled) { return this; }
-	}
-}
-```
-
-**Benefits of Custom Strategies**:
-- HTTP status code-aware retry logic (e.g., 429 rate limits vs 503 service unavailable)
-- Exponential backoff for transient errors
-- Circuit breaker integration for repeated failures
-- API-specific retry policies (e.g., SendGrid, Stripe, AWS have different recommendations)
-
-**See Also**: Refer to the **"Utilities - Guide"** for comprehensive documentation on:
-- [`UTIL_Retry`](reference/apex/UTIL_Retry.md) - Configurable retry strategies (linear, exponential, custom)
-- [`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md) - Circuit breaker pattern for fault tolerance
-- [`UTIL_Cache`](reference/apex/UTIL_Cache.md) - Platform Cache management with TTL controls
+The full retry API — exponential vs linear backoff, jitter, exception allowlists and denylists, and writing a custom `UTIL_Retry.Strategy` (for example, HTTP-status-aware backoff) — is documented in the **[Resilience - Guide](Resilience%20-%20Guide.md)**.
 
 ---
 
-### 2. Circuit Breaker Pattern
+### Circuit Breaker Pattern
 
-The framework automatically applies circuit breaker protection to all outbound API calls to prevent cascading failures and improve resilience.
+The framework automatically applies a circuit breaker to every outbound API call, so a failing dependency trips the circuit and later calls fail fast instead of piling up timeouts. The breaker moves through CLOSED → OPEN → HALF_OPEN and recovers on its own.
 
-**What is a Circuit Breaker?**
-
-A circuit breaker acts as a "smart fuse" that monitors failures and temporarily blocks calls to failing services:
-
-- **CLOSED** (normal): Requests pass through, failures are counted
-- **OPEN** (failing): Requests are immediately rejected without calling the service
-- **HALF_OPEN** (testing): Limited test requests allowed to check if service recovered
-
-**Why Use Circuit Breakers?**
-
-Without circuit breakers, when an external API fails:
-- Each request waits for timeout (e.g., 30 seconds)
-- Governor limits consumed waiting for failures
-- Errors cascade through your system
-- User experience degrades with long wait times
-
-With circuit breakers:
-- Failures detected quickly (after threshold reached)
-- Subsequent calls fail fast (milliseconds, not seconds)
-- Service given time to recover
-- System remains responsive
+> The circuit breaker concept — the three states and their transitions, the `execute()` helpers, metrics, and Platform Cache persistence — is covered in depth in the **[Resilience - Guide](Resilience%20-%20Guide.md)**. This section covers how the web services framework wires it onto outbound calls via `ApiSetting__mdt`.
 
 ---
 
@@ -2531,11 +2512,11 @@ With circuit breakers:
 
 **Configuration** via `ApiSetting__mdt`:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| `CircuitBreakerFailureThreshold__c` | Consecutive failures before opening circuit | `5` |
-| `CircuitBreakerTimeout__c` | Seconds to keep circuit open before testing recovery | `60` |
-| `CircuitBreakerSuccessThreshold__c` | Consecutive successes in half-open state to close circuit | `2` |
+| Field                               | Description                                               | Example |
+|-------------------------------------|-----------------------------------------------------------|---------|
+| `CircuitBreakerFailureThreshold__c` | Consecutive failures before opening circuit               | `5`     |
+| `CircuitBreakerTimeout__c`          | Seconds to keep circuit open before testing recovery      | `60`    |
+| `CircuitBreakerSuccessThreshold__c` | Consecutive successes in half-open state to close circuit | `2`     |
 
 **Example Configuration**:
 
@@ -2548,6 +2529,7 @@ CircuitBreakerSuccessThreshold__c: 2
 ```
 
 **Behavior**:
+
 1. After **5 consecutive failures**, circuit opens
 2. For the next **60 seconds**, all calls immediately fail with `CircuitOpenException`
 3. After 60 seconds, circuit enters half-open state
@@ -2619,12 +2601,12 @@ The framework uses sensible defaults, so circuit breaker protection is always ac
 
 **1. Choose Appropriate Thresholds by Service Type**
 
-| Service Type | Threshold | Timeout | Rationale |
-|--------------|-----------|---------|-----------|
-| **Critical Payment APIs** | 2-3 | 300s (5 min) | Low tolerance, long recovery |
-| **Email/Notification** | 5-10 | 60s (1 min) | Higher tolerance, quick retry |
-| **Internal Salesforce** | 3-5 | 30s | Fast recovery expected |
-| **Rate-Limited APIs** | 5 | 60s | Match rate limit window |
+| Service Type              | Threshold | Timeout      | Rationale                     |
+|---------------------------|-----------|--------------|-------------------------------|
+| **Critical Payment APIs** | 2-3       | 300s (5 min) | Low tolerance, long recovery  |
+| **Email/Notification**    | 5-10      | 60s (1 min)  | Higher tolerance, quick retry |
+| **Internal Salesforce**   | 3-5       | 30s          | Fast recovery expected        |
+| **Rate-Limited APIs**     | 5         | 60s          | Match rate limit window       |
 
 **2. Combine Circuit Breakers with Retry Strategies**
 
@@ -2650,6 +2632,7 @@ public inherited sharing class API_SendGridEmail extends API_Outbound
 ```
 
 **Request Flow**:
+
 1. Circuit breaker checks state (CLOSED = proceed, OPEN = reject immediately)
 2. If CLOSED, retry strategy attempts call (up to 3 times with backoff)
 3. If all retries fail, circuit breaker increments failure count
@@ -2672,12 +2655,14 @@ ORDER BY CreatedDate DESC
 Use different thresholds per environment:
 
 **Development/Sandbox** (more tolerant for testing):
+
 ```text
 CircuitBreakerFailureThreshold__c: 10
 CircuitBreakerTimeout__c: 30
 ```
 
 **Production** (stricter for reliability):
+
 ```text
 CircuitBreakerFailureThreshold__c: 3
 CircuitBreakerTimeout__c: 300
@@ -2724,6 +2709,7 @@ breaker.execute(new MyProtectedAction());
 ```
 
 **When to use standalone circuit breakers**:
+
 - Custom non-API callout scenarios
 - Programmatic circuit control based on runtime conditions
 - Protecting non-HTTP operations (e.g., platform event publishing)
@@ -2749,6 +2735,7 @@ breaker.execute(new MyProtectedAction());
 **Cause**: Service is genuinely down or experiencing issues
 
 **Solution**:
+
 1. Check external service status
 2. Wait for timeout period to expire
 3. Circuit will automatically test recovery
@@ -2756,32 +2743,39 @@ breaker.execute(new MyProtectedAction());
 
 ---
 
-### 3. Data Masking
+### Data Masking
 
-Protect sensitive data written to `ApiCall__c` and `ApiIssue__c` using the shared [data masking framework](#3-maskingrule__mdt--maskingtarget__mdt). Payload fields (`Request__c`, `Response__c`, `URL__c`, `RequestParameters__c`, `ErrorMessages__c`) are redacted on the trigger dispatcher's before-insert / before-update pre-step, so the persisted row never holds the raw sensitive value.
+Protect sensitive data written to `ApiCall__c` and `ApiIssue__c` using the shared [data masking framework](#maskingrule__mdt--maskingtarget__mdt). Payload fields (`Request__c`,
+`Response__c`, `URL__c`, `RequestParameters__c`, `ErrorMessages__c`) are redacted on the trigger dispatcher's before-insert / before-update pre-step, so the persisted row never
+holds the raw sensitive value.
 
-**Default coverage out of the box:** `MaskSecretKeys` redacts JSON keys named `password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token` (and common variants). `MaskCreditCard` redacts Luhn-validated 13–19 digit sequences matching Visa / Mastercard / Amex / Discover / Diners Club / JCB / UnionPay issuer prefixes. No admin work required for those.
+**Default coverage out of the box:** `MaskSecretKeys` redacts JSON keys named `password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`,
+`access_token`, `refresh_token` (and common variants). `MaskPaymentCard` redacts 13–19 digit sequences that pass the Luhn checksum (all major card brands; spaces or hyphens
+allowed). No admin work required for those.
 
 **Example: activate US-SSN masking on API payloads**
 
 Add a `MaskingTarget__mdt` wiring the shipped-but-inactive `MaskSsn` rule onto `ApiCall__c`. First flip `MaskingRule.MaskSsn.IsActive__c = true`, then create the target:
 
-| Field | Value |
-|-------|-------|
-| `Rule__c` | `MaskSsn` |
-| `SObjectType__c` | `ApiCall__c` |
-| `Field__c` | *blank (wildcard across every text field)* |
-| `IsActive__c` | `true` |
+| Field            | Value                                      |
+|------------------|--------------------------------------------|
+| `Rule__c`        | `MaskSsn`                                  |
+| `SObjectType__c` | `ApiCall__c`                               |
+| `Field__c`       | *blank (wildcard across every text field)* |
+| `IsActive__c`    | `true`                                     |
 
 **Example: scope a rule to one service**
 
-Use `CallerClass__c` on a `MaskingTarget__mdt` to fire a rule only when a specific API class is invoking the mask — useful when one rule (e.g., a credit-card format your processor uses) should only apply to payment-service payloads and not bleed into unrelated callouts.
+Use `CallerClass__c` on a `MaskingTarget__mdt` to fire a rule only when a specific API class is invoking the mask — useful when one rule (e.g., a credit-card format your processor
+uses) should only apply to payment-service payloads and not bleed into unrelated callouts.
 
-**How it works:** the framework reads the populated text fields of the record, caches the resolved rule-to-field plan for `(SObjectType, callerClassName)` once per transaction, then applies each rule in rule-order with JSON-key rules batched into a single deserialize/serialize pass. The actual HTTP request/response going over the wire is unaffected — only the logged copy is redacted.
+**How it works:** the framework reads the populated text fields of the record, caches the resolved rule-to-field plan for `(SObjectType, callerClassName)` once per transaction,
+then applies each rule in rule-order with JSON-key rules batched into a single deserialize/serialize pass. The actual HTTP request/response going over the wire is unaffected — only
+the logged copy is redacted.
 
 ---
 
-### 4. Mock Mode and API_MockFactory
+### Mock Mode and API_MockFactory
 
 The framework provides a three-tier mock resolution system for testing and sandbox environments:
 
@@ -2828,16 +2822,16 @@ API_MockFactory.clearMocks();
 
 **MockBuilder methods** (all return `MockBuilder` for chaining):
 
-| Method | Description |
-|--------|-------------|
-| `.body(String)` | Response body (supports `{{request.field}}` interpolation) |
-| `.statusCode(Integer)` | HTTP status code |
-| `.status(String)` | HTTP status text |
-| `.withHeader(String, String)` | Add a response header |
-| `.withHeaders(Map<String, String>)` | Add multiple response headers |
-| `.fromResponse(HttpResponse)` | Populate from an existing HttpResponse |
-| `.withFailureRate(Integer)` | Percentage of requests to fail randomly (0-100) |
-| `.register()` | Register the mock in the factory |
+| Method                              | Description                                                |
+|-------------------------------------|------------------------------------------------------------|
+| `.body(String)`                     | Response body (supports `{{request.field}}` interpolation) |
+| `.statusCode(Integer)`              | HTTP status code                                           |
+| `.status(String)`                   | HTTP status text                                           |
+| `.withHeader(String, String)`       | Add a response header                                      |
+| `.withHeaders(Map<String, String>)` | Add multiple response headers                              |
+| `.fromResponse(HttpResponse)`       | Populate from an existing HttpResponse                     |
+| `.withFailureRate(Integer)`         | Percentage of requests to fail randomly (0-100)            |
+| `.register()`                       | Register the mock in the factory                           |
 
 #### Call Verification
 
@@ -2872,6 +2866,7 @@ API_MockFactory.forService(API_EchoService.class.getName())
 ```
 
 **Supported patterns:**
+
 - `{{request.fieldName}}` — Top-level field
 - `{{request.nested.field}}` — Nested field access via dot notation
 
@@ -2898,11 +2893,12 @@ API_MockFactory.forService(API_UnreliableService.class.getName())
 
 **Metadata Mocks** (via `ApiMock__mdt`):
 
-Configure mock responses in custom metadata for sandbox and demo environments without deploying code changes. `ApiMock__mdt` records support response bodies, status codes, headers, request matching patterns, delay simulation, and failure rates.
+Configure mock responses in custom metadata for sandbox and demo environments without deploying code changes. `ApiMock__mdt` records support response bodies, status codes, headers,
+request matching patterns, delay simulation, and failure rates.
 
 ---
 
-### 5. Disabling APIs
+### Disabling APIs
 
 **Disable APIs** without code deployment:
 
@@ -2916,18 +2912,19 @@ Configure mock responses in custom metadata for sandbox and demo environments wi
 
 ---
 
-### 6. Performance Monitoring
+### Performance Monitoring
 
 Every API call tracks timing metrics:
 
-| Field | Description |
-|-------|-------------|
+| Field                  | Description                               |
+|------------------------|-------------------------------------------|
 | `CalloutDurationMs__c` | Time spent in HTTP callout (milliseconds) |
-| `HandlerDurationMs__c` | Time spent in handler logic |
-| `CommitDurationMs__c` | Database commit time |
-| `TotalDurationMs__c` | Total end-to-end time |
+| `HandlerDurationMs__c` | Time spent in handler logic               |
+| `CommitDurationMs__c`  | Database commit time                      |
+| `TotalDurationMs__c`   | Total end-to-end time                     |
 
 Access in code:
+
 ```apex
 Long calloutTime = handler.calloutProcessingTime.getTime();
 Long handlerTime = handler.serviceProcessingTime.getTime();
@@ -2937,7 +2934,7 @@ Long totalTime = handler.fullProcessingTime.getTime();
 
 ---
 
-### 7. Batched Outbound Calls
+### Batched Outbound Calls
 
 For scenarios where you want to queue multiple API calls and process them asynchronously:
 
@@ -2964,11 +2961,14 @@ System.schedule
 
 ---
 
-### 8. Safe Mode
+### Safe Mode
 
-Safe Mode enables dry-run execution of API handlers where all DML is rolled back after completion. The framework uses it internally for testing, debugging, and validating API behaviour without persisting changes.
+Safe Mode enables dry-run execution of API handlers where all DML is rolled back after completion. The framework uses it internally for testing, debugging, and validating API
+behaviour without persisting changes.
 
-> **Framework-internal API.** `API_Base.enterSafeMode()`, `API_Base.isSafeModeActive()`, and `API_Base.SafeModeContext` are declared `public` (not `global`) and are not callable from subscriber Apex. Subscribers who want dry-run testing of an inbound API should use `@IsTest` methods with `Test.startTest()` / `Test.stopTest()` and let the test-mode rollback do the work — or mock the outbound callout via `kern.API_MockFactory.forService(serviceName).body(json).register()`.
+> **Framework-internal API.** `API_Base.enterSafeMode()`, `API_Base.isSafeModeActive()`, and `API_Base.SafeModeContext` are declared `public` (not `global`) and are not callable
+> from subscriber Apex. Subscribers who want dry-run testing of an inbound API should use `@IsTest` methods with `Test.startTest()` / `Test.stopTest()` and let the test-mode rollback
+> do the work — or mock the outbound callout via `kern.API_MockFactory.forService(serviceName).body(json).register()`.
 
 #### Framework usage (reference)
 
@@ -2987,25 +2987,25 @@ finally
 
 **Framework-internal methods:**
 
-| Method | Visibility | Description |
-|--------|-----------:|-------------|
-| `API_Base.enterSafeMode()` | `public` | Returns a `SafeModeContext` — must be closed via try/finally |
-| `API_Base.isSafeModeActive()` | `public` | Check if any Safe Mode scope is currently active |
-| `safeMode.close()` | `public` | Close the scope (idempotent — safe to call multiple times) |
+| Method                        | Visibility | Description                                                  |
+|-------------------------------|-----------:|--------------------------------------------------------------|
+| `API_Base.enterSafeMode()`    |   `public` | Returns a `SafeModeContext` — must be closed via try/finally |
+| `API_Base.isSafeModeActive()` |   `public` | Check if any Safe Mode scope is currently active             |
+| `safeMode.close()`            |   `public` | Close the scope (idempotent — safe to call multiple times)   |
 
 #### Behavior
 
-| Aspect | Behavior |
-|--------|----------|
-| DML Operations | Executed then rolled back |
-| Triggers | Fire normally |
-| Validation Rules | Execute and can block |
-| Workflows/Flows | Execute but rolled back |
-| HTTP Callouts | Blocked with mock response |
-| Emails | NOT rolled back |
-| Platform Events | Rolled back (deferred publishing) |
-| Governor Limits | Consumed as normal |
-| `ApiCall__c` logs | Rolled back (not persisted) |
+| Aspect            | Behavior                          |
+|-------------------|-----------------------------------|
+| DML Operations    | Executed then rolled back         |
+| Triggers          | Fire normally                     |
+| Validation Rules  | Execute and can block             |
+| Workflows/Flows   | Execute but rolled back           |
+| HTTP Callouts     | Blocked with mock response        |
+| Emails            | NOT rolled back                   |
+| Platform Events   | Rolled back (deferred publishing) |
+| Governor Limits   | Consumed as normal                |
+| `ApiCall__c` logs | Rolled back (not persisted)       |
 
 #### Use Cases
 
@@ -3016,25 +3016,28 @@ finally
 
 ---
 
-### 9. API Test Harness (LWC + Tab)
+### API Test Harness (LWC + Tab)
 
-The `apiTestHarnessForm` Lightning Web Component provides an interactive, full-page workspace for testing inbound and outbound APIs. It ships with a dedicated `ApiTestHarness` FlexiPage + Custom Tab so you reach it from the Kern Home page (or any nav menu) without App Builder configuration.
+The `apiTestHarnessForm` Lightning Web Component provides an interactive, full-page workspace for testing inbound and outbound APIs. It ships with a dedicated `ApiTestHarness`
+FlexiPage + Custom Tab so you reach it from the Kern Home page (or any nav menu) without App Builder configuration.
 
 #### Features
 
 - **Two-column page layout** — configuration on the left, response preview on the right
 - **Service discovery** — auto-populates available services from `ApiSetting__mdt` filtered by direction
 - **Direction toggle** — switch between inbound and outbound APIs, reloads the service list automatically
-- **Key-value parameter grid** — dynamic rows for outbound parameters (add/remove/replacement-row), serialised to the Apex controller as a structured `List<DTO_NameValue>` inside a single JSON request payload (avoids the comma/equals footgun of delimited strings)
+- **Key-value parameter grid** — dynamic rows for outbound parameters (add/remove/replacement-row), serialised to the Apex controller as a structured `List<DTO_NameValue>` inside a
+  single JSON request payload (avoids the comma/equals footgun of delimited strings)
 - **Execution Settings safety bar** — 4-state combined indicator for Safe Mode and Mocking:
-  - **Safe Mode** (blue info): DML rolled back, real callouts
-  - **Full Sandbox** (green success): DML rolled back AND responses mocked
-  - **Live DML · Mocked callouts** (amber warning): persistent DML but mocked external calls
-  - **LIVE** (red error + SLDS alert-texture stripes): fully persistent, maximum risk
+    - **Safe Mode** (blue info): DML rolled back, real callouts
+    - **Full Sandbox** (green success): DML rolled back AND responses mocked
+    - **Live DML · Mocked callouts** (amber warning): persistent DML but mocked external calls
+    - **LIVE** (red error + SLDS alert-texture stripes): fully persistent, maximum risk
 - **Destructive Execute variant** — when Safe Mode is off, the Execute button turns red with a `utility:warning` icon and "Execute (Live)" label
 - **Reset button** — clears direction, service, parameters, toggles, and result in one click
 - **Response preview** — status badge (dynamically themed by `isSuccess` / `isAborted` / HTTP 4xx-5xx), metrics grid, Request/Response/Errors tabs with JSON viewers
-- **API Call Id hyperlink** — when Safe Mode was off on execution, the persisted `ApiCall__c` record Id renders as a clickable link that navigates to the record page; when Safe Mode was on (no persisted record), the Id is plain text
+- **API Call Id hyperlink** — when Safe Mode was off on execution, the persisted `ApiCall__c` record Id renders as a clickable link that navigates to the record page; when Safe
+  Mode was on (no persisted record), the Id is plain text
 - **Sticky config column** — on wide viewports, the left-side configuration panel stays pinned while the user scrolls the response preview, so Execute and Reset stay visible
 - **Capped scroll regions** — inner JSON viewers and header tables scroll internally rather than stretching the whole page, so very large responses stay manageable
 
@@ -3046,13 +3049,16 @@ Ships as part of Kern with three metadata artifacts — no App Builder wiring re
 - `ApiTestHarness.tab-meta.xml` — the Custom Tab referencing the FlexiPage
 - `Administrator.permissionset-meta.xml` — grants tab visibility via `<tabSettings>`
 
-Users navigate to `/lightning/n/ApiTestHarness` or click the **API Test Harness** tool card on Kern Home to open it. The `apiTestHarnessForm` LWC is also exposed to `lightning__AppPage` and `lightning__HomePage` if subscribers want to embed it elsewhere.
+Users navigate to `/lightning/n/ApiTestHarness` or click the **API Test Harness** tool card on Kern Home to open it. The `apiTestHarnessForm` LWC is also exposed to
+`lightning__AppPage` and `lightning__HomePage` if subscribers want to embed it elsewhere.
 
 ---
 
-### 10. Idempotency (Inbound APIs)
+### Idempotency (Inbound APIs)
 
-Idempotency keys let inbound API callers retry a request safely after a network failure or timeout, without risking duplicate processing. Enable it per-service with `kern__ApiSetting__mdt.IdempotencyEnabled__c = true`. Once enabled, callers send a unique `Idempotency-Key` HTTP header on each request and the framework deduplicates against `kern__ApiCall__c.IdempotencyKey__c`.
+Idempotency keys let inbound API callers retry a request safely after a network failure or timeout, without risking duplicate processing. Enable it per-service with
+`kern__ApiSetting__mdt.IdempotencyEnabled__c = true`. Once enabled, callers send a unique `Idempotency-Key` HTTP header on each request and the framework deduplicates against
+`kern__ApiCall__c.IdempotencyKey__c`.
 
 #### What gets stored
 
@@ -3062,17 +3068,18 @@ When idempotency is enabled and a caller sends an `Idempotency-Key` header, the 
 - **`IdempotencyKeyBodyHash__c`** — a SHA-256 hex digest of the request body, used to detect key reuse with a divergent body (see "Replay behaviour" below)
 - **`IsIdempotencyHit__c`** — `true` if the response was returned from a prior call's record without re-running the handler; `false` for first calls
 
-The body hash is computed once per call. Outbound calls leave the field blank (idempotency keys on outbound are subscriber-driven via `UTIL_HttpClient`'s `withCorrelationId()`, not framework-managed).
+The body hash is computed once per call. Outbound calls leave the field blank (idempotency keys on outbound are subscriber-driven via `UTIL_HttpClient`'s `withCorrelationId()`, not
+framework-managed).
 
 #### Replay behaviour
 
 The framework's replay decision is a three-way branch on the inbound request:
 
-| Replay scenario | Stored hash on existing record | New request body hash | Framework response |
-|---|---|---|---|
-| **Same key, same body** (network retry, idempotent replay) | matches | matches | HTTP 200 + cached response from `Response__c` |
-| **Same key, different body** (caller bug or stale-edit retry) | populated | differs | **HTTP 409** with JSON body referencing the original `ApiCall.Id` |
-| **Same key, legacy record** (created before A5 shipped) | null | any | HTTP 200 + cached response (legacy passthrough — see "Backward compatibility") |
+| Replay scenario                                               | Stored hash on existing record | New request body hash | Framework response                                                             |
+|---------------------------------------------------------------|--------------------------------|-----------------------|--------------------------------------------------------------------------------|
+| **Same key, same body** (network retry, idempotent replay)    | matches                        | matches               | HTTP 200 + cached response from `Response__c`                                  |
+| **Same key, different body** (caller bug or stale-edit retry) | populated                      | differs               | **HTTP 409** with JSON body referencing the original `ApiCall.Id`              |
+| **Same key, legacy record** (created before A5 shipped)       | null                           | any                   | HTTP 200 + cached response (legacy passthrough — see "Backward compatibility") |
 
 The HTTP 409 response body shape:
 
@@ -3087,19 +3094,26 @@ Callers can parse `originalApiCallId` and query the original `ApiCall__c` record
 
 #### Handling 409 in callers
 
-When a caller receives HTTP 409 from an inbound endpoint, the framework is signalling that the same `Idempotency-Key` was previously used to commit a *different* request body. Three reasonable client-side responses:
+When a caller receives HTTP 409 from an inbound endpoint, the framework is signalling that the same `Idempotency-Key` was previously used to commit a *different* request body.
+Three reasonable client-side responses:
 
-1. **Investigate the divergence** — fetch the original record via `kern__ApiCall__c.Id = :originalApiCallId` and compare the stored `Request__c` against the new payload. Most often the caller has buggy retry logic that mutates the request body before retrying.
-2. **Use a new key for the new payload** — if the caller legitimately wants to send a different request, generate a fresh `Idempotency-Key`. Reusing the same key with a different body is a contract violation per the IETF idempotency-key draft.
-3. **Surface the conflict to the caller's user** — for human-driven workflows (e.g. a form submission), present the original response so the user knows their first attempt succeeded and the second was a duplicate.
+1. **Investigate the divergence** — fetch the original record via `kern__ApiCall__c.Id = :originalApiCallId` and compare the stored `Request__c` against the new payload. Most often
+   the caller has buggy retry logic that mutates the request body before retrying.
+2. **Use a new key for the new payload** — if the caller legitimately wants to send a different request, generate a fresh `Idempotency-Key`. Reusing the same key with a different
+   body is a contract violation per the IETF idempotency-key draft.
+3. **Surface the conflict to the caller's user** — for human-driven workflows (e.g. a form submission), present the original response so the user knows their first attempt
+   succeeded and the second was a duplicate.
 
-Note: HTTP 409 is only returned when both bodies hash differently. Same-body replays continue to return HTTP 200 with the cached response — this is the standard idempotent-replay path and is unchanged.
+Note: HTTP 409 is only returned when both bodies hash differently. Same-body replays continue to return HTTP 200 with the cached response — this is the standard idempotent-replay
+path and is unchanged.
 
 #### Backward compatibility
 
-`ApiCall__c` records created before the body-hash field shipped have `IdempotencyKeyBodyHash__c = null`. The framework cannot detect divergence on these records, so it falls through to the cached-response path (HTTP 200) regardless of whether the new request body matches the original. This preserves pre-existing behaviour for legacy data.
+`ApiCall__c` records created before the body-hash field shipped have `IdempotencyKeyBodyHash__c = null`. The framework cannot detect divergence on these records, so it falls
+through to the cached-response path (HTTP 200) regardless of whether the new request body matches the original. This preserves pre-existing behaviour for legacy data.
 
-Forward-going records (created after the body-hash check shipped) get the full 409 detection. There is no migration to backfill the hash on legacy records — the field stays null and those records are treated as legacy passthroughs forever.
+Forward-going records (created after the body-hash check shipped) get the full 409 detection. There is no migration to backfill the hash on legacy records — the field stays null
+and those records are treated as legacy passthroughs forever.
 
 To audit which records have the hash populated:
 
@@ -3127,13 +3141,15 @@ List<kern__ApiCall__c> legacyRecords = [
 
 ## Integration with Flows
 
-The framework provides two invocable methods for calling APIs from Salesforce Flows, enabling both **synchronous** (immediate response) and **asynchronous** (background processing) callout patterns.
+The framework provides two invocable methods for calling APIs from Salesforce Flows, enabling both **synchronous** (immediate response) and **asynchronous** (background processing)
+callout patterns.
 
 ### Understanding Synchronous vs Asynchronous Callouts
 
 #### When to Use Synchronous Callouts
 
 **Use synchronous callouts when:**
+
 - ✅ You need an immediate API response to display to the user
 - ✅ The API call is fast (typically < 5 seconds)
 - ✅ The flow needs the API response to make decisions
@@ -3141,12 +3157,14 @@ The framework provides two invocable methods for calling APIs from Salesforce Fl
 - ✅ The flow is invoked manually (not from a record trigger)
 
 **Example Scenarios:**
+
 - Data enrichment in a screen flow
 - Credit card verification during checkout
 - Real-time inventory check
 - Currency conversion for display
 
 **⚠️ Important Limitations:**
+
 - Synchronous callouts **block** the flow execution until the API responds
 - Maximum callout time: 120 seconds (Salesforce limit)
 - Cannot be used in **before-save** record-triggered flows
@@ -3155,6 +3173,7 @@ The framework provides two invocable methods for calling APIs from Salesforce Fl
 #### When to Use Asynchronous Callouts
 
 **Use asynchronous callouts when:**
+
 - ✅ The API response is not needed immediately
 - ✅ Running from a **Record-Triggered Flow** (after-save)
 - ✅ The API call might be slow or unreliable
@@ -3162,12 +3181,14 @@ The framework provides two invocable methods for calling APIs from Salesforce Fl
 - ✅ Processing large volumes of API calls
 
 **Example Scenarios:**
+
 - Notifying external systems of record changes
 - Syncing data to external databases
 - Sending emails or notifications via third-party services
 - Background data enrichment
 
 **✅ Benefits:**
+
 - Does not block user interface or flow execution
 - Automatic retry and error handling
 - Better for unreliable or slow APIs
@@ -3238,26 +3259,27 @@ A screen flow where users provide input and need immediate API response feedback
 
 **Complete Example Flow Metadata:**
 
-See `FLOW_ApiTestHarness` (`force-app/main/default/flows/FLOW_ApiTestHarness.flow-meta.xml`) for a complete working example of synchronous API calls from a screen flow with response handling.
+See `FLOW_ApiTestHarness` (`force-app/main/default/flows/FLOW_ApiTestHarness.flow-meta.xml`) for a complete working example of synchronous API calls from a screen flow with
+response handling.
 
 **Input Parameters:**
 
-| Parameter | Type | Required | Description | Example |
-|-----------|------|----------|-------------|---------|
-| `webServiceClassName` | String | ✅ | API class name | `API_PostExample` |
-| `recordId` | String | ❌ | Record ID (if API needs record context) | `{!recordId}` or blank |
-| `parameters` | String | ❌ | Comma-separated name=value pairs | `foo=Test Title` |
-| `inputDelimiter` | String | ❌ | Delimiter for parameters (default: `,`) | `,` or `;` |
-| `extractPath` | String | ❌ | JSON path to extract specific element | `title` |
+| Parameter             | Type   | Required | Description                             | Example                |
+|-----------------------|--------|----------|-----------------------------------------|------------------------|
+| `webServiceClassName` | String | ✅        | API class name                          | `API_PostExample`      |
+| `recordId`            | String | ❌        | Record ID (if API needs record context) | `{!recordId}` or blank |
+| `parameters`          | String | ❌        | Comma-separated name=value pairs        | `foo=Test Title`       |
+| `inputDelimiter`      | String | ❌        | Delimiter for parameters (default: `,`) | `,` or `;`             |
+| `extractPath`         | String | ❌        | JSON path to extract specific element   | `title`                |
 
 **Output Variables:**
 
-| Output | Type | Description | Example Value |
-|--------|------|-------------|---------------|
-| `success` | Boolean | Whether API call succeeded | `true` or `false` |
-| `responseBody` | String | Full API response or error message | `{"body":"Some Random Body","id":101,"title":"Test Title","userId":9}` |
-| `queueItemId` | String | ID of logged `ApiCall__c` record | `a0X5g000000AbCD` |
-| `extractedValue` | String | Extracted JSON element (if `extractPath` provided) | `Test Title` |
+| Output           | Type    | Description                                        | Example Value                                                          |
+|------------------|---------|----------------------------------------------------|------------------------------------------------------------------------|
+| `success`        | Boolean | Whether API call succeeded                         | `true` or `false`                                                      |
+| `responseBody`   | String  | Full API response or error message                 | `{"body":"Some Random Body","id":101,"title":"Test Title","userId":9}` |
+| `queueItemId`    | String  | ID of logged `ApiCall__c` record                   | `a0X5g000000AbCD`                                                      |
+| `extractedValue` | String  | Extracted JSON element (if `extractPath` provided) | `Test Title`                                                           |
 
 ---
 
@@ -3274,14 +3296,15 @@ A record-triggered flow that calls an external API when a new Account is created
 
 The framework ships with two built-in record-triggered flows on `ApiCall__c`:
 
-| Flow | Trigger | Purpose |
-|------|---------|---------|
-| `ResetOutboundApiCall` | Before Save | Clears execution output fields (zero DML) when an `ApiCall__c` is set to `Queued` |
-| `InvokeOutboundApiCall` | After Save | Invokes [`FLOW_CallApiAsync`](reference/apex/FLOW_CallApiAsync.md) to process the callout asynchronously |
+| Flow                    | Trigger     | Purpose                                                                                                  |
+|-------------------------|-------------|----------------------------------------------------------------------------------------------------------|
+| `ResetOutboundApiCall`  | Before Save | Clears execution output fields (zero DML) when an `ApiCall__c` is set to `Queued`                        |
+| `InvokeOutboundApiCall` | After Save  | Invokes [`FLOW_CallApiAsync`](reference/apex/FLOW_CallApiAsync.md) to process the callout asynchronously |
 
 Your flow only needs to **create the `ApiCall__c` record** with `Status__c = 'Queued'` — the framework handles the rest.
 
 **Why Asynchronous?**
+
 - The `InvokeOutboundApiCall` flow calls `FLOW_CallApiAsync`, which enqueues a Queueable job
 - Job size is configurable via `AsynchronousJobSetting__mdt` (default: 20, hard cap: 100 per the callout governor limit)
 - Callout budget is monitored at runtime — remaining items are deferred if the limit is reached
@@ -3312,7 +3335,8 @@ Your flow only needs to **create the `ApiCall__c` record** with `Status__c = 'Qu
    - Status__c: "Queued"
    ```
 
-That's it. No action element needed — the framework's `InvokeOutboundApiCall` flow triggers automatically when the `ApiCall__c` record is created with `Status__c = 'Queued'` and `Direction__c = 'Outbound'`.
+That's it. No action element needed — the framework's `InvokeOutboundApiCall` flow triggers automatically when the `ApiCall__c` record is created with `Status__c = 'Queued'` and
+`Direction__c = 'Outbound'`.
 
 **Important Notes:**
 
@@ -3326,23 +3350,23 @@ That's it. No action element needed — the framework's `InvokeOutboundApiCall` 
 
 ### Comparison Matrix: Sync vs Async Callouts
 
-| Aspect | Synchronous | Asynchronous |
-|--------|-------------|--------------|
-| **Execution** | Blocks until complete | Returns immediately |
-| **Use From** | Screen Flows, Manual Invocation | Record-Triggered Flows (after-save), Scheduled Flows |
-| **Response Available** | Yes, immediately | No (logged to `ApiCall__c`) |
-| **Max Duration** | 120 seconds | No practical limit (runs in Queueable/Batch) |
-| **Error Handling** | Must handle in flow | Automatic retry via framework |
-| **User Experience** | User waits for response | User not blocked |
-| **Governor Limits** | Counts against transaction limits | Separate async limits |
-| **Best For** | Real-time validation, Interactive forms | Background sync, Notifications, Data enrichment |
-| **Retry Support** | Manual only | Automatic via framework |
+| Aspect                 | Synchronous                             | Asynchronous                                         |
+|------------------------|-----------------------------------------|------------------------------------------------------|
+| **Execution**          | Blocks until complete                   | Returns immediately                                  |
+| **Use From**           | Screen Flows, Manual Invocation         | Record-Triggered Flows (after-save), Scheduled Flows |
+| **Response Available** | Yes, immediately                        | No (logged to `ApiCall__c`)                          |
+| **Max Duration**       | 120 seconds                             | No practical limit (runs in Queueable/Batch)         |
+| **Error Handling**     | Must handle in flow                     | Automatic retry via framework                        |
+| **User Experience**    | User waits for response                 | User not blocked                                     |
+| **Governor Limits**    | Counts against transaction limits       | Separate async limits                                |
+| **Best For**           | Real-time validation, Interactive forms | Background sync, Notifications, Data enrichment      |
+| **Retry Support**      | Manual only                             | Automatic via framework                              |
 
 ---
 
 ### Best Practices for Flow Integration
 
-#### 1. **Always Check Success Flag**
+#### **Always Check Success Flag**
 
 ```text
 Decision: API Call Successful?
@@ -3354,19 +3378,21 @@ Outcome 2: Failure
   - Action: Display error message: {!apiResponse}
 ```
 
-#### 2. **Provide User Feedback**
+#### **Provide User Feedback**
 
 **For Synchronous Calls:**
+
 - Show spinner/progress indicator during API call
 - Display success or error message based on response
 - Allow user to retry on failure
 
 **For Asynchronous Calls:**
+
 - Inform user the action will complete in background
 - Provide reference number (`queueItemId`) for tracking
 - Set up email notifications for completion/errors
 
-#### 3. **Handle Timeouts**
+#### **Handle Timeouts**
 
 ```text
 Add Fault Path to Action Element:
@@ -3374,16 +3400,17 @@ Add Fault Path to Action Element:
 - Show Error Screen: "The API request timed out. Please try again."
 ```
 
-#### 4. **Use Meaningful Parameter Names**
+#### **Use Meaningful Parameter Names**
 
 ```text
 ✅ GOOD: parameters = "accountId={!recordId},accountName={!accountName}"
 ❌ BAD:  parameters = "id={!recordId},name={!accountName}"
 ```
 
-#### 5. **Log Queue Item IDs**
+#### **Log Queue Item IDs**
 
 Store the `queueItemId` in a custom field for later tracking:
+
 ```text
 Update Record: Update Account
 - WebserviceQueueId__c = {!queueItemId}
@@ -3453,26 +3480,27 @@ private static void testAsynchronousFlowCallout()
 
 ### Where Things Are Logged
 
-| Component | Location | Details |
-|-----------|----------|---------|
-| **All API Calls** | `ApiCall__c` | Request, response, status, timing |
-| **Large Payloads** | `ContentVersion` | Files linked to queue item |
-| **Errors** | `ApiCall__c.ErrorMessages__c` | Error messages and stack traces |
-| **Failures** | `ApiIssue__c` | Persistent failure records (if enabled) |
+| Component            | Location                          | Details                                                       |
+|----------------------|-----------------------------------|---------------------------------------------------------------|
+| **All API Calls**    | `ApiCall__c`                      | Request, response, status, timing                             |
+| **Large Payloads**   | `ContentVersion`                  | Files linked to queue item                                    |
+| **Errors**           | `ApiCall__c.ErrorMessages__c`     | Error messages and stack traces                               |
+| **Failures**         | `ApiIssue__c`                     | Persistent failure records (if enabled)                       |
 | **Application Logs** | `LogEntryEvent__e` Platform Event | Via [`LOG_Builder`](reference/apex/LOG_Builder.md) fluent API |
 
 ### Automatic Web Service Context
 
-The framework automatically injects web service context into all [`LOG_Builder`](reference/apex/LOG_Builder.md) calls during API execution. This context appears in the `ContextData__c` field of `LogEntry__c` records.
+The framework automatically injects web service context into all [`LOG_Builder`](reference/apex/LOG_Builder.md) calls during API execution. This context appears in the
+`ContextData__c` field of `LogEntry__c` records.
 
 **Automatic Context Fields:**
 
-| Field | When Set | Description |
-|-------|----------|-------------|
-| `serviceName` | `configure()` | The API handler class name |
-| `endpoint` | `configure()` | The endpoint URL being called |
-| `httpMethod` | `configure()` | The HTTP method (GET, POST, etc.) |
-| `statusCode` | After callout | HTTP response status code (outbound only) |
+| Field               | When Set      | Description                                      |
+|---------------------|---------------|--------------------------------------------------|
+| `serviceName`       | `configure()` | The API handler class name                       |
+| `endpoint`          | `configure()` | The endpoint URL being called                    |
+| `httpMethod`        | `configure()` | The HTTP method (GET, POST, etc.)                |
+| `statusCode`        | After callout | HTTP response status code (outbound only)        |
 | `calloutDurationMs` | After callout | Callout duration in milliseconds (outbound only) |
 
 **How It Works:**
@@ -3515,6 +3543,7 @@ The framework automatically clears the web service context when API processing c
 ### Monitoring API Health
 
 **List View: Recent API Calls**
+
 ```soql
 SELECT Name, ServiceName__c, Status__c, StatusCode__c, CreatedDate, ErrorMessages__c
 FROM ApiCall__c
@@ -3523,6 +3552,7 @@ ORDER BY CreatedDate DESC
 ```
 
 **Dashboard Metrics**:
+
 - Success rate by service
 - Average response time
 - Failed calls requiring retry
@@ -3567,15 +3597,16 @@ for(ContentVersion version : versions)
 
 The framework provides comprehensive test helper classes that simplify web service testing and eliminate boilerplate code:
 
-| Helper Class | Purpose | Used For |
-|--------------|---------|----------|
-| [`API_OutboundTestHelper`](reference/apex/API_OutboundTestHelper.md) | Test outbound REST APIs | Successful calls, failed calls, aborted calls, parse failures |
-| [`API_InboundTestHelper`](reference/apex/API_InboundTestHelper.md) | Test inbound REST APIs | Setting up REST context, validating aborted calls |
-| [`SEL_ApiCall`](reference/apex/SEL_ApiCall.md) | Assert queue item status | Verifying service completion, abortion, or failure |
-| [`TST_Factory`](reference/apex/TST_Factory.md) | Create test data | Generating `ApiCall__c` records for testing |
-| [`TST_Builder`](reference/apex/TST_Builder.md) | Build test records | Creating test data with proper relationships |
+| Helper Class                                                         | Purpose                  | Used For                                                      |
+|----------------------------------------------------------------------|--------------------------|---------------------------------------------------------------|
+| [`API_OutboundTestHelper`](reference/apex/API_OutboundTestHelper.md) | Test outbound REST APIs  | Successful calls, failed calls, aborted calls, parse failures |
+| [`API_InboundTestHelper`](reference/apex/API_InboundTestHelper.md)   | Test inbound REST APIs   | Setting up REST context, validating aborted calls             |
+| [`SEL_ApiCall`](reference/apex/SEL_ApiCall.md)                       | Assert queue item status | Verifying service completion, abortion, or failure            |
+| [`TST_Factory`](reference/apex/TST_Factory.md)                       | Create test data         | Generating `ApiCall__c` records for testing                   |
+| [`TST_Builder`](reference/apex/TST_Builder.md)                       | Build test records       | Creating test data with proper relationships                  |
 
 **Key Benefits:**
+
 - ✅ Reduce test code by 60-80%
 - ✅ Consistent testing patterns across all APIs
 - ✅ Automatic queue item creation and assertion
@@ -3592,15 +3623,16 @@ The [`API_OutboundTestHelper`](reference/apex/API_OutboundTestHelper.md) class p
 
 **Key Methods:**
 
-| Method | Purpose | Returns |
-|--------|---------|---------|
-| `assertCallSuccessful(serviceName, recordId)` | Test successful API execution | API handler instance |
-| `assertCallSuccessful(serviceName, recordId, parameters)` | Test with custom parameters | API handler instance |
+| Method                                                                                | Purpose                        | Returns              |
+|---------------------------------------------------------------------------------------|--------------------------------|----------------------|
+| `assertCallSuccessful(serviceName, recordId)`                                         | Test successful API execution  | API handler instance |
+| `assertCallSuccessful(serviceName, recordId, parameters)`                             | Test with custom parameters    | API handler instance |
 | `assertCallSuccessfulWithTransformation(serviceName, recordId, transformerClassName)` | Test with response transformer | API handler instance |
-| `assertCallFailed(queueItems)` | Test failed API calls | List of API handlers |
-| `assertCallAborted(serviceName, recordId)` | Test aborted calls | API handler instance |
+| `assertCallFailed(queueItems)`                                                        | Test failed API calls          | List of API handlers |
+| `assertCallAborted(serviceName, recordId)`                                            | Test aborted calls             | API handler instance |
 
 **What These Methods Do Automatically:**
+
 1. Create [`ApiCall__c`](reference/objects/ApiCall__c.md) queue item using [`TST_Factory`](reference/apex/TST_Factory.md)
 2. Execute the API via [`API_Dispatcher`](reference/apex/API_Dispatcher.md)
 3. Assert the expected status (completed, failed, aborted)
@@ -3766,15 +3798,16 @@ The [`API_InboundTestHelper`](reference/apex/API_InboundTestHelper.md) class sim
 
 **Key Methods:**
 
-| Method | Purpose |
-|--------|---------|
-| `setupRestContext()` | Initializes `RestContext.request` and `RestContext.response` with default values |
-| `setupRestContext(DTO_Base dtoRequest)` | Sets up context and populates request body with serialized DTO |
-| `assertCallAborted(serviceName)` | Executes API and asserts it was aborted |
-| `assertCallAborted(serviceName, exceptionMessage)` | Asserts abortion with specific error message |
-| `assertCallAborted(serviceName, dtoRequest, exceptionMessage)` | Full setup with DTO and error validation |
+| Method                                                         | Purpose                                                                          |
+|----------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `setupRestContext()`                                           | Initializes `RestContext.request` and `RestContext.response` with default values |
+| `setupRestContext(DTO_Base dtoRequest)`                        | Sets up context and populates request body with serialized DTO                   |
+| `assertCallAborted(serviceName)`                               | Executes API and asserts it was aborted                                          |
+| `assertCallAborted(serviceName, exceptionMessage)`             | Asserts abortion with specific error message                                     |
+| `assertCallAborted(serviceName, dtoRequest, exceptionMessage)` | Full setup with DTO and error validation                                         |
 
 **What setupRestContext() Does:**
+
 1. Creates new `RestRequest` and `RestResponse` objects
 2. Sets `Content-Type` header to `application/json`
 3. Sets HTTP method to `POST`
@@ -3979,6 +4012,7 @@ List<ApiCall__c> failedItems = SEL_ApiCall.assertServiceFailed(
 ```
 
 **What These Methods Do:**
+
 1. Query `ApiCall__c` for the specified service name
 2. Assert that at least one queue item exists
 3. Assert that all queue items have the expected status
@@ -4005,7 +4039,8 @@ List<ApiCall__c> batchedItems = new SEL_ApiCall().findByBatchedOutbound();
 
 ### Testing Best Practices
 
-1. **Always use test helper classes** - [`API_OutboundTestHelper`](reference/apex/API_OutboundTestHelper.md) and [`API_InboundTestHelper`](reference/apex/API_InboundTestHelper.md) eliminate boilerplate
+1. **Always use test helper classes** - [`API_OutboundTestHelper`](reference/apex/API_OutboundTestHelper.md) and [`API_InboundTestHelper`](reference/apex/API_InboundTestHelper.md)
+   eliminate boilerplate
 2. **Use [`TST_Builder`](reference/apex/TST_Builder.md) for test data** - Cleaner than manual record creation
 3. **Test bulk scenarios** - Create and process multiple queue items
 4. **Use assertion methods** - `assertServiceCompleted()`, `assertServiceAborted()`, `assertServiceFailed()`
@@ -4019,6 +4054,7 @@ List<ApiCall__c> batchedItems = new SEL_ApiCall().findByBatchedOutbound();
 ### Common Test Patterns
 
 **Pattern 1: Simple Successful Outbound Call**
+
 ```apex
 @IsTest
 private static void successfulOutboundCallCompletesWithResponse()
@@ -4032,6 +4068,7 @@ private static void successfulOutboundCallCompletesWithResponse()
 ```
 
 **Pattern 2: Outbound Call with Parameters**
+
 ```apex
 @IsTest
 private static void outboundCallWithParametersExecutesCorrectly()
@@ -4045,6 +4082,7 @@ private static void outboundCallWithParametersExecutesCorrectly()
 ```
 
 **Pattern 3: Inbound Call Setup**
+
 ```apex
 @IsTest
 private static void inboundCallProcessesRequestSuccessfully()
@@ -4061,6 +4099,7 @@ private static void inboundCallProcessesRequestSuccessfully()
 ```
 
 **Pattern 4: Inbound Call with DTO**
+
 ```apex
 @IsTest
 private static void inboundCallWithDtoProcessesRequest()
@@ -4079,6 +4118,7 @@ private static void inboundCallWithDtoProcessesRequest()
 ```
 
 **Pattern 5: Testing Abortion**
+
 ```apex
 @IsTest
 private static void abortedCallLogsErrorMessage()
@@ -4095,38 +4135,39 @@ private static void abortedCallLogsErrorMessage()
 
 ## Capability Matrix (for Analysts)
 
-| Capability | Custom Metadata | Field/Class | Notes |
-|---|---|---|---|
-| API endpoint configuration (inbound) | `ApiSetting__mdt` | `EndpointPath__c` | Declarative endpoint configuration for inbound REST handlers |
-| API endpoint configuration (outbound) | `ApiSetting__mdt` | `EndpointPath__c` (HTTP method via handler's `getHttpMethod()` override) | Declarative endpoint; HTTP verb is set in the handler class, not the metadata record |
-| Credential management | `ApiCredential__mdt` | Named Credential reference | Secure credential storage and rotation |
-| Data masking | `MaskingRule__mdt` + `MaskingTarget__mdt` | `Mode__c` (Regex / JsonKey / ExactMatch / CreditCard), `Pattern__c`, `Replacement__c`, `MinInputLength__c`, `ApplicableFieldTypes__c` | Shared redaction framework — ships with secrets + credit-card rules active; subscribers opt additional rules in per field |
-| Mock mode | `ApiSetting__mdt` | `MockingEnabled__c` | Enable mock responses without callouts |
-| API disable switch | `ApiRuntimeSwitch__c` | `DisableAllApis__c` | Emergency kill switch for all API calls (hierarchy) |
-| Retry strategy | `ApiSetting__mdt` | `MaxRetryCount__c`, `RetryBackoffSeconds__c` | Configurable retry with linear or exponential backoff |
-| Circuit breaker | `ApiSetting__mdt` | `CircuitBreakerEnabled__c` | Automatic circuit breaker protection |
-| Performance logging | Automatic | `ApiCall__c.TotalDurationMs__c` | All API calls are automatically timed and logged |
-| Batched callouts | `ScheduledJob__c` | `SCHED_PerformBatchedCallouts` | Process queued API calls in scheduled batches |
+| Capability                            | Custom Metadata                           | Field/Class                                                                                                                           | Notes                                                                                                                     |
+|---------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| API endpoint configuration (inbound)  | `ApiSetting__mdt`                         | `EndpointPath__c`                                                                                                                     | Declarative endpoint configuration for inbound REST handlers                                                              |
+| API endpoint configuration (outbound) | `ApiSetting__mdt`                         | `EndpointPath__c` (HTTP method via handler's `getHttpMethod()` override)                                                              | Declarative endpoint; HTTP verb is set in the handler class, not the metadata record                                      |
+| Credential management                 | `ApiCredential__mdt`                      | Named Credential reference                                                                                                            | Secure credential storage and rotation                                                                                    |
+| Data masking                          | `MaskingRule__mdt` + `MaskingTarget__mdt` | `Mode__c` (Regex / JsonKey / ExactMatch / CreditCard), `Pattern__c`, `Replacement__c`, `MinInputLength__c`, `ApplicableFieldTypes__c` | Shared redaction framework — ships with secrets + credit-card rules active; subscribers opt additional rules in per field |
+| Mock mode                             | `ApiSetting__mdt`                         | `MockingEnabled__c`                                                                                                                   | Enable mock responses without callouts                                                                                    |
+| API disable switch                    | `ApiRuntimeSwitch__c`                     | `DisableAllApis__c`                                                                                                                   | Emergency kill switch for all API calls (hierarchy)                                                                       |
+| Retry strategy                        | `ApiSetting__mdt`                         | `MaxRetryCount__c`, `RetryBackoffSeconds__c`                                                                                          | Configurable retry with linear or exponential backoff                                                                     |
+| Circuit breaker                       | `ApiSetting__mdt`                         | `CircuitBreakerEnabled__c`                                                                                                            | Automatic circuit breaker protection                                                                                      |
+| Performance logging                   | Automatic                                 | `ApiCall__c.TotalDurationMs__c`                                                                                                       | All API calls are automatically timed and logged                                                                          |
+| Batched callouts                      | `ScheduledJob__c`                         | `SCHED_PerformBatchedCallouts`                                                                                                        | Process queued API calls in scheduled batches                                                                             |
 
 ---
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why It's Wrong | Instead |
-|---|---|---|
-| Raw `HttpRequest`/`HttpResponse` without the framework | No logging, no retry, no data masking, no mock support | Extend `API_Outbound` or `API_Inbound` and let the orchestrator handle the lifecycle |
-| DML before callout in the same transaction | Salesforce throws `CalloutException` -- you cannot make callouts after DML | Use the framework's orchestration pattern: callout first, then `onSuccess()` for DML registration |
-| Hardcoding endpoints or credentials in Apex | Cannot change per environment, fails security review, blocks testing | Use `ApiSetting__mdt` + Named Credentials; override `getWebServiceEndPoint()` only when dynamic |
-| Overriding every virtual method | Makes the class brittle and harder to maintain when the framework evolves | Override only what differs from the defaults (see [Override Only What You Need](#3-override-only-what-you-need)) |
-| Skipping `@JsonAccess` on DTOs in subscriber orgs | Serialization fails at runtime with a security error in managed package context | Always add `@JsonAccess(Serializable='always' Deserializable='always')` to every DTO |
+| Anti-Pattern                                           | Why It's Wrong                                                                  | Instead                                                                                                          |
+|--------------------------------------------------------|---------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| Raw `HttpRequest`/`HttpResponse` without the framework | No logging, no retry, no data masking, no mock support                          | Extend `API_Outbound` or `API_Inbound` and let the orchestrator handle the lifecycle                             |
+| DML before callout in the same transaction             | Salesforce throws `CalloutException` -- you cannot make callouts after DML      | Use the framework's orchestration pattern: callout first, then `onSuccess()` for DML registration                |
+| Hardcoding endpoints or credentials in Apex            | Cannot change per environment, fails security review, blocks testing            | Use `ApiSetting__mdt` + Named Credentials; override `getWebServiceEndPoint()` only when dynamic                  |
+| Overriding every virtual method                        | Makes the class brittle and harder to maintain when the framework evolves       | Override only what differs from the defaults (see [Override Only What You Need](#override-only-what-you-need)) |
+| Skipping `@JsonAccess` on DTOs in subscriber orgs      | Serialization fails at runtime with a security error in managed package context | Always add `@JsonAccess(Serializable='always' Deserializable='always')` to every DTO                             |
 
 ---
 
 ## Best Practices
 
-### 1. Code Standards
+### Code Standards
 
 **Always follow the project coding standards**:
+
 - Use **tabs for indentation** (indent size: 3, tab size: 3)
 - Braces on new lines (Allman style)
 - No space before control structure parentheses
@@ -4134,23 +4175,26 @@ private static void abortedCallLogsErrorMessage()
 - ApexDoc for all public/global methods and classes
 - Meaningful variable names in camelCase
 
-### 2. Naming Conventions
+### Naming Conventions
 
 **Outbound APIs:**
+
 - **REST**: `API_Get*`, `API_Post*`, `API_Put*`, `API_Patch*`, `API_Delete*`
 - **Intra-Org**: `API_*` (extends [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md))
 - **Mocks**: `API_*Mock`
 
 **Inbound APIs (Two-Class Pattern):**
+
 - **REST Routing Classes**: `REST_*`
-  - Examples: `REST_Echo`, `REST_Person`, `REST_Invoices`
+    - Examples: `REST_Echo`, `REST_Person`, `REST_Invoices`
 - **API Implementation Classes**: `API_*`
-  - Examples: `API_Echo`, `API_PersonRetrieve`, `API_PersonUpdate`
+    - Examples: `API_Echo`, `API_PersonRetrieve`, `API_PersonUpdate`
 
 **Common:**
+
 - **DTOs**: `DTO_Request`, `DTO_Response`, `DTO_*` (nested)
 
-### 3. Override Only What You Need
+### Override Only What You Need
 
 **Don't override methods unnecessarily.** The framework provides good defaults:
 
@@ -4173,7 +4217,7 @@ public override HttpMethod getHttpMethod()
 }
 ```
 
-### 4. Error Handling
+### Error Handling
 
 ```apex
 /**
@@ -4191,7 +4235,7 @@ public override void handleError(Exception error)
 }
 ```
 
-### 5. Logging Best Practices
+### Logging Best Practices
 
 - **Always use LOG_Builder fluent API** for application errors:
   ```apex
@@ -4201,16 +4245,17 @@ public override void handleError(Exception error)
 - **Don't log sensitive data** - use data masks instead
 
 - **Use appropriate log levels**:
-  - `LOG_Builder.build().error().emitAt()` - Errors requiring attention
-  - `LOG_Builder.build().warn().emitAt()` - Potential issues
-  - `LOG_Builder.build().info().emitAt()` - Informational messages
-  - `LOG_Builder.build().debug().emitAt()` - Detailed debugging (disabled in prod)
+    - `LOG_Builder.build().error().emitAt()` - Errors requiring attention
+    - `LOG_Builder.build().warn().emitAt()` - Potential issues
+    - `LOG_Builder.build().info().emitAt()` - Informational messages
+    - `LOG_Builder.build().debug().emitAt()` - Detailed debugging (disabled in prod)
 
-### 6. Inbound API Architecture
+### Inbound API Architecture
 
 **Always use the two-class URL prefix pattern for inbound APIs:**
 
 ✅ **DO:**
+
 - Separate REST routing (REST_* classes) from business logic (API_* classes)
 - Use `@RestResource` only on REST routing classes
 - Delegate to `API_Dispatcher.processInboundService()`
@@ -4218,18 +4263,20 @@ public override void handleError(Exception error)
 - One REST class can handle multiple HTTP methods (GET, POST, PATCH, etc.)
 
 ❌ **DON'T:**
+
 - Put `@RestResource` directly on API implementation classes
 - Mix routing logic with business logic in the same class
 - Manually instantiate API classes (e.g., `new API_Echo().handleRequest()`)
 - Create separate REST classes for each HTTP method on the same endpoint
 
 **Benefits:**
+
 - Better separation of concerns
 - Easier to maintain and test
 - One REST endpoint can support multiple operations
 - API implementations can be reused at different endpoints
 
-### 7. Security Considerations
+### Security Considerations
 
 - **Never hardcode credentials** - use Named Credentials
 - **Validate all inputs** in `getValidationErrors()`
@@ -4237,7 +4284,7 @@ public override void handleError(Exception error)
 - **Implement data masking** for sensitive fields
 - **Use appropriate sharing** models (`with sharing` vs `without sharing`)
 
-### 8. Performance Optimization
+### Performance Optimization
 
 - **Use asynchronous callouts** for long-running operations
 - **Batch multiple API calls** when possible
@@ -4245,7 +4292,7 @@ public override void handleError(Exception error)
 - **Set appropriate timeouts**
 - **Avoid SOQL in loops** in `prepareRequest()`
 
-### 9. Understanding the Orchestration
+### Understanding the Orchestration
 
 The framework's orchestration ensures:
 
@@ -4254,6 +4301,7 @@ The framework's orchestration ensures:
 3. **Errors are handled** at each stage
 
 This is why you should:
+
 - Never call DML directly in `process()` method
 - Always use `doInsert()`, `doUpdate()`, `doDelete()` within `onSuccess()`
 - Let the framework handle commit timing
@@ -4264,17 +4312,19 @@ This is why you should:
 
 ### Common Issues
 
-#### 1. API Call is Aborted
+#### API Call is Aborted
 
 **Symptom**: Queue item shows `Status__c = 'Aborted'`
 
 **Possible Causes**:
+
 - API disabled via feature flag or `ApiRuntimeSwitch__c`
 - Missing required parameters
 - Missing ApiSetting__mdt record
 - No triggering object when required
 
 **Solutions**:
+
 - Check `ErrorMessages__c` field for specific error
 - Verify `ApiRuntimeSwitch__c` and feature flag settings
 - Confirm ApiSetting__mdt exists with correct ClassName__c
@@ -4282,13 +4332,15 @@ This is why you should:
 
 ---
 
-#### 2. Namespace Errors
+#### Namespace Errors
 
 **Symptom**: "Type cannot be constructed: API_Outbound"
 
-**Possible Cause**: Missing namespace prefix in managed package context. The same code snippet also fails a separate framework convention: every Apex class must declare its sharing mode (`with sharing`, `inherited sharing`, or `without sharing`). Both rules apply independently.
+**Possible Cause**: Missing namespace prefix in managed package context. The same code snippet also fails a separate framework convention: every Apex class must declare its sharing
+mode (`with sharing`, `inherited sharing`, or `without sharing`). Both rules apply independently.
 
 **Solution**:
+
 ```apex
 // ❌ WRONG — missing sharing modifier AND namespace prefix (both required in subscriber org)
 public class MyAPI extends API_Outbound
@@ -4303,39 +4355,43 @@ public inherited sharing class MyAPI extends kern.API_Outbound
 
 ---
 
-#### 3. Callout Not Executing
+#### Callout Not Executing
 
 **Symptom**: No HTTP callout occurring
 
 **Possible Causes**:
+
 - Mock mode enabled
 - Test.setMock() not called in test
 - Named Credential misconfigured
 
 **Solutions**:
+
 - Check `IsMockedResponse__c` field
 - Verify `ApiSetting__mdt.MockingEnabled__c` and `MockAllInboundAPIs` feature flag
 - Ensure Named Credential exists and is accessible
 
 ---
 
-#### 4. Database Changes Not Committing
+#### Database Changes Not Committing
 
 **Symptom**: Records not saved despite successful API call
 
 **Possible Causes**:
+
 - Not calling `doInsert()` / `doUpdate()` within `onSuccess()`
 - Calling DML directly instead of using framework
 - Exception during commit
 
 **Solutions**:
+
 - Use `doInsert()`, `doUpdate()`, `doDelete()` within `onSuccess()` instead of direct DML
 - Check debug logs for commit errors
 - Verify object permissions (CRUD/FLS)
 
 ---
 
-#### 5. Callout from Triggers Error
+#### Callout from Triggers Error
 
 **Symptom**: "Callout from triggers with uncommitted work pending is not allowed"
 
@@ -4348,6 +4404,7 @@ public inherited sharing class MyAPI extends kern.API_Outbound
 ## Support and Resources
 
 ### Code Examples in Framework
+
 - `API_Echo` - Simple inbound example
 - `API_PostExample` - Outbound POST with DTOs
 - `API_GetPwndPasswords` - Outbound GET with parameters
@@ -4357,6 +4414,7 @@ public inherited sharing class MyAPI extends kern.API_Outbound
 - `API_PersonUpdate` - Inbound PATCH with DML (in examples)
 
 ### Getting Help
+
 - Check debug logs for detailed error messages
 - Review `ApiCall__c` records for request/response details
 - Search for similar patterns in existing API classes
@@ -4366,17 +4424,17 @@ public inherited sharing class MyAPI extends kern.API_Outbound
 
 **Document Version History**
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | November 2024 | Framework Team | Initial comprehensive guide |
-| 2.0 | January 2025 | Framework Team | Added managed package namespace, orchestration pattern, real-world examples |
-| 2.1 | January 2025 | Framework Team | Applied code standards with ApexDoc, detailed method explanations, intra-org API documentation, factual retry mechanism, removed fictional references |
-| 2.2 | January 2025 | Framework Team | Added custom retry strategy documentation, clarified LINEAR_BACKOFF default behavior, documented `createRetryStrategy()` extensibility pattern |
-| 3.0 | February 2026 | Framework Team | Updated all class names to current framework conventions (API_Outbound, API_Inbound, API_Dispatcher, TST_Builder, TST_Factory, SEL_ApiCall, etc.). Added reference links, Salesforce doc links, and rebuilt TOC. |
-| 3.1 | March 2026 | Framework Team | Pre-release sweep: fixed REST routing class prefix (URL_* to REST_*), corrected all ApiCall__c and ApiSetting__mdt field names, fixed UTIL_Retry.Strategy and UTIL_CircuitBreaker.Breaker interface names, fixed SEL_ApiCall instance method calls, corrected TOC anchors and numbering, added missing sharing declarations and @IsTest annotations. |
-| 3.2 | March 2026 | Framework Team | Third-pass review: replaced fictitious abortRequest() method with actual getValidationErrors() throughout (Virtual Methods Reference, all code examples), fixed requestParameters property references to inputs, fixed UTIL_HttpClient delegation mode example (useHandler is static entry point), renamed populateRequestDTO to prepareRequest (actual method name), corrected getHttpMethod return type from String to HttpMethod enum, fixed HTTP_VERB_GET references to HttpMethod.GET, corrected getServiceName signature (protected, not global), removed non-existent API_PostExampleMock from flow test, fixed missing private modifiers on test patterns, replaced inline DML with DML_Builder, corrected API_PersonUpdate description from PUT to PATCH. |
-| 3.3 | March 2026 | Framework Team | Fourth-pass review: added missing H4 TOC entries for Safe Mode (Usage, Behavior, Use Cases), API Test Harness (Features, Deployment), and Best Practices for Flow Integration (5 sub-headings). Removed fictional API_NotifyAccountCreated_Mock and unnecessary Test.setMock from async flow test example. |
-| 3.4 | March 2026 | Framework Team | Documented delegation mode caller override precedence for UTIL_HttpClient — credential, path, retry, circuit breaker, and failure logging settings provided by the caller take precedence over the handler's ApiSetting__mdt defaults. |
+| Version | Date          | Author         | Changes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|---------|---------------|----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1.0     | November 2024 | Framework Team | Initial comprehensive guide                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2.0     | January 2025  | Framework Team | Added managed package namespace, orchestration pattern, real-world examples                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2.1     | January 2025  | Framework Team | Applied code standards with ApexDoc, detailed method explanations, intra-org API documentation, factual retry mechanism, removed fictional references                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2.2     | January 2025  | Framework Team | Added custom retry strategy documentation, clarified LINEAR_BACKOFF default behavior, documented `createRetryStrategy()` extensibility pattern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 3.0     | February 2026 | Framework Team | Updated all class names to current framework conventions (API_Outbound, API_Inbound, API_Dispatcher, TST_Builder, TST_Factory, SEL_ApiCall, etc.). Added reference links, Salesforce doc links, and rebuilt TOC.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 3.1     | March 2026    | Framework Team | Pre-release sweep: fixed REST routing class prefix (URL_* to REST_*), corrected all ApiCall__c and ApiSetting__mdt field names, fixed UTIL_Retry.Strategy and UTIL_CircuitBreaker.Breaker interface names, fixed SEL_ApiCall instance method calls, corrected TOC anchors and numbering, added missing sharing declarations and @IsTest annotations.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 3.2     | March 2026    | Framework Team | Third-pass review: replaced fictitious abortRequest() method with actual getValidationErrors() throughout (Virtual Methods Reference, all code examples), fixed requestParameters property references to inputs, fixed UTIL_HttpClient delegation mode example (useHandler is static entry point), renamed populateRequestDTO to prepareRequest (actual method name), corrected getHttpMethod return type from String to HttpMethod enum, fixed HTTP_VERB_GET references to HttpMethod.GET, corrected getServiceName signature (protected, not global), removed non-existent API_PostExampleMock from flow test, fixed missing private modifiers on test patterns, replaced inline DML with DML_Builder, corrected API_PersonUpdate description from PUT to PATCH. |
+| 3.3     | March 2026    | Framework Team | Fourth-pass review: added missing H4 TOC entries for Safe Mode (Usage, Behavior, Use Cases), API Test Harness (Features, Deployment), and Best Practices for Flow Integration (5 sub-headings). Removed fictional API_NotifyAccountCreated_Mock and unnecessary Test.setMock from async flow test example.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 3.4     | March 2026    | Framework Team | Documented delegation mode caller override precedence for UTIL_HttpClient — credential, path, retry, circuit breaker, and failure logging settings provided by the caller take precedence over the handler's ApiSetting__mdt defaults.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ---
 

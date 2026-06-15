@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>AccountCard_LoadFailed</fullName>
+        <categories>Account Card</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast shown when the accountCard component cannot load its Account.</shortDescription>
+        <value>Could not load the account.</value>
+    </labels>
+</CustomLabels>

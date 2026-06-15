@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -235,7 +235,10 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves ApiCall__c records that are batched and outbound.
+	 * @description Retrieves ApiCall__c records that are batched and outbound. Bypasses sharing
+	 * rules: this is the batched-callout sweep, which must see every user's batched calls —
+	 * `ApiCall__c` has a Private sharing model, so a sweep scheduled by a user without View All
+	 * would otherwise silently skip rows owned by other users.
 	 *
 	 * @return List of ApiCall__c records with Status__c = "Batched" and Type__c = "Outbound".
 	 *
@@ -247,6 +250,7 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	public List<ApiCall__c> findByBatchedOutbound()
 	{
 		return query
+				.bypassSharingInternal()
 				.condition(ApiCall__c.Direction__c).equals(TYPE_OUTBOUND)
 				.condition(ApiCall__c.Status__c).equals(STATUS_BATCHED)
 				.withLimit(UTIL_Limits.soqlQueryRows().maximum())

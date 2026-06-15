@@ -30,20 +30,20 @@ auto-populates required fields, inserts, and returns the record in one expressio
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Create a Record with Auto-Populated Fields](#create-a-record-with-auto-populated-fields)
-   - [Override Specific Fields](#override-specific-fields)
-   - [Bulk Creation](#bulk-creation)
-   - [In-Memory Records (No DML)](#in-memory-records-no-dml)
+    - [Create a Record with Auto-Populated Fields](#create-a-record-with-auto-populated-fields)
+    - [Override Specific Fields](#override-specific-fields)
+    - [Bulk Creation](#bulk-creation)
+    - [In-Memory Records (No DML)](#in-memory-records-no-dml)
 2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-   - [Step 1: Create the Utility Class](#step-1-create-the-utility-class)
-   - [Step 2: Create the Test Class](#step-2-create-the-test-class)
+    - [Step 1: Create the Utility Class](#step-1-create-the-utility-class)
+    - [Step 2: Create the Test Class](#step-2-create-the-test-class)
 3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-   - [Multiple Field Overrides](#multiple-field-overrides)
-   - [Mock IDs (No DML)](#mock-ids-no-dml)
-   - [TST_Mock for DML-Free Query Interception](#tst_mock-for-dml-free-query-interception)
-   - [TST_Factory for Users](#tst_factory-for-users)
-   - [TST_Factory for Feature Flags](#tst_factory-for-feature-flags)
-   - [Framework Metadata: Trigger and Validation Setup](#framework-metadata-trigger-and-validation-setup)
+    - [Multiple Field Overrides](#multiple-field-overrides)
+    - [Mock IDs (No DML)](#mock-ids-no-dml)
+    - [TST_Mock for DML-Free Query Interception](#tst_mock-for-dml-free-query-interception)
+    - [TST_Factory for Users](#tst_factory-for-users)
+    - [TST_Factory for Feature Flags](#tst_factory-for-feature-flags)
+    - [Framework Metadata: Trigger and Validation Setup](#framework-metadata-trigger-and-validation-setup)
 4. [Common Issues](#common-issues)
 5. [What You Now Know](#what-you-now-know)
 6. [Next Steps](#next-steps)
@@ -237,8 +237,8 @@ private class FastStart_TestData_DEMO_TEST
 			.buildList();
 
 		Assert.areEqual(4, records.size(), 'buildList should return 4 records');
-		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH), 'Should have 2 Technology');
-		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE), 'Should have 2 Finance');
+		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH), 'Should have 2 Technology accounts');
+		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE), 'Should have 2 Finance accounts');
 	}
 
 	/** @description Verifies TST_Mock registers a record without DML so QRY_Builder returns it. */
@@ -251,7 +251,7 @@ private class FastStart_TestData_DEMO_TEST
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE);
 
-		Assert.areEqual(1, result, 'Mock-registered account should be returned by the QRY_Builder count');
+		Assert.areEqual(1, result, 'Mock-registered Finance account should be returned by QRY_Builder count');
 	}
 
 	/** @description Verifies an in-memory record does not affect the database count. */
@@ -265,7 +265,7 @@ private class FastStart_TestData_DEMO_TEST
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_OTHER);
 
-		Assert.areEqual(0, result, 'In-memory record must not affect the database count');
+		Assert.areEqual(0, result, 'In-memory record should not affect the database count for a different industry');
 	}
 }
 ```
@@ -466,33 +466,20 @@ Assert.isTrue(isEnabled, 'Flag should be enabled');
 
 ### Framework Metadata: Trigger and Validation Setup
 
-> **Important -- `@TestVisible private` trap:**
-> `kern.TST_Factory.newTriggerActionForContext()`, `kern.TST_Factory.newTriggerSetting()`,
-> `kern.TST_Factory.newValidationRule()`, and related overloads are **test-class-only**. They are
-> `@TestVisible private` in the managed package, which means:
->
-> - They CAN be called from a subscriber `@IsTest` class using the `kern.` prefix.
-> - They CANNOT be called from anonymous Apex (Developer Console Execute Anonymous, `sf apex run --file`).
->
-> If you need to set up Trigger Action or Validation Rule metadata from anonymous Apex -- for example,
-> in a setup script -- deploy `CustomMetadata` records via XML instead. See
-> [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) and
-> [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) for the XML deploy pattern.
+To exercise framework Trigger Action or Validation Rule behaviour in your tests -- or to set up that
+metadata from a setup script -- deploy the relevant `CustomMetadata` records via XML. See
+[Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) and
+[Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) for the XML deploy pattern.
 
-From an `@IsTest` class, use these methods as normal:
+Once the metadata is in place, the action or validation fires through the normal trigger path, so your
+test simply builds a record and asserts the resulting behaviour:
 
 ```apex
 @IsTest
 private static void shouldFireTriggerAction()
 {
-	kern.TST_Factory.newTriggerActionForContext(
-		TRG_MyAction.class.getName(),
-		kern.TST_Factory.newTriggerSetting('Account'),
-		TriggerOperation.BEFORE_INSERT
-	);
-
 	Account record = (Account)kern.TST_Builder.of(Account.SObjectType).build();
-	Assert.isNotNull(record.Id, 'Record should be inserted and trigger should have fired');
+	Assert.isNotNull(record.Id, 'Record should be inserted and the trigger action should have fired');
 }
 ```
 
@@ -500,15 +487,15 @@ private static void shouldFireTriggerAction()
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `SObject` type mismatch | Forgot to cast `.build()` result | Cast: `(Account)kern.TST_Builder.of(Account.SObjectType).build()` |
-| `REQUIRED_FIELD_MISSING` on insert | Field marked required but builder doesn't know about it | Add `.withOverride(field, value)` for the missing field |
-| Records created in a loop | Using `.build()` inside a loop | Use `.withCount(n).buildList()` for bulk creation (single DML) |
-| Mock IDs when not needed | Using `.withoutInsertion(true)` for simple in-memory tests | Use `.withoutInsertion()` (no argument) when IDs aren't needed |
-| Mocks leaking between tests | Forgetting to clear `TST_Mock` state | Salesforce resets static state between tests -- no manual cleanup needed |
-| `null` for optional fields | Builder only auto-populates required fields | Use `.withOverride()` to set optional fields your test needs |
-| `TST_Factory.newTriggerActionForContext` fails from anonymous Apex | Method is `@TestVisible private` | Use XML CMDT deploy in scripts; call from `@IsTest` class instead |
+| Problem                                                            | Cause                                                      | Fix                                                                      |
+|--------------------------------------------------------------------|------------------------------------------------------------|--------------------------------------------------------------------------|
+| `SObject` type mismatch                                            | Forgot to cast `.build()` result                           | Cast: `(Account)kern.TST_Builder.of(Account.SObjectType).build()`        |
+| `REQUIRED_FIELD_MISSING` on insert                                 | Field marked required but builder doesn't know about it    | Add `.withOverride(field, value)` for the missing field                  |
+| Records created in a loop                                          | Using `.build()` inside a loop                             | Use `.withCount(n).buildList()` for bulk creation (single DML)           |
+| Mock IDs when not needed                                           | Using `.withoutInsertion(true)` for simple in-memory tests | Use `.withoutInsertion()` (no argument) when IDs aren't needed           |
+| Mocks leaking between tests                                        | Forgetting to clear `TST_Mock` state                       | Salesforce resets static state between tests -- no manual cleanup needed |
+| `null` for optional fields                                         | Builder only auto-populates required fields                | Use `.withOverride()` to set optional fields your test needs             |
+| Trigger action or validation rule doesn't fire in a test           | The framework metadata isn't present in the org            | Deploy the relevant `CustomMetadata` records via XML for triggers and validations |
 
 ---
 
@@ -516,11 +503,11 @@ private static void shouldFireTriggerAction()
 
 After completing this guide, you understand the **three test data tools** in KernDX:
 
-| Tool | When to Use | What You Get |
-|------|-------------|--------------|
-| **`TST_Builder`** | All SObject construction in tests | Auto-populated fields, bulk, cycling, parent-child, real DML |
-| **`TST_Mock`** | DML-free query interception in `@IsTest` | Mock records auto-registered for `QRY_Builder` without touching the database |
-| **`TST_Factory`** | Framework metadata and users | Test users, feature flags, trigger/validation metadata (test-class-only methods) |
+| Tool              | When to Use                              | What You Get                                                                     |
+|-------------------|------------------------------------------|----------------------------------------------------------------------------------|
+| **`TST_Builder`** | All SObject construction in tests        | Auto-populated fields, bulk, cycling, parent-child, real DML                     |
+| **`TST_Mock`**    | DML-free query interception in `@IsTest` | Mock records auto-registered for `QRY_Builder` without touching the database     |
+| **`TST_Factory`** | Users and feature flags                  | Test users and feature flags ready for your tests                                |
 
 **Key patterns:**
 
@@ -529,20 +516,20 @@ After completing this guide, you understand the **three test data tools** in Ker
 - **`.withCycle()` for multiple scenarios** -- test different values without writing separate test methods
 - **`.withChildren()` for relationships** -- auto-handles foreign key assignment
 - **`TST_Mock` for query mocking** -- no DML, no database, mock data flows through `QRY_Builder`
-- **`@TestVisible private` methods** -- framework metadata helpers (`newTriggerActionForContext` etc.) are
-  callable from `@IsTest` classes only, not from anonymous Apex
+- **Framework metadata via XML** -- to exercise trigger or validation behaviour in your tests, deploy the
+  relevant `CustomMetadata` records via XML
 
 ---
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Selectors (query patterns) | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md) |
-| DML Builder (writes) | [Fast Start - DML](Fast%20Start%20-%20DML.md) |
-| Trigger Actions (testing triggers) | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) |
-| Custom Validations | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
-| E2E Testing (Playwright + RunLocalTests harness) | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) |
-| TST_Builder Reference | [reference/apex/TST_Builder.md](reference/apex/TST_Builder.md) |
-| TST_Mock Reference | [reference/apex/TST_Mock.md](reference/apex/TST_Mock.md) |
-| TST_Factory Reference | [reference/apex/TST_Factory.md](reference/apex/TST_Factory.md) |
+| Topic                                            | Link                                                                          |
+|--------------------------------------------------|-------------------------------------------------------------------------------|
+| Selectors (query patterns)                       | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                     |
+| DML Builder (writes)                             | [Fast Start - DML](Fast%20Start%20-%20DML.md)                                 |
+| Trigger Actions (testing triggers)               | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)       |
+| Custom Validations                               | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
+| E2E Testing (Playwright + RunLocalTests harness) | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)               |
+| TST_Builder Reference                            | [reference/apex/TST_Builder.md](reference/apex/TST_Builder.md)                |
+| TST_Mock Reference                               | [reference/apex/TST_Mock.md](reference/apex/TST_Mock.md)                      |
+| TST_Factory Reference                            | [reference/apex/TST_Factory.md](reference/apex/TST_Factory.md)                |

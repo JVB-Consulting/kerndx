@@ -29,6 +29,7 @@ High-volume platform event that transports log data asynchronously. Persisted to
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [DurationMs__c](#durationms__c) | Duration of the operation in milliseconds. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExceptionType__c](#exceptiontype__c) | Fully qualified Apex exception class name (e.g., System.DmlException). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExecutionEvent__c](#executionevent__c) | Salesforce execution context (Quiddity) that produced this log entry. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Fingerprint__c](#fingerprint__c) | Grouping key carried from LOG_Builder.withFingerprint to the persist trigger, where fingerprinted events collapse into a detail row plus windowed rollup counters. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Limits__c](#limits__c) | JSON snapshot of Salesforce governor limits at the time the event was logged. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [LineNumber__c](#linenumber__c) | Source code line number in the Apex class where the exception occurred. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevel__c](#loglevel__c) | Severity level of this log entry: DEBUG, INFO, WARN, or ERROR. |
@@ -139,6 +140,23 @@ Salesforce execution context (Quiddity) that produced this log entry.
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Text(40) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### Fingerprint__c
+
+```apex
+global String Fingerprint__c
+```
+
+Grouping key carried from LOG_Builder.withFingerprint to the persist trigger, where fingerprinted events collapse into a detail row plus windowed rollup counters.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(216) |
 | Required | false |
 | Unique | false |
 | External ID | false |

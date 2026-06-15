@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Building schedulable jobs, batch processing, and asynchronous operations with automatic strategy selection
 - **Architects** - Designing scalable async processing patterns with governor limit awareness and adaptive execution
 - **Business Analysts** - Understanding scheduled job configuration, execution strategies, and monitoring capabilities
@@ -18,52 +19,53 @@
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [KernDX vs OOTB: Async Framework Comparison](#kerndx-vs-ootb-async-framework-comparison)
-   - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
-   - [Pros & Cons Comparison](#pros--cons-comparison)
-   - [When to Use KernDX Async Framework](#when-to-use-kerndx-async-framework)
-   - [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)
-   - [Example Comparison](#example-comparison)
+4. [Escape Hatches](#escape-hatches)
+5. [KernDX vs OOTB: Async Framework Comparison](#kerndx-vs-ootb-async-framework-comparison)
+    - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
+    - [Pros & Cons Comparison](#pros--cons-comparison)
+    - [When to Use KernDX Async Framework](#when-to-use-kerndx-async-framework)
+    - [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)
+    - [Example Comparison](#example-comparison)
 5. [Architecture](#architecture)
-   - [System Architecture Diagram](#system-architecture-diagram)
-   - [Execution Strategy Flow](#execution-strategy-flow)
-   - [Execution Strategy Comparison](#execution-strategy-comparison)
+    - [System Architecture Diagram](#system-architecture-diagram)
+    - [Execution Strategy Flow](#execution-strategy-flow)
+    - [Execution Strategy Comparison](#execution-strategy-comparison)
 6. [Architecture Decision Guide](#architecture-decision-guide)
-   - [When to Use This Framework](#when-to-use-this-framework)
-   - [Framework Selection Matrix (for Architects)](#framework-selection-matrix-for-architects)
+    - [When to Use This Framework](#when-to-use-this-framework)
+    - [Framework Selection Matrix (for Architects)](#framework-selection-matrix-for-architects)
 7. [Processor Interfaces](#processor-interfaces)
-   - [Interface Hierarchy](#interface-hierarchy)
-   - [IF_Async.Processable (Required)](#if_asyncprocessable-required)
-   - [IF_Async.Finishable (Optional)](#if_asyncfinishable-optional)
+    - [Interface Hierarchy](#interface-hierarchy)
+    - [IF_Async.Processable (Required)](#if_asyncprocessable-required)
+    - [IF_Async.Finishable (Optional)](#if_asyncfinishable-optional)
 8. [Async Chain Orchestration](#async-chain-orchestration)
-   - [When to Use Chains](#when-to-use-chains)
-   - [Architecture](#architecture-1)
-   - [Building Steps](#building-steps)
-   - [Chain Builder API](#chain-builder-api)
-   - [Context Sharing](#context-sharing)
-   - [Error Handling](#error-handling)
-   - [Monitoring](#monitoring)
-   - [Logging Strategy](#logging-strategy)
-   - [Log Correlation](#log-correlation)
-   - [Step Design Guidance](#step-design-guidance)
-   - [Kill Switch](#kill-switch)
-   - [ApiStep: Web Service Integration](#apistep-web-service-integration)
-     - [Basic Usage](#basic-usage)
-     - [Builder Methods](#builder-methods)
-     - [Reading Results from Downstream Steps](#reading-results-from-downstream-steps)
-     - [Standalone vs. Chain Execution](#standalone-vs-chain-execution)
-     - [Error Handling](#error-handling-1)
-   - [Testing Chains](#testing-chains)
+    - [When to Use Chains](#when-to-use-chains)
+    - [Architecture](#architecture-1)
+    - [Building Steps](#building-steps)
+    - [Chain Builder API](#chain-builder-api)
+    - [Context Sharing](#context-sharing)
+    - [Error Handling](#error-handling)
+    - [Monitoring](#monitoring)
+    - [Logging Strategy](#logging-strategy)
+    - [Log Correlation](#log-correlation)
+    - [Step Design Guidance](#step-design-guidance)
+    - [Kill Switch](#kill-switch)
+    - [ApiStep: Web Service Integration](#apistep-web-service-integration)
+        - [Basic Usage](#basic-usage)
+        - [Builder Methods](#builder-methods)
+        - [Reading Results from Downstream Steps](#reading-results-from-downstream-steps)
+        - [Standalone vs. Chain Execution](#standalone-vs-chain-execution)
+        - [Error Handling](#error-handling-1)
+    - [Testing Chains](#testing-chains)
 9. [Scheduler Framework](#scheduler-framework)
-   - [Scheduler Architecture](#scheduler-architecture)
-   - [Declarative Scheduling with ScheduledJob__c](#declarative-scheduling-with-scheduledjob__c)
-     - [How It Works](#how-it-works)
-     - [ScheduledJob__c Fields](#scheduledjob__c-fields)
-     - [Example: Create a Purge Job via UI](#example-create-a-purge-job-via-ui)
-     - [Common Cron Expressions](#common-cron-expressions)
-     - [Timezone Awareness](#timezone-awareness)
-   - [Built-in Schedulers](#built-in-schedulers)
-   - [Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers)
+    - [Scheduler Architecture](#scheduler-architecture)
+    - [Declarative Scheduling with ScheduledJob__c](#declarative-scheduling-with-scheduledjob__c)
+        - [How It Works](#how-it-works)
+        - [ScheduledJob__c Fields](#scheduledjob__c-fields)
+        - [Example: Create a Purge Job via UI](#example-create-a-purge-job-via-ui)
+        - [Common Cron Expressions](#common-cron-expressions)
+        - [Timezone Awareness](#timezone-awareness)
+    - [Built-in Schedulers](#built-in-schedulers)
+    - [Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers)
 10. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
     - [Why Correlation Matters](#why-correlation-matters)
     - [Correlation Flow](#correlation-flow)
@@ -77,6 +79,7 @@
 12. [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
     - [Monitoring Scheduled Jobs](#monitoring-scheduled-jobs)
     - [Monitoring Async Job Execution](#monitoring-async-job-execution)
+    - [Monitoring Async Chain Failures](#monitoring-async-chain-failures)
 13. [Testing](#testing)
 14. [Common Pitfalls](#common-pitfalls)
 15. [Anti-Patterns](#anti-patterns)
@@ -96,11 +99,11 @@
 | I am a...     | I need to...                      | Go to...                                                                   |
 |---------------|-----------------------------------|----------------------------------------------------------------------------|
 | **Architect** | Decide when to use async patterns | [Architecture Decision Guide](#architecture-decision-guide)                |
-| **Architect** | Compare with OOTB Batch/Queueable | [KernDX vs OOTB](#kerndx-vs-ootb-async-framework-comparison)                   |
+| **Architect** | Compare with OOTB Batch/Queueable | [KernDX vs OOTB](#kerndx-vs-ootb-async-framework-comparison)               |
 | **Developer** | Process records asynchronously    | [Quick Start](#quick-start)                                                |
 | **Developer** | Create a scheduled job            | [Scheduler Framework](#scheduler-framework)                                |
 | **Developer** | Implement custom processing       | [Processor Interfaces](#processor-interfaces)                              |
-| **Developer** | Build multi-step async workflows  | [Async Chain Orchestration](#async-chain-orchestration)                     |
+| **Developer** | Build multi-step async workflows  | [Async Chain Orchestration](#async-chain-orchestration)                    |
 | **Analyst**   | Know what's available             | [Capability Matrix](#capability-matrix-for-analysts)                       |
 | **Analyst**   | Configure scheduled jobs          | [ScheduledJob Configuration](#declarative-scheduling-with-scheduledjob__c) |
 
@@ -122,7 +125,8 @@ The framework consists of six complementary layers:
 3. **`UTIL_AdaptiveAsynchronousProcessor`** — Adaptive processing engine (internal) — selects Queueable, Batch, or synchronous based on data volume
 4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** — Chain orchestration with shared context, execution tracking, error/completion handlers, and built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge
 5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** — Interface for configurable scheduled jobs with parameter definitions, managed via [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
-6. **`CTRL_ChainMonitor`** — Real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`) with streaming updates, step timeline, and error detail panels
+6. **`CTRL_ChainMonitor`** — Real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`) with streaming updates,
+   step timeline, and error detail panels
 
 > **Responsibilities:** The Async framework launches and manages long-running or deferred work. It does not contain business logic itself --
 > that belongs in your `Processable` implementation. It does not query data; pass records or a `Builder` to the launcher.
@@ -132,6 +136,7 @@ The framework consists of six complementary layers:
 > - Simple scheduled jobs that a declarative Scheduled Flow can handle without code
 
 **Key Benefits:**
+
 - **Automatic Strategy Selection** — Framework chooses Queueable or Batch based on volume
 - **Simplified API** — Simple entry point for complex async operations
 - **Chain Orchestration** — Multi-step workflows with shared context, error/completion handlers, and persistent execution tracking
@@ -142,7 +147,9 @@ The framework consists of six complementary layers:
 - **Consistent Error Handling** — Standardized error handling and logging across all async patterns
 - **Testable** — Built-in test support with configurable behavior
 
-> **Async Framework Scope:** Adaptive strategy selection (Queueable vs Batch), chain orchestration with shared context and `ApiStep` web service bridge, declarative scheduling via `ScheduledJob__c`, real-time Chain Monitor UI, and four pre-built schedulable reference implementations (`SCHED_DeactivateUsers`, `SCHED_PerformBatchedCallouts`, `SCHED_ProcessLoginHistory`, `SCHED_PurgeRecords`) extending the abstract `SCHED_Base`.
+> **Async Framework Scope:** Adaptive strategy selection (Queueable vs Batch), chain orchestration with shared context and `ApiStep` web service bridge, declarative scheduling via
+`ScheduledJob__c`, real-time Chain Monitor UI, and four pre-built schedulable reference implementations (`SCHED_DeactivateUsers`, `SCHED_PerformBatchedCallouts`,
+`SCHED_ProcessLoginHistory`, `SCHED_PurgeRecords`) extending the abstract `SCHED_Base`.
 
 > **Declarative Scheduling:** Configure recurring jobs entirely through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
 > records — set a class name, cron expression, and activate. No code deployment needed to schedule, reschedule, or
@@ -179,6 +186,25 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
+## Escape Hatches
+
+The async framework provides three execution strategies and adapts between them automatically. `UTIL_AsyncChain` is **one** option — for sequenced, dependent work with shared
+state. Parallel execution is a separate, first-class strategy. Subscribers always retain full control of the platform's native async primitives.
+
+| You need                                                                         | Use                                                                                                                                                                    | See                                                                       |
+|----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| **Parallel Queueables** (multiple jobs running concurrently)                     | `UTIL_AsynchronousJobLauncher.process()` auto-selects `PARALLEL_QUEUEABLES` when the 10-concurrent platform limit allows.                                              | [Execution Strategy Comparison](#execution-strategy-comparison)           |
+| **Direct `System.enqueueJob()`** for an independent Queueable                    | Works unmodified — nothing intercepts `enqueueJob`. Subscribers freely write `implements Queueable` and enqueue independently of any chain.                            | [Queueable Pattern with Correlation](#queueable-pattern-with-correlation) |
+| **Native `Database.Batchable` / `Database.Stateful`**                            | Write your own batch class as you always would. No mandatory base class. The framework's `IF_Async.Processable` interface is optional.                                 | [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)      |
+| **Change Data Capture / Platform Event triggers**                                | Subscribers write `trigger MyTrigger on Account__ChangeEvent` directly. Framework code calls `EventBus.publishWithAccessLevel()` without wrapping subscriber triggers. | —                                                                         |
+| **Force a specific execution strategy** instead of letting the dispatcher choose | `IF_Async.AsynchronousExecutionStrategy` enum exposes `PARALLEL_QUEUEABLES`, `CHAINABLE`, `BATCH` — pass it to the launcher.                                           | [Execution Strategy Comparison](#execution-strategy-comparison)           |
+| **10-concurrent-limit awareness for adaptive degradation**                       | The adaptive processor reads `UTIL_Limits.queueableJobs().remaining()` and degrades PARALLEL → CHAINABLE → BATCH automatically.                                        | [Execution Strategy Flow](#execution-strategy-flow)                       |
+
+`UTIL_AsyncChain` is for one specific pattern: sequenced, dependent steps with shared context across transactions. It does **not** preclude parallel execution — it's the wrong tool
+for that, and the framework names the right one (`PARALLEL_QUEUEABLES`) explicitly.
+
+---
+
 ## KernDX vs OOTB: Async Framework Comparison
 
 ### Salesforce Out-of-the-Box Alternative
@@ -211,24 +237,24 @@ public class MyQueueable implements Queueable {
 
 ### Pros & Cons Comparison
 
-| Feature                      | KernDX Async Framework                                                                   | Salesforce OOTB Batch/Queueable                    |
-|------------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------|
-| **Auto Strategy Selection**  | AUTO mode chooses optimal approach                                                     | Developer must decide upfront                      |
-| **Unified API**              | One interface for Batch & Queueable                                                    | Different interfaces (Batchable vs Queueable)      |
-| **Declarative Scheduling**   | [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) custom object                | Requires code deployment                           |
-| **Configurable Jobs**        | [`IF_Schedulable`](reference/apex/IF_Schedulable.md) with parameter definitions        | Must hard-code or use custom settings              |
-| **Parallel Queueables**      | `PARALLEL_QUEUEABLES` strategy                                                         | Manual enqueue loop required                       |
-| **Chained Queueables**       | `CHAINABLE` with auto-chaining                                                         | Manual chaining in execute()                       |
-| **Error Events**             | Auto `BatchApexErrorEvent` from Queueables                                             | Only native Batch publishes these                  |
-| **Finalization**             | [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) works for both  | Only Batch has finish(), Queueable needs Finalizer |
-| **Log Correlation**          | [`LOG_Builder`](reference/apex/LOG_Builder.md) `serializeContext()`/`hydrateContext()` | Must implement manually                            |
-| **Query-Based Processing**   | Pass [`QRY_Builder.Builder`](reference/apex/QRY_Builder.md)                      | `Database.QueryLocator` in Batch                   |
-| **Callout Support**          | `Database.AllowsCallouts` included                                                     | Must add interface manually                        |
-| **Test Support**             | `AsyncOptions` for controlled testing                                                  | Standard Test.startTest()/stopTest()               |
-| **Simplicity**               | Requires learning framework                                                            | Standard Salesforce patterns                       |
-| **Learning Curve**           | Framework-specific knowledge                                                           | Standard Apex knowledge                            |
-| **Performance**              | Minimal framework overhead                                                             | Direct platform execution                          |
-| **Flexibility**              | Must use framework patterns                                                            | Full control over implementation                   |
+| Feature                     | KernDX Async Framework                                                                 | Salesforce OOTB Batch/Queueable                    |
+|-----------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------|
+| **Auto Strategy Selection** | AUTO mode chooses optimal approach                                                     | Developer must decide upfront                      |
+| **Unified API**             | One interface for Batch & Queueable                                                    | Different interfaces (Batchable vs Queueable)      |
+| **Declarative Scheduling**  | [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) custom object                | Requires code deployment                           |
+| **Configurable Jobs**       | [`IF_Schedulable`](reference/apex/IF_Schedulable.md) with parameter definitions        | Must hard-code or use custom settings              |
+| **Parallel Queueables**     | `PARALLEL_QUEUEABLES` strategy                                                         | Manual enqueue loop required                       |
+| **Chained Queueables**      | `CHAINABLE` with auto-chaining                                                         | Manual chaining in execute()                       |
+| **Error Events**            | Queueable crashes captured by a finalizer → durable `LogEntry__c`                                             | Native Batch fires `BatchApexErrorEvent`; Queueables surface nothing                  |
+| **Finalization**            | [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) works for both          | Only Batch has finish(), Queueable needs Finalizer |
+| **Log Correlation**         | [`LOG_Builder`](reference/apex/LOG_Builder.md) `serializeContext()`/`hydrateContext()` | Must implement manually                            |
+| **Query-Based Processing**  | Pass [`QRY_Builder.Builder`](reference/apex/QRY_Builder.md)                            | `Database.QueryLocator` in Batch                   |
+| **Callout Support**         | `Database.AllowsCallouts` included                                                     | Must add interface manually                        |
+| **Test Support**            | `AsyncOptions` for controlled testing                                                  | Standard Test.startTest()/stopTest()               |
+| **Simplicity**              | Requires learning framework                                                            | Standard Salesforce patterns                       |
+| **Learning Curve**          | Framework-specific knowledge                                                           | Standard Apex knowledge                            |
+| **Performance**             | Minimal framework overhead                                                             | Direct platform execution                          |
+| **Flexibility**             | Must use framework patterns                                                            | Full control over implementation                   |
 
 ### When to Use KernDX Async Framework
 
@@ -254,6 +280,7 @@ public class MyQueueable implements Queueable {
 ### Example Comparison
 
 **OOTB Batch Apex (Verbose, Separate Classes):**
+
 ```apex
 // AccountProcessor.cls - Batch implementation
 public class AccountProcessor implements Database.Batchable<SObject>
@@ -315,6 +342,7 @@ else
 ```
 
 **KernDX Async Framework (Unified, Reusable):**
+
 ```apex
 // AccountProcessor.cls - One class works for both Batch and Queueable
 public with sharing class AccountProcessor implements
@@ -353,6 +381,7 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 ```
 
 **Key Differences:**
+
 - **OOTB:** Two separate classes, manual strategy selection, duplicate logic
 - **KernDX:** One processor class, automatic strategy selection, reusable logic
 
@@ -487,11 +516,11 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 
 ### Execution Strategy Comparison
 
-| Strategy                  | Execution Pattern                       | Best For                          | Limits                              |
-|---------------------------|-----------------------------------------|-----------------------------------|-------------------------------------|
-| **PARALLEL_QUEUEABLES**   | Multiple queueables run concurrently    | Small datasets, fastest execution | Max 50 queueables per transaction   |
-| **CHAINABLE**             | Sequential queueables, each chains next | Medium datasets, async context    | 1 child per queueable              |
-| **BATCH**                 | Batch Apex with configurable scope      | Large datasets, query-based       | 5 concurrent batches                |
+| Strategy                | Execution Pattern                       | Best For                          | Limits                            |
+|-------------------------|-----------------------------------------|-----------------------------------|-----------------------------------|
+| **PARALLEL_QUEUEABLES** | Multiple queueables run concurrently    | Small datasets, fastest execution | Max 50 queueables per transaction |
+| **CHAINABLE**           | Sequential queueables, each chains next | Medium datasets, async context    | 1 child per queueable             |
+| **BATCH**               | Batch Apex with configurable scope      | Large datasets, query-based       | 5 concurrent batches              |
 
 ---
 
@@ -535,18 +564,20 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 
 ### Framework Selection Matrix (for Architects)
 
-| Scenario                               | Recommended Approach                                  | Why                                                  |
-|----------------------------------------|-------------------------------------------------------|------------------------------------------------------|
-| **Trigger processing > 200 records**   | [`UTIL_AsynchronousJobLauncher`][ujl] with AUTO       | Offload heavy processing, avoid trigger timeouts     |
-| **Nightly data cleanup**               | [`ScheduledJob__c`][js] + [`SCHED_PurgeRecords`][spr] | Declarative, no code deployment for schedule changes |
-| **API response processing**            | [`UTIL_AsynchronousJobLauncher`][ujl] with BATCH      | Handle large API responses reliably                  |
-| **User-initiated bulk action**         | [`UTIL_AsynchronousJobLauncher`][ujl] with AUTO       | Fast for small sets, scales for large                |
-| **Integration sync (hourly)**          | [`ScheduledJob__c`][js] + custom `SCHED_*`            | Configurable, monitorable                            |
-| **One-time data migration**            | [`UTIL_AsynchronousJobLauncher`][ujl] with BATCH      | Maximum throughput, query-based                      |
-| **Email campaign processing**          | [`UTIL_AsynchronousJobLauncher`][ujl] + callouts      | Handles callout limits per transaction               |
+| Scenario                             | Recommended Approach                                  | Why                                                  |
+|--------------------------------------|-------------------------------------------------------|------------------------------------------------------|
+| **Trigger processing > 200 records** | [`UTIL_AsynchronousJobLauncher`][ujl] with AUTO       | Offload heavy processing, avoid trigger timeouts     |
+| **Nightly data cleanup**             | [`ScheduledJob__c`][js] + [`SCHED_PurgeRecords`][spr] | Declarative, no code deployment for schedule changes |
+| **API response processing**          | [`UTIL_AsynchronousJobLauncher`][ujl] with BATCH      | Handle large API responses reliably                  |
+| **User-initiated bulk action**       | [`UTIL_AsynchronousJobLauncher`][ujl] with AUTO       | Fast for small sets, scales for large                |
+| **Integration sync (hourly)**        | [`ScheduledJob__c`][js] + custom `SCHED_*`            | Configurable, monitorable                            |
+| **One-time data migration**          | [`UTIL_AsynchronousJobLauncher`][ujl] with BATCH      | Maximum throughput, query-based                      |
+| **Email campaign processing**        | [`UTIL_AsynchronousJobLauncher`][ujl] + callouts      | Handles callout limits per transaction               |
 
 [ujl]: reference/apex/UTIL_AsynchronousJobLauncher.md
+
 [js]: reference/objects/ScheduledJob__c.md
+
 [spr]: reference/apex/SCHED_PurgeRecords.md
 
 ---
@@ -668,11 +699,11 @@ and built-in error handling. Each step runs in its own transaction with fresh go
 
 ### When to Use Chains
 
-| Pattern | Best for |
-|---------|----------|
-| Single processor (`IF_Async.Processable`) | Processing a collection of records with the same logic |
-| Scheduler (`IF_Schedulable`) | Recurring jobs on a cron schedule |
-| **Async chain** | Multi-step workflows where steps must run sequentially, each needing fresh governor limits |
+| Pattern                                   | Best for                                                                                   |
+|-------------------------------------------|--------------------------------------------------------------------------------------------|
+| Single processor (`IF_Async.Processable`) | Processing a collection of records with the same logic                                     |
+| Scheduler (`IF_Schedulable`)              | Recurring jobs on a cron schedule                                                          |
+| **Async chain**                           | Multi-step workflows where steps must run sequentially, each needing fresh governor limits |
 
 Use chains when your workflow has distinct phases that depend on each other -- for example, load data, transform it,
 then send a notification. Each step can make callouts, run DML, and query without competing for the same transaction's limits.
@@ -801,13 +832,13 @@ public class TransformDataStep extends UTIL_AsyncChain.ChainStep
 
 **StepResult factories:**
 
-| Method | Use |
-|--------|-----|
-| `UTIL_AsyncChain.succeeded()` | Success, no message |
-| `UTIL_AsyncChain.succeeded(message)` | Success with descriptive message |
+| Method                                     | Use                                   |
+|--------------------------------------------|---------------------------------------|
+| `UTIL_AsyncChain.succeeded()`              | Success, no message                   |
+| `UTIL_AsyncChain.succeeded(message)`       | Success with descriptive message      |
 | `UTIL_AsyncChain.succeeded(message, data)` | Success with message and payload data |
-| `UTIL_AsyncChain.failed(message)` | Failure with descriptive message |
-| `UTIL_AsyncChain.failed(exception)` | Failure from caught exception |
+| `UTIL_AsyncChain.failed(message)`          | Failure with descriptive message      |
+| `UTIL_AsyncChain.failed(exception)`        | Failure from caught exception         |
 
 ### Chain Builder API
 
@@ -825,17 +856,17 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 	.execute();
 ```
 
-| Method | Description |
-|--------|-------------|
-| `.then(IF_Chain.Step)` | Appends a step to the chain (accepts interface or ChainStep) |
-| `.then(IF_Chain.Step, Boolean)` | Appends a step with explicit `continueOnError` control |
-| `.withInitialContext(key, value)` | Seeds the context with a key-value pair (additive) |
-| `.withMaxSteps(Integer)` | Maximum steps allowed (default: 50) |
-| `.withAsyncOptions(AsyncOptions)` | Sets queueable stack depth (for tests) |
-| `.onError(IF_Chain.Step)` | Registers a handler that runs when a step fails |
-| `.onComplete(IF_Chain.Step)` | Registers a handler that runs after all steps succeed |
-| `.execute()` | Persists config, enqueues the first step, returns the `AsyncChainExecution__c` ID |
-| `.execute(correlationId)` | Same as above with a caller-supplied correlation ID |
+| Method                            | Description                                                                       |
+|-----------------------------------|-----------------------------------------------------------------------------------|
+| `.then(IF_Chain.Step)`            | Appends a step to the chain (accepts interface or ChainStep)                      |
+| `.then(IF_Chain.Step, Boolean)`   | Appends a step with explicit `continueOnError` control                            |
+| `.withInitialContext(key, value)` | Seeds the context with a key-value pair (additive)                                |
+| `.withMaxSteps(Integer)`          | Maximum steps allowed (default: 50)                                               |
+| `.withAsyncOptions(AsyncOptions)` | Sets queueable stack depth (for tests)                                            |
+| `.onError(IF_Chain.Step)`         | Registers a handler that runs when a step fails                                   |
+| `.onComplete(IF_Chain.Step)`      | Registers a handler that runs after all steps succeed                             |
+| `.execute()`                      | Persists config, enqueues the first step, returns the `AsyncChainExecution__c` ID |
+| `.execute(correlationId)`         | Same as above with a caller-supplied correlation ID                               |
 
 ### Context Sharing
 
@@ -861,16 +892,16 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 }
 ```
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `get(key)` | `Object` | Raw value lookup |
-| `getAs(key, Type)` | `Object` | Deserializes to specified type (for complex objects crossing transaction boundaries) |
-| `put(key, value)` | `void` | Stores a value |
-| `has(key)` | `Boolean` | Checks key existence |
-| `getPreviousStepResult()` | `StepResult` | Result of the last completed step (null for first step) |
-| `getCurrentStepIndex()` | `Integer` | Zero-based index of the current step |
-| `getChainExecutionId()` | `String` | ID of the `AsyncChainExecution__c` tracking record |
-| `getCorrelationId()` | `String` | Correlation ID for log tracing |
+| Method                    | Returns      | Description                                                                          |
+|---------------------------|--------------|--------------------------------------------------------------------------------------|
+| `get(key)`                | `Object`     | Raw value lookup                                                                     |
+| `getAs(key, Type)`        | `Object`     | Deserializes to specified type (for complex objects crossing transaction boundaries) |
+| `put(key, value)`         | `void`       | Stores a value                                                                       |
+| `has(key)`                | `Boolean`    | Checks key existence                                                                 |
+| `getPreviousStepResult()` | `StepResult` | Result of the last completed step (null for first step)                              |
+| `getCurrentStepIndex()`   | `Integer`    | Zero-based index of the current step                                                 |
+| `getChainExecutionId()`   | `String`     | ID of the `AsyncChainExecution__c` tracking record                                   |
+| `getCorrelationId()`      | `String`     | Correlation ID for log tracing                                                       |
 
 ### Error Handling
 
@@ -924,20 +955,20 @@ Decimal totalSteps = (Decimal)status.get('totalSteps');
 
 **AsyncChainExecution__c fields:**
 
-| Field | Description |
-|-------|-------------|
-| `ChainName__c` | Descriptive name from `newChain()` |
-| `Status__c` | Running, Completed, Failed, or Aborted |
-| `TotalSteps__c` | Number of steps in the chain |
-| `CompletedSteps__c` | Steps that succeeded (failed steps are not counted) |
-| `CurrentStepName__c` | Name of the currently executing step |
-| `ErrorMessage__c` | Error details if failed; non-fatal failure summaries if completed with issues |
-| `DurationMs__c` | Total chain execution duration in milliseconds |
-| `StepLog__c` | JSON log of each step: className, success, durationMs, message (enriched at runtime) |
-| `CorrelationId__c` | Correlation ID for log tracing |
-| `ContextData__c` | Serialized chain context (JSON) |
-| `StartedAt__c` | When the chain started |
-| `CompletedAt__c` | When the chain finished |
+| Field                | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `ChainName__c`       | Descriptive name from `newChain()`                                                   |
+| `Status__c`          | Running, Completed, Failed, or Aborted                                               |
+| `TotalSteps__c`      | Number of steps in the chain                                                         |
+| `CompletedSteps__c`  | Steps that succeeded (failed steps are not counted)                                  |
+| `CurrentStepName__c` | Name of the currently executing step                                                 |
+| `ErrorMessage__c`    | Error details if failed; non-fatal failure summaries if completed with issues        |
+| `DurationMs__c`      | Total chain execution duration in milliseconds                                       |
+| `StepLog__c`         | JSON log of each step: className, success, durationMs, message (enriched at runtime) |
+| `CorrelationId__c`   | Correlation ID for log tracing                                                       |
+| `ContextData__c`     | Serialized chain context (JSON)                                                      |
+| `StartedAt__c`       | When the chain started                                                               |
+| `CompletedAt__c`     | When the chain finished                                                              |
 
 The object has field history tracking enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and
 `CompletedAt__c`, providing a full audit trail of chain progression step by step.
@@ -948,13 +979,13 @@ The chain framework minimises log noise. Progress is tracked on the `AsyncChainE
 CompletedSteps, CurrentStepName, DurationMs). `CompletedSteps__c` counts only steps that succeeded — failed
 steps (including `continueOnError`) are not counted. Logs are reserved for actionable events only:
 
-| Event | Level | When |
-|-------|-------|------|
-| Step exception (stack trace) | Error | Step throws an unhandled exception |
-| Step failed but continuing | Warn | `continueOnError` step fails — includes failure reason and duration |
-| Chain crashed | Error | Finalizer catches unhandled Queueable crash (governor limits) |
-| Chain aborted | Warn | Kill switch active or max steps exceeded |
-| Execution record deleted | Warn | Rare — record removed externally while chain running |
+| Event                        | Level | When                                                                |
+|------------------------------|-------|---------------------------------------------------------------------|
+| Step exception (stack trace) | Error | Step throws an unhandled exception                                  |
+| Step failed but continuing   | Warn  | `continueOnError` step fails — includes failure reason and duration |
+| Chain crashed                | Error | Finalizer catches unhandled Queueable crash (governor limits)       |
+| Chain aborted                | Warn  | Kill switch active or max steps exceeded                            |
+| Execution record deleted     | Warn  | Rare — record removed externally while chain running                |
 
 **Performance logging** is automatic via `UTIL_PerformanceTimer`. Each step is timed; if the step duration
 exceeds the threshold in `LogSetting__c.PerformanceThresholdMs__c`, a structured performance log is emitted
@@ -1032,14 +1063,14 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 
 #### Builder Methods
 
-| Method | Purpose |
-|--------|---------|
-| `new ApiStep(Type)` | Wrap an `API_Outbound` subclass |
-| `.credential(String)` | Override the Named Credential |
-| `.withParameter(name, value)` | Pass a static parameter to the handler |
+| Method                                      | Purpose                                        |
+|---------------------------------------------|------------------------------------------------|
+| `new ApiStep(Type)`                         | Wrap an `API_Outbound` subclass                |
+| `.credential(String)`                       | Override the Named Credential                  |
+| `.withParameter(name, value)`               | Pass a static parameter to the handler         |
 | `.withParameterFrom(paramName, contextKey)` | Resolve a parameter from a prior step's output |
-| `.triggeringRecord(Id)` | Static triggering record ID |
-| `.triggeringRecordFrom(contextKey)` | Read triggering record ID from context |
+| `.triggeringRecord(Id)`                     | Static triggering record ID                    |
+| `.triggeringRecordFrom(contextKey)`         | Read triggering record ID from context         |
 
 #### Reading Results from Downstream Steps
 
@@ -1066,10 +1097,10 @@ public class ProcessPaymentResultStep extends UTIL_AsyncChain.ChainStep
 
 The same `API_Outbound` handler works in both modes with zero changes:
 
-| Mode | Entry Point | Lifecycle |
-|------|-------------|-----------|
-| **Standalone** | `UTIL_HttpClient.useHandler(API_SendEmail.class).withParameter(...).invoke()` | Synchronous, caller controls |
-| **Chain step** | `.then(new UTIL_AsyncChain.ApiStep(API_SendEmail.class).withParameter(...))` | Async, chain controls error/retry |
+| Mode           | Entry Point                                                                   | Lifecycle                         |
+|----------------|-------------------------------------------------------------------------------|-----------------------------------|
+| **Standalone** | `UTIL_HttpClient.useHandler(API_SendEmail.class).withParameter(...).invoke()` | Synchronous, caller controls      |
+| **Chain step** | `.then(new UTIL_AsyncChain.ApiStep(API_SendEmail.class).withParameter(...))`  | Async, chain controls error/retry |
 
 #### Error Handling
 
@@ -1195,16 +1226,16 @@ private static void shouldCompleteThreeStepChain()
 
 #### ScheduledJob__c Fields
 
-| Field                | Type      | Description                                                                                                                          |
-|----------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `SchedulerName__c`   | Text      | Human-readable name for the job                                                                                                      |
-| `ClassName__c`       | Text      | Fully qualified class name (with namespace if needed)                                                                                |
-| `CronExpression__c`  | Text      | Standard Salesforce [cron expression](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm)   |
-| `IsActive__c`        | Checkbox  | When true, job runs; when false, job stopped                                                                                         |
-| `Parameters__c`      | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs for configurable schedulers                                      |
-| `Description__c`     | Long Text | Documentation of job purpose                                                                                                         |
-| `Timezone__c`        | Text      | IANA TimeZoneSidKey of the cron author (e.g., `Africa/Johannesburg`). Used for timezone-aware scheduling                             |
-| `ScheduledJobId__c`  | Text      | Auto-populated with CronTrigger ID                                                                                                   |
+| Field               | Type                   | Description                                                                                                                        |
+|---------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `SchedulerName__c`  | Text                   | Human-readable name for the job                                                                                                    |
+| `ClassName__c`      | Text                   | Fully qualified class name (with namespace if needed)                                                                              |
+| `CronExpression__c` | Text                   | Standard Salesforce [cron expression](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm) |
+| `IsActive__c`       | Checkbox               | When true, job runs; when false, job stopped                                                                                       |
+| `Parameters__c`     | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs for configurable schedulers                                           |
+| `Description__c`    | Long Text              | Documentation of job purpose                                                                                                       |
+| `Timezone__c`       | Text                   | IANA TimeZoneSidKey of the cron author (e.g., `Africa/Johannesburg`). Used for timezone-aware scheduling                           |
+| `ScheduledJobId__c` | Text                   | Auto-populated with CronTrigger ID                                                                                                 |
 
 #### Example: Create a Purge Job via UI
 
@@ -1226,44 +1257,46 @@ DML_Builder.newTransaction().doInsert(purgeJob).execute();
 
 #### Common Cron Expressions
 
-| Schedule                 | Cron Expression          | Description                |
-|--------------------------|--------------------------|----------------------------|
-| Daily at 2 AM            | `0 0 2 * * ?`            | Every day at 2:00 AM       |
-| Hourly                   | `0 0 * * * ?`            | Every hour on the hour     |
-| Every 15 minutes         | `0 0,15,30,45 * * * ?`   | At :00, :15, :30, :45      |
-| Weekly Sunday 1 AM       | `0 0 1 ? * SUN`          | Every Sunday at 1:00 AM    |
-| Monthly 1st at midnight  | `0 0 0 1 * ?`            | First of month at midnight |
-| Weekdays 8 AM            | `0 0 8 ? * MON-FRI`      | Monday-Friday at 8:00 AM   |
+| Schedule                | Cron Expression        | Description                |
+|-------------------------|------------------------|----------------------------|
+| Daily at 2 AM           | `0 0 2 * * ?`          | Every day at 2:00 AM       |
+| Hourly                  | `0 0 * * * ?`          | Every hour on the hour     |
+| Every 15 minutes        | `0 0,15,30,45 * * * ?` | At :00, :15, :30, :45      |
+| Weekly Sunday 1 AM      | `0 0 1 ? * SUN`        | Every Sunday at 1:00 AM    |
+| Monthly 1st at midnight | `0 0 0 1 * ?`          | First of month at midnight |
+| Weekdays 8 AM           | `0 0 8 ? * MON-FRI`    | Monday-Friday at 8:00 AM   |
 
 #### Timezone Awareness
 
-`System.schedule()` interprets cron expressions in the **running user's timezone**. If User A (SAST, UTC+2) creates a job for noon and User B (PST, UTC-8) later activates it, the job fires at noon PST — 10 hours late. The scheduler framework solves this automatically.
+`System.schedule()` interprets cron expressions in the **running user's timezone**. If User A (SAST, UTC+2) creates a job for noon and User B (PST, UTC-8) later activates it, the
+job fires at noon PST — 10 hours late. The scheduler framework solves this automatically.
 
 **How it works:**
 
 1. When a `ScheduledJob__c` record is saved via the LWC editor, `Timezone__c` is populated with the authoring user's IANA TimeZoneSidKey
-2. When the trigger schedules the job, the framework automatically adjusts the cron hours (and minutes for half-hour timezones like India UTC+5:30) from the stored timezone to the running user's timezone
+2. When the trigger schedules the job, the framework automatically adjusts the cron hours (and minutes for half-hour timezones like India UTC+5:30) from the stored timezone to the
+   running user's timezone
 3. The adjusted cron is passed to `System.schedule()`, ensuring the job fires at the originally intended absolute time
 
 **Edge cases handled:**
 
-| Scenario | Behaviour |
-|----------|-----------|
-| Same timezone (author = runner) | No shift — short-circuit |
-| Half-hour timezones (e.g., India UTC+5:30) | Minutes field also shifted |
-| Day rollover (hours cross midnight) | Day-of-week and day-of-month shifted accordingly |
-| Day-of-month boundary (would produce 0 or >31) | Day-of-month left unchanged to avoid invalid cron |
-| Wildcard/step hours (`*`, `*/2`) | Not shifted — fires at regular intervals regardless |
-| `L`/`W` day-of-month suffixes | Not shifted — relative expressions cannot be reliably shifted |
+| Scenario                                       | Behaviour                                                     |
+|------------------------------------------------|---------------------------------------------------------------|
+| Same timezone (author = runner)                | No shift — short-circuit                                      |
+| Half-hour timezones (e.g., India UTC+5:30)     | Minutes field also shifted                                    |
+| Day rollover (hours cross midnight)            | Day-of-week and day-of-month shifted accordingly              |
+| Day-of-month boundary (would produce 0 or >31) | Day-of-month left unchanged to avoid invalid cron             |
+| Wildcard/step hours (`*`, `*/2`)               | Not shifted — fires at regular intervals regardless           |
+| `L`/`W` day-of-month suffixes                  | Not shifted — relative expressions cannot be reliably shifted |
 
 ### Built-in Schedulers
 
 | Scheduler                                                                        | Purpose                   | Key Attributes                                                    |
 |----------------------------------------------------------------------------------|---------------------------|-------------------------------------------------------------------|
-| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                    | Delete old records        | `objectName`, `minimumNumberOfDays`, `dateFieldName`, `batchSize` |
-| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)              | Deactivate inactive users | `profileNames`, `minimumNumberOfDays`, `batchSize`                |
+| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | Delete old records        | `objectName`, `minimumNumberOfDays`, `dateFieldName`, `batchSize` |
+| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | Deactivate inactive users | `profileNames`, `minimumNumberOfDays`, `batchSize`                |
 | [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | Process queued callouts   | `batchSize`                                                       |
-| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)      | Process login records     | `batchSize`                                                       |
+| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)       | Process login records     | `batchSize`                                                       |
 
 > **See Also:** [`DTO_NameValues`](reference/apex/DTO_NameValues.md) for attribute parsing utilities.
 
@@ -1466,41 +1499,43 @@ All methods are available on [`LOG_Builder`](reference/apex/LOG_Builder.md):
 
 ### What Can Be Scheduled?
 
-| Task Type                  | Built-in Solution                                                                | Custom Required | Effort         |
-|----------------------------|----------------------------------------------------------------------------------|-----------------|----------------|
-| Delete old records         | [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                    | No              | Configure only |
-| Deactivate inactive users  | [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)              | No              | Configure only |
-| Process queued callouts    | [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | No              | Configure only |
-| Sync with external system  | -                                                                                | Yes             | Medium         |
-| Generate reports           | -                                                                                | Yes             | Medium         |
-| Send batch emails          | -                                                                                | Yes             | Low            |
-| Data quality checks        | -                                                                                | Yes             | Medium         |
+| Task Type                 | Built-in Solution                                                                | Custom Required | Effort         |
+|---------------------------|----------------------------------------------------------------------------------|-----------------|----------------|
+| Delete old records        | [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | No              | Configure only |
+| Deactivate inactive users | [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | No              | Configure only |
+| Process queued callouts   | [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | No              | Configure only |
+| Sync with external system | -                                                                                | Yes             | Medium         |
+| Generate reports          | -                                                                                | Yes             | Medium         |
+| Send batch emails         | -                                                                                | Yes             | Low            |
+| Data quality checks       | -                                                                                | Yes             | Medium         |
 
 ### Configuration Reference: [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)
 
-| Attribute             | Required | Default       | Description                                     |
-|-----------------------|----------|---------------|-------------------------------------------------|
+| Attribute             | Required | Default       | Description                                       |
+|-----------------------|----------|---------------|---------------------------------------------------|
 | `objectName`          | **Yes**  | -             | API name of object to purge (e.g., `LogEntry__c`) |
-| `minimumNumberOfDays` | No       | 90            | Records older than this are deleted             |
-| `dateFieldName`       | No       | `CreatedDate` | Field to check age against                      |
-| `batchSize`           | No       | 200           | Records per batch transaction                   |
-| `allOrNothing`        | No       | false         | If true, rollback batch on any error            |
+| `minimumNumberOfDays` | No       | 90            | Records older than this are deleted               |
+| `dateFieldName`       | No       | `CreatedDate` | Field to check age against                        |
+| `batchSize`           | No       | 200           | Records per batch transaction                     |
+| `allOrNothing`        | No       | false         | If true, rollback batch on any error              |
 
 **Example Parameters__c value** (set via `DTO_NameValues`)**:**
+
 ```json
 {"objectName":"LogEntry__c","minimumNumberOfDays":"90","batchSize":"1000"}
 ```
 
 ### Configuration Reference: [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)
 
-| Attribute             | Required | Default | Description                                                       |
-|-----------------------|----------|---------|-------------------------------------------------------------------|
-| `profileNames`        | **Yes**  | -       | Pipe-separated profile names (e.g., `Standard User|Chatter User`) |
-| `minimumNumberOfDays` | No       | 180     | Days since last login                                             |
-| `batchSize`           | No       | 200     | Records per batch transaction                                     |
-| `allOrNothing`        | No       | false   | If true, rollback batch on any error                              |
+| Attribute             | Required | Default | Description                                        |
+|-----------------------|----------|---------|----------------------------------------------------|
+| `profileNames`        | **Yes**  | -       | Pipe-separated profile names (e.g., `Standard User |Chatter User`) |
+| `minimumNumberOfDays` | No       | 180     | Days since last login                              |
+| `batchSize`           | No       | 200     | Records per batch transaction                      |
+| `allOrNothing`        | No       | false   | If true, rollback batch on any error               |
 
 **Example Parameters__c value** (set via `DTO_NameValues`)**:**
+
 ```json
 {"profileNames":"Standard User|Chatter Free User","minimumNumberOfDays":"180","batchSize":"100"}
 ```
@@ -1575,6 +1610,37 @@ List<AsyncApexJob> failedJobs = [
 ];
 ```
 
+### Monitoring Async Chain Failures
+
+A Queueable that fails on an **uncatchable** error — a governor-limit crash that no `try/catch` inside the step can trap — would otherwise
+vanish: `AsyncApexJob` marks it `Failed` with little detail, and a hand-rolled chain could sit stuck in a `Running` state forever. The async
+chain framework closes that gap with a
+[Transaction Finalizer](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_transaction_finalizers.htm) on every step.
+The finalizer receives fresh governor limits even after the crash and does two things:
+
+1. **Logs the failure.** It writes an `Error` `LogEntry__c` carrying the chain's correlation ID and the failure reason, so the crash is durable
+   and correlated even though the Queueable itself died (see the [Logging Guide](Logging%20-%20Guide.md#async-context-propagation)).
+2. **Marks the chain Failed.** It sets the `AsyncChainExecution__c` record's `Status__c` to `Failed` (with the reason in `ErrorMessage__c`), so the
+   chain never lingers as a zombie in `Running`.
+
+To find failed chains, filter `AsyncChainExecution__c` on `Status__c = 'Failed'` — in a report, a list view, or the Developer Console:
+
+```apex
+// Recent chain failures, newest first (Developer Console)
+List<AsyncChainExecution__c> failedChains = [
+	SELECT ChainName__c, CurrentStepName__c, ErrorMessage__c, CorrelationId__c, CompletedAt__c
+	FROM AsyncChainExecution__c
+	WHERE Status__c = 'Failed'
+	AND CreatedDate = LAST_N_DAYS:7
+	ORDER BY CreatedDate DESC
+];
+```
+
+Use each row's `CorrelationId__c` to pull the full correlated trace from `LogEntry__c`. The chain
+[Monitoring](#monitoring) section above lists every `AsyncChainExecution__c` field, and the
+[Logging Strategy](#logging-strategy) table records the exact events the framework logs. For a single chain whose Id you already hold,
+`UTIL_AsyncChain.getStatus(executionId)` returns its live status with no query.
+
 ---
 
 ## Testing
@@ -1639,24 +1705,24 @@ mock, etc.).
 
 ## Common Pitfalls
 
-| Issue                    | Cause                  | Solution                                                                                 |
-|--------------------------|------------------------|------------------------------------------------------------------------------------------|
-| Job doesn't start        | `IsActive__c` = false  | Set `IsActive__c` = true                                                                 |
-| Job fails immediately    | Invalid class name     | Check `ClassName__c` includes namespace                                                  |
-| Job runs but errors      | Processing logic issue | Check [`LogEntry__c`](reference/objects/LogEntry__c.md) for errors with job's CorrelationId  |
-| Job stuck in Processing  | Apex error or timeout  | Check `AsyncApexJob.ExtendedStatus`, abort if needed                                     |
-| Schedule not updating    | Old job not aborted    | Framework handles this - check trigger is active                                         |
+| Issue                   | Cause                  | Solution                                                                                    |
+|-------------------------|------------------------|---------------------------------------------------------------------------------------------|
+| Job doesn't start       | `IsActive__c` = false  | Set `IsActive__c` = true                                                                    |
+| Job fails immediately   | Invalid class name     | Check `ClassName__c` includes namespace                                                     |
+| Job runs but errors     | Processing logic issue | Check [`LogEntry__c`](reference/objects/LogEntry__c.md) for errors with job's CorrelationId |
+| Job stuck in Processing | Apex error or timeout  | Check `AsyncApexJob.ExtendedStatus`, abort if needed                                        |
+| Schedule not updating   | Old job not aborted    | Framework handles this - check trigger is active                                            |
 
 ---
 
 ## Anti-Patterns
 
-|Anti-Pattern|Why It's Wrong|Instead|
-|---|---|---|
-|Hardcoding `System.enqueueJob()` or `Database.executeBatch()`|Bypasses automatic strategy selection and governor-limit-aware chunking|Use `UTIL_AsynchronousJobLauncher.process()`|
-|Loading all records into memory before launching|Causes heap size exceptions on large datasets|Pass a `QRY_Builder.Builder` so Batch Apex streams records|
-|Business logic in the schedulable class|Cannot be reused, tested independently, or launched outside a schedule|Implement `Processable` for logic; keep schedulables thin|
-|Ignoring `Finishable` for jobs that need cleanup|No notification, no error summary, no follow-up action|Implement `Finishable` for post-processing or alerting|
+| Anti-Pattern                                                  | Why It's Wrong                                                          | Instead                                                    |
+|---------------------------------------------------------------|-------------------------------------------------------------------------|------------------------------------------------------------|
+| Hardcoding `System.enqueueJob()` or `Database.executeBatch()` | Bypasses automatic strategy selection and governor-limit-aware chunking | Use `UTIL_AsynchronousJobLauncher.process()`               |
+| Loading all records into memory before launching              | Causes heap size exceptions on large datasets                           | Pass a `QRY_Builder.Builder` so Batch Apex streams records |
+| Business logic in the schedulable class                       | Cannot be reused, tested independently, or launched outside a schedule  | Implement `Processable` for logic; keep schedulables thin  |
+| Ignoring `Finishable` for jobs that need cleanup              | No notification, no error summary, no follow-up action                  | Implement `Finishable` for post-processing or alerting     |
 
 ---
 
@@ -1706,11 +1772,11 @@ mock, etc.).
 |----------------------------------------------------------------------------------|----------------------------|------------------------------|
 | [`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md) | Launch ad-hoc async jobs   | Triggers, APIs, user actions |
 | [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)                        | Declarative job scheduling | Recurring jobs (recommended) |
-| [`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)         | Define processing logic    | All async processing         |
-| [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md)           | Cleanup/notification       | When post-processing needed  |
+| [`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)                 | Define processing logic    | All async processing         |
+| [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md)                   | Cleanup/notification       | When post-processing needed  |
 | [`IF_Schedulable`](reference/apex/IF_Schedulable.md)                             | Parameterized schedulers   | Flexible recurring jobs      |
-| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                    | Delete old records         | Data retention policies      |
-| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)              | Deactivate inactive users  | User lifecycle management    |
+| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | Delete old records         | Data retention policies      |
+| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | Deactivate inactive users  | User lifecycle management    |
 
 **Key Takeaways:**
 

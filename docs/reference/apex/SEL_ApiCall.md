@@ -4,7 +4,7 @@ type: class
 description: "Selector for the ApiCall__c object. Provides query methods for service call management, status tracking, and assertion utilities for test verification."
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---

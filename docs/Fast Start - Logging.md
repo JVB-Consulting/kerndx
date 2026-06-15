@@ -30,23 +30,24 @@ coverage.
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Log at every level](#log-at-every-level)
-   - [Log an exception with full stack trace](#log-an-exception-with-full-stack-trace)
-   - [Correlate logs to a record](#correlate-logs-to-a-record)
+    - [Log at every level](#log-at-every-level)
+    - [Log an exception with full stack trace](#log-an-exception-with-full-stack-trace)
+    - [Correlate logs to a record](#correlate-logs-to-a-record)
 2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-   - [Step 1: Create the service class](#step-1-create-the-service-class)
-   - [Step 2: Deploy and execute](#step-2-deploy-and-execute)
-   - [Step 3: Write the test class](#step-3-write-the-test-class)
-   - [Step 4: Deploy and run tests](#step-4-deploy-and-run-tests)
-     - [Key Patterns](#key-patterns)
+    - [Step 1: Create the service class](#step-1-create-the-service-class)
+    - [Step 2: Deploy and execute](#step-2-deploy-and-execute)
+    - [Step 3: Write the test class](#step-3-write-the-test-class)
+    - [Step 4: Deploy and run tests](#step-4-deploy-and-run-tests)
+        - [Key Patterns](#key-patterns)
 3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-   - [Log levels](#log-levels)
-   - [Shorthand: .emitAt()](#shorthand-emitat)
-   - [Exception logging](#exception-logging)
-   - [Testing with logs](#testing-with-logs)
-   - [Scoped logging](#scoped-logging)
-   - [Logging from Flows](#logging-from-flows)
-   - [Logging from LWC](#logging-from-lwc)
+    - [Log levels](#log-levels)
+    - [Flood control for repeated events](#flood-control-for-repeated-events)
+    - [Shorthand: .emitAt()](#shorthand-emitat)
+    - [Exception logging](#exception-logging)
+    - [Testing with logs](#testing-with-logs)
+    - [Scoped logging](#scoped-logging)
+    - [Logging from Flows](#logging-from-flows)
+    - [Logging from LWC](#logging-from-lwc)
 4. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
 5. [Common Issues](#common-issues)
 6. [What You Now Know](#what-you-now-know)
@@ -368,15 +369,15 @@ Failing          0
 
 #### Key Patterns
 
-| Pattern | Example | Why |
-|---------|---------|-----|
-| Scope batching | `LOG_Builder.scope()` + try/finally | Prevents PE governor hit; groups entries under one Correlation ID |
-| Log at method boundaries | `.info('started')` + `.info('completed')` | Trace execution flow in production |
-| Per-record context | `.forRecord(account.Id)` | All logs for one record queryable together |
-| Debug inside loops | `.debug('Processing account')` | Filtered in production; visible in sandbox |
-| Catch-log-continue | `.error(error)` in catch, no rethrow | Persistent record; processing continues for remaining items |
-| Single-shot alert | `.error('message').emitAt(...)` | One-liner for config/startup errors |
-| Query by UserId | `kern__UserId__c = UserInfo.getUserId()` | NOT `CreatedById` — TRG_PersistLogEntry runs as Automated Process user |
+| Pattern                  | Example                                   | Why                                                                    |
+|--------------------------|-------------------------------------------|------------------------------------------------------------------------|
+| Scope batching           | `LOG_Builder.scope()` + try/finally       | Prevents PE governor hit; groups entries under one Correlation ID      |
+| Log at method boundaries | `.info('started')` + `.info('completed')` | Trace execution flow in production                                     |
+| Per-record context       | `.forRecord(account.Id)`                  | All logs for one record queryable together                             |
+| Debug inside loops       | `.debug('Processing account')`            | Filtered in production; visible in sandbox                             |
+| Catch-log-continue       | `.error(error)` in catch, no rethrow      | Persistent record; processing continues for remaining items            |
+| Single-shot alert        | `.error('message').emitAt(...)`           | One-liner for config/startup errors                                    |
+| Query by UserId          | `kern__UserId__c = UserInfo.getUserId()`  | NOT `CreatedById` — TRG_PersistLogEntry runs as Automated Process user |
 
 ---
 
@@ -387,12 +388,25 @@ Failing          0
 See the [Logging Guide](Logging%20-%20Guide.md) for the complete log level reference and filtering
 configuration.
 
-| Level | Method | When to use |
-|-------|--------|-------------|
-| ERROR | `.error(exception)` or `.error('message')` | Failures, exceptions, data corruption |
-| WARN | `.warn('message')` | Business rule violations, missing optional data, degraded performance |
-| INFO | `.info('message')` | Key business events, state transitions, completion messages |
-| DEBUG | `.debug('message')` | Implementation details, variable values (filtered in production) |
+| Level | Method                                     | When to use                                                           |
+|-------|--------------------------------------------|-----------------------------------------------------------------------|
+| ERROR | `.error(exception)` or `.error('message')` | Failures, exceptions, data corruption                                 |
+| WARN  | `.warn('message')`                         | Business rule violations, missing optional data, degraded performance |
+| INFO  | `.info('message')`                         | Key business events, state transitions, completion messages           |
+| DEBUG | `.debug('message')`                        | Implementation details, variable values (filtered in production)      |
+
+### Flood control for repeated events
+
+When the same event fires in a hot loop, tag it with a fingerprint so it doesn't flood the log table — the first occurrence keeps a full entry and repeats roll up into a daily counter:
+
+```apex
+kern.LOG_Builder.build()
+		.warn('Payment gateway retry failed')
+		.withFingerprint('payment-gateway-retry')
+		.emitAt('PaymentSync.run');
+```
+
+Use a stable identity for the *kind* of event (never a record Id or timestamp). See [Log Grouping & Flood Control](Logging%20-%20Guide.md#log-grouping--flood-control) in the Logging Guide for reading grouped logs and reporting on occurrence counts.
 
 ### Shorthand: `.emitAt()`
 
@@ -503,21 +517,21 @@ Use invocable actions to log from Flows. This creates correlated log entries vis
 
 1. Open **Setup > Flows** and edit your Flow (or create a new one)
 2. Add an **Action** element:
-   - Search for **Start Flow Correlation**
-   - Set **Label** to `Start Logging`
-   - Set **flowName** to the name of your Flow (e.g., `Account_Onboarding`)
-   - Set **recordId** to the record ID variable (e.g., `{!recordId}`)
-   - Store the output **correlationId** in a text variable (e.g., `{!correlationId}`)
+    - Search for **Start Flow Correlation**
+    - Set **Label** to `Start Logging`
+    - Set **flowName** to the name of your Flow (e.g., `Account_Onboarding`)
+    - Set **recordId** to the record ID variable (e.g., `{!recordId}`)
+    - Store the output **correlationId** in a text variable (e.g., `{!correlationId}`)
 3. At key steps, add **Action** elements:
-   - Search for **Log Flow Event**
-   - Set **correlationId** to `{!correlationId}`
-   - Set **message** to a description (e.g., `Account created successfully`)
-   - Set **Log Level** (input name `logLevel`) to `INFO`, `WARN`, or `ERROR`
+    - Search for **Log Flow Event**
+    - Set **correlationId** to `{!correlationId}`
+    - Set **message** to a description (e.g., `Account created successfully`)
+    - Set **Log Level** (input name `logLevel`) to `INFO`, `WARN`, or `ERROR`
 4. At the end of the Flow, add an **Action** element:
-   - Search for **End Flow Correlation**
-   - Set **flowName** to the same Flow name used in step 2
-   - Set **correlationId** to `{!correlationId}`
-   - Set **Success** (input name `success`) to `{!$GlobalConstant.True}` (or `False` for failure paths)
+    - Search for **End Flow Correlation**
+    - Set **flowName** to the same Flow name used in step 2
+    - Set **correlationId** to `{!correlationId}`
+    - Set **Success** (input name `success`) to `{!$GlobalConstant.True}` (or `False` for failure paths)
 5. **Save** and **Activate**
 
 All log entries from the Flow share the same Correlation ID, so you can filter them together in
@@ -547,14 +561,15 @@ Log entries pass through the data masking framework before persistence. Out of t
 - **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`,
   `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`) anywhere they appear in a
   field value.
-- **`MaskCreditCard`** — redacts Luhn-validated 13–19 digit sequences matching Visa / Mastercard / Amex /
-  Discover / Diners Club / JCB / UnionPay issuer prefixes. Luhn + issuer-prefix checks together filter out
-  transaction IDs, order numbers, and other long digit runs that would otherwise false-positive as card data.
+- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
+  major card brands; digits may be separated by spaces or hyphens. The Luhn check filters out most
+  transaction IDs, order numbers, and other long digit runs that would otherwise false-positive as card
+  data. (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
 
 So `LOG_Builder.build().info('Payload: ' + JSON.serialize(payload)).emitAt(...)` is safe even if `payload`
 contains a `password` or card number — the persisted `LogEntry__c.Message__c` will have them redacted.
-Twelve more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
-URL basic auth, authorization header, private IPv4) ship as inactive templates — flip
+Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
+URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates — flip
 `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule
 to the fields that need it.
 
@@ -574,36 +589,36 @@ to the fields that need it.
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| No log entries appear in tests | Logs suppressed in test context | Set `kern.LOG_Builder.ignoreTestMode = true` before logging |
-| Log entries empty after `ignoreTestMode` | Platform events not delivered | Call `Test.getEventBus().deliver()` after emitting and before asserting |
-| Query returns zero rows in tests | Filtering by `CreatedById` instead of `kern__UserId__c` | Use `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()` — `TRG_PersistLogEntry` runs as the Automated Process user, so `CreatedById` never matches the running user |
-| `Variable does not exist: kern__LogEntry__c` | Missing namespace prefix | Use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for SObjects and fields |
-| `.error(error.getMessage())` loses stack trace | Passing String instead of Exception | Use `.error(error)` to pass the Exception object directly |
-| Logs have no method context | Missing `.at()` or `.emitAt()` | Always include `.emitAt('Class.method')` or `.at('Class.method')` |
-| PE governor error after many emits | >150 `PublishImmediate` events in one transaction | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush |
-| `Test.getEventBus()` not found | Running outside `@IsTest` context | `Test.getEventBus().deliver()` only works inside test methods |
-| Sensitive value appears raw in a log | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard) — see [Logging Guide](Logging%20-%20Guide.md) |
+| Problem                                        | Cause                                                      | Fix                                                                                                                                                                        |
+|------------------------------------------------|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| No log entries appear in tests                 | Logs suppressed in test context                            | Set `kern.LOG_Builder.ignoreTestMode = true` before logging                                                                                                                |
+| Log entries empty after `ignoreTestMode`       | Platform events not delivered                              | Call `Test.getEventBus().deliver()` after emitting and before asserting                                                                                                    |
+| Query returns zero rows in tests               | Filtering by `CreatedById` instead of `kern__UserId__c`    | Use `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()` — `TRG_PersistLogEntry` runs as the Automated Process user, so `CreatedById` never matches the running user |
+| `Variable does not exist: kern__LogEntry__c`   | Missing namespace prefix                                   | Use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for SObjects and fields                                                                               |
+| `.error(error.getMessage())` loses stack trace | Passing String instead of Exception                        | Use `.error(error)` to pass the Exception object directly                                                                                                                  |
+| Logs have no method context                    | Missing `.at()` or `.emitAt()`                             | Always include `.emitAt('Class.method')` or `.at('Class.method')`                                                                                                          |
+| PE governor error after many emits             | >150 `PublishImmediate` events in one transaction          | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush                                                                                             |
+| `Test.getEventBus()` not found                 | Running outside `@IsTest` context                          | `Test.getEventBus().deliver()` only works inside test methods                                                                                                              |
+| Sensitive value appears raw in a log           | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard) — see [Logging Guide](Logging%20-%20Guide.md)              |
 
 ---
 
 ## What You Now Know
 
-| Concept | What it does |
-|---------|--------------|
-| `kern.LOG_Builder.build()` | Creates a fluent log entry builder |
-| `.info()` / `.warn()` / `.error()` / `.debug()` | Sets the log level |
-| `.at('Class.method')` | Records where the log came from |
-| `.forRecord(Id)` | Links the log entry to a specific record |
-| `.withContext(key, value)` | Adds structured key-value data |
-| `.withSummary(message)` | Sets a short searchable summary on the entry |
-| `.emitAt('Class.method')` | Shorthand for `.at().emit()` |
-| `.emit()` | Publishes the log as a platform event |
-| `LOG_Builder.scope()` | Batches all emits under one Correlation ID; prevents PE governor hit |
-| `ignoreTestMode = true` | Enables logging in test context |
-| `Test.getEventBus().deliver()` | Delivers platform events synchronously in tests |
-| `kern__UserId__c` | The field to filter on when querying log entries — NOT `CreatedById` |
+| Concept                                         | What it does                                                         |
+|-------------------------------------------------|----------------------------------------------------------------------|
+| `kern.LOG_Builder.build()`                      | Creates a fluent log entry builder                                   |
+| `.info()` / `.warn()` / `.error()` / `.debug()` | Sets the log level                                                   |
+| `.at('Class.method')`                           | Records where the log came from                                      |
+| `.forRecord(Id)`                                | Links the log entry to a specific record                             |
+| `.withContext(key, value)`                      | Adds structured key-value data                                       |
+| `.withSummary(message)`                         | Sets a short searchable summary on the entry                         |
+| `.emitAt('Class.method')`                       | Shorthand for `.at().emit()`                                         |
+| `.emit()`                                       | Publishes the log as a platform event                                |
+| `LOG_Builder.scope()`                           | Batches all emits under one Correlation ID; prevents PE governor hit |
+| `ignoreTestMode = true`                         | Enables logging in test context                                      |
+| `Test.getEventBus().deliver()`                  | Delivers platform events synchronously in tests                      |
+| `kern__UserId__c`                               | The field to filter on when querying log entries — NOT `CreatedById` |
 
 **Key patterns:**
 
@@ -618,12 +633,12 @@ to the fields that need it.
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Fast Start - Feature Flags | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Fast Start - Test Data | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md) |
-| Code Scanning (catch System.debug anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Logging Developer Guide | [Logging - Guide](Logging%20-%20Guide.md) |
-| LOG_Builder API Reference | [reference/apex/LOG_Builder.md](reference/apex/LOG_Builder.md) |
-| LogEntry__c Object | [reference/objects/LogEntry__c.md](reference/objects/LogEntry__c.md) |
-| Flow Logging | [reference/apex/FLOW_LoggerStart.md](reference/apex/FLOW_LoggerStart.md) |
+| Topic                                            | Link                                                                     |
+|--------------------------------------------------|--------------------------------------------------------------------------|
+| Fast Start - Feature Flags                       | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)      |
+| Fast Start - Test Data                           | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)              |
+| Code Scanning (catch System.debug anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)      |
+| Logging Developer Guide                          | [Logging - Guide](Logging%20-%20Guide.md)                                |
+| LOG_Builder API Reference                        | [reference/apex/LOG_Builder.md](reference/apex/LOG_Builder.md)           |
+| LogEntry__c Object                               | [reference/objects/LogEntry__c.md](reference/objects/LogEntry__c.md)     |
+| Flow Logging                                     | [reference/apex/FLOW_LoggerStart.md](reference/apex/FLOW_LoggerStart.md) |

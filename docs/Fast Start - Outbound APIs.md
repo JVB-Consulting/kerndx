@@ -33,23 +33,23 @@ retry, circuit breaker, and logging built in.
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Check the Named Credential](#check-the-named-credential)
-   - [GET Request](#get-request)
-   - [POST Request](#post-request)
-   - [Builder Features](#builder-features)
+    - [Check the Named Credential](#check-the-named-credential)
+    - [GET Request](#get-request)
+    - [POST Request](#post-request)
+    - [Builder Features](#builder-features)
 2. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-   - [Step 1: Create the API Handler](#step-1-create-the-api-handler)
-   - [Step 2: Register Metadata](#step-2-register-metadata)
-     - [2a. Create ApiCredential](#2a-create-apicredential)
-     - [2b. Create ApiSetting](#2b-create-apisetting)
-   - [Step 3: Execute](#step-3-execute)
-   - [Step 4: Write Tests](#step-4-write-tests)
-   - [Step 5: Add Validation](#step-5-add-validation)
-   - [Step 6: Understanding Mocks](#step-6-understanding-mocks)
+    - [Step 1: Create the API Handler](#step-1-create-the-api-handler)
+    - [Step 2: Register Metadata](#step-2-register-metadata)
+        - [2a. Create ApiCredential](#2a-create-apicredential)
+        - [2b. Create ApiSetting](#2b-create-apisetting)
+    - [Step 3: Execute](#step-3-execute)
+    - [Step 4: Write Tests](#step-4-write-tests)
+    - [Step 5: Add Validation](#step-5-add-validation)
+    - [Step 6: Understanding Mocks](#step-6-understanding-mocks)
 3. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
-   - [From a Flow](#from-a-flow)
-     - [Build a Screen Flow (step-by-step)](#build-a-screen-flow-step-by-step)
-   - [From Apex (Queue-Based)](#from-apex-queue-based)
+    - [From a Flow](#from-a-flow)
+        - [Build a Screen Flow (step-by-step)](#build-a-screen-flow-step-by-step)
+    - [From Apex (Queue-Based)](#from-apex-queue-based)
 4. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
 5. [Common Issues](#common-issues)
 6. [What You Now Know](#what-you-now-know)
@@ -711,24 +711,24 @@ registered `API_Outbound` handler from a Flow.
 
 1. Go to **Setup > Flows > New Flow > Screen Flow > Create**
 2. **Add a Screen** element:
-   - **Label:** `Enter Post ID`
-   - Add a **Text** input component:
-     - **Label:** `Post ID`
-     - **API Name:** `postId`
-     - **Required:** checked
+    - **Label:** `Enter Post ID`
+    - Add a **Text** input component:
+        - **Label:** `Post ID`
+        - **API Name:** `postId`
+        - **Required:** checked
 3. **Add an Action** element after the Screen:
-   - In the search box, type **Invoke Callout Synchronously** and select it
-   - **Label:** `Fetch Post`
-   - Set input values:
-     - **apiName:** `API_GetPost`
-     - **inputs:** Use a formula: `'postId=' & {!Enter_Post_ID.postId}`
+    - In the search box, type **Invoke Callout Synchronously** and select it
+    - **Label:** `Fetch Post`
+    - Set input values:
+        - **apiName:** `API_GetPost`
+        - **inputs:** Use a formula: `'postId=' & {!Enter_Post_ID.postId}`
 4. **Add a second Screen** element:
-   - **Label:** `API Result`
-   - Add a **Display Text** component:
-     - **Content:** `Response: {!Fetch_Post.responseBody}`
+    - **Label:** `API Result`
+    - Add a **Display Text** component:
+        - **Content:** `Response: {!Fetch_Post.responseBody}`
 5. Click **Save**:
-   - **Flow Label:** `Get Post Demo`
-   - **Flow API Name:** `Get_Post_Demo`
+    - **Flow Label:** `Get Post Demo`
+    - **Flow API Name:** `Get_Post_Demo`
 6. Click **Activate**
 
 > **Test it:** Click **Debug** in Flow Builder, enter a Post ID (e.g., `1`), and click **Run**. The second
@@ -775,26 +775,32 @@ for(kern__ApiCall__c apiCall : calls)
 
 ## Sensitive data is masked by default
 
-`ApiCall__c` records store the request body, response body, URL, and parameters captured from every outbound call. These fields are redacted through the data masking framework before persistence. Out of the box, two rules fire:
+`ApiCall__c` records store the request body, response body, URL, and parameters captured from every outbound call. These fields are redacted through the data masking framework
+before persistence. Out of the box, two rules fire:
 
-- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`).
-- **`MaskCreditCard`** — redacts Luhn-validated 13–19 digit sequences matching Visa / Mastercard / Amex / Discover / Diners Club / JCB / UnionPay issuer prefixes.
+- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
+  `refresh_token`).
+- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
+  (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
 
-So if your outbound request body contains a `password` or a card number, the persisted `ApiCall__c.Request__c` will have them redacted — but the actual HTTP request going over the wire is unchanged. Twelve more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the field(s) that need it.
+So if your outbound request body contains a `password` or a card number, the persisted `ApiCall__c.Request__c` will have them redacted — but the actual HTTP request going over the
+wire is unchanged. Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal
+address, free text, international phone) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the
+field(s) that need it.
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Type cannot be serialized` | Missing `@JsonAccess` on DTO | Add `@JsonAccess(Serializable='always' Deserializable='always')` |
-| `Type cannot be deserialized` | `public` class not visible to package | Make the class `global`, or set up a Type Resolver ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)) |
-| `No ApiSetting found` | Missing or mismatched metadata | Check `ClassName__c` matches your simple class name (e.g., `API_GetPost`, not namespace-prefixed) |
-| `Required parameter missing` | Parameter not passed | Check `getRequiredInputs()` for required names |
-| Named Credential not found | Wrong credential name | Use `kern__API_ExampleRestApi` (namespace-prefixed) |
-| `no CustomMetadata named ApiCredential...` | ApiCredential record missing | Create your own `ApiCredential__mdt` record (step 2a) — the package's is protected |
-| `Uncommitted work pending` | DML during callout phase | Move DML to `onSuccess()` using `DML_Builder` |
-| `super.configure()` not called | Missing `super` in override | Always call `super.configure()` first |
-| Sensitive value not redacted on `ApiCall__c` | Field not covered by a masking target | Add a `kern__MaskingTarget__mdt` record — see Web Services Guide |
+| Problem                                      | Cause                                 | Fix                                                                                                                        |
+|----------------------------------------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `Type cannot be serialized`                  | Missing `@JsonAccess` on DTO          | Add `@JsonAccess(Serializable='always' Deserializable='always')`                                                           |
+| `Type cannot be deserialized`                | `public` class not visible to package | Make the class `global`, or set up a Type Resolver ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)) |
+| `No ApiSetting found`                        | Missing or mismatched metadata        | Check `ClassName__c` matches your simple class name (e.g., `API_GetPost`, not namespace-prefixed)                          |
+| `Required parameter missing`                 | Parameter not passed                  | Check `getRequiredInputs()` for required names                                                                             |
+| Named Credential not found                   | Wrong credential name                 | Use `kern__API_ExampleRestApi` (namespace-prefixed)                                                                        |
+| `no CustomMetadata named ApiCredential...`   | ApiCredential record missing          | Create your own `ApiCredential__mdt` record (step 2a) — the package's is protected                                         |
+| `Uncommitted work pending`                   | DML during callout phase              | Move DML to `onSuccess()` using `DML_Builder`                                                                              |
+| `super.configure()` not called               | Missing `super` in override           | Always call `super.configure()` first                                                                                      |
+| Sensitive value not redacted on `ApiCall__c` | Field not covered by a masking target | Add a `kern__MaskingTarget__mdt` record — see Web Services Guide                                                           |
 
 ---
 
@@ -802,11 +808,11 @@ So if your outbound request body contains a `password` or a card number, the per
 
 After completing this guide, you understand the **three ways** to make outbound HTTP calls with KernDX:
 
-| Approach | When to Use | What You Get |
-|----------|-------------|--------------|
-| **`UTIL_HttpClient`** (Tier 1) | Quick calls, prototyping, anonymous Apex | Fluent one-liners with optional retry and circuit breaker |
-| **`API_Outbound`** (Tier 2) | Production integrations | Typed DTOs, input validation, mock testing, automatic logging to `ApiCall__c` |
-| **Orchestration** (Tier 3) | Flow-driven or async processing | Declarative triggers via `FLOW_CallApi`, queue-based retry with `ApiCall__c` |
+| Approach                       | When to Use                              | What You Get                                                                  |
+|--------------------------------|------------------------------------------|-------------------------------------------------------------------------------|
+| **`UTIL_HttpClient`** (Tier 1) | Quick calls, prototyping, anonymous Apex | Fluent one-liners with optional retry and circuit breaker                     |
+| **`API_Outbound`** (Tier 2)    | Production integrations                  | Typed DTOs, input validation, mock testing, automatic logging to `ApiCall__c` |
+| **Orchestration** (Tier 3)     | Flow-driven or async processing          | Declarative triggers via `FLOW_CallApi`, queue-based retry with `ApiCall__c`  |
 
 **Key patterns:**
 
@@ -828,9 +834,9 @@ After completing this guide, you understand the **three ways** to make outbound 
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Building Inbound APIs | [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md) |
-| Feature Flag Gating | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md) |
-| Retry & Circuit Breaker | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |
+| Topic                       | Link                                                                    |
+|-----------------------------|-------------------------------------------------------------------------|
+| Building Inbound APIs       | [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md)       |
+| Feature Flag Gating         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)     |
+| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md)                   |
+| Retry & Circuit Breaker     | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |

@@ -4,6 +4,7 @@
 **Package Type:** Managed Package
 
 **Target Audience:**
+
 - **Developers** - Understanding custom objects, metadata types, and configuration patterns for framework implementation
 - **Architects** - Designing solutions leveraging framework objects, custom settings, and metadata-driven configuration
 - **Business Analysts** - Understanding data model, configuration options, and cross-framework relationships
@@ -18,38 +19,38 @@
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Architecture](#architecture)
-   - [Custom Objects](#custom-objects)
-   - [Custom Settings](#custom-settings)
-   - [Platform Events](#platform-events)
-   - [Custom Metadata Types](#custom-metadata-types)
+    - [Custom Objects](#custom-objects)
+    - [Custom Settings](#custom-settings)
+    - [Platform Events](#platform-events)
+    - [Custom Metadata Types](#custom-metadata-types)
 4. [Quick Start](#quick-start)
 5. [Framework Documentation](#framework-documentation)
-   - [Logging Framework](#logging-framework)
-     - [Architecture Diagram](#architecture-diagram)
-     - [Objects](#objects)
-   - [Trigger Action Framework](#trigger-action-framework)
-     - [Architecture Diagram](#architecture-diagram-1)
-     - [Objects](#objects-1)
-   - [Validation Framework](#validation-framework)
-     - [Objects](#objects-2)
-   - [Web Service Framework](#web-service-framework)
-     - [Architecture Diagram](#architecture-diagram-2)
-     - [Objects](#objects-3)
-   - [Feature Management Framework](#feature-management-framework)
-     - [Architecture Diagram](#architecture-diagram-3)
-     - [Objects](#objects-4)
-   - [Asynchronous Operations Framework](#asynchronous-operations-framework)
-     - [Architecture Diagram](#architecture-diagram-4)
-     - [Objects](#objects-5)
-   - [Data Management & Configuration](#data-management--configuration)
-     - [Objects](#objects-6)
+    - [Logging Framework](#logging-framework)
+        - [Architecture Diagram](#architecture-diagram)
+        - [Objects](#objects)
+    - [Trigger Action Framework](#trigger-action-framework)
+        - [Architecture Diagram](#architecture-diagram-1)
+        - [Objects](#objects-1)
+    - [Validation Framework](#validation-framework)
+        - [Objects](#objects-2)
+    - [Web Service Framework](#web-service-framework)
+        - [Architecture Diagram](#architecture-diagram-2)
+        - [Objects](#objects-3)
+    - [Feature Management Framework](#feature-management-framework)
+        - [Architecture Diagram](#architecture-diagram-3)
+        - [Objects](#objects-4)
+    - [Asynchronous Operations Framework](#asynchronous-operations-framework)
+        - [Architecture Diagram](#architecture-diagram-4)
+        - [Objects](#objects-5)
+    - [Data Management & Configuration](#data-management--configuration)
+        - [Objects](#objects-6)
 6. [Cross-Framework Relationships](#cross-framework-relationships)
-   - [Framework Integration Points](#framework-integration-points)
-   - [Key Integration Patterns](#key-integration-patterns)
+    - [Framework Integration Points](#framework-integration-points)
+    - [Key Integration Patterns](#key-integration-patterns)
 7. [Usage Patterns](#usage-patterns)
-   - [Pattern 1: Metadata-Driven Trigger with Logging](#pattern-1-metadata-driven-trigger-with-logging)
-   - [Pattern 2: API Integration with Retry Logic](#pattern-2-api-integration-with-retry-logic)
-   - [Pattern 3: Feature Flag with Multiple Strategies](#pattern-3-feature-flag-with-multiple-strategies)
+    - [Pattern 1: Metadata-Driven Trigger with Logging](#pattern-1-metadata-driven-trigger-with-logging)
+    - [Pattern 2: API Integration with Retry Logic](#pattern-2-api-integration-with-retry-logic)
+    - [Pattern 3: Feature Flag with Multiple Strategies](#pattern-3-feature-flag-with-multiple-strategies)
 8. [Testing](#testing)
 9. [Anti-Patterns](#anti-patterns)
 10. [Best Practices](#best-practices)
@@ -62,16 +63,16 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                       |
-|---------------|-----------------------------------|----------------------------------------------------------------|
-| **Architect** | Understand the data model         | [Architecture](#architecture)                                  |
-| **Architect** | See cross-framework relationships | [Cross-Framework Relationships](#cross-framework-relationships)|
-| **Developer** | Find object field references      | [Framework Documentation](#framework-documentation)            |
-| **Developer** | See integration patterns          | [Usage Patterns](#usage-patterns)                              |
-| **Analyst**   | Configure trigger settings        | [Trigger Action Framework](#trigger-action-framework)          |
-| **Analyst**   | Configure validation rules        | [Validation Framework](#validation-framework)                  |
-| **Analyst**   | Configure API settings            | [Web Service Framework](#web-service-framework)                |
-| **Analyst**   | Configure feature flags           | [Feature Management Framework](#feature-management-framework)  |
+| I am a...     | I need to...                      | Go to...                                                        |
+|---------------|-----------------------------------|-----------------------------------------------------------------|
+| **Architect** | Understand the data model         | [Architecture](#architecture)                                   |
+| **Architect** | See cross-framework relationships | [Cross-Framework Relationships](#cross-framework-relationships) |
+| **Developer** | Find object field references      | [Framework Documentation](#framework-documentation)             |
+| **Developer** | See integration patterns          | [Usage Patterns](#usage-patterns)                               |
+| **Analyst**   | Configure trigger settings        | [Trigger Action Framework](#trigger-action-framework)           |
+| **Analyst**   | Configure validation rules        | [Validation Framework](#validation-framework)                   |
+| **Analyst**   | Configure API settings            | [Web Service Framework](#web-service-framework)                 |
+| **Analyst**   | Configure feature flags           | [Feature Management Framework](#feature-management-framework)   |
 
 ---
 
@@ -81,7 +82,7 @@
 > described here store configuration, logs, and operational data. They do not contain business logic -- that lives in the Apex classes
 > documented in other guides.
 
-> **Package Data Model:** 10 custom objects, 14 custom metadata types, 53 pre-built metadata records, and 1 platform event.
+> **Package Data Model:** 10 custom objects, 15 custom metadata types, 57 pre-built metadata records, and 1 platform event.
 > These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
@@ -105,47 +106,48 @@ Data Management. For background on Salesforce
 
 ### Custom Objects
 
-| Object | Purpose | Key Features |
-|--------|---------|--------------|
-| [`LogEntry__c`](reference/objects/LogEntry__c.md) | Persistent log storage | Severity levels, stack traces, record associations, correlation IDs |
-| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) | Scheduled job management | Cron expressions, execution history, active/inactive control |
-| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md) | User login analytics | Tracks monthly login counts per user |
-| [`ApiCall__c`](reference/objects/ApiCall__c.md) | API orchestration & tracking | Request/response logging, retry logic, performance metrics |
-| [`ApiIssue__c`](reference/objects/ApiIssue__c.md) | Failed API retry management | Error details, retry status, parameter hashing |
-| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Step progress, duration, correlation IDs, context data |
+| Object                                                                  | Purpose                            | Key Features                                                        |
+|-------------------------------------------------------------------------|------------------------------------|---------------------------------------------------------------------|
+| [`LogEntry__c`](reference/objects/LogEntry__c.md)                       | Persistent log storage             | Severity levels, stack traces, record associations, correlation IDs |
+| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)               | Scheduled job management           | Cron expressions, execution history, active/inactive control        |
+| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)           | User login analytics               | Tracks monthly login counts per user                                |
+| [`ApiCall__c`](reference/objects/ApiCall__c.md)                         | API orchestration & tracking       | Request/response logging, retry logic, performance metrics          |
+| [`ApiIssue__c`](reference/objects/ApiIssue__c.md)                       | Failed API retry management        | Error details, retry status, parameter hashing                      |
+| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Step progress, duration, correlation IDs, context data              |
 
 ### Custom Settings
 
-| Custom Setting | Type | Purpose |
-|----------------|------|---------|
-| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | Runtime API kill switch (disable all APIs per user/profile/org) |
-| [`LogSetting__c`](reference/objects/LogSetting__c.md) | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
-| [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md) | List | Runtime state for scheduled jobs (last run time) |
+| Custom Setting                                                    | Type      | Purpose                                                                         |
+|-------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------|
+| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | Runtime API kill switch (disable all APIs per user/profile/org)                 |
+| [`LogSetting__c`](reference/objects/LogSetting__c.md)             | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
+| [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md)   | List      | Runtime state for scheduled jobs (last run time)                                |
 
 ### Platform Events
 
-| Event | Purpose | Consumed By |
-|-------|---------|-------------|
+| Event                                                      | Purpose                     | Consumed By                         |
+|------------------------------------------------------------|-----------------------------|-------------------------------------|
 | [`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) | Asynchronous log publishing | `TRG_LogEntryEvent` trigger handler |
 
 ### Custom Metadata Types
 
-| Metadata Type | Purpose | Parent/Child Relationships |
-|---------------|---------|---------------------------|
-| [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md) | Asynchronous job configuration | - |
-| [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md) | Class name resolution | - |
-| [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) | Feature flag definitions | Parent of [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) |
-| [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) | Feature flag evaluation rules | Child of [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) |
-| [`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md) | Field set grouping | - |
-| [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) | Data masking rule definitions (what to mask and how) | Parent of [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md) |
-| [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md) | Rule-to-field wirings (where to apply each rule) | Child of [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) |
-| [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md) | Trigger action definitions | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c` |
-| [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) | Per-object trigger configuration | Parent of [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md) |
-| [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md) | API credentials | Parent of [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) |
-| [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md) | API mock response configuration | - |
-| [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) | API endpoint configuration | Child of [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md) |
-| [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md) | Validation rule grouping per object | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md), parent of [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) |
-| [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) | Individual validation rule configuration | Child of [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md) |
+| Metadata Type                                                                      | Purpose                                              | Parent/Child Relationships                                                                                                                                |
+|------------------------------------------------------------------------------------|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md) | Asynchronous job configuration                       | -                                                                                                                                                         |
+| [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md)           | Class name resolution                                | -                                                                                                                                                         |
+| [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                       | Feature flag definitions                             | Parent of [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)                                                                    |
+| [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)       | Feature flag evaluation rules                        | Child of [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                                                                                     |
+| [`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md)                   | Field set grouping                                   | -                                                                                                                                                         |
+| [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                       | Data masking rule definitions (what to mask and how) | Parent of [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                                                                                |
+| [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                   | Rule-to-field wirings (where to apply each rule)     | Child of [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                                                                                     |
+| [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                   | Trigger action definitions                           | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                                       |
+| [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md)                 | Per-object trigger configuration                     | Parent of [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                                                                                |
+| [`PostTriggerAction__mdt`](reference/metadata/PostTriggerAction__mdt.md)           | Actions run once at end of the trigger transaction   | Optional child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                               |
+| [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                   | API credentials                                      | Parent of [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                                                                                      |
+| [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md)                               | API mock response configuration                      | -                                                                                                                                                         |
+| [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                         | API endpoint configuration                           | Child of [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                                                                                 |
+| [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)       | Validation rule grouping per object                  | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md), parent of [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) |
+| [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md)                 | Individual validation rule configuration             | Child of [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)                                                                     |
 
 ---
 
@@ -264,31 +266,35 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ContextData__c` | Long Text Area(32768) | Structured context data as JSON (key-value pairs for debugging) |
-| `CorrelationId__c` | Text(36) | Correlation ID linking related log entries across transactions |
-| `DurationMs__c` | Number(18,0) | Duration in milliseconds (for performance-timed operations) |
-| `ExceptionType__c` | Text(255) | Exception type associated with the log |
-| `ExecutionEvent__c` | Picklist | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
-| `Limits__c` | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged |
-| `LineNumber__c` | Number(8,0) | Source code line number where the exception occurred |
-| `LogLevel__c` | Picklist | Logging level: DEBUG, INFO, WARN, ERROR |
-| `Message__c` | Long Text Area(32768) | The actual log message |
-| `ParentTransactionId__c` | Text(36) | Parent transaction ID for hierarchical transaction tracking |
-| `RecordId__c` | Text(18) | Optional record ID this log is associated with |
-| `RecordLink__c` | Formula(Text) | Hyperlink to the associated record |
-| `ClassMethod__c` | Text(255) | Source of log message (ClassName.MethodName) |
-| `ShortMessage__c` | Text(255) | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses |
-| `StackTrace__c` | Long Text Area(32768) | Stack trace information if applicable |
-| `TransactionId__c` | Text(36) | Unique transaction ID for grouping logs within a single execution |
-| `UserId__c` | Text(18) | The user ID who triggered this log |
-| `UserLink__c` | Formula(Text) | Hyperlink to the user who produced this log |
+| Field                    | Type                  | Description                                                                               |
+|--------------------------|-----------------------|-------------------------------------------------------------------------------------------|
+| `ContextData__c`         | Long Text Area(32768) | Structured context data as JSON (key-value pairs for debugging)                           |
+| `CorrelationId__c`       | Text(36)              | Correlation ID linking related log entries across transactions                            |
+| `DurationMs__c`          | Number(18,0)          | Duration in milliseconds (for performance-timed operations)                               |
+| `ExceptionType__c`       | Text(255)             | Exception type associated with the log                                                    |
+| `ExecutionEvent__c`      | Picklist              | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
+| `Limits__c`              | Long Text Area(1024)  | JSON snapshot of Salesforce governor limits at the time the event was logged              |
+| `LineNumber__c`          | Number(8,0)           | Source code line number where the exception occurred                                      |
+| `LogLevel__c`            | Picklist              | Logging level: DEBUG, INFO, WARN, ERROR                                                   |
+| `Message__c`             | Long Text Area(32768) | The actual log message                                                                    |
+| `ParentTransactionId__c` | Text(36)              | Parent transaction ID for hierarchical transaction tracking                               |
+| `RecordId__c`            | Text(18)              | Optional record ID this log is associated with                                            |
+| `RecordLink__c`          | Formula(Text)         | Hyperlink to the associated record                                                        |
+| `ClassMethod__c`         | Text(255)             | Source of log message (ClassName.MethodName)                                              |
+| `ShortMessage__c`        | Text(255)             | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
+| `StackTrace__c`          | Long Text Area(32768) | Stack trace information if applicable                                                     |
+| `TransactionId__c`       | Text(36)              | Unique transaction ID for grouping logs within a single execution                         |
+| `UserId__c`              | Text(18)              | The user ID who triggered this log                                                        |
+| `UserLink__c`            | Formula(Text)         | Hyperlink to the user who produced this log                                               |
+| `Fingerprint__c`         | Text(216)             | Flood-control grouping key (External ID, unique); blank on ungrouped entries              |
+| `OccurrenceCount__c`     | Number(12,0)          | Occurrences collapsed into a daily rollup row; populated on rollup rows only               |
 
 **Relationships**:
+
 - `UserId__c` stores the User ID (text field, not a lookup)
 
 **Usage**:
+
 ```apex
 // Log an error with record association
 LOG_Builder.build().error(ex).at('MyClass.myMethod').forRecord(recordId).emit();
@@ -308,65 +314,71 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ContextData__c` | Long Text Area(5000) | Structured context data as JSON |
-| `CorrelationId__c` | Text(36) | Correlation ID linking related log entries |
-| `DurationMs__c` | Number(18,0) | Duration in milliseconds for timed operations |
-| `ExceptionType__c` | Text(255) | Exception type |
-| `ExecutionEvent__c` | Text(40) | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
-| `Limits__c` | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged |
-| `LineNumber__c` | Number(8,0) | Source code line number where the exception occurred |
-| `LogLevel__c` | Text(20) | Logging level (DEBUG, INFO, WARN, ERROR) |
-| `Message__c` | Long Text Area(5000) | Log message |
-| `ParentTransactionId__c` | Text(36) | Parent transaction ID for hierarchical tracking |
-| `RecordId__c` | Text(18) | Optional record ID |
-| `ClassMethod__c` | Text(255) | Source (ClassName.MethodName) |
-| `ShortMessage__c` | Text(255) | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses |
-| `StackTrace__c` | Long Text Area(5000) | Stack trace |
-| `TransactionId__c` | Text(36) | Unique transaction ID |
-| `UserId__c` | Text(18) | The user ID who triggered this event |
+| Field                    | Type                 | Description                                                                               |
+|--------------------------|----------------------|-------------------------------------------------------------------------------------------|
+| `ContextData__c`         | Long Text Area(5000) | Structured context data as JSON                                                           |
+| `CorrelationId__c`       | Text(36)             | Correlation ID linking related log entries                                                |
+| `DurationMs__c`          | Number(18,0)         | Duration in milliseconds for timed operations                                             |
+| `ExceptionType__c`       | Text(255)            | Exception type                                                                            |
+| `ExecutionEvent__c`      | Text(40)             | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
+| `Limits__c`              | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged              |
+| `LineNumber__c`          | Number(8,0)          | Source code line number where the exception occurred                                      |
+| `LogLevel__c`            | Text(20)             | Logging level (DEBUG, INFO, WARN, ERROR)                                                  |
+| `Message__c`             | Long Text Area(5000) | Log message                                                                               |
+| `ParentTransactionId__c` | Text(36)             | Parent transaction ID for hierarchical tracking                                           |
+| `RecordId__c`            | Text(18)             | Optional record ID                                                                        |
+| `ClassMethod__c`         | Text(255)            | Source (ClassName.MethodName)                                                             |
+| `ShortMessage__c`        | Text(255)            | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
+| `StackTrace__c`          | Long Text Area(5000) | Stack trace                                                                               |
+| `TransactionId__c`       | Text(36)             | Unique transaction ID                                                                     |
+| `UserId__c`              | Text(18)             | The user ID who triggered this event                                                      |
 
 **Usage**:
+
 - Published automatically by [`LOG_Builder`](reference/apex/LOG_Builder.md)
 - Consumed by `TRG_LogEntryEvent` trigger to create `LogEntry__c` records
 - Enables asynchronous logging without impacting transaction performance
 - Supports distributed tracing via correlation and transaction IDs
 
-**Sensitive data in log entries** is redacted by the data masking framework ([`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) + [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)) before the platform event is published. The default ship set wildcards the active `MaskSecretKeys` and `MaskCreditCard` rules onto `LogEntryEvent__e`, so nothing in the log-entry pipeline persists a raw secret or card number out of the box.
+**Sensitive data in log entries** is redacted by the data masking framework ([`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) + [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)) before the platform event is published. The default ship set wildcards the active `MaskSecretKeys` and
+`MaskPaymentCard` rules onto `LogEntryEvent__e`, so nothing in the log-entry pipeline persists a raw secret or card number out of the box.
 
 ##### [LogSetting__c](reference/objects/LogSetting__c.md) (Hierarchy Custom Setting)
 
-**Description**: Controls logging thresholds and performance logging configuration. As a hierarchy custom setting, values can be set at org-default, profile, or user level. Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
+**Description**: Controls logging thresholds and performance logging configuration. As a hierarchy custom setting, values can be set at org-default, profile, or user level.
+Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `IsEnabled__c` | Checkbox | Whether logging is enabled |
-| `LogLevelThreshold__c` | Text | Minimum log level threshold: DEBUG, INFO, WARN, ERROR |
-| `EnablePerformanceLogging__c` | Checkbox | Enable webservice performance timer logging |
-| `EnableQueryPerformanceLogging__c` | Checkbox | Enable query performance logging |
-| `EnableTriggerPerformanceLogging__c` | Checkbox | Enable trigger action performance logging |
-| `EnableValidationPerformanceLogging__c` | Checkbox | Enable validation context performance logging |
-| `MaxContextDataSize__c` | Number(6,0) | Maximum size of context data to log (bytes) |
-| `PerformanceThresholdMs__c` | Number(10,0) | Webservice performance threshold (ms, Default: 10000 = 10 seconds) |
-| `QueryPerformanceThresholdMs__c` | Number(10,0) | Query performance threshold (ms, Default: 1000 = 1 second) |
-| `TriggerPerformanceThresholdMs__c` | Number(10,0) | Trigger action performance threshold (ms) |
-| `ValidationPerformanceThresholdMs__c` | Number(10,0) | Validation context performance threshold (ms) |
+| Field                                   | Type         | Description                                                        |
+|-----------------------------------------|--------------|--------------------------------------------------------------------|
+| `IsEnabled__c`                          | Checkbox     | Whether logging is enabled                                         |
+| `LogLevelThreshold__c`                  | Text         | Minimum log level threshold: DEBUG, INFO, WARN, ERROR              |
+| `EnablePerformanceLogging__c`           | Checkbox     | Enable webservice performance timer logging                        |
+| `EnableQueryPerformanceLogging__c`      | Checkbox     | Enable query performance logging                                   |
+| `EnableTriggerPerformanceLogging__c`    | Checkbox     | Enable trigger action performance logging                          |
+| `EnableValidationPerformanceLogging__c` | Checkbox     | Enable validation context performance logging                      |
+| `MaxContextDataSize__c`                 | Number(6,0)  | Maximum size of context data to log (bytes)                        |
+| `PerformanceThresholdMs__c`             | Number(10,0) | Webservice performance threshold (ms, Default: 10000 = 10 seconds) |
+| `QueryPerformanceThresholdMs__c`        | Number(10,0) | Query performance threshold (ms, Default: 1000 = 1 second)         |
+| `TriggerPerformanceThresholdMs__c`      | Number(10,0) | Trigger action performance threshold (ms)                          |
+| `ValidationPerformanceThresholdMs__c`   | Number(10,0) | Validation context performance threshold (ms)                      |
 
 **Usage**:
+
 - **Org Default**: Global settings applied to all users (e.g., enable performance logging globally)
 - **Profile**: Override settings for a specific profile
 - **User**: Override settings for a specific user
 
 **Performance Logging Configuration**:
+
 - **Webservice Performance**: Uses `EnablePerformanceLogging__c` and `PerformanceThresholdMs__c` (10s default - appropriate for network calls)
 - **Query Performance**: Uses `EnableQueryPerformanceLogging__c` and `QueryPerformanceThresholdMs__c` (1s default - appropriate for database queries)
 - **Trigger Performance**: Uses `EnableTriggerPerformanceLogging__c` and `TriggerPerformanceThresholdMs__c`
 - **Validation Performance**: Uses `EnableValidationPerformanceLogging__c` and `ValidationPerformanceThresholdMs__c`
 
 **Example Configuration**:
+
 ```text
 LogSetting__c (Org Default):
 - IsEnabled__c: true
@@ -445,22 +457,27 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | The SObject this trigger setting applies to |
-| `BypassExecution__c` | Checkbox | Bypasses ALL trigger actions on this object (Default: false) |
-| `BypassFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses triggers when enabled |
-| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for triggers to execute |
-| `EnablePerformanceLogging__c` | Checkbox | Master switch for performance logging on this object |
-| `PerformanceThresholdMs__c` | Number(10,0) | Object-level performance threshold (ms) |
+| Field                         | Type                                              | Description                                                  |
+|-------------------------------|---------------------------------------------------|--------------------------------------------------------------|
+| `SObjectType__c`              | MetadataRelationship(EntityDefinition) (Required) | The SObject this trigger setting applies to                  |
+| `BypassExecution__c`          | Checkbox                                          | Bypasses ALL trigger actions on this object (Default: false) |
+| `BypassFeatureFlag__c`        | MetadataRelationship(FeatureFlag__mdt)            | Feature Flag that bypasses triggers when enabled             |
+| `RequiredFeatureFlag__c`      | MetadataRelationship(FeatureFlag__mdt)            | Feature Flag required for triggers to execute                |
+| `EnablePerformanceLogging__c` | Checkbox                                          | Master switch for performance logging on this object         |
+| `PerformanceThresholdMs__c`   | Number(10,0)                                      | Object-level performance threshold (ms)                      |
+| `ApplyMasking__c`             | Checkbox                                          | Run the data masking pass on this object before insert/update (Default: true; uncheck to opt out) |
+| `ObjectApiNameOverride__c`    | Text(255)                                         | Optional override of `SObjectType__c` at dispatch — registers a CDC entity (e.g. `Foobar__ChangeEvent`) |
 
 **Relationships**:
+
 - Parent of `TriggerAction__mdt` via `TriggerSetting__c` (child relationship: `TriggerActions__r`)
 - Parent of `ValidationRuleGroup__mdt` via `TriggerSetting__c` (child relationship: `ValidationRuleGroups__r`)
 
-**Pre-built records (6 shipped):** framework settings for objects the package itself triggers on (`LogEntryEvent__e`, `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, etc.). Subscribers add their own `TriggerSetting__mdt` records for their SObjects.
+**Pre-built records (6 shipped):** framework settings for objects the package itself triggers on (`LogEntryEvent__e`, `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, etc.).
+Subscribers add their own `TriggerSetting__mdt` records for their SObjects.
 
 **Usage**:
+
 ```text
 Create one TriggerSetting__mdt record per SObject:
 - Label: Account Trigger Settings
@@ -474,30 +491,33 @@ Create one TriggerSetting__mdt record per SObject:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ApexClassName__c` | Text(100) (Required) | Fully qualified action class name |
-| `Description__c` | Long Text Area | Action description |
-| `Event__c` | Picklist (Required) | Trigger event: Before Insert, After Insert, Before Update, After Update, Before Delete, After Delete, After Undelete |
-| `TriggerSetting__c` | MetadataRelationship(TriggerSetting__mdt) (Required) | Link to the parent TriggerSetting for the target SObject |
-| `Order__c` | Number(4,0) (Required) | Execution order (lower = earlier) |
-| `BypassExecution__c` | Checkbox | Bypass this specific action (Default: false) |
-| `BypassFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses this action when enabled |
-| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for this action to execute |
-| `AllowRecursion__c` | Checkbox | Allow recursive execution |
-| `AllowNonSelfInitiated__c` | Checkbox | Allow execution from other triggers |
-| `EntryCriteriaFormula__c` | Long Text Area | Formula for conditional execution |
-| `EntryCriteriaContextClassName__c` | Text(100) | Context class for formula evaluation |
-| `ForcePerformanceLogging__c` | Checkbox | Always log performance for this action |
-| `SuppressPerformanceLogging__c` | Checkbox | Never log performance for this action |
-| `PerformanceThresholdMs__c` | Number(8,0) | Log if duration exceeds threshold (ms) |
+| Field                              | Type                                                 | Description                                                                                                          |
+|------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `ApexClassName__c`                 | Text(100) (Required)                                 | Fully qualified action class name                                                                                    |
+| `Description__c`                   | Long Text Area                                       | Action description                                                                                                   |
+| `Event__c`                         | Picklist (Required)                                  | Trigger event: Before Insert, After Insert, Before Update, After Update, Before Delete, After Delete, After Undelete |
+| `TriggerSetting__c`                | MetadataRelationship(TriggerSetting__mdt) (Required) | Link to the parent TriggerSetting for the target SObject                                                             |
+| `Order__c`                         | Number(4,0) (Required)                               | Execution order (lower = earlier)                                                                                    |
+| `BypassExecution__c`               | Checkbox                                             | Bypass this specific action (Default: false)                                                                         |
+| `BypassFeatureFlag__c`             | MetadataRelationship(FeatureFlag__mdt)               | Feature Flag that bypasses this action when enabled                                                                  |
+| `RequiredFeatureFlag__c`           | MetadataRelationship(FeatureFlag__mdt)               | Feature Flag required for this action to execute                                                                     |
+| `AllowRecursion__c`                | Checkbox                                             | Allow recursive execution                                                                                            |
+| `AllowNonSelfInitiated__c`         | Checkbox                                             | Allow execution from other triggers                                                                                  |
+| `EntryCriteriaFormula__c`          | Long Text Area                                       | Formula for conditional execution                                                                                    |
+| `EntryCriteriaContextClassName__c` | Text(100)                                            | Context class for formula evaluation                                                                                 |
+| `ForcePerformanceLogging__c`       | Checkbox                                             | Always log performance for this action                                                                               |
+| `SuppressPerformanceLogging__c`    | Checkbox                                             | Never log performance for this action                                                                                |
+| `PerformanceThresholdMs__c`        | Number(8,0)                                          | Log if duration exceeds threshold (ms)                                                                               |
 
 **Relationships**:
+
 - MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c` (child relationship: `TriggerActions__r`)
 
-**Pre-built records (6 shipped):** framework actions on framework-owned objects (e.g., `TRG_LogEntryEvent_AfterInsert`, retry orchestration on `ApiIssue__c`). Subscribers add their own `TriggerAction__mdt` records to wire subscriber handler classes.
+**Pre-built records (6 shipped):** framework actions on framework-owned objects (e.g., `TRG_LogEntryEvent_AfterInsert`, retry orchestration on `ApiIssue__c`). Subscribers add their
+own `TriggerAction__mdt` records to wire subscriber handler classes.
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Account Validator
@@ -507,6 +527,34 @@ Example Configuration:
 - Order__c: 10
 - BypassExecution__c: false
 ```
+
+##### [PostTriggerAction__mdt](reference/metadata/PostTriggerAction__mdt.md) (Custom Metadata)
+
+**Description**: Defines declarative actions that run once at the end of the trigger transaction, after every per-record trigger action has completed. Use post-trigger
+actions for transaction-level work such as a single rollup or one outbound notification per save. A post-action cannot perform DML — attempting it always fails the transaction.
+
+**Fields**:
+
+| Field                              | Type                                      | Description                                                                                                         |
+|------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| `ApexClassName__c`                 | Text(100)                                 | Class implementing `IF_Trigger.PostAction` (DML is not permitted inside a post-action)                              |
+| `TriggerSetting__c`                | MetadataRelationship(TriggerSetting__mdt) | Optional. Set to scope the action to one SObject; leave blank to fire on every outermost dispatch                   |
+| `FailureAction__c`                 | Picklist                                  | On error: Log and Continue (default — save proceeds) or Block DML (save stops, the error is shown to the user)      |
+| `Order__c`                         | Number(3,0)                               | Execution order (lower runs first; leave gaps so new actions can be inserted)                                       |
+| `Description__c`                   | Text                                      | Action description                                                                                                  |
+| `EntryCriteriaContextClassName__c` | Text(100)                                 | Optional class implementing `IF_Trigger.PostActionEntryCriteria`; `shouldRun(context)` returning false skips it     |
+| `BypassExecution__c`               | Checkbox                                  | Bypass this specific post-action                                                                                    |
+| `BypassFeatureFlag__c`             | MetadataRelationship(FeatureFlag__mdt)    | Feature Flag that bypasses this action when enabled                                                                 |
+| `RequiredFeatureFlag__c`           | MetadataRelationship(FeatureFlag__mdt)    | Feature Flag required for this action to execute                                                                    |
+| `ForcePerformanceLogging__c`       | Checkbox                                  | Always log performance for this action                                                                              |
+| `PerformanceThresholdMs__c`        | Number(8,0)                               | Log if duration exceeds threshold (ms)                                                                              |
+
+**Relationships**:
+
+- Optional MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c`. Unlike `TriggerAction__mdt`, this link is not required — leave it blank to run the action on every
+  outermost trigger dispatch.
+
+See also: [Triggers - Guide](Triggers%20-%20Guide.md) for the `IF_Trigger.PostAction` contract and entry-criteria details.
 
 ### Validation Framework
 
@@ -526,25 +574,27 @@ See also: [Validation - Guide](Validation%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `TriggerSetting__c` | MetadataRelationship(TriggerSetting__mdt) (Required) | Links to the object's TriggerSetting |
-| `TriggerTiming__c` | Text (Required) | Semicolon-separated: `Before`, `After` |
-| `TriggerOperations__c` | Text (Required) | Semicolon-separated: `Insert`, `Update`, `Delete`, `Undelete` |
-| `Description__c` | Long Text Area (Required) | Business purpose of this group |
-| `ContextClassName__c` | Text(100) | Default context class for rules in this group |
-| `ExecutionStrategy__c` | Picklist | `Accumulate` (default) or `Fail Fast` |
-| `BypassExecution__c` | Checkbox | Bypass all rules in this group (Default: false) |
-| `BypassFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses all rules when enabled |
-| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for rules to execute |
+| Field                    | Type                                                 | Description                                                   |
+|--------------------------|------------------------------------------------------|---------------------------------------------------------------|
+| `TriggerSetting__c`      | MetadataRelationship(TriggerSetting__mdt) (Required) | Links to the object's TriggerSetting                          |
+| `TriggerTiming__c`       | Text (Required)                                      | Semicolon-separated: `Before`, `After`                        |
+| `TriggerOperations__c`   | Text (Required)                                      | Semicolon-separated: `Insert`, `Update`, `Delete`, `Undelete` |
+| `Description__c`         | Long Text Area (Required)                            | Business purpose of this group                                |
+| `ContextClassName__c`    | Text(100)                                            | Default context class for rules in this group                 |
+| `ExecutionStrategy__c`   | Picklist                                             | `Accumulate` (default) or `Fail Fast`                         |
+| `BypassExecution__c`     | Checkbox                                             | Bypass all rules in this group (Default: false)               |
+| `BypassFeatureFlag__c`   | MetadataRelationship(FeatureFlag__mdt)               | Feature Flag that bypasses all rules when enabled             |
+| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt)               | Feature Flag required for rules to execute                    |
 
 **Relationships**:
+
 - MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c`
 - Parent of `ValidationRule__mdt` via `ValidationRuleGroup__c`
 
 **Pre-built records:** none — extensibility-only. Subscribers create `ValidationRuleGroup__mdt` records to configure validation rules.
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Account Field Validations
@@ -560,27 +610,29 @@ Example Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ValidationRuleGroup__c` | MetadataRelationship(ValidationRuleGroup__mdt) (Required) | Parent group |
-| `RuleFormula__c` | Long Text Area (Required) | Formula that returns `true` when validation fails |
-| `ErrorMessage__c` | Long Text Area (Required) | Message shown when validation fails |
-| `ErrorDisplayField__c` | Text(255) | API name of field to attach error to |
-| `Severity__c` | Picklist (Required) | `Error` (blocks save) or `Warning` (logs only) |
-| `Order__c` | Number(4,0) | Execution order (lower = first) |
-| `Description__c` | Long Text Area (Required) | Business purpose of this rule |
-| `ContextClassName__c` | Text(100) | Override context class for this rule |
-| `ShadowMode__c` | Checkbox | Log but don't block (testing mode, Default: false) |
-| `BypassExecution__c` | Checkbox | Bypass this rule (Default: false) |
-| `BypassFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses this rule when enabled |
-| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for this rule to execute |
+| Field                    | Type                                                      | Description                                        |
+|--------------------------|-----------------------------------------------------------|----------------------------------------------------|
+| `ValidationRuleGroup__c` | MetadataRelationship(ValidationRuleGroup__mdt) (Required) | Parent group                                       |
+| `RuleFormula__c`         | Long Text Area (Required)                                 | Formula that returns `true` when validation fails  |
+| `ErrorMessage__c`        | Long Text Area (Required)                                 | Message shown when validation fails                |
+| `ErrorDisplayField__c`   | Text(255)                                                 | API name of field to attach error to               |
+| `Severity__c`            | Picklist (Required)                                       | `Error` (blocks save) or `Warning` (logs only)     |
+| `Order__c`               | Number(4,0)                                               | Execution order (lower = first)                    |
+| `Description__c`         | Long Text Area (Required)                                 | Business purpose of this rule                      |
+| `ContextClassName__c`    | Text(100)                                                 | Override context class for this rule               |
+| `ShadowMode__c`          | Checkbox                                                  | Log but don't block (testing mode, Default: false) |
+| `BypassExecution__c`     | Checkbox                                                  | Bypass this rule (Default: false)                  |
+| `BypassFeatureFlag__c`   | MetadataRelationship(FeatureFlag__mdt)                    | Feature Flag that bypasses this rule when enabled  |
+| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt)                    | Feature Flag required for this rule to execute     |
 
 **Relationships**:
+
 - MetadataRelationship to `ValidationRuleGroup__mdt` via `ValidationRuleGroup__c`
 
 **Pre-built records:** none — extensibility-only. Subscribers create `ValidationRule__mdt` records to configure rule formulas.
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Require Industry for Enterprise Accounts
@@ -668,40 +720,42 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ServiceName__c` | Text(100) | Fully qualified name of the API service handler class |
-| `Direction__c` | Picklist | Inbound, Outbound |
-| `Status__c` | Picklist | Queued, Processing, Completed, Failed, Retry, Retrying, Batched, Aborted |
-| `HttpMethod__c` | Picklist | HTTP method: GET, POST, PUT, PATCH, DELETE |
-| `URL__c` | URL | Full endpoint URL for the request |
-| `Request__c` | Long Text Area(131072) | Request payload |
-| `RequestParameters__c` | Long Text Area(131072) | Name-value pairs of request parameters |
-| `Response__c` | Long Text Area(131072) | Response payload |
-| `StatusCode__c` | Text(50) | HTTP status code |
-| `ErrorMessages__c` | Long Text Area(32768) | Errors encountered during processing |
-| `IdempotencyKey__c` | Text(255) | Unique key for duplicate detection (External ID) |
-| `IsIdempotencyHit__c` | Checkbox | True if response was returned from a previous call with the same idempotency key (Default: false) |
-| `IsMockedResponse__c` | Checkbox | True if response is mocked (Default: false) |
-| `DeadLettered__c` | Formula(Checkbox) | True when retries are exhausted or manually dead-lettered |
-| `ManualDeadLetter__c` | Checkbox | Admin override to permanently dead-letter a failed call (Default: false) |
-| `Retries__c` | Number(2,0) | Retry count (Default: 0) |
-| `MaxRetries__c` | Number | Maximum retry attempts for this API call |
-| `NextRetry__c` | Date Time | Time of next retry |
-| `TraceId__c` | Text(36) | W3C Trace Context trace ID for distributed tracing |
-| `ParentSpanId__c` | Text(16) | W3C Trace Context parent span ID (16 hex characters) |
-| `CalloutDurationMs__c` | Number(6,0) | HTTP callout time (milliseconds) |
-| `HandlerDurationMs__c` | Number(6,0) | Handler processing time (milliseconds) |
-| `CommitDurationMs__c` | Number(6,0) | DML commit time (milliseconds) |
-| `TotalDurationMs__c` | Number(6,0) | Total processing time (milliseconds) |
-| `TriggeringRecordId__c` | Text(80) | ID of record that triggered the call |
-| `TriggeringRecordUrl__c` | Formula(Text) | Hyperlink to triggering record |
-| `LoggerContext__c` | Long Text Area(32768) | Serialized logger context for async correlation |
+| Field                    | Type                   | Description                                                                                       |
+|--------------------------|------------------------|---------------------------------------------------------------------------------------------------|
+| `ServiceName__c`         | Text(100)              | Fully qualified name of the API service handler class                                             |
+| `Direction__c`           | Picklist               | Inbound, Outbound                                                                                 |
+| `Status__c`              | Picklist               | Queued, Processing, Completed, Failed, Retry, Retrying, Batched, Aborted                          |
+| `HttpMethod__c`          | Picklist               | HTTP method: GET, POST, PUT, PATCH, DELETE                                                        |
+| `URL__c`                 | URL                    | Full endpoint URL for the request                                                                 |
+| `Request__c`             | Long Text Area(131072) | Request payload                                                                                   |
+| `RequestParameters__c`   | Long Text Area(131072) | Name-value pairs of request parameters                                                            |
+| `Response__c`            | Long Text Area(131072) | Response payload                                                                                  |
+| `StatusCode__c`          | Text(50)               | HTTP status code                                                                                  |
+| `ErrorMessages__c`       | Long Text Area(32768)  | Errors encountered during processing                                                              |
+| `IdempotencyKey__c`      | Text(255)              | Unique key for duplicate detection (External ID)                                                  |
+| `IsIdempotencyHit__c`    | Checkbox               | True if response was returned from a previous call with the same idempotency key (Default: false) |
+| `IsMockedResponse__c`    | Checkbox               | True if response is mocked (Default: false)                                                       |
+| `DeadLettered__c`        | Formula(Checkbox)      | True when retries are exhausted or manually dead-lettered                                         |
+| `ManualDeadLetter__c`    | Checkbox               | Admin override to permanently dead-letter a failed call (Default: false)                          |
+| `Retries__c`             | Number(2,0)            | Retry count (Default: 0)                                                                          |
+| `MaxRetries__c`          | Number                 | Maximum retry attempts for this API call                                                          |
+| `NextRetry__c`           | Date Time              | Time of next retry                                                                                |
+| `TraceId__c`             | Text(36)               | W3C Trace Context trace ID for distributed tracing                                                |
+| `ParentSpanId__c`        | Text(16)               | W3C Trace Context parent span ID (16 hex characters)                                              |
+| `CalloutDurationMs__c`   | Number(6,0)            | HTTP callout time (milliseconds)                                                                  |
+| `HandlerDurationMs__c`   | Number(6,0)            | Handler processing time (milliseconds)                                                            |
+| `CommitDurationMs__c`    | Number(6,0)            | DML commit time (milliseconds)                                                                    |
+| `TotalDurationMs__c`     | Number(6,0)            | Total processing time (milliseconds)                                                              |
+| `TriggeringRecordId__c`  | Text(80)               | ID of record that triggered the call                                                              |
+| `TriggeringRecordUrl__c` | Formula(Text)          | Hyperlink to triggering record                                                                    |
+| `LoggerContext__c`       | Long Text Area(32768)  | Serialized logger context for async correlation                                                   |
 
 **Relationships**:
+
 - Parent of `ApiIssue__c` (1:N)
 
 **Usage**:
+
 - Automatically created by API framework classes
 - Provides audit trail for all API interactions
 - Enables retry logic for failed calls
@@ -716,27 +770,29 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ApiCall__c` | Lookup(ApiCall__c) | Parent call queue record |
-| `ServiceName__c` | Text(100) | Service class API name |
-| `Direction__c` | Picklist | Inbound or Outbound |
-| `Status__c` | Picklist | Open, Resolved (automatic retry batch job or manual retry via quick action) |
-| `ErrorMessages__c` | Long Text Area(131072) | Error messages encountered |
-| `TriggeringRecordId__c` | Text(18) | ID of triggering record |
-| `OriginatingRecordId__c` | Text(18) | Originating record ID (when different from triggering record) |
-| `IdempotencyKey__c` | Text(255) | Idempotency key from the original failed API call, preserved for retry |
-| `RequestMethod__c` | Text(10) | HTTP method of the original inbound request (GET, POST, etc.) |
-| `RequestPath__c` | Text(255) | URL path of the original inbound request for failure replay |
-| `RequestBody__c` | Long Text Area(131072) | Body of the original inbound request for failure replay |
-| `RequestParameters__c` | Long Text Area(131072) | Request parameters |
-| `RequestParametersHash__c` | Text(50) | Hash of request parameters (deduplication) |
-| `ResolvedDate__c` | DateTime | Date and time when the failure was resolved |
+| Field                      | Type                   | Description                                                                 |
+|----------------------------|------------------------|-----------------------------------------------------------------------------|
+| `ApiCall__c`               | Lookup(ApiCall__c)     | Parent call queue record                                                    |
+| `ServiceName__c`           | Text(100)              | Service class API name                                                      |
+| `Direction__c`             | Picklist               | Inbound or Outbound                                                         |
+| `Status__c`                | Picklist               | Open, Resolved (automatic retry batch job or manual retry via quick action) |
+| `ErrorMessages__c`         | Long Text Area(131072) | Error messages encountered                                                  |
+| `TriggeringRecordId__c`    | Text(18)               | ID of triggering record                                                     |
+| `OriginatingRecordId__c`   | Text(18)               | Originating record ID (when different from triggering record)               |
+| `IdempotencyKey__c`        | Text(255)              | Idempotency key from the original failed API call, preserved for retry      |
+| `RequestMethod__c`         | Text(10)               | HTTP method of the original inbound request (GET, POST, etc.)               |
+| `RequestPath__c`           | Text(255)              | URL path of the original inbound request for failure replay                 |
+| `RequestBody__c`           | Long Text Area(131072) | Body of the original inbound request for failure replay                     |
+| `RequestParameters__c`     | Long Text Area(131072) | Request parameters                                                          |
+| `RequestParametersHash__c` | Text(50)               | Hash of request parameters (deduplication)                                  |
+| `ResolvedDate__c`          | DateTime               | Date and time when the failure was resolved                                 |
 
 **Relationships**:
+
 - Lookup to `ApiCall__c`
 
 **Usage**:
+
 - Created when API calls fail
 - Used by retry jobs to re-attempt failed calls
 - Prevents duplicate retry attempts via hash
@@ -747,34 +803,37 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ClassName__c` | Text(100) (Unique) | Fully qualified API Handler class name |
-| `EndpointPath__c` | Text(255) | Relative path (appended to Named Credential URL) |
-| `Direction__c` | Picklist | Inbound or Outbound |
-| `IsActive__c` | Checkbox | Whether this API route is active |
-| `Priority__c` | Number(3,0) | Routing priority (lower = higher priority, Default: 100) |
-| `MaxRetryCount__c` | Number(2,0) | Maximum number of retries |
-| `RetryBackoffSeconds__c` | Number(3,0) | Backoff period between retries (seconds) |
-| `LogIssues__c` | Checkbox | Whether to log API failures (Default: false) |
-| `RetryIssues__c` | Checkbox | Whether to retry failures (Default: false) |
-| `ResolveIssues__c` | Checkbox | Whether to resolve failures (Default: false) |
-| `IdempotencyEnabled__c` | Checkbox | Enable idempotency key duplicate detection (Default: false) |
-| `MockingEnabled__c` | Checkbox | Enable mock responses from ApiMock__mdt records (Default: false) |
-| `ApiCredential__c` | Metadata Relationship | Link to credential configuration |
-| `CircuitBreakerEnabled__c` | Checkbox | Enable circuit breaker pattern |
-| `CircuitBreakerFailureThreshold__c` | Number(3,0) | Consecutive failures before opening circuit (Default: 10) |
-| `CircuitBreakerSuccessThreshold__c` | Number(2,0) | Consecutive successes in half-open state to close circuit (Default: 2) |
-| `CircuitBreakerTimeout__c` | Number(5,0) | Seconds before attempting to close the circuit (Default: 60) |
-| `BypassFeatureFlag__c` | Metadata Relationship | Feature Flag that bypasses this API when enabled |
-| `RequiredFeatureFlag__c` | Metadata Relationship | Feature Flag required for this API to execute |
+| Field                               | Type                  | Description                                                            |
+|-------------------------------------|-----------------------|------------------------------------------------------------------------|
+| `ClassName__c`                      | Text(100) (Unique)    | Fully qualified API Handler class name                                 |
+| `EndpointPath__c`                   | Text(255)             | Relative path (appended to Named Credential URL)                       |
+| `Direction__c`                      | Picklist              | Inbound or Outbound                                                    |
+| `IsActive__c`                       | Checkbox              | Whether this API route is active                                       |
+| `Priority__c`                       | Number(3,0)           | Routing priority (lower = higher priority, Default: 100)               |
+| `MaxRetryCount__c`                  | Number(2,0)           | Maximum number of retries                                              |
+| `RetryBackoffSeconds__c`            | Number(3,0)           | Backoff period between retries (seconds)                               |
+| `LogIssues__c`                      | Checkbox              | Whether to log API failures (Default: false)                           |
+| `RetryIssues__c`                    | Checkbox              | Whether to retry failures (Default: false)                             |
+| `ResolveIssues__c`                  | Checkbox              | Whether to resolve failures (Default: false)                           |
+| `IdempotencyEnabled__c`             | Checkbox              | Enable idempotency key duplicate detection (Default: false)            |
+| `MockingEnabled__c`                 | Checkbox              | Enable mock responses from ApiMock__mdt records (Default: false)       |
+| `ApiCredential__c`                  | Metadata Relationship | Link to credential configuration                                       |
+| `CircuitBreakerEnabled__c`          | Checkbox              | Enable circuit breaker pattern                                         |
+| `CircuitBreakerFailureThreshold__c` | Number(3,0)           | Consecutive failures before opening circuit (Default: 10)              |
+| `CircuitBreakerSuccessThreshold__c` | Number(2,0)           | Consecutive successes in half-open state to close circuit (Default: 2) |
+| `CircuitBreakerTimeout__c`          | Number(5,0)           | Seconds before attempting to close the circuit (Default: 60)           |
+| `BypassFeatureFlag__c`              | Metadata Relationship | Feature Flag that bypasses this API when enabled                       |
+| `RequiredFeatureFlag__c`            | Metadata Relationship | Feature Flag required for this API to execute                          |
 
 **Relationships**:
+
 - Metadata relationship to `ApiCredential__mdt`
 
-**Pre-built records (4 shipped):** framework-demo API settings (ApiMock endpoints, self-callout examples) used by the bundled sample services. Subscribers add their own `ApiSetting__mdt` for each of their handler classes.
+**Pre-built records (4 shipped):** framework-demo API settings (ApiMock endpoints, self-callout examples) used by the bundled sample services. Subscribers add their own
+`ApiSetting__mdt` for each of their handler classes.
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Customer API - Get Data
@@ -791,16 +850,19 @@ Example Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field                | Type      | Description                                                |
+|----------------------|-----------|------------------------------------------------------------|
 | `NamedCredential__c` | Text(255) | Named Credential reference for endpoint and authentication |
 
 **Relationships**:
+
 - Parent of `ApiSetting__mdt` (1:N)
 
-**Pre-built records (3 shipped):** framework-demo credentials matching the bundled sample API services. Subscribers add their own `ApiCredential__mdt` referencing their Named Credentials.
+**Pre-built records (3 shipped):** framework-demo credentials matching the bundled sample API services. Subscribers add their own `ApiCredential__mdt` referencing their Named
+Credentials.
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Customer API Credentials
@@ -810,33 +872,36 @@ Example Configuration:
 **Redaction of API request / response payloads** is handled by the shared data masking framework —
 see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)
 in the Data Masking section of this guide (or the reference pages directly). The default ship set wildcards `MaskSecretKeys`
-(JSON key redaction for `password`, `token`, `apiKey`, and similar) and `MaskCreditCard` (Luhn-validated 13–19 digit
-sequences matching Visa / Mastercard / Amex / Discover / Diners Club / JCB / UnionPay issuer prefixes) onto every
+(JSON key redaction for `password`, `token`, `apiKey`, and similar) and `MaskPaymentCard` (13–19 digit
+sequences that pass the Luhn checksum, all major card brands) onto every
 text field of `ApiCall__c` and `ApiIssue__c`, so raw secrets and card numbers never land in the logged request or response.
 
 ##### [ApiMock__mdt](reference/metadata/ApiMock__mdt.md) (Custom Metadata)
 
-**Description**: Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs.
+**Description**: Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound
+and outbound APIs.
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ApiSetting__c` | Metadata Relationship (Required) | Link to the API Setting this mock belongs to |
-| `IsActive__c` | Checkbox | Whether mock is active |
-| `ResponseBody__c` | Long Text Area | Mock response body (JSON or XML) |
-| `MatchRequestBodyPattern__c` | Text(255) | Pattern to match against request body for scenario selection |
-| `IsRegex__c` | Checkbox | Treat match pattern as regex instead of simple contains |
-| `StatusCode__c` | Number(3,0) | HTTP status code to return |
-| `Priority__c` | Number | Match priority for this mock |
-| `DelayMs__c` | Number(6,0) | Simulated latency in milliseconds |
-| `FailureRate__c` | Number(5,2) | Percentage of requests that return a simulated failure (0-100) |
-| `ResponseHeaders__c` | Long Text Area(131072) | JSON object of response headers |
+| Field                        | Type                             | Description                                                    |
+|------------------------------|----------------------------------|----------------------------------------------------------------|
+| `ApiSetting__c`              | Metadata Relationship (Required) | Link to the API Setting this mock belongs to                   |
+| `IsActive__c`                | Checkbox                         | Whether mock is active                                         |
+| `ResponseBody__c`            | Long Text Area                   | Mock response body (JSON or XML)                               |
+| `MatchRequestBodyPattern__c` | Text(255)                        | Pattern to match against request body for scenario selection   |
+| `IsRegex__c`                 | Checkbox                         | Treat match pattern as regex instead of simple contains        |
+| `StatusCode__c`              | Number(3,0)                      | HTTP status code to return                                     |
+| `Priority__c`                | Number                           | Match priority for this mock                                   |
+| `DelayMs__c`                 | Number(6,0)                      | Simulated latency in milliseconds                              |
+| `FailureRate__c`             | Number(5,2)                      | Percentage of requests that return a simulated failure (0-100) |
+| `ResponseHeaders__c`         | Long Text Area(131072)           | JSON object of response headers                                |
 
 **Relationships**:
+
 - Metadata relationship to `ApiSetting__mdt`
 
 **Usage**:
+
 ```text
 Example Mock Configuration:
 - Label: Customer API Success Response
@@ -852,22 +917,30 @@ Example Mock Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `Mode__c` | Picklist | `Regex`, `JsonKey` (label "JSON by Key"), `ExactMatch`, or `CreditCard` (Luhn-validated issuer-prefix union) |
-| `Pattern__c` | Long Text Area | Regex pattern, JSON key regex, or literal string (depending on `Mode__c`) |
-| `Replacement__c` | Text(255) | Replacement text (e.g., `[REDACTED]`) |
-| `CaseSensitive__c` | Checkbox | Toggle case-insensitive matching (Default: false) |
-| `FailureAction__c` | Picklist | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws |
-| `MinInputLength__c` | Number | Optional minimum input length — rule skipped for shorter values (zero-cost short-circuit for short fields) |
-| `ApplicableFieldTypes__c` | Text | Optional semicolon-delimited `System.DisplayType.name()` list (e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`) restricting the rule to specific field types; blank applies to every text-shaped field |
-| `IsActive__c` | Checkbox | Enable/disable rule globally |
-| `Order__c` | Number(4,0) | Rule application order |
+| Field                     | Type           | Description                                                                                                                                                                                    |
+|---------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Mode__c`                 | Picklist       | `Regex`, `JsonKey` (label "JSON by Key"), `ExactMatch`, or `CreditCard` (the pattern match plus a Luhn checksum)                                                                               |
+| `Pattern__c`              | Long Text Area | Regex pattern, JSON key regex, or literal string (depending on `Mode__c`)                                                                                                                      |
+| `Replacement__c`          | Text(255)      | Replacement text (e.g., `[REDACTED]`)                                                                                                                                                          |
+| `CaseSensitive__c`        | Checkbox       | Toggle case-insensitive matching (Default: false)                                                                                                                                              |
+| `FailureAction__c`        | Picklist       | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws                                                                                                                    |
+| `MinInputLength__c`       | Number         | Optional minimum input length — rule skipped for shorter values (zero-cost short-circuit for short fields)                                                                                     |
+| `ApplicableFieldTypes__c` | Text           | Optional semicolon-delimited `System.DisplayType.name()` list (e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`) restricting the rule to specific field types; blank applies to every text-shaped field |
+| `IsActive__c`             | Checkbox       | Enable/disable rule globally                                                                                                                                                                   |
+| `Order__c`                | Number(4,0)    | Rule application order                                                                                                                                                                         |
+| `Replaces__c`             | Text(40)       | On a shipped replacement rule: developer name of the older rule it replaces — while both carry their shipped values, the newer rule does the work wherever both are wired. Managed by the package |
+| `ReplacesFingerprint__c`  | Text(64)       | Fingerprint of the replaced rule's original shipped values — any customisation you make to the older rule keeps it running. Managed by the package                                              |
+| `ShippedFingerprint__c`   | Text(64)       | Fingerprint of this rule's own shipped values — customising the replacement rule turns the takeover off, and both rules run. Managed by the package                                             |
 
 **Relationships**:
+
 - Parent of `MaskingTarget__mdt` (1:N)
 
-**Pre-built records (14 shipped):** 2 active — `MaskSecretKeys` (JSON key redaction scoped to `STRING;TEXTAREA`) and `MaskCreditCard` (Luhn-validated issuer-prefix union with `MinInputLength=15`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`). 12 inactive templates ship for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, and private IPv4 — flip `IsActive__c=true` and add a `MaskingTarget__mdt` when your org's data profile calls for them.
+**Pre-built records (18 shipped):** 3 active — `MaskSecretKeys` (JSON key redaction scoped to `STRING;TEXTAREA`), `MaskPaymentCard` (13–19 digit Luhn-checked card numbers with
+`MinInputLength=13`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`), and `MaskCreditCard` (the original issuer-prefix card rule that `MaskPaymentCard` replaces — still shipped for
+compatibility with configurations that reference it). 15 inactive templates ship for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
+URL basic auth, authorization header, private IPv4, postal address, free text, and international phone — flip `IsActive__c=true` and add a `MaskingTarget__mdt` when your org's data
+profile calls for them.
 
 ##### [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md) (Custom Metadata)
 
@@ -875,20 +948,25 @@ Example Mock Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `Rule__c` | MetadataRelationship(MaskingRule__mdt) (Required) | The rule to apply |
-| `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | Target SObject (e.g., `ApiCall__c`, `LogEntryEvent__e`) |
-| `Field__c` | MetadataRelationship(FieldDefinition) | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject |
-| `CallerClass__c` | Text(100) | Optional scope — only fire when the caller class name matches |
-| `IsActive__c` | Checkbox | Enable/disable this wiring without touching the rule |
+| Field            | Type                                              | Description                                                                                                                   |
+|------------------|---------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| `Rule__c`        | MetadataRelationship(MaskingRule__mdt) (Required) | The rule to apply                                                                                                             |
+| `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | Target SObject (e.g., `ApiCall__c`, `LogEntryEvent__e`)                                                                       |
+| `Field__c`       | MetadataRelationship(FieldDefinition)             | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject |
+| `CallerClass__c` | Text(100)                                         | Optional scope — only fire when the caller class name matches                                                                 |
+| `IsActive__c`    | Checkbox                                          | Enable/disable this wiring without touching the rule                                                                          |
 
 **Relationships**:
+
 - Child of `MaskingRule__mdt` via `Rule__c`
 
-**Pre-built records (8 shipped):** the two active rules are each wildcarded onto `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, and `LogEntryEvent__e` — so every persisted API / async-chain / log row passes through `MaskSecretKeys` and `MaskCreditCard` out of the box.
+**Pre-built records (12 shipped):** the secrets, payment-card, and legacy credit-card rules are each wildcarded onto `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, and
+`LogEntryEvent__e` — so every persisted API / async-chain / log row passes through `MaskSecretKeys` and `MaskPaymentCard` out of the box (the legacy credit-card targets defer to
+the payment-card rule on those objects).
 
-**Interaction with `ApplicableFieldTypes__c`:** Rule-level filters take precedence over per-target wiring. If a target wires a rule to a specific `Field__c` whose `DisplayType` is excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field. The framework emits a one-time `warn`-level `LogEntry__c` with `ClassMethod__c='UTIL_FrameworkMasker.filterTargetsByFieldType'` to surface the misconfiguration.
+**Interaction with `ApplicableFieldTypes__c`:** Rule-level filters take precedence over per-target wiring. If a target wires a rule to a specific `Field__c` whose `DisplayType` is
+excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field. The framework emits a one-time `warn`-level `LogEntry__c` with
+`ClassMethod__c='UTIL_FrameworkMasker.filterTargetsByFieldType'` to surface the misconfiguration.
 
 ---
 
@@ -932,19 +1010,22 @@ See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `IsActive__c` | Checkbox | Master on/off switch (Default: false) |
-| `Description__c` | Text Area | Description of the feature |
-| `IsEnabledByDefault__c` | Checkbox | Default value for the flag if no strategies are defined |
-| `ResultOnNoMatch__c` | Picklist | Fallback result when strategies exist but none return true |
+| Field                   | Type      | Description                                                |
+|-------------------------|-----------|------------------------------------------------------------|
+| `IsActive__c`           | Checkbox  | Master on/off switch (Default: false)                      |
+| `Description__c`        | Text Area | Description of the feature                                 |
+| `IsEnabledByDefault__c` | Checkbox  | Default value for the flag if no strategies are defined    |
+| `ResultOnNoMatch__c`    | Picklist  | Fallback result when strategies exist but none return true |
 
 **Relationships**:
+
 - Parent of `FeatureFlagStrategy__mdt` (1:N)
 
-**Pre-built records (10 shipped):** framework flags including `UserModeQueries_Enabled`, `UserModeDml_Enabled` (the secure-by-default posture kill-switches — both default `true`), `DisableAllAPIs`, `MockAllInboundAPIs`, and similar framework-scoped toggles. Subscribers add their own feature flags alongside these.
+**Pre-built records (10 shipped):** framework flags including `UserModeQueries_Enabled`, `UserModeDml_Enabled` (the secure-by-default posture kill-switches — both default `true`),
+`DisableAllAPIs`, `MockAllInboundAPIs`, and similar framework-scoped toggles. Subscribers add their own feature flags alongside these.
 
 **Usage**:
+
 ```apex
 // Check if feature is enabled for current user
 Boolean isEnabled = UTIL_FeatureFlag.isEnabled('Advanced_Reporting');
@@ -961,22 +1042,24 @@ if(isEnabled)
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `FeatureFlag__c` | Metadata Relationship (Required) | Parent feature flag |
-| `Type__c` | Picklist (Required) | Evaluation strategy type |
-| `Target__c` | Text | Identifier, name, or path of the item to evaluate |
-| `ExpectedValue__c` | Text | Optional expected value for the strategy |
-| `CustomHandler__c` | Text | Optional custom Apex class implementing the strategy interface |
-| `IsActive__c` | Checkbox | Whether this strategy is active |
-| `Order__c` | Number(2,0) | Execution priority (lower = first) |
+| Field              | Type                             | Description                                                    |
+|--------------------|----------------------------------|----------------------------------------------------------------|
+| `FeatureFlag__c`   | Metadata Relationship (Required) | Parent feature flag                                            |
+| `Type__c`          | Picklist (Required)              | Evaluation strategy type                                       |
+| `Target__c`        | Text                             | Identifier, name, or path of the item to evaluate              |
+| `ExpectedValue__c` | Text                             | Optional expected value for the strategy                       |
+| `CustomHandler__c` | Text                             | Optional custom Apex class implementing the strategy interface |
+| `IsActive__c`      | Checkbox                         | Whether this strategy is active                                |
+| `Order__c`         | Number(2,0)                      | Execution priority (lower = first)                             |
 
 **Relationships**:
+
 - Metadata relationship to `FeatureFlag__mdt` (parent)
 
 **Pre-built records (2 shipped):** strategies attached to framework flags. Subscribers add their own strategies on framework flags or their own flags.
 
 **Usage**:
+
 ```text
 Example Strategy Configuration:
 1. Enable for specific user:
@@ -997,13 +1080,15 @@ Example Strategy Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field               | Type     | Description                                               |
+|---------------------|----------|-----------------------------------------------------------|
 | `DisableAllApis__c` | Checkbox | Disables all APIs — inbound and outbound (Default: false) |
 
-For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs` feature flags.
+For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs`
+feature flags.
 
 **Usage**:
+
 ```apex
 // Check if all APIs are disabled via feature flag (preferred)
 if(UTIL_FeatureFlag.isEnabled('DisableAllAPIs'))
@@ -1082,11 +1167,12 @@ See also: [Async Processing - Guide](Async%20Processing%20-%20Guide.md),
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field          | Type        | Description                                         |
+|----------------|-------------|-----------------------------------------------------|
 | `BatchSize__c` | Number(4,0) | Number of records to process per execution (1-2000) |
 
 **Usage**:
+
 ```text
 Example Configuration:
 - DeveloperName: PROC_LoginFrequencyAggregator
@@ -1100,17 +1186,18 @@ Example Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `IsActive__c` | Checkbox | Whether scheduled job is active |
-| `SchedulerName__c` | Text | User-friendly name for this scheduled job |
-| `ClassName__c` | Text(255) (Required) | Schedulable class name |
-| `CronExpression__c` | Text(255) (Required) | Cron expression for scheduling |
-| `Description__c` | Text Area | Description of scheduled job |
-| `Parameters__c` | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs passed to the scheduled class |
-| `ScheduledJobId__c` | Text(18) | Salesforce CronTrigger ID |
+| Field               | Type                   | Description                                                                                |
+|---------------------|------------------------|--------------------------------------------------------------------------------------------|
+| `IsActive__c`       | Checkbox               | Whether scheduled job is active                                                            |
+| `SchedulerName__c`  | Text                   | User-friendly name for this scheduled job                                                  |
+| `ClassName__c`      | Text(255) (Required)   | Schedulable class name                                                                     |
+| `CronExpression__c` | Text(255) (Required)   | Cron expression for scheduling                                                             |
+| `Description__c`    | Text Area              | Description of scheduled job                                                               |
+| `Parameters__c`     | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs passed to the scheduled class |
+| `ScheduledJobId__c` | Text(18)               | Salesforce CronTrigger ID                                                                  |
 
 **Usage**:
+
 ```apex
 // Create scheduled job
 ScheduledJob__c job = new ScheduledJob__c(
@@ -1128,11 +1215,12 @@ insert job;
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field                      | Type     | Description                              |
+|----------------------------|----------|------------------------------------------|
 | `LastSuccessfulRunTime__c` | Datetime | Last successful run time of the schedule |
 
 **Usage**:
+
 - Stores runtime state for scheduled jobs (e.g., last successful execution time)
 - Used by scheduled jobs for incremental processing based on changes since last run
 
@@ -1142,24 +1230,25 @@ insert job;
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ChainName__c` | Text(255), Required | Chain name from `newChain()` |
-| `Status__c` | Picklist | Running, Completed, Failed, Delayed, Aborted, Stalled |
-| `TotalSteps__c` | Number(5,0) | Total steps defined in the chain |
-| `CompletedSteps__c` | Number(5,0) | Steps that succeeded (failed steps are not counted) |
-| `CurrentStepName__c` | Text(255) | Name of the currently executing or last executed step |
-| `StartedAt__c` | DateTime | When chain execution began |
-| `CompletedAt__c` | DateTime | When chain execution finished |
-| `DurationMs__c` | Number(10,0) | Wall-clock duration in milliseconds from start to terminal state |
-| `ErrorMessage__c` | Long Text Area(32768) | Error details if failed; non-fatal failure summaries if completed with issues |
-| `StepLog__c` | Long Text Area(131072) | JSON array of step definitions enriched with runtime outcomes |
-| `ContextData__c` | Long Text Area(131072) | Serialized shared chain context (JSON) |
-| `CorrelationId__c` | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries |
+| Field                | Type                          | Description                                                                   |
+|----------------------|-------------------------------|-------------------------------------------------------------------------------|
+| `ChainName__c`       | Text(255), Required           | Chain name from `newChain()`                                                  |
+| `Status__c`          | Picklist                      | Running, Completed, Failed, Delayed, Aborted, Stalled                         |
+| `TotalSteps__c`      | Number(5,0)                   | Total steps defined in the chain                                              |
+| `CompletedSteps__c`  | Number(5,0)                   | Steps that succeeded (failed steps are not counted)                           |
+| `CurrentStepName__c` | Text(255)                     | Name of the currently executing or last executed step                         |
+| `StartedAt__c`       | DateTime                      | When chain execution began                                                    |
+| `CompletedAt__c`     | DateTime                      | When chain execution finished                                                 |
+| `DurationMs__c`      | Number(10,0)                  | Wall-clock duration in milliseconds from start to terminal state              |
+| `ErrorMessage__c`    | Long Text Area(32768)         | Error details if failed; non-fatal failure summaries if completed with issues |
+| `StepLog__c`         | Long Text Area(131072)        | JSON array of step definitions enriched with runtime outcomes                 |
+| `ContextData__c`     | Long Text Area(131072)        | Serialized shared chain context (JSON)                                        |
+| `CorrelationId__c`   | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries                      |
 
 **Field history tracking** is enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and `CompletedAt__c`.
 
 **Usage**:
+
 ```apex
 // Query chain status
 kern__AsyncChainExecution__c execution = [
@@ -1194,16 +1283,18 @@ responsibility pattern, ordered by `Order__c` ascending.
 
 **Fields**:
 
-| Field | Type | Manageability | Description |
-|-------|------|---------------|-------------|
+| Field          | Type               | Manageability         | Description                                                                       |
+|----------------|--------------------|-----------------------|-----------------------------------------------------------------------------------|
 | `ClassName__c` | Text(100) (Unique) | Subscriber Controlled | Fully qualified class name implementing `UTIL_TypeResolver.INT_ClassTypeResolver` |
-| `Order__c` | Number(2,0) | Subscriber Controlled | Execution priority — resolvers are chained in ascending order (lowest first) |
+| `Order__c`     | Number(2,0)        | Subscriber Controlled | Execution priority — resolvers are chained in ascending order (lowest first)      |
 
 **How it works**: The framework loads all `ClassTypeResolver__mdt` records ordered by `Order__c`, instantiates each resolver class, and chains
 them via `setNext()`. The built-in `PackageClassResolver` runs first (subscriber-first namespace resolution), then delegates to the custom
 resolver chain. The first resolver to return a non-null Type wins.
 
-**Subscriber example.** You don't have to write this by hand — the Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row → **Setup**); see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide. The class must be `global` so the package can construct it across namespaces via `Type.newInstance()`; the `resolveType` override stays `public`.
+**Subscriber example.** You don't have to write this by hand — the Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row → **Setup**);
+see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide. The class must be `global` so the package can construct it across namespaces via
+`Type.newInstance()`; the `resolveType` override stays `public`.
 
 ```apex
 // 1. Create a resolver class (this is what the Health Check generator produces):
@@ -1243,12 +1334,13 @@ global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `FieldSetApiNames__c` | Text Area (Required) | Comma-separated list of field set API names |
-| `DefaultActiveSections__c` | Text Area | Comma-separated list of section names expanded by default |
+| Field                      | Type                 | Description                                               |
+|----------------------------|----------------------|-----------------------------------------------------------|
+| `FieldSetApiNames__c`      | Text Area (Required) | Comma-separated list of field set API names               |
+| `DefaultActiveSections__c` | Text Area            | Comma-separated list of section names expanded by default |
 
 **Usage**:
+
 ```text
 Example Configuration:
 - Label: Account Detail Sections
@@ -1262,20 +1354,22 @@ Example Configuration:
 
 **Fields**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `User__c` | Lookup(User) (Required) | The user whose login activity is tracked |
-| `LoginYear__c` | Number(4,0) | Calendar year |
-| `LoginMonth__c` | Number(2,0) | Calendar month (1-12) |
-| `TotalLoginCount__c` | Number(10,0) | Total number of login events for the month |
-| `UniqueLoginCount__c` | Number(10,0) | Number of distinct days the user logged in |
-| `CompositeKey__c` | Text (Unique) | Composite key combining User ID, year, and month |
-| `ReportingDate__c` | Formula(Date) | First day of login month/year for report filtering |
+| Field                 | Type                    | Description                                        |
+|-----------------------|-------------------------|----------------------------------------------------|
+| `User__c`             | Lookup(User) (Required) | The user whose login activity is tracked           |
+| `LoginYear__c`        | Number(4,0)             | Calendar year                                      |
+| `LoginMonth__c`       | Number(2,0)             | Calendar month (1-12)                              |
+| `TotalLoginCount__c`  | Number(10,0)            | Total number of login events for the month         |
+| `UniqueLoginCount__c` | Number(10,0)            | Number of distinct days the user logged in         |
+| `CompositeKey__c`     | Text (Unique)           | Composite key combining User ID, year, and month   |
+| `ReportingDate__c`    | Formula(Date)           | First day of login month/year for report filtering |
 
 **Relationships**:
+
 - Lookup to `User` object
 
 **Usage**:
+
 - Populated by `SCHED_ProcessLoginHistory` scheduled job
 - Enables monthly login frequency reporting and user engagement analytics
 
@@ -1496,13 +1590,13 @@ framework consumes during test execution.
 
 ## Anti-Patterns
 
-| Anti-Pattern | Why It's Wrong | Instead |
-|---|---|---|
-| Hardcoding `DeveloperName` strings to reference metadata records | Breaks silently when records are renamed; no compile-time safety | Use class name constants (e.g., `ClassName.class.getName()`) or `@TestVisible` constants |
-| Using Custom Settings where Custom Metadata Types would suffice | Custom Settings require DML in tests and cannot be deployed across orgs | Use Custom Metadata Types (`__mdt`) for static configuration; reserve Custom Settings for hierarchy or user-specific values |
-| Leaving `Description__c` fields empty on metadata records | Makes configuration opaque to administrators and future developers | Always populate `Description__c` with a brief explanation of the record's purpose |
-| Creating org-specific test data that assumes specific metadata exists | Tests break in different orgs or after metadata changes | Use `TST_Factory` to create metadata records in tests; never rely on pre-existing org data |
-| Querying metadata with inline SOQL | Violates framework patterns and bypasses selector caching | Use `SEL_*` selectors or `QRY_Builder` for all metadata queries |
+| Anti-Pattern                                                          | Why It's Wrong                                                          | Instead                                                                                                                     |
+|-----------------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| Hardcoding `DeveloperName` strings to reference metadata records      | Breaks silently when records are renamed; no compile-time safety        | Use class name constants (e.g., `ClassName.class.getName()`) or `@TestVisible` constants                                    |
+| Using Custom Settings where Custom Metadata Types would suffice       | Custom Settings require DML in tests and cannot be deployed across orgs | Use Custom Metadata Types (`__mdt`) for static configuration; reserve Custom Settings for hierarchy or user-specific values |
+| Leaving `Description__c` fields empty on metadata records             | Makes configuration opaque to administrators and future developers      | Always populate `Description__c` with a brief explanation of the record's purpose                                           |
+| Creating org-specific test data that assumes specific metadata exists | Tests break in different orgs or after metadata changes                 | Use `TST_Factory` to create metadata records in tests; never rely on pre-existing org data                                  |
+| Querying metadata with inline SOQL                                    | Violates framework patterns and bypasses selector caching               | Use `SEL_*` selectors or `QRY_Builder` for all metadata queries                                                             |
 
 ---
 
@@ -1515,7 +1609,7 @@ framework consumes during test execution.
 - **Use meaningful DeveloperNames** for metadata records. Names like `TRG_SetFoobarDefaults_BeforeInsert` are
   self-documenting; names like `Action1` are not.
 - **Keep trigger action execution order explicit** by assigning `Order__c` values with gaps (10, 20,
-  30) to allow future insertions without renumbering.
+    30) to allow future insertions without renumbering.
 - **Prefer `TriggerSetting__mdt.BypassExecution__c`** over code-level bypass for temporary deactivation. Metadata
   bypasses are auditable and reversible without deployment.
 - **Use `ApiCredential__mdt`** for external service configuration rather than hardcoding endpoints or

@@ -34,23 +34,23 @@ classes configured via Custom Metadata.
 
 1. [How It Works](#how-it-works)
 2. [Tier 1: Build It (~5 minutes)](#tier-1-build-it-5-minutes)
-   - [Step 1: Create the Trigger Action](#step-1-create-the-trigger-action)
-   - [Step 2: Create the Physical Trigger](#step-2-create-the-physical-trigger)
-   - [Step 3: Register Metadata](#step-3-register-metadata)
-     - [3a. Create TriggerSetting (one per object)](#3a-create-triggersetting-one-per-object)
-     - [3b. Create TriggerAction (one per action+event)](#3b-create-triggeraction-one-per-actionevent)
-   - [Step 4: Verify](#step-4-verify)
+    - [Step 1: Create the Trigger Action](#step-1-create-the-trigger-action)
+    - [Step 2: Create the Physical Trigger](#step-2-create-the-physical-trigger)
+    - [Step 3: Register Metadata](#step-3-register-metadata)
+        - [3a. Create TriggerSetting (one per object)](#3a-create-triggersetting-one-per-object)
+        - [3b. Create TriggerAction (one per action+event)](#3b-create-triggeraction-one-per-actionevent)
+    - [Step 4: Verify](#step-4-verify)
 3. [Tier 2: Test It (~3 minutes)](#tier-2-test-it-3-minutes)
-   - [Testing Flow Actions with TST_InvokeFlowMock](#testing-flow-actions-with-tst_invokeflowmock)
+    - [Testing Flow Actions with TST_InvokeFlowMock](#testing-flow-actions-with-tst_invokeflowmock)
 4. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
-   - [Available Interfaces](#available-interfaces)
-   - [Comparing Old vs New Values (Update Context)](#comparing-old-vs-new-values-update-context)
-   - [Bypass Mechanisms](#bypass-mechanisms)
-   - [Feature Flag Integration](#feature-flag-integration)
-   - [Ordering Multiple Actions](#ordering-multiple-actions)
+    - [Available Interfaces](#available-interfaces)
+    - [Comparing Old vs New Values (Update Context)](#comparing-old-vs-new-values-update-context)
+    - [Bypass Mechanisms](#bypass-mechanisms)
+    - [Feature Flag Integration](#feature-flag-integration)
+    - [Ordering Multiple Actions](#ordering-multiple-actions)
 5. [Using Flow as a Trigger Action](#using-flow-as-a-trigger-action)
-   - [Variable contract](#variable-contract)
-   - [Configure the TriggerAction__mdt record](#configure-the-triggeraction__mdt-record)
+    - [Variable contract](#variable-contract)
+    - [Configure the TriggerAction__mdt record](#configure-the-triggeraction__mdt-record)
 6. [Common Issues](#common-issues)
 7. [What You Now Know](#what-you-now-know)
 8. [Next Steps](#next-steps)
@@ -63,12 +63,12 @@ classes configured via Custom Metadata.
 
 The trigger framework splits responsibilities:
 
-| Component | Role | You Create |
-|-----------|------|------------|
-| **Physical trigger** (`TRG_Account`) | Delegates to framework -- single line of code | Once per object |
-| **Trigger action** (`TRG_AccountSetDefaults`) | One class per behavior | One per action |
-| **`TriggerSetting__mdt`** | Per-object configuration | One per object |
-| **`TriggerAction__mdt`** | Wires actions to events, controls ordering | One per action+event |
+| Component                                     | Role                                          | You Create           |
+|-----------------------------------------------|-----------------------------------------------|----------------------|
+| **Physical trigger** (`TRG_Account`)          | Delegates to framework -- single line of code | Once per object      |
+| **Trigger action** (`TRG_AccountSetDefaults`) | One class per behavior                        | One per action       |
+| **`TriggerSetting__mdt`**                     | Per-object configuration                      | One per object       |
+| **`TriggerAction__mdt`**                      | Wires actions to events, controls ordering    | One per action+event |
 
 **Why?** Adding/removing/reordering trigger behavior is a metadata change, not a code change. Each action is
 independently testable. No monolithic trigger file.
@@ -485,17 +485,17 @@ private static void shouldRouteFlowFailureThroughLogAndContinue()
 }
 ```
 
-| Method | Purpose |
-|---|---|
-| `kern.TST_InvokeFlowMock.forFlow(name).succeed().register()` | Mock a successful flow run |
-| `kern.TST_InvokeFlowMock.forFlow(name).fail(message).register()` | Mock a flow that returns an error |
-| `kern.TST_InvokeFlowMock.forFlow(name).withOutputRecord(record).register()` | Mock a flow that returns an output record |
-| `kern.TST_InvokeFlowMock.forFlow(name).throwOnStart(exception).register()` | Mock a runtime exception |
-| `kern.TST_InvokeFlowMock.assertInvoked(name, count)` | Assert the flow was invoked an exact number of times |
-| `kern.TST_InvokeFlowMock.assertNotInvoked(name)` | Assert the flow was never invoked |
-| `kern.TST_InvokeFlowMock.getLastInputRecord(name)` | Inspect the `record` SObject the flow received |
-| `kern.TST_InvokeFlowMock.getLastInputPriorRecord(name)` | Inspect `recordPrior` for update-context tests |
-| `kern.TST_InvokeFlowMock.clear()` | Reset all registered mocks and invocation history |
+| Method                                                                      | Purpose                                              |
+|-----------------------------------------------------------------------------|------------------------------------------------------|
+| `kern.TST_InvokeFlowMock.forFlow(name).succeed().register()`                | Mock a successful flow run                           |
+| `kern.TST_InvokeFlowMock.forFlow(name).fail(message).register()`            | Mock a flow that returns an error                    |
+| `kern.TST_InvokeFlowMock.forFlow(name).withOutputRecord(record).register()` | Mock a flow that returns an output record            |
+| `kern.TST_InvokeFlowMock.forFlow(name).throwOnStart(exception).register()`  | Mock a runtime exception                             |
+| `kern.TST_InvokeFlowMock.assertInvoked(name, count)`                        | Assert the flow was invoked an exact number of times |
+| `kern.TST_InvokeFlowMock.assertNotInvoked(name)`                            | Assert the flow was never invoked                    |
+| `kern.TST_InvokeFlowMock.getLastInputRecord(name)`                          | Inspect the `record` SObject the flow received       |
+| `kern.TST_InvokeFlowMock.getLastInputPriorRecord(name)`                     | Inspect `recordPrior` for update-context tests       |
+| `kern.TST_InvokeFlowMock.clear()`                                           | Reset all registered mocks and invocation history    |
 
 > `TST_InvokeFlowMock` tests orchestration -- that the framework called the right flow at the right time.
 > It does not test flow logic. Write a separate `_INTEGRATION_TEST` class for end-to-end flow verification.
@@ -506,15 +506,15 @@ private static void shouldRouteFlowFailureThroughLogAndContinue()
 
 ### Available Interfaces
 
-| Interface | Method | Use Case |
-|-----------|--------|----------|
-| `kern.IF_Trigger.BeforeInsert` | `beforeInsert(List<SObject>)` | Set defaults, validate |
-| `kern.IF_Trigger.BeforeUpdate` | `beforeUpdate(List<SObject>, List<SObject>)` | Validate changes |
-| `kern.IF_Trigger.AfterInsert` | `afterInsert(List<SObject>)` | Create related records |
-| `kern.IF_Trigger.AfterUpdate` | `afterUpdate(List<SObject>, List<SObject>)` | Cascade updates |
-| `kern.IF_Trigger.BeforeDelete` | `beforeDelete(List<SObject>)` | Prevent deletion |
-| `kern.IF_Trigger.AfterDelete` | `afterDelete(List<SObject>)` | Clean up related records |
-| `kern.IF_Trigger.AfterUndelete` | `afterUndelete(List<SObject>)` | Restore related data |
+| Interface                       | Method                                       | Use Case                 |
+|---------------------------------|----------------------------------------------|--------------------------|
+| `kern.IF_Trigger.BeforeInsert`  | `beforeInsert(List<SObject>)`                | Set defaults, validate   |
+| `kern.IF_Trigger.BeforeUpdate`  | `beforeUpdate(List<SObject>, List<SObject>)` | Validate changes         |
+| `kern.IF_Trigger.AfterInsert`   | `afterInsert(List<SObject>)`                 | Create related records   |
+| `kern.IF_Trigger.AfterUpdate`   | `afterUpdate(List<SObject>, List<SObject>)`  | Cascade updates          |
+| `kern.IF_Trigger.BeforeDelete`  | `beforeDelete(List<SObject>)`                | Prevent deletion         |
+| `kern.IF_Trigger.AfterDelete`   | `afterDelete(List<SObject>)`                 | Clean up related records |
+| `kern.IF_Trigger.AfterUndelete` | `afterUndelete(List<SObject>)`               | Restore related data     |
 
 ### Comparing Old vs New Values (Update Context)
 
@@ -595,11 +595,11 @@ See [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) for crea
 
 Set `Order__c` on each `TriggerAction__mdt` record. Lower values run first:
 
-| Order | Action | Purpose |
-|-------|--------|---------|
-| 10 | TRG_AccountSetDefaults | Set defaults |
-| 20 | TRG_AccountValidate | Validate required fields |
-| 30 | TRG_AccountNotify | Send notifications |
+| Order | Action                 | Purpose                  |
+|-------|------------------------|--------------------------|
+| 10    | TRG_AccountSetDefaults | Set defaults             |
+| 20    | TRG_AccountValidate    | Validate required fields |
+| 30    | TRG_AccountNotify      | Send notifications       |
 
 ---
 
@@ -611,10 +611,10 @@ built-in flow runner, and the flow inherits ordering, bypass, recursion control,
 
 ### Variable contract
 
-| Variable | Type | Direction | Required for |
-|---|---|---|---|
-| `record` | The trigger object (e.g. `Account`) | Input + Output | All 7 contexts |
-| `recordPrior` | The trigger object (e.g. `Account`) | Input only | Before Update / After Update only |
+| Variable      | Type                                | Direction      | Required for                      |
+|---------------|-------------------------------------|----------------|-----------------------------------|
+| `record`      | The trigger object (e.g. `Account`) | Input + Output | All 7 contexts                    |
+| `recordPrior` | The trigger object (e.g. `Account`) | Input only     | Before Update / After Update only |
 
 ### Configure the TriggerAction__mdt record
 
@@ -642,28 +642,28 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Type for Class Name not found` | Class is `public`, not visible cross-namespace | Make the class `global`, or set up a Type Resolver |
-| Action doesn't fire | Missing or misconfigured metadata | Check `TriggerAction__mdt` has correct `ApexClassName__c`, `Event__c`, and `TriggerSetting__c` |
-| Trigger doesn't fire | Physical trigger missing the event | Add the event to the trigger declaration (e.g., `before update`) |
-| `BypassExecution__c` is checked | Action or setting is bypassed | Uncheck on both the `TriggerSetting__mdt` and `TriggerAction__mdt` records |
-| Governor limit: SOQL in loop | Querying inside the record loop | Collect IDs first, query once outside the loop |
-| Not bulk-safe | Processing only `newRecords[0]` | Always loop over all records in the list |
-| Sharing not declared | Missing sharing keyword on class | Add `inherited sharing` (default) or `with sharing` |
-| `kern.TST_Factory.newTriggerActionForContext` fails in anonymous Apex | Method is `@TestVisible private` | Call it only from `@IsTest` classes; use deployed CMDT XML for anonymous Apex setup |
+| Problem                                                               | Cause                                          | Fix                                                                                            |
+|-----------------------------------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------|
+| `Type for Class Name not found`                                       | Class is `public`, not visible cross-namespace | Make the class `global`, or set up a Type Resolver                                             |
+| Action doesn't fire                                                   | Missing or misconfigured metadata              | Check `TriggerAction__mdt` has correct `ApexClassName__c`, `Event__c`, and `TriggerSetting__c` |
+| Trigger doesn't fire                                                  | Physical trigger missing the event             | Add the event to the trigger declaration (e.g., `before update`)                               |
+| `BypassExecution__c` is checked                                       | Action or setting is bypassed                  | Uncheck on both the `TriggerSetting__mdt` and `TriggerAction__mdt` records                     |
+| Governor limit: SOQL in loop                                          | Querying inside the record loop                | Collect IDs first, query once outside the loop                                                 |
+| Not bulk-safe                                                         | Processing only `newRecords[0]`                | Always loop over all records in the list                                                       |
+| Sharing not declared                                                  | Missing sharing keyword on class               | Add `inherited sharing` (default) or `with sharing`                                            |
+| `kern.TST_Factory.newTriggerActionForContext` fails in anonymous Apex | Method is `@TestVisible private`               | Call it only from `@IsTest` classes; use deployed CMDT XML for anonymous Apex setup            |
 
 ---
 
 ## What You Now Know
 
-| Concept | What It Does |
-|---------|-------------|
-| **Physical trigger** | One per object -- `new kern.TRG_Dispatcher().run()` |
-| **`TRG_Base`** | Base class -- provides context, bypass control, and `triggerOldMap` |
-| **`IF_Trigger.*`** | Interfaces for each event -- `BeforeInsert`, `AfterUpdate`, etc. |
-| **`TriggerSetting__mdt`** | Per-object config -- links an SObject to the framework |
-| **`TriggerAction__mdt`** | Per-action config -- wires a class to an event with ordering |
+| Concept                   | What It Does                                                        |
+|---------------------------|---------------------------------------------------------------------|
+| **Physical trigger**      | One per object -- `new kern.TRG_Dispatcher().run()`                 |
+| **`TRG_Base`**            | Base class -- provides context, bypass control, and `triggerOldMap` |
+| **`IF_Trigger.*`**        | Interfaces for each event -- `BeforeInsert`, `AfterUpdate`, etc.    |
+| **`TriggerSetting__mdt`** | Per-object config -- links an SObject to the framework              |
+| **`TriggerAction__mdt`**  | Per-action config -- wires a class to an event with ordering        |
 
 **Key patterns:**
 
@@ -681,12 +681,14 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Custom Validations (metadata-driven rules) | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
-| Selectors (query patterns) | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md) |
-| DML Builder (after context) | [Fast Start - DML](Fast%20Start%20-%20DML.md) |
-| E2E Testing (verify triggers fire end-to-end) | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) |
-| Complete Triggers Guide | [Triggers - Guide](Triggers%20-%20Guide.md) |
-| Bypass Mechanisms | [Triggers - Guide](Triggers%20-%20Guide.md#bypass-mechanisms) |
-| Feature Flag Integration | [Triggers - Guide](Triggers%20-%20Guide.md#feature-flag-integration) |
+| Topic                                                    | Link                                                                          |
+|----------------------------------------------------------|-------------------------------------------------------------------------------|
+| Custom Validations (metadata-driven rules)               | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
+| Selectors (query patterns)                               | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                     |
+| DML Builder (after context)                              | [Fast Start - DML](Fast%20Start%20-%20DML.md)                                 |
+| E2E Testing (verify triggers fire end-to-end)            | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)               |
+| Complete Triggers Guide                                  | [Triggers - Guide](Triggers%20-%20Guide.md)                                   |
+| Change Data Capture actions (react to committed changes) | [Triggers - Guide](Triggers%20-%20Guide.md#change-data-capture-actions)       |
+| Post-trigger actions (run logic once per transaction)    | [Triggers - Guide](Triggers%20-%20Guide.md#post-trigger-actions)              |
+| Bypass Mechanisms                                        | [Triggers - Guide](Triggers%20-%20Guide.md#bypass-mechanisms)                 |
+| Feature Flag Integration                                 | [Triggers - Guide](Triggers%20-%20Guide.md#feature-flag-integration)          |

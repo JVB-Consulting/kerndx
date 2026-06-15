@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 public with sharing class CTRL_ChainMonitor
 {
@@ -130,7 +130,7 @@ public with sharing class CTRL_ChainMonitor
 	@AuraEnabled
 	public static DTO_ChainDetail getChainDetail(Id executionId)
 	{
-		AsyncChainExecution__c execution = (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
 
 		if(execution == null)
 		{
@@ -156,7 +156,7 @@ public with sharing class CTRL_ChainMonitor
 	@AuraEnabled(Cacheable=true)
 	public static List<DTO_StepDetail> getStepTimeline(Id executionId)
 	{
-		AsyncChainExecution__c execution = (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
 
 		if(execution == null)
 		{

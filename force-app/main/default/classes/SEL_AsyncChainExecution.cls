@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  *
  * @since 1.0
  *
@@ -104,6 +104,32 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
+	 * @description Retrieves a single AsyncChainExecution__c record by ID for the Chain Monitor
+	 * console. Bypasses sharing rules: the console is an org-wide observability surface gated by
+	 * the framework permission sets (tab + object access), and the rows are Private-OWD records
+	 * owned by whichever user enqueued each chain — a `with sharing` controller would otherwise
+	 * silently hide other users' chains. Orchestration and subscriber-facing status reads
+	 * (`UTIL_AsyncChain.getStatus`) deliberately do NOT use this method, so they keep respecting
+	 * the caller's sharing access.
+	 *
+	 * @param executionId The ID of the AsyncChainExecution__c record.
+	 *
+	 * @return The matching AsyncChainExecution__c record, or null if not found.
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+	 * ```
+	 */
+	public AsyncChainExecution__c findByIdForMonitoring(Id executionId)
+	{
+		return (AsyncChainExecution__c)query
+				.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.Id).equals(executionId)
+				.getFirst();
+	}
+
+	/**
 	 * @description Retrieves AsyncChainExecution__c records with a specific status.
 	 *
 	 * @param status The status value to filter on.
@@ -164,7 +190,9 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 
 	/**
 	 * @description Retrieves a paginated, filtered, and sorted page of AsyncChainExecution__c records.
-	 * Used by the Chain Monitor controller for list view queries.
+	 * Used by the Chain Monitor controller for list view queries. Bypasses sharing rules: the
+	 * console is an org-wide observability surface gated by the framework permission sets, and a
+	 * `with sharing` controller would otherwise silently hide other users' Private-OWD chains.
 	 *
 	 * @param statusFilters List of status values to filter on. Null or empty returns all statuses.
 	 * @param nameFilter Chain name search string (LIKE filter). Null or blank returns all names.
@@ -195,7 +223,7 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 					Integer pageSize
 			)
 	{
-		QRY_Builder.Builder filteredQuery = query;
+		QRY_Builder.Builder filteredQuery = query.bypassSharingInternal();
 
 		if(statusFilters?.isEmpty() == false)
 		{

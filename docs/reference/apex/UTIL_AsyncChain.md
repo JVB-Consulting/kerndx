@@ -4,7 +4,7 @@ type: class
 description: "Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure."
 author: "Jason Van Beukering"
 group: "Async"
-date: "April 2026, May 2026"
+date: "April 2026, June 2026"
 since: "1.0"
 category: apex
 ---

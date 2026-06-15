@@ -33,20 +33,20 @@ REST resource, all logic lives in the handler class.
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Call the Echo API](#call-the-echo-api)
-   - [How It Works (Two-Class Architecture)](#how-it-works-two-class-architecture)
+    - [Call the Echo API](#call-the-echo-api)
+    - [How It Works (Two-Class Architecture)](#how-it-works-two-class-architecture)
 2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-   - [Step 1: Create the REST Routing Class](#step-1-create-the-rest-routing-class)
-   - [Step 2: Create the API Handler](#step-2-create-the-api-handler)
-   - [Step 3: Register Metadata](#step-3-register-metadata)
-   - [Step 4: Execute](#step-4-execute)
-   - [Step 5: Write Tests](#step-5-write-tests)
+    - [Step 1: Create the REST Routing Class](#step-1-create-the-rest-routing-class)
+    - [Step 2: Create the API Handler](#step-2-create-the-api-handler)
+    - [Step 3: Register Metadata](#step-3-register-metadata)
+    - [Step 4: Execute](#step-4-execute)
+    - [Step 5: Write Tests](#step-5-write-tests)
 3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-   - [Feature Flag Gating](#feature-flag-gating)
-     - [Deploy a feature-flagged API](#deploy-a-feature-flagged-api)
-     - [Verify](#verify)
-   - [Multiple HTTP Methods on One URL](#multiple-http-methods-on-one-url)
-   - [Idempotency](#idempotency)
+    - [Feature Flag Gating](#feature-flag-gating)
+        - [Deploy a feature-flagged API](#deploy-a-feature-flagged-api)
+        - [Verify](#verify)
+    - [Multiple HTTP Methods on One URL](#multiple-http-methods-on-one-url)
+    - [Idempotency](#idempotency)
 4. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
 5. [Common Issues](#common-issues)
 6. [What You Now Know](#what-you-now-know)
@@ -78,6 +78,7 @@ sf api request rest -o YourOrgAlias --method POST --body '{"message":"Hello from
 
 The Echo endpoint received your JSON, processed it through the framework, and echoed it back. Behind the scenes,
 the framework:
+
 - Parsed the request body into a DTO
 - Ran validation (non-blank body required)
 - Logged the call as an `ApiCall__c` record
@@ -95,10 +96,10 @@ the framework:
 
 Every inbound API uses two classes:
 
-| Class | Role | Visibility |
-|-------|------|------------|
-| `REST_*` | URL routing only -- defines the endpoint, delegates to framework | `global` (required by Salesforce) |
-| `API_*` | Business logic -- validation, DML, response building | `global` (or `public` with Type Resolver) |
+| Class    | Role                                                             | Visibility                                |
+|----------|------------------------------------------------------------------|-------------------------------------------|
+| `REST_*` | URL routing only -- defines the endpoint, delegates to framework | `global` (required by Salesforce)         |
+| `API_*`  | Business logic -- validation, DML, response building             | `global` (or `public` with Type Resolver) |
 
 The Echo API's routing class is just three lines of logic:
 
@@ -580,6 +581,7 @@ sf api request rest -o YourOrgAlias --method POST \
 ```
 
 **Expected output** (flag is disabled):
+
 ```json
 {
   "isSuccess": false,
@@ -645,7 +647,7 @@ duplicate Lead is created and the caller sees the original success payload.
 
 If a caller reuses the same key with a **different request body** (e.g. a buggy retry that mutated the payload),
 the framework rejects with **HTTP 409** and a JSON body containing the original `ApiCall.Id` so the caller can
-reconcile against the conflicting request. See [Idempotency in the Web Services Guide](Web%20Services%20-%20Guide.md#10-idempotency-inbound-apis)
+reconcile against the conflicting request. See [Idempotency in the Web Services Guide](Web%20Services%20-%20Guide.md#idempotency-inbound-apis)
 for the full replay table and 409 response shape.
 
 > **No CLI?** You can test idempotency from [Workbench](https://workbench.developerforce.com/) too: REST Explorer >
@@ -656,24 +658,30 @@ for the full replay table and 409 response shape.
 
 ## Sensitive data is masked by default
 
-Inbound requests and responses are captured to `ApiCall__c` for audit. The request body, response body, URL, and parameters are redacted through the data masking framework before persistence. Out of the box, two rules fire:
+Inbound requests and responses are captured to `ApiCall__c` for audit. The request body, response body, URL, and parameters are redacted through the data masking framework before
+persistence. Out of the box, two rules fire:
 
-- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`).
-- **`MaskCreditCard`** — redacts Luhn-validated 13–19 digit sequences matching Visa / Mastercard / Amex / Discover / Diners Club / JCB / UnionPay issuer prefixes.
+- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
+  `refresh_token`).
+- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
+  (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
 
-So if a caller posts a body containing a `password` or card number, the persisted `ApiCall__c.Request__c` has those redacted — the response you generate and return to the caller is untouched. Twelve more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the field(s) that need it.
+So if a caller posts a body containing a `password` or card number, the persisted `ApiCall__c.Request__c` has those redacted — the response you generate and return to the caller is
+untouched. Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address,
+free text, international phone) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the field(s)
+that need it.
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Type cannot be deserialized` | `public` class not visible to package | Make the class `global`, or set up a Type Resolver ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)) |
-| `No ApiSetting found` | Missing or mismatched metadata | Check `ClassName__c` matches your simple class name and `Direction__c` is `Inbound` |
-| `super.configure()` not called | Missing `super` in override | Always call `super.configure()` first |
-| NullPointerException in test | RestContext not initialized | Use `kern.API_InboundTestHelper.setupRestContext()` or the `assertCall*` methods |
-| Business logic in REST_ class | Bypass of framework logging/validation | Move all logic to the `API_*` class; REST_ class only delegates |
-| DML error in `onSuccess()` | Using `insert` instead of `doInsert()` | Use inherited `doInsert()`/`doUpdate()` -- framework commits all DML together |
-| Missing `@JsonAccess` on DTO | Runtime serialization error | Add `@JsonAccess(Serializable='always' Deserializable='always')` |
+| Problem                                     | Cause                                                      | Fix                                                                                                                                                                                   |
+|---------------------------------------------|------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Type cannot be deserialized`               | `public` class not visible to package                      | Make the class `global`, or set up a Type Resolver ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver))                                                            |
+| `No ApiSetting found`                       | Missing or mismatched metadata                             | Check `ClassName__c` matches your simple class name and `Direction__c` is `Inbound`                                                                                                   |
+| `super.configure()` not called              | Missing `super` in override                                | Always call `super.configure()` first                                                                                                                                                 |
+| NullPointerException in test                | RestContext not initialized                                | Use `kern.API_InboundTestHelper.setupRestContext()` or the `assertCall*` methods                                                                                                      |
+| Business logic in REST_ class               | Bypass of framework logging/validation                     | Move all logic to the `API_*` class; REST_ class only delegates                                                                                                                       |
+| DML error in `onSuccess()`                  | Using `insert` instead of `doInsert()`                     | Use inherited `doInsert()`/`doUpdate()` -- framework commits all DML together                                                                                                         |
+| Missing `@JsonAccess` on DTO                | Runtime serialization error                                | Add `@JsonAccess(Serializable='always' Deserializable='always')`                                                                                                                      |
 | Sensitive value appears raw on `ApiCall__c` | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, `SObjectType__c = ApiCall__c`, and a `Field__c` (blank for wildcard) — see [Web Services Guide](Web%20Services%20-%20Guide.md) |
 
 ---
@@ -682,12 +690,12 @@ So if a caller posts a body containing a `password` or card number, the persiste
 
 After completing this guide, you understand the **inbound API architecture** in KernDX:
 
-| Concept | What It Does |
-|---------|-------------|
-| **Two-class architecture** | `REST_*` handles URL routing (global), `API_*` handles business logic |
-| **`API_Dispatcher`** | Routes requests from the REST endpoint to your handler class |
-| **`ApiSetting__mdt`** | Registers your handler with the framework (class name, direction, endpoint path) |
-| **`ApiCall__c`** | Automatic logging of every inbound call with request/response details |
+| Concept                    | What It Does                                                                     |
+|----------------------------|----------------------------------------------------------------------------------|
+| **Two-class architecture** | `REST_*` handles URL routing (global), `API_*` handles business logic            |
+| **`API_Dispatcher`**       | Routes requests from the REST endpoint to your handler class                     |
+| **`ApiSetting__mdt`**      | Registers your handler with the framework (class name, direction, endpoint path) |
+| **`ApiCall__c`**           | Automatic logging of every inbound call with request/response details            |
 
 **Key methods you override:**
 
@@ -702,9 +710,9 @@ After completing this guide, you understand the **inbound API architecture** in 
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Building Outbound APIs | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) |
-| Feature Flag Gating | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md) |
-| Data Masking | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |
+| Topic                       | Link                                                                    |
+|-----------------------------|-------------------------------------------------------------------------|
+| Building Outbound APIs      | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)     |
+| Feature Flag Gating         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)     |
+| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md)                   |
+| Data Masking                | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |

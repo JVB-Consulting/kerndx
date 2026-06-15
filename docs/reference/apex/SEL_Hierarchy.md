@@ -4,7 +4,7 @@ type: class
 description: "Data Access Layer for managing self-referencing hierarchical relationships. Provides methods to traverse hierarchies, find ultimate parents (root ancestors), and propagate updates to descendants.  Wor"
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "January 2026, May 2026"
+date: "January 2026, June 2026"
 since: "1.0"
 category: apex
 ---

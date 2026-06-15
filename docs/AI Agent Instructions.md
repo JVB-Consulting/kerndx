@@ -1,16 +1,17 @@
 # KernDX Framework — AI Code Generation Context
 
 > Provide this file to any AI code assistant (Claude, Gemini, GPT, Cursor, Copilot, etc.) as project knowledge,
-> system prompt, or rules file. Namespace: `kern`. API version: 66.0.
+> system prompt, or rules file. Namespace: `kern`. API version: 67.0.
 >
 > **Audience: subscribers writing code that uses KernDX in their own org.** If you're
 > instead working inside this repository (modifying the kern source itself or extending
-> the framework), [`AGENTS.md`](../AGENTS.md) at the repo root is the entry point for
+> the framework), [`AGENTS.md`](https://github.com/JVB-Consulting/kerndx/blob/main/AGENTS.md) at the repo root is the entry point for
 > that context.
 
 ## STOP — Before Generating Code
 
 **Collect these from the user before writing any code:**
+
 1. **Namespace** — e.g., `kern`. Required for all framework class references.
 2. **Class prefix convention** — e.g., `PRJ_`, `ACME_`, or none.
 3. **Org alias** — only if deployment commands are needed.
@@ -31,9 +32,11 @@ This is the single most common AI generation error. Verify EVERY line of generat
 1. Does `docs/reference/apex/<ClassName>.md` exist in this repo? → It is a KernDX framework class. **Add the `kern.` prefix.**
 2. Is the class defined inside YOUR subscriber repository? → **No prefix.**
 
-This rule replaces any hardcoded list of framework classes (the kern namespace has 95+ global types and inner classes; any hardcoded list has gaps). The auto-generated reference under `docs/reference/apex/` is the authoritative inventory — if a class is documented there, it ships in the kern package.
+This rule replaces any hardcoded list of framework classes (the kern namespace has 95+ global types and inner classes; any hardcoded list has gaps). The auto-generated reference
+under `docs/reference/apex/` is the authoritative inventory — if a class is documented there, it ships in the kern package.
 
-**Inner-class and interface members of framework classes also require the prefix** (e.g. `kern.IF_Trigger.BeforeInsert`, `kern.UTIL_AsyncChain.ChainStep`, `kern.TST_Mock.MockBuilder`). The rule applies to the outermost class name; nested types inherit the same namespace.
+**Inner-class and interface members of framework classes also require the prefix** (e.g. `kern.IF_Trigger.BeforeInsert`, `kern.UTIL_AsyncChain.ChainStep`,
+`kern.TST_Mock.MockBuilder`). The rule applies to the outermost class name; nested types inherit the same namespace.
 
 **Your own subscriber classes do NOT get the namespace prefix.** Adding the prefix to your own classes causes `Invalid type` errors.
 
@@ -51,7 +54,8 @@ kern.QRY_Builder.selectFrom(Account.SObjectType).toList();
 kern.API_Dispatcher.processInboundService(API_CreateOrder.class.getName());
 ```
 
-**Self-check after generating:** For every class name in the generated code, run the decision rule. Framework classes (those documented under `docs/reference/apex/`) without the `kern.` prefix → add it. Subscriber classes with the prefix → remove it. Both errors cause deployment failure.
+**Self-check after generating:** For every class name in the generated code, run the decision rule. Framework classes (those documented under `docs/reference/apex/`) without the
+`kern.` prefix → add it. Subscriber classes with the prefix → remove it. Both errors cause deployment failure.
 
 **Always follow every rule in this document. Do not use alternative patterns (fflib, AT4DX, etc.).**
 
@@ -62,6 +66,7 @@ kern.API_Dispatcher.processInboundService(API_CreateOrder.class.getName());
 ### Formatting
 
 **Apex:** Tabs (size 3), Allman bracing, 180-char line limit.
+
 ```apex
 public with sharing class MyClass
 {
@@ -76,6 +81,7 @@ public with sharing class MyClass
 ```
 
 **Line wrap (>180 chars):** paren on new line, args indented:
+
 ```apex
 TriggerAction__mdt action = TST_Factory.newTriggerActionForContext
 (
@@ -85,34 +91,36 @@ TriggerAction__mdt action = TST_Factory.newTriggerActionForContext
 );
 ```
 
-**JavaScript (LWC):** Tabs, single quotes, semicolons, Allman bracing, camelCase, JSDoc required on LWC component classes (`@description`, `@author`, `@date`) and methods with parameters (`@param {type} name`).
+**JavaScript (LWC):** Tabs, single quotes, semicolons, Allman bracing, camelCase, JSDoc required on LWC component classes (`@description`, `@author`, `@date`) and methods with
+parameters (`@param {type} name`).
 
 ### Naming Conventions
 
-| Prefix | Use | Example |
-|--------|-----|---------|
-| `SEL_*` | Object selectors | `SEL_Cases` |
-| `QRY_*` | Query infrastructure | `QRY_Builder` |
-| `DML_*` | DML operations | `DML_Builder` |
-| `TRG_*` | Trigger handlers/dispatcher | `TRG_SetDefaults` |
-| `IF_*` | Interfaces | `IF_Trigger` |
-| `API_*` | Web services | `API_SendEmail` |
-| `REST_*` | REST endpoints | `REST_Echo` |
-| `DTO_*` | Data Transfer Objects | `DTO_JsonBase` |
-| `CTRL_*` | LWC controllers | `CTRL_ScheduledJob` |
-| `FLOW_*` | Flow invocables | `FLOW_CreateAccount` |
-| `SVC_*` | Service facades | `SVC_Onboarding` |
-| `SCHED_*` | Schedulables | `SCHED_PurgeRecords` |
-| `BATCH_*` | Batch jobs | `BATCH_Process` |
-| `UTIL_*` | Utilities | `UTIL_String` |
-| `LOG_*` | Logging | `LOG_Builder` |
-| `MAP_*` | In-memory indexing | `MAP_SObject` |
-| `TST_*` | Test utilities | `TST_Builder` |
-| `*_TEST` | Test classes | `SEL_Cases_TEST` |
+| Prefix    | Use                         | Example              |
+|-----------|-----------------------------|----------------------|
+| `SEL_*`   | Object selectors            | `SEL_Cases`          |
+| `QRY_*`   | Query infrastructure        | `QRY_Builder`        |
+| `DML_*`   | DML operations              | `DML_Builder`        |
+| `TRG_*`   | Trigger handlers/dispatcher | `TRG_SetDefaults`    |
+| `IF_*`    | Interfaces                  | `IF_Trigger`         |
+| `API_*`   | Web services                | `API_SendEmail`      |
+| `REST_*`  | REST endpoints              | `REST_Echo`          |
+| `DTO_*`   | Data Transfer Objects       | `DTO_JsonBase`       |
+| `CTRL_*`  | LWC controllers             | `CTRL_ScheduledJob`  |
+| `FLOW_*`  | Flow invocables             | `FLOW_CreateAccount` |
+| `SVC_*`   | Service facades             | `SVC_Onboarding`     |
+| `SCHED_*` | Schedulables                | `SCHED_PurgeRecords` |
+| `BATCH_*` | Batch jobs                  | `BATCH_Process`      |
+| `UTIL_*`  | Utilities                   | `UTIL_String`        |
+| `LOG_*`   | Logging                     | `LOG_Builder`        |
+| `MAP_*`   | In-memory indexing          | `MAP_SObject`        |
+| `TST_*`   | Test utilities              | `TST_Builder`        |
+| `*_TEST`  | Test classes                | `SEL_Cases_TEST`     |
 
 ### ApexDoc (Required)
 
 **Class-level** (blank line between each tag):
+
 ```apex
 /**
  * @description Handler for Foobar defaults.
@@ -134,7 +142,8 @@ Tags in order: `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `
 
 **Do NOT skip ApexDoc on overridden methods.** Every method needs at minimum `@description`. Constructors also need `@description`.
 
-**`@since`:** Required on ALL `global` members (classes, methods, properties). Format: `@since 1.0`. Not required on `public`/`private`. Subscribers rarely need `@since` — only on `REST_*` classes (the only subscriber class type that requires `global`).
+**`@since`:** Required on ALL `global` members (classes, methods, properties). Format: `@since 1.0`. Not required on `public`/`private`. Subscribers rarely need `@since` — only on
+`REST_*` classes (the only subscriber class type that requires `global`).
 
 **`@example`:** Must use ` ```apex ` code fences.
 
@@ -142,41 +151,43 @@ Tags in order: `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `
 
 ### Critical Rules
 
-| Rule | Correct | Wrong |
-|------|---------|-------|
-| No inline SOQL | `kern.QRY_Builder.selectFrom(...)` or `new SEL_Cases()` | `[SELECT ...]` |
-| No System.debug | `kern.LOG_Builder.build().info('msg').emitAt('Class.method')` | `System.debug(...)` |
-| No LightningElement | `extends ComponentBuilder('notification')` | `extends LightningElement` |
+| Rule                                         | Correct                                                                                  | Wrong                                                                                                                                                                                                                                                                                                         |
+|----------------------------------------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| No inline SOQL                               | `kern.QRY_Builder.selectFrom(...)` or `new SEL_Cases()`                                  | `[SELECT ...]`                                                                                                                                                                                                                                                                                                |
+| No System.debug                              | `kern.LOG_Builder.build().info('msg').emitAt('Class.method')`                            | `System.debug(...)`                                                                                                                                                                                                                                                                                           |
+| No LightningElement                          | `extends ComponentBuilder('notification')`                                               | `extends LightningElement`                                                                                                                                                                                                                                                                                    |
 | No fflib layering pattern in subscriber code | `kern.QRY_Builder`, `kern.DML_Builder`, `extends kern.SEL_Base`, `extends kern.TRG_Base` | `fflib_SObjectSelector`, `fflib_SObjectDomain`, `fflib_Application`, `fflib_SObjectUnitOfWork`, `newQueryFactory()`. The framework's own `UTIL_SObjectDescribe` + `DML_Transaction` utilities are BSD-licensed from the same lineage (see `NOTICES.md`); subscriber code goes through `kern.*` not `fflib_*`. |
-| No abbreviations | `account`, `message` | `acc`, `msg` |
-| No Given/When/Then | Self-documenting code | `// Given`, `// When` |
-| No test cleanup | SF resets static state between tests | Cleanup code in tests |
-| No hardcoded field names | `field.getDescribe().getName()` | String literal field names |
-| No section separators | Clean code | `//====` banners |
-| No inline DML in tests | `kern.TST_Builder.of(SObjectType).build()` | `insert new Account()` |
-| Use Assert.* | `Assert.isTrue(result, 'msg')` | `System.assert(...)` |
-| Declare sharing | Always `with sharing`; `inherited sharing` only for `SCHED_*` | Missing sharing |
-| No unnecessary global | `public` everywhere; `global` only for `REST_*` and `SCHED_*` | `global` on handlers/selectors/services/flows |
+| No abbreviations                             | `account`, `message`                                                                     | `acc`, `msg`                                                                                                                                                                                                                                                                                                  |
+| No Given/When/Then                           | Self-documenting code                                                                    | `// Given`, `// When`                                                                                                                                                                                                                                                                                         |
+| No test cleanup                              | SF resets static state between tests                                                     | Cleanup code in tests                                                                                                                                                                                                                                                                                         |
+| No hardcoded field names                     | `field.getDescribe().getName()`                                                          | String literal field names                                                                                                                                                                                                                                                                                    |
+| No section separators                        | Clean code                                                                               | `//====` banners                                                                                                                                                                                                                                                                                              |
+| No inline DML in tests                       | `kern.TST_Builder.of(SObjectType).build()`                                               | `insert new Account()`                                                                                                                                                                                                                                                                                        |
+| Use Assert.*                                 | `Assert.isTrue(result, 'msg')`                                                           | `System.assert(...)`                                                                                                                                                                                                                                                                                          |
+| Declare sharing                              | Always `with sharing`; `inherited sharing` only for `SCHED_*`                            | Missing sharing                                                                                                                                                                                                                                                                                               |
+| No unnecessary global                        | `public` everywhere; `global` only for `REST_*` and `SCHED_*`                            | `global` on handlers/selectors/services/flows                                                                                                                                                                                                                                                                 |
 
 ### Sharing & Access by Class Type (mandatory)
 
-**Subscriber code uses `with sharing` everywhere.** The `inherited sharing` you may see in framework source is a managed package internal pattern — it does NOT apply to subscriber orgs.
+**Subscriber code uses `with sharing` everywhere.** The `inherited sharing` you may see in framework source is a managed package internal pattern — it does NOT apply to subscriber
+orgs.
 
-| Class Type | Sharing | Access |
-|------------|---------|--------|
-| `TRG_*` handlers | `with sharing` | `public` |
-| `SEL_*` selectors | `with sharing` (subscriber) / `inherited sharing` (framework) | `public` |
-| `API_*` Inbound/Outbound | `with sharing` | `public` |
-| `REST_*` routing | `with sharing` | `global` — SF requires for `@RestResource` |
-| `SVC_*` services | `with sharing` | `public` |
-| `FLOW_*` invocables | `with sharing` | `public` |
-| `SCHED_*` schedulables | `inherited sharing` | `global` — framework uses `Type.newInstance()` cross-namespace |
-| `UTIL_*` utilities | `with sharing` | `public` |
-| `*_TEST` test classes | (none) | `private` |
+| Class Type               | Sharing                                                       | Access                                                         |
+|--------------------------|---------------------------------------------------------------|----------------------------------------------------------------|
+| `TRG_*` handlers         | `with sharing`                                                | `public`                                                       |
+| `SEL_*` selectors        | `with sharing` (subscriber) / `inherited sharing` (framework) | `public`                                                       |
+| `API_*` Inbound/Outbound | `with sharing`                                                | `public`                                                       |
+| `REST_*` routing         | `with sharing`                                                | `global` — SF requires for `@RestResource`                     |
+| `SVC_*` services         | `with sharing`                                                | `public`                                                       |
+| `FLOW_*` invocables      | `with sharing`                                                | `public`                                                       |
+| `SCHED_*` schedulables   | `inherited sharing`                                           | `global` — framework uses `Type.newInstance()` cross-namespace |
+| `UTIL_*` utilities       | `with sharing`                                                | `public`                                                       |
+| `*_TEST` test classes    | (none)                                                        | `private`                                                      |
 
 **Sharing rule:** Always `with sharing`. Never `without sharing` unless explicitly justified.
 
-**Access rule:** Always `public`. Exceptions: `REST_*` classes (`global` required for `@RestResource`) and `SCHED_*` classes (`global` required for cross-namespace `Type.newInstance()`).
+**Access rule:** Always `public`. Exceptions: `REST_*` classes (`global` required for `@RestResource`) and `SCHED_*` classes (`global` required for cross-namespace
+`Type.newInstance()`).
 
 ### PMD
 
@@ -220,7 +231,9 @@ public with sharing class SEL_Cases extends kern.SEL_Base  // MUST be "with shar
 }
 ```
 
-**Inherited methods:** `findById(Id)` / `findById(Set<Id>)` | `findByIdOrThrow(Id/Set<Id>)` | `findByField(field, value/Set)` | `findFirstByField(field, value)` | `findByFields(Map)` / `findFirstByFields(Map)` | `query` (property → `QRY_Builder.Builder`) | `toList()` / `getFirst()` / `getRandomItem()` | `count()` / `exists()` | `toQueryLocator()`
+**Inherited methods:** `findById(Id)` / `findById(Set<Id>)` | `findByIdOrThrow(Id/Set<Id>)` | `findByField(field, value/Set)` | `findFirstByField(field, value)` |
+`findByFields(Map)` / `findFirstByFields(Map)` | `query` (property → `QRY_Builder.Builder`) | `toList()` / `getFirst()` / `getRandomItem()` | `count()` / `exists()` |
+`toQueryLocator()`
 
 ---
 
@@ -237,27 +250,36 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-**Fields:** `.fields(List<SObjectField/String>)` | `.addFields()` | `.addField()` | `.relatedField(String)` | `.relatedFields(List<String>)` | `.selectAllFields()` | `.fieldSet()` | `.subselect(Builder, String)`
+**Fields:** `.fields(List<SObjectField/String>)` | `.addFields()` | `.addField()` | `.relatedField(String)` | `.relatedFields(List<String>)` | `.selectAllFields()` |
+`.fieldSet()` | `.subselect(Builder, String)`
 
 **Conditions:** `.condition(field)` | `.andCondition(field)` | `.orCondition(field)` | `.addCondition(QRY_Condition.Evaluable)`
 
-**Operators:** `.equals()` | `.notEquals()` | `.greaterThan()` | `.greaterThanOrEquals()` | `.lessThan()` | `.lessThanOrEquals()` | `.isNull()` | `.isNotNull()` | `.isIn(Set/List/Builder)` | `.notInSet(Set/List/List<SObject>)` | `.notIn(Builder)` | `.contains()` | `.startsWith()` | `.endsWith()` | `.includes()` | `.excludes()`
+**Operators:** `.equals()` | `.notEquals()` | `.greaterThan()` | `.greaterThanOrEquals()` | `.lessThan()` | `.lessThanOrEquals()` | `.isNull()` | `.isNotNull()` |
+`.isIn(Set/List/Builder)` | `.notInSet(Set/List/List<SObject>)` | `.notIn(Builder)` | `.contains()` | `.startsWith()` | `.endsWith()` | `.includes()` | `.excludes()`
 
-**Ordering:** `.orderBy(field)` → `.ascending()` / `.descending()` / `.nullsFirst()` / `.nullsLast()` | `.orderBy(field, sortDescending)` | `.orderBy(field, sortDescending, nullsLast)`
+**Ordering:** `.orderBy(field)` → `.ascending()` / `.descending()` / `.nullsFirst()` / `.nullsLast()` | `.orderBy(field, sortDescending)` |
+`.orderBy(field, sortDescending, nullsLast)`
 
-**Aggregates:** `.groupBy(field)` | `.sum()` / `.avg()` / `.min()` / `.max()` / `.count(String)` / `.countDistinct()` | `.havingSumOf()` / `.havingCount()` etc. | Terminal: `.toAggregateList()` → `List<QRY_Builder.AggregateRow>` (NOT `AggregateResult`)
+**Aggregates:** `.groupBy(field)` | `.sum()` / `.avg()` / `.min()` / `.max()` / `.count(String)` / `.countDistinct()` | `.havingSumOf()` / `.havingCount()` etc. | Terminal:
+`.toAggregateList()` → `List<QRY_Builder.AggregateRow>` (NOT `AggregateResult`)
 
 **Limit/Cache/Scope:** `.withLimit()` | `.withOffset()` | `.withCache(seconds)` | `.usingScope(QRY_Builder.Scope)` | `.forUpdate()` | `.allRows()`
 
 **Security:** `.withUserMode()` / `.withSystemMode()` | `.stripInaccessible()` | `.withSharing()` / `.bypassSharing()` | `.withoutSecurity()`
 
-> **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeQueries_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call `.withSystemMode()` per-query to bypass, or subclass `kern.SEL_Base` and override `systemModeRequired()` to return `true` to pin a selector's queries to SYSTEM_MODE regardless of the flag.
+> **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeQueries_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
+`.withSystemMode()` per-query to bypass, or subclass `kern.SEL_Base` and override `systemModeRequired()` to return `true` to pin a selector's queries to SYSTEM_MODE regardless of
+> the flag.
 
-**Terminal:** `.toList()` | `.getFirst()` | `.toQueryLocator()` | `.toCursor()` | `.toAggregateList()` | `.getFirstAggregate()` | `.getPage(page, size)` → `QueryPage` | `.getRandomItem()` / `.getRandomItems(n)` | `.count()` | `.exists()` | `.asMap()` | `.asMapById(field)` | `.asMapByString(field)` | `.asGroupedMapById(field)` | `.asGroupedMapByString(field)` | `.asIdSet()` | `.asIdList()` | `.asValueSet(field)` | `.asStringSet(field)` | `.toSoql()`
+**Terminal:** `.toList()` | `.getFirst()` | `.toQueryLocator()` | `.toCursor()` | `.toAggregateList()` | `.getFirstAggregate()` | `.getPage(page, size)` → `QueryPage` |
+`.getRandomItem()` / `.getRandomItems(n)` | `.count()` | `.exists()` | `.asMap()` | `.asMapById(field)` | `.asMapByString(field)` | `.asGroupedMapById(field)` |
+`.asGroupedMapByString(field)` | `.asIdSet()` | `.asIdList()` | `.asValueSet(field)` | `.asStringSet(field)` | `.toSoql()`
 
 ### Semi-join Subqueries
 
 **IMPORTANT:** Do NOT call terminal methods on subqueries:
+
 ```apex
 // CORRECT
 kern.QRY_Builder.Builder subquery = kern.QRY_Builder.selectFrom(Contact.SObjectType)
@@ -289,7 +311,8 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 .condition(Case.CreatedDate).equals(new kern.QRY_Condition.DateLiteral().today())
 ```
 
-Methods: `.today()` / `.yesterday()` / `.tomorrow()` | `.lastNDays(n)` / `.nextNDays(n)` | `.thisUnit(UnitOfTime)` | `.last(UnitOfTime)` / `.next(UnitOfTime)` | `.last(n, UnitOfTime)` / `.next(n, UnitOfTime)`
+Methods: `.today()` / `.yesterday()` / `.tomorrow()` | `.lastNDays(n)` / `.nextNDays(n)` | `.thisUnit(UnitOfTime)` | `.last(UnitOfTime)` / `.next(UnitOfTime)` |
+`.last(n, UnitOfTime)` / `.next(n, UnitOfTime)`
 
 ---
 
@@ -303,13 +326,15 @@ kern.DML_Builder.TransactionResult result = kern.DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Operations:** `.doInsert(SObject/List)` | `.doInsert(child, relField, parent)` | `.doUpdate()` | `.doDelete()` | `.doUpsert()` | `.doUpsert(records, externalId)` | `.doUndelete()`
+**Operations:** `.doInsert(SObject/List)` | `.doInsert(child, relField, parent)` | `.doUpdate()` | `.doDelete()` | `.doUpsert()` | `.doUpsert(records, externalId)` |
+`.doUndelete()`
 
 **Config:** `.allowPartial()` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()` | `.async()`
 
 **Result:** `isSuccess()` | `getInsertedIds()` | `getErrors()` | `getSuccessCount()` | `getFailureCount()`
 
-> **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeDml_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call `.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects).
+> **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeDml_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
+`.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects).
 
 Parent must appear earlier in chain. Framework auto-sets lookup IDs.
 
@@ -362,15 +387,15 @@ public with sharing class TRG_SetAccountDefaults extends kern.TRG_Base implement
 
 **These are interface contracts — code will NOT compile if signatures differ. Copy exactly.**
 
-| Interface | Method Signature |
-|-----------|-----------------|
-| `kern.IF_Trigger.BeforeInsert` | `void beforeInsert(List<SObject> newRecords)` |
-| `kern.IF_Trigger.AfterInsert` | `void afterInsert(List<SObject> newRecords)` |
-| `kern.IF_Trigger.BeforeUpdate` | `void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)` |
-| `kern.IF_Trigger.AfterUpdate` | `void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)` |
-| `kern.IF_Trigger.BeforeDelete` | `void beforeDelete(List<SObject> oldRecords)` |
-| `kern.IF_Trigger.AfterDelete` | `void afterDelete(List<SObject> oldRecords)` |
-| `kern.IF_Trigger.AfterUndelete` | `void afterUndelete(List<SObject> newRecords)` |
+| Interface                       | Method Signature                                                        |
+|---------------------------------|-------------------------------------------------------------------------|
+| `kern.IF_Trigger.BeforeInsert`  | `void beforeInsert(List<SObject> newRecords)`                           |
+| `kern.IF_Trigger.AfterInsert`   | `void afterInsert(List<SObject> newRecords)`                            |
+| `kern.IF_Trigger.BeforeUpdate`  | `void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)` |
+| `kern.IF_Trigger.AfterUpdate`   | `void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)`  |
+| `kern.IF_Trigger.BeforeDelete`  | `void beforeDelete(List<SObject> oldRecords)`                           |
+| `kern.IF_Trigger.AfterDelete`   | `void afterDelete(List<SObject> oldRecords)`                            |
+| `kern.IF_Trigger.AfterUndelete` | `void afterUndelete(List<SObject> newRecords)`                          |
 
 **Do NOT use `triggerNew` or omit the parameter.** Iterate the method parameter (e.g., `for(SObject record : newRecords)`).
 
@@ -386,22 +411,23 @@ Two records needed per handler: a `TriggerSetting` (one per SObject) and a `Trig
 
 **TriggerSetting** — one per SObject (skip if already exists). File: `kern__TriggerSetting.{ObjectName}.md-meta.xml`
 
-| Field | Value |
-|-------|-------|
-| `kern__SObjectType__c` | Object API name (e.g., `Account`) |
-| `kern__BypassExecution__c` | `false` |
+| Field                      | Value                             |
+|----------------------------|-----------------------------------|
+| `kern__SObjectType__c`     | Object API name (e.g., `Account`) |
+| `kern__BypassExecution__c` | `false`                           |
 
 **TriggerAction** — one per handler + event. File: `kern__TriggerAction.{ActionName}_{Event}.md-meta.xml`
 
-| Field | Value |
-|-------|-------|
-| `kern__ApexClassName__c` | Handler class name (no namespace prefix) |
-| `kern__Event__c` | `Before Insert` / `Before Update` / `After Insert` / `After Update` / `Before Delete` / `After Delete` / `After Undelete` |
-| `kern__Order__c` | Execution sequence (lower first; use 100, 200, etc.) |
-| `kern__TriggerSetting__c` | DeveloperName of the TriggerSetting record |
-| `kern__Description__c` | Human-readable description |
+| Field                     | Value                                                                                                                     |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `kern__ApexClassName__c`  | Handler class name (no namespace prefix)                                                                                  |
+| `kern__Event__c`          | `Before Insert` / `Before Update` / `After Insert` / `After Update` / `Before Delete` / `After Delete` / `After Undelete` |
+| `kern__Order__c`          | Execution sequence (lower first; use 100, 200, etc.)                                                                      |
+| `kern__TriggerSetting__c` | DeveloperName of the TriggerSetting record                                                                                |
+| `kern__Description__c`    | Human-readable description                                                                                                |
 
 **Copy-paste XML reference** (TriggerAction — the most field-heavy record):
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -426,22 +452,27 @@ feature-flag gating. No subscriber Apex is required — registration is metadata
 
 Configure via a `TriggerAction__mdt` record with these flow-specific fields:
 
-| Field | Required | Default | Allowed values |
-|---|---|---|---|
-| `kern__FlowName__c` | Yes (XOR with `ApexClassName__c`) | — | Bare flow API name (no namespace prefix — the framework resolves cross-namespace) |
-| `kern__ApexClassName__c` | Leave blank for flow rows | — | The `MutuallyExclusiveTarget` validation rule rejects rows with both `FlowName__c` and `ApexClassName__c` populated, and rows with neither populated. |
-| `kern__FailureAction__c` | No | `LogAndContinue` | `LogAndContinue` (logs error, DML proceeds — for orchestration), `BlockDml` (calls `record.addError`, blocks save — for validation). Applies to Apex and flow actions alike. |
+| Field                    | Required                          | Default          | Allowed values                                                                                                                                                               |
+|--------------------------|-----------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kern__FlowName__c`      | Yes (XOR with `ApexClassName__c`) | —                | Bare flow API name (no namespace prefix — the framework resolves cross-namespace)                                                                                            |
+| `kern__ApexClassName__c` | Leave blank for flow rows         | —                | The `MutuallyExclusiveTarget` validation rule rejects rows with both `FlowName__c` and `ApexClassName__c` populated, and rows with neither populated.                        |
+| `kern__FailureAction__c` | No                                | `LogAndContinue` | `LogAndContinue` (logs error, DML proceeds — for orchestration), `BlockDml` (calls `record.addError`, blocks save — for validation). Applies to Apex and flow actions alike. |
 
-The registered flow declares variable `record` (input + output, type matching the trigger object) and — for update contexts — variable `recordPrior` (input only). Variable type must match `TriggerSetting__mdt.SObjectType__c` exactly. `LogSetting__c.EnableFlowActionLogging__c` (`Off` / `ErrorsOnly` (default) / `AlwaysOn`) controls audit volume.
+The registered flow declares variable `record` (input + output, type matching the trigger object) and — for update contexts — variable `recordPrior` (input only). Variable type
+must match `TriggerSetting__mdt.SObjectType__c` exactly. `LogSetting__c.EnableFlowActionLogging__c` (`Off` / `ErrorsOnly` (default) / `AlwaysOn`) controls audit volume.
 
-**Mock harness for tests:** `kern.TST_InvokeFlowMock.forFlow(name).succeed().withOutputRecord(record).register()` short-circuits `Flow.Interview` at test time. Helpers: `.fail(message).register()`, `.assertInvoked(name, count)`, `.assertNotInvoked(name)`, `.getLastInputRecord(name)`, `.getLastInputPriorRecord(name)`, `.clear()`. Mocks test framework orchestration, not flow logic — pair with one deployed-flow integration test per flow.
+**Mock harness for tests:** `kern.TST_InvokeFlowMock.forFlow(name).succeed().withOutputRecord(record).register()` short-circuits `Flow.Interview` at test time. Helpers:
+`.fail(message).register()`, `.assertInvoked(name, count)`, `.assertNotInvoked(name)`, `.getLastInputRecord(name)`, `.getLastInputPriorRecord(name)`, `.clear()`. Mocks test
+framework orchestration, not flow logic — pair with one deployed-flow integration test per flow.
 
 ### Bypass
 
 Object: `kern.TRG_Base.bypass(SObjectType)` / `.isBypassed()` / `.clearBypass()` / `.clearAllBypasses()`
 Action: `.bypassAction(name)` / `.isActionBypassed()` / `.clearActionBypass()` / `.clearAllActionBypasses()`
 Declarative: `TriggerSetting__mdt.BypassExecution__c`
-Audit: every `bypass*()` / `clear*Bypass()` call emits a `LogEntryEvent__e` with category `BypassEvent` — the runtime audit trail is always on. Set a free-text reason for the whole transaction via `kern.TRG_Base.setBypassReason(String)` and it attaches to every bypass emission that follows. (The underlying `BypassAction` enum and `resolveBypassAction(String)` resolver are framework-internal — `public`, not `global` — and drive the declarative `FLOW_BypassTrigger` invocable; subscribers do not call them directly.)
+Audit: every `bypass*()` / `clear*Bypass()` call emits a `LogEntryEvent__e` with category `BypassEvent` — the runtime audit trail is always on. Set a free-text reason for the whole
+transaction via `kern.TRG_Base.setBypassReason(String)` and it attaches to every bypass emission that follows. (The underlying `BypassAction` enum and `resolveBypassAction(String)`
+resolver are framework-internal — `public`, not `global` — and drive the declarative `FLOW_BypassTrigger` invocable; subscribers do not call them directly.)
 
 ### Trigger Test Pattern
 
@@ -492,7 +523,9 @@ kern.UTIL_HttpClient.post('EmailService', '/send').body(payload).timeout(30000)
 
 **Factories:** `.get()` / `.post()` / `.put()` / `.del()` / `.patch()` / `.useHandler(Type)`
 
-**Builder:** `.body()` | `.header()` | `.headers()` | `.queryParam()` | `.pathParam()` | `.timeout()` | `.withRetry(n)` | `.withExponentialBackoff(n, base)` | `.retryOn(Set<Integer>)` | `.onFailure(FailureAction)` | `.withCircuitBreaker()` | `.withTriggeringRecord(Id)` | `.withCorrelationId()` | `.skipLogging()` | `.withParameter()` | `.withParameters()`
+**Builder:** `.body()` | `.header()` | `.headers()` | `.queryParam()` | `.pathParam()` | `.timeout()` | `.withRetry(n)` | `.withExponentialBackoff(n, base)` |
+`.retryOn(Set<Integer>)` | `.onFailure(FailureAction)` | `.withCircuitBreaker()` | `.withTriggeringRecord(Id)` | `.withCorrelationId()` | `.skipLogging()` | `.withParameter()` |
+`.withParameters()`
 
 **Terminal:** `.send()` → `HttpResponse` | `.asString()` | `.asMap()` | `.deserialize(Type)` | `.invoke()`
 
@@ -559,7 +592,8 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 }
 ```
 
-**Rules:** `with sharing` | Default POST for outbound (override `getHttpMethod()` if different) | `super.configure()` first | `super.getRequiredInputs()` and add | `@TestVisible` param constants | `defaultMockBody` in configure | DTO props `private` + ApexDoc | `@JsonAccess` on all DTOs | Extend `kern.DTO_JsonBase` | `super.populate()` first
+**Rules:** `with sharing` | Default POST for outbound (override `getHttpMethod()` if different) | `super.configure()` first | `super.getRequiredInputs()` and add | `@TestVisible`
+param constants | `defaultMockBody` in configure | DTO props `private` + ApexDoc | `@JsonAccess` on all DTOs | Extend `kern.DTO_JsonBase` | `super.populate()` first
 
 ### API Custom Metadata Configuration (REQUIRED for both Inbound and Outbound)
 
@@ -569,20 +603,21 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 
 **ApiSetting fields** (same XML wrapper as trigger metadata):
 
-| Field | Outbound | Inbound |
-|-------|----------|---------|
-| `kern__ClassName__c` | Handler class name (no namespace) | Same |
-| `kern__Direction__c` | `Outbound` | `Inbound` |
-| `kern__EndpointPath__c` | API path (e.g., `/notifications`) | REST route pattern (e.g., `/v1/person/*`) |
-| `kern__IsActive__c` | `true` | `true` |
-| `kern__MockingEnabled__c` | `true` (enables test mocking) | Same |
-| `kern__LogIssues__c` | `true` | `true` |
-| `kern__Priority__c` | `100.0` | `100.0` |
-| `kern__ApiCredential__c` | Named Credential DeveloperName | — |
+| Field                     | Outbound                          | Inbound                                   |
+|---------------------------|-----------------------------------|-------------------------------------------|
+| `kern__ClassName__c`      | Handler class name (no namespace) | Same                                      |
+| `kern__Direction__c`      | `Outbound`                        | `Inbound`                                 |
+| `kern__EndpointPath__c`   | API path (e.g., `/notifications`) | REST route pattern (e.g., `/v1/person/*`) |
+| `kern__IsActive__c`       | `true`                            | `true`                                    |
+| `kern__MockingEnabled__c` | `true` (enables test mocking)     | Same                                      |
+| `kern__LogIssues__c`      | `true`                            | `true`                                    |
+| `kern__Priority__c`       | `100.0`                           | `100.0`                                   |
+| `kern__ApiCredential__c`  | Named Credential DeveloperName    | —                                         |
 
 DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__ApiSetting.SendNotification`).
 
 **Copy-paste XML reference** (ApiSetting — outbound).
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -599,6 +634,7 @@ DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__
 ```
 
 **Copy-paste XML reference** (ApiSetting — inbound).
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -678,6 +714,7 @@ global with sharing class REST_ContactForm
 ### API Handler
 
 `public with sharing class API_* extends kern.API_Inbound`. Same pattern as Outbound (`configure()`, `getValidationErrors()`, DTOs extend `kern.DTO_JsonBase`) plus:
+
 - **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `kern.DML_Builder`)
 - **`updateResponseDTO()`** — runs after commit, populate response DTO from `result.isSuccess`
 - Both Request and Response DTOs: `@JsonAccess(Serializable='always' Deserializable='always')`, `public` props
@@ -691,6 +728,7 @@ kern.API_InboundTestHelper.assertCallAborted(SERVICE_NAME, new DTO_Request(), 'e
 ```
 
 **REST routing test** (separate class, suppress `PMD.ApexUnitTestClassShouldHaveAsserts`):
+
 ```apex
 kern.API_InboundTestHelper.setupRestContext(request);
 Test.startTest();
@@ -741,7 +779,9 @@ public with sharing class FLOW_CreateAccount
 }
 ```
 
-**Rules:** `public with sharing` on class + DTOs | guard `requests.size() == 1` with a platform-native `IllegalArgumentException` (the framework's `TRG_Base.validateSingleRequest` is `public` and not subscriber-callable) | `@InvocableVariable` with Label/Description/Required | `@InvocableMethod` with Category/Label/Description | `kern.DML_Builder` for DML | Method takes `List<DTO_Request>`, returns `void` or `List<DTO_Response>`
+**Rules:** `public with sharing` on class + DTOs | guard `requests.size() == 1` with a platform-native `IllegalArgumentException` (the framework's `TRG_Base.validateSingleRequest`
+is `public` and not subscriber-callable) | `@InvocableVariable` with Label/Description/Required | `@InvocableMethod` with Category/Label/Description | `kern.DML_Builder` for DML |
+Method takes `List<DTO_Request>`, returns `void` or `List<DTO_Response>`
 
 ### Flow Test Pattern
 
@@ -857,7 +897,8 @@ catch(QueryException error)
 
 ### TST_Factory
 
-`kern.TST_Factory.newTriggerSetting(objectApiName)` | `.newTriggerAction(className, setting)` | `.newTriggerActionForContext(className, setting, TriggerOperation)` | `.newValidationRule(name, formula, msg)` | `.newValidationRuleGroup(setting)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)`
+`kern.TST_Factory.newTriggerSetting(objectApiName)` | `.newTriggerAction(className, setting)` | `.newTriggerActionForContext(className, setting, TriggerOperation)` |
+`.newValidationRule(name, formula, msg)` | `.newValidationRuleGroup(setting)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)`
 
 ### Exception Testing
 
@@ -877,7 +918,8 @@ catch(Exception error)
 
 ### SEL_Foobar Field Constants
 
-For test overrides: `FIELD_INTEGER` | `FIELD_TEXT` | `FIELD_EMAIL` | `FIELD_PHONE` | `FIELD_PICKLIST` | `FIELD_DATE` | `FIELD_DATETIME` | `FIELD_DECIMAL` | `FIELD_CURRENCY` | `FIELD_PERCENT` | `FIELD_CHECKBOX` | `FIELD_URL` | `FIELD_LOOKUP`
+For test overrides: `FIELD_INTEGER` | `FIELD_TEXT` | `FIELD_EMAIL` | `FIELD_PHONE` | `FIELD_PICKLIST` | `FIELD_DATE` | `FIELD_DATETIME` | `FIELD_DECIMAL` | `FIELD_CURRENCY` |
+`FIELD_PERCENT` | `FIELD_CHECKBOX` | `FIELD_URL` | `FIELD_LOOKUP`
 
 ---
 
@@ -886,6 +928,7 @@ For test overrides: `FIELD_INTEGER` | `FIELD_TEXT` | `FIELD_EMAIL` | `FIELD_PHON
 **Never `LightningElement`.** Always `ComponentBuilder`.
 
 **⚠ CRITICAL: The import MUST use the package namespace, not `c/`:**
+
 ```javascript
 WRONG: import { ComponentBuilder } from 'c/componentBuilder';     // WILL NOT RESOLVE
 RIGHT: import { ComponentBuilder } from 'kern/componentBuilder';  // Correct namespace
@@ -911,11 +954,12 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 }
 ```
 
-**Modules:** `notification` (showSuccess/Error/Warning/InfoToast) | `controller` (callControllerMethod, handleWireResponse) | `navigation` (redirectToRecordPage, generateRecordPageURL) | `flow-navigation` (dispatchFlowNext/Back/FinishEvent) | `lightning-message` (addMessageChannelSubscription, publishLightningMessage) | `all`
+**Modules:** `notification` (showSuccess/Error/Warning/InfoToast) | `controller` (callControllerMethod, handleWireResponse) | `navigation` (redirectToRecordPage,
+generateRecordPageURL) | `flow-navigation` (dispatchFlowNext/Back/FinishEvent) | `lightning-message` (addMessageChannelSubscription, publishLightningMessage) | `all`
 
 **Base (always):** `dispatchCustomEvent()` | `consoleLog()` | `consoleError()` | `isLoading`
 
-**HTML:** Lightning base components only (not raw HTML). **Meta:** apiVersion 66.0, isExposed true.
+**HTML:** Lightning base components only (not raw HTML). **Meta:** apiVersion 67.0, isExposed true.
 
 ### Jest Test Pattern
 
@@ -949,38 +993,50 @@ Extend `kern.DTO_JsonBase` + `@JsonAccess(Serializable='always' Deserializable='
 
 ## Framework Utilities
 
-`kern.UTIL_Exceptions` (IllegalState/Configuration/NotFoundException) | `kern.UTIL_Cache` | `kern.UTIL_CircuitBreaker` | `kern.UTIL_Retry` | `kern.UTIL_FeatureFlag.isEnabled(flagName)` | `kern.UTIL_TypeResolver` | `kern.UTIL_String` / `Date` / `Number` / `Set` / `List` / `Map` / `SObject` / `Email` / `Random` / `Security` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sobjectType)`, `.getField(name)` namespace-aware by default, `.getFieldDescribe(name)` returns cached `DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups; never use raw `Schema.getGlobalDescribe()` / `fields.getMap()` from package code — namespace handling is the trap that bites)
+`kern.UTIL_Exceptions` (IllegalState/Configuration/NotFoundException) | `kern.UTIL_Cache` | `kern.UTIL_CircuitBreaker` | `kern.UTIL_Retry` |
+`kern.UTIL_FeatureFlag.isEnabled(flagName)` | `kern.UTIL_TypeResolver` | `kern.UTIL_String` / `Date` / `Number` / `Set` / `List` / `Map` / `SObject` / `Email` / `Random` /
+`Security` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sobjectType)`, `.getField(name)` namespace-aware by default, `.getFieldDescribe(name)`
+returns cached `DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups;
+never use raw `Schema.getGlobalDescribe()` / `fields.getMap()` from package code — namespace handling is the trap that bites)
 
 ### Framework-shipped Feature Flags
 
-Ten pre-built `FeatureFlag__mdt` records ship with the package. Query via `kern.UTIL_FeatureFlag.isEnabled('FlagDeveloperName')`; flip values by deploying an override record that sets `IsEnabledByDefault__c` (and, if strategies are attached, `ResultOnNoMatch__c`).
+Ten pre-built `FeatureFlag__mdt` records ship with the package. Query via `kern.UTIL_FeatureFlag.isEnabled('FlagDeveloperName')`; flip values by deploying an override record that
+sets `IsEnabledByDefault__c` (and, if strategies are attached, `ResultOnNoMatch__c`).
 
-| Flag | Default | Purpose |
-|------|:-------:|---------|
-| `UserModeQueries_Enabled` | `true` | Drives the default `AccessLevel` on `kern.QRY_Builder` / `kern.SEL_Base`. When `true` queries run USER_MODE (CRUD+FLS+sharing enforced); when `false` they fall back to SYSTEM_MODE. Emergency kill switch only. |
-| `UserModeDml_Enabled` | `true` | Same for `kern.DML_Builder` writes (insert/update/delete/upsert/undelete). |
-| `MaskingFramework_Enabled` | `true` | Master switch for the data-masking framework (`MaskingRule__mdt` + `MaskingTarget__mdt`). |
-| `AsyncChain` | `true` | Master kill switch for `kern.UTIL_AsyncChain`. When `false` new chain executions abort immediately. |
-| `DisableAllAPIs` | `false` | Disables both inbound and outbound calls through the web-services framework. |
-| `DisableAllInboundAPIs` | `false` | Disables inbound `kern.API_Inbound` routing only. |
-| `DisableAllOutboundAPIs` | `false` | Disables outbound `kern.API_Outbound` calls only. |
-| `MockAllAPIs` | `false` | Returns mock responses for every outbound call (tests + dry runs). |
-| `MockAllInboundAPIs` | `false` | Returns mock responses for every inbound call. |
-| `TestFeatureFlag` | `true` | Example / smoke-test flag. Safe to leave as-is. |
+| Flag                       | Default | Purpose                                                                                                                                                                                                          |
+|----------------------------|:-------:|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UserModeQueries_Enabled`  | `true`  | Drives the default `AccessLevel` on `kern.QRY_Builder` / `kern.SEL_Base`. When `true` queries run USER_MODE (CRUD+FLS+sharing enforced); when `false` they fall back to SYSTEM_MODE. Emergency kill switch only. |
+| `UserModeDml_Enabled`      | `true`  | Same for `kern.DML_Builder` writes (insert/update/delete/upsert/undelete).                                                                                                                                       |
+| `MaskingFramework_Enabled` | `true`  | Master switch for the data-masking framework (`MaskingRule__mdt` + `MaskingTarget__mdt`).                                                                                                                        |
+| `AsyncChain`               | `true`  | Master kill switch for `kern.UTIL_AsyncChain`. When `false` new chain executions abort immediately.                                                                                                              |
+| `DisableAllAPIs`           | `false` | Disables both inbound and outbound calls through the web-services framework.                                                                                                                                     |
+| `DisableAllInboundAPIs`    | `false` | Disables inbound `kern.API_Inbound` routing only.                                                                                                                                                                |
+| `DisableAllOutboundAPIs`   | `false` | Disables outbound `kern.API_Outbound` calls only.                                                                                                                                                                |
+| `MockAllAPIs`              | `false` | Returns mock responses for every outbound call (tests + dry runs).                                                                                                                                               |
+| `MockAllInboundAPIs`       | `false` | Returns mock responses for every inbound call.                                                                                                                                                                   |
+| `TestFeatureFlag`          | `true`  | Example / smoke-test flag. Safe to leave as-is.                                                                                                                                                                  |
 
 ---
 
 ## Data Masking (declarative, no subscriber code)
 
-Sensitive-data redaction is declarative — subscribers configure `MaskingRule__mdt` + `MaskingTarget__mdt` records, there is no subscriber-written Apex class. The framework runs masking as a before-insert / before-update pre-step on the trigger dispatcher for package-owned objects (`ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, `LogEntryEvent__e` / `LogEntry__c`).
+Sensitive-data redaction is declarative — subscribers configure `MaskingRule__mdt` + `MaskingTarget__mdt` records, there is no subscriber-written Apex class. The framework runs
+masking as a before-insert / before-update pre-step on the trigger dispatcher for package-owned objects (`ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, `LogEntryEvent__e` /
+`LogEntry__c`).
 
-**Ship set:** 14 `MaskingRule__mdt` records (2 active by default — `MaskSecretKeys` JSON-key redaction, `MaskCreditCard` Luhn-validated card redaction; 12 inactive templates for SSN, email, phone, IBAN, SWIFT, Medicare, JWT, AWS keys, etc.). 8 `MaskingTarget__mdt` wildcard records wire the active rules onto all four logged objects.
+**Ship set:** 18 `MaskingRule__mdt` records (3 active by default — `MaskSecretKeys` JSON-key redaction, `MaskPaymentCard` Luhn-validated card redaction, and `MaskCreditCard`, the
+original card rule that `MaskPaymentCard` replaces, kept for compatibility; 15 inactive templates for SSN, email, phone, IBAN, SWIFT, Medicare, JWT, AWS keys, postal address, free
+text, IPv4, etc.). 12 `MaskingTarget__mdt` wildcard records wire the active rules onto all four logged objects; where the payment-card and credit-card rules are wired to the same
+object, the payment-card rule does the work.
 
 **Mode picklist values on `MaskingRule__mdt.Mode__c`:** `Regex`, `JsonKey`, `ExactMatch`, `CreditCard`.
-**Optional short-circuit fields:** `MinInputLength__c` (skip rule for shorter values) and `ApplicableFieldTypes__c` (semicolon-delimited `System.DisplayType` names — e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`).
+**Optional short-circuit fields:** `MinInputLength__c` (skip rule for shorter values) and `ApplicableFieldTypes__c` (semicolon-delimited `System.DisplayType` names — e.g.,
+`STRING;TEXTAREA;ENCRYPTEDSTRING`).
 **Failure handling:** `MaskingRule__mdt.FailureAction__c` = `LogAndContinue` / `WriteFailureMarker` / `BlockDml`.
 **Kill switch:** `FeatureFlag.MaskingFramework_Enabled` (default `true`). Per-object opt-out: `TriggerSetting__mdt.ApplyMasking__c`.
-**Performance logging (opt-in):** `LogSetting__c.EnableMaskerPerformanceLogging__c = true` with `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100 ms) emits `LogEntryEvent__e` via `UTIL_MaskerPerformanceTimer` for batches exceeding the threshold.
+**Performance logging (opt-in):** `LogSetting__c.EnableMaskerPerformanceLogging__c = true` with `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100 ms) emits
+`LogEntryEvent__e` via `UTIL_MaskerPerformanceTimer` for batches exceeding the threshold.
 
 Subscribers extend the default ship set by deploying additional `MaskingRule__mdt` + `MaskingTarget__mdt` records; no Apex needed.
 
@@ -999,7 +1055,8 @@ kern.UTIL_AsyncChain.newChain('DataMigration')
 	.execute();
 ```
 
-**IF_Chain.Step interface:** Implement `kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)` or extend `kern.UTIL_AsyncChain.ChainStep` (abstract, adds `stepName` property).
+**IF_Chain.Step interface:** Implement `kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)` or extend `kern.UTIL_AsyncChain.ChainStep` (abstract, adds
+`stepName` property).
 
 ```apex
 public with sharing class LoadDataStep extends kern.UTIL_AsyncChain.ChainStep
@@ -1017,6 +1074,7 @@ public with sharing class LoadDataStep extends kern.UTIL_AsyncChain.ChainStep
 **ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`
 **StepResult:** `kern.UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)` — properties: `success`, `message`, `data`, `error`
 **ApiStep:** Wraps `kern.API_Outbound` handler as a chain step:
+
 ```apex
 new kern.UTIL_AsyncChain.ApiStep(API_SendEmail.class)
 	.credential('Gateway')
@@ -1024,6 +1082,7 @@ new kern.UTIL_AsyncChain.ApiStep(API_SendEmail.class)
 	.withParameterFrom('subject', 'emailSubject')
 	.triggeringRecordFrom('recordId')
 ```
+
 **Status:** `kern.UTIL_AsyncChain.getStatus(chainExecutionId)` → `Map<String, Object>`
 
 ---
@@ -1060,31 +1119,31 @@ global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 
 ## Common Agent Mistakes (beyond Critical Rules table above)
 
-| # | Wrong | Right |
-|---|-------|-------|
-| 1 | DTO missing `@JsonAccess` | `@JsonAccess(Serializable='always' Deserializable='always')` |
-| 2 | Missing `super.configure()` | Always call `super.configure()` first |
-| 3 | Missing `super.populate()` | Always call `super.populate()` first |
-| 4 | Missing `super.getRequiredInputs()` | Call super and add to returned set |
-| 5 | `.toList()` on semi-join subquery | Pass Builder directly to `.isIn()`/`.notIn()` |
-| 6 | `new UTIL_HttpClient()` | `kern.UTIL_HttpClient.post('Cred', '/path')` |
-| 7 | `Boolean exceptionThrown` | `Assert.fail` + `Assert.isInstanceOfType` |
-| 8 | Namespace missing in subscriber | `kern.QRY_Builder`, `kern.SEL_Base`, `kern.TRG_Base` |
-| 9 | `inherited sharing` in subscriber code | `with sharing` — except `SCHED_*` which uses `inherited sharing` |
-| 10 | `global` on non-REST/SCHED classes | `public` everywhere — only `REST_*` and `SCHED_*` need `global` |
-| 11 | Manual JSON.serialize in response | Use `updateResponseDTO()` — framework serializes |
-| 12 | `[SELECT ...]` in test classes | Use `kern.QRY_Builder` or `SEL_*` even in tests |
-| 13 | Missing `@SuppressWarnings` on tests | `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` on test classes |
-| 14 | `import from 'c/componentBuilder'` | `import from 'kern/componentBuilder'` — must use package namespace |
+| #  | Wrong                                  | Right                                                                       |
+|----|----------------------------------------|-----------------------------------------------------------------------------|
+| 1  | DTO missing `@JsonAccess`              | `@JsonAccess(Serializable='always' Deserializable='always')`                |
+| 2  | Missing `super.configure()`            | Always call `super.configure()` first                                       |
+| 3  | Missing `super.populate()`             | Always call `super.populate()` first                                        |
+| 4  | Missing `super.getRequiredInputs()`    | Call super and add to returned set                                          |
+| 5  | `.toList()` on semi-join subquery      | Pass Builder directly to `.isIn()`/`.notIn()`                               |
+| 6  | `new UTIL_HttpClient()`                | `kern.UTIL_HttpClient.post('Cred', '/path')`                                |
+| 7  | `Boolean exceptionThrown`              | `Assert.fail` + `Assert.isInstanceOfType`                                   |
+| 8  | Namespace missing in subscriber        | `kern.QRY_Builder`, `kern.SEL_Base`, `kern.TRG_Base`                        |
+| 9  | `inherited sharing` in subscriber code | `with sharing` — except `SCHED_*` which uses `inherited sharing`            |
+| 10 | `global` on non-REST/SCHED classes     | `public` everywhere — only `REST_*` and `SCHED_*` need `global`             |
+| 11 | Manual JSON.serialize in response      | Use `updateResponseDTO()` — framework serializes                            |
+| 12 | `[SELECT ...]` in test classes         | Use `kern.QRY_Builder` or `SEL_*` even in tests                             |
+| 13 | Missing `@SuppressWarnings` on tests   | `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` on test classes |
+| 14 | `import from 'c/componentBuilder'`     | `import from 'kern/componentBuilder'` — must use package namespace          |
 
 ---
 
 ## KernDX vs fflib
 
-| Concept | fflib | KernDX |
-|---------|-------|--------|
-| Selectors | `extends fflib_SObjectSelector` | `extends kern.SEL_Base` |
-| Queries | `Database.query(newQueryFactory().toSOQL())` | `kern.QRY_Builder.selectFrom().toList()` |
-| DML | `fflib_SObjectUnitOfWork` | `kern.DML_Builder.newTransaction().execute()` |
-| Triggers | `fflib_SObjectDomain` | `extends kern.TRG_Base implements kern.IF_Trigger.*` |
-| Logging | `System.debug()` | `kern.LOG_Builder.build().error(e).emitAt()` |
+| Concept   | fflib                                        | KernDX                                               |
+|-----------|----------------------------------------------|------------------------------------------------------|
+| Selectors | `extends fflib_SObjectSelector`              | `extends kern.SEL_Base`                              |
+| Queries   | `Database.query(newQueryFactory().toSOQL())` | `kern.QRY_Builder.selectFrom().toList()`             |
+| DML       | `fflib_SObjectUnitOfWork`                    | `kern.DML_Builder.newTransaction().execute()`        |
+| Triggers  | `fflib_SObjectDomain`                        | `extends kern.TRG_Base implements kern.IF_Trigger.*` |
+| Logging   | `System.debug()`                             | `kern.LOG_Builder.build().error(e).emitAt()`         |

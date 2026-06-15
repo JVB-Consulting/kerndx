@@ -1,6 +1,9 @@
 # Strategic Guide — Personas
 
-Supplementary to the [Strategic Guide](Strategic%20Guide%20-%20Overview.md). Consolidates decision factors by stakeholder role. Each persona points at the relevant deep-dive — start with the [Overview](Strategic%20Guide%20-%20Overview.md) for the one-page summary, then follow the per-persona pointers below into [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md), [Adoption](Strategic%20Guide%20-%20Adoption.md), [Operations](Strategic%20Guide%20-%20Operations.md), or [Risks](Strategic%20Guide%20-%20Risks.md).
+Supplementary to the [Strategic Guide](Strategic%20Guide%20-%20Overview.md). Consolidates decision factors by stakeholder role. Each persona points at the relevant deep-dive —
+start with the [Overview](Strategic%20Guide%20-%20Overview.md) for the one-page summary, then follow the per-persona pointers below
+into [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md), [Adoption](Strategic%20Guide%20-%20Adoption.md), [Operations](Strategic%20Guide%20-%20Operations.md),
+or [Risks](Strategic%20Guide%20-%20Risks.md).
 
 See also: [Glossary](Strategic%20Guide%20-%20Glossary.md)
 
@@ -39,26 +42,31 @@ shipped in `scanner/`.
 
 **Where KernDX ships the broadest coverage among the Apex frameworks surveyed.** On Trigger Framework, Query Builder, DML, Web
 Services — Inbound, Web Services — Outbound, Resilience, Security, Data Masking, LWC, Async Patterns, Utilities, Health & Self-Diagnostics, and CI / Tooling,
-KernDX ships a production-ready implementation that is broader than the comparable Apex libraries the team has surveyed. Three framework areas where another library covers more aspects:
+KernDX ships a production-ready implementation that is broader than the comparable Apex libraries the team has surveyed. Three framework areas where another library covers more
+aspects:
 
-- Logging & Diagnostics → `nebula-logger` ships log retention, real-time event monitoring UI, and four selectable transport modes; KernDX `LOG_Builder` is a
+- Logging & Diagnostics → [`nebula-logger`](https://github.com/jongpie/NebulaLogger) ships log retention, real-time event monitoring UI, and four selectable transport modes; KernDX
+  `LOG_Builder` is a
   smaller-surface Apex builder with default-on async via Platform Event and tight integration with the rest of the namespace. Mix `nebula-logger` alongside
   KernDX for log retention/UI depth.
-- Testing (Mockito-style mocking aspect) → `fflib-mocks` ships the canonical Mockito-style verifier (stub-and-verify) where KernDX deliberately has no
+- Testing (Mockito-style mocking aspect) → [`fflib-mocks`](https://github.com/apex-enterprise-patterns/fflib-apex-mocks) ships the canonical Mockito-style verifier (stub-and-verify) where KernDX deliberately has no
   equivalent; KernDX covers more aspects of test-data and mock-query coverage via `TST_Builder` / `TST_Mock`.
-- Domain Patterns → `fflib` (Application factory) plus `at4dx` (cross-package extension injection) define the Domain / Service / Application layering; KernDX
+- Domain Patterns → [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common) (Application factory) plus [`at4dx`](https://github.com/apex-enterprise-patterns/at4dx) (cross-package extension injection) define the Domain / Service / Application layering; KernDX
   deliberately ships light on Domain scaffolding. Adopt `fflib` alongside KernDX if you need the factory pattern.
 
-**Core-capability footprint.** KernDX ships production-ready implementations of every core Salesforce capability — every core capability a Salesforce org needs is shipped, documented, and usable from day one (not stubbed or aspirational). This is broader than the comparable Apex frameworks the team has surveyed; the next-broadest libraries are `rflib` and `apex-libra`.
+**Core-capability footprint.** KernDX ships production-ready implementations of every core Salesforce capability — every core capability a Salesforce org needs is shipped,
+documented, and usable from day one (not stubbed or aspirational). This is broader than the comparable Apex frameworks the team has surveyed; the next-broadest libraries are [`rflib`](https://github.com/j-fischer/rflib) and [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library).
 
 **Security defaults.** `QRY_Builder` and `DML_Builder` default to `USER_MODE` — every query and DML operation enforces FLS/CRUD by default. Framework-internal
 read paths that need `SYSTEM_MODE` (configuration reads, Chain Monitor aggregates) opt out via the documented `SEL_Base.systemModeRequired()` hook;
 declarations are auditable in source and enforced by a CI-blocking scanner rule. Feature-flag kill-switches revert to `SYSTEM_MODE` without a code deploy if a
-subscriber hits unexpected FLS blocks. KernDX is the only Apex framework the team has surveyed that defaults `USER_MODE` on both read and write paths with both feature-flag kill switches and structured audit emission on bypass.
+subscriber hits unexpected FLS blocks. KernDX is the only Apex framework the team has surveyed that defaults `USER_MODE` on both read and write paths with both feature-flag kill
+switches and structured audit emission on bypass.
 
 **When KernDX is not the best fit.** If your architecture is built on `fflib`'s Domain + Service + Application pattern, stay there — `fflib` defines that pattern
 (`fflib_SObjectDomain`, `fflib_Application`), and KernDX does not ship an equivalent `SVC_Base` or Application factory. If you need only one or two framework
-capabilities (triggers only → TAF; queries only → SOQL Lib), the modular approach gives you less framework surface area to govern.
+capabilities (triggers only → [TAF](https://github.com/mitchspano/apex-trigger-actions-framework); queries only → [SOQL Lib](https://github.com/beyond-the-cloud-dev/soql-lib)), the
+modular approach gives you less framework surface area to govern.
 
 **Framework evaluation criteria:**
 
@@ -80,8 +88,9 @@ coverage-theatre detection) inside the subscriber's pipeline, so violations fail
   on aggregates / cursor / semi-join, `nebula-logger` on log retention + Flow logging actions).
 - **Domain-driven design:** `fflib` — `fflib_SObjectDomain` + `fflib_Application` Domain/Service/Application layering; KernDX has no equivalent.
 - **Query-only adoption:** SOQL Lib — minimal architectural footprint, `USER_MODE`-by-default on read paths.
-- **Granular assembly:** Apex Fluently — eight independently-shipped libraries (SOQL Lib, DML Lib, Async Lib, Cache Manager, HTTP Mock Lib, Test Lib, LWC Utils,
-  Apex Consts); install only the concerns you need.
+- **Granular assembly:** [Apex Fluently](https://github.com/beyond-the-cloud-dev) — eight independently-shipped libraries (SOQL
+  Lib, [DML Lib](https://github.com/beyond-the-cloud-dev/dml-lib), [Async Lib](https://github.com/beyond-the-cloud-dev/async-lib), [Cache Manager](https://github.com/beyond-the-cloud-dev/cache-manager), [HTTP Mock Lib](https://github.com/beyond-the-cloud-dev/http-mock-lib), [Test Lib](https://github.com/beyond-the-cloud-dev/test-lib), [LWC Utils](https://github.com/beyond-the-cloud-dev/lwc-utils),
+  [Apex Consts](https://github.com/beyond-the-cloud-dev/apex-consts)); install only the concerns you need.
 - **Utilities + selectors + UoW from source:** `apex-libra` — a separate ecosystem from Apex Fluently (different authors; `apex-libra` first commit June 2019,
   Apex Fluently first commit May 2025), spanning nine module families including 28 pre-built `QueryObject` selectors and a `DatabaseUnitOfWork`.
 
@@ -91,7 +100,8 @@ stakeholders in a 30-minute session.
 **Key questions to ask:**
 
 - How will we handle framework version upgrades across multiple sandboxes and production?
-- What happens if the framework is deprecated or maintainer moves on? (KernDX: source publicly available under BSL 1.1; clone and self-maintain regardless of vendor status; TAF: Apache 2.0, actively maintained — fork and self-maintain if needed; SOQL Lib:
+- What happens if the framework is deprecated or maintainer moves on? (KernDX: source publicly available under BSL 1.1; clone and self-maintain regardless of vendor status; TAF:
+  Apache 2.0, actively maintained — fork and self-maintain if needed; SOQL Lib:
   active community.)
 - Can we enforce framework usage via PMD rules or CI/CD gates?
 - How do we prevent framework bypass (developers writing inline SOQL despite framework availability)?
@@ -115,7 +125,8 @@ underlying day-2 ownership.
 
 **KernDX fit.** KernDX is built around the 95% rule: every shipping feature is what most developers will actually use, every name follows a documented
 convention, and there is no API surface that ships only for completeness rather than for daily use. The framework ships 12 Fast Start guides, 14 topic
-guides, and AI-context files (`AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference) — new
+guides, and AI-context files (`AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework
+reference) — new
 developers can build their first selector, trigger action, or API call within hours. The naming conventions (`SEL_*`, `TRG_*`, `API_*`, `UTIL_*`, `LOG_*`,
 `DML_*`, `QRY_*`) make code self-documenting and IDE auto-complete the primary discovery surface. For teams larger than 10 developers, code reviews are easier
 to scan when every selector follows the `SEL_*` pattern, every trigger is a one-line dispatch, and every log emit follows
@@ -125,7 +136,8 @@ cycle time and onboarding time.
 **Operational signals a technical lead typically cares about.** A library-agnostic PMD ruleset shareable for subscriber CI; a 100% per-file Apex coverage gate enforced at
 every release build; a 95% LWC statement/branch coverage gate enforced; an end-to-end subscriber harness covering 471 anonymous-Apex assertions across 71
 sections plus 151 test methods across 22 subscriber test classes; an extended load test suite and rolling performance-history baselines; a release runbook;
-and a recurring drift-audit cycle. KernDX is the only Apex framework surveyed with a per-file 100% Apex coverage gate enforced at every build. The subscriber install harness, extended load suite, drift-audit cycle, and release runbook are KernDX-specific operational practices.
+and a recurring drift-audit cycle. KernDX is the only Apex framework surveyed with a per-file 100% Apex coverage gate enforced at every build. The subscriber install harness,
+extended load suite, drift-audit cycle, and release runbook are KernDX-specific operational practices.
 
 **When KernDX is not the best fit.** If your team specifically wants OSI-permissive licensing on every dependency (BSL 1.1 is source-available but not OSI-approved
 during the four-year period before relicense to Apache 2.0), or your codebase is already standardised on Apex Fluently / TAF / `nebula-logger` and the migration
@@ -178,12 +190,15 @@ immediate-value:
   before DML if row count exceeds the limit.
 
 Every method name surfaces via IDE auto-complete. The framework follows the same chainable-build → terminal-execute fluent shape across every major surface
-(`TST_Builder`, `QRY_Builder`, `DML_Builder`, `LOG_Builder`, `UTIL_HttpClient`); learning one means learning the others. The `AGENTS.md` + `docs/Code Conventions - Guide.md` files help AI coding
+(`TST_Builder`, `QRY_Builder`, `DML_Builder`, `LOG_Builder`, `UTIL_HttpClient`); learning one means learning the others. The `AGENTS.md` + `docs/Code Conventions - Guide.md` files
+help AI coding
 assistants (Claude Code, Cursor, Windsurf) follow framework conventions when generating new code. The framework's test infrastructure — `TST_Builder` for
 fluent data creation, `TST_Mock` for DML-free query interception, `TST_Factory` for metadata setup, `API_MockFactory` for two-tier web service mocking —
 addresses common subscriber-test pain points (DML-free testing and SOQL-free assertions) in one or two lines.
 
-KernDX deliberately does not ship a Mockito-style stub-and-verify DSL because the learning curve isn't justified by the API's everyday use. Subscribers wanting Mockito patterns can install `fflib-mocks` alongside KernDX. KernDX's `TST_Mock.of(SObjectType).withOverride(...).build()` auto-registers for `SEL_*` queries with zero ceremony — combined with `withoutInsertion()`, that
+KernDX deliberately does not ship a Mockito-style stub-and-verify DSL because the learning curve isn't justified by the API's everyday use. Subscribers wanting Mockito patterns can
+install `fflib-mocks` alongside KernDX. KernDX's `TST_Mock.of(SObjectType).withOverride(...).build()` auto-registers for `SEL_*` queries with zero ceremony — combined with
+`withoutInsertion()`, that
 addresses common selector-test pain. SOQL Lib goes deeper on aggregate, cursor, and semi-join query patterns; subscribers needing those facets can pair SOQL
 Lib alongside KernDX `QRY_Builder`.
 
@@ -212,7 +227,8 @@ default to `USER_MODE` on the read path. KernDX's managed package overhead also 
 - **Easiest to learn for queries:** SOQL Lib — fluent API, `USER_MODE` default on read paths.
 - **Shallower stack traces:** TAF + SOQL Lib — unmanaged-package source in your own org, no framework namespace prefix in stack traces.
 - **AI-assisted development:** frameworks shipping instruction files (`AGENTS.md`, cursor rules) help AI assistants follow framework conventions when generating
-  new code — KernDX ships `AGENTS.md` (tool-neutral pointer) and `docs/Code Conventions - Guide.md` (canonical conventions) at repo root plus the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference.
+  new code — KernDX ships `AGENTS.md` (tool-neutral pointer) and `docs/Code Conventions - Guide.md` (canonical conventions) at repo root plus
+  the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference.
 
 **Pilot first.** Replace 3-5 inline SOQL queries with `QRY_Builder` (or SOQL Lib) equivalents in an afternoon. Immediate readability improvement with minimal risk.
 
@@ -268,15 +284,15 @@ ISVs already deep in `fflib`, migration cost may exceed benefit — freeze `ffli
 
 **ISV-specific considerations:**
 
-| Concern | KernDX approach | Alternative |
-|---------|------------------|-------------|
-| Namespace resolution | `UTIL_TypeResolver` chain: subscriber namespace → package namespace | Manual `Type.forName()` |
-| Subscriber extensibility | Metadata-driven configuration (triggers, validations, feature flags) | Custom settings, hardcoded |
-| Security review | Explicit sharing on every class, no inline SOQL, `USER_MODE` default on `QRY_Builder` / `DML_Builder`, audit-logged bypass across query / DML / validation / trigger surfaces, body-hash idempotency with HTTP 409 on replay divergence, CI-blocking scanner rule on undeclared access modes | Manual review; SOQL Lib defaults `USER_MODE` on read paths; most other Apex frameworks ship enforcement toggles that emit no audit event |
-| Package size | 351 classes (183 production, 168 test) — integrated-stack footprint | SOQL Lib: ~15 classes; Apex Fluently: 8 libraries you install independently |
-| Upgrade safety | `@since` tags on all `global` members, no breaking changes policy, validated-build gate on every release (see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for current build identifier and package-version count) | Manual tracking |
-| Test coverage | 100% per-file Apex enforced at every release build; 3,564 `@IsTest` methods across 168 test classes; end-to-end subscriber harness | Varies by framework |
-| Install-blocker discipline | An early install-blocker on default-OWD orgs was discovered and closed in the next package version — observable in the release record. See [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier. | Varies by framework |
+| Concern                    | KernDX approach                                                                                                                                                                                                                                                                              | Alternative                                                                                                                              |
+|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Namespace resolution       | `UTIL_TypeResolver` chain: subscriber namespace → package namespace                                                                                                                                                                                                                          | Manual `Type.forName()`                                                                                                                  |
+| Subscriber extensibility   | Metadata-driven configuration (triggers, validations, feature flags)                                                                                                                                                                                                                         | Custom settings, hardcoded                                                                                                               |
+| Security review            | Explicit sharing on every class, no inline SOQL, `USER_MODE` default on `QRY_Builder` / `DML_Builder`, audit-logged bypass across query / DML / validation / trigger surfaces, body-hash idempotency with HTTP 409 on replay divergence, CI-blocking scanner rule on undeclared access modes | Manual review; SOQL Lib defaults `USER_MODE` on read paths; most other Apex frameworks ship enforcement toggles that emit no audit event |
+| Package size               | 351 classes (183 production, 168 test) — integrated-stack footprint                                                                                                                                                                                                                          | SOQL Lib: ~15 classes; Apex Fluently: 8 libraries you install independently                                                              |
+| Upgrade safety             | `@since` tags on all `global` members, no breaking changes policy, validated-build gate on every release (see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for current build identifier and package-version count)                                    | Manual tracking                                                                                                                          |
+| Test coverage              | 100% per-file Apex enforced at every release build; 3,564 `@IsTest` methods across 168 test classes; end-to-end subscriber harness                                                                                                                                                           | Varies by framework                                                                                                                      |
+| Install-blocker discipline | An early install-blocker on default-OWD orgs was discovered and closed in the next package version — observable in the release record. See [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier.                             | Varies by framework                                                                                                                      |
 
 **Pilot first.** If evaluating KernDX for a new package, deploy the selector framework (`SEL_Base` + `QRY_Builder`) first — it provides immediate value (no inline
 SOQL, cacheable queries, mock support) with the least disruption.
@@ -303,12 +319,15 @@ SOQL, cacheable queries, mock support) with the least disruption.
 **KernDX fit.** KernDX's metadata-driven architecture means admins can control trigger execution order, enable/disable triggers without code deployment, toggle
 feature flags, and configure validation rules — all through Setup UI. The circuit breaker and retry mechanisms provide production resilience without admin
 intervention. `LogEntry__c` provides a queryable log object for building reports and dashboards. Every bypass mutation on the trigger, query, DML, or
-validation surface emits a structured audit log so when a bypass is in effect, ops can see who set it and why through the same log infrastructure.
+validation surface emits a structured audit log so when a bypass is in effect, ops can see who set it and why through the same log infrastructure. KernDX also
+ships admin consoles as Lightning tabs — a Streaming Event Monitor for platform-event and Change Data Capture traffic with event-usage metrics, a Chain Monitor
+for async chains, and a Data Masking Advisor for reviewing and exporting masking coverage.
 
 **Operational discipline.** KernDX ships a release runbook, a recurring drift-audit cycle (re-run every ~4 weeks or before any package build), an end-to-end
 subscriber harness (471 anonymous-Apex assertions across 71 sections), an extended load-test suite (`npm run test:load:extended`), and rolling
 performance-history baselines (`npm run test:perf:report`). For the current build identifier, commit count, and package-version count, see
-[Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot). An early install-blocker on default-OWD orgs was discovered and closed in the next package version —
+[Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot). An early install-blocker on default-OWD orgs was discovered and closed in the next package
+version —
 observable in the release record.
 
 **When KernDX is not the best fit.** If your primary need is log analytics and a dedicated log-browser UI, `nebula-logger` ships log-browsing LWCs (`logViewer`,
@@ -336,19 +355,21 @@ it and why.
 
 **KernDX admin capabilities:**
 
-| Capability | Configuration method | Code required? |
-|------------|---------------------|----------------|
-| Disable a trigger | `TriggerSetting__mdt.BypassExecution__c` | No |
-| Disable a trigger action | `TriggerAction__mdt.BypassExecution__c` | No |
-| Toggle a feature | `FeatureFlag__mdt` + strategy | No |
-| Add a validation rule | `ValidationRule__mdt` + formula | No |
-| Configure retry strategy | `ApiSetting__mdt` | No |
-| Toggle FLS/CRUD on read | Feature-flag kill-switch (metadata) | No |
-| Toggle FLS/CRUD on write | Feature-flag kill-switch (metadata) | No |
-| Toggle masking framework | Feature-flag kill-switch (metadata) | No |
-| View error logs | `LogEntry__c` reports/dashboards | No |
-| View bypass audit | `LogEntry__c` filtered to audit-event category | No |
-| Circuit breaker status | Platform Cache (read-only) | No |
+| Capability               | Configuration method                           | Code required? |
+|--------------------------|------------------------------------------------|----------------|
+| Disable a trigger        | `TriggerSetting__mdt.BypassExecution__c`       | No             |
+| Disable a trigger action | `TriggerAction__mdt.BypassExecution__c`        | No             |
+| Toggle a feature         | `FeatureFlag__mdt` + strategy                  | No             |
+| Add a validation rule    | `ValidationRule__mdt` + formula                | No             |
+| Configure retry strategy | `ApiSetting__mdt`                              | No             |
+| Toggle FLS/CRUD on read  | Feature-flag kill-switch (metadata)            | No             |
+| Toggle FLS/CRUD on write | Feature-flag kill-switch (metadata)            | No             |
+| Toggle masking framework | Feature-flag kill-switch (metadata)            | No             |
+| Review masking coverage  | Data Masking Advisor tab (scan + inventory export) | No         |
+| View error logs          | `LogEntry__c` reports/dashboards               | No             |
+| View bypass audit        | `LogEntry__c` filtered to audit-event category | No             |
+| Circuit breaker status   | Platform Cache (read-only)                     | No             |
+| Monitor event & API usage | Streaming Event Monitor + Chain Monitor tabs  | No             |
 
 **Navigation:** [Capabilities at a Glance](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#capabilities-at-a-glance) |
 [Enterprise Delivery](Strategic%20Guide%20-%20Adoption.md#enterprise-delivery)
@@ -403,13 +424,13 @@ in [Adoption — Build vs Buy: Cost Considerations](Strategic%20Guide%20-%20Adop
 DORA on documentation lift, Besker on technical-debt time). KernDX does not yet have a long enough public production track record to confirm KernDX-specific
 values. Subscribers should treat these as **adoption milestones to measure against the team's own pre-framework baseline**, not as guaranteed outcomes.
 
-| Metric | Without framework | With KernDX | With TAF + SOQL Lib |
-|--------|--------------------|-------------|---------------------|
-| New developer onboarding | 3-4 weeks | 1-2 weeks | 1-2 weeks |
-| Code review cycle time | 2-3 days | 0.5-1 day | 0.5-1 day |
-| Production defect rate | Higher | Lower | Lower |
-| Integration development time | High (custom each time) | Low (`API_Outbound` + `API_Inbound` + body-hash idempotency) | Medium (per-integration) |
-| Framework migration cost if wrong | N/A | Medium (integrated stack) | Low (modular) |
+| Metric                            | Without framework       | With KernDX                                                  | With TAF + SOQL Lib      |
+|-----------------------------------|-------------------------|--------------------------------------------------------------|--------------------------|
+| New developer onboarding          | 3-4 weeks               | 1-2 weeks                                                    | 1-2 weeks                |
+| Code review cycle time            | 2-3 days                | 0.5-1 day                                                    | 0.5-1 day                |
+| Production defect rate            | Higher                  | Lower                                                        | Lower                    |
+| Integration development time      | High (custom each time) | Low (`API_Outbound` + `API_Inbound` + body-hash idempotency) | Medium (per-integration) |
+| Framework migration cost if wrong | N/A                     | Medium (integrated stack)                                    | Low (modular)            |
 
 > **Adoption milestones.** The Strategic Guide [Success Metrics](Strategic%20Guide%20-%20Adoption.md#success-metrics) section turns these directional ranges into
 > measurable targets — 30-50% production defect reduction, code review cycle time from 2-5 days to 1-2 days, new developer onboarding from 4-8 weeks to
@@ -450,9 +471,16 @@ than modular alternatives because it covers more areas.
 
 **Strategic posture.** KernDX is compared against the alternative Salesforce frameworks the team has surveyed. KernDX ships broad coverage
 across Trigger Framework, Query Builder, DML, Web Services — Inbound, Web Services —
-Outbound, Resilience, Security, Data Masking, LWC, Async Patterns, Utilities, Health & Self-Diagnostics, and CI / Tooling — broader than the comparable Apex libraries the team has surveyed. Three framework areas where another library covers more aspects (Logging & Diagnostics → `nebula-logger`; Mockito-style behaviour verification → `fflib-mocks`; Domain / Service / Application factory
+Outbound, Resilience, Security, Data Masking, LWC, Async Patterns, Utilities, Health & Self-Diagnostics, and CI / Tooling — broader than the comparable Apex libraries the team has
+surveyed. Three framework areas where another library covers more aspects (Logging & Diagnostics → `nebula-logger`; Mockito-style behaviour verification → `fflib-mocks`; Domain /
+Service / Application factory
 pattern → `fflib` + `at4dx`) point at mix-alongside opportunities, not replacements. KernDX defaults `with sharing` on every class; Data Access Governance is
-enforced by default on reads and writes simultaneously; every bypass mutation emits an audit log. KernDX is testing-hardened at v1.0 (100% per-file Apex coverage gate, 95% LWC, 471 anonymous-Apex assertions in the subscriber e2e harness), is publicly released under BSL 1.1 and promoted for production install, and is in active use at one known external client engagement at the snapshot date; public adoption is still early. Established alternatives (`fflib`, `nebula-logger`, `rflib`) have years of publicly-referenceable production history; KernDX is newly public and does not yet have a comparable public adoption track record (installs of a source-available, promoted package aren't centrally tracked). Subscribers weighting external production-adoption history as a primary signal should factor that against KernDX's capability coverage; subscribers weighting capability coverage and security defaults should weight those above the adoption picture.
+enforced by default on reads and writes simultaneously; every bypass mutation emits an audit log. KernDX is testing-hardened at v1.0 (100% per-file Apex coverage gate, 95% LWC, 471
+anonymous-Apex assertions in the subscriber e2e harness), is publicly released under BSL 1.1 and promoted for production install, and is in active use at one known external client
+engagement at the snapshot date; public adoption is still early. Established alternatives (`fflib`, `nebula-logger`, `rflib`) have years of publicly-referenceable production
+history; KernDX is newly public and does not yet have a comparable public adoption track record (installs of a source-available, promoted package aren't centrally tracked).
+Subscribers weighting external production-adoption history as a primary signal should factor that against KernDX's capability coverage; subscribers weighting capability coverage
+and security defaults should weight those above the adoption picture.
 
 **Audit liability as a capacity cost.** Audit and regulatory exposure for data access is not a developer-discretion problem in your accounting — it is a
 financial and reputational liability that lands on your company, not on the SI partner. KernDX shifts the framing from "did the developer remember to enforce
@@ -486,11 +514,13 @@ this change." That distinction is what makes the posture defensible to auditors 
 **What you need to know:**
 
 - **All major open-source frameworks are free** — TAF (Apache 2.0), SOQL Lib / Apex Fluently (MIT), `nebula-logger` (MIT), `fflib` (BSD-3), `apex-libra` (MIT),
-  `rflib` (BSD-3). KernDX ships under BSL 1.1 as a managed package with source publicly available (and direct source delivery on consulting engagements). The cost is training and maintenance, not licenses.
+  `rflib` (BSD-3). KernDX ships under BSL 1.1 as a managed package with source publicly available (and direct source delivery on consulting engagements). The cost is training and
+  maintenance, not licenses.
 - **The ecosystem has shifted** — from monolithic frameworks (`fflib`, 2013) to modular libraries (SOQL Lib, TAF, 2020+) and granular suites (Apex Fluently's 8
   independent libraries).
 - **AI may change the calculus** — Salesforce's Agentforce (announced 2024, GA October 2024) creates demand for frameworks AI agents can interpret. Frameworks
-  shipping instruction files (KernDX ships `AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference;
+  shipping instruction files (KernDX ships `AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus the [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module
+  framework reference;
   some community projects are adding cursor rules) provide AI agents with explicit conventions to follow.
 - **Framework choice affects how new engineers ramp** — `fflib` has the largest accumulated ecosystem footprint (10+ years, 83 contributors, referenced in
   Salesforce certification materials), so engineers with prior `fflib` exposure are more common in the market; TAF / SOQL Lib use standard Apex patterns any
@@ -517,7 +547,9 @@ org situation. A 1-hour session can align technical strategy with business prior
 
 **Primary concerns:** vendor risk, attack surface, supply chain integrity, PII in logs, regulatory compliance.
 
-**Start here:** [Architecture & Philosophy — Salesforce Well-Architected Alignment](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#salesforce-well-architected-alignment) for the security posture; [Risks](Strategic%20Guide%20-%20Risks.md) for the threat-model treatment.
+**Start here:** [Architecture & Philosophy — Salesforce Well-Architected Alignment](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#salesforce-well-architected-alignment) and the
+sibling [Security Benchmark for Salesforce Alignment](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#security-benchmark-for-salesforce-alignment) for the
+security posture; [Risks](Strategic%20Guide%20-%20Risks.md) for the threat-model treatment.
 
 **KernDX fit.** KernDX defaults to security-conscious patterns across the framework. Every class declares explicit sharing; there is no inline SOQL anywhere in
 the framework, eliminating injection vectors; `QRY_Builder` and `DML_Builder` default to `USER_MODE` on the read and write paths simultaneously; every
@@ -525,11 +557,11 @@ framework-wide bypass mutation (trigger / query / DML / validation surfaces) emi
 inbound REST surfaces ship body-hash idempotency returning HTTP 409 on replay divergence; the masking framework rewrites sensitive content on any SObject
 (standard, custom, or platform event) in memory before the database stores it; and `UTIL_SessionEncryption` handles data encryption. The source ownership model
 means your security team can audit every line before deployment. On the four signals that drive defect rate (sharing default, access-mode default, bypass audit
-emission, inbound trust), KernDX defaults to the secure setting; two documentation-discoverability gaps remain (no top-level `SECURITY.md` file at the repo
-root; per-custom-object masking is opt-in by design — see below).
+emission, inbound trust), KernDX defaults to the secure setting. One nuance remains: per-custom-object masking is opt-in by design (see below) — the Data
+Masking Advisor surfaces the custom objects that need it.
 
-**Threat model documentation.** KernDX ships a bespoke 2,027-line Security Guide (`docs/Security - Guide.md`). most of the comparable Apex frameworks surveyed in
-this guide ship no `SECURITY.md` at all; 4 of the Beyond-The-Cloud libraries (DML Lib, SOQL Lib, Apex Consts, HTTP Mock — that is, `apex-fluently-dml`,
+**Threat model documentation.** KernDX ships a bespoke, comprehensive Security Guide (`docs/Security - Guide.md`) plus a top-level `SECURITY.md`
+vulnerability-reporting policy at the repository root. Most of the comparable Apex frameworks surveyed in this guide ship no `SECURITY.md` at all; 4 of the Beyond-The-Cloud libraries (DML Lib, SOQL Lib, Apex Consts, HTTP Mock — that is, `apex-fluently-dml`,
 `apex-fluently-soql`, `apex-fluently-consts`, `apex-fluently-httpmock`) ship the same Beyond-The-Cloud project-template `SECURITY.md` verbatim — a reporting
 channel without a bespoke threat model. `nebula-logger` ships a discoverable security narrative but no `SECURITY.md` either.
 
@@ -553,7 +585,10 @@ per-SObject opt-in is via `MaskingTarget__mdt` and `TriggerSetting.ApplyMasking_
 opt-in is a deliberate performance-aware design choice — most subscribers don't ship credit-card data through every log emission, and default-on regex matching
 across every SObject would impose regex-execution overhead on the org's full logging volume. Subscribers prioritising default-on out-of-the-box compliance
 hygiene typically pair KernDX masking with `nebula-logger`'s regex matching on log emission specifically (`nebula-logger` ships 4 default-on regex rules);
-subscribers prioritising performance + domain-specific masking control adopt KernDX's per-SObject opt-in as-is.
+subscribers prioritising performance + domain-specific masking control adopt KernDX's per-SObject opt-in as-is. The **Data Masking Advisor** console closes the
+discoverability side of the opt-in: it scans your own custom objects for regulated fields that have no masking target, exports a regulated-field inventory
+(CSV or JSON, with a *Sensitive fields only* filter) and a deployable masking-config bundle, and feeds the
+[Security Governance Evidence](Security%20-%20Guide.md#security-governance-evidence) your auditors ask for.
 
 **Regulatory anchors the masking framework supports** (subscriber maps specific fields to rules; framework provides the infrastructure, not the policy):
 
@@ -576,20 +611,20 @@ after a four-year clock).
 
 **Security comparison:**
 
-| Security concern | KernDX | Modular stack (TAF + SOQL Lib + `nebula-logger`) | `fflib` |
-|------------------|--------|--------------------------------------------------|---------|
-| Source audit | Public GitHub repo (BSL 1.1) | Public GitHub repos | Public GitHub repo |
-| Sharing enforcement | Mandatory `with sharing` declaration on every class | Developer responsibility | Developer responsibility |
-| Query security default | `USER_MODE` default-on on read paths and audited via subscriber-written explicit opt-out (`SEL_Base.systemModeRequired()` plus metadata kill-switch) | SOQL Lib: `USER_MODE` default-on on read paths and audited; SOQLCache constructor silently downgrades to `SYSTEM_MODE` on the cache extension surface | Developer responsibility; `newQueryFactory().setCondition(String)` accepts arbitrary WHERE strings |
-| DML security default | `USER_MODE` default-on on write paths and audited via subscriber-written explicit opt-out (metadata kill-switch; configuration changes tracked via Setup Audit Trail) | DML Lib: `USER_MODE` default-on on write paths but `userMode()` / `systemMode()` / `withSharing()` / `withoutSharing()` mutate `Configuration` in-place silently | SimpleDML default bypasses FLS/CRUD on every write |
-| Bypass audit emission | Every framework-wide bypass mutation (trigger / query / DML / validation surfaces) emits a structured audit record — action, surface, target, optional reason, transaction-rollback-survivable; master kill-switch is the off-switch | `rflib`: WARN log on trigger-bypass only. Most other Apex frameworks (`apex-libra`, `fflib`, `apex-fluently-dml`, `apex-fluently-soql`, TAF programmatic) ship silent toggles | Silent static-Boolean kill-switch |
-| SOQL injection | Eliminated (no inline SOQL, bind variables only) | SOQL Lib: bind variables | Developer responsibility (see `fflib_QueryFactory.setCondition` string concatenation surface) |
-| Inbound REST trust | Body-hash idempotency returning HTTP 409 on replay divergence | Not provided | Not provided |
-| Runtime field redaction | `MaskingRule__mdt` + `MaskingTarget__mdt` — any SObject's text fields, before the database stores them; framework kill-switch default-on, per-SObject opt-in | Manual implementation per call site (`nebula-logger` masks log entries only; default-on regex with 4 shipped rules SSN+Visa+MasterCard+Amex applied before-publish) | Not provided |
-| Log PII protection | Same framework as runtime field redaction — same metadata, different target wirings | `nebula-logger`: default-on masking with 4 shipped regex rules + extension point; suspendSaving / resumeSaving silently disable emit | Not provided |
-| Encryption | `UTIL_SessionEncryption` (AES256, session-scoped keys) | Manual implementation | Not provided |
-| Threat model | Bespoke 2,027-line Security Guide | `nebula-logger` ships a discoverable security narrative; 11 of 21 alternative Apex frameworks surveyed ship no `SECURITY.md` | No `SECURITY.md` |
-| Dependencies | Zero external | Zero external (each library) | Zero external |
+| Security concern        | KernDX                                                                                                                                                                                                                               | Modular stack (TAF + SOQL Lib + `nebula-logger`)                                                                                                                              | `fflib`                                                                                            |
+|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| Source audit            | Public GitHub repo (BSL 1.1)                                                                                                                                                                                                         | Public GitHub repos                                                                                                                                                           | Public GitHub repo                                                                                 |
+| Sharing enforcement     | Mandatory `with sharing` declaration on every class                                                                                                                                                                                  | Developer responsibility                                                                                                                                                      | Developer responsibility                                                                           |
+| Query security default  | `USER_MODE` default-on on read paths and audited via subscriber-written explicit opt-out (`SEL_Base.systemModeRequired()` plus metadata kill-switch)                                                                                 | SOQL Lib: `USER_MODE` default-on on read paths and audited; SOQLCache constructor silently downgrades to `SYSTEM_MODE` on the cache extension surface                         | Developer responsibility; `newQueryFactory().setCondition(String)` accepts arbitrary WHERE strings |
+| DML security default    | `USER_MODE` default-on on write paths and audited via subscriber-written explicit opt-out (metadata kill-switch; configuration changes tracked via Setup Audit Trail)                                                                | DML Lib: `USER_MODE` default-on on write paths but `userMode()` / `systemMode()` / `withSharing()` / `withoutSharing()` mutate `Configuration` in-place silently              | SimpleDML default bypasses FLS/CRUD on every write                                                 |
+| Bypass audit emission   | Every framework-wide bypass mutation (trigger / query / DML / validation surfaces) emits a structured audit record — action, surface, target, optional reason, transaction-rollback-survivable; master kill-switch is the off-switch | `rflib`: WARN log on trigger-bypass only. Most other Apex frameworks (`apex-libra`, `fflib`, `apex-fluently-dml`, `apex-fluently-soql`, TAF programmatic) ship silent toggles | Silent static-Boolean kill-switch                                                                  |
+| SOQL injection          | Eliminated (no inline SOQL, bind variables only)                                                                                                                                                                                     | SOQL Lib: bind variables                                                                                                                                                      | Developer responsibility (see `fflib_QueryFactory.setCondition` string concatenation surface)      |
+| Inbound REST trust      | Body-hash idempotency returning HTTP 409 on replay divergence                                                                                                                                                                        | Not provided                                                                                                                                                                  | Not provided                                                                                       |
+| Runtime field redaction | `MaskingRule__mdt` + `MaskingTarget__mdt` — any SObject's text fields, before the database stores them; framework kill-switch default-on, per-SObject opt-in                                                                         | Manual implementation per call site (`nebula-logger` masks log entries only; default-on regex with 4 shipped rules SSN+Visa+MasterCard+Amex applied before-publish)           | Not provided                                                                                       |
+| Log PII protection      | Same framework as runtime field redaction — same metadata, different target wirings                                                                                                                                                  | `nebula-logger`: default-on masking with 4 shipped regex rules + extension point; suspendSaving / resumeSaving silently disable emit                                          | Not provided                                                                                       |
+| Encryption              | `UTIL_SessionEncryption` (AES256, session-scoped keys)                                                                                                                                                                               | Manual implementation                                                                                                                                                         | Not provided                                                                                       |
+| Threat model            | Bespoke 2,027-line Security Guide                                                                                                                                                                                                    | `nebula-logger` ships a discoverable security narrative; 11 of 21 alternative Apex frameworks surveyed ship no `SECURITY.md`                                                  | No `SECURITY.md`                                                                                   |
+| Dependencies            | Zero external                                                                                                                                                                                                                        | Zero external (each library)                                                                                                                                                  | Zero external                                                                                      |
 
 **Pilot first.** Run a static analysis scan (PMD, Checkmarx, or CodeScan) against the framework source code before adoption. KernDX ships its own shareable PMD
 ruleset (24 Apex rules) and an ESLint plugin (6 LWC rules) that plug into the subscriber's existing CI without bespoke tooling. Verify that no hardcoded

@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card title="Account">
+		<template if:true={account}>
+			<div class="slds-p-horizontal_small">
+				<p>{account.Name}</p>
+				<p>{account.Industry}</p>
+			</div>
+		</template>
+	</lightning-card>
+</template>

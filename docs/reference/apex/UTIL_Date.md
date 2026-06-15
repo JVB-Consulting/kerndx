@@ -4,7 +4,7 @@ type: class
 description: "Provides date and datetime helper operations such as business day arithmetic, weekday/weekend checks, ISO 8601 serialization, cron generation, and date formatting."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---

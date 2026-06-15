@@ -30,18 +30,18 @@ parent-child foreign keys are resolved automatically.
 <summary>Expand</summary>
 
 1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-   - [Insert a Record](#insert-a-record)
-   - [Update a Record](#update-a-record)
-   - [Parent-Child Insert](#parent-child-insert)
+    - [Insert a Record](#insert-a-record)
+    - [Update a Record](#update-a-record)
+    - [Parent-Child Insert](#parent-child-insert)
 2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-   - [Step 1: Create the Service Class](#step-1-create-the-service-class)
-   - [Step 2: Execute](#step-2-execute)
-   - [Step 3: Write Tests](#step-3-write-tests)
+    - [Step 1: Create the Service Class](#step-1-create-the-service-class)
+    - [Step 2: Execute](#step-2-execute)
+    - [Step 3: Write Tests](#step-3-write-tests)
 3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-   - [All DML Operations](#all-dml-operations)
-   - [TransactionResult](#transactionresult)
-   - [Partial Success](#partial-success)
-   - [Security, Sharing, Suppression, and Async](#security-sharing-suppression-and-async)
+    - [All DML Operations](#all-dml-operations)
+    - [TransactionResult](#transactionresult)
+    - [Partial Success](#partial-success)
+    - [Security, Sharing, Suppression, and Async](#security-sharing-suppression-and-async)
 4. [Common Issues](#common-issues)
 5. [What You Now Know](#what-you-now-know)
 6. [Next Steps](#next-steps)
@@ -179,7 +179,7 @@ public with sharing class SVC_AccountOnboarding
 		String opportunityName
 	)
 	{
-		Account newAccount = new Account(Name = accountName, Industry = 'Technology', Phone = '555-0100', Website = 'https://example.com');
+		Account newAccount = new Account(Name = accountName, Industry = 'Technology');
 
 		Opportunity newOpportunity = new Opportunity
 		(
@@ -404,6 +404,7 @@ System.debug('Delete success: ' + deleteResult.isSuccess());
 ```
 
 **Expected output:**
+
 ```text
 Insert success: true
 Account Id: 001...
@@ -437,6 +438,7 @@ for(Database.Error error : result.getErrors())
 ```
 
 **Expected output:**
+
 ```text
 Overall success: false
 Inserted IDs: (001...)
@@ -469,6 +471,7 @@ System.debug('Inserted IDs: ' + result.getInsertedIds());
 ```
 
 **Expected output:**
+
 ```text
 Succeeded: 2
 Failed: 1
@@ -481,7 +484,10 @@ Failed records are automatically logged via `LOG_Builder` — check **App Launch
 
 These are situational patterns. See the [DML Guide](DML%20-%20Guide.md) for detailed examples.
 
-**Default access mode.** At v1.0 GA, `kern.DML_Builder.newTransaction()` runs in `AccessLevel.USER_MODE` — CRUD and FLS are enforced against the running user, and sharing is honoured. This is driven by the `UserModeDml_Enabled` feature flag (ships `true`). Override per call with `.withSystemMode()` (bypasses CRUD/FLS) or belt-and-braces with `.withUserMode()` even when the flag is flipped. `.bypassSharing()` only affects sharing — it does NOT turn off USER_MODE's CRUD/FLS enforcement. See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+**Default access mode.** At v1.0 GA, `kern.DML_Builder.newTransaction()` runs in `AccessLevel.USER_MODE` — CRUD and FLS are enforced against the running user, and sharing is
+honoured. This is driven by the `UserModeDml_Enabled` feature flag (ships `true`). Override per call with `.withSystemMode()` (bypasses CRUD/FLS) or belt-and-braces with
+`.withUserMode()` even when the flag is flipped. `.bypassSharing()` only affects sharing — it does NOT turn off USER_MODE's CRUD/FLS enforcement.
+See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
 
 ```apex
 // Explicit USER_MODE (redundant when the flag is on, belt-and-braces otherwise)
@@ -507,15 +513,15 @@ kern.DML_Builder.newTransaction().doInsert(records).allowPartial().suppressLoggi
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| Child lookup field is `null` after execute | Child registered without relationship | Use `.doInsert(child, Contact.AccountId, parent)` instead of `.doInsert(child)` |
-| `DmlException` thrown | All-or-nothing mode (default) and a record failed | Use `.allowPartial()` for partial success, or `.suppressExceptions()` to log instead of throw |
-| Second `.execute()` does nothing | Transaction is consumed after first execute | Register all operations, execute once |
-| Using direct `insert`/`update` | Bypasses framework error logging | Use `kern.DML_Builder.newTransaction().doInsert(record).execute()` |
+| Problem                                                        | Cause                                                              | Fix                                                                                                  |
+|----------------------------------------------------------------|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| Child lookup field is `null` after execute                     | Child registered without relationship                              | Use `.doInsert(child, Contact.AccountId, parent)` instead of `.doInsert(child)`                      |
+| `DmlException` thrown                                          | All-or-nothing mode (default) and a record failed                  | Use `.allowPartial()` for partial success, or `.suppressExceptions()` to log instead of throw        |
+| Second `.execute()` does nothing                               | Transaction is consumed after first execute                        | Register all operations, execute once                                                                |
+| Using direct `insert`/`update`                                 | Bypasses framework error logging                                   | Use `kern.DML_Builder.newTransaction().doInsert(record).execute()`                                   |
 | Child lookup is `null` and parent appears after child in chain | `.doInsert(child, field, parent)` requires parent registered first | Move the parent's `.doInsert()` call above the child's -- the framework does not re-order operations |
-| `System.NullPointerException` on result | Accessing result fields incorrectly | Use `result.isSuccess()`, `result.getInsertedIds()`, `result.getErrors()` |
-| `Method does not exist: doInsert(Contact, Id, Account)` | Variable named `contact` shadows `Contact` type | Rename the variable (e.g., `newContact`) so `Contact.AccountId` resolves as SObjectField |
+| `System.NullPointerException` on result                        | Accessing result fields incorrectly                                | Use `result.isSuccess()`, `result.getInsertedIds()`, `result.getErrors()`                            |
+| `Method does not exist: doInsert(Contact, Id, Account)`        | Variable named `contact` shadows `Contact` type                    | Rename the variable (e.g., `newContact`) so `Contact.AccountId` resolves as SObjectField             |
 
 ---
 
@@ -523,12 +529,12 @@ kern.DML_Builder.newTransaction().doInsert(records).allowPartial().suppressLoggi
 
 After completing this guide, you understand the **DML builder pattern** in KernDX:
 
-| Concept | What It Does |
-|---------|-------------|
-| **`DML_Builder`** | Fluent builder for all DML operations -- replaces direct `insert`/`update`/`delete` |
-| **`.doInsert(child, field, parent)`** | Auto-populates foreign keys after parent insert |
-| **`.execute()`** | Commits all operations atomically — parents before children |
-| **`TransactionResult`** | Inspection API: `isSuccess()`, `getInsertedIds()`, `getErrors()`, counts |
+| Concept                               | What It Does                                                                        |
+|---------------------------------------|-------------------------------------------------------------------------------------|
+| **`DML_Builder`**                     | Fluent builder for all DML operations -- replaces direct `insert`/`update`/`delete` |
+| **`.doInsert(child, field, parent)`** | Auto-populates foreign keys after parent insert                                     |
+| **`.execute()`**                      | Commits all operations atomically — parents before children                         |
+| **`TransactionResult`**               | Inspection API: `isSuccess()`, `getInsertedIds()`, `getErrors()`, counts            |
 
 **Key patterns:**
 
@@ -542,15 +548,15 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Selectors (query patterns) | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md) |
-| Trigger Actions (DML in after context) | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) |
-| Test Data Patterns | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md) |
+| Topic                                        | Link                                                                      |
+|----------------------------------------------|---------------------------------------------------------------------------|
+| Selectors (query patterns)                   | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                 |
+| Trigger Actions (DML in after context)       | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)   |
+| Test Data Patterns                           | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)               |
 | Async Processing (background DML and chains) | [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md) |
-| Code Scanning (catch DML anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Complete DML Guide | [DML - Guide](DML%20-%20Guide.md) |
-| DML_Builder Reference | [reference/apex/DML_Builder.md](reference/apex/DML_Builder.md) |
+| Code Scanning (catch DML anti-patterns)      | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)       |
+| Complete DML Guide                           | [DML - Guide](DML%20-%20Guide.md)                                         |
+| DML_Builder Reference                        | [reference/apex/DML_Builder.md](reference/apex/DML_Builder.md)            |
 
 > **Drift guard:** `FastStart_DML_DEMO` + `FastStart_DML_DEMO_TEST` in `release-testing/subscriber/classes/`
 > are the companion classes for this guide. Deploy and run `FastStart_DML_DEMO_TEST` against a subscriber

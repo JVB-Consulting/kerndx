@@ -1,21 +1,54 @@
 # KernDX
 
 [![Coverage](https://img.shields.io/badge/coverage-100%25%20Apex%20%2F%2095%25%20LWC-brightgreen.svg)](./docs/Code%20Conventions%20-%20Guide.md)
-[![Version](https://img.shields.io/badge/version-1.0.0--121-blue.svg)](./RELEASE-PROVENANCE.json)
+[![Version](https://img.shields.io/badge/version-1.1.0--11-blue.svg)](./RELEASE-PROVENANCE.json)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-orange.svg)](./LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://jvb-consulting.github.io/kerndx/)
+
+📚 **[Browse the documentation site](https://jvb-consulting.github.io/kerndx/)** — the same Fast Starts, Strategic Guides, and Apex reference under `docs/`, rendered and searchable.
 
 Ship Apex and LWC features in a fraction of the time.
 
-KernDX gives Salesforce teams a **complete, integrated framework** — so you focus on business logic, not infrastructure. One managed package replaces 6-8 separate libraries: triggers, queries, DML, web services, async processing, validation, logging, data masking, LWC components, and the CI tooling to keep it all clean.
+**Most Salesforce open-source gives you a library. KernDX gives you the library — plus the onboarding, CI, and guardrails around it.**
 
-**Why teams adopt it**
+One managed package, but not all-or-nothing: switch on the parts that fit your situation, and the rest is there the day you need it.
 
-- **One stack, one convention** — every layer follows the same `TRG_*` / `SEL_*` / `DML_*` / `LOG_*` prefixes. What you learn for triggers transfers to queries and DML.
-- **Default-on safety** — every query and write runs in `USER_MODE` (FLS + CRUD enforced on read AND write); 100% per-file Apex coverage; 95% LWC; per-call bypasses audited.
-- **AI-friendly out of the box** — [`AGENTS.md`](./AGENTS.md) + [canonical conventions](./docs/Code%20Conventions%20-%20Guide.md) ship at the repo root, so Claude Code, Cursor, Cline, and similar tools generate convention-compliant code from day one.
-- **Source-available under BSL 1.1, no vendor lock-in** — every file is in this repo. Three deployment paths: continue using the managed package, deploy as source directly, or repackage under your own namespace using the included namespace-swap toolkit.
+- **One core, one convention** — triggers, queries, DML, APIs, async, validation, logging, data masking, and LWC, all on one consistent path with shared `TRG_*` / `SEL_*` / `DML_*` / `LOG_*` naming. Learn one layer and you know the rest.
+- **Onboarding in the box** — docs, Fast Starts, [`AGENTS.md`](./AGENTS.md), and [canonical conventions](./docs/Code%20Conventions%20-%20Guide.md), so a new hire (or an AI assistant like Claude Code or Cursor) writes convention-compliant code on day one.
+- **CI in the box** — PMD rulesets, an ESLint plugin, secret scanning, and coverage gates that drop into your pipeline.
+- **Guardrails built in** — reads and writes run FLS-safe by default, 100% Apex / 95% LWC coverage is enforced at every release, and bypasses are audit-logged with the reason the caller gave, so a security review can start from a query.
+- **Yours to keep** — source-available under BSL 1.1, no lock-in: run the managed package, repackage under your own namespace, or run the source yourself.
 
-This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.0.0-121` at this snapshot.
+### Came here looking for…
+
+| If you want | KernDX gives you | Try it in 30 min |
+|---|---|---|
+| **Trigger framework** | metadata-driven + audit-logged bypass + 4-level kill switch + recursion control | [Fast Start - Trigger Actions](./docs/Fast%20Start%20-%20Trigger%20Actions.md) |
+| **SOQL query builder** | FLS-enforced by default + audited bypass + fluent API + subclassable | [Fast Start - Selectors](./docs/Fast%20Start%20-%20Selectors.md) |
+| **DML wrapper** | `USER_MODE` default + transactional batching + async DML + dependency graph | [Fast Start - DML](./docs/Fast%20Start%20-%20DML.md) |
+| **Outbound HTTP** | retry / circuit-breaker / idempotency body-hash / dead-letter queue | [Fast Start - Outbound APIs](./docs/Fast%20Start%20-%20Outbound%20APIs.md) |
+| **Inbound REST** | two-class routing pattern + DTO marshalling + body-hash 409 on replay | [Fast Start - Inbound APIs](./docs/Fast%20Start%20-%20Inbound%20APIs.md) |
+| **Logging** | platform-event transport + correlation IDs threaded across triggers/async/HTTP | [Fast Start - Logging](./docs/Fast%20Start%20-%20Logging.md) |
+| **Async orchestration** | chained Queueables + shared state + finalizer recovery + Chain Monitor LWC | [Fast Start - Async Processing](./docs/Fast%20Start%20-%20Async%20Processing.md) |
+| **Test data factory** | builder pattern + parent-child wiring + DML-free selector mocks | [Fast Start - Test Data](./docs/Fast%20Start%20-%20Test%20Data.md) |
+| **Feature flags** | metadata + per-user/profile + Apex/Flow/LWC + pluggable strategies | [Fast Start - Feature Flags](./docs/Fast%20Start%20-%20Feature%20Flags.md) |
+| **Custom validations** | metadata-driven + shadow mode + 3-level bypass — zero Apex | [Fast Start - Custom Validations](./docs/Fast%20Start%20-%20Custom%20Validations.md) |
+| **Resilient callouts** | retry + exponential backoff + circuit breaker on any callout, no boilerplate | [Fast Start - Resilience](./docs/Fast%20Start%20-%20Resilience.md) |
+| **Secure data access** | `USER_MODE` CRUD/FLS enforced on every read and write by default | [Fast Start - Security](./docs/Fast%20Start%20-%20Security.md) |
+| **Data masking** | write-time field redaction on a configurable field set + a Data Masking Advisor to scan, deploy config, and inventory regulated fields | [Fast Start - Data Masking](./docs/Fast%20Start%20-%20Data%20Masking.md) |
+| **LWC components** | base class with toasts, Apex calls, navigation, and logging wired in | [Fast Start - LWC](./docs/Fast%20Start%20-%20LWC.md) |
+
+→ Comparing against alternatives? [Choosing a Framework](./docs/Strategic%20Guide%20-%20Choosing%20a%20Framework.md) covers head-to-head trade-offs vs `taf`, `fflib`, `rflib`, `nebula-logger`, `apex-libra`, the [Apex Fluently](https://github.com/beyond-the-cloud-dev) libraries, and `fflib-mocks`.
+
+KernDX is a **complete Salesforce framework and library suite** — one managed package that replaces a dozen separate libraries: SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
+
+This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.1.0-11` at this snapshot.
+
+## Why "KernDX"?
+
+*Kern*, for kernel — a dependable core your Apex and LWC run *through*: every read, write, and async hop on one consistent, access-controlled path. *DX*, for developer experience — the docs, conventions, AI-agent onboarding, and CI in the same box. It's the core of *your* codebase, not a replacement for the Salesforce platform — the platform is still the platform.
+
+And like a kernel, it's not all-or-nothing. Switch on the parts that fit your situation — just the query layer today, the trigger framework when you need it, logging or data masking when you're ready — knowing the rest is there the day you do. You adopt at your own pace; nothing forces you to take the whole thing to get value from one piece.
 
 ## Architecture at a glance
 
@@ -45,8 +78,8 @@ The constraints are deliberate, documented, and ship as enforceable gates — no
 |   | **Path 1 — Managed package** | **Path 2 — Repackage under your namespace** | **Path 3 — CI tooling only** |
 | --- | --- | --- | --- |
 | **Who it's for** | Salesforce admins / developers adding KernDX to an existing org. | Teams that want to embed KernDX inside their own managed package. | Teams that want the KernDX CI pipeline without the framework itself. |
-| **What gets installed** | The `kern` managed package at `1.0.0-121`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 11 GitHub Actions workflow templates. Zero framework code. |
-| **Install command** | `sf package install --package 04tfj000000JN0vAAG --target-org <alias>` (04t in `RELEASE-PROVENANCE.json`). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.0.0-121-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
+| **What gets installed** | The `kern` managed package at `1.1.0-11`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
+| **Install command** | `sf package install --package 04tfj000000KesXAAS --target-org <alias>` (04t in `RELEASE-PROVENANCE.json`). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.1.0-11-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
 | **When to choose** | You want the framework as a managed dependency you can swap in days, not weeks. | You're building a managed package and want KernDX inside it as *your* code. | You don't want the framework but you want the conventions enforced in your CI. |
 | **Full guide** | [Installation — Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package) | [Installation — Path 2](./docs/Installation.md#path-2-repackage-under-your-own-namespace) | [Installation — Path 3](./docs/Installation.md#path-3-ci-tooling-only) · preview [9 workflow examples](./examples/workflows/) |
 
@@ -54,7 +87,7 @@ The constraints are deliberate, documented, and ship as enforceable gates — no
 
 [![Deploy to Salesforce](https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/deploy.png)](https://githubsfdeploy.herokuapp.com/?owner=JVB-Consulting&repo=kerndx)
 
-One click deploys `force-app/` source into a scratch or sandbox org you nominate, so you can poke at the framework before deciding which install path is right for you. Source deploys are *not* a supported install path — they ship without the managed-package lifecycle guarantees — but they are the fastest way to read real code in a real org.
+One click deploys `force-app/` source into a scratch or sandbox org you nominate, so you can poke at the framework before deciding which install path is right for you. Deploying the source directly is a genuine option — the same unmanaged delivery you'd use to own the code outright — but it ships without the managed-package upgrade lifecycle, so it isn't the recommended way to run KernDX day-to-day: you'd reconcile changes by hand on each update instead of installing a new package version. It is the fastest way to read real code in a real org, and your assurance that you can always run the framework yourself.
 
 ## Quick start
 
@@ -100,16 +133,17 @@ npm run release:phase2
 
 ## Where to go next
 
-- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.0.0-121`). Every release is preserved as a git tag `vX.Y.Z-N` — browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.0.0-121`). Every file in this repository — README, install commands, API reference, Strategic Guides — is frozen at the state of that release.
-- [**Release Notes — Kern 1.0**](./release-notes/Release%20Notes%20-%20Kern%201.0.md) — what shipped in v1.0, grouped by capability with migration notes. **Read this first if you are evaluating an upgrade** (the top-level [CHANGELOG.md](./CHANGELOG.md) is a sequential per-build log for diagnostic use — release notes are the subscriber-facing summary).
+- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.1.0-11`). Every release is preserved as a git tag `vX.Y.Z-N` — browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.1.0-11`). Every file in this repository — README, install commands, API reference, Strategic Guides — is frozen at the state of that release.
+- [**Release Notes — Kern 1.1**](./release-notes/Release%20Notes%20-%20Kern%201.1.md) — what's new since v1.0, grouped by capability, with upgrade notes. **Read this first if you are evaluating an upgrade.**
+- [**Release Notes — Kern 1.0**](./release-notes/Release%20Notes%20-%20Kern%201.0.md) — the comprehensive feature reference for the framework 1.1 builds on, grouped by capability. (The top-level [CHANGELOG.md](./CHANGELOG.md) is a sequential per-build log for diagnostic use — the release notes are the subscriber-facing summary.)
 - [Documentation hub](./docs/README.md) — learning paths, Fast Starts, Strategic Guides, Apex reference.
 - [Installation guide](./docs/Installation.md) — install + namespace-swap workflow.
-- [Fast Starts](./docs/) — 12 task-oriented guides (Selectors, DML, Test Data, Logging, Feature Flags, Outbound APIs, Inbound APIs, Trigger Actions, Custom Validations, Async Processing, E2E Testing, Code Scanning).
-- [Module guides](./docs/) — long-form reference per framework area (LWC, Security, Triggers, Web Services, Async, Validation, DML, Selectors, Logging, Utilities, DTOs, Objects & Metadata, Code Scanning, E2E Testing).
+- [Fast Starts](./docs/) — 16 task-oriented guides (Selectors, DML, Test Data, Security, Data Masking, Logging, Feature Flags, Outbound APIs, Resilience, Inbound APIs, Trigger Actions, Custom Validations, Async Processing, LWC, E2E Testing, Code Scanning).
+- [Module guides](./docs/) — long-form reference per framework area (LWC, Security, Data Masking, Triggers, Web Services, Resilience, Async, Validation, DML, Selectors, Logging, Feature Flags, Utilities, Test Data, DTOs, Objects & Metadata, Code Scanning, E2E Testing).
 - [Apex reference](./docs/reference/) — auto-generated ApexDoc + LWC reference.
 - [Strategic Guides](./docs/) — adoption decisions, architecture rationale, operations, personas, glossary, metrics.
 - [Code Conventions](./docs/Code%20Conventions%20-%20Guide.md) — canonical code-style + framework rules.
-- [Workflow examples](./examples/workflows/) — pre-rendered versions of the 9 GitHub Actions workflows that the kerndx-pipeline distribution ships.
+- [Workflow examples](./examples/workflows/) — pre-rendered previews of 9 of the 10 GitHub Actions workflow templates the kerndx-pipeline distribution scaffolds.
 
 ## Contributing
 
@@ -131,7 +165,7 @@ Contact: `jason@jvb-consulting.io`. The framework itself is and remains [BSL 1.1
 
 - **Framework (Apex, LWC, docs, scripts, metadata)** — [Business Source License 1.1](./LICENSE) — source-available, with a four-year clock to Apache 2.0 (the Change License).
 - **Standalone CI pipeline tooling under `pipeline/`** — [MIT License](./pipeline/LICENSE), licensed separately so subscribers and CI vendors can adopt it without inheriting BSL terms.
-- **Third-party-derived files** — KernDX includes Apache 2.0 derivatives (apex-lang, apex-trigger-actions-framework), MIT derivatives (ApexLogger, SObjectIndex, JsonPath), and CC0-1.0 derivatives (streaming-monitor). Each derived file's header carries an SPDX-License-Identifier and upstream attribution; [`NOTICES.md`](./NOTICES.md) is the per-upstream-project attribution document; the [`LICENSE`](./LICENSE) carve-out section enumerates the Apache-2.0 / MIT files (CC0-1.0 derivatives are relicensed under BSL 1.1 since CC0 imposes no requirement). Full upstream license texts ship under [`LICENSES/`](./LICENSES/).
+- **Third-party-derived files** — KernDX includes Apache 2.0 derivatives (apex-lang, apex-trigger-actions-framework), MIT derivatives (ApexLogger, SObjectIndex, JsonPath), BSD 3-Clause derivatives (Apex-Util describe + unit-of-work utilities), and CC0-1.0 derivatives (streaming-monitor). Each derived file's header carries an SPDX-License-Identifier and upstream attribution; [`NOTICES.md`](./NOTICES.md) is the per-upstream-project attribution document; the [`LICENSE`](./LICENSE) carve-out section enumerates the Apache-2.0 / MIT / BSD-3-Clause files (CC0-1.0 derivatives are relicensed under BSL 1.1 since CC0 imposes no requirement). Full upstream license texts ship under [`LICENSES/`](./LICENSES/).
 
 ## AI coding assistants
 

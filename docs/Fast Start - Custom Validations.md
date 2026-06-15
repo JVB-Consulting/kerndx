@@ -33,18 +33,18 @@ metadata-configured rule without DML or triggers.
 
 1. [Tier 1: See It Work (~3 minutes)](#tier-1-see-it-work-3-minutes)
 2. [Tier 2: Build Your Own (~15-17 minutes)](#tier-2-build-your-own-15-17-minutes)
-   - [Step 1: Deploy the DEMO class and test](#step-1-deploy-the-demo-class-and-test)
-   - [Step 2: Deploy the CMDT fixtures](#step-2-deploy-the-cmdt-fixtures)
-   - [Step 3: Run the tests](#step-3-run-the-tests)
-   - [What the test class demonstrates](#what-the-test-class-demonstrates)
-   - [Key patterns](#key-patterns)
+    - [Step 1: Deploy the DEMO class and test](#step-1-deploy-the-demo-class-and-test)
+    - [Step 2: Deploy the CMDT fixtures](#step-2-deploy-the-cmdt-fixtures)
+    - [Step 3: Run the tests](#step-3-run-the-tests)
+    - [What the test class demonstrates](#what-the-test-class-demonstrates)
+    - [Key patterns](#key-patterns)
 3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-   - [Trigger integration](#trigger-integration)
-   - [Formula reference](#formula-reference)
-   - [Bypass mechanisms](#bypass-mechanisms)
-   - [Shadow mode](#shadow-mode)
-   - [Feature flag integration](#feature-flag-integration)
-   - [Execution strategies and error severity](#execution-strategies-and-error-severity)
+    - [Trigger integration](#trigger-integration)
+    - [Formula reference](#formula-reference)
+    - [Bypass mechanisms](#bypass-mechanisms)
+    - [Shadow mode](#shadow-mode)
+    - [Feature flag integration](#feature-flag-integration)
+    - [Execution strategies and error severity](#execution-strategies-and-error-severity)
 4. [Common Issues](#common-issues)
 5. [What You Now Know](#what-you-now-know)
 6. [Next Steps](#next-steps)
@@ -106,6 +106,7 @@ for(kern.UTIL_ValidationRule.ValidationError error : result.errors)
 ```
 
 **Expected output:**
+
 ```text
 Valid: false
 Error: Either Phone or Website is required (field: null)
@@ -120,6 +121,7 @@ System.debug('Valid: ' + result.isValid + ' — Errors: ' + result.errors.size()
 ```
 
 **Expected output:**
+
 ```text
 Valid: true — Errors: 0
 ```
@@ -177,6 +179,7 @@ sf apex run test -o YourOrgAlias -t FastStart_Validation_DEMO_TEST \
 ```
 
 **Expected output:**
+
 ```text
 === Test Results
 Tests Ran        2
@@ -218,14 +221,14 @@ private static void shouldFailWhenDescriptionBlank()
 
 ### Key patterns
 
-| Pattern | Why |
-|---------|-----|
-| `bypassObject('Account')` (String param) | Bypasses ALL active Account validation groups — prevents existing org fixtures from interfering |
-| `TST_Factory.newValidationRule(name, formula, message)` | Registers a rule in-memory for the current test only — no CMDT deploy needed |
-| `assertRuleFails(record, ruleName)` | Evaluates one rule in-memory — no DML, no trigger |
-| `withoutInsertion()` | Builds an in-memory record with a fake Id — no database write |
-| Formula returns `true` = fails | `ISBLANK(newRecord.Description)` fires when Description is blank |
-| `ISPICKVAL()` for picklists | `ISPICKVAL(newRecord.Industry, "Technology")` — use this, not `=`, for picklist values |
+| Pattern                                                 | Why                                                                                             |
+|---------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| `bypassObject('Account')` (String param)                | Bypasses ALL active Account validation groups — prevents existing org fixtures from interfering |
+| `TST_Factory.newValidationRule(name, formula, message)` | Registers a rule in-memory for the current test only — no CMDT deploy needed                    |
+| `assertRuleFails(record, ruleName)`                     | Evaluates one rule in-memory — no DML, no trigger                                               |
+| `withoutInsertion()`                                    | Builds an in-memory record with a fake Id — no database write                                   |
+| Formula returns `true` = fails                          | `ISBLANK(newRecord.Description)` fires when Description is blank                                |
+| `ISPICKVAL()` for picklists                             | `ISPICKVAL(newRecord.Industry, "Technology")` — use this, not `=`, for picklist values          |
 
 ---
 
@@ -297,14 +300,14 @@ catch(DmlException error)
 
 ### Formula reference
 
-| Function | Example | Description |
-|----------|---------|-------------|
-| `ISBLANK(field)` | `ISBLANK(newRecord.Description)` | Field is empty |
-| `ISPICKVAL(field, value)` | `ISPICKVAL(newRecord.Industry, "Technology")` | Picklist equals value — use this, not `=` |
-| `NOT(condition)` | `NOT(ISBLANK(newRecord.Email))` | Negate a condition |
-| `AND(a, b)` | `AND(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))` | Both conditions true |
-| `OR(a, b)` | `OR(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))` | Either condition true |
-| `ISCHANGED(old, new, field)` | `ISCHANGED(oldRecord, newRecord, Industry)` | Field value changed on update |
+| Function                     | Example                                                   | Description                               |
+|------------------------------|-----------------------------------------------------------|-------------------------------------------|
+| `ISBLANK(field)`             | `ISBLANK(newRecord.Description)`                          | Field is empty                            |
+| `ISPICKVAL(field, value)`    | `ISPICKVAL(newRecord.Industry, "Technology")`             | Picklist equals value — use this, not `=` |
+| `NOT(condition)`             | `NOT(ISBLANK(newRecord.Email))`                           | Negate a condition                        |
+| `AND(a, b)`                  | `AND(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))` | Both conditions true                      |
+| `OR(a, b)`                   | `OR(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))`  | Either condition true                     |
+| `ISCHANGED(old, new, field)` | `ISCHANGED(oldRecord, newRecord, Industry)`               | Field value changed on update             |
 
 Operators `&&`, `||`, `!`, `>`, `<`, `>=`, `<=`, `==`, `!=` work inline.
 
@@ -337,22 +340,22 @@ Shadow Mode = checked > Save.**
 
 Gate validation groups or individual rules on [Feature Flags](Fast%20Start%20-%20Feature%20Flags.md):
 
-| Field | Effect |
-|-------|--------|
-| `BypassFeatureFlag__c` (on group or rule) | Skip the group/rule when this flag is **enabled** |
+| Field                                       | Effect                                                |
+|---------------------------------------------|-------------------------------------------------------|
+| `BypassFeatureFlag__c` (on group or rule)   | Skip the group/rule when this flag is **enabled**     |
 | `RequiredFeatureFlag__c` (on group or rule) | Only run the group/rule when this flag is **enabled** |
 
 ### Execution strategies and error severity
 
-| Strategy | Behaviour |
-|----------|-----------|
+| Strategy                 | Behaviour                              |
+|--------------------------|----------------------------------------|
 | **Accumulate** (default) | Evaluate all rules, collect all errors |
-| **Fail Fast** | Stop after the first error per record |
+| **Fail Fast**            | Stop after the first error per record  |
 
-| Severity | Behaviour |
-|----------|-----------|
-| **Error** | Blocks save, attaches error to record |
-| **Warning** | Allows save, logs to Log Entries |
+| Severity    | Behaviour                             |
+|-------------|---------------------------------------|
+| **Error**   | Blocks save, attaches error to record |
+| **Warning** | Allows save, logs to Log Entries      |
 
 See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
@@ -360,33 +363,34 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
 ## Common Issues
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| Rule doesn't fire | Formula syntax error | Check Log Entries for formula compilation errors |
-| Picklist comparison fails | Using `=` instead of `ISPICKVAL()` | Use `ISPICKVAL(newRecord.Field, "Value")` for picklists |
-| `assertRuleFails` says rule passed | Formula logic inverted | Formula returning `true` means invalid — check your condition |
-| Rule fires on insert but not update | `TriggerOperations__c` missing `Update` | Add `Update` to the semicolon-separated list |
-| Error not on the right field | Wrong `ErrorDisplayField__c` | Use the field API name only (e.g., `Description` not `Account.Description`) |
-| Rules don't fire via trigger | Missing `TriggerAction__mdt` | Create action pointing to `TRG_ExecuteValidationRules` |
-| Multiple rules — only first fires | `ExecutionStrategy__c` set to `Fail Fast` | Change to `Accumulate` |
-| `newValidationRule` fails from anon Apex | `@TestVisible private` trap | Only callable from `@IsTest` context — use inline SOQL in anon Apex instead |
+| Problem                                  | Cause                                     | Fix                                                                         |
+|------------------------------------------|-------------------------------------------|-----------------------------------------------------------------------------|
+| Rule doesn't fire                        | Formula syntax error                      | Check Log Entries for formula compilation errors                            |
+| Picklist comparison fails                | Using `=` instead of `ISPICKVAL()`        | Use `ISPICKVAL(newRecord.Field, "Value")` for picklists                     |
+| `assertRuleFails` says rule passed       | Formula logic inverted                    | Formula returning `true` means invalid — check your condition               |
+| Rule fires on insert but not update      | `TriggerOperations__c` missing `Update`   | Add `Update` to the semicolon-separated list                                |
+| Error not on the right field             | Wrong `ErrorDisplayField__c`              | Use the field API name only (e.g., `Description` not `Account.Description`) |
+| Rules don't fire via trigger             | Missing `TriggerAction__mdt`              | Create action pointing to `TRG_ExecuteValidationRules`                      |
+| Multiple rules — only first fires        | `ExecutionStrategy__c` set to `Fail Fast` | Change to `Accumulate`                                                      |
+| `newValidationRule` fails from anon Apex | `@TestVisible private` trap               | Only callable from `@IsTest` context — use inline SOQL in anon Apex instead |
 
 ---
 
 ## What You Now Know
 
-| Concept | What it does |
-|---------|--------------|
-| `ValidationRuleGroup__mdt` | Groups rules for an object and trigger context |
-| `ValidationRule__mdt` | Individual formula-based check with error message |
-| `UTIL_ValidationTestHelper.validate(record)` | Evaluates all rules in-memory, returns a `ValidationResult` |
-| `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)` | Asserts one rule fires — no DML |
-| `UTIL_ValidationTestHelper.assertRulePasses(record, ruleName)` | Asserts one rule is satisfied |
-| `UTIL_ValidationRule.bypassObject('Account')` | Bypasses all Account rules — String param |
-| `TST_Factory.newValidationRule(name, formula, message)` | Registers a rule in-memory — `@IsTest` only |
-| `TRG_ExecuteValidationRules` | Built-in trigger action that enforces rules on save |
+| Concept                                                        | What it does                                                |
+|----------------------------------------------------------------|-------------------------------------------------------------|
+| `ValidationRuleGroup__mdt`                                     | Groups rules for an object and trigger context              |
+| `ValidationRule__mdt`                                          | Individual formula-based check with error message           |
+| `UTIL_ValidationTestHelper.validate(record)`                   | Evaluates all rules in-memory, returns a `ValidationResult` |
+| `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)`  | Asserts one rule fires — no DML                             |
+| `UTIL_ValidationTestHelper.assertRulePasses(record, ruleName)` | Asserts one rule is satisfied                               |
+| `UTIL_ValidationRule.bypassObject('Account')`                  | Bypasses all Account rules — String param                   |
+| `TST_Factory.newValidationRule(name, formula, message)`        | Registers a rule in-memory — `@IsTest` only                 |
+| `TRG_ExecuteValidationRules`                                   | Built-in trigger action that enforces rules on save         |
 
 **Key patterns:**
+
 - Formulas return `true` when the record is **invalid** (inverted logic)
 - Use `ISPICKVAL()` for picklist comparisons, not `=`
 - Tests use `UTIL_ValidationTestHelper` — no DML needed, no trigger needed
@@ -398,11 +402,11 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
 ## Next Steps
 
-| Topic | Link |
-|-------|------|
-| Fast Start - Trigger Actions | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) |
-| Fast Start - Feature Flags | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Fast Start - Logging | [Fast Start - Logging](Fast%20Start%20-%20Logging.md) |
-| Custom Validations Developer Guide | [Validation - Guide](Validation%20-%20Guide.md) |
-| UTIL_ValidationRule API Reference | [reference/apex/UTIL_ValidationRule.md](reference/apex/UTIL_ValidationRule.md) |
-| Formula Functions Reference | [reference/apex/UTIL_FormulaFilter.md](reference/apex/UTIL_FormulaFilter.md) |
+| Topic                              | Link                                                                           |
+|------------------------------------|--------------------------------------------------------------------------------|
+| Fast Start - Trigger Actions       | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)        |
+| Fast Start - Feature Flags         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)            |
+| Fast Start - Logging               | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                          |
+| Custom Validations Developer Guide | [Validation - Guide](Validation%20-%20Guide.md)                                |
+| UTIL_ValidationRule API Reference  | [reference/apex/UTIL_ValidationRule.md](reference/apex/UTIL_ValidationRule.md) |
+| Formula Functions Reference        | [reference/apex/UTIL_FormulaFilter.md](reference/apex/UTIL_FormulaFilter.md)   |

@@ -50,6 +50,7 @@ LOG_Builder.build()
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [warn](#warn)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> messages) | Sets the log level to WARN with the given batch of messages. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [warn](#warn)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Sets the log level to WARN with the given message. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withContext](#withcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a context key-value pair to this log entry. |
+| global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withFingerprint](#withfingerprint)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Sets a grouping fingerprint for this entry, enabling flood control: the first occurrence persists as a full detail row, repeats roll up into daily counter rows. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withSummary](#withsummary)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) shortMessage) | Sets a brief summary message for the log entry. |
 
 ---
@@ -304,6 +305,35 @@ literals so cross-framework log entries pivot on the same key namespace.
 **Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
 
 **Since:** 1.0
+
+### withFingerprint
+
+```apex
+global LOG_Builder.LogEntry withFingerprint(String key)
+```
+
+Sets a grouping fingerprint for this entry, enabling flood control: the first
+occurrence persists as a full detail row, repeats roll up into daily counter rows. Use a
+STABLE event-template identity (e.g. 'payment-retry-loop') — never per-occurrence data
+such as record ids or timestamps, which would make every entry unique and produce MORE
+rows than plain logging. Keys are trimmed; keys longer than 200 characters or starting
+with the reserved 'bypass:' prefix are SHA-256 hashed. When a key is hashed, the original
+key is recorded in this entry's context (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`) so the
+opaque stored fingerprint stays reconcilable with what you supplied.
+
+**Parameters:**
+
+- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The stable grouping key.
+
+**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+LOG_Builder.build().warn('Retry failed').withFingerprint('order-sync-retry').emitAt('OrderSync.run');
+```
 
 ### withSummary
 
