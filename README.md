@@ -147,7 +147,7 @@ npm run release:phase2
 
 ## Contributing
 
-**v1.0:** bug reports and feature requests are welcome via [GitHub Issues](https://github.com/JVB-Consulting/kerndx/issues/new/choose). External PRs are **not** currently accepted at this stage of the project — each release overwrites the branch state, so a PR merged here would be replaced on the next release. The issue-first workflow is the supported path. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full v1.0 contribution model + rationale.
+Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/JVB-Consulting/kerndx/issues/new/choose). External PRs aren't supported yet — each release regenerates this published repository, so a PR merged here would be overwritten on the next release. The issue-first workflow is the supported path. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full contribution model + rationale.
 
 Security vulnerabilities: do **not** open a public issue. See [the security policy](./SECURITY.md) for the responsible-disclosure process.
 
