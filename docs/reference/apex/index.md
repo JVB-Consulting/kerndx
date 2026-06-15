@@ -2,7 +2,7 @@
 
 > Core Apex classes, utilities, and services
 
-**233 items** in this category.
+**238 items** in this category.
 
 ---
 
@@ -50,6 +50,7 @@
 |------|-------------|
 | [DTO_Base](DTO_Base.md) | A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for seri |
 | [DTO_BaseTable](DTO_BaseTable.md) | A Data Transfer Object (DTO) class that structures webservice handler responses into a common table  |
+| [DTO_ChangeEventHeader](DTO_ChangeEventHeader.md) | A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as  |
 | [DTO_FlowValidationError](DTO_FlowValidationError.md) | Represents a single validation error or warning for Flow display. Contains details about the validat |
 | [DTO_NameValue](DTO_NameValue.md) | DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or  |
 | [DTO_NameValues](DTO_NameValues.md) | Class for managing and transferring key-value pairs, represented as names and values, between classe |
@@ -100,6 +101,7 @@
 | [IF_Queryable](IF_Queryable.md) | Interface for any object that can execute a query. Implemented by QRY_Builder.Builder and SEL_Base.  |
 | [QRY_Builder](QRY_Builder.md) | Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. P |
 | [QRY_Condition](QRY_Condition.md) | Condition infrastructure for building complex SOQL WHERE clauses. Use these classes with QRY_Builder |
+| [QRY_Function](QRY_Function.md) | Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in  |
 
 ## Resilience
 
@@ -148,12 +150,6 @@
 | [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md) | Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS c |
 | [UTIL_ValidationTestHelper](UTIL_ValidationTestHelper.md) | Reusable utility class for testing validation rules. This is NOT a test class itself but provides as |
 
-## Trigger Framework
-
-| Name | Description |
-|------|-------------|
-| [TST_InvokeFlowMock](TST_InvokeFlowMock.md) | Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow respon |
-
 ## Triggers
 
 | Name | Description |
@@ -163,6 +159,7 @@
 | [IF_Trigger](IF_Trigger.md) | Contracts for metadata-driven trigger action handlers. Each nested interface corresponds to a Salesf |
 | [TRG_Base](TRG_Base.md) | The base class for trigger actions, designed to be extended and implement relevant interfaces. This  |
 | [TRG_Dispatcher](TRG_Dispatcher.md) | Factory class for instantiating and executing configured trigger actions. Manages the lifecycle of t |
+| [TST_InvokeFlowMock](TST_InvokeFlowMock.md) | Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow respon |
 
 ## Utilities
 
@@ -267,6 +264,9 @@
 | [IF_Trigger.BeforeDelete](IF_Trigger.BeforeDelete.md) | Handler contract for the before-delete trigger event. |
 | [IF_Trigger.BeforeInsert](IF_Trigger.BeforeInsert.md) | Handler contract for the before-insert trigger event. |
 | [IF_Trigger.BeforeUpdate](IF_Trigger.BeforeUpdate.md) | Handler contract for the before-update trigger event. |
+| [IF_Trigger.PostAction](IF_Trigger.PostAction.md) | Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a tr |
+| [IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md) | Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch.  |
+| [IF_Trigger.PostActionEntryCriteria](IF_Trigger.PostActionEntryCriteria.md) | Optional entry-criteria contract for a post-trigger action. Implementing classes are referenced from |
 | [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) | Fluent builder for constructing rich log entries with context. Provides a chainable API for setting  |
 | [LOG_Builder.LogScope](LOG_Builder.LogScope.md) | A logging scope that buffers log entries until closed. On creation, suspends immediate log publishin |
 | [PROC_UpdateFields.DTO_Field](PROC_UpdateFields.DTO_Field.md) | DTO representing a field to update on an SObject. |

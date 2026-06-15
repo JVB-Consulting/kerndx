@@ -2,7 +2,7 @@
 
 > Configuration and settings metadata
 
-**14 items** in this category.
+**15 items** in this category.
 
 ---
 
@@ -20,6 +20,7 @@
 | [FieldSetGroup__mdt](FieldSetGroup__mdt.md) | Groups multiple field sets for an object into a single configuration record. Used to drive multi-sec |
 | [MaskingRule__mdt](MaskingRule__mdt.md) | Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. |
 | [MaskingTarget__mdt](MaskingTarget__mdt.md) | Applies a Masking Rule to a specific field on a specific object. Each record says "use this rule on  |
+| [PostTriggerAction__mdt](PostTriggerAction__mdt.md) | Registers a single post-trigger action: one Apex class that runs once at the end of a trigger transa |
 | [TriggerAction__mdt](TriggerAction__mdt.md) | Registers a single trigger action: one Apex class bound to one trigger event (e.g. Before Insert) on |
 | [TriggerSetting__mdt](TriggerSetting__mdt.md) | Parent configuration for all trigger actions on a single object. Links to an EntityDefinition to ide |
 | [ValidationRule__mdt](ValidationRule__mdt.md) | Defines an individual validation rule with a formula-based condition, error message, and configurati |

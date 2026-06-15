@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PerformanceThresholdMs__c</fullName>
+    <description>Optional. Post-action-level performance threshold in milliseconds. When set, the post-action is logged if its execution time exceeds this value. Overrides the global default. Leave blank to inherit from the global Log Setting default. Post-actions can do arbitrary work (aggregate SOQL, computed audit, telemetry roll-ups) so per-row thresholds let admins tune alerting per action.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Log this post-action when execution exceeds this duration (ms). Leave blank to inherit the global default.</inlineHelpText>
+    <label>Performance Threshold (ms)</label>
+    <precision>8</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -24,6 +24,7 @@ This object is the master record for a single feature flag. It acts as the paren
 | Field | Description |
 |-------|-------------|
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [BypassApiSettings__r](#bypassapisettings__r) | Reciprocal relationship for ApiSetting__mdt.BypassFeatureFlag__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [BypassPostTriggerActions__r](#bypassposttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.BypassFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [BypassTriggerActions__r](#bypasstriggeractions__r) | Reciprocal relationship for TriggerAction__mdt.BypassFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [BypassTriggerSettings__r](#bypasstriggersettings__r) | Reciprocal relationship for TriggerSetting__mdt.BypassFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [BypassValidationRuleGroups__r](#bypassvalidationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.BypassFeatureFlag__c. |
@@ -33,6 +34,7 @@ This object is the master record for a single feature flag. It acts as the paren
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | A master on/off switch. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsEnabledByDefault__c](#isenabledbydefault__c) | The default value for the flag if no strategies are defined. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [RequiredApiSettings__r](#requiredapisettings__r) | Reciprocal relationship for ApiSetting__mdt.RequiredFeatureFlag__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [RequiredPostTriggerActions__r](#requiredposttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.RequiredFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [RequiredTriggerActions__r](#requiredtriggeractions__r) | Reciprocal relationship for TriggerAction__mdt.RequiredFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [RequiredTriggerSettings__r](#requiredtriggersettings__r) | Reciprocal relationship for TriggerSetting__mdt.RequiredFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [RequiredValidationRuleGroups__r](#requiredvalidationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.RequiredFeatureFlag__c. |
@@ -50,6 +52,14 @@ global List<ApiSetting__mdt> BypassApiSettings__r
 ```
 
 Reciprocal relationship for **`ApiSetting__mdt.BypassFeatureFlag__c`** .
+
+### BypassPostTriggerActions__r
+
+```apex
+global List<PostTriggerAction__mdt> BypassPostTriggerActions__r
+```
+
+Reciprocal relationship for **`PostTriggerAction__mdt.BypassFeatureFlag__c`** .
 
 ### BypassTriggerActions__r
 
@@ -143,6 +153,14 @@ global List<ApiSetting__mdt> RequiredApiSettings__r
 ```
 
 Reciprocal relationship for **`ApiSetting__mdt.RequiredFeatureFlag__c`** .
+
+### RequiredPostTriggerActions__r
+
+```apex
+global List<PostTriggerAction__mdt> RequiredPostTriggerActions__r
+```
+
+Reciprocal relationship for **`PostTriggerAction__mdt.RequiredFeatureFlag__c`** .
 
 ### RequiredTriggerActions__r
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RequireObjectIdentifier</fullName>
+    <active>true</active>
+    <description>At least one of SObject Type or Object API Name Override is required (not mutually exclusive: CDC rows may set both, override wins at dispatch). CDC entities use the override; the relationship&apos;s picklist filter excludes them.</description>
+    <errorConditionFormula>AND(ISBLANK( SObjectType__c ), ISBLANK( ObjectApiNameOverride__c ))</errorConditionFormula>
+    <errorMessage>Set either SObject Type (for standard objects, custom objects, and platform events) or Object API Name Override (for Change Data Capture entities). At least one must be populated.</errorMessage>
+</ValidationRule>

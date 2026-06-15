@@ -3,7 +3,7 @@ title: "TST_InvokeFlowMock"
 type: class
 description: "Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview A"
 author: "Jason Van Beukering"
-group: "Trigger Framework"
+group: "Triggers"
 date: "April 2026, May 2026"
 since: "1.0"
 category: apex
@@ -11,7 +11,7 @@ category: apex
 
 # TST_InvokeFlowMock
 
-**Class** · Group: `Trigger Framework`
+**Class** · Group: `Triggers`
 
 ```apex
 global inherited sharing class TST_InvokeFlowMock
@@ -42,6 +42,7 @@ Assert.isTrue(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'), 'Flow should 
 | global static void [assertNotInvoked](#assertnotinvoked)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Asserts that a mocked flow was never invoked. |
 | global static void [clear](#clear)() | Clears all registered mocks and invocation counts. |
 | global static [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) [forFlow](#forflow)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Creates a fluent builder for registering a mock flow response. |
+| global static [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getLastInputHeader](#getlastinputheader)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns the header Change Event input variable the mocked flow received on its most recent invocation. |
 | global static [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getLastInputPriorRecord](#getlastinputpriorrecord)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns the recordPrior SObject the mocked flow received on its most recent invocation. |
 | global static [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getLastInputRecord](#getlastinputrecord)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns the record SObject the mocked flow received on its most recent invocation, or null when the flow has not been invoked. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [wasInvoked](#wasinvoked)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns whether a mocked flow was invoked at least once. |
@@ -135,6 +136,33 @@ Creates a fluent builder for registering a mock flow response.
 ```apex
 TST_InvokeFlowMock.forFlow('Foobar_SetDefaults').succeed().register();
 ```
+
+### getLastInputHeader
+
+```apex
+global static Object getLastInputHeader(String flowName)
+```
+
+Returns the `header` Change Event input variable the mocked flow
+received on its most recent invocation. Null when the flow has not been invoked
+or when the dispatch was not a Change Event context (standard / custom-object
+triggers do not inject a header).
+
+Returned as `Object` (rather than `DTO_ChangeEventHeader`) to keep this mock's
+compile-time surface decoupled from the CDC header type — callers cast at the
+call site:
+
+`DTO_ChangeEventHeader header =
+(DTO_ChangeEventHeader)TST_InvokeFlowMock.getLastInputHeader('Foobar_OnChange');
+`
+
+**Parameters:**
+
+- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to check
+
+**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The `header` input variable from the last invocation, or null when the flow has not been invoked or the context did not carry a header
+
+**Since:** 1.1
 
 ### getLastInputPriorRecord
 

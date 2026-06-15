@@ -315,4 +315,152 @@ global inherited sharing class IF_Trigger
 		 */
 		void afterUndelete(List<SObject> newRecords);
 	}
+
+	/**
+	 * @description Handler contract for a post-trigger action — an Apex class that runs
+	 * exactly once at the end of a trigger transaction, after every trigger action on every
+	 * touched SObject has completed. Use for cross-object or transaction-scoped work that
+	 * cannot be done from inside an individual trigger action: audit aggregation, asynchronous
+	 * job enqueue, transaction-wide telemetry. DML is contractually prohibited — the framework
+	 * throws if a post-trigger action performs DML, regardless of the row's FailureAction
+	 * setting.
+	 *
+	 * Registered via `PostTriggerAction__mdt`. The framework fires post-actions at the
+	 * outermost dispatch unwind, in `Order__c` ascending. Optional gates apply in order:
+	 * BypassExecution → BypassFeatureFlag / RequiredFeatureFlag → TriggerSetting scope →
+	 * EntryCriteriaContextClassName.
+	 *
+	 * @since 1.1
+	 */
+	global interface PostAction
+	{
+		/**
+		 * @description Called once per outermost dispatch with the context of touched
+		 * SObject types. Implementations should be idempotent within a single transaction —
+		 * a transaction with N top-level DML statements fires post-actions N times.
+		 *
+		 * @param context The post-action context for this dispatch. Carries the set of
+		 * SObject types whose triggers participated in the transaction.
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * public class TRG_EmitTransactionAudit implements IF_Trigger.PostAction
+		 * {
+		 *     public void execute(IF_Trigger.PostActionContext context)
+		 *     {
+		 *         if(context.touchedSObjectTypes.isEmpty()) return;
+		 *         LOG_Builder.build()
+		 *             .info('Transaction touched ' + context.touchedSObjectTypes.size() + ' SObject(s)')
+		 *             .emitAt('TRG_EmitTransactionAudit');
+		 *     }
+		 * }
+		 * ```
+		 */
+		void execute(IF_Trigger.PostActionContext context);
+	}
+
+	/**
+	 * @description Optional entry-criteria contract for a post-trigger action. Implementing
+	 * classes are referenced from `PostTriggerAction__mdt.EntryCriteriaContextClassName__c`
+	 * and consulted before the post-action's `execute(context)` is invoked. Returning false
+	 * skips the row; returning true proceeds to execution. Use for context-level gating
+	 * (e.g. "only run when Account records were touched AND feature flag X is enabled").
+	 *
+	 * Evaluators should be cheap — configuration lookups, feature-flag checks, Set membership
+	 * tests, at most one bounded SOQL. Expensive evaluators undermine the cost benefit of
+	 * having an entry criteria at all.
+	 *
+	 * @since 1.1
+	 */
+	global interface PostActionEntryCriteria
+	{
+		/**
+		 * @description Called once per outermost dispatch before the gated post-action.
+		 * Returning false skips the post-action; returning true proceeds to execution.
+		 *
+		 * @param context The post-action context for this dispatch. Carries the set of
+		 * SObject types whose triggers participated in the transaction.
+		 *
+		 * @return `true` if the gated post-action should run; `false` to skip it.
+		 *
+		 * @since 1.1
+		 *
+		 * @example
+		 * ```apex
+		 * public class TRG_PostActionEntryBrandA implements IF_Trigger.PostActionEntryCriteria
+		 * {
+		 *     public Boolean shouldRun(IF_Trigger.PostActionContext context)
+		 *     {
+		 *         if(!context.touchedSObjectTypes.contains(Account.SObjectType)) return false;
+		 *         return UTIL_FeatureFlag.isEnabled('BrandA_Sales_Enabled');
+		 *     }
+		 * }
+		 * ```
+		 */
+		Boolean shouldRun(IF_Trigger.PostActionContext context);
+	}
+
+	/**
+	 * @description Context handed to a post-trigger action when the dispatcher unwinds the
+	 * outermost trigger dispatch. Carries the set of SObject types whose triggers
+	 * participated in the transaction so the post-action can branch on which objects were
+	 * touched without re-querying.
+	 *
+	 * The framework constructs and supplies this object — subscribers should not need to
+	 * construct it directly outside of unit tests.
+	 *
+	 * **Why `Set&lt;SObjectType&gt;` rather than record IDs:** the post-action runs
+	 * once per outermost dispatch with no per-record context, so the type-level discriminator
+	 * is what's load-bearing. Per-record IDs would (1) carry an unbounded heap cost in batch
+	 * contexts, (2) leak record material across post-actions written by different teams in
+	 * the same org. Subscribers needing per-record context should maintain their own
+	 * domain-specific statics during their trigger actions and consult them inside the
+	 * post-action.
+	 *
+	 * @since 1.1
+	 *
+	 * @example
+	 * ```apex
+	 * // Inside a PostAction.execute(context):
+	 * if(context.touchedSObjectTypes.contains(Account.SObjectType))
+	 * {
+	 *     // Account triggers participated; run Account-domain work.
+	 * }
+	 * ```
+	 */
+	global class PostActionContext
+	{
+		/**
+		 * @description The SObject types whose triggers participated in the transaction.
+		 * The framework stores a defensive copy on construction and the setter is private,
+		 * so the framework's own source set cannot be mutated through this reference;
+		 * subscribers must still treat the returned Set as read-only — a single context
+		 * instance is shared across every post-action in the dispatch, so mutating it has
+		 * no defined effect and could affect other post-actions. An empty set is possible —
+		 * a post-action that ran solely because of a bypassed-but-still-fired trigger could
+		 * see an empty context. Subscribers should null-check defensively even though the
+		 * constructor guarantees a non-null Set.
+		 *
+		 * @since 1.1
+		 */
+		global Set<SObjectType> touchedSObjectTypes {get; private set;}
+
+		/**
+		 * @description Constructs a post-action context with the supplied set of touched
+		 * SObject types. A null argument is normalised to an empty Set so subscribers can
+		 * safely call `.contains(...)` without null-checking. Intended for framework and
+		 * unit-test construction; subscribers receive instances via `PostAction.execute`.
+		 *
+		 * @param touched The set of SObject types whose triggers participated, or null.
+		 *
+		 * @since 1.1
+		 */
+		global PostActionContext(Set<SObjectType> touched)
+		{
+			this.touchedSObjectTypes =
+					touched != null ? new Set<SObjectType>(touched) : new Set<SObjectType>();
+		}
+	}
 }

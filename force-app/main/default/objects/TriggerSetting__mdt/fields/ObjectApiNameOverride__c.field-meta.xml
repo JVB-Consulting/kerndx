@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ObjectApiNameOverride__c</fullName>
+    <description>Optional text override for the Object Type relationship above. When populated, this value is used as the SObject API name at dispatch time instead of the relationship. Primary use case is Change Data Capture entities (e.g. AccountChangeEvent, Foobar__ChangeEvent), which the platform excludes from the relationship&apos;s picklist filter. For CDC rows, populate the Object Type relationship with the source SObject (e.g. Foobar__c) for admin documentation, and this field with the Change Event API name (e.g. Foobar__ChangeEvent). Leave blank for standard objects, custom objects, and platform events — the relationship covers those directly.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Optional. Use to register a Change Data Capture entity (e.g. Foobar__ChangeEvent), or any other entity the Object Type relationship cannot reference. When populated, this value overrides the relationship at dispatch time.</inlineHelpText>
+    <label>Object API Name Override</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

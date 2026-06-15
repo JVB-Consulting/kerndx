@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EntryCriteriaContextClassName__c</fullName>
+    <description>Optional. Apex class implementing IF_Trigger.PostActionEntryCriteria. When set, the framework consults the evaluator&apos;s shouldRun(context) method before invoking the post-action. Returning false skips this row; returning true proceeds to execution. Use for context-level gating (e.g. &quot;only run when Account records were touched AND feature flag X is enabled&quot;). Leave blank to run unconditionally subject to feature-flag and Trigger Setting filters. Unlike the field of the same name on Trigger Action, this is the evaluator itself, not a context provider for a formula.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enter the Apex class that implements IF_Trigger.PostActionEntryCriteria. Returning false from shouldRun(context) skips this row. Leave blank to run unconditionally subject to other filters.</inlineHelpText>
+    <label>Entry Criteria Context Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

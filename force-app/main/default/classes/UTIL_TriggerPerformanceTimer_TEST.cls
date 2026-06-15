@@ -209,6 +209,86 @@ private class UTIL_TriggerPerformanceTimer_TEST
 	}
 
 	/**
+	 * @description Tests `withPostActionSettings` applies the two perf knobs from a
+	 * `PostTriggerAction__mdt` row — force flag and threshold — and returns the same
+	 * instance for chaining.
+	 */
+	@IsTest
+	private static void shouldApplyPostActionSettings()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest(true, 0, true, 0);
+
+		PostTriggerAction__mdt mockMetadata = (PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+				.withOverride(PostTriggerAction__mdt.DeveloperName, 'Test_PostAction')
+				.withOverride(PostTriggerAction__mdt.ForcePerformanceLogging__c, true)
+				.withOverride(PostTriggerAction__mdt.PerformanceThresholdMs__c, 250)
+				.withoutInsertion()
+				.build();
+
+		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(ACTION_CLASS_NAME, 'POST_TRIGGER', null, null);
+
+		Test.startTest();
+
+		timer.start();
+		UTIL_TriggerPerformanceTimer result = timer.withPostActionSettings(mockMetadata);
+		timer.stop();
+
+		Test.stopTest();
+
+		Assert.areEqual(timer, result, 'withPostActionSettings should return same instance');
+	}
+
+	/**
+	 * @description Tests `withPostActionSettings(null)` short-circuits without mutating
+	 * the timer's state.
+	 */
+	@IsTest
+	private static void shouldHandleNullPostActionMetadata()
+	{
+		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(ACTION_CLASS_NAME, 'POST_TRIGGER', null, null);
+
+		Test.startTest();
+
+		timer.start();
+		UTIL_TriggerPerformanceTimer result = timer.withPostActionSettings(null);
+		timer.stop();
+
+		Test.stopTest();
+
+		Assert.areEqual(timer, result, 'withPostActionSettings(null) should return same instance');
+	}
+
+	/**
+	 * @description Tests `withPostActionSettings` with `ForcePerformanceLogging__c = false`
+	 * and a null threshold leaves the timer's defaults untouched — exercises the negative
+	 * branches inside the overload so coverage stays at 100%.
+	 */
+	@IsTest
+	private static void shouldHandlePostActionDefaultsWithoutMutating()
+	{
+		PostTriggerAction__mdt mockMetadata = (PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+				.withOverride(PostTriggerAction__mdt.DeveloperName, 'Test_Defaults')
+				.withOverride(PostTriggerAction__mdt.ForcePerformanceLogging__c, false)
+				.withoutInsertion()
+				.build();
+
+		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(
+				ACTION_CLASS_NAME, 'POST_TRIGGER', null, null
+		);
+
+		Test.startTest();
+
+		timer.start();
+		UTIL_TriggerPerformanceTimer result = timer.withPostActionSettings(mockMetadata);
+		timer.stop();
+
+		Test.stopTest();
+
+		Assert.areEqual(timer, result, 'withPostActionSettings should return same instance');
+	}
+
+	/**
 	 * @description Tests public properties are correctly exposed.
 	 */
 	@IsTest

@@ -135,6 +135,29 @@ global inherited sharing class UTIL_Exceptions
 	}
 
 	/**
+	 * @description Thrown by the post-trigger no-DML contract guard when an
+	 * `IF_Trigger.PostAction.execute(context)` performs synchronous DML inside the trigger
+	 * dispatcher unwind. `UTIL_PostTriggerAction.handleFailure` always rethrows this type
+	 * regardless of the row's `FailureAction__c` policy — the no-DML contract is a framework
+	 * invariant, not a policy-controlled behaviour.
+	 *
+	 * Intentionally `public`, not `global`: it signals a developer-time contract violation
+	 * (a post-action must compute, log, or enqueue async only — never synchronous DML),
+	 * always aborts the transaction, and is never caught for recovery by subscriber code.
+	 * A distinct type is load-bearing — the guard discriminates it via `instanceof` from
+	 * exceptions thrown by the action itself, so it must be a type no subscriber action raises.
+	 *
+	 * @see UTIL_PostTriggerAction
+	 *
+	 * @group Triggers
+	 *
+	 * @since 1.1
+	 */
+	public inherited sharing class PostActionDmlException extends Exception
+	{
+	}
+
+	/**
 	 * @description Discriminates governor blowouts (which must propagate verbatim to abort the
 	 * surrounding transaction) from runtime errors (which route through caller-defined failure
 	 * policies). Returns `true` when the caught exception is a `System.LimitException` so the

@@ -29,7 +29,6 @@
    - [Email](#email)
    - [Async](#async)
    - [Omnistudio](#omnistudio)
-   - [Trigger Framework](#trigger-framework)
    - [Data Masking](#data-masking)
 4. [Custom Objects](#custom-objects)
 5. [Platform Events](#platform-events)
@@ -39,12 +38,12 @@
 
 ## Overview
 
-This reference contains **258 documented items** across the following categories:
+This reference contains **264 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
-| **Custom Metadata Types** | 14 | Configuration and settings metadata | [Browse All](metadata/index.md) |
-| **Apex Classes** | 233 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
+| **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
+| **Apex Classes** | 238 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
 | **Custom Objects** | 10 | Custom SObjects in the package | [Browse All](objects/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
@@ -83,6 +82,7 @@ Fluent SOQL builder, bind registry, conditions, and query engine. Use `QRY_Build
 | [QRY_Builder](apex/QRY_Builder.md) | Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. |
 | [QRY_Condition](apex/QRY_Condition.md) | Condition infrastructure for building complex SOQL WHERE clauses. |
 | [IF_Queryable](apex/IF_Queryable.md) | Interface for any object that can execute a query. |
+| [QRY_Function](apex/QRY_Function.md) | Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder... |
 
 ### Selectors
 
@@ -125,6 +125,7 @@ Metadata-driven trigger dispatch. Configure trigger actions via `TriggerAction__
 | [IF_Trigger](apex/IF_Trigger.md) | Contracts for metadata-driven trigger action handlers. |
 | [FLOW_BypassTrigger](apex/FLOW_BypassTrigger.md) | Flow invocable action to manage trigger bypasses. |
 | [FLOW_CheckTriggerBypassed](apex/FLOW_CheckTriggerBypassed.md) | This class is used to check whether certain triggers or actions are bypassed in the system. |
+| [TST_InvokeFlowMock](apex/TST_InvokeFlowMock.md) | Test mock harness for TRG_InvokeFlow-dispatched flows. |
 
 ### Web Services
 
@@ -157,6 +158,7 @@ Base classes for JSON and XML serialization. All DTOs extend `DTO_JsonBase` and 
 | [DTO_Base](apex/DTO_Base.md) | A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for serialization, deseri... |
 | [DTO_NameValues](apex/DTO_NameValues.md) | Class for managing and transferring key-value pairs, represented as names and values, between classes. |
 | [DTO_BaseTable](apex/DTO_BaseTable.md) | A Data Transfer Object (DTO) class that structures webservice handler responses into a common table format, providing... |
+| [DTO_ChangeEventHeader](apex/DTO_ChangeEventHeader.md) | A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as a strongly-typed ... |
 | [DTO_FlowValidationError](apex/DTO_FlowValidationError.md) | Represents a single validation error or warning for Flow display. |
 | [DTO_NameValue](apex/DTO_NameValue.md) | DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or configuration set... |
 | [DTO_PickList](apex/DTO_PickList.md) | A Data Transfer Object (DTO) representing a single picklist and all associated values. |
@@ -323,6 +325,9 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [IF_Trigger.BeforeDelete](apex/IF_Trigger.BeforeDelete.md) | Handler contract for the before-delete trigger event. |
 | [IF_Trigger.BeforeInsert](apex/IF_Trigger.BeforeInsert.md) | Handler contract for the before-insert trigger event. |
 | [IF_Trigger.BeforeUpdate](apex/IF_Trigger.BeforeUpdate.md) | Handler contract for the before-update trigger event. |
+| [IF_Trigger.PostAction](apex/IF_Trigger.PostAction.md) | Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction... |
+| [IF_Trigger.PostActionContext](apex/IF_Trigger.PostActionContext.md) | Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. |
+| [IF_Trigger.PostActionEntryCriteria](apex/IF_Trigger.PostActionEntryCriteria.md) | Optional entry-criteria contract for a post-trigger action. |
 | [LOG_Builder.LogEntry](apex/LOG_Builder.LogEntry.md) | Fluent builder for constructing rich log entries with context. |
 | [LOG_Builder.LogScope](apex/LOG_Builder.LogScope.md) | A logging scope that buffers log entries until closed. |
 | [PROC_UpdateFields.DTO_Field](apex/PROC_UpdateFields.DTO_Field.md) | DTO representing a field to update on an SObject. |
@@ -435,12 +440,6 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 |-------|-------------|
 | [SVC_Omnistudio](apex/SVC_Omnistudio.md) | SVC_Omnistudio is a factory class that implements the Callable interface and is designed to instantiate and execute o... |
 
-### Trigger Framework
-
-| Class | Description |
-|-------|-------------|
-| [TST_InvokeFlowMock](apex/TST_InvokeFlowMock.md) | Test mock harness for TRG_InvokeFlow-dispatched flows. |
-
 ### Data Masking
 
 | Class | Description |
@@ -488,6 +487,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [FieldSetGroup__mdt](metadata/FieldSetGroup__mdt.md) | Groups multiple field sets for an object into a single configuration record. |
 | [MaskingRule__mdt](metadata/MaskingRule__mdt.md) | Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. |
 | [MaskingTarget__mdt](metadata/MaskingTarget__mdt.md) | Applies a Masking Rule to a specific field on a specific object. |
+| [PostTriggerAction__mdt](metadata/PostTriggerAction__mdt.md) | Registers a single post-trigger action: one Apex class that runs once at the end of a trigger transaction, after all ... |
 | [TriggerAction__mdt](metadata/TriggerAction__mdt.md) | Registers a single trigger action: one Apex class bound to one trigger event (e.g. |
 | [TriggerSetting__mdt](metadata/TriggerSetting__mdt.md) | Parent configuration for all trigger actions on a single object. |
 | [ValidationRule__mdt](metadata/ValidationRule__mdt.md) | Defines an individual validation rule with a formula-based condition, error message, and configuration options. |

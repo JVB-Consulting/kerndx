@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BypassExecution__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When checked, this post-trigger action is completely skipped. Unlike permission-based bypasses, this is an unconditional kill switch that applies to all users regardless of permissions or context.</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Check to disable this post-trigger action for all users. Use this as a kill switch during troubleshooting or data migrations. Uncheck to re-enable.</inlineHelpText>
+    <label>Bypass Execution</label>
+    <type>Checkbox</type>
+</CustomField>

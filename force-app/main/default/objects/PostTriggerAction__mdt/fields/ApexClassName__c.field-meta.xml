@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ApexClassName__c</fullName>
+    <description>Fully qualified Apex class implementing IF_Trigger.PostAction. Runs once after all trigger actions complete, for cross-object/transaction-level work (audit aggregation, async enqueue, telemetry). DML is not permitted inside a post-trigger action.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Enter the Apex class name (with namespace prefix for managed-package classes). The class must implement IF_Trigger.PostAction. The action cannot perform DML.</inlineHelpText>
+    <label>Apex Class Name</label>
+    <length>100</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

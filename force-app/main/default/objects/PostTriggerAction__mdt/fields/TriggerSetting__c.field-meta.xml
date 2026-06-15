@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TriggerSetting__c</fullName>
+    <description>Optional. When set, this post-trigger action runs only when the parent Trigger Setting&apos;s SObject participated in the transaction (i.e. at least one trigger on that SObject fired during this outermost dispatch). Leave blank to fire on every outermost dispatch regardless of which SObjects were touched, for cross-object or transaction-scoped work (audit aggregation, async enqueue, transaction-wide telemetry).</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Optional. Select a Trigger Setting to scope this post-action to one SObject (it fires only when that object&apos;s trigger participated). Leave blank for cross-object work that should fire on every outermost dispatch.</inlineHelpText>
+    <label>Trigger Setting</label>
+    <referenceTo>TriggerSetting__mdt</referenceTo>
+    <relationshipLabel>Post-Trigger Actions</relationshipLabel>
+    <relationshipName>PostTriggerActions</relationshipName>
+    <required>false</required>
+    <type>MetadataRelationship</type>
+    <unique>false</unique>
+</CustomField>

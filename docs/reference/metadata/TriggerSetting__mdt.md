@@ -28,7 +28,9 @@ Parent configuration for all trigger actions on a single object. Links to an Ent
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [BypassFeatureFlag__c](#bypassfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [BypassFeatureFlag__r](#bypassfeatureflag__r) | Optional. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | Master switch for performance logging on this object. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ObjectApiNameOverride__c](#objectapinameoverride__c) | Optional text override for the Object Type relationship above. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Object-level performance threshold in milliseconds. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [PostTriggerActions__r](#posttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.TriggerSetting__c. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [SObjectType__c](#sobjecttype__c) | EntityDefinition relationship that identifies which SObject this trigger setting governs. |
@@ -117,6 +119,23 @@ Master switch for performance logging on this object. When enabled, execution ti
 | Data Type | Checkbox |
 | Default Value | true |
 
+### ObjectApiNameOverride__c
+
+```apex
+global String ObjectApiNameOverride__c
+```
+
+Optional text override for the Object Type relationship above. When populated, this value is used as the SObject API name at dispatch time instead of the relationship. Primary use case is Change Data Capture entities (e.g. AccountChangeEvent, Foobar__ChangeEvent), which the platform excludes from the relationship's picklist filter. For CDC rows, populate the Object Type relationship with the source SObject (e.g. Foobar__c) for admin documentation, and this field with the Change Event API name (e.g. Foobar__ChangeEvent). Leave blank for standard objects, custom objects, and platform events — the relationship covers those directly.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(255) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
 ### PerformanceThresholdMs__c
 
 ```apex
@@ -133,6 +152,14 @@ Object-level performance threshold in milliseconds. Actions on this object are l
 | Required | false |
 | Unique | false |
 | External ID | false |
+
+### PostTriggerActions__r
+
+```apex
+global List<PostTriggerAction__mdt> PostTriggerActions__r
+```
+
+Reciprocal relationship for **`PostTriggerAction__mdt.TriggerSetting__c`** .
 
 ### RequiredFeatureFlag__c
 
@@ -172,14 +199,14 @@ Optional. ALL trigger actions for this object ONLY RUN when the Feature Flag is 
 global Id SObjectType__c
 ```
 
-EntityDefinition relationship that identifies which SObject this trigger setting governs. Validated by the platform — only real objects can be selected, preventing misconfiguration from typos or deleted objects.
+EntityDefinition relationship that identifies which SObject this trigger setting governs. Validated by the platform — only real objects can be selected, preventing misconfiguration from typos or deleted objects. Optional when Object API Name Override is populated (the platform's restricted-picklist filter excludes Change Data Capture entities from this relationship; CDC rows use the override instead). A validation rule enforces that at least one of the two is populated.
 
 **Field Attributes:**
 
 | Attribute | Value |
 |-----------|-------|
 | Data Type | EntityDefinition |
-| Required | true |
+| Required | false |
 | Unique | false |
 
 ### SObjectType__r
@@ -188,14 +215,14 @@ EntityDefinition relationship that identifies which SObject this trigger setting
 global EntityDefinition SObjectType__r
 ```
 
-EntityDefinition relationship that identifies which SObject this trigger setting governs. Validated by the platform — only real objects can be selected, preventing misconfiguration from typos or deleted objects.
+EntityDefinition relationship that identifies which SObject this trigger setting governs. Validated by the platform — only real objects can be selected, preventing misconfiguration from typos or deleted objects. Optional when Object API Name Override is populated (the platform's restricted-picklist filter excludes Change Data Capture entities from this relationship; CDC rows use the override instead). A validation rule enforces that at least one of the two is populated.
 
 **Field Attributes:**
 
 | Attribute | Value |
 |-----------|-------|
 | Data Type | EntityDefinition |
-| Required | true |
+| Required | false |
 | Unique | false |
 
 ### TriggerActions__r

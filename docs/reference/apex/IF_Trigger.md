@@ -51,4 +51,12 @@ public class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 | global interface [BeforeDelete](IF_Trigger.BeforeDelete.md) | Handler contract for the before-delete trigger event. |
 | global interface [BeforeInsert](IF_Trigger.BeforeInsert.md) | Handler contract for the before-insert trigger event. |
 | global interface [BeforeUpdate](IF_Trigger.BeforeUpdate.md) | Handler contract for the before-update trigger event. |
+| global interface [PostAction](IF_Trigger.PostAction.md) | Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. |
+| global interface [PostActionEntryCriteria](IF_Trigger.PostActionEntryCriteria.md) | Optional entry-criteria contract for a post-trigger action. |
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [PostActionContext](IF_Trigger.PostActionContext.md) | Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. |
 
