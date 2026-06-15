@@ -22,7 +22,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const {spawnSync} = require('node:child_process');
 
 const pipelineRoot = path.resolve(__dirname, '..');
 const testsRoot = path.join(pipelineRoot, '__tests__');
@@ -31,13 +31,25 @@ const fixturesDir = path.join(testsRoot, 'fixtures', 'subscriber-naming');
 function enumerateTestFiles(dir, out)
 {
 	out = out || [];
-	if(!fs.existsSync(dir)) return out;
+	if(!fs.existsSync(dir))
+	{
+		return out;
+	}
 	for(const entry of fs.readdirSync(dir, {withFileTypes: true}))
 	{
-		if(entry.name === 'fixtures' || entry.name === 'node_modules') continue;
+		if(entry.name === 'fixtures' || entry.name === 'node_modules')
+		{
+			continue;
+		}
 		const full = path.join(dir, entry.name);
-		if(entry.isDirectory()) enumerateTestFiles(full, out);
-		else if(entry.isFile() && entry.name.endsWith('.test.js')) out.push(full);
+		if(entry.isDirectory())
+		{
+			enumerateTestFiles(full, out);
+		}
+		else if(entry.isFile() && entry.name.endsWith('.test.js'))
+		{
+			out.push(full);
+		}
 	}
 	return out;
 }
@@ -67,13 +79,22 @@ function run(argv)
 		runList = [];
 		for(const test of allTests)
 		{
-			if(requiresSubscriberFixtures(test)) skipped.push(test);
-			else runList.push(test);
+			if(requiresSubscriberFixtures(test))
+			{
+				skipped.push(test);
+			}
+			else
+			{
+				runList.push(test);
+			}
 		}
 		if(skipped.length > 0)
 		{
 			console.log(`[test:pipeline] subscriber-naming fixtures not shipped in this checkout — skipping ${skipped.length} test file(s):`);
-			for(const s of skipped) console.log(`  - ${path.relative(pipelineRoot, s)}`);
+			for(const s of skipped)
+			{
+				console.log(`  - ${path.relative(pipelineRoot, s)}`);
+			}
 			console.log(`[test:pipeline] running ${runList.length} remaining test file(s).`);
 		}
 	}
@@ -84,7 +105,11 @@ function run(argv)
 		return 0;
 	}
 
-	const result = spawnSync('node', ['--test', ...runList, ...argv], {stdio: 'inherit', cwd: pipelineRoot});
+	const result = spawnSync('node', [
+		'--test',
+		...runList,
+		...argv
+	], {stdio: 'inherit', cwd: pipelineRoot});
 	return result.status === null ? 1 : result.status;
 }
 

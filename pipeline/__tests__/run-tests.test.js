@@ -12,10 +12,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const {spawnSync} = require('node:child_process');
 
 const RUNNER = path.resolve(__dirname, '..', 'scripts', 'run-tests.js');
-const { enumerateTestFiles, requiresSubscriberFixtures } = require('../scripts/run-tests.js');
+const {enumerateTestFiles, requiresSubscriberFixtures} = require('../scripts/run-tests.js');
 
 function mkTmpRoot()
 {
@@ -46,7 +46,10 @@ test('enumerateTestFiles walks recursively + finds *.test.js', () =>
 		assert.ok(found.some(p => p.endsWith('c.test.js')));
 		assert.ok(!found.some(p => p.endsWith('not-a-test.js')));
 	}
-	finally { fs.rmSync(root, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(root, {recursive: true, force: true});
+	}
 });
 
 test('enumerateTestFiles skips fixtures/ and node_modules/', () =>
@@ -61,7 +64,10 @@ test('enumerateTestFiles skips fixtures/ and node_modules/', () =>
 		assert.equal(found.length, 1);
 		assert.ok(found[0].endsWith('a.test.js'));
 	}
-	finally { fs.rmSync(root, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(root, {recursive: true, force: true});
+	}
 });
 
 test('enumerateTestFiles returns empty when dir is absent', () =>
@@ -75,11 +81,13 @@ test('requiresSubscriberFixtures detects literal path strings', () =>
 	const root = mkTmpRoot();
 	try
 	{
-		const file = mkTestFile(root, 't.test.js',
-			"const p = 'fixtures/subscriber-naming/config.yml';");
+		const file = mkTestFile(root, 't.test.js', 'const p = \'fixtures/subscriber-naming/config.yml\';');
 		assert.equal(requiresSubscriberFixtures(file), true);
 	}
-	finally { fs.rmSync(root, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(root, {recursive: true, force: true});
+	}
 });
 
 test('requiresSubscriberFixtures detects path.join arg sequences', () =>
@@ -87,11 +95,13 @@ test('requiresSubscriberFixtures detects path.join arg sequences', () =>
 	const root = mkTmpRoot();
 	try
 	{
-		const file = mkTestFile(root, 't.test.js',
-			"path.join(__dirname, '..', 'fixtures', 'subscriber-naming', 'flows');");
+		const file = mkTestFile(root, 't.test.js', 'path.join(__dirname, \'..\', \'fixtures\', \'subscriber-naming\', \'flows\');');
 		assert.equal(requiresSubscriberFixtures(file), true);
 	}
-	finally { fs.rmSync(root, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(root, {recursive: true, force: true});
+	}
 });
 
 test('requiresSubscriberFixtures returns false for unrelated tests', () =>
@@ -99,10 +109,13 @@ test('requiresSubscriberFixtures returns false for unrelated tests', () =>
 	const root = mkTmpRoot();
 	try
 	{
-		const file = mkTestFile(root, 't.test.js', "assert.equal(1+1, 2);");
+		const file = mkTestFile(root, 't.test.js', 'assert.equal(1+1, 2);');
 		assert.equal(requiresSubscriberFixtures(file), false);
 	}
-	finally { fs.rmSync(root, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(root, {recursive: true, force: true});
+	}
 });
 
 test('integration: runner exits 0 when fixtures present (upstream case)', () =>
@@ -111,9 +124,12 @@ test('integration: runner exits 0 when fixtures present (upstream case)', () =>
 	// fixtures live. Run with --test-name-pattern=__nothing__ to avoid
 	// re-running every pipeline test in this assertion (we only care that
 	// the runner orchestrates successfully).
-	const result = spawnSync('node', [RUNNER, '--test-name-pattern', '__match-nothing-12345__'], {
-		encoding: 'utf-8',
-		cwd: path.resolve(__dirname, '..', '..')
+	const result = spawnSync('node', [
+		RUNNER,
+		'--test-name-pattern',
+		'__match-nothing-12345__'
+	], {
+		encoding: 'utf-8', cwd: path.resolve(__dirname, '..', '..')
 	});
 	assert.equal(result.status, 0, `runner exit nonzero: ${result.stderr}`);
 });
@@ -131,16 +147,14 @@ test('integration: runner skips fixture-dependent tests when fixtures absent', (
 		fs.copyFileSync(RUNNER, path.join(tmpRoot, 'scripts', 'run-tests.js'));
 
 		// One test that does NOT reference subscriber-naming.
-		mkTestFile(path.join(tmpRoot, '__tests__'), 'always.test.js',
-			"const t = require('node:test'); const a = require('node:assert/strict'); t('ok', () => a.equal(1,1));");
+		mkTestFile(path.join(tmpRoot, '__tests__'), 'always.test.js', 'const t = require(\'node:test\'); const a = require(\'node:assert/strict\'); t(\'ok\', () => a.equal(1,1));');
 
 		// One test that DOES reference subscriber-naming — should be skipped.
 		mkTestFile(path.join(tmpRoot, '__tests__', 'naming-engine'), 'flow.test.js',
-			"const path = require('node:path'); const dir = path.join(__dirname, '..', 'fixtures', 'subscriber-naming', 'flows');");
+				'const path = require(\'node:path\'); const dir = path.join(__dirname, \'..\', \'fixtures\', \'subscriber-naming\', \'flows\');');
 
 		const result = spawnSync('node', [path.join(tmpRoot, 'scripts', 'run-tests.js')], {
-			encoding: 'utf-8',
-			cwd: tmpRoot
+			encoding: 'utf-8', cwd: tmpRoot
 		});
 		assert.equal(result.status, 0, `runner exit nonzero: ${result.stderr}`);
 		assert.match(result.stdout, /subscriber-naming fixtures not shipped/);
@@ -148,5 +162,8 @@ test('integration: runner skips fixture-dependent tests when fixtures absent', (
 		assert.match(result.stdout, /flow\.test\.js/);
 		assert.match(result.stdout, /running 1 remaining test file/);
 	}
-	finally { fs.rmSync(tmpRoot, {recursive: true, force: true}); }
+	finally
+	{
+		fs.rmSync(tmpRoot, {recursive: true, force: true});
+	}
 });

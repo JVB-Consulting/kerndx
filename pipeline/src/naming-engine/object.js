@@ -17,25 +17,21 @@ function validateObject(objectDir, patterns)
 	const violations = [];
 	const name = path.basename(objectDir);
 
-	if (!patterns.object.test(name))
+	if(!patterns.object.test(name))
 	{
 		violations.push({
-			file: objectDir,
-			rule: 'object-naming',
-			message: `Object "${name}" does not match Domain_[Brand_]Name__c`,
+			file: objectDir, rule: 'object-naming', message: `Object "${name}" does not match Domain_[Brand_]Name__c`
 		});
 	}
 
-	if (name.length > patterns.lengthLimits.apex)
+	if(name.length > patterns.lengthLimits.apex)
 	{
 		violations.push({
-			file: objectDir,
-			rule: 'object-length',
-			message: `Object name "${name}" exceeds ${patterns.lengthLimits.apex}-char limit (${name.length} chars)`,
+			file: objectDir, rule: 'object-length', message: `Object name "${name}" exceeds ${patterns.lengthLimits.apex}-char limit (${name.length} chars)`
 		});
 	}
 
-	return { violations };
+	return {violations};
 }
 
-module.exports = { validateObject };
+module.exports = {validateObject};

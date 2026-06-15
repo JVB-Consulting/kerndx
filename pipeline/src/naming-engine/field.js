@@ -15,7 +15,10 @@ function getFieldPrefix(fieldName)
 {
 	const bare = fieldName.replace(/__c$/, '');
 	const idx = bare.indexOf('_');
-	if (idx === -1) return null;
+	if(idx === -1)
+	{
+		return null;
+	}
 	const prefix = bare.slice(0, idx);
 	return /^[A-Z]+$/.test(prefix) ? prefix : null;
 }
@@ -34,7 +37,10 @@ function getFieldPrefix(fieldName)
 function getParentDomain(parentName, patterns)
 {
 	const prefix = getFieldPrefix(parentName);
-	if (prefix && patterns.domains.has(prefix)) return prefix;
+	if(prefix && patterns.domains.has(prefix))
+	{
+		return prefix;
+	}
 	return null;
 }
 
@@ -60,50 +66,47 @@ function validateField(fieldName, parentName, patterns)
 {
 	const violations = [];
 
-	if (patterns.fieldPrefixRule === 'never') return { violations };
+	if(patterns.fieldPrefixRule === 'never')
+	{
+		return {violations};
+	}
 
 	const isStandardObject = !parentName.endsWith('__c');
 	const fieldDomain = getFieldPrefix(fieldName);
 	const parentDomain = isStandardObject ? null : getParentDomain(parentName, patterns);
 
-	if (patterns.fieldPrefixRule === 'always')
+	if(patterns.fieldPrefixRule === 'always')
 	{
-		if (!fieldDomain || !patterns.domains.has(fieldDomain))
+		if(!fieldDomain || !patterns.domains.has(fieldDomain))
 		{
 			violations.push({
-				file: `${parentName}.${fieldName}`,
-				rule: 'field-prefix',
-				message: `Field "${fieldName}" on "${parentName}" requires a domain prefix.`,
+				file: `${parentName}.${fieldName}`, rule: 'field-prefix', message: `Field "${fieldName}" on "${parentName}" requires a domain prefix.`
 			});
 		}
-		return { violations };
+		return {violations};
 	}
 
 	// cross-domain-only (default)
-	if (isStandardObject)
+	if(isStandardObject)
 	{
-		if (!fieldDomain || !patterns.domains.has(fieldDomain))
+		if(!fieldDomain || !patterns.domains.has(fieldDomain))
 		{
 			violations.push({
-				file: `${parentName}.${fieldName}`,
-				rule: 'field-prefix-standard',
-				message: `Field "${fieldName}" on standard object "${parentName}" must have a domain prefix.`,
+				file: `${parentName}.${fieldName}`, rule: 'field-prefix-standard', message: `Field "${fieldName}" on standard object "${parentName}" must have a domain prefix.`
 			});
 		}
 	}
-	else if (parentDomain && fieldDomain && fieldDomain !== parentDomain)
+	else if(parentDomain && fieldDomain && fieldDomain !== parentDomain)
 	{
-		if (!patterns.domains.has(fieldDomain))
+		if(!patterns.domains.has(fieldDomain))
 		{
 			violations.push({
-				file: `${parentName}.${fieldName}`,
-				rule: 'field-prefix-domain',
-				message: `Field prefix "${fieldDomain}" not in allowed domains list.`,
+				file: `${parentName}.${fieldName}`, rule: 'field-prefix-domain', message: `Field prefix "${fieldDomain}" not in allowed domains list.`
 			});
 		}
 	}
 
-	return { violations };
+	return {violations};
 }
 
-module.exports = { validateField, getFieldPrefix, getParentDomain };
+module.exports = {validateField, getFieldPrefix, getParentDomain};

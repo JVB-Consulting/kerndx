@@ -1,139 +1,345 @@
 {
-	"$schema": "http://json-schema.org/draft-07/schema#",
-	"title": "@jvb-consulting/kerndx-pipeline config",
-	"type": "object",
-	"required": ["package_dirs", "branches", "ci_adapter"],
-	"additionalProperties": false,
-	"properties": {
-		"package_dirs": {
-			"type": "array",
-			"minItems": 1,
-			"items": { "type": "string", "minLength": 1 }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "@jvb-consulting/kerndx-pipeline config",
+  "type": "object",
+  "required": [
+	"package_dirs",
+	"branches",
+	"ci_adapter"
+  ],
+  "additionalProperties": false,
+  "properties": {
+	"package_dirs": {
+	  "type": "array",
+	  "minItems": 1,
+	  "items": {
+		"type": "string",
+		"minLength": 1
+	  }
+	},
+	"branches": {
+	  "type": "object",
+	  "required": [
+		"main",
+		"ingress",
+		"protected"
+	  ],
+	  "properties": {
+		"main": {
+		  "type": "string",
+		  "minLength": 1,
+		  "pattern": "^[A-Za-z0-9._/-]+$"
 		},
-		"branches": {
-			"type": "object",
-			"required": ["main", "ingress", "protected"],
-			"properties": {
-				"main": { "type": "string", "minLength": 1 },
-				"ingress": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-				"protected": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
-			}
+		"ingress": {
+		  "type": "array",
+		  "items": {
+			"type": "string"
+		  },
+		  "minItems": 1
 		},
-		"ci_adapter": {
-			"oneOf": [
-				{
-					"type": "object",
-					"required": ["name"],
-					"properties": {
-						"name": { "type": "string", "enum": ["gearset", "none", "devops-center"] }
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["name", "experimental"],
-					"properties": {
-						"name": { "type": "string", "enum": ["copado", "autorabit"] },
-						"experimental": { "type": "boolean", "const": true }
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["name", "patterns"],
-					"properties": {
-						"name": { "type": "string", "const": "custom" },
-						"patterns": {
-							"type": "array",
-							"minItems": 1,
-							"items": {
-								"type": "object",
-								"required": ["match", "action", "label"],
-								"properties": {
-									"match": { "type": "string", "minLength": 1, "maxLength": 256 },
-									"action": { "type": "string", "enum": ["skip-scan", "full-scan"] },
-									"label": { "type": "string", "minLength": 1 }
-								}
-							}
-						}
-					},
-					"additionalProperties": false
-				}
-			]
-		},
-		"scanner": {
-			"type": "object",
-			"properties": {
-				"rule_selector": { "type": "string", "default": "pmd,flow,eslint" },
-				"severity_threshold": { "type": "integer", "minimum": 1, "maximum": 5, "default": 1 },
-				"changed_files_only": { "type": "boolean", "default": true }
-			}
-		},
-		"severity_overrides": {
-			"type": "object",
-			"additionalProperties": { "type": "integer", "minimum": 1, "maximum": 5 }
-		},
-		"naming": {
-			"type": "object",
-			"properties": {
-				"enabled": { "type": "boolean", "default": false },
-				"domains": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z]+$" } },
-				"brands": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z]+$" } },
-				"apex_layers": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z]+$" } },
-				"flow_types": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z]+$" } },
-				"field_prefix_rule": { "type": "string", "enum": ["cross-domain-only", "always", "never"] },
-				"length_limits": {
-					"type": "object",
-					"properties": {
-						"apex": { "type": "integer", "minimum": 10, "maximum": 80 },
-						"flow": { "type": "integer", "minimum": 10, "maximum": 200 }
-					}
-				},
-				"truncations": { "type": "array", "items": { "type": "string" } },
-				"suppressions_file": { "type": "string" }
-			}
-		},
-		"notifications": {
-			"type": "object",
-			"properties": {
-				"slack": {
-					"type": "object",
-					"properties": {
-						"enabled": { "type": "boolean", "default": false },
-						"webhook_env_var": { "type": "string", "default": "SLACK_WEBHOOK_URL" },
-						"suppress_on_pr_title_prefix": { "type": "string" },
-						"silent_on_clean_pass": { "type": "boolean", "default": true }
-					}
-				},
-				"github_annotations": {
-					"type": "object",
-					"properties": {
-						"enabled": { "type": "boolean", "default": true },
-						"max_inline": { "type": "integer", "minimum": 0, "maximum": 50, "default": 50 }
-					}
-				}
-			}
-		},
-		"workflows": {
-			"type": "object",
-			"properties": {
-				"runs_on": { "type": "string", "default": "ubuntu-latest" },
-				"auto_assign_reviewer": { "type": "boolean", "default": false },
-				"pr_ready_to_merge": { "type": "boolean", "default": false },
-				"ingress_bypass_alert": { "type": "boolean", "default": false },
-				"release_bypass_alert": { "type": "boolean", "default": false },
-				"release_review_assigned": { "type": "boolean", "default": false },
-				"scanner_parity": { "type": "boolean", "default": false },
-				"validate_reviewers_json": { "type": "boolean", "default": false }
-			}
-		},
-		"reviewers": {
-			"type": "object",
-			"properties": {
-				"config_file": { "type": "string", "default": ".github/reviewers.json" },
-				"schema_file": { "type": "string", "default": ".github/reviewers.schema.json" },
-				"load_from_branch": { "type": "string", "default": "main" }
-			}
+		"protected": {
+		  "type": "array",
+		  "items": {
+			"type": "string"
+		  },
+		  "minItems": 1
 		}
+	  }
+	},
+	"ci_adapter": {
+	  "oneOf": [
+		{
+		  "type": "object",
+		  "required": [
+			"name"
+		  ],
+		  "properties": {
+			"name": {
+			  "type": "string",
+			  "enum": [
+				"gearset",
+				"none",
+				"devops-center"
+			  ]
+			}
+		  },
+		  "additionalProperties": false
+		},
+		{
+		  "type": "object",
+		  "required": [
+			"name",
+			"experimental"
+		  ],
+		  "properties": {
+			"name": {
+			  "type": "string",
+			  "enum": [
+				"copado",
+				"autorabit"
+			  ]
+			},
+			"experimental": {
+			  "type": "boolean",
+			  "const": true
+			}
+		  },
+		  "additionalProperties": false
+		},
+		{
+		  "type": "object",
+		  "required": [
+			"name",
+			"patterns"
+		  ],
+		  "properties": {
+			"name": {
+			  "type": "string",
+			  "const": "custom"
+			},
+			"patterns": {
+			  "type": "array",
+			  "minItems": 1,
+			  "items": {
+				"type": "object",
+				"required": [
+				  "match",
+				  "action",
+				  "label"
+				],
+				"properties": {
+				  "match": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 256
+				  },
+				  "action": {
+					"type": "string",
+					"enum": [
+					  "skip-scan",
+					  "full-scan"
+					]
+				  },
+				  "label": {
+					"type": "string",
+					"minLength": 1
+				  }
+				}
+			  }
+			}
+		  },
+		  "additionalProperties": false
+		}
+	  ]
+	},
+	"scanner": {
+	  "type": "object",
+	  "properties": {
+		"rule_selector": {
+		  "type": "string",
+		  "default": "pmd,flow,eslint"
+		},
+		"severity_threshold": {
+		  "type": "integer",
+		  "minimum": 1,
+		  "maximum": 5,
+		  "default": 1
+		},
+		"changed_files_only": {
+		  "type": "boolean",
+		  "default": true
+		}
+	  }
+	},
+	"secret_scanning": {
+	  "type": "object",
+	  "description": "Built-in secret detection runs a fixed set of high-confidence credential patterns; there are no subscriber-supplied regexes. ignore_globs lists path globs to exclude from the scan. Treat .kerndx/config.yml as security-sensitive and protect it with CODEOWNERS / branch protection: an ignore glob narrows what the scan sees. Globs are bounded in length and count.",
+	  "properties": {
+		"enabled": {
+		  "type": "boolean",
+		  "default": true
+		},
+		"ignore_globs": {
+		  "type": "array",
+		  "maxItems": 100,
+		  "items": {
+			"type": "string",
+			"minLength": 1,
+			"maxLength": 200
+		  }
+		}
+	  }
+	},
+	"severity_overrides": {
+	  "type": "object",
+	  "additionalProperties": {
+		"type": "integer",
+		"minimum": 1,
+		"maximum": 5
+	  }
+	},
+	"naming": {
+	  "type": "object",
+	  "properties": {
+		"enabled": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"domains": {
+		  "type": "array",
+		  "items": {
+			"type": "string",
+			"pattern": "^[A-Z]+$"
+		  }
+		},
+		"brands": {
+		  "type": "array",
+		  "items": {
+			"type": "string",
+			"pattern": "^[A-Z]+$"
+		  }
+		},
+		"apex_layers": {
+		  "type": "array",
+		  "items": {
+			"type": "string",
+			"pattern": "^[A-Z]+$"
+		  }
+		},
+		"flow_types": {
+		  "type": "array",
+		  "items": {
+			"type": "string",
+			"pattern": "^[A-Z]+$"
+		  }
+		},
+		"field_prefix_rule": {
+		  "type": "string",
+		  "enum": [
+			"cross-domain-only",
+			"always",
+			"never"
+		  ]
+		},
+		"length_limits": {
+		  "type": "object",
+		  "properties": {
+			"apex": {
+			  "type": "integer",
+			  "minimum": 10,
+			  "maximum": 80
+			},
+			"flow": {
+			  "type": "integer",
+			  "minimum": 10,
+			  "maximum": 200
+			}
+		  }
+		},
+		"truncations": {
+		  "type": "array",
+		  "items": {
+			"type": "string"
+		  }
+		},
+		"suppressions_file": {
+		  "type": "string"
+		}
+	  }
+	},
+	"notifications": {
+	  "type": "object",
+	  "properties": {
+		"slack": {
+		  "type": "object",
+		  "properties": {
+			"enabled": {
+			  "type": "boolean",
+			  "default": false
+			},
+			"webhook_env_var": {
+			  "type": "string",
+			  "default": "SLACK_WEBHOOK_URL"
+			},
+			"suppress_on_pr_title_prefix": {
+			  "type": "string"
+			},
+			"silent_on_clean_pass": {
+			  "type": "boolean",
+			  "default": true
+			}
+		  }
+		},
+		"github_annotations": {
+		  "type": "object",
+		  "properties": {
+			"enabled": {
+			  "type": "boolean",
+			  "default": true
+			},
+			"max_inline": {
+			  "type": "integer",
+			  "minimum": 0,
+			  "maximum": 50,
+			  "default": 50
+			}
+		  }
+		}
+	  }
+	},
+	"workflows": {
+	  "type": "object",
+	  "properties": {
+		"runs_on": {
+		  "type": "string",
+		  "default": "ubuntu-latest"
+		},
+		"auto_assign_reviewer": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"pr_ready_to_merge": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"ingress_bypass_alert": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"release_bypass_alert": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"release_review_assigned": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"scanner_parity": {
+		  "type": "boolean",
+		  "default": false
+		},
+		"validate_reviewers_json": {
+		  "type": "boolean",
+		  "default": false
+		}
+	  }
+	},
+	"reviewers": {
+	  "type": "object",
+	  "properties": {
+		"config_file": {
+		  "type": "string",
+		  "default": ".github/reviewers.json"
+		},
+		"schema_file": {
+		  "type": "string",
+		  "default": ".github/reviewers.schema.json"
+		},
+		"load_from_branch": {
+		  "type": "string",
+		  "default": "main"
+		}
+	  }
 	}
+  }
 }

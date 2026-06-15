@@ -14,10 +14,16 @@ const path = require('node:path');
 function getElementText(xml, name)
 {
 	const selfClose = new RegExp(`<${name}\\b\\s*/>`);
-	if (selfClose.test(xml)) return '';
+	if(selfClose.test(xml))
+	{
+		return '';
+	}
 	const pair = new RegExp(`<${name}\\b[^>]*>([\\s\\S]*?)</${name}>`);
 	const m = xml.match(pair);
-	if (!m) return null;
+	if(!m)
+	{
+		return null;
+	}
 	return m[1].trim();
 }
 
@@ -36,47 +42,41 @@ function getElementText(xml, name)
  * @param {string|null} [options.label=null] - Override label used when skipReadFile is true.
  * @returns {{ violations: Array<{file: string, rule: string, message: string}> }}
  */
-function validateFlow(filePath, patterns, { skipReadFile = false, label = null } = {})
+function validateFlow(filePath, patterns, {skipReadFile = false, label = null} = {})
 {
 	const violations = [];
 	let flowLabel = label;
 
-	if (!skipReadFile)
+	if(!skipReadFile)
 	{
 		const basename = path.basename(filePath, '.flow-meta.xml');
 		flowLabel = basename;
 
 		const xml = fs.readFileSync(filePath, 'utf-8');
 		const innerLabel = getElementText(xml, 'label');
-		if (innerLabel && innerLabel !== basename)
+		if(innerLabel && innerLabel !== basename)
 		{
 			violations.push({
-				file: filePath,
-				rule: 'flow-label-mismatch',
-				message: `<label>${innerLabel}</label> does not match filename ${basename}`,
+				file: filePath, rule: 'flow-label-mismatch', message: `<label>${innerLabel}</label> does not match filename ${basename}`
 			});
 		}
 	}
 
-	if (!patterns.flow.test(flowLabel))
+	if(!patterns.flow.test(flowLabel))
 	{
 		violations.push({
-			file: filePath,
-			rule: 'flow-naming',
-			message: `Flow name "${flowLabel}" does not match Domain_[Brand_]Object_Type_Action`,
+			file: filePath, rule: 'flow-naming', message: `Flow name "${flowLabel}" does not match Domain_[Brand_]Object_Type_Action`
 		});
 	}
 
-	if (flowLabel.length > patterns.lengthLimits.flow)
+	if(flowLabel.length > patterns.lengthLimits.flow)
 	{
 		violations.push({
-			file: filePath,
-			rule: 'flow-length',
-			message: `Flow name "${flowLabel}" exceeds ${patterns.lengthLimits.flow}-char limit (${flowLabel.length} chars)`,
+			file: filePath, rule: 'flow-length', message: `Flow name "${flowLabel}" exceeds ${patterns.lengthLimits.flow}-char limit (${flowLabel.length} chars)`
 		});
 	}
 
-	return { violations };
+	return {violations};
 }
 
-module.exports = { validateFlow, getElementText };
+module.exports = {validateFlow, getElementText};

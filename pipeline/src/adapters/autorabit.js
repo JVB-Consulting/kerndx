@@ -16,9 +16,10 @@
 
 const none = require('./none.js');
 
-function build(_adapterConfig, _branches) {
+function build(_adapterConfig, _branches)
+{
 	const inner = none.build();
-	return { ...inner, name: 'autorabit' };
+	return {...inner, name: 'autorabit'};
 }
 
-module.exports = { build };
+module.exports = {build};

@@ -3,11 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { renderTemplate } = require('../../src/lib/scaffold.js');
+const {renderTemplate} = require('../../src/lib/scaffold.js');
 
 const TPL = path.join(__dirname, '..', '..', 'src', 'templates', 'code-analyzer.yml.eta');
 
-test('code-analyzer.yml.eta renders with bundled-ruleset path', () => {
+test('code-analyzer.yml.eta renders with bundled-ruleset path', () =>
+{
 	const rendered = renderTemplate(TPL, {});
 	assert.match(rendered, /engines:/);
 	assert.match(rendered, /pmd:/);
@@ -15,13 +16,15 @@ test('code-analyzer.yml.eta renders with bundled-ruleset path', () => {
 	assert.match(rendered, /\.kerndx-pipeline\/scanner\/kerndx-pmd-ruleset\.xml/);
 });
 
-test('code-analyzer.yml.eta documents the framework-vs-subscriber ruleset distinction', () => {
+test('code-analyzer.yml.eta documents the framework-vs-subscriber ruleset distinction', () =>
+{
 	const rendered = renderTemplate(TPL, {});
 	assert.match(rendered, /kerndx-pmd-ruleset\.xml/);
 	assert.match(rendered, /kerndx-framework-ruleset\.xml/);
 });
 
-test('code-analyzer.yml.eta preserves SameRecordFieldUpdates Info-severity override', () => {
+test('code-analyzer.yml.eta preserves SameRecordFieldUpdates Info-severity override', () =>
+{
 	const rendered = renderTemplate(TPL, {});
 	assert.match(rendered, /SameRecordFieldUpdates/);
 	assert.match(rendered, /severity: Info/);

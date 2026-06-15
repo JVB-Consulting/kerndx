@@ -29,4 +29,4 @@ function hashFile(filePath)
 	return hashContent(fs.readFileSync(filePath));
 }
 
-module.exports = { hashContent, hashFile };
+module.exports = {hashContent, hashFile};

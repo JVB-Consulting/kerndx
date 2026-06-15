@@ -16,15 +16,19 @@
 // already been scanned at the feature-branch stage by the prior PR, so a re-scan at the
 // promotion stage is redundant.
 
-function build(_adapterConfig, _branches) {
+function build(_adapterConfig, _branches)
+{
 	const promotionRe = /^promotion\/.+-DeployTo.+$/;
 	return {
-		name: 'copado',
-		classifyHeadRef(headRef) {
-			if (promotionRe.test(headRef)) return { action: 'skip-scan', label: 'back-promotion' };
-			return { action: 'full-scan', label: 'normal' };
-		},
+		name: 'copado', classifyHeadRef(headRef)
+		{
+			if(promotionRe.test(headRef))
+			{
+				return {action: 'skip-scan', label: 'back-promotion'};
+			}
+			return {action: 'full-scan', label: 'normal'};
+		}
 	};
 }
 
-module.exports = { build };
+module.exports = {build};

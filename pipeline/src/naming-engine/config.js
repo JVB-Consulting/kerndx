@@ -25,23 +25,14 @@ function buildPatterns(config)
 
 	// Flow: Domain_[Brand_]Object_Type_Action
 	const brandSegment = brandGroup ? `(?:(?:${brandGroup})_)?` : '';
-	const flowPattern = new RegExp(
-		`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+_(?:${flowTypeGroup})_[A-Z][a-zA-Z0-9]+$`
-	);
+	const flowPattern = new RegExp(`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+_(?:${flowTypeGroup})_[A-Z][a-zA-Z0-9]+$`);
 
 	// Object: Domain_[Brand_]Name__c
-	const objectPattern = new RegExp(
-		`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+__c$`
-	);
+	const objectPattern = new RegExp(`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+__c$`);
 
 	// Apex: Domain_[Brand_]Layer_Name[_TEST]
-	const apexPattern = apexLayerGroup
-		? new RegExp(
-			`^(?:${domainGroup})_${brandSegment}(?:${apexLayerGroup})_[A-Z][a-zA-Z0-9]+(?:_TEST)?$`
-		)
-		: new RegExp(
-			`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+(?:_TEST)?$`
-		);
+	const apexPattern = apexLayerGroup ? new RegExp(`^(?:${domainGroup})_${brandSegment}(?:${apexLayerGroup})_[A-Z][a-zA-Z0-9]+(?:_TEST)?$`)
+			: new RegExp(`^(?:${domainGroup})_${brandSegment}[A-Z][a-zA-Z0-9]+(?:_TEST)?$`);
 
 	return {
 		flow: flowPattern,
@@ -50,8 +41,8 @@ function buildPatterns(config)
 		domains: new Set(config.domains),
 		brands: new Set(config.brands || []),
 		lengthLimits: config.length_limits,
-		fieldPrefixRule: config.field_prefix_rule || 'cross-domain-only',
+		fieldPrefixRule: config.field_prefix_rule || 'cross-domain-only'
 	};
 }
 
-module.exports = { buildPatterns };
+module.exports = {buildPatterns};

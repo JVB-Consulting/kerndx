@@ -1,6 +1,6 @@
 {
   "name": "@jvb-consulting/kerndx-pipeline",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Reusable CI pipeline for KernDX subscribers — GitHub Actions native, deployment-tool agnostic.",
   "license": "MIT",
   "type": "commonjs",

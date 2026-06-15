@@ -4,14 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const {
-	parseRow,
-	parseCsv,
-	encodeForSlack,
-	classifyEngine,
-	truncMid,
-	groupRows,
-	buildSlackPayload,
-	slackPayload,
+	parseRow, parseCsv, encodeForSlack, classifyEngine, truncMid, groupRows, buildSlackPayload, slackPayload
 } = require('../../src/commands/slack-payload.js');
 
 const FIXTURE_CSV = path.join(__dirname, '../fixtures/sfca-violations.csv');
@@ -19,19 +12,33 @@ const FIXTURE_CSV = path.join(__dirname, '../fixtures/sfca-violations.csv');
 test('parseRow handles plain fields', () =>
 {
 	const result = parseRow('1,pmd,KernNoInlineSOQL,force-app/classes/Foo.cls,42,Simple message');
-	assert.deepEqual(result, ['1', 'pmd', 'KernNoInlineSOQL', 'force-app/classes/Foo.cls', '42', 'Simple message']);
+	assert.deepEqual(result, [
+		'1',
+		'pmd',
+		'KernNoInlineSOQL',
+		'force-app/classes/Foo.cls',
+		'42',
+		'Simple message'
+	]);
 });
 
 test('parseRow handles quoted fields containing commas', () =>
 {
 	const result = parseRow('"hello, world","foo","bar"');
-	assert.deepEqual(result, ['hello, world', 'foo', 'bar']);
+	assert.deepEqual(result, [
+		'hello, world',
+		'foo',
+		'bar'
+	]);
 });
 
 test('parseRow handles escaped double-quotes inside quoted fields', () =>
 {
 	const result = parseRow('"say ""hello""",plain');
-	assert.deepEqual(result, ['say "hello"', 'plain']);
+	assert.deepEqual(result, [
+		'say "hello"',
+		'plain'
+	]);
 });
 
 test('encodeForSlack URL-encodes percent signs', () =>
@@ -93,17 +100,21 @@ test('truncMid mid-truncates preserving head and tail', () =>
 
 test('parseCsv returns headers and rows', () =>
 {
-	const { headers, rows } = parseCsv('A,B,C\n1,2,3\n4,5,6');
-	assert.deepEqual(headers, ['A', 'B', 'C']);
+	const {headers, rows} = parseCsv('A,B,C\n1,2,3\n4,5,6');
+	assert.deepEqual(headers, [
+		'A',
+		'B',
+		'C'
+	]);
 	assert.equal(rows.length, 2);
 });
 
 test('groupRows deduplicates lines and counts correctly', () =>
 {
 	const rows = [
-		{ sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '10' },
-		{ sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '10' },
-		{ sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '20' },
+		{sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '10'},
+		{sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '10'},
+		{sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line: '20'}
 	];
 	const result = groupRows(rows);
 	assert.equal(result.length, 1);
@@ -113,8 +124,13 @@ test('groupRows deduplicates lines and counts correctly', () =>
 
 test('groupRows handles > 3 unique lines with ellipsis', () =>
 {
-	const rows = ['5', '10', '15', '20'].map(line => ({
-		sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line,
+	const rows = [
+		'5',
+		'10',
+		'15',
+		'20'
+	].map(line => ({
+		sev: '1', src: 'apex', rule: 'RuleA', fname: 'Foo.cls', fpath: 'x/Foo.cls', line
 	}));
 	const result = groupRows(rows);
 	assert.equal(result[0].lineStr, '5,…,20');
@@ -127,9 +143,15 @@ test('slackPayload returns should_notify false for empty CSV', () =>
 	const tmpFile = require('node:path').join(os.tmpdir(), 'empty-violations.csv');
 	fs.writeFileSync(tmpFile, 'Severity,Engine,Rule,File,StartLine,Message\n');
 	const output = slackPayload({
-		csv: tmpFile, prUrl: 'https://github.com/test/repo/pull/1',
-		prTitle: 'My PR', prAuthor: 'dev', prNumber: '1',
-		headRef: 'feature/x', baseRef: 'main', repo: 'test/repo', runId: '999',
+		csv: tmpFile,
+		prUrl: 'https://github.com/test/repo/pull/1',
+		prTitle: 'My PR',
+		prAuthor: 'dev',
+		prNumber: '1',
+		headRef: 'feature/x',
+		baseRef: 'main',
+		repo: 'test/repo',
+		runId: '999'
 	});
 	const parsed = JSON.parse(output);
 	assert.equal(parsed.should_notify, false);
@@ -146,7 +168,7 @@ test('slackPayload against fixture CSV produces valid JSON with expected attachm
 		headRef: 'feature/add-feature',
 		baseRef: 'main',
 		repo: 'test/repo',
-		runId: '12345',
+		runId: '12345'
 	});
 
 	const payload = JSON.parse(output);
@@ -172,7 +194,7 @@ test('slackPayload fixture includes PR field with pr-url and pr-number', () =>
 		headRef: 'feature/add-feature',
 		baseRef: 'main',
 		repo: 'test/repo',
-		runId: '12345',
+		runId: '12345'
 	});
 
 	const payload = JSON.parse(output);
@@ -194,7 +216,7 @@ test('slackPayload fixture includes blocking violations table', () =>
 		headRef: 'feature/add-feature',
 		baseRef: 'main',
 		repo: 'test/repo',
-		runId: '12345',
+		runId: '12345'
 	});
 
 	const payload = JSON.parse(output);
@@ -217,7 +239,7 @@ test('slackPayload fixture includes informational violations section', () =>
 		headRef: 'feature/add-feature',
 		baseRef: 'main',
 		repo: 'test/repo',
-		runId: '12345',
+		runId: '12345'
 	});
 
 	const payload = JSON.parse(output);
@@ -238,7 +260,7 @@ test('slackPayload fixture includes Details field with workflow run URL', () =>
 		headRef: 'feature/add-feature',
 		baseRef: 'main',
 		repo: 'test/repo',
-		runId: '12345',
+		runId: '12345'
 	});
 
 	const payload = JSON.parse(output);
@@ -256,12 +278,18 @@ test('slackPayload only-warnings fixture produces warning color', () =>
 	const tmpFile = require('node:path').join(os.tmpdir(), 'warn-violations.csv');
 	fs.writeFileSync(tmpFile, [
 		'Severity,Engine,Rule,File,StartLine,Message',
-		'3,pmd,KernNoSystemDebug,force-app/classes/Baz.cls,99,Use LOG_Builder',
+		'3,pmd,KernNoSystemDebug,force-app/classes/Baz.cls,99,Use LOG_Builder'
 	].join('\n'));
 	const output = slackPayload({
-		csv: tmpFile, prUrl: 'https://github.com/test/repo/pull/5',
-		prTitle: 'Warn only', prAuthor: 'dev', prNumber: '5',
-		headRef: 'feature/b', baseRef: 'main', repo: 'test/repo', runId: '1',
+		csv: tmpFile,
+		prUrl: 'https://github.com/test/repo/pull/5',
+		prTitle: 'Warn only',
+		prAuthor: 'dev',
+		prNumber: '5',
+		headRef: 'feature/b',
+		baseRef: 'main',
+		repo: 'test/repo',
+		runId: '1'
 	});
 	const payload = JSON.parse(output);
 	assert.equal(payload.attachments[0].color, 'warning');

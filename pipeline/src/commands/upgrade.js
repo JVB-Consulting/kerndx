@@ -3,12 +3,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const pc = require('picocolors');
-const { runInit } = require('./init.js');
-const { loadConfig } = require('../lib/config-loader.js');
+const {runInit} = require('./init.js');
+const {loadConfig} = require('../lib/config-loader.js');
 
-async function runUpgrade({ force = false } = {})
+async function runUpgrade({force = false} = {})
 {
-	if (!fs.existsSync('.kerndx/manifest.json'))
+	if(!fs.existsSync('.kerndx/manifest.json'))
 	{
 		console.error(pc.red('No .kerndx/manifest.json — has `init` been run?'));
 		return 1;
@@ -16,12 +16,12 @@ async function runUpgrade({ force = false } = {})
 	const manifest = JSON.parse(fs.readFileSync('.kerndx/manifest.json', 'utf-8'));
 
 	const blocking = Object.keys(manifest.files).filter(f => fs.existsSync(f + '.bak'));
-	if (blocking.length > 0)
+	if(blocking.length > 0)
 	{
-		if (force)
+		if(force)
 		{
 			console.warn(pc.yellow(`Deleting ${blocking.length} stale .bak file(s) (--force):`));
-			for (const b of blocking)
+			for(const b of blocking)
 			{
 				const bakPath = b + '.bak';
 				console.warn('  -', bakPath);
@@ -31,7 +31,10 @@ async function runUpgrade({ force = false } = {})
 		else
 		{
 			console.error(pc.red('Existing .bak files block this upgrade:'));
-			for (const b of blocking) console.error('  -', b + '.bak');
+			for(const b of blocking)
+			{
+				console.error('  -', b + '.bak');
+			}
 			console.error('\nReview + delete the .bak files, then re-run upgrade.');
 			console.error('Or skip the review with: kerndx upgrade --force');
 			console.error('Or run: rm ' + blocking.map(b => `'${b}.bak'`).join(' '));
@@ -39,9 +42,9 @@ async function runUpgrade({ force = false } = {})
 		}
 	}
 
-	for (const file of Object.keys(manifest.files))
+	for(const file of Object.keys(manifest.files))
 	{
-		if (fs.existsSync(file))
+		if(fs.existsSync(file))
 		{
 			fs.copyFileSync(file, file + '.bak');
 		}
@@ -52,11 +55,11 @@ async function runUpgrade({ force = false } = {})
 		package_dirs: config.package_dirs,
 		ci_adapter: config.ci_adapter,
 		branches: config.branches,
-		naming: config.naming || { enabled: false },
-		slack: (config.notifications && config.notifications.slack) || { enabled: false },
-		workflows: config.workflows || { runs_on: 'ubuntu-latest' },
+		naming: config.naming || {enabled: false},
+		slack: (config.notifications && config.notifications.slack) || {enabled: false},
+		workflows: config.workflows || {runs_on: 'ubuntu-latest'}
 	};
-	await runInit({ answers, interactive: false });
+	await runInit({answers, interactive: false});
 
 	console.log(pc.green('Upgrade complete.'));
 	console.log(`Backups: ${Object.keys(manifest.files).length} file(s) saved as .bak`);
@@ -64,4 +67,4 @@ async function runUpgrade({ force = false } = {})
 	return 0;
 }
 
-module.exports = { runUpgrade };
+module.exports = {runUpgrade};

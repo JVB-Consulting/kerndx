@@ -7,6 +7,7 @@
 > See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
 
 **Target Audience:**
+
 - **Developers** - Configuring scanners in IDE and CI/CD, understanding rule violations, suppressing false positives
 - **Architects** - Designing quality gates, selecting enforcement tiers, planning phased adoption
 - **DevOps** - Integrating scanners into deployment pipelines, configuring CI/CD tools
@@ -21,61 +22,63 @@
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Architecture](#architecture)
-   - [Enforcement Layers](#enforcement-layers)
-   - [File Listing](#file-listing)
+    - [Enforcement Layers](#enforcement-layers)
+    - [File Listing](#file-listing)
 4. [PMD Rule Reference](#pmd-rule-reference)
-   - [Priority 1 Blockers](#priority-1-blockers)
-     - [KernTriggerMustDelegate](#kerntriggermustdelegate)
-     - [KernNoInlineSOQL](#kernnoinlinesoql)
-     - [KernNoCoverageTheatre](#kernnocoveragetheatre)
-     - [KernCoverageExemptRequiresReason](#kerncoverageexemptrequiresreason)
-   - [Priority 3 Should Fix](#priority-3-should-fix)
-     - [KernNoDirectDML](#kernnodirectdml)
-     - [KernNoSystemDebug](#kernnosystemdebug)
-     - [KernNoRawHttp](#kernnorawhttp)
-     - [KernUseSchedulerBase](#kernuseschedulerbase)
-     - [KernNoRawSchedule](#kernnorawschedule)
-     - [KernNoRawEventPublish](#kernnoraweventpublish)
-     - [KernNoRawHttpMock](#kernnorawhttpmock)
-     - [KernNoRawRestContext](#kernnorawrestcontext)
-     - [KernNoRawEmail](#kernnorawemail)
-     - [KernRestResourceNaming](#kernrestresourcenaming)
-     - [KernNoInlineDmlInTests](#kernnoinlinedmlintests)
-   - [Priority 5 Informational](#priority-5-informational)
-     - [KernNoLegacyAssert](#kernnolegacyassert)
-     - [KernUseTestBuilder](#kernusetestbuilder)
-     - [KernNoRawCache](#kernnorawcache)
-     - [KernNoRawDescribe](#kernnorawdescribe)
-     - [KernNoRawTypeForName](#kernnorawtypeforname)
-     - [KernNoRawEnqueueJob](#kernnorawenqueuejob)
-     - [KernNoRawCrypto](#kernnorawcrypto)
-     - [KernNoRawFeatureManagement](#kernnorawfeaturemanagement)
-     - [KernNoBooleanExceptionThrown](#kernnobooleanexceptionthrown)
-   - [PMD Rule Summary Table](#pmd-rule-summary-table)
+    - [Priority 1 Blockers](#priority-1-blockers)
+        - [KernTriggerMustDelegate](#kerntriggermustdelegate)
+        - [KernNoInlineSOQL](#kernnoinlinesoql)
+        - [KernNoCoverageTheatre](#kernnocoveragetheatre)
+        - [KernCoverageExemptRequiresReason](#kerncoverageexemptrequiresreason)
+    - [Priority 3 Should Fix](#priority-3-should-fix)
+        - [KernNoDirectDML](#kernnodirectdml)
+        - [KernNoSystemDebug](#kernnosystemdebug)
+        - [KernNoRawHttp](#kernnorawhttp)
+        - [KernUseSchedulerBase](#kernuseschedulerbase)
+        - [KernNoRawSchedule](#kernnorawschedule)
+        - [KernNoRawEventPublish](#kernnoraweventpublish)
+        - [KernNoRawHttpMock](#kernnorawhttpmock)
+        - [KernNoRawRestContext](#kernnorawrestcontext)
+        - [KernNoRawEmail](#kernnorawemail)
+        - [KernRestResourceNaming](#kernrestresourcenaming)
+        - [KernNoInlineDmlInTests](#kernnoinlinedmlintests)
+    - [Priority 5 Informational](#priority-5-informational)
+        - [KernNoLegacyAssert](#kernnolegacyassert)
+        - [KernUseTestBuilder](#kernusetestbuilder)
+        - [KernNoRawCache](#kernnorawcache)
+        - [KernNoRawDescribe](#kernnorawdescribe)
+        - [KernNoRawTypeForName](#kernnorawtypeforname)
+        - [KernNoRawEnqueueJob](#kernnorawenqueuejob)
+        - [KernNoRawCrypto](#kernnorawcrypto)
+        - [KernNoRawFeatureManagement](#kernnorawfeaturemanagement)
+        - [KernNoBooleanExceptionThrown](#kernnobooleanexceptionthrown)
+        - [KernSecurityBypassCallSite](#kernsecuritybypasscallsite)
+    - [PMD Rule Summary Table](#pmd-rule-summary-table)
 5. [ESLint Rules (LWC)](#eslint-rules-lwc)
-   - [kerndx/use-component-builder](#kerndxuse-component-builder)
-   - [kerndx/no-console-log](#kerndxno-console-log)
-   - [kerndx/enforce-component-naming](#kerndxenforce-component-naming)
-   - [kerndx/no-coverage-exempt-without-reason](#kerndxno-coverage-exempt-without-reason)
-   - [kerndx/no-jest-theatre](#kerndxno-jest-theatre)
-   - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
-   - [ESLint Setup](#eslint-setup)
+    - [kerndx/use-component-builder](#kerndxuse-component-builder)
+    - [kerndx/no-console-log](#kerndxno-console-log)
+    - [kerndx/enforce-component-naming](#kerndxenforce-component-naming)
+    - [kerndx/no-coverage-exempt-without-reason](#kerndxno-coverage-exempt-without-reason)
+    - [kerndx/no-jest-theatre](#kerndxno-jest-theatre)
+    - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
+    - [ESLint Setup](#eslint-setup)
 6. [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects)
-   - [Configuration](#configuration)
-   - [Running the Validator](#running-the-validator)
-   - [Customizing for Your Org](#customizing-for-your-org)
-7. [Deploy-Time Scanners](#deploy-time-scanners)
-   - [Access-Mode Scanner](#access-mode-scanner)
-   - [Flow-Reference Scanner](#flow-reference-scanner)
-   - [Umbrella Scan](#umbrella-scan)
-8. [Suppression](#suppression)
-   - [Apex (PMD)](#apex-pmd)
-   - [LWC (ESLint)](#lwc-eslint)
-   - [Flow/Object Naming](#flowobject-naming)
-9. [IDE Integration](#ide-integration)
-   - [VS Code](#vs-code)
-   - [IntelliJ / Illuminated Cloud](#intellij--illuminated-cloud)
-10. [CI/CD Integration](#cicd-integration)
+    - [Configuration](#configuration)
+    - [Running the Validator](#running-the-validator)
+    - [Customizing for Your Org](#customizing-for-your-org)
+7. [Secret Scanning](#secret-scanning)
+8. [Deploy-Time Scanners](#deploy-time-scanners)
+    - [Access-Mode Scanner](#access-mode-scanner)
+    - [Flow-Reference Scanner](#flow-reference-scanner)
+    - [Umbrella Scan](#umbrella-scan)
+9. [Suppression](#suppression)
+    - [Apex (PMD)](#apex-pmd)
+    - [LWC (ESLint)](#lwc-eslint)
+    - [Flow/Object Naming](#flowobject-naming)
+10. [IDE Integration](#ide-integration)
+    - [VS Code](#vs-code)
+    - [IntelliJ / Illuminated Cloud](#intellij--illuminated-cloud)
+11. [CI/CD Integration](#cicd-integration)
     - [Salesforce Code Analyzer v5 (Recommended)](#salesforce-code-analyzer-v5-recommended)
     - [GitHub Actions](#github-actions)
     - [Gearset](#gearset)
@@ -83,14 +86,14 @@
     - [AutoRABIT](#autorabit)
     - [CodeScan](#codescan)
     - [Legacy SF Scanner (v4)](#legacy-sf-scanner-v4)
-11. [Building Org-Specific Rules](#building-org-specific-rules)
-12. [Phased Adoption Strategy](#phased-adoption-strategy)
+12. [Building Org-Specific Rules](#building-org-specific-rules)
+13. [Phased Adoption Strategy](#phased-adoption-strategy)
     - [Phase 1: Blockers Only](#phase-1-blockers-only)
     - [Phase 2: Framework Compliance](#phase-2-framework-compliance)
     - [Phase 3: Best Practices](#phase-3-best-practices)
     - [Tracking Progress](#tracking-progress)
-13. [PMD Version Compatibility](#pmd-version-compatibility)
-14. [Related Documentation](#related-documentation)
+14. [PMD Version Compatibility](#pmd-version-compatibility)
+15. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -98,16 +101,16 @@
 
 ## Quick Navigation
 
-| I am a...     | I need to...                           | Go to...                                                                   |
-|---------------|----------------------------------------|----------------------------------------------------------------------------|
-| **Developer** | Understand a PMD violation             | [PMD Rule Reference](#pmd-rule-reference)                                  |
-| **Developer** | Fix an ESLint error in my LWC          | [ESLint Rules (LWC)](#eslint-rules-lwc)                                    |
-| **Developer** | Suppress a rule for a valid reason     | [Suppression](#suppression)                                                |
-| **Developer** | Set up scanning in VS Code             | [IDE Integration](#ide-integration)                                        |
-| **Architect** | Plan a phased rollout                  | [Phased Adoption Strategy](#phased-adoption-strategy)                      |
-| **Architect** | Build org-specific naming rules        | [Building Org-Specific Rules](#building-org-specific-rules)                |
-| **DevOps**    | Add scanning to a CI/CD pipeline       | [CI/CD Integration](#cicd-integration)                                     |
-| **DevOps**    | Validate Flow and Object naming        | [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects) |
+| I am a...     | I need to...                       | Go to...                                                                             |
+|---------------|------------------------------------|--------------------------------------------------------------------------------------|
+| **Developer** | Understand a PMD violation         | [PMD Rule Reference](#pmd-rule-reference)                                            |
+| **Developer** | Fix an ESLint error in my LWC      | [ESLint Rules (LWC)](#eslint-rules-lwc)                                              |
+| **Developer** | Suppress a rule for a valid reason | [Suppression](#suppression)                                                          |
+| **Developer** | Set up scanning in VS Code         | [IDE Integration](#ide-integration)                                                  |
+| **Architect** | Plan a phased rollout              | [Phased Adoption Strategy](#phased-adoption-strategy)                                |
+| **Architect** | Build org-specific naming rules    | [Building Org-Specific Rules](#building-org-specific-rules)                          |
+| **DevOps**    | Add scanning to a CI/CD pipeline   | [CI/CD Integration](#cicd-integration)                                               |
+| **DevOps**    | Validate Flow and Object naming    | [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects) |
 
 ---
 
@@ -141,7 +144,7 @@ The three layers cover different artefact types using the best-suited tool for e
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  24 XPath rules, PMD 7           |     |  6 ESLint rules                  |     |  Node.js script, org-specific    |
+|  25 XPath rules, PMD 7           |     |  6 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -157,28 +160,28 @@ metadata. No layer duplicates another's coverage. Run all three for complete enf
 
 ### File Listing
 
-| File | Scope | Purpose |
-|------|-------|---------|
-| `kerndx-pmd-ruleset.xml` | Any KernDX subscriber | 24 XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.) |
-| `subscriber-naming-pmd-ruleset.xml` | Subscriber (org-specific example) | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit |
-| `combined-pmd-ruleset.xml` | Both (single-file reference) | Includes both PMD rulesets via `<rule ref="..."/>` -- for tools that accept only one ruleset file |
-| `eslint-plugin-kerndx/` | Any KernDX subscriber | 6 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention |
-| `validate-naming.js` | Org-specific | Flow and Custom Object naming validation -- configurable domains, brands, and flow types |
+| File                                | Scope                             | Purpose                                                                                                                                                                        |
+|-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kerndx-pmd-ruleset.xml`            | Any KernDX subscriber             | 25 XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
+| `subscriber-naming-pmd-ruleset.xml` | Subscriber (org-specific example) | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
+| `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>` -- for tools that accept only one ruleset file                                                                              |
+| `eslint-plugin-kerndx/`             | Any KernDX subscriber             | 6 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention |
+| `validate-naming.js`                | Org-specific                      | Flow and Custom Object naming validation -- configurable domains, brands, and flow types                                                                                       |
 
 ---
 
 ## PMD Rule Reference
 
-All 24 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`. They target PMD 7 and use XPath expressions to detect anti-patterns in the Apex AST. Rules are organized into
+All 25 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`. They target PMD 7 and use XPath expressions to detect anti-patterns in the Apex AST. Rules are organized into
 three priority tiers.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
-| Priority | Meaning | Action Required |
-|----------|---------|-----------------|
-| **1** | Blocker | Must fix before merge. Bypasses core framework abstractions. |
-| **3** | Should Fix | Direct use of platform APIs that have framework wrappers. Fix during normal development. |
-| **5** | Informational | Best practices. Teams may adopt incrementally. |
+| Priority | Meaning       | Action Required                                                                          |
+|----------|---------------|------------------------------------------------------------------------------------------|
+| **1**    | Blocker       | Must fix before merge. Bypasses core framework abstractions.                             |
+| **3**    | Should Fix    | Direct use of platform APIs that have framework wrappers. Fix during normal development. |
+| **5**    | Informational | Best practices. Teams may adopt incrementally.                                           |
 
 ### Priority 1 Blockers
 
@@ -706,34 +709,52 @@ catch(Exception error)
 }
 ```
 
+#### KernSecurityBypassCallSite
+
+KernDX ships audited, intentional escape hatches for security — `QRY_Builder` / `DML_Builder` `withSystemMode()`, `bypassSharing()`, and
+`withoutSecurity()`; `UTIL_ValidationRule` `bypassObject()` / `bypassGroup()` / `bypassRule()`; and `TRG_Base` `bypassAction()`. Each one is legitimate,
+but each is also a place where the framework's default protections are deliberately switched off — so a reviewer should see every one.
+
+This rule is an **inventory, not a violation**. It flags each bypass call site so that a pull request introducing a *new* one surfaces in review.
+Acknowledge an expected call site with `@SuppressWarnings('PMD.KernSecurityBypassCallSite')` or an inline `// NOPMD` comment stating the reason — the
+suppression comment is the reviewable, deploy-time record that the bypass was intended.
+
+**What the rule detects:** method calls named `withSystemMode`, `bypassSharing`, `withoutSecurity`, `bypassObject`, `bypassGroup`, `bypassRule`, or
+`bypassAction`.
+
+> **Why this is Priority 5:** these are supported APIs, not mistakes. The rule exists to make the *set* of bypasses visible and reviewable, not to
+> discourage their use. At runtime, the [bypass-audit log](Logging%20-%20Guide.md#log-grouping--flood-control) records the same activity, so the
+> deploy-time inventory and the runtime audit reconcile against each other.
+
 ### PMD Rule Summary Table
 
-| Rule | Detects | Use Instead | Priority |
-|------|---------|-------------|----------|
-| `KernTriggerMustDelegate` | Logic in trigger body | `new TRG_Dispatcher().run()` | 1 |
-| `KernNoInlineSOQL` | `[SELECT ...]`, `Database.query()` | Selector or [QRY_Builder](reference/apex/QRY_Builder.md) | 1 |
-| `KernNoCoverageTheatre` | Assertion-less tests, empty catches, `Boolean exceptionThrown`, tautological `Assert.isNotNull` | Assert on observable behaviour | 1 |
-| `KernCoverageExemptRequiresReason` | Empty, short, or hand-wavy `// kern-coverage-exempt:` reasons | Cite a specific platform limitation | 1 |
-| `KernNoDirectDML` | `insert`/`update`/`delete`, `Database.*` DML | [DML_Builder](reference/apex/DML_Builder.md) | 3 |
-| `KernNoSystemDebug` | `System.debug()` | [LOG_Builder](reference/apex/LOG_Builder.md) | 3 |
-| `KernNoRawHttp` | `new HttpRequest()`, `new Http()` | [UTIL_HttpClient](reference/apex/UTIL_HttpClient.md) | 3 |
-| `KernUseSchedulerBase` | `implements Schedulable` directly | `extends SCHED_Base` | 3 |
-| `KernNoRawSchedule` | `System.schedule()` | `SCHED_Base` + `ScheduledJob__c` | 3 |
-| `KernNoRawEventPublish` | `EventBus.publish()` | [LOG_Builder](reference/apex/LOG_Builder.md) / framework events | 3 |
-| `KernNoRawHttpMock` | `implements HttpCalloutMock/WebServiceMock` | `API_MockFactory` | 3 |
-| `KernNoRawRestContext` | `RestContext.request/response` | `API_Inbound` framework | 3 |
-| `KernNoRawEmail` | `Messaging.sendEmail()`, `new SingleEmailMessage()` | `UTIL_Email` | 3 |
-| `KernRestResourceNaming` | `@RestResource` on non-`REST_*` class | `REST_*` + `API_Dispatcher` | 3 |
-| `KernNoInlineDmlInTests` | Raw `insert`/`update`/`delete` inside `@IsTest` classes | `TST_Builder` or `DML_Builder` | 3 |
-| `KernNoLegacyAssert` | `System.assert*()` | `Assert.*` | 5 |
-| `KernUseTestBuilder` | `new Account(Name = ...)` in tests | `TST_Builder` | 5 |
-| `KernNoRawCache` | `Cache.Org.*`, `Cache.Session.*` | `UTIL_Cache` | 5 |
-| `KernNoRawDescribe` | `Schema.getGlobalDescribe()` | `UTIL_SObjectDescribe` | 5 |
-| `KernNoRawTypeForName` | `Type.forName()` | `UTIL_System.getTypeForClassName()` | 5 |
-| `KernNoRawEnqueueJob` | `System.enqueueJob()` | `UTIL_AsynchronousJobLauncher` | 5 |
-| `KernNoRawCrypto` | `Crypto.*` | `UTIL_Crypto` | 5 |
-| `KernNoRawFeatureManagement` | `FeatureManagement.checkPermission()` | `UTIL_FeatureFlag.isEnabled()` | 5 |
-| `KernNoBooleanExceptionThrown` | `Boolean exceptionThrown` try/catch pattern | `Assert.fail` + `Assert.isInstanceOfType` | 5 |
+| Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
+|------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
+| `KernTriggerMustDelegate`          | Logic in trigger body                                                                           | `new TRG_Dispatcher().run()`                                    | 1        |
+| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                              | Selector or [QRY_Builder](reference/apex/QRY_Builder.md)        | 1        |
+| `KernNoCoverageTheatre`            | Assertion-less tests, empty catches, `Boolean exceptionThrown`, tautological `Assert.isNotNull` | Assert on observable behaviour                                  | 1        |
+| `KernCoverageExemptRequiresReason` | Empty, short, or hand-wavy `// kern-coverage-exempt:` reasons                                   | Cite a specific platform limitation                             | 1        |
+| `KernNoDirectDML`                  | `insert`/`update`/`delete`, `Database.*` DML                                                    | [DML_Builder](reference/apex/DML_Builder.md)                    | 3        |
+| `KernNoSystemDebug`                | `System.debug()`                                                                                | [LOG_Builder](reference/apex/LOG_Builder.md)                    | 3        |
+| `KernNoRawHttp`                    | `new HttpRequest()`, `new Http()`                                                               | [UTIL_HttpClient](reference/apex/UTIL_HttpClient.md)            | 3        |
+| `KernUseSchedulerBase`             | `implements Schedulable` directly                                                               | `extends SCHED_Base`                                            | 3        |
+| `KernNoRawSchedule`                | `System.schedule()`                                                                             | `SCHED_Base` + `ScheduledJob__c`                                | 3        |
+| `KernNoRawEventPublish`            | `EventBus.publish()`                                                                            | [LOG_Builder](reference/apex/LOG_Builder.md) / framework events | 3        |
+| `KernNoRawHttpMock`                | `implements HttpCalloutMock/WebServiceMock`                                                     | `API_MockFactory`                                               | 3        |
+| `KernNoRawRestContext`             | `RestContext.request/response`                                                                  | `API_Inbound` framework                                         | 3        |
+| `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                             | `UTIL_Email`                                                    | 3        |
+| `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                           | `REST_*` + `API_Dispatcher`                                     | 3        |
+| `KernNoInlineDmlInTests`           | Raw `insert`/`update`/`delete` inside `@IsTest` classes                                         | `TST_Builder` or `DML_Builder`                                  | 3        |
+| `KernNoLegacyAssert`               | `System.assert*()`                                                                              | `Assert.*`                                                      | 5        |
+| `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                              | `TST_Builder`                                                   | 5        |
+| `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                                | `UTIL_Cache`                                                    | 5        |
+| `KernNoRawDescribe`                | `Schema.getGlobalDescribe()`                                                                    | `UTIL_SObjectDescribe`                                          | 5        |
+| `KernNoRawTypeForName`             | `Type.forName()`                                                                                | `UTIL_System.getTypeForClassName()`                             | 5        |
+| `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                           | `UTIL_AsynchronousJobLauncher`                                  | 5        |
+| `KernNoRawCrypto`                  | `Crypto.*`                                                                                      | `UTIL_Crypto`                                                   | 5        |
+| `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                           | `UTIL_FeatureFlag.isEnabled()`                                  | 5        |
+| `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown` try/catch pattern                                                     | `Assert.fail` + `Assert.isInstanceOfType`                       | 5        |
+| `KernSecurityBypassCallSite`       | Security-bypass call sites (`withSystemMode`, `bypassSharing`, `bypassAction`, …)               | Acknowledge with `@SuppressWarnings`/`// NOPMD` + reason        | 5        |
 
 ---
 
@@ -748,6 +769,7 @@ ESLint. The plugin contains six rules.
 messaging, and structured console logging that `LightningElement` does not offer.
 
 **What the rule detects:**
+
 - `extends LightningElement` -- direct usage
 - Aliased imports -- if a developer writes `import {LightningElement as Base} from 'lwc'`, the rule tracks the alias and still catches `extends Base`
 
@@ -792,6 +814,7 @@ export default class StaticNotice extends LightningElement {}
 `this.consoleLog()` and `this.consoleError()` which integrate with the framework's logging infrastructure.
 
 **What the rule detects:**
+
 - `console.log()`, `console.error()`, `console.warn()`, `console.info()`, `console.debug()`
 - `window.console.log()`, `window.console.error()`, etc.
 - `globalThis.console.log()`, `globalThis.console.error()`, etc.
@@ -813,11 +836,13 @@ this.consoleError('Failed to save');
 domains and brands are configured in the rule source.
 
 **What the rule detects:**
+
 - Component folder names that do not start with a recognized domain prefix
 - Component folder names that exceed 40 characters
 - Folder names starting with `__` are excluded (internal LWC convention)
 
 **Default configuration (subscriber example):**
+
 - Domains: `sls`, `ord`, `prd`, `svc`, `sub`, `mkt`, `cmn`
 - Brands: `Lex`, `Ear`
 - Pattern: `^(sls|ord|prd|svc|sub|mkt|cmn)(?:Lex|Ear)?[A-Z][a-zA-Z0-9]*$`
@@ -846,6 +871,7 @@ JavaScript subtracts a line from the coverage denominator, so the reason text mu
 (under 15 characters), or hand-wavy reasons are blocked.
 
 **What the rule detects:**
+
 - `// kern-coverage-exempt:` with no reason after the colon
 - Reasons shorter than 15 characters
 - Blocklisted reasons (case-insensitive): `hard to test`, `tricky`, `todo`, `fixme`, `later`, `xxx`, `hack`
@@ -872,6 +898,7 @@ verifying anything. Two theatrical patterns are blocked: assertion-less tests (`
 verifies that `createElement` did not throw).
 
 **What the rule detects:**
+
 - An `it(...)` or `test(...)` block whose body contains no `expect(...)` calls
 - An `it(...)` block whose only `expect(...)` call is `toBeTruthy()` or `toBeDefined()` on a `createElement` result
 
@@ -972,11 +999,11 @@ The `validate-naming.js` script validates naming conventions for Salesforce arte
 
 The script uses three configuration arrays at the top of the file:
 
-| Array | Purpose | Default (subscriber) |
-|-------|---------|----------------------|
-| `DOMAINS` | Organizational domain codes | `SLS`, `ORD`, `PRD`, `SVC`, `SUB`, `MKT`, `CMN` |
-| `BRANDS` | Optional brand segments | `ACM`, `BTA` |
-| `FLOW_TYPES` | Flow type abbreviations | `BS`, `AS`, `BD`, `SCR`, `AL`, `SCH`, `PE`, `SF` |
+| Array        | Purpose                     | Default (subscriber)                             |
+|--------------|-----------------------------|--------------------------------------------------|
+| `DOMAINS`    | Organizational domain codes | `SLS`, `ORD`, `PRD`, `SVC`, `SUB`, `MKT`, `CMN`  |
+| `BRANDS`     | Optional brand segments     | `ACM`, `BTA`                                     |
+| `FLOW_TYPES` | Flow type abbreviations     | `BS`, `AS`, `BD`, `SCR`, `AL`, `SCH`, `PE`, `SF` |
 
 **Flow pattern:** `Domain_[Brand_]Object_Type_Action` (80-character limit)
 
@@ -999,6 +1026,7 @@ node scanner/validate-naming.js path/to/force-app
 ```
 
 The script outputs:
+
 - Number of artefacts checked
 - Near-limit warnings (within 5 characters of the limit)
 - Violations grouped by category with expected pattern
@@ -1013,6 +1041,35 @@ Subscribers adapt the configuration arrays to their naming convention:
 3. Edit `BRANDS` to match your brand codes (e.g., `['PRO', 'ENT']`) or set to `[]` if not used
 4. Edit `FLOW_TYPES` to match your flow type abbreviations
 5. Adjust `CHARACTER_LIMITS` if your org uses different limits
+
+---
+
+## Secret Scanning
+
+The pipeline includes a Salesforce-aware **`kerndx secret-scan`** gate that inspects changed files for hardcoded credentials before they merge. It
+complements [runtime data masking](Security%20-%20Guide.md#data-masking) — which keeps secrets out of your *data* — by keeping them out of your *source*.
+
+Unlike the PMD and ESLint scanners, which only parse Apex and LWC, the secret scan reads a **broader file set**, because credentials leak into `.env`,
+`.yml`, `.json`, `.sh`, and other config files at least as often as into code. It runs over the same changed-files set as the rest of the pipeline.
+
+**What it detects** — common credential shapes, with Salesforce-specific coverage:
+
+| Category        | Examples                                                                                            |
+|-----------------|-----------------------------------------------------------------------------------------------------|
+| Salesforce      | SFDX auth URLs (`force://…`), access / session tokens, OAuth refresh tokens, connected-app consumer keys and secrets |
+| Cloud providers | AWS access key IDs, GitHub tokens, Slack tokens, Google API keys                                     |
+| Generic         | PEM private-key blocks, JSON Web Tokens, and credential-shaped variable assignments                 |
+
+**How it runs.** In CI (`--ci`) the gate **fails the build** when any blocking finding is present. Run locally it is **advisory** — it reports and exits
+cleanly so your push proceeds, giving you a chance to catch a secret before CI does. CI is the hard gate.
+
+**Suppressing a confirmed-safe finding** (none of these disables the gate itself):
+
+- an inline `// kerndx-secret-allow: <reason>` comment on the flagged line;
+- a path allowlist via the `secret_scanning.ignore_globs` setting in your pipeline config;
+- a fingerprint entry (`path:ruleId:sha8`) in a `.kerndxsecretsignore` file, for a one-off finding the patterns cannot otherwise distinguish.
+
+Because every suppression carries a reason or an explicit fingerprint, each allowed exception stays visible in review.
 
 ---
 
@@ -1078,12 +1135,12 @@ This converts the silent-zero-rows failure mode (the most common misconfiguratio
 **Reported errors.** When violations are found, the scanner prints one entry per affected CMDT record. Each message names the offending CMDT row, the offending flow, and
 the remedy:
 
-| Failure | Sample message |
-|---------|----------------|
-| Existence | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' does not exist in dev org. Either deploy the flow or remove the CMDT record.` |
-| Inactive | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' is inactive. Activate the flow or remove the CMDT record.` |
+| Failure          | Sample message                                                                                                                                                                                   |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Existence        | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' does not exist in dev org. Either deploy the flow or remove the CMDT record.`                                                    |
+| Inactive         | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' is inactive. Activate the flow or remove the CMDT record.`                                                                       |
 | Missing variable | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' is missing required variable 'record: Account' (in/out). Either fix the flow declaration or correct the CMDT row's FlowName__c.` |
-| Wrong objectType | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' variable 'record' has type 'SObject/Contact' but TriggerSetting requires 'Account'.` |
+| Wrong objectType | `TriggerAction 'SetAccountDefaults': flow 'Account_SetDefaults' variable 'record' has type 'SObject/Contact' but TriggerSetting requires 'Account'.`                                             |
 
 ### Umbrella Scan
 
@@ -1291,9 +1348,9 @@ Gearset runs PMD against all Apex classes and triggers during deployment validat
 1. Navigate to **PMD SCA Settings** or **Quality Gate** configuration
 2. Add PMD rulesets as custom rulesets
 3. Set enforcement level per rule priority:
-   - Priority 1 rules: **Block** (fail the deployment)
-   - Priority 3 rules: **Warn** or **Block** (team preference)
-   - Priority 5 rules: **Warn** (informational only)
+    - Priority 1 rules: **Block** (fail the deployment)
+    - Priority 3 rules: **Warn** or **Block** (team preference)
+    - Priority 5 rules: **Warn** (informational only)
 
 Copado supports custom PMD rulesets natively. Upload the XML files and they run on every deployment.
 
@@ -1310,9 +1367,9 @@ AutoRABIT runs PMD as part of its static analysis pipeline. Custom rulesets are 
 1. Add rulesets as custom rulesets in your **Quality Profile**
 2. Activate the KernDX rules
 3. Set severity thresholds:
-   - Priority 1 = Critical
-   - Priority 3 = Major
-   - Priority 5 = Info
+    - Priority 1 = Critical
+    - Priority 3 = Major
+    - Priority 5 = Info
 
 ### Legacy SF Scanner (v4)
 
@@ -1400,10 +1457,12 @@ For teams with existing codebases that predate KernDX adoption, a phased rollout
 
 ### Phase 1: Blockers Only
 
-Enable Priority 1 rules (`KernTriggerMustDelegate`, `KernNoInlineSOQL`, `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`). These represent the most critical framework bypasses -- code that circumvents the trigger
+Enable Priority 1 rules (`KernTriggerMustDelegate`, `KernNoInlineSOQL`, `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`). These represent the most critical framework
+bypasses -- code that circumvents the trigger
 framework entirely, bypasses the query abstraction layer, or inflates coverage without actually verifying behaviour.
 
 **Action items:**
+
 - Configure IDE and CI/CD with `kerndx-pmd-ruleset.xml`
 - Suppress P3 and P5 rules globally or accept them as warnings (not blockers)
 - Refactor existing triggers to use `TRG_Dispatcher`
@@ -1419,17 +1478,17 @@ Add Priority 3 rules. Migrate direct platform API usage to framework wrappers.
 
 **Migration checklist:**
 
-| From | To | Guide |
-|------|----|-------|
-| `insert`/`update`/`delete` | `DML_Builder.newTransaction()...execute()` | [DML - Guide](DML%20-%20Guide.md) |
-| `System.debug()` | `LOG_Builder.build()...emitAt()` | [Logging - Guide](Logging%20-%20Guide.md) |
-| `new HttpRequest()` | `UTIL_HttpClient.post()` | [Web Services - Guide](Web%20Services%20-%20Guide.md) |
-| `implements Schedulable` | `extends SCHED_Base` | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
-| `System.schedule()` | `ScheduledJob__c` metadata | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
-| `EventBus.publish()` | `LOG_Builder` / framework events | [Logging - Guide](Logging%20-%20Guide.md) |
-| `implements HttpCalloutMock` | `API_MockFactory` | [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md) |
-| `RestContext.request` | `API_Inbound` properties | [Web Services - Guide](Web%20Services%20-%20Guide.md) |
-| `Messaging.sendEmail()` | `UTIL_Email` | [Utilities - Guide](Utilities%20-%20Guide.md) |
+| From                         | To                                         | Guide                                                         |
+|------------------------------|--------------------------------------------|---------------------------------------------------------------|
+| `insert`/`update`/`delete`   | `DML_Builder.newTransaction()...execute()` | [DML - Guide](DML%20-%20Guide.md)                             |
+| `System.debug()`             | `LOG_Builder.build()...emitAt()`           | [Logging - Guide](Logging%20-%20Guide.md)                     |
+| `new HttpRequest()`          | `UTIL_HttpClient.post()`                   | [Web Services - Guide](Web%20Services%20-%20Guide.md)         |
+| `implements Schedulable`     | `extends SCHED_Base`                       | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
+| `System.schedule()`          | `ScheduledJob__c` metadata                 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
+| `EventBus.publish()`         | `LOG_Builder` / framework events           | [Logging - Guide](Logging%20-%20Guide.md)                     |
+| `implements HttpCalloutMock` | `API_MockFactory`                          | [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md)           |
+| `RestContext.request`        | `API_Inbound` properties                   | [Web Services - Guide](Web%20Services%20-%20Guide.md)         |
+| `Messaging.sendEmail()`      | `UTIL_Email`                               | [Utilities - Guide](Utilities%20-%20Guide.md)                 |
 
 **Expected effort:** Medium. Migrate file by file during normal development.
 
@@ -1466,31 +1525,31 @@ For teams still on **PMD 6** (e.g., older versions of `sfdx-scanner`), change th
 net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
 ```
 
-| Tool | PMD Version | Ruleset Compatible |
-|------|-------------|-------------------|
-| SF Code Analyzer v5 (`sf code-analyzer`) | PMD 7 | Yes (default) |
-| VS Code Apex PMD extension | PMD 7 | Yes (default) |
-| Illuminated Cloud (IntelliJ) | PMD 7 | Yes (default) |
-| Gearset | PMD 7 | Yes (default) |
-| Copado | Varies | Check version, change class attribute if PMD 6 |
-| AutoRABIT | Varies | Check version, change class attribute if PMD 6 |
-| CodeScan | PMD 7 | Yes (default) |
-| Legacy `sfdx-scanner` (v4) | PMD 6 | Requires class attribute change |
+| Tool                                     | PMD Version | Ruleset Compatible                             |
+|------------------------------------------|-------------|------------------------------------------------|
+| SF Code Analyzer v5 (`sf code-analyzer`) | PMD 7       | Yes (default)                                  |
+| VS Code Apex PMD extension               | PMD 7       | Yes (default)                                  |
+| Illuminated Cloud (IntelliJ)             | PMD 7       | Yes (default)                                  |
+| Gearset                                  | PMD 7       | Yes (default)                                  |
+| Copado                                   | Varies      | Check version, change class attribute if PMD 6 |
+| AutoRABIT                                | Varies      | Check version, change class attribute if PMD 6 |
+| CodeScan                                 | PMD 7       | Yes (default)                                  |
+| Legacy `sfdx-scanner` (v4)               | PMD 6       | Requires class attribute change                |
 
 ---
 
 ## Related Documentation
 
-| Document | Description |
-|----------|-------------|
-| **Fast Start - Code Scanning.md** | Quick-start walkthrough for first scan setup |
-| [Triggers - Guide](Triggers%20-%20Guide.md) | Trigger framework and `TRG_Dispatcher` patterns |
-| [Selectors - Guide](Selectors%20-%20Guide.md) | `SEL_*` selectors and `QRY_Builder` usage |
-| [DML - Guide](DML%20-%20Guide.md) | `DML_Builder` transactional DML patterns |
-| [Logging - Guide](Logging%20-%20Guide.md) | `LOG_Builder` structured logging |
-| [Web Services - Guide](Web%20Services%20-%20Guide.md) | `UTIL_HttpClient`, `API_Inbound`, `API_Outbound` |
-| [LWC - Guide](LWC%20-%20Guide.md) | ComponentBuilder and LWC framework patterns |
-| [Utilities - Guide](Utilities%20-%20Guide.md) | `UTIL_Cache`, `UTIL_Crypto`, `UTIL_Email`, and other utilities |
-| [Async Processing - Guide](Async%20Processing%20-%20Guide.md) | `SCHED_Base`, `UTIL_AsynchronousJobLauncher` |
-| [Security - Guide](Security%20-%20Guide.md) | Sharing enforcement and security patterns |
-| [Framework Compliance Scanner](../scanner/README.md) | Quick reference for scanner files and rules |
+| Document                                                      | Description                                                    |
+|---------------------------------------------------------------|----------------------------------------------------------------|
+| **Fast Start - Code Scanning.md**                             | Quick-start walkthrough for first scan setup                   |
+| [Triggers - Guide](Triggers%20-%20Guide.md)                   | Trigger framework and `TRG_Dispatcher` patterns                |
+| [Selectors - Guide](Selectors%20-%20Guide.md)                 | `SEL_*` selectors and `QRY_Builder` usage                      |
+| [DML - Guide](DML%20-%20Guide.md)                             | `DML_Builder` transactional DML patterns                       |
+| [Logging - Guide](Logging%20-%20Guide.md)                     | `LOG_Builder` structured logging                               |
+| [Web Services - Guide](Web%20Services%20-%20Guide.md)         | `UTIL_HttpClient`, `API_Inbound`, `API_Outbound`               |
+| [LWC - Guide](LWC%20-%20Guide.md)                             | ComponentBuilder and LWC framework patterns                    |
+| [Utilities - Guide](Utilities%20-%20Guide.md)                 | `UTIL_Cache`, `UTIL_Crypto`, `UTIL_Email`, and other utilities |
+| [Async Processing - Guide](Async%20Processing%20-%20Guide.md) | `SCHED_Base`, `UTIL_AsynchronousJobLauncher`                   |
+| [Security - Guide](Security%20-%20Guide.md)                   | Sharing enforcement and security patterns                      |
+| [Framework Compliance Scanner](https://github.com/JVB-Consulting/kerndx/blob/main/scanner/README.md)          | Quick reference for scanner files and rules                    |
