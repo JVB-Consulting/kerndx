@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import ClassTypeResolverSetupModal from 'c/classTypeResolverSetupModal';
@@ -23,6 +23,8 @@ import PASSING_PREFIX from '@salesforce/label/c.HealthCheck_PassingPrefix';
 import ACTION_REQUIRED_HEADLINE from '@salesforce/label/c.HealthCheck_ActionRequiredHeadline';
 import REVIEW_RECOMMENDED_HEADLINE from '@salesforce/label/c.HealthCheck_ReviewRecommendedHeadline';
 import CHECK_DATA_RETENTION from '@salesforce/label/c.HealthCheck_DataRetention_CheckName';
+import CHECK_MASKING_POSTURE from '@salesforce/label/c.HealthCheck_MaskingPosture_CheckName';
+import CHECK_CUSTOM_OBJECT_COVERAGE from '@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName';
 import APPLY_BUTTON from '@salesforce/label/c.HealthCheck_DataRetention_ApplyButton';
 import CUSTOMIZE_LINK from '@salesforce/label/c.HealthCheck_DataRetention_CustomizeLink';
 import MODAL_TITLE from '@salesforce/label/c.HealthCheck_DataRetention_ModalTitle';
@@ -40,8 +42,13 @@ import WARN_SECTION_HEADING from '@salesforce/label/c.HealthCheck_WarnSection_He
 
 const PARAMETER_OBJECT_NAME = 'objectName';
 const PARAMETER_MINIMUM_DAYS = 'minimumNumberOfDays';
+const DATA_MASKING_ADVISOR_TAB = 'DataMaskingAdvisor';
+// The custom-object coverage card deep-links into the advisor carrying this page-state flag so the advisor
+// auto-runs the coverage scan on arrival rather than leaving the admin to press "Scan N" again.
+const ADVISOR_SCAN_STATE_KEY = 'c__scan';
+const ADVISOR_SCAN_STATE_VALUE = '1';
 
-export default class HealthCheck extends ComponentBuilder('controller', 'notification')
+export default class HealthCheck extends ComponentBuilder('controller', 'notification', 'navigation')
 {
 	results = [];
 	hasResults = false;
@@ -194,8 +201,32 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		await this.runChecks();
 	}
 
-	async handleAction()
+	/**
+	 * @description Handles the generic (non-retention) action button. The masking-configuration posture and
+	 *              the custom-object masking-coverage results deep-link into the Data Masking Advisor tab;
+	 *              the coverage card additionally carries a scan-request page state so the advisor auto-runs
+	 *              its coverage scan on arrival. Every other action-bearing result opens the class type
+	 *              resolver setup modal and re-runs the checks once it closes.
+	 *
+	 * @param {Event} event Click event from the action button (carries data-name with the result name).
+	 *
+	 * @return {Promise<void>} Resolves after navigation or the resolver-modal refresh cycle completes.
+	 */
+	async handleAction(event)
 	{
+		const resultName = event.currentTarget.dataset.name;
+		const requestsCoverageScan = resultName === CHECK_CUSTOM_OBJECT_COVERAGE;
+		if(resultName === CHECK_MASKING_POSTURE || requestsCoverageScan)
+		{
+			const target = {type: 'standard__navItemPage', attributes: {apiName: DATA_MASKING_ADVISOR_TAB}};
+			if(requestsCoverageScan)
+			{
+				target.state = {[ADVISOR_SCAN_STATE_KEY]: ADVISOR_SCAN_STATE_VALUE};
+			}
+			this.navigate(target);
+			return;
+		}
+
 		await ClassTypeResolverSetupModal.open({size: 'medium'});
 
 		await this.runChecks();

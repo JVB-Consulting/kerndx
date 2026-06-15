@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.EagerlyLoadedDescribeSObjectResult')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -32,7 +32,162 @@ private class CTRL_HealthCheck_TEST
 	{
 		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
 
-		Assert.areEqual(5, results.size(), 'Expected five health check results');
+		Assert.areEqual(7, results.size(), 'Expected seven health check results');
+	}
+
+	/**
+	 * @description Verifies that the custom-object coverage check warns when one of the subscriber's own
+	 * custom objects holds a natively classified field with no active masking, naming the object and
+	 * offering the advisor deep-link action.
+	 */
+	@IsTest
+	private static void customObjectCoverageWarnsOnUncoveredSensitiveObject()
+	{
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		TST_Mock.register(EntityDefinition.SObjectType, new List<EntityDefinition> {coverageEntity(apiCallObjectName, 'API Call')});
+		registerConfidentialFieldOverlay(ApiCall__c.Request__c);
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult coverageResult = results[6];
+		Assert.areEqual(System.Label.HealthCheck_CustomObjectCoverage_CheckName, coverageResult.name, 'the seventh check is custom-object coverage');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, coverageResult.status, 'an uncovered sensitive custom object warns');
+		Assert.isTrue(coverageResult.detail.contains(apiCallObjectName), 'the warning names the uncovered object');
+		Assert.areEqual(System.Label.HealthCheck_ReviewMasking_ActionLabel, coverageResult.actionLabel, 'the action deep-links to the advisor');
+	}
+
+	/**
+	 * @description Verifies the warn detail joins multiple uncovered object names with a comma AND a space —
+	 * not a bare comma — so the list reads cleanly. One object is sensitive (a classified field) and the other
+	 * carries only a possibly-sensitive field (LogEntry's fingerprint), so the pair also confirms the Health
+	 * Check now names possibly-sensitive-only objects, matching the on-demand scan.
+	 */
+	@IsTest
+	private static void customObjectCoverageJoinsMultipleObjectNamesWithCommaAndSpace()
+	{
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		final String logEntryObjectName = UTIL_SObjectDescribe.getObjectNameFromType(LogEntry__c.SObjectType);
+		TST_Mock.register(EntityDefinition.SObjectType, new List<EntityDefinition>
+		{
+				coverageEntity(apiCallObjectName, 'API Call'),
+				coverageEntity(logEntryObjectName, 'Log Entry')
+		});
+		registerConfidentialFieldOverlay(ApiCall__c.Request__c);
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult coverageResult = results[6];
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, coverageResult.status, 'two uncovered objects warn');
+		Boolean joinedWithSpace = coverageResult.detail.contains(apiCallObjectName + ', ' + logEntryObjectName)
+				|| coverageResult.detail.contains(logEntryObjectName + ', ' + apiCallObjectName);
+		Assert.isTrue(joinedWithSpace, 'multiple uncovered object names are joined with a comma and a space, not jammed together');
+	}
+
+	/**
+	 * @description Verifies that the custom-object coverage check passes when every assessed custom
+	 * object carries active masking, offering no action.
+	 */
+	@IsTest
+	private static void customObjectCoveragePassesWhenObjectsAreCovered()
+	{
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		TST_Mock.register(EntityDefinition.SObjectType, new List<EntityDefinition> {coverageEntity(apiCallObjectName, 'API Call')});
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt> {maskingTarget('CoverAll', apiCallObjectName, null, true, null)});
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult coverageResult = results[6];
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, coverageResult.status, 'covered custom objects pass');
+		Assert.isNull(coverageResult.actionLabel, 'a passing check offers no action');
+	}
+
+	/**
+	 * @description Verifies that the warn detail counts the custom objects left unchecked once the
+	 * per-run assessment bound is reached, steering the administrator to the console's full scan.
+	 */
+	@IsTest
+	private static void customObjectCoverageCountsUncheckedObjectsInWarnDetail()
+	{
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		List<EntityDefinition> entities = new List<EntityDefinition> {coverageEntity(apiCallObjectName, 'API Call')};
+		for(Integer index = 0; index < CTRL_MaskingAdvisor.MAXIMUM_OBJECTS_ASSESSED_PER_HEALTH_CHECK + 1; index++)
+		{
+			entities.add(coverageEntity('PlaceholderObject' + index + '__c', 'Placeholder ' + index));
+		}
+		TST_Mock.register(EntityDefinition.SObjectType, entities);
+		registerConfidentialFieldOverlay(ApiCall__c.Request__c);
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult coverageResult = results[6];
+		String expectedUncheckedSuffix = String.format
+				(
+						System.Label.HealthCheck_CustomObjectCoverage_Unchecked,
+						new List<Object> {CTRL_MaskingAdvisor.MAXIMUM_OBJECTS_ASSESSED_PER_HEALTH_CHECK + 1}
+				);
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, coverageResult.status, 'the uncovered sensitive object warns despite the bound');
+		Assert.isTrue(coverageResult.detail.contains(expectedUncheckedSuffix), 'the detail counts the objects this pass did not check');
+	}
+
+	/**
+	 * @description Verifies that a passing check still reports how many custom objects went unchecked,
+	 * so a bounded pass is never mistaken for a full scan.
+	 */
+	@IsTest
+	private static void customObjectCoveragePassReportsUncheckedObjects()
+	{
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		TST_Mock.register(EntityDefinition.SObjectType, new List<EntityDefinition>
+		{
+				coverageEntity(apiCallObjectName, 'API Call'),
+				coverageEntity('UnresolvablePlaceholderOne__c', 'Placeholder One'),
+				coverageEntity('UnresolvablePlaceholderTwo__c', 'Placeholder Two')
+		});
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt> {maskingTarget('CoverAll', apiCallObjectName, null, true, null)});
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult coverageResult = results[6];
+		String expectedUncheckedSuffix = String.format(System.Label.HealthCheck_CustomObjectCoverage_Unchecked, new List<Object> {2});
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, coverageResult.status, 'covered objects pass even with unchecked candidates');
+		Assert.isTrue(coverageResult.detail.contains(expectedUncheckedSuffix), 'a bounded pass reports what it did not check');
+	}
+
+	/**
+	 * @description Builds an in-memory EntityDefinition row (no namespace prefix) for the
+	 * selectable-objects seam the coverage sweep reads.
+	 *
+	 * @param qualifiedApiName The object API name.
+	 * @param label The object label.
+	 *
+	 * @return The in-memory EntityDefinition row.
+	 */
+	private static EntityDefinition coverageEntity(String qualifiedApiName, String label)
+	{
+		return (EntityDefinition)TST_Builder.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.QualifiedApiName, qualifiedApiName)
+				.withOverride(EntityDefinition.Label, label)
+				.withoutInsertion()
+				.build();
+	}
+
+	/**
+	 * @description Registers a FieldDefinition classification-overlay mock marking the given field
+	 * Confidential, driving the coverage check's sensitivity signal through the native-classification
+	 * path. The overlay name derives from the field token so it matches in any namespace context.
+	 *
+	 * @param field The field token the overlay classifies.
+	 */
+	private static void registerConfidentialFieldOverlay(SObjectField field)
+	{
+		TST_Mock.register(FieldDefinition.SObjectType, TST_Builder.of(FieldDefinition.SObjectType)
+				.withOverride(FieldDefinition.QualifiedApiName, UTIL_SObjectDescribe.getCachedFieldName(field))
+				.withOverride(FieldDefinition.SecurityClassification, 'Confidential')
+				.withoutInsertion()
+				.build());
 	}
 
 	/**
@@ -45,10 +200,11 @@ private class CTRL_HealthCheck_TEST
 
 		CTRL_HealthCheck.DTO_HealthCheckResult orgCacheResult = results[0];
 		Assert.areEqual(CTRL_HealthCheck.CHECK_ORG_CACHE, orgCacheResult.name, 'First result should be Organisation Cache');
-		Assert.isTrue(
-				orgCacheResult.status == CTRL_HealthCheck.STATUS_PASS || orgCacheResult.status == CTRL_HealthCheck.STATUS_FAIL,
-				'Organisation Cache status should be Pass or Fail'
-		);
+		Assert.isTrue
+				(
+						orgCacheResult.status == CTRL_HealthCheck.STATUS_PASS || orgCacheResult.status == CTRL_HealthCheck.STATUS_FAIL,
+						'Organisation Cache status should be Pass or Fail'
+				);
 		Assert.isNotNull(orgCacheResult.detail, 'Detail should not be null');
 		Assert.areEqual(10, orgCacheResult.priority, 'Organisation Cache should have priority 10');
 	}
@@ -63,10 +219,11 @@ private class CTRL_HealthCheck_TEST
 
 		CTRL_HealthCheck.DTO_HealthCheckResult sessionCacheResult = results[1];
 		Assert.areEqual(CTRL_HealthCheck.CHECK_SESSION_CACHE, sessionCacheResult.name, 'Second result should be Session Cache');
-		Assert.isTrue(
-				sessionCacheResult.status == CTRL_HealthCheck.STATUS_PASS || sessionCacheResult.status == CTRL_HealthCheck.STATUS_WARN,
-				'Session Cache status should be Pass or Warn'
-		);
+		Assert.isTrue
+				(
+						sessionCacheResult.status == CTRL_HealthCheck.STATUS_PASS || sessionCacheResult.status == CTRL_HealthCheck.STATUS_WARN,
+						'Session Cache status should be Pass or Warn'
+				);
 		Assert.isNotNull(sessionCacheResult.detail, 'Detail should not be null');
 		Assert.areEqual(20, sessionCacheResult.priority, 'Session Cache should have priority 20');
 	}
@@ -122,6 +279,38 @@ private class CTRL_HealthCheck_TEST
 		Assert.areEqual(CTRL_HealthCheck.CHECK_TRUSTED_SITE, trustedSiteResult.name, 'Third result should be Trusted Site');
 		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, trustedSiteResult.status, 'Trusted site check should pass');
 		Assert.areEqual(30, trustedSiteResult.priority, 'Trusted Site should have priority 30 when passing');
+	}
+
+	/**
+	 * @description Verifies that the trusted-site probe — a framework-internal read of CSP setup
+	 * configuration — emits no sharing BYPASS audit entry. The probe routes through
+	 * `bypassSharingInternal()`, which must stay silent so each health-check run does not pollute
+	 * the `BypassEvent` forensic trail.
+	 *
+	 * @see CTRL_HealthCheck.isTrustedSiteConfigured
+	 * @see QRY_Builder.Builder.bypassSharingInternal
+	 */
+	@IsTest
+	private static void shouldNotEmitBypassAuditWhenCheckingTrustedSite()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TST_Mock.register(CspTrustedSite.SObjectType, new List<CspTrustedSite>());
+
+		Test.startTest();
+		CTRL_HealthCheck.isTrustedSiteConfigured();
+		Test.stopTest();
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)(context?.get(UTIL_BypassAudit.CONTEXT_TARGET));
+			Assert.isFalse
+					(
+							target != null && target.startsWith('sharing'),
+							'The trusted-site probe must not emit a sharing BYPASS audit entry'
+					);
+		}
 	}
 
 	/**
@@ -284,6 +473,80 @@ private class CTRL_HealthCheck_TEST
 	}
 
 	/**
+	 * @description Verifies the Data Masking check warns when an active masking target masks nothing
+	 * (its rule is inactive or missing) so the admin is pointed at the advisor to fix or remove it.
+	 */
+	@IsTest
+	private static void shouldWarnWhenMaskingHasDeadConfigurations()
+	{
+		MaskingRule__mdt activeRule = maskingRule(true);
+		MaskingRule__mdt inactiveRule = maskingRule(false);
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt>
+		{
+				'ActiveRule' => activeRule,
+				'InactiveRule' => inactiveRule
+		};
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>
+		{
+				'LiveTarget' => maskingTarget('LiveTarget', 'ObjectADurable', null, true, activeRule.Id),
+				'DeadTarget' => maskingTarget('DeadTarget', 'ObjectADurable', 'ObjectADurable.FieldOne', true, inactiveRule.Id)
+		};
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult maskingResult = results[5];
+		Assert.areEqual(CTRL_HealthCheck.CHECK_MASKING_POSTURE, maskingResult.name, 'Sixth result should be Data Masking');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, maskingResult.status, 'Should warn when an active target masks nothing');
+		Assert.areEqual(String.format(CTRL_HealthCheck.DETAIL_MASKING_POSTURE_DEAD, new List<Object> {1}), maskingResult.detail, 'Detail should report the one dead target');
+		Assert.isNotNull(maskingResult.actionLabel, 'A masking warning should offer the Review-masking action');
+		Assert.areEqual(45, maskingResult.priority, 'Data Masking should have priority 45');
+	}
+
+	/**
+	 * @description Verifies the Data Masking check warns when the org carries no active masking at all,
+	 * pointing the admin at the advisor to review their objects.
+	 */
+	@IsTest
+	private static void shouldWarnWhenNoActiveMaskingExists()
+	{
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt>();
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>();
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult maskingResult = results[5];
+		Assert.areEqual(CTRL_HealthCheck.CHECK_MASKING_POSTURE, maskingResult.name, 'Sixth result should be Data Masking');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, maskingResult.status, 'Should warn when nothing is masked');
+		Assert.areEqual(CTRL_HealthCheck.DETAIL_MASKING_POSTURE_NONE_ACTIVE, maskingResult.detail, 'Detail should report that almost nothing is masked yet');
+		Assert.isNotNull(maskingResult.actionLabel, 'A masking warning should offer the Review-masking action');
+		Assert.areEqual(45, maskingResult.priority, 'Data Masking should have priority 45');
+	}
+
+	/**
+	 * @description Verifies the Data Masking check passes when masking is active and healthy (objects carry
+	 * active targets and no active target is dead), reporting the count of masked objects with no action.
+	 */
+	@IsTest
+	private static void shouldPassWhenMaskingIsActiveAndHealthy()
+	{
+		MaskingRule__mdt activeRule = maskingRule(true);
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {'ActiveRule' => activeRule};
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>
+		{
+				'LiveTarget' => maskingTarget('LiveTarget', 'ObjectADurable', 'ObjectADurable.FieldOne', true, activeRule.Id)
+		};
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult maskingResult = results[5];
+		Assert.areEqual(CTRL_HealthCheck.CHECK_MASKING_POSTURE, maskingResult.name, 'Sixth result should be Data Masking');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, maskingResult.status, 'Should pass when masking is active and healthy');
+		Assert.areEqual(String.format(CTRL_HealthCheck.DETAIL_MASKING_POSTURE_HEALTHY, new List<Object> {1}), maskingResult.detail, 'Detail should report the one masked object');
+		Assert.isNull(maskingResult.actionLabel, 'A passing masking result should carry no action');
+		Assert.areEqual(45, maskingResult.priority, 'Data Masking should have priority 45');
+	}
+
+	/**
 	 * @description Verifies that getRetentionProposals returns proposals for all four framework objects
 	 * when no SCHED_PurgeRecords jobs exist.
 	 */
@@ -356,17 +619,7 @@ private class CTRL_HealthCheck_TEST
 
 		Assert.areEqual(4, insertedIds.size(), 'Four scheduled jobs should be created');
 
-		List<ScheduledJob__c> created =
-		[
-				SELECT SchedulerName__c,
-						ClassName__c,
-						CronExpression__c,
-						IsActive__c,
-						Timezone__c,
-						Parameters__c
-				FROM ScheduledJob__c
-				WHERE Id IN :insertedIds
-		];
+		List<ScheduledJob__c> created = new SEL_ScheduledJob().findById(new Set<Id>(insertedIds));
 		Assert.areEqual(4, created.size(), 'All jobs should be queryable');
 		String runningUserTimezone = UserInfo.getTimeZone().getID();
 		for(ScheduledJob__c job : created)
@@ -393,12 +646,7 @@ private class CTRL_HealthCheck_TEST
 		List<Id> insertedIds = CTRL_HealthCheck.applyRetentionRecommendations(new List<CTRL_HealthCheck.DTO_RetentionProposal> {proposals.get(0)});
 		Test.stopTest();
 
-		ScheduledJob__c created =
-		[
-				SELECT CronExpression__c
-				FROM ScheduledJob__c
-				WHERE Id = :insertedIds.get(0)
-		];
+		ScheduledJob__c created = (ScheduledJob__c)new SEL_ScheduledJob().findById(insertedIds.get(0));
 		Assert.areEqual('0 0 1 * * ?', created.CronExpression__c, 'User-supplied cron should win');
 	}
 
@@ -457,6 +705,51 @@ private class CTRL_HealthCheck_TEST
 	private static ScheduledJob__c newPurgeJob(SObjectType objectType)
 	{
 		return TST_Factory.newScheduledJob(PURGE_CLASS, new DTO_NameValues(new Map<String, String> {PARAM_OBJECT_NAME => objectType.getDescribe().getName()}));
+	}
+
+	/**
+	 * @description Builds an in-memory MaskingRule__mdt with a mock Id and the given active flag, so a
+	 * MaskingTarget__mdt can reference it through the masking selector's test seams.
+	 *
+	 * @param active Whether the rule is active.
+	 *
+	 * @return The in-memory rule with a mock Id.
+	 */
+	private static MaskingRule__mdt maskingRule(Boolean active)
+	{
+		return TST_Factory.newMaskingRule(new Map<SObjectField, Object> {MaskingRule__mdt.IsActive__c => active});
+	}
+
+	/**
+	 * @description Builds an in-memory MaskingTarget__mdt with a mock Id for the masking-posture checks. A null
+	 * fieldDurableId yields an object-wide target; a null ruleId leaves the rule reference unset (a dead target).
+	 *
+	 * @param developerName The target's DeveloperName.
+	 * @param sObjectDurableId The EntityDefinition durable Id the target is scoped to.
+	 * @param fieldDurableId The FieldDefinition durable Id, or null for an object-wide target.
+	 * @param active Whether the target is active.
+	 * @param ruleId The referenced rule's mock Id, or null for a missing-rule target.
+	 *
+	 * @return The in-memory target with a mock Id.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static MaskingTarget__mdt maskingTarget(String developerName, String sObjectDurableId, String fieldDurableId, Boolean active, Id ruleId)
+	{
+		Map<SObjectField, Object> overrides = new Map<SObjectField, Object>
+		{
+				MaskingTarget__mdt.DeveloperName => developerName,
+				MaskingTarget__mdt.IsActive__c => active,
+				MaskingTarget__mdt.SObjectType__c => sObjectDurableId
+		};
+		if(fieldDurableId != null)
+		{
+			overrides.put(MaskingTarget__mdt.Field__c, fieldDurableId);
+		}
+		if(ruleId != null)
+		{
+			overrides.put(MaskingTarget__mdt.Rule__c, ruleId);
+		}
+		return TST_Factory.newMaskingTarget(overrides);
 	}
 
 	/**

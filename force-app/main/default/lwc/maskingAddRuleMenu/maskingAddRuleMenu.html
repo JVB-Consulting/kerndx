@@ -1,0 +1,38 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="menu__intro" data-testid="menu-intro">{intro}</p>
+		<template lwc:if={hasOptions}>
+			<ul class="menu__list">
+				<template for:each={options} for:item="option">
+					<li class="menu__item" data-testid="menu-item" key={option.value}>
+						<span class="menu__item-main">
+							<span class="menu__item-label">{option.label}</span>
+							<template lwc:if={option.subtitle}>
+								<span class="menu__item-sub">{option.subtitle}</span>
+							</template>
+							<template lwc:if={option.appliesTo}>
+								<span class="menu__item-applies" data-testid="menu-applies">{option.appliesTo}</span>
+							</template>
+							<template lwc:if={option.warning}>
+								<span class="menu__item-warning" data-testid="menu-warning"><span aria-hidden="true">⚠</span> {option.warning}</span>
+							</template>
+							<template lwc:if={option.superseded}>
+								<span class="menu__item-superseded" data-testid="menu-superseded">{option.superseded}</span>
+							</template>
+						</span>
+						<lightning-button class="menu__item-add" data-testid="menu-add" data-value={option.value} label={labels.addButton} onclick={handlePick}></lightning-button>
+					</li>
+				</template>
+			</ul>
+		</template>
+		<template lwc:else>
+			<p class="menu__empty" data-testid="menu-empty">{emptyText}</p>
+		</template>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="menu__create" data-testid="create-custom-rule" label={labels.createCustomRule} onclick={handleCreateRule} variant="base"></lightning-button>
+		<lightning-button data-testid="menu-close" label={labels.close} onclick={handleClose}></lightning-button>
+	</lightning-modal-footer>
+</template>

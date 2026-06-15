@@ -1,0 +1,88 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.menu__intro
+{
+	color         : #706E6B;
+	font-size     : 0.78125rem;
+	margin-bottom : 0.5rem;
+}
+
+.menu__list
+{
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.375rem;
+}
+
+.menu__item
+{
+	align-items   : center;
+	border-bottom : 1px solid #F0F0F0;
+	display       : flex;
+	gap           : 0.625rem;
+	padding       : 0.5625rem 0.625rem;
+}
+
+.menu__item:last-child
+{
+	border-bottom : none;
+}
+
+.menu__item-main
+{
+	flex : 1 1 auto;
+}
+
+.menu__item-label
+{
+	display     : block;
+	font-weight : 600;
+}
+
+.menu__item-sub
+{
+	color     : #706E6B;
+	display   : block;
+	font-size : 0.71875rem;
+}
+
+.menu__item-applies
+{
+	color      : #706E6B;
+	display    : block;
+	font-size  : 0.71875rem;
+	margin-top : 0.125rem;
+}
+
+.menu__item-warning
+{
+	color       : #8A5A00;
+	display     : block;
+	font-size   : 0.71875rem;
+	font-weight : 600;
+	margin-top  : 0.125rem;
+}
+
+.menu__item-superseded
+{
+	color       : #444444;
+	display     : block;
+	font-size   : 0.71875rem;
+	font-style  : italic;
+	margin-top  : 0.125rem;
+}
+
+.menu__item-add
+{
+	flex : 0 0 auto;
+}
+
+.menu__empty
+{
+	color     : #706E6B;
+	font-size : 0.78125rem;
+	padding   : 0.375rem 0.125rem;
+}
+
+.menu__create
+{
+	margin-right : auto;
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>kern__MaskingTarget.Case_All_Card_Probe</members>
+        <members>kern__MaskingTarget.Case_All_Email_DeadProbe</members>
+        <members>kern__MaskingRule.kern__MaskPhoneUS</members>
+        <name>CustomMetadata</name>
+    </types>
+    <version>67.0</version>
+</Package>

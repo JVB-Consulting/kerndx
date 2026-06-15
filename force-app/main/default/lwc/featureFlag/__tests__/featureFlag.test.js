@@ -1,31 +1,49 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Jest unit tests for the featureFlag LWC utility module — verifies the
- * bridge correctly forwards the flagName to `CTRL_FeatureFlag.isEnabled` and propagates
- * the boolean result to the caller.
+ * bridge forwards the flagName to `CTRL_FeatureFlag.isEnabled` and propagates the
+ * boolean result to the caller.
+ *
+ * The @lwc/jest-transformer rewrites `import isEnabled from '@salesforce/apex/...'`
+ * into a try/catch whose catch arm reads `global.__lwcJestMock_isEnabled || function
+ * isEnabled() { return Promise.resolve(); }`. Pre-setting that global (truthy arm) and
+ * deleting it (default-stub arm), each with a fresh isolated module load, exercises both
+ * sides of the generated expression — the same pattern viewRecord uses.
  *
  * @author Jason van Beukering
  *
  * @date May 2026
  */
 
-const mockIsEnabled = jest.fn();
-jest.mock('@salesforce/apex/CTRL_FeatureFlag.isEnabled', () => ({
-	__esModule: true, default: (...args) => mockIsEnabled(...args)
-}), {virtual: true});
-
-import {isFlagEnabled} from 'c/featureFlag';
+const APEX_GLOBAL_KEY = '__lwcJestMock_isEnabled';
 
 describe('featureFlag bridge', () =>
 {
-	beforeEach(() =>
+	afterEach(() =>
 	{
-		mockIsEnabled.mockReset();
+		delete global[APEX_GLOBAL_KEY];
 	});
 
-	it('should resolve isFlagEnabled(true) when controller returns true', async() =>
+	/**
+	 * @description Loads c/featureFlag in an isolated module registry so the
+	 * transformer's apex try/catch runs fresh against the current global stub state.
+	 * @returns {Function} The isFlagEnabled bridge.
+	 */
+	function loadBridge()
 	{
-		mockIsEnabled.mockResolvedValueOnce(true);
+		let bridge;
+		jest.isolateModules(() =>
+		{
+			bridge = require('c/featureFlag').isFlagEnabled;
+		});
+		return bridge;
+	}
+
+	it('should forward the flag name and resolve true when the controller returns true', async() =>
+	{
+		const mockIsEnabled = jest.fn().mockResolvedValue(true);
+		global[APEX_GLOBAL_KEY] = mockIsEnabled;
+		const isFlagEnabled = loadBridge();
 
 		const result = await isFlagEnabled('NewCheckout_Enabled');
 
@@ -33,9 +51,11 @@ describe('featureFlag bridge', () =>
 		expect(mockIsEnabled).toHaveBeenCalledWith({flagName: 'NewCheckout_Enabled'});
 	});
 
-	it('should resolve isFlagEnabled(false) when controller returns false', async() =>
+	it('should resolve false when the controller returns false', async() =>
 	{
-		mockIsEnabled.mockResolvedValueOnce(false);
+		const mockIsEnabled = jest.fn().mockResolvedValue(false);
+		global[APEX_GLOBAL_KEY] = mockIsEnabled;
+		const isFlagEnabled = loadBridge();
 
 		const result = await isFlagEnabled('Disabled_Flag');
 
@@ -43,11 +63,20 @@ describe('featureFlag bridge', () =>
 		expect(mockIsEnabled).toHaveBeenCalledWith({flagName: 'Disabled_Flag'});
 	});
 
-	it('should propagate controller errors', async() =>
+	it('should propagate controller errors to the caller', async() =>
 	{
-		const error = new Error('Network failure');
-		mockIsEnabled.mockRejectedValueOnce(error);
+		const mockIsEnabled = jest.fn().mockRejectedValue(new Error('Network failure'));
+		global[APEX_GLOBAL_KEY] = mockIsEnabled;
+		const isFlagEnabled = loadBridge();
 
 		await expect(isFlagEnabled('Any_Flag')).rejects.toThrow('Network failure');
+	});
+
+	it('should fall back to the transformer default stub when no global mock is registered', async() =>
+	{
+		delete global[APEX_GLOBAL_KEY];
+		const isFlagEnabled = loadBridge();
+
+		await expect(isFlagEnabled('Any_Flag')).resolves.toBeUndefined();
 	});
 });

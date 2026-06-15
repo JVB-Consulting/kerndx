@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Slim Export-package confirm dialog for the Data Masking Advisor. Built on lightning/modal; confirms the export-set count, surfaces the shipped scope-honesty prose, and resolves a Download action.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Export Modal</masterLabel>
+</LightningComponentBundle>

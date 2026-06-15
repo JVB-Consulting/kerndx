@@ -139,10 +139,12 @@
  *   here as a known scratch-org constraint that's negligible in practice.
  *
  * SPEC vs ACTUAL — masker target/rule density
- *   Same constraint as section-44 (Task 2.2): the deployed framework has 2 wildcard
- *   targets for ApiCall__c (ApiCall_All_Card → MaskCreditCard, ApiCall_All_Secret →
- *   MaskSecretKeys) × 2 active framework rules + ~1 leftover subscriber test fixture
- *   (variable across runs). The spec assumed 5 × 10 = 50 target-rule pairs; actual is
+ *   Same constraint as section-44 (Task 2.2): the deployed framework ships 3 wildcard
+ *   targets for ApiCall__c (ApiCall_All_Card → MaskCreditCard, ApiCall_All_PaymentCard →
+ *   MaskPaymentCard, ApiCall_All_Secret → MaskSecretKeys) × 3 active framework rules,
+ *   but the Card target defers to the PaymentCard successor at shipped values, so 2
+ *   targets evaluate per record + ~1 leftover subscriber test fixture
+ *   (variable across runs). The spec assumed 5 × 10 = 50 target-rule pairs; effective is
  *   ~2 × 2 to 2 × 3 = 4-6 pairs. CMDT DML is platform-blocked from anon Apex so we
  *   cannot vary this within a single test run. The masker still meaningfully exercises
  *   the bulk path (50 records × 4-6 pairs = 200-300 evaluations per fire), and
@@ -174,8 +176,9 @@
  *   - subscriber scratch org with kern managed package installed
  *   - SCHED_SubscriberMaskerSoak class deployed (release-testing/subscriber/classes/)
  *   - kern.UTIL_FrameworkMasker.isMaskingEnabled (default true via FeatureFlag)
- *   - kern__MaskingTarget__mdt: ApiCall_All_Card + ApiCall_All_Secret active
- *   - kern__MaskingRule__mdt: MaskCreditCard + MaskSecretKeys active
+ *   - kern__MaskingTarget__mdt: ApiCall_All_PaymentCard + ApiCall_All_Secret active
+ *     (ApiCall_All_Card also ships active but defers to the PaymentCard successor)
+ *   - kern__MaskingRule__mdt: MaskPaymentCard + MaskSecretKeys (+ legacy MaskCreditCard) active
  *   - kern__LogSetting__c.IsEnabled__c = true and threshold ≤ INFO
  *   - PE quota headroom (smoke test publishes 1 PE; operational publishes ~30)
  *
@@ -208,15 +211,15 @@ final Integer LOG_POLL_INTERVAL_MS = 2000;
 
 Integer activeMaskingTargets =
 [
-	SELECT COUNT()
-	FROM kern__MaskingTarget__mdt
-	WHERE kern__IsActive__c = true
+		SELECT COUNT()
+		FROM kern__MaskingTarget__mdt
+		WHERE kern__IsActive__c = TRUE
 ];
 Integer activeMaskingRules =
 [
-	SELECT COUNT()
-	FROM kern__MaskingRule__mdt
-	WHERE kern__IsActive__c = true
+		SELECT COUNT()
+		FROM kern__MaskingRule__mdt
+		WHERE kern__IsActive__c = TRUE
 ];
 // Pre-flight: kern.UTIL_FrameworkMasker.isMaskingEnabled is `public inherited sharing` not
 // `global`, so subscriber anon Apex cannot reference it directly (FRAMEWORK FOLLOW-UP A38).
@@ -224,8 +227,9 @@ Integer activeMaskingRules =
 // equals sampledCount and rawCardRetained == 0, the masker fired correctly. We do not need
 // a pre-flight isMaskingEnabled probe.
 System.debug(LoggingLevel.INFO,
-	'Pre-flight: activeTargets=' + activeMaskingTargets + ', activeRules=' + activeMaskingRules
-		+ ' (Spec wanted 5×10 ApiCall pairs; deployed ~2 wildcard ApiCall targets × 2-3 active rules — '
+		'Pre-flight: activeTargets=' + activeMaskingTargets + ', activeRules=' + activeMaskingRules
+		+ ' (Spec wanted 5×10 ApiCall pairs; deployed 3 wildcard ApiCall targets, 2 effective — the Card '
+		+ 'target defers to the PaymentCard successor — × 3-4 active rules; '
 		+ 'documented in section-44 / Task 2.2). Masker enablement is verified via the smoke '
 		+ 'assertions on maskedCount / rawCardRetained.');
 
@@ -237,7 +241,7 @@ try
 	SCHED_SubscriberMaskerSoak soak = new SCHED_SubscriberMaskerSoak(SMOKE_RUN_STAMP);
 
 	Assert.areEqual(SMOKE_RUN_STAMP, soak.getRunStamp(),
-		'smoke-test: SCHED_SubscriberMaskerSoak.getRunStamp() should reflect the injected run-stamp');
+			'smoke-test: SCHED_SubscriberMaskerSoak.getRunStamp() should reflect the injected run-stamp');
 
 	soak.execute(null);
 
@@ -247,34 +251,34 @@ try
 	Decimal heapFraction = ((Decimal)postExecuteHeapBytes / Limits.getLimitHeapSize());
 
 	System.debug(LoggingLevel.INFO,
-		'Smoke iteration finished: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
+			'Smoke iteration finished: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
 			+ ', heapStart=' + preExecuteHeapBytes + ', heapEnd=' + postExecuteHeapBytes
 			+ ', heapDelta=' + heapDeltaBytes + ', heapFraction=' + heapFraction.setScale(4));
 
 	Assert.isTrue(iterationWallMs < WALL_GATE_MS,
-		'smoke-test: iteration wallMs (' + iterationWallMs + ') must be < ' + WALL_GATE_MS
+			'smoke-test: iteration wallMs (' + iterationWallMs + ') must be < ' + WALL_GATE_MS
 			+ ' ms (sane per-iteration ceiling)');
 
 	Assert.isTrue(Limits.getCpuTime() < CPU_GATE_MS,
-		'smoke-test: cpuMs (' + Limits.getCpuTime() + ') must be < ' + CPU_GATE_MS
+			'smoke-test: cpuMs (' + Limits.getCpuTime() + ') must be < ' + CPU_GATE_MS
 			+ ' ms (well under 10s sync governor)');
 
 	Assert.isTrue(heapFraction < HEAP_GATE_FRACTION,
-		'smoke-test: heap fraction (' + heapFraction.setScale(4) + ') must be < '
+			'smoke-test: heap fraction (' + heapFraction.setScale(4) + ') must be < '
 			+ HEAP_GATE_FRACTION + ' (post-iteration headroom maintained)');
 
 	Integer residualApiCallCount =
 	[
-		SELECT COUNT()
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :EXPECTED_SERVICE_NAME
+			SELECT COUNT()
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :EXPECTED_SERVICE_NAME
 	];
 	Assert.areEqual(0, residualApiCallCount,
-		'smoke-test: per-iteration cleanup must drop the inserted ApiCall__c rows; '
+			'smoke-test: per-iteration cleanup must drop the inserted ApiCall__c rows; '
 			+ 'expected 0 residual, got ' + residualApiCallCount);
 
 	System.debug(LoggingLevel.INFO,
-		'smoke iteration PASS: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
+			'smoke iteration PASS: wallMs=' + iterationWallMs + ', cpuMs=' + Limits.getCpuTime()
 			+ ', heapFraction=' + heapFraction.setScale(4) + ', residualApiCalls=' + residualApiCallCount
 			+ ' (the Schedulable inserted ' + EXPECTED_INSERT_BATCH_SIZE + ' records, asserted masking, '
 			+ 'and deleted them; PE delivery to LogEntry__c is verified next via polling)');
@@ -286,12 +290,16 @@ try
 	{
 		soakRows =
 		[
-			SELECT Id, kern__ShortMessage__c, kern__Message__c, kern__ClassMethod__c, CreatedDate
-			FROM kern__LogEntry__c
-			WHERE kern__ClassMethod__c = :EXPECTED_CLASS_METHOD_MARKER
-			  AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
-			ORDER BY CreatedDate ASC
-			LIMIT 10
+				SELECT Id,
+						kern__ShortMessage__c,
+						kern__Message__c,
+						kern__ClassMethod__c,
+						CreatedDate
+				FROM kern__LogEntry__c
+				WHERE kern__ClassMethod__c = :EXPECTED_CLASS_METHOD_MARKER
+				AND kern__ShortMessage__c LIKE 'SOAK_ITERATION:%'
+				ORDER BY CreatedDate ASC
+				LIMIT 10
 		];
 		if(!soakRows.isEmpty())
 		{
@@ -306,21 +314,21 @@ try
 	}
 
 	Assert.isFalse(soakRows.isEmpty(),
-		'smoke-test: SOAK_ITERATION row must persist to kern__LogEntry__c within '
+			'smoke-test: SOAK_ITERATION row must persist to kern__LogEntry__c within '
 			+ LOG_POLL_BUDGET_MS + ' ms (PE delivery latency); none seen after ' + pollElapsedMs
 			+ ' ms for ClassMethod=' + EXPECTED_CLASS_METHOD_MARKER + '. If PE delivery is lagging '
 			+ 'in scratch org, re-run after ~30 s wait.');
 
 	Assert.areEqual(1, soakRows.size(),
-		'smoke-test: exactly one SOAK_ITERATION row expected from a single direct-fire; got '
+			'smoke-test: exactly one SOAK_ITERATION row expected from a single direct-fire; got '
 			+ soakRows.size());
 
 	String fullMessage = soakRows[0].kern__Message__c == null
-		? soakRows[0].kern__ShortMessage__c
-		: soakRows[0].kern__Message__c;
+			? soakRows[0].kern__ShortMessage__c
+			: soakRows[0].kern__Message__c;
 	String jsonPayload = fullMessage.substringAfter('SOAK_ITERATION: ');
 	Assert.isTrue(String.isNotBlank(jsonPayload),
-		'smoke-test: SOAK_ITERATION row must contain a parseable JSON payload after the prefix; '
+			'smoke-test: SOAK_ITERATION row must contain a parseable JSON payload after the prefix; '
 			+ 'got message="' + fullMessage + '"');
 
 	Map<String, Object> stats = (Map<String, Object>)JSON.deserializeUntyped(jsonPayload);
@@ -333,43 +341,43 @@ try
 	Decimal innerHeapFraction = (Decimal)stats.get('heapFraction');
 	Object innerWallMsObj = stats.get('wallMs');
 	Long innerWallMs = innerWallMsObj instanceof Integer
-		? (Long)((Integer)innerWallMsObj)
-		: (Long)innerWallMsObj;
+			? (Long)((Integer)innerWallMsObj)
+			: (Long)innerWallMsObj;
 
 	Assert.areEqual(0, iterationIndex,
-		'smoke-test: first direct-fire iteration index must be 0 (no prior SOAK_ITERATION rows); got '
+			'smoke-test: first direct-fire iteration index must be 0 (no prior SOAK_ITERATION rows); got '
 			+ iterationIndex);
 
 	Assert.areEqual(EXPECTED_INSERT_BATCH_SIZE, persistedCount,
-		'smoke-test: persistedCount must equal INSERT_BATCH_SIZE (' + EXPECTED_INSERT_BATCH_SIZE
+			'smoke-test: persistedCount must equal INSERT_BATCH_SIZE (' + EXPECTED_INSERT_BATCH_SIZE
 			+ '); got ' + persistedCount);
 
 	Assert.areEqual(EXPECTED_INSERT_BATCH_SIZE, sampledCount,
-		'smoke-test: sampledCount must equal INSERT_BATCH_SIZE for a 50-record fire; got '
+			'smoke-test: sampledCount must equal INSERT_BATCH_SIZE for a 50-record fire; got '
 			+ sampledCount);
 
 	Assert.areEqual(0, rawCardRetained,
-		'smoke-test: rawCardRetained must be 0 — the masker should have rewritten every Visa '
+			'smoke-test: rawCardRetained must be 0 — the masker should have rewritten every Visa '
 			+ '4111... → CARD_REDACTED; got ' + rawCardRetained + '/' + sampledCount);
 
 	Assert.areEqual(0, maskingFailures,
-		'smoke-test: maskingFailures must be 0 — no [MASKING_FAILURE] sentinels expected; got '
+			'smoke-test: maskingFailures must be 0 — no [MASKING_FAILURE] sentinels expected; got '
 			+ maskingFailures + '/' + sampledCount);
 
 	Assert.isTrue(maskedCount == sampledCount,
-		'smoke-test: every sampled record should show CARD_REDACTED (and not raw Visa); got '
+			'smoke-test: every sampled record should show CARD_REDACTED (and not raw Visa); got '
 			+ maskedCount + '/' + sampledCount);
 
 	Assert.isTrue(innerHeapFraction < HEAP_GATE_FRACTION,
-		'smoke-test: persisted iteration heapFraction (' + innerHeapFraction
+			'smoke-test: persisted iteration heapFraction (' + innerHeapFraction
 			+ ') must be < ' + HEAP_GATE_FRACTION + '; the Schedulable measured this at end-of-fire');
 
 	Assert.isTrue(innerWallMs >= 0 && innerWallMs < WALL_GATE_MS,
-		'smoke-test: persisted iteration wallMs (' + innerWallMs + ') must be >= 0 and < '
+			'smoke-test: persisted iteration wallMs (' + innerWallMs + ') must be >= 0 and < '
 			+ WALL_GATE_MS + ' ms');
 
 	System.debug(LoggingLevel.INFO,
-		'smoke verify PASS: SOAK_ITERATION row found in ' + pollElapsedMs + ' ms — iteration='
+			'smoke verify PASS: SOAK_ITERATION row found in ' + pollElapsedMs + ' ms — iteration='
 			+ iterationIndex + ', persisted=' + persistedCount + '/' + sampledCount
 			+ ', masked=' + maskedCount + ', rawCardRetained=' + rawCardRetained
 			+ ', maskingFailures=' + maskingFailures + ', innerHeap=' + innerHeapFraction.setScale(4)
@@ -380,7 +388,7 @@ try
 catch(Exception scenarioError)
 {
 	System.debug(LoggingLevel.ERROR,
-		'smoke-test FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+			'smoke-test FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
 	failures.add('smoke-test: ' + scenarioError.getMessage());
 	fail++;
 }
@@ -390,30 +398,30 @@ try
 {
 	List<kern__ApiCall__c> residualApiCalls =
 	[
-		SELECT Id
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :EXPECTED_SERVICE_NAME
-		LIMIT 9000
+			SELECT Id
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :EXPECTED_SERVICE_NAME
+			LIMIT 9000
 	];
 	if(!residualApiCalls.isEmpty())
 	{
 		delete residualApiCalls;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualApiCalls.size() + ' residual kern__ApiCall__c row(s)');
+				'Cleanup: deleted ' + residualApiCalls.size() + ' residual kern__ApiCall__c row(s)');
 	}
 
 	List<kern__LogEntry__c> residualLogEntries =
 	[
-		SELECT Id
-		FROM kern__LogEntry__c
-		WHERE kern__ClassMethod__c = :EXPECTED_CLASS_METHOD_MARKER
-		LIMIT 9000
+			SELECT Id
+			FROM kern__LogEntry__c
+			WHERE kern__ClassMethod__c = :EXPECTED_CLASS_METHOD_MARKER
+			LIMIT 9000
 	];
 	if(!residualLogEntries.isEmpty())
 	{
 		delete residualLogEntries;
 		System.debug(LoggingLevel.INFO,
-			'Cleanup: deleted ' + residualLogEntries.size() + ' SOAK_ITERATION kern__LogEntry__c row(s)');
+				'Cleanup: deleted ' + residualLogEntries.size() + ' SOAK_ITERATION kern__LogEntry__c row(s)');
 	}
 }
 catch(Exception cleanupError)
@@ -435,6 +443,6 @@ if(fail > 0)
 else
 {
 	System.debug(LoggingLevel.INFO,
-		'=== sustained-masker-soak smoke test COMPLETE: 1 iteration verified end-to-end. '
+			'=== sustained-masker-soak smoke test COMPLETE: 1 iteration verified end-to-end. '
 			+ 'Operational 30-min mode: see header for System.schedule invocation pattern. ===');
 }

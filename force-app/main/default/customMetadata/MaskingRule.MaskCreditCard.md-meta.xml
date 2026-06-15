@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Payment</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts credit card numbers matching ISO/IEC 7812 issuer prefixes (Visa, MC, Amex, Discover, Diners, JCB, UnionPay) that additionally pass the Luhn mod-10 checksum. MinInputLength 15, Block DML. Review with PCI before deactivating.</value>
     </values>

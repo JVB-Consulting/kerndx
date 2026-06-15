@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+
+/* Zebra-stripe the dormant-rule rows so a multi-rule activation list stays scannable. */
+.generate-bundle-modal__rule-table tbody tr:nth-of-type(even)
+{
+	background-color : var(--slds-g-color-neutral-base-95, #F3F3F3);
+}

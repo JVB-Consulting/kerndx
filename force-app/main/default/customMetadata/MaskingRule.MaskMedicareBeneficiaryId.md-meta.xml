@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Health</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts 11-character Medicare Beneficiary Identifiers per the CMS format (positional alpha/numeric constraints, excluded letters S L O I B Z). Ships with Block DML; review with your HIPAA compliance team before deactivating.</value>
     </values>

@@ -14,20 +14,22 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const {execSync} = require('child_process');
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 const CONFIG = {
-	SFDX_PROJECT_FILE: 'sfdx-project.json',
-	SOURCE_DIR: 'force-app/main/default',
+	SFDX_PROJECT_FILE: 'sfdx-project.json', SOURCE_DIR: 'force-app/main/default',
 
 	// Custom metadata types and their class reference fields (use dot notation: Namespace.ClassName)
 	// Note: ClassTypeResolver is excluded - it supports non-namespaced class references
 	METADATA_CLASS_FIELDS: {
-		TriggerAction: ['ApexClassName__c', 'EntryCriteriaContextClassName__c'],
+		TriggerAction: [
+			'ApexClassName__c',
+			'EntryCriteriaContextClassName__c'
+		],
 		ApiSetting: ['ClassName__c'],
 		ApiDataMask: ['ClassName__c'],
 		FeatureFlagStrategy: ['CustomHandler__c'],
@@ -37,12 +39,17 @@ const CONFIG = {
 
 	// Custom metadata types with object/field reference fields (use double underscore: Namespace__Name)
 	METADATA_OBJECT_FIELDS: {
-		ApiCredential: ['NamedCredential__c'],
-		FieldSetGroup: ['DefaultActiveSections__c', 'FieldSetApiNames__c']
+		ApiCredential: ['NamedCredential__c'], FieldSetGroup: [
+			'DefaultActiveSections__c',
+			'FieldSetApiNames__c'
+		]
 	},
 
 	// FlexiPage properties that need object namespace prefixes
-	FLEXIPAGE_OBJECT_PROPERTIES: ['objectApiName', 'fieldSetApiName'],
+	FLEXIPAGE_OBJECT_PROPERTIES: [
+		'objectApiName',
+		'fieldSetApiName'
+	],
 
 	// FlexiPage properties with embedded object references (key=value format)
 	FLEXIPAGE_EMBEDDED_OBJECT_PROPERTIES: ['controllerSearchParameters'],
@@ -50,8 +57,16 @@ const CONFIG = {
 	// LWC properties with apex:// type references
 	LWC_APEX_TYPE_PATTERN: /type="apex:\/\//,
 
-	// LWC JS tab API names that need Namespace__ prefix for standard__navItemPage navigation
-	LWC_TAB_API_NAMES: ['ApiTestHarness', 'StreamingEventMonitor', 'ChainMonitor'],
+	// LWC JS tab API names that need Namespace__ prefix for standard__navItemPage navigation.
+	// Every console tab launched via standard__navItemPage must appear here — a tab left out
+	// ships with a bare reference that 404s ("Page doesn't exist") once the package is
+	// installed under a namespace, while it still resolves in the no-namespace dev org.
+	LWC_TAB_API_NAMES: [
+		'ApiTestHarness',
+		'StreamingEventMonitor',
+		'ChainMonitor',
+		'DataMaskingAdvisor'
+	],
 
 	// Flow files that need namespace prefixing for managed package field resolution
 	FLOW_FILES: [
@@ -73,17 +88,17 @@ const CONFIG = {
  */
 function needsClassPrefix(value, namespace)
 {
-	if (!value || typeof value !== 'string')
+	if(!value || typeof value !== 'string')
 	{
 		return false;
 	}
 	// Already has a namespace (contains dot)
-	if (value.includes('.'))
+	if(value.includes('.'))
 	{
 		return false;
 	}
 	// Is an object reference (contains double underscore)
-	if (value.includes('__'))
+	if(value.includes('__'))
 	{
 		return false;
 	}
@@ -98,23 +113,23 @@ function needsClassPrefix(value, namespace)
  */
 function needsObjectPrefix(value, namespace)
 {
-	if (!value || typeof value !== 'string')
+	if(!value || typeof value !== 'string')
 	{
 		return false;
 	}
 	// Must be a custom object (ends with __c)
-	if (!value.endsWith('__c'))
+	if(!value.endsWith('__c'))
 	{
 		return false;
 	}
 	// Already has namespace prefix
-	if (value.startsWith(namespace + '__'))
+	if(value.startsWith(namespace + '__'))
 	{
 		return false;
 	}
 	// Check if it's already namespaced (has __ before the __c)
 	const withoutSuffix = value.slice(0, -3);
-	if (withoutSuffix.includes('__'))
+	if(withoutSuffix.includes('__'))
 	{
 		return false;
 	}
@@ -130,17 +145,17 @@ function needsObjectPrefix(value, namespace)
  */
 function needsApiNamePrefix(value, namespace)
 {
-	if (!value || typeof value !== 'string')
+	if(!value || typeof value !== 'string')
 	{
 		return false;
 	}
 	// Already has namespace prefix
-	if (value.startsWith(namespace + '__'))
+	if(value.startsWith(namespace + '__'))
 	{
 		return false;
 	}
 	// Already contains __ (some other namespace or custom suffix)
-	if (value.includes('__'))
+	if(value.includes('__'))
 	{
 		return false;
 	}
@@ -155,7 +170,7 @@ function needsApiNamePrefix(value, namespace)
  */
 function addClassNamespace(value, namespace)
 {
-	if (!needsClassPrefix(value, namespace))
+	if(!needsClassPrefix(value, namespace))
 	{
 		return value;
 	}
@@ -170,7 +185,7 @@ function addClassNamespace(value, namespace)
  */
 function addObjectNamespace(value, namespace)
 {
-	if (!needsObjectPrefix(value, namespace))
+	if(!needsObjectPrefix(value, namespace))
 	{
 		return value;
 	}
@@ -185,7 +200,7 @@ function addObjectNamespace(value, namespace)
  */
 function addApiNamespace(value, namespace)
 {
-	if (!needsApiNamePrefix(value, namespace))
+	if(!needsApiNamePrefix(value, namespace))
 	{
 		return value;
 	}
@@ -205,7 +220,7 @@ function getMetadataTypeFromFilename(filename)
 {
 	const basename = path.basename(filename);
 	const dotIndex = basename.indexOf('.');
-	if (dotIndex === -1)
+	if(dotIndex === -1)
 	{
 		return null;
 	}
@@ -228,17 +243,14 @@ function transformCustomMetadataContent(content, namespace, fields)
 	const changes = [];
 	let result = content;
 
-	for (const field of fields)
+	for(const field of fields)
 	{
 		// Pattern to match: <field>FieldName</field> followed by <value xsi:type="xsd:string">ClassName</value>
-		const regex = new RegExp(
-			`(<field>${field}</field>\\s*<value\\s+xsi:type="xsd:string">)([^<]+)(</value>)`,
-			'g'
-		);
+		const regex = new RegExp(`(<field>${field}</field>\\s*<value\\s+xsi:type="xsd:string">)([^<]+)(</value>)`, 'g');
 
 		result = result.replace(regex, (match, prefix, className, suffix) =>
 		{
-			if (needsClassPrefix(className, namespace))
+			if(needsClassPrefix(className, namespace))
 			{
 				const newClassName = addClassNamespace(className, namespace);
 				changes.push(`${field}: ${className} -> ${newClassName}`);
@@ -248,7 +260,7 @@ function transformCustomMetadataContent(content, namespace, fields)
 		});
 	}
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 /**
@@ -268,31 +280,28 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 	// Remove conditional formatting sections (not supported in managed packages)
 	const conditionalFormatRegex = /\s*<fieldInstanceProperties>\s*<name>conditionalFormatRuleset<\/name>\s*<value>[^<]*<\/value>\s*<\/fieldInstanceProperties>/g;
 	const conditionalMatches = result.match(conditionalFormatRegex);
-	if (conditionalMatches)
+	if(conditionalMatches)
 	{
 		result = result.replace(conditionalFormatRegex, '');
 		changes.push(`Removed ${conditionalMatches.length} conditionalFormatRuleset section(s)`);
 	}
 
-	for (const propertyName of propertyNames)
+	for(const propertyName of propertyNames)
 	{
 		// Pattern to match: <name>propertyName</name> followed by <value>ObjectName</value>
-		const regex = new RegExp(
-			`(<name>${propertyName}</name>\\s*<value>)([^<]+)(</value>)`,
-			'g'
-		);
+		const regex = new RegExp(`(<name>${propertyName}</name>\\s*<value>)([^<]+)(</value>)`, 'g');
 
 		result = result.replace(regex, (match, prefix, value, suffix) =>
 		{
 			// Check for custom object (ends with __c)
-			if (value.endsWith('__c') && needsObjectPrefix(value, namespace))
+			if(value.endsWith('__c') && needsObjectPrefix(value, namespace))
 			{
 				const newValue = addObjectNamespace(value, namespace);
 				changes.push(`${propertyName}: ${value} -> ${newValue}`);
 				return prefix + newValue + suffix;
 			}
 			// Check for API name (fieldset names, etc.)
-			if (!value.endsWith('__c') && needsApiNamePrefix(value, namespace))
+			if(!value.endsWith('__c') && needsApiNamePrefix(value, namespace))
 			{
 				const newValue = addApiNamespace(value, namespace);
 				changes.push(`${propertyName}: ${value} -> ${newValue}`);
@@ -303,12 +312,9 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 	}
 
 	// Handle properties with embedded object references (key=value format)
-	for (const propertyName of embeddedPropertyNames)
+	for(const propertyName of embeddedPropertyNames)
 	{
-		const regex = new RegExp(
-			`(<name>${propertyName}</name>\\s*<value>)([^<]+)(</value>)`,
-			'g'
-		);
+		const regex = new RegExp(`(<name>${propertyName}</name>\\s*<value>)([^<]+)(</value>)`, 'g');
 
 		result = result.replace(regex, (match, prefix, value, suffix) =>
 		{
@@ -316,7 +322,7 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 			let modified = false;
 			const newValue = value.replace(/(\w+)=(\w+__c)\b/g, (kvMatch, key, objectName) =>
 			{
-				if (needsObjectPrefix(objectName, namespace))
+				if(needsObjectPrefix(objectName, namespace))
 				{
 					modified = true;
 					return `${key}=${addObjectNamespace(objectName, namespace)}`;
@@ -324,7 +330,7 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 				return kvMatch;
 			});
 
-			if (modified)
+			if(modified)
 			{
 				changes.push(`${propertyName}: ${value} -> ${newValue}`);
 				return prefix + newValue + suffix;
@@ -333,7 +339,7 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 		});
 	}
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 /**
@@ -349,13 +355,10 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 	const changes = [];
 	let result = content;
 
-	for (const field of fields)
+	for(const field of fields)
 	{
 		// Pattern to match field value
-		const regex = new RegExp(
-			`(<field>${field}</field>\\s*<value\\s+xsi:type="xsd:string">)([^<]+)(</value>)`,
-			'g'
-		);
+		const regex = new RegExp(`(<field>${field}</field>\\s*<value\\s+xsi:type="xsd:string">)([^<]+)(</value>)`, 'g');
 
 		result = result.replace(regex, (match, prefix, value, suffix) =>
 		{
@@ -365,11 +368,11 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 			const newParts = parts.map(part =>
 			{
 				// Handle colon-separated mappings (like MappingList__c: fieldName:ApiName__c)
-				if (part.includes(':'))
+				if(part.includes(':'))
 				{
 					const [key, apiName] = part.split(':');
 					// API names in mappings that end with __c are objects
-					if (apiName.endsWith('__c') && needsObjectPrefix(apiName, namespace))
+					if(apiName.endsWith('__c') && needsObjectPrefix(apiName, namespace))
 					{
 						modified = true;
 						return `${key}:${addObjectNamespace(apiName, namespace)}`;
@@ -377,7 +380,7 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 					return part;
 				}
 				// Simple value - treat as API name needing Namespace__ prefix
-				if (needsApiNamePrefix(part, namespace))
+				if(needsApiNamePrefix(part, namespace))
 				{
 					modified = true;
 					return addApiNamespace(part, namespace);
@@ -385,7 +388,7 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 				return part;
 			});
 
-			if (modified)
+			if(modified)
 			{
 				const newValue = newParts.join(',');
 				changes.push(`${field}: transformed`);
@@ -395,7 +398,7 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 		});
 	}
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 /**
@@ -416,7 +419,7 @@ function transformLwcMetaContent(content, namespace)
 	result = result.replace(regex, (match, prefix, className, arraySuffix, quote) =>
 	{
 		// Skip if already namespaced (contains a dot)
-		if (className.includes('.'))
+		if(className.includes('.'))
 		{
 			return match;
 		}
@@ -425,7 +428,7 @@ function transformLwcMetaContent(content, namespace)
 		return prefix + newClassName + (arraySuffix || '') + quote;
 	});
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 /**
@@ -440,13 +443,18 @@ function transformLwcJsContent(content, namespace, tabApiNames)
 	const changes = [];
 	let result = content;
 
-	for (const tabName of tabApiNames)
+	for(const tabName of tabApiNames)
 	{
-		// Match apiName: 'TabName', apiName: "TabName", or launchTarget: 'TabName' in
-		// navigation calls. Both inline apiName literals and data-driven tools arrays
-		// (as used by kernHome.js) need their tab references prefixed for subscriber
-		// navigation to resolve.
-		const regex = new RegExp(`((?:apiName|launchTarget):\\s*['"])${tabName}(['"])`, 'g');
+		// Match the tab name as a quoted literal in any of the three forms that feed
+		// standard__navItemPage navigation:
+		//   apiName: 'TabName' / "TabName"  - inline navigation call
+		//   launchTarget: 'TabName'         - data-driven tools array (e.g. kernHome.js)
+		//   = 'TabName'                     - named constant declaration (e.g. healthCheck.js,
+		//                                     which then passes the constant to apiName)
+		// The literal must be exactly the tab name (a closing quote immediately follows), so a
+		// label that merely embeds the name ('TabName settings') and an already-prefixed value
+		// ('NS__TabName') are both left untouched.
+		const regex = new RegExp(`((?:apiName|launchTarget):\\s*['"]|=\\s*['"])${tabName}(['"])`, 'g');
 
 		result = result.replace(regex, (match, prefix, quote) =>
 		{
@@ -456,7 +464,7 @@ function transformLwcJsContent(content, namespace, tabApiNames)
 		});
 	}
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 /**
@@ -475,7 +483,7 @@ function transformFlowContent(content, namespace)
 	// $Record.FieldName__c references (in assignToReference, elementReference, etc.)
 	result = result.replace(/(\$Record\.)([A-Za-z][A-Za-z0-9_]*__c)/g, (match, prefix, fieldName) =>
 	{
-		if (needsObjectPrefix(fieldName, namespace))
+		if(needsObjectPrefix(fieldName, namespace))
 		{
 			const newFieldName = addObjectNamespace(fieldName, namespace);
 			changes.push(`$Record field: ${fieldName} -> ${newFieldName}`);
@@ -487,7 +495,7 @@ function transformFlowContent(content, namespace)
 	// <field>FieldName__c</field> (in filters and inputAssignments)
 	result = result.replace(/(<field>)([A-Za-z][A-Za-z0-9_]*__c)(<\/field>)/g, (match, prefix, fieldName, suffix) =>
 	{
-		if (needsObjectPrefix(fieldName, namespace))
+		if(needsObjectPrefix(fieldName, namespace))
 		{
 			const newFieldName = addObjectNamespace(fieldName, namespace);
 			changes.push(`filter/field: ${fieldName} -> ${newFieldName}`);
@@ -499,7 +507,7 @@ function transformFlowContent(content, namespace)
 	// <object>ObjectName__c</object>
 	result = result.replace(/(<object>)([A-Za-z][A-Za-z0-9_]*__c)(<\/object>)/g, (match, prefix, objectName, suffix) =>
 	{
-		if (needsObjectPrefix(objectName, namespace))
+		if(needsObjectPrefix(objectName, namespace))
 		{
 			const newObjectName = addObjectNamespace(objectName, namespace);
 			changes.push(`object: ${objectName} -> ${newObjectName}`);
@@ -511,7 +519,7 @@ function transformFlowContent(content, namespace)
 	// <recordField>FieldName__c</recordField> (scheduled path record fields)
 	result = result.replace(/(<recordField>)([A-Za-z][A-Za-z0-9_]*__c)(<\/recordField>)/g, (match, prefix, fieldName, suffix) =>
 	{
-		if (needsObjectPrefix(fieldName, namespace))
+		if(needsObjectPrefix(fieldName, namespace))
 		{
 			const newFieldName = addObjectNamespace(fieldName, namespace);
 			changes.push(`recordField: ${fieldName} -> ${newFieldName}`);
@@ -523,7 +531,7 @@ function transformFlowContent(content, namespace)
 	// Apex action references within <actionCalls> blocks
 	result = result.replace(/<actionCalls>([\s\S]*?)<\/actionCalls>/g, (block) =>
 	{
-		if (!block.includes('<actionType>apex</actionType>'))
+		if(!block.includes('<actionType>apex</actionType>'))
 		{
 			return block;
 		}
@@ -533,7 +541,7 @@ function transformFlowContent(content, namespace)
 		// Prefix <actionName>
 		newBlock = newBlock.replace(/(<actionName>)([A-Za-z]\w+)(<\/actionName>)/, (match, prefix, name, suffix) =>
 		{
-			if (!name.includes('__'))
+			if(!name.includes('__'))
 			{
 				const newName = `${namespace}__${name}`;
 				changes.push(`apex action: ${name} -> ${newName}`);
@@ -545,7 +553,7 @@ function transformFlowContent(content, namespace)
 		// Prefix <nameSegment>
 		newBlock = newBlock.replace(/(<nameSegment>)([A-Za-z]\w+)(<\/nameSegment>)/, (match, prefix, name, suffix) =>
 		{
-			if (!name.includes('__'))
+			if(!name.includes('__'))
 			{
 				const newName = `${namespace}__${name}`;
 				changes.push(`nameSegment: ${name} -> ${newName}`);
@@ -557,7 +565,7 @@ function transformFlowContent(content, namespace)
 		return newBlock;
 	});
 
-	return { content: result, changes };
+	return {content: result, changes};
 }
 
 // ============================================================================
@@ -585,13 +593,13 @@ function readNamespace(projectRoot)
  */
 function getFiles(dir, extension)
 {
-	if (!fs.existsSync(dir))
+	if(!fs.existsSync(dir))
 	{
 		return [];
 	}
 	return fs.readdirSync(dir)
-		.filter(file => file.endsWith(extension))
-		.map(file => path.join(dir, file));
+	.filter(file => file.endsWith(extension))
+	.map(file => path.join(dir, file));
 }
 
 /**
@@ -602,22 +610,22 @@ function getFiles(dir, extension)
  */
 function getFilesRecursive(dir, extension)
 {
-	if (!fs.existsSync(dir))
+	if(!fs.existsSync(dir))
 	{
 		return [];
 	}
 
 	let results = [];
-	const items = fs.readdirSync(dir, { withFileTypes: true });
+	const items = fs.readdirSync(dir, {withFileTypes: true});
 
-	for (const item of items)
+	for(const item of items)
 	{
 		const fullPath = path.join(dir, item.name);
-		if (item.isDirectory())
+		if(item.isDirectory())
 		{
 			results = results.concat(getFilesRecursive(fullPath, extension));
 		}
-		else if (item.name.endsWith(extension))
+		else if(item.name.endsWith(extension))
 		{
 			results.push(fullPath);
 		}
@@ -648,9 +656,15 @@ function getGitVersion(filePath)
 	{
 		// Convert absolute path to relative path for git
 		const relativePath = path.relative(process.cwd(), filePath);
-		return execSync(`git show HEAD:"${relativePath}"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+		return execSync(`git show HEAD:"${relativePath}"`, {
+			encoding: 'utf8', stdio: [
+				'pipe',
+				'pipe',
+				'pipe'
+			]
+		});
 	}
-	catch (e)
+	catch(e)
 	{
 		return null;
 	}
@@ -667,7 +681,7 @@ function writeFileWithGitFormatting(filePath, content)
 {
 	const gitContent = getGitVersion(filePath);
 
-	if (gitContent && normalizeWhitespace(content) === normalizeWhitespace(gitContent))
+	if(gitContent && normalizeWhitespace(content) === normalizeWhitespace(gitContent))
 	{
 		// Content matches git version, use git's formatting
 		fs.writeFileSync(filePath, gitContent, 'utf8');
@@ -700,13 +714,13 @@ function processCustomMetadata(sourceDir, namespace, dryRun, verbose)
 
 	console.log('\nCustom Metadata:');
 
-	for (const file of files)
+	for(const file of files)
 	{
 		const metadataType = getMetadataTypeFromFilename(file);
 		const classFields = CONFIG.METADATA_CLASS_FIELDS[metadataType];
 		const objectFields = CONFIG.METADATA_OBJECT_FIELDS[metadataType];
 
-		if (!classFields && !objectFields)
+		if(!classFields && !objectFields)
 		{
 			continue;
 		}
@@ -715,48 +729,48 @@ function processCustomMetadata(sourceDir, namespace, dryRun, verbose)
 		let allChanges = [];
 
 		// Transform class reference fields
-		if (classFields)
+		if(classFields)
 		{
-			const { content: newContent, changes } = transformCustomMetadataContent(content, namespace, classFields);
+			const {content: newContent, changes} = transformCustomMetadataContent(content, namespace, classFields);
 			content = newContent;
 			allChanges = allChanges.concat(changes);
 		}
 
 		// Transform object reference fields
-		if (objectFields)
+		if(objectFields)
 		{
-			const { content: newContent, changes } = transformCustomMetadataObjectFields(content, namespace, objectFields);
+			const {content: newContent, changes} = transformCustomMetadataObjectFields(content, namespace, objectFields);
 			content = newContent;
 			allChanges = allChanges.concat(changes);
 		}
 
 		const basename = path.basename(file);
-		if (allChanges.length > 0)
+		if(allChanges.length > 0)
 		{
 			console.log(`  + ${basename}`);
-			for (const change of allChanges)
+			for(const change of allChanges)
 			{
 				console.log(`    - ${change}`);
 			}
-			if (!dryRun)
+			if(!dryRun)
 			{
 				writeFileWithGitFormatting(file, content);
 			}
 			modified++;
 		}
-		else if (verbose)
+		else if(verbose)
 		{
 			console.log(`  o ${basename} (already prefixed)`);
 			skipped++;
 		}
 	}
 
-	if (modified === 0 && skipped === 0)
+	if(modified === 0 && skipped === 0)
 	{
 		console.log('  (no files to process)');
 	}
 
-	return { modified, skipped };
+	return {modified, skipped};
 }
 
 /**
@@ -776,43 +790,38 @@ function processFlexiPages(sourceDir, namespace, dryRun, verbose)
 
 	console.log('\nFlexiPages:');
 
-	for (const file of files)
+	for(const file of files)
 	{
 		const content = fs.readFileSync(file, 'utf8');
-		const { content: newContent, changes } = transformFlexiPageContent(
-			content,
-			namespace,
-			CONFIG.FLEXIPAGE_OBJECT_PROPERTIES,
-			CONFIG.FLEXIPAGE_EMBEDDED_OBJECT_PROPERTIES
-		);
+		const {content: newContent, changes} = transformFlexiPageContent(content, namespace, CONFIG.FLEXIPAGE_OBJECT_PROPERTIES, CONFIG.FLEXIPAGE_EMBEDDED_OBJECT_PROPERTIES);
 
 		const basename = path.basename(file);
-		if (changes.length > 0)
+		if(changes.length > 0)
 		{
 			console.log(`  + ${basename}`);
-			for (const change of changes)
+			for(const change of changes)
 			{
 				console.log(`    - ${change}`);
 			}
-			if (!dryRun)
+			if(!dryRun)
 			{
 				writeFileWithGitFormatting(file, newContent);
 			}
 			modified++;
 		}
-		else if (verbose)
+		else if(verbose)
 		{
 			console.log(`  o ${basename} (no controller references or already prefixed)`);
 			skipped++;
 		}
 	}
 
-	if (modified === 0 && skipped === 0)
+	if(modified === 0 && skipped === 0)
 	{
 		console.log('  (no files to process)');
 	}
 
-	return { modified, skipped };
+	return {modified, skipped};
 }
 
 /**
@@ -832,48 +841,48 @@ function processLwcMeta(sourceDir, namespace, dryRun, verbose)
 
 	console.log('\nLWC Meta Files (apex:// types):');
 
-	for (const file of files)
+	for(const file of files)
 	{
 		const content = fs.readFileSync(file, 'utf8');
 
 		// Only process files that contain apex:// references
-		if (!content.includes('apex://'))
+		if(!content.includes('apex://'))
 		{
 			continue;
 		}
 
-		const { content: newContent, changes } = transformLwcMetaContent(content, namespace);
+		const {content: newContent, changes} = transformLwcMetaContent(content, namespace);
 
 		const basename = path.basename(file);
 		const componentName = path.basename(path.dirname(file));
 		const displayName = `${componentName}/${basename}`;
 
-		if (changes.length > 0)
+		if(changes.length > 0)
 		{
 			console.log(`  + ${displayName}`);
-			for (const change of changes)
+			for(const change of changes)
 			{
 				console.log(`    - ${change}`);
 			}
-			if (!dryRun)
+			if(!dryRun)
 			{
 				writeFileWithGitFormatting(file, newContent);
 			}
 			modified++;
 		}
-		else if (verbose)
+		else if(verbose)
 		{
 			console.log(`  o ${displayName} (already prefixed)`);
 			skipped++;
 		}
 	}
 
-	if (modified === 0 && skipped === 0)
+	if(modified === 0 && skipped === 0)
 	{
 		console.log('  (no files to process)');
 	}
 
-	return { modified, skipped };
+	return {modified, skipped};
 }
 
 /**
@@ -893,10 +902,10 @@ function processLwcJs(sourceDir, namespace, dryRun, verbose)
 
 	console.log('\nLWC JS Files (tab API names):');
 
-	for (const file of files)
+	for(const file of files)
 	{
 		// Skip test files and meta files
-		if (file.includes('__tests__') || file.endsWith('.js-meta.xml'))
+		if(file.includes('__tests__') || file.endsWith('.js-meta.xml'))
 		{
 			continue;
 		}
@@ -904,43 +913,43 @@ function processLwcJs(sourceDir, namespace, dryRun, verbose)
 		const content = fs.readFileSync(file, 'utf8');
 
 		// Only process files that contain standard__navItemPage
-		if (!content.includes('standard__navItemPage'))
+		if(!content.includes('standard__navItemPage'))
 		{
 			continue;
 		}
 
-		const { content: newContent, changes } = transformLwcJsContent(content, namespace, CONFIG.LWC_TAB_API_NAMES);
+		const {content: newContent, changes} = transformLwcJsContent(content, namespace, CONFIG.LWC_TAB_API_NAMES);
 
 		const basename = path.basename(file);
 		const componentName = path.basename(path.dirname(file));
 		const displayName = `${componentName}/${basename}`;
 
-		if (changes.length > 0)
+		if(changes.length > 0)
 		{
 			console.log(`  + ${displayName}`);
-			for (const change of changes)
+			for(const change of changes)
 			{
 				console.log(`    - ${change}`);
 			}
-			if (!dryRun)
+			if(!dryRun)
 			{
 				writeFileWithGitFormatting(file, newContent);
 			}
 			modified++;
 		}
-		else if (verbose)
+		else if(verbose)
 		{
 			console.log(`  o ${displayName} (already prefixed)`);
 			skipped++;
 		}
 	}
 
-	if (modified === 0 && skipped === 0)
+	if(modified === 0 && skipped === 0)
 	{
 		console.log('  (no files to process)');
 	}
 
-	return { modified, skipped };
+	return {modified, skipped};
 }
 
 /**
@@ -959,13 +968,13 @@ function processFlows(sourceDir, namespace, dryRun, verbose)
 
 	console.log('\nFlows (field namespace prefixes):');
 
-	for (const filename of CONFIG.FLOW_FILES)
+	for(const filename of CONFIG.FLOW_FILES)
 	{
 		const file = path.join(flowsDir, filename);
 
-		if (!fs.existsSync(file))
+		if(!fs.existsSync(file))
 		{
-			if (verbose)
+			if(verbose)
 			{
 				console.log(`  - ${filename} (not found, skipping)`);
 			}
@@ -973,34 +982,34 @@ function processFlows(sourceDir, namespace, dryRun, verbose)
 		}
 
 		const content = fs.readFileSync(file, 'utf8');
-		const { content: newContent, changes } = transformFlowContent(content, namespace);
+		const {content: newContent, changes} = transformFlowContent(content, namespace);
 
-		if (changes.length > 0)
+		if(changes.length > 0)
 		{
 			console.log(`  + ${filename}`);
-			for (const change of changes)
+			for(const change of changes)
 			{
 				console.log(`    - ${change}`);
 			}
-			if (!dryRun)
+			if(!dryRun)
 			{
 				writeFileWithGitFormatting(file, newContent);
 			}
 			modified++;
 		}
-		else if (verbose)
+		else if(verbose)
 		{
 			console.log(`  o ${filename} (already prefixed)`);
 			skipped++;
 		}
 	}
 
-	if (modified === 0 && skipped === 0)
+	if(modified === 0 && skipped === 0)
 	{
 		console.log('  (no files to process)');
 	}
 
-	return { modified, skipped };
+	return {modified, skipped};
 }
 
 // ============================================================================
@@ -1016,12 +1025,12 @@ function processFlows(sourceDir, namespace, dryRun, verbose)
  */
 function main(options = {})
 {
-	const { dryRun = false, verbose = false, projectRoot = process.cwd() } = options;
+	const {dryRun = false, verbose = false, projectRoot = process.cwd()} = options;
 
 	console.log('Kern Build Preparation');
 	console.log('=============================');
 
-	if (dryRun)
+	if(dryRun)
 	{
 		console.log('(DRY RUN - no files will be modified)\n');
 	}
@@ -1042,39 +1051,31 @@ function main(options = {})
 	};
 
 	// Summary
-	const totalModified = results.customMetadata.modified +
-		results.flexiPages.modified +
-		results.lwcMeta.modified +
-		results.lwcJs.modified +
-		results.flows.modified;
-	const totalSkipped = results.customMetadata.skipped +
-		results.flexiPages.skipped +
-		results.lwcMeta.skipped +
-		results.lwcJs.skipped +
-		results.flows.skipped;
+	const totalModified = results.customMetadata.modified + results.flexiPages.modified + results.lwcMeta.modified + results.lwcJs.modified + results.flows.modified;
+	const totalSkipped = results.customMetadata.skipped + results.flexiPages.skipped + results.lwcMeta.skipped + results.lwcJs.skipped + results.flows.skipped;
 
 	console.log('\n=============================');
 	console.log(`Summary: ${totalModified} files modified, ${totalSkipped} files skipped (already prefixed)`);
 
-	if (dryRun && totalModified > 0)
+	if(dryRun && totalModified > 0)
 	{
 		console.log('\nRun without --dry-run to apply changes.');
 	}
 
-	return { totalModified, totalSkipped };
+	return {totalModified, totalSkipped};
 }
 
 // ============================================================================
 // CLI Handling
 // ============================================================================
 
-if (require.main === module)
+if(require.main === module)
 {
 	const args = process.argv.slice(2);
 	const dryRun = args.includes('--dry-run');
 	const verbose = args.includes('--verbose');
 
-	main({ dryRun, verbose });
+	main({dryRun, verbose});
 }
 
 // ============================================================================

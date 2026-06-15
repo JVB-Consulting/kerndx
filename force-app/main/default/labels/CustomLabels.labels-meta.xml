@@ -169,6 +169,1838 @@
         <value>Class Type Resolver Setup</value>
     </labels>
     <labels>
+        <fullName>DataMaskingAdvisor_CardTitle</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masking advisor card title.</shortDescription>
+        <value>Data Masking Advisor</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Empty_Body</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Coverage advisor empty-state body, no object selected.</shortDescription>
+        <value>Choose an object above to see which of its fields would benefit from a masking rule on framework paths.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Empty_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Coverage advisor empty-state heading.</shortDescription>
+        <value>Pick an object to begin</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Error_LoadFailed</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>describeFields failure error message.</shortDescription>
+        <value>Could not load fields for this object. Try again, or pick a different object.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Coverage advisor section heading.</shortDescription>
+        <value>Coverage advisor</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_HeuristicOnly_Notice</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heuristic-only mode informational notice.</shortDescription>
+        <value>Running in heuristic-only mode — native field classification could not be read in this org. Matches below are flagged by field name and type, not by your classification metadata.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_HeuristicTier_High</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heuristic confidence tier label: HIGH.</shortDescription>
+        <value>Heuristic — high confidence</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_HeuristicTier_Low</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heuristic confidence tier label: LOW.</shortDescription>
+        <value>Heuristic — low confidence</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_HeuristicTier_Medium</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heuristic confidence tier label: MEDIUM.</shortDescription>
+        <value>Heuristic — medium confidence</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Section_ManualReview_NoRuleNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Manual-review row note: no rule matches the field.</shortDescription>
+        <value>No template rule matches {0}.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Section_Other_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Other-fields section heading with count.</shortDescription>
+        <value>All other fields ({0})</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Section_Other_Summary</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Other-fields section explanatory copy.</shortDescription>
+        <value>Fields not recommended for masking. Likely misses — where the field type suggests sensitive data but no rule matched — are listed first. Use Review to mask one anyway.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Section_Ready_Guidance</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ready section guidance copy.</shortDescription>
+        <value>These fields match a masking rule and are pre-selected. Uncheck any you want to leave out, then export the package.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Table_Column_Field</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Coverage table column header: Field.</shortDescription>
+        <value>Field</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageAdvisor_Table_Column_Sensitivity</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field table column header: Sensitivity.</shortDescription>
+        <value>Sensitivity</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_DeadConfigBanner_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config banner heading.</shortDescription>
+        <value>Configuration health</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_DeadConfigBanner_Summary_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config banner summary, plural. {0}=count.</shortDescription>
+        <value>{0} active masking targets are currently masking nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_DeadConfigBanner_Summary_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config banner summary, singular.</shortDescription>
+        <value>1 active masking target is currently masking nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_DeadConfiguration_InactiveRule</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config message: active target points to an inactive rule. {0}=target.</shortDescription>
+        <value>Masking target &quot;{0}&quot; points to an inactive rule, so it is currently masking nothing. Reactivate the rule or deactivate this target.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_DeadConfiguration_MissingRule</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config message: active target points to a missing rule. {0}=target.</shortDescription>
+        <value>Masking target &quot;{0}&quot; points to a rule that no longer exists, so it is currently masking nothing. Point it at an active rule or deactivate this target.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Readme_Body</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masking advisor bundle README body. {0}=members list or NoMembers fallback.</shortDescription>
+        <value># Data Masking configuration
+
+Generated by the Data Masking Advisor. Unzip this package, then deploy it to your org with the Salesforce CLI (no Salesforce project required):
+
+    sf project deploy start --metadata-dir metadata -o &lt;your-org-alias&gt;
+
+Or import it with any tool that accepts metadata (change set, Workbench, your CI/CD pipeline).
+
+Members: {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Readme_NoMembers</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masking advisor bundle README: members-list fallback when bundle is empty.</shortDescription>
+        <value>none</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RefreshAltText</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card refresh icon-button alt text.</shortDescription>
+        <value>Refresh masking analysis</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RulePicker_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Per-field masking-rule picker accessible label.</shortDescription>
+        <value>Masking rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RulePicker_NoMatches</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown in the rule picker when no rule matches the typed filter.</shortDescription>
+        <value>No matching rules</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RulePicker_Placeholder</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Per-field masking-rule picker search placeholder.</shortDescription>
+        <value>Search rules</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Cancel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog dismiss (Close) action button.</shortDescription>
+        <value>Close</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_ChangeSummary_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export change summary (plural); {0} total, {1} object, {2}/{3}/{4} counts.</shortDescription>
+        <value>This package applies {0} changes to {1} when deployed ({2} add · {3} disable · {4} re-enable). Nothing changes in your org until you deploy it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_ChangeSummary_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export change summary (1 change); {0} object, {1}/{2}/{3} counts.</shortDescription>
+        <value>This package applies 1 change to {0} when deployed ({1} add · {2} disable · {3} re-enable). Nothing changes in your org until you deploy it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Copied</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog copy-command button label after a successful copy.</shortDescription>
+        <value>Copied</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Copy</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog copy-deploy-command button label.</shortDescription>
+        <value>Copy command</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Deploy_AliasPlaceholder</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder shown in the deploy command before an org alias is entered.</shortDescription>
+        <value>&lt;your-org-alias&gt;</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Deploy_CliIntro</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog deploy path A (Salesforce CLI) intro line.</shortDescription>
+        <value>Salesforce CLI (fastest): set your org alias, copy the command, and run it from the unzipped folder.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Deploy_Command</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog Salesforce CLI deploy command; {0}=org alias.</shortDescription>
+        <value>sf project deploy start --metadata-dir metadata -o {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Deploy_CommandAriaLabel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible name for the focusable deploy-command block in the export dialog.</shortDescription>
+        <value>Deploy command</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Deploy_OtherToolsNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog deploy path B (your own tools) note.</shortDescription>
+        <value>Your own tools: import the package with a change set, Workbench, or your CI/CD pipeline.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Download</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog Download action button.</shortDescription>
+        <value>Download package</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_FileName</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export package download file name.</shortDescription>
+        <value>masking-configuration.zip</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_NoChanges</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog empty package-contents placeholder.</shortDescription>
+        <value>No changes.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_ObjectWideTag</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog package row tag marking an object-wide target.</shortDescription>
+        <value>object-wide</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_OrgAlias_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog org-alias input field label.</shortDescription>
+        <value>Org alias</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_OrgAlias_Placeholder</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog org-alias input placeholder.</shortDescription>
+        <value>MyOrg</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_PackageHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog package-contents list heading; {0}=total change count.</shortDescription>
+        <value>In this package ({0})</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Title</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog modal title.</shortDescription>
+        <value>Export masking package</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Verb_Add</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog package row verb tag for a created target.</shortDescription>
+        <value>add</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Verb_Disable</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog package row verb tag for a disabled target.</shortDescription>
+        <value>disable</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportModal_Verb_ReEnable</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export dialog package row verb tag for a re-enabled target.</shortDescription>
+        <value>re-enable</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_Apply</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog Apply button.</shortDescription>
+        <value>Apply</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_Cancel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog Cancel button.</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_ClassificationHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog label for the advisor&apos;s current classification.</shortDescription>
+        <value>Advisor classification</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_FooterNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog footer note explaining the change is session-only.</shortDescription>
+        <value>Session-only — this moves the field and is included in the export package.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContainHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog heading above the generic type-based content hints.</shortDescription>
+        <value>Fields of this kind may contain</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Address</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints for Address fields (pipe-delimited list).</shortDescription>
+        <value>Street, city, postal code</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Date</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints for Date and Datetime fields (pipe-delimited list).</shortDescription>
+        <value>Dates of birth or personal events</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Default</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints fallback for unmapped field types.</shortDescription>
+        <value>Structured field values</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Picklist</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints for Picklist fields (pipe-delimited).</shortDescription>
+        <value>Predefined category values</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Text</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints for Text fields (pipe-delimited).</shortDescription>
+        <value>Names|Phone numbers|Addresses|Free-form notes</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_MayContain_Url</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog content hints for URL fields (pipe-delimited list).</shortDescription>
+        <value>Profile photos or document links</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_SetClassificationHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog label for the classification radio group.</shortDescription>
+        <value>Set classification</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_SignalSuffix</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog suffix after the signal-band word, e.g. &quot;Weak signal&quot;.</shortDescription>
+        <value>signal</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_Title</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog modal title.</shortDescription>
+        <value>Review field</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewDialog_WhyHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review dialog label for the reason the field was flagged.</shortDescription>
+        <value>Why</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Sensitivity_NotSensitive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the NotSensitive classification.</shortDescription>
+        <value>Not Sensitive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Sensitivity_PossiblySensitive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the PossiblySensitive classification.</shortDescription>
+        <value>Possibly Sensitive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Sensitivity_Sensitive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the Sensitive classification.</shortDescription>
+        <value>Sensitive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_SignalBand_Moderate</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the Moderate match-strength band.</shortDescription>
+        <value>Moderate</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_SignalBand_Strong</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the Strong match-strength band.</shortDescription>
+        <value>Strong</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_SignalBand_Weak</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display text for the Weak match-strength band.</shortDescription>
+        <value>Weak</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ScopeBanner_Body</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Scope-honesty banner body paragraph.</shortDescription>
+        <value>Masking redacts sensitive values in two ways: as the framework&apos;s own data flows out (debug logs, outbound API callouts, async jobs, and platform events), and — for any object you configure with a masking target — on the record itself, just before it is inserted or updated. It is not encryption-at-rest: it does not change values that are already stored, and it does not restrict who can view a field beyond your field-level security.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_JsonHint_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inline example note shown when the rule masks keys inside a JSON payload.</shortDescription>
+        <value>This rule masks keys inside a JSON payload. Paste JSON to see it redacted.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_NoChange_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inline example note shown when the chosen rule left the sample value unchanged.</shortDescription>
+        <value>This rule didn&apos;t change that value. Try a value that looks like real data.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_PreviewFailed_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inline example note shown when a sample-value preview could not be produced.</shortDescription>
+        <value>Couldn&apos;t preview this value. Try again, or check the rule&apos;s pattern.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_TryButton_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that masks the admin&apos;s own sample value against the row&apos;s rule.</shortDescription>
+        <value>Try a value</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_TryInput_AriaLabel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible name for the sample-value input on a field row. {0} = field label.</shortDescription>
+        <value>Try a sample value for {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Example_TryInput_Placeholder</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the sample-value input on a field row.</shortDescription>
+        <value>Enter a sample value</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Summary_Ready</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary strip — count of fields ready to mask. {0} = count.</shortDescription>
+        <value>{0} ready</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Summary_ToReview</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary strip — count of fields needing review. {0} = count.</shortDescription>
+        <value>{0} to review</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Summary_Other</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary strip — count of other fields. {0} = count.</shortDescription>
+        <value>{0} other</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Section_ReadyToMask_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ready-to-mask section heading. {0} = count.</shortDescription>
+        <value>Ready to mask ({0})</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ExportPackageButton_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export package button label in the Ready-to-mask card header.</shortDescription>
+        <value>Export package</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Section_NeedsReview_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Needs-review section heading. {0} = count.</shortDescription>
+        <value>Needs review ({0})</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Section_NeedsReview_Guidance</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Needs-review section guidance copy.</shortDescription>
+        <value>Ambiguous classifications. Tick a field to include it in the package, or open Review to reclassify it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ReviewBadge_AssistiveText</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible name for the clickable sensitivity badge that opens Review.</shortDescription>
+        <value>Review classification for {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Marker_MarkedNotSensitive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marker on a field the admin reclassified as not sensitive.</shortDescription>
+        <value>Marked not sensitive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RevertOverride_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inline action that undoes an in-place reclassification on a field.</shortDescription>
+        <value>Revert</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RevertOverride_AriaLabel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible name for a per-row Revert action (names the field).</shortDescription>
+        <value>Revert the change to {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Summary_Changes</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary-strip count of in-place reclassifications made this session.</shortDescription>
+        <value>{0} changes</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Reclassify_Toast_Other</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast shown when a field is reclassified as not sensitive.</shortDescription>
+        <value>{0} marked not sensitive.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Reclassify_Toast_Reverted</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast shown when an in-place reclassification is reverted.</shortDescription>
+        <value>Reverted the change to {0}.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Marker_AddedManually</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marker on a field the admin reclassified as sensitive to add it.</shortDescription>
+        <value>Added manually</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Reclassify_Toast_Ready</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when a reclassified field gains a rule and joins the package.</shortDescription>
+        <value>{0} added to the masking package.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Reclassify_Toast_Review</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when a reclassified field needs a rule before it can be added.</shortDescription>
+        <value>{0} flagged for review. Add a rule to include it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ClearDraft_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action that discards the saved reclassification + selection draft.</shortDescription>
+        <value>Clear draft</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Draft_Cleared_Toast</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast confirming the saved draft was cleared.</shortDescription>
+        <value>Draft cleared.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Draft_SaveFailed_Warning</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning shown when the draft cannot be saved to the browser.</shortDescription>
+        <value>Your changes can&apos;t be saved in this browser, so they&apos;ll be lost if you reload. Export now to keep them.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Other_LowConfidenceMatch_Tag</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tag on an Other-table field flagged on a single weak heuristic signal.</shortDescription>
+        <value>Low-confidence match</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Other_Reason_NoSignal</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Other table reason text when no sensitivity signal was detected.</shortDescription>
+        <value>No sensitivity signal detected.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Other_Reason_TypeSuggests</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Other table reason text when the field type suggests sensitivity.</shortDescription>
+        <value>This field&apos;s type often holds sensitive data, but no rule matched its name.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_OtherToggle_MissesOnly_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle on the Other section that filters to likely-missed sensitive fields.</shortDescription>
+        <value>Show likely misses only</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Other_RowCap_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Other table cap note. {0} = shown, {1} = total.</shortDescription>
+        <value>Showing the first {0} of {1} fields. Turn on Show likely misses only to narrow the list.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Posture_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review landing heading for the org-wide masking posture summary.</shortDescription>
+        <value>Org-wide masking posture</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Posture_AsConfiguredNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review posture note clarifying counts are as-configured, not a field scan.</shortDescription>
+        <value>These counts reflect the masking targets configured in this org, not a scan of every field.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Posture_ObjectsWithMasking</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Posture count label: distinct objects with at least one active target.</shortDescription>
+        <value>Objects with masking configured</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Posture_DeadConfigurations</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Posture count label: active targets that mask nothing (dead).</shortDescription>
+        <value>Dead configurations</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Posture_BarelyMasked_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Review posture finding shown when the org has no active masking targets.</shortDescription>
+        <value>Almost nothing is masked in this org yet. Pick an object to review its fields and start configuring masking.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Inventory_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the list of masked objects on the Review landing.</shortDescription>
+        <value>Objects with masking</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Inventory_CountMeta</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inventory row counts: object-wide and field-level totals.</shortDescription>
+        <value>{0} object-wide · {1} field-level</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Inventory_DeadSuffix</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inventory row dead-configuration count suffix. {0} is the count.</shortDescription>
+        <value>{0} dead</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Inventory_Footer</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Hint under the masked-objects list inviting the admin to open an object.</shortDescription>
+        <value>Click an object to review its fields.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_MaskingCell_ObjectWideLine_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masking cell line label for object-wide rules that apply to this field.</shortDescription>
+        <value>Object-wide</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_MaskingCell_FieldLevelLine_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masking cell line label for this field&apos;s own rules and candidates.</shortDescription>
+        <value>Field-level</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Table_Column_MaskingRules</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field table column header for the masking-rules cell.</shortDescription>
+        <value>Masking rules</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_Flag_WillDisable</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chip hint shown when unticking an active rule will disable it on deploy.</shortDescription>
+        <value>will disable</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_Flag_WillEnable</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chip hint shown when ticking an inactive rule will re-enable it on deploy.</shortDescription>
+        <value>will enable</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_Flag_ToAdd</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chip hint shown when a ticked candidate rule will be created on deploy.</shortDescription>
+        <value>to add</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_Toggle_AriaLabel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible label for a rule chip checkbox (masked after deploy).</shortDescription>
+        <value>Mask with {0} after deploy</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_InactiveSuffix</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Suffix appended to an inactive rule chip label.</shortDescription>
+        <value>inactive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRule_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that adds a field-level masking rule candidate.</shortDescription>
+        <value>Add rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObjectWideRule_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that adds an object-wide masking rule candidate.</shortDescription>
+        <value>Add object-wide rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ObjectWideBanner_Heading_Active_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Object-wide banner heading when one active rule masks the object.</shortDescription>
+        <value>{0} is masked object-wide by 1 active rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ObjectWideBanner_Heading_Active_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Object-wide banner heading when several active rules mask the object.</shortDescription>
+        <value>{0} is masked object-wide by {1} active rules</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ObjectWideBanner_Heading_None</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Object-wide banner heading when the object has no object-wide masking.</shortDescription>
+        <value>{0} has no object-wide masking yet</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Banner_ShowDetail</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle that expands a collapsed coverage banner.</shortDescription>
+        <value>Show detail</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Banner_HideDetail</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle that collapses an expanded coverage banner.</shortDescription>
+        <value>Hide detail</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ObjectWideBanner_Note_Active</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Explanatory note under the object-wide banner when active rules exist.</shortDescription>
+        <value>These rules run on every field, redacting only the patterns they match. Untick one to disable it across the object. Some apply only to certain field types, so each field below lists the object-wide rules that apply to it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_ObjectWideBanner_Note_None</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Explanatory note under the object-wide banner when no rules exist.</shortDescription>
+        <value>An object-wide rule runs on every field of this object, redacting only the pattern it matches (for example credit-card numbers in any log field).</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Per-object configuration-health banner heading prefix.</shortDescription>
+        <value>Configuration health</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_ObjectWideInactive_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: one inactive object-wide rule.</shortDescription>
+        <value>1 object-wide rule inactive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_ObjectWideInactive_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: several inactive object-wide rules.</shortDescription>
+        <value>{0} object-wide rules inactive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_DeadFieldTargets_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: one field target masking nothing.</shortDescription>
+        <value>1 field target masking nothing</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_DeadFieldTargets_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: several field targets masking nothing.</shortDescription>
+        <value>{0} field targets masking nothing</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_ObjectWideInactive_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail line for one inactive object-wide rule.</shortDescription>
+        <value>1 object-wide rule is configured across every field but masking nothing. Re-enable it in the object-wide banner below, or remove it in Setup.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_ObjectWideInactive_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail line for several inactive object-wide rules.</shortDescription>
+        <value>{0} object-wide rules are configured across every field but masking nothing. Re-enable them in the object-wide banner below, or remove them in Setup.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_DeadFieldTarget</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail line for one field target that is masking nothing.</shortDescription>
+        <value>Field-level rule {0} on this object is masking nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_NoChangesQueued_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Hint shown when the export package has no queued changes.</shortDescription>
+        <value>No changes queued. Tick a candidate to add masking, or untick an existing rule to disable it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Pill_Active</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail status pill for a rule that is active.</shortDescription>
+        <value>Active</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Pill_Inactive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail status pill for a rule that is inactive.</shortDescription>
+        <value>Inactive</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Pill_NotApplied</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail status pill for a candidate rule not yet applied.</shortDescription>
+        <value>Not applied</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_WhatItMasks_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail section heading describing what the rule redacts.</shortDescription>
+        <value>What it masks</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_NoDescription</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail fallback when a rule records no description.</shortDescription>
+        <value>No description is recorded for this rule.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_TestThisRule_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail section heading for the sample-value test.</shortDescription>
+        <value>Test this rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Test_Prompt</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail test prompt shown before a sample value is masked.</shortDescription>
+        <value>Type a value, then select Try a value.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AppliesTo_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail section heading listing the field types the rule fits.</shortDescription>
+        <value>Applies to field types</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail section heading showing where the rule is applied.</shortDescription>
+        <value>Where it&apos;s applied</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_FieldLevel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail where-applied text for a field-level rule (object, field).</shortDescription>
+        <value>Field-level on {0}.{1}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_ObjectWide</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail where-applied text for an object-wide rule (object).</shortDescription>
+        <value>Object-wide on {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_FieldCandidate</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail where-applied text for a field-level candidate (object, field).</shortDescription>
+        <value>Candidate on {0}.{1}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_ObjectWideCandidate</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail where-applied text for an object-wide candidate (object).</shortDescription>
+        <value>Object-wide candidate on {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Where_MaskingNothingSuffix</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail suffix flagging an inactive rule as masking nothing.</shortDescription>
+        <value>currently masking nothing</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_MaskedAfterDeploy_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail checkbox label for the masked-after-deploy desired state.</shortDescription>
+        <value>Masked / active after deploy</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_StaysMasked</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: an active rule left ticked stays masked.</shortDescription>
+        <value>After deploy: stays masked.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_Disabled</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: an active rule unticked is disabled on deploy.</shortDescription>
+        <value>After deploy: masking disabled.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_Reenabled</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: an inactive rule ticked is re-enabled on deploy.</shortDescription>
+        <value>After deploy: re-enabled.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_StaysInactive</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: an inactive rule left unticked stays inactive.</shortDescription>
+        <value>After deploy: stays inactive.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_Added</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: a ticked candidate is added to masking on deploy.</shortDescription>
+        <value>After deploy: added to masking.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_AfterDeploy_NotAdded</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note: an unticked candidate is not added on deploy.</shortDescription>
+        <value>After deploy: not added.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Candidate_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail footer note explaining ticked candidates are created on deploy.</shortDescription>
+        <value>Ticked rules are created when you export and deploy this package.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_ObjectWideManaged_Note</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail note for a read-only object-wide rule shown on a field.</shortDescription>
+        <value>This rule is applied object-wide. Tick or untick it in the object-wide coverage banner, or open Setup to edit its pattern.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_ManageInSetup_Link</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail footer link that opens the rule in Salesforce Setup.</shortDescription>
+        <value>Manage in Setup</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_RuleDetail_Done</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rule-detail footer button that closes the popup.</shortDescription>
+        <value>Done</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_Text</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for a Text field.</shortDescription>
+        <value>Text</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_LongText</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for a Long Text Area field.</shortDescription>
+        <value>Long text</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_Url</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for a URL field.</shortDescription>
+        <value>URL</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_Email</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for an Email field.</shortDescription>
+        <value>Email</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_Phone</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for a Phone field.</shortDescription>
+        <value>Phone</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_EncryptedText</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly field-type name for an Encrypted Text field.</shortDescription>
+        <value>Encrypted text</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_FieldType_AnyText</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Friendly applies-to value for a rule that fits any text field.</shortDescription>
+        <value>Any text field</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Title_Field</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu title for a field (takes the field label as {0}).</shortDescription>
+        <value>Add a rule to {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Title_ObjectWide</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu title for an object (takes the object name as {0}).</shortDescription>
+        <value>Add an object-wide rule to {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Intro_Field</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu intro for a field.</shortDescription>
+        <value>Rules that match this field&apos;s type. Adding one ticks it into the export package — nothing changes in your org until you deploy it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Intro_ObjectWide</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu intro for an object (takes the object name as {0}).</shortDescription>
+        <value>An object-wide rule runs on every field of {0}, redacting only the patterns it matches. Adding one ticks it into the export package.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Empty_Field</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu empty state when no rules match the field type.</shortDescription>
+        <value>No other template rules match this field&apos;s type.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Empty_ObjectWide</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu empty state when every rule is already object-wide.</shortDescription>
+        <value>Every template rule is already applied object-wide here.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_AddButton</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu per-row button that adds the rule as a candidate.</shortDescription>
+        <value>Add</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_CreateCustomRule</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu footer link that opens the New Masking Rule Setup page.</shortDescription>
+        <value>Create a custom rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_Close</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu footer button that closes the menu.</shortDescription>
+        <value>Close</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_AppliesTo</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-rule menu line naming the field types a rule applies to.</shortDescription>
+        <value>Applies to {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddRuleMenu_NoFieldMatch_Warning</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object-wide-rule warning when a rule matches no field on the object yet.</shortDescription>
+        <value>Won&apos;t match any field on this object yet</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Chip_SupersededFlag</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Glanceable chip marker for a rule another rule replaces.</shortDescription>
+        <value>superseded</value>
+    </labels>
+    <labels>
+        <fullName>MaskingRuleSupersededBy</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Superseded masking rule annotation.</shortDescription>
+        <value>Superseded by {0}. Existing bindings still actively mask their objects — deactivating this rule stops masking wherever it is still bound. Rebind those objects to {0} first.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PayloadTemplateFailed</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error when the payload template for an event cannot be prepared.</shortDescription>
+        <value>Unable to prepare a payload template for {0}. Enter the payload manually.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PublishFailed</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error shown when an event cannot be published.</shortDescription>
+        <value>Unable to publish {0}. Check the payload values and format, then try again.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PublishScopeNote</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Which event types can be published manually from the Publish screen.</shortDescription>
+        <value>Only Generic and Custom Platform events can be published from here. Standard Platform, Change Data Capture, PushTopic, and Monitoring events are published by Salesforce or fire automatically when records change — to watch them, subscribe to their channel.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Publish_ErrorBody</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error toast body used when no detailed message is available.</shortDescription>
+        <value>Failed to publish {0}.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Publish_ErrorTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error toast title.</shortDescription>
+        <value>Publish failed</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Publish_SuccessBody</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish success toast body.</shortDescription>
+        <value>Successfully published {0}.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Publish_SuccessTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish success toast title.</shortDescription>
+        <value>Event published</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnknownGenericEventType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error when the named generic streaming channel does not exist.</shortDescription>
+        <value>No streaming channel named {0} exists in this org.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnknownPlatformEventType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error when the named platform event does not exist.</shortDescription>
+        <value>No platform event named {0} exists in this org.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnsupportedEventType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Publish error when the event type cannot be published.</shortDescription>
+        <value>Events of type {0} cannot be published from the Event Monitor.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_CardTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event usage metrics card title.</shortDescription>
+        <value>Event usage metrics</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_CountBadge_NoData</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics badge when no rows exist.</shortDescription>
+        <value>No data to display</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_CountBadge_ShowingAll</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics badge, all data points visible. {0} = count.</shortDescription>
+        <value>Showing {0} data points</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_CountBadge_ShowingFiltered</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics badge, subset visible. {0} = visible, {1} = total.</shortDescription>
+        <value>Showing {0} of {1} data points</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_Custom</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset: custom range.</shortDescription>
+        <value>Custom range…</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_From</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom range lower-bound input label.</shortDescription>
+        <value>From</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_Label</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset picker label.</shortDescription>
+        <value>Date range</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_Last24Hours</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset: last 24 hours (Hourly default).</shortDescription>
+        <value>Last 24 hours</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_Last30Days</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset: last 30 days (Daily default).</shortDescription>
+        <value>Last 30 days</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_Last7Days</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset: last 7 days.</shortDescription>
+        <value>Last 7 days</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_LastHour</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date range preset: last hour (FifteenMinutes default).</shortDescription>
+        <value>Last hour</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_DateRange_To</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom range upper-bound input label.</shortDescription>
+        <value>To</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Empty_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics empty-state guidance.</shortDescription>
+        <value>Try a wider date range or a coarser granularity.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Empty_Heading</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics empty-state heading.</shortDescription>
+        <value>No usage data for the selected range</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_EnhancedNotice_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Notice shown when Enhanced Usage Metrics is off. Link label appended.</shortDescription>
+        <value>Hourly and 15-minute granularity require the Enhanced Usage Metrics feature. This org reports daily totals only.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_EnhancedNotice_LinkLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Help-link text inside the Enhanced Usage Metrics notice.</shortDescription>
+        <value>Enhanced Usage Metrics</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Error_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics load-failure message.</shortDescription>
+        <value>Couldn&apos;t load usage metrics. The request to the server failed — your data hasn&apos;t changed.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Error_Retry</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics load-failure retry button.</shortDescription>
+        <value>Retry</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Granularity_Daily</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Granularity option: daily buckets.</shortDescription>
+        <value>Daily</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Granularity_FifteenMinutes</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Granularity option: fifteen-minute buckets.</shortDescription>
+        <value>15 minutes</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Granularity_Hourly</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Granularity option: hourly buckets.</shortDescription>
+        <value>Hourly</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Granularity_Label</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Granularity segmented-control label.</shortDescription>
+        <value>Granularity</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Minimum_Daily</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minimum Daily query range (one bucket).</shortDescription>
+        <value>1 day</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Minimum_FifteenMinutes</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minimum FifteenMinutes query range (one bucket).</shortDescription>
+        <value>15 minutes</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Minimum_Hourly</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minimum Hourly query range (one bucket).</shortDescription>
+        <value>1 hour</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_ResetFilters</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state reset action.</shortDescription>
+        <value>Reset filters</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Table_PeriodStart</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Table view first column header.</shortDescription>
+        <value>Period start</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Validation_FromBeforeTo</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom range validation: From must precede To.</shortDescription>
+        <value>The &quot;From&quot; time must be earlier than the &quot;To&quot; time.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Validation_RangeTooNarrow</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics range-too-narrow error. {0} = minimum range.</shortDescription>
+        <value>The selected date range is too narrow for the chosen granularity — minimum is {0}.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Validation_RangeTooWide</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics range-too-wide error. {0} = maximum window.</shortDescription>
+        <value>The selected date range is too wide for the chosen granularity — maximum is {0}.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Validation_StartAfterEnd</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics error when the start date is after the end date.</shortDescription>
+        <value>The start date must be on or before the end date.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Validation_UnsupportedSegment</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage metrics error when an unsupported time segment is requested.</shortDescription>
+        <value>The selected time segment is not supported.</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_View_Chart</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View switch option: chart.</shortDescription>
+        <value>Chart</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_View_Label</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View switch group label.</shortDescription>
+        <value>View</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_View_Table</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View switch option: table.</shortDescription>
+        <value>Table</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Window_Daily</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Max query window for daily granularity (range-too-wide message).</shortDescription>
+        <value>30 days</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Window_FifteenMinutes</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Max query window for fifteen-minute granularity (range-too-wide msg).</shortDescription>
+        <value>1 hour</value>
+    </labels>
+    <labels>
+        <fullName>EventUsageMetrics_Window_Hourly</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Max query window for hourly granularity (range-too-wide message).</shortDescription>
+        <value>24 hours</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_ActionRequiredHeadline</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -247,6 +2079,38 @@
         <protected>false</protected>
         <shortDescription>Detail message when no Class Type Resolver is configured</shortDescription>
         <value>No class type resolver is configured. Kern lives in its own managed-package namespace and can only find subscriber Apex classes declared as global. If you&apos;d rather keep your trigger handlers, validation rules, scheduled jobs, and web service classes as public (recommended), add a class type resolver so Kern can locate them in your own namespace.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_CustomObjectCoverage_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom-object masking coverage health check display name</shortDescription>
+        <value>Masking coverage (custom objects)</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_CustomObjectCoverage_Healthy</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom objects show no unmasked sensitive fields; {0} = checked count</shortDescription>
+        <value>Your custom objects show no likely-sensitive fields without masking ({0} checked).</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_CustomObjectCoverage_Unchecked</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Suffix counting custom objects one run did not check; {0} = count</shortDescription>
+        <value>{0} more custom objects were not checked in this pass — open the Data Masking Advisor to scan everything.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_CustomObjectCoverage_Unprotected</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warn for unmasked sensitive custom objects; {0} count, {1} names</shortDescription>
+        <value>{0} of your custom objects hold likely-sensitive fields with no masking configured: {1}.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_DataRetention_ApplyButton</fullName>
@@ -417,6 +2281,38 @@
         <value>Action required</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_MaskingPosture_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Display name for the Data Masking posture health check</shortDescription>
+        <value>Masking configuration</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_MaskingPosture_DeadConfig</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warn detail when masking targets mask nothing. {0} = dead target count.</shortDescription>
+        <value>{0} masking target(s) are masking nothing — open the advisor to fix or remove them.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_MaskingPosture_Healthy</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pass detail. {0} = count of objects with active masking.</shortDescription>
+        <value>{0} object(s) have active masking.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_MaskingPosture_NoneActive</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warn detail when no object carries active masking yet</shortDescription>
+        <value>Almost nothing is masked in this org yet — open the advisor to review your objects.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_OrgCache_Allocated</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -455,6 +2351,14 @@
         <protected>false</protected>
         <shortDescription>Health Check refresh button assistive text</shortDescription>
         <value>Refresh health checks</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ReviewMasking_ActionLabel</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action button label that opens the Data Masking Advisor</shortDescription>
+        <value>Review masking</value>
     </labels>
     <labels>
         <fullName>HealthCheck_ReviewRecommendedHeadline</fullName>
@@ -577,6 +2481,22 @@
         <value>Chain Monitor</value>
     </labels>
     <labels>
+        <fullName>KernHome_DataMaskingAdvisor_Description</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data Masking Advisor tool card description</shortDescription>
+        <value>Surface sensitive fields on a chosen object, preview masking rule output, and build a deployable masking configuration bundle.</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_DataMaskingAdvisor_Title</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data Masking Advisor tool card title</shortDescription>
+        <value>Data Masking Advisor</value>
+    </labels>
+    <labels>
         <fullName>KernHome_StreamingMonitor_Description</fullName>
         <categories>Kern Home</categories>
         <language>en_US</language>
@@ -599,5 +2519,645 @@
         <protected>false</protected>
         <shortDescription>Shared launch/open button label for tool cards</shortDescription>
         <value>Open</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_BackToScan</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Link from a scan-sourced object screen back to the scan results.</shortDescription>
+        <value>Back to scan results</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Cancel</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Cancel button for a running custom-object coverage scan.</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_CleanNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Footnote counting other custom objects with no likely-sensitive fields.</shortDescription>
+        <value>{0} other custom objects show no likely-sensitive fields.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_EmptyState</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-clear message when no custom object needs attention after a scan.</shortDescription>
+        <value>No custom object shows likely-sensitive fields without masking.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_FlaggedFooter</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Footnote beneath the flagged scan rows guiding the next action.</shortDescription>
+        <value>Click an object to review its fields and export a masking package for it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Heading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the custom-object coverage scan section on the advisor landing.</shortDescription>
+        <value>Custom objects without masking</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_HowItWorks</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Idle-state explanation of what the coverage scan does.</shortDescription>
+        <value>The scan runs the advisor's field analysis on each object, a few at a time, and lists the ones with likely-sensitive fields and no masking. You can cancel at any point and keep what was found. Nothing changes in your org.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_IncludeManaged_Label</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle to include managed-package objects. {0} is the managed-object count.</shortDescription>
+        <value>Include managed-package objects ({0} from installed packages)</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_InFlightNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Running-state note of how many objects are assessed at once.</shortDescription>
+        <value>{0} checks at a time</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Intro</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Idle-state introduction to why custom objects need a masking review.</shortDescription>
+        <value>Your own custom objects can hold the same kind of sensitive data the framework masks by default — emails, phone numbers, free-text bodies — but masking only covers them once you configure it.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_LongTextSuffix</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Suffix marking a flagged field as a Long Text Area.</shortDescription>
+        <value>long text</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_NoCandidates</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Idle-state note when the org has no own custom objects to scan.</shortDescription>
+        <value>You have no custom objects of your own to scan.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_NoMaskingPill</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pill on a flagged scan row indicating the object has no masking configured.</shortDescription>
+        <value>No masking configured</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_PartialNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note after a cancelled scan. {0} assessed, {1} the population total.</shortDescription>
+        <value>Scan cancelled after {0} of {1} objects — results below are partial.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_PopulationNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Idle-state note of how many own custom objects exist. {0} is the count.</shortDescription>
+        <value>You have {0} custom objects of your own.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_PopulationNote_ManagedClause</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Clause about excluded managed-package objects. {0} is the count.</shortDescription>
+        <value>{0} more come from managed packages — they belong to the package vendor and are excluded unless you opt in below.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Provenance</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner when an object is opened from a scan result. {0} flagged-field count.</shortDescription>
+        <value>Flagged by the custom-object scan — {0} likely-sensitive fields below have no masking.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Rescan</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button to re-run the custom-object coverage scan.</shortDescription>
+        <value>Scan again</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_ScanButton</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Idle-state button starting the scan. {0} is the population total.</shortDescription>
+        <value>Scan {0} custom objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Scanning</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Running-state progress line. {0} is the object, {1} the position, {2} the total.</shortDescription>
+        <value>Scanning {0} — {1} of {2}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_CoverageScan_Summary</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Completed-scan summary. {0} assessed, {1} need attention, {2} flagged fields.</shortDescription>
+        <value>Scanned {0} custom objects · {1} need attention · {2} likely-sensitive fields with no masking</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_Button</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Landing button that opens the grouped add-object search dialog.</shortDescription>
+        <value>＋ Add object</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_BackToAllObjects</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field-screen link back to the posture landing (clears the selected object).</shortDescription>
+        <value>← All objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_Title</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object dialog title.</shortDescription>
+        <value>Add an object to masking</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_Intro</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object dialog intro line.</shortDescription>
+        <value>Pick the object whose fields you want to review and mask. Opening an object changes nothing in your org.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_SearchPlaceholder</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the add-object dialog search box.</shortDescription>
+        <value>Search all objects by name…</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_GroupAttention</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object group heading for scan-flagged objects.</shortDescription>
+        <value>Needs attention — from your scan</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_GroupOwn</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object group heading for the subscriber's own custom objects.</shortDescription>
+        <value>Your custom objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_GroupStandard</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object group heading for standard objects.</shortDescription>
+        <value>Standard objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_GroupManaged</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Add-object group heading for managed-package objects. {0} is the count.</shortDescription>
+        <value>From managed packages ({0})</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_PillNoMasking</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pill on a scan-flagged add-object row.</shortDescription>
+        <value>No masking</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_PillMasked</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pill on an add-object row whose object already has active masking.</shortDescription>
+        <value>Masked</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_StandardHint</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sampled-standard-list hint. {0} shown of {1} total.</shortDescription>
+        <value>Showing {0} of {1} standard objects — type to narrow.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_ManagedHint</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sampled-managed-list hint. {0} shown of {1} total.</shortDescription>
+        <value>Showing {0} of {1} managed-package objects — type to narrow.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_ManagedExpand</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Expander that reveals the collapsed managed-package group. {0} is the count.</shortDescription>
+        <value>Show {0} managed-package objects ▸</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_NoMatches</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state message when no object matches the search term {0}.</shortDescription>
+        <value>No objects match “{0}”.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_AddObject_Close</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Close button on the add-object dialog.</shortDescription>
+        <value>Close</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Title</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the regulated-field inventory export dialog.</shortDescription>
+        <value>Export field inventory</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Intro</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Intro text for the inventory export dialog.</shortDescription>
+        <value>A spreadsheet-ready inventory of fields that hold (or likely hold) regulated data — what they are, how they are classified, whether masking covers them today, and where history tracking is worth turning on. Read-only: nothing changes in your org.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_ScopeHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Scope section heading in the inventory export dialog.</shortDescription>
+        <value>Scope</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Scope_Custom</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom-objects scope option in the inventory export dialog.</shortDescription>
+        <value>Custom objects (scanned)</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Scope_Masked</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masked-objects scope option in the inventory export dialog.</shortDescription>
+        <value>Objects with masking configured</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Scope_All</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-objects scope option in the inventory export dialog.</shortDescription>
+        <value>All objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_ObjectCount_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular object-count suffix on an export scope option.</shortDescription>
+        <value>{0} object</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_ObjectCount_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural object-count suffix on an export scope option.</shortDescription>
+        <value>{0} objects</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_FormatHeading</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Format section heading in the inventory export dialog.</shortDescription>
+        <value>Format</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Format_Csv</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>CSV format option in the inventory export dialog.</shortDescription>
+        <value>CSV (spreadsheet)</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Format_Json</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>JSON format option in the inventory export dialog.</shortDescription>
+        <value>JSON</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_FormatNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note explaining the CSV-vs-JSON value contract in the inventory export dialog.</shortDescription>
+        <value>CSV uses readable labels for a spreadsheet; JSON keeps the raw API values (field types, rule names, true/false) for tooling.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_MaskedScopeNote</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masked-objects scope note in the inventory export dialog.</shortDescription>
+        <value>These objects are masked object-wide, so only fields independently flagged as regulated appear here, not a row per field.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_SensitiveOnly</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sensitive-only filter checkbox label in the inventory export dialog.</shortDescription>
+        <value>Sensitive fields only</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_FilteredEmptyState</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note shown when the sensitive-only filter removes every row.</shortDescription>
+        <value>No fields are classified Sensitive in this scope. Clear the filter to include possibly-sensitive fields.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_ColumnsHeading_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular columns/row-count heading in the export preview.</shortDescription>
+        <value>Columns ({0} row in this scope)</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_ColumnsHeading_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural columns/row-count heading in the export preview.</shortDescription>
+        <value>Columns ({0} rows in this scope)</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_MoreRows_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular remaining-rows note under the export preview.</shortDescription>
+        <value>… {0} more row</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_MoreRows_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural remaining-rows note under the export preview.</shortDescription>
+        <value>… {0} more rows</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_Object</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Object column header in the inventory export.</shortDescription>
+        <value>Object</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_Field</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field column header in the inventory export.</shortDescription>
+        <value>Field</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_FieldType</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field Type column header in the inventory export.</shortDescription>
+        <value>Field Type</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_LongTextArea</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Long Text Area column header in the inventory export.</shortDescription>
+        <value>Long Text Area</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_SecurityClassification</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Security Classification column header in the export.</shortDescription>
+        <value>Security Classification</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_ComplianceGroup</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Compliance Group column header in the inventory export.</shortDescription>
+        <value>Compliance Group</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_Sensitivity</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sensitivity column header in the inventory export.</shortDescription>
+        <value>Sensitivity</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_RecommendedRule</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Recommended Rule column header in the inventory export.</shortDescription>
+        <value>Recommended Rule</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_MaskedToday</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Masked Today column header in the inventory export.</shortDescription>
+        <value>Masked Today</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Column_HistoryTrackingRecommended</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>History Tracking Recommended column header in the export.</shortDescription>
+        <value>History Tracking Recommended</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Cell_Yes</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Yes cell value in the inventory export.</shortDescription>
+        <value>Yes</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Cell_No</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>No cell value in the inventory export.</shortDescription>
+        <value>No</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Cell_Empty</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-value placeholder in the inventory export preview.</shortDescription>
+        <value>—</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Building_Progress</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Progress note while the export scope is analyzed.</shortDescription>
+        <value>Analyzing {0} of {1} objects…</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_AllScope_ConfirmBody</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm body before analyzing the all-objects export scope.</shortDescription>
+        <value>This will analyze all {0} objects and may take a minute.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_AllScope_ConfirmButton</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button to build the all-objects export preview.</shortDescription>
+        <value>Build preview</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_EmptyState</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when an export scope has no regulated fields.</shortDescription>
+        <value>No regulated fields in this scope.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_PartialFailure_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular skipped-object note in the inventory export.</shortDescription>
+        <value>{0} object could not be analyzed and was skipped.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_PartialFailure_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural skipped-object note in the inventory export.</shortDescription>
+        <value>{0} objects could not be analyzed and were skipped.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_DownloadButton</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Download button label in the inventory export dialog.</shortDescription>
+        <value>⤓ Download {0}</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_Close</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Close button on the inventory export dialog.</shortDescription>
+        <value>Close</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_FileName_Csv</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>File name for the CSV inventory export.</shortDescription>
+        <value>regulated-field-inventory.csv</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_FileName_Json</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>File name for the JSON inventory export.</shortDescription>
+        <value>regulated-field-inventory.json</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_InventoryExport_OpenButton</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Posture-section button that opens the inventory export dialog.</shortDescription>
+        <value>⤓ Export field inventory</value>
     </labels>
 </CustomLabels>

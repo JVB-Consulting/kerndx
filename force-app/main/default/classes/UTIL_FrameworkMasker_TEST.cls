@@ -8,10 +8,10 @@
  *
  * @group Data Masking
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class UTIL_FrameworkMasker_TEST
 {
 	private static final String TEST_ADMIN_COMPANY = 'UTIL_FrameworkMasker_TEST-admin';
@@ -26,6 +26,43 @@ private class UTIL_FrameworkMasker_TEST
 	 * @description Sample caller class name used across tests.
 	 */
 	private static final String SAMPLE_CALLER = 'API_SendEmail';
+
+	/**
+	 * @description DeveloperName of the superseded predecessor rule in the supersession matrix.
+	 */
+	private static final String PREDECESSOR_RULE_NAME = 'OldCardRule';
+
+	/**
+	 * @description DeveloperName of the successor rule in the supersession matrix.
+	 */
+	private static final String SUCCESSOR_RULE_NAME = 'NewCardRule';
+
+	/**
+	 * @description Token only the predecessor rule matches — its survival in an output value
+	 * proves the predecessor's target was dropped; its replacement proves the predecessor ran.
+	 */
+	private static final String PREDECESSOR_TOKEN = 'PRED-TOKEN';
+
+	/**
+	 * @description Token only the successor rule matches, making the successor's application
+	 * observable independently of the predecessor's.
+	 */
+	private static final String SUCCESSOR_TOKEN = 'SUCC-TOKEN';
+
+	/**
+	 * @description Replacement the predecessor rule writes — its presence proves the predecessor ran.
+	 */
+	private static final String PREDECESSOR_REPLACEMENT = '[P]';
+
+	/**
+	 * @description Replacement the successor rule writes — its presence proves the successor ran.
+	 */
+	private static final String SUCCESSOR_REPLACEMENT = '[S]';
+
+	/**
+	 * @description Replacement a tuned predecessor writes — its presence proves the tuned rule kept running.
+	 */
+	private static final String TUNED_REPLACEMENT = '[P-TUNED]';
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -1444,11 +1481,12 @@ private class UTIL_FrameworkMasker_TEST
 	@IsTest
 	private static void shouldSkipBlankTokensInApplicableFieldTypes()
 	{
-		MaskingTarget__mdt target = new MaskingTarget__mdt();
-		MaskingRule__mdt rule = new MaskingRule__mdt();
-		rule.DeveloperName = 'TestBlankTokens';
-		rule.ApplicableFieldTypes__c = 'STRING;; ;TEXTAREA';
-		target.Rule__r = rule;
+		MaskingRule__mdt rule = TST_Factory.newMaskingRule(new Map<SObjectField, Object>
+		{
+				MaskingRule__mdt.DeveloperName => 'TestBlankTokens',
+				MaskingRule__mdt.ApplicableFieldTypes__c => 'STRING;; ;TEXTAREA'
+		});
+		MaskingTarget__mdt target = TST_Factory.newMaskingTarget(new Map<SObjectField, Object>(), rule);
 
 		Set<DisplayType> allowedTypes = UTIL_FrameworkMasker.parseApplicableFieldTypes(target);
 
@@ -1466,11 +1504,12 @@ private class UTIL_FrameworkMasker_TEST
 	@IsTest
 	private static void shouldCacheParsedApplicableFieldTypesByCsv()
 	{
-		MaskingTarget__mdt target = new MaskingTarget__mdt();
-		MaskingRule__mdt rule = new MaskingRule__mdt();
-		rule.DeveloperName = 'TestCacheByCsv';
-		rule.ApplicableFieldTypes__c = 'STRING;TEXTAREA';
-		target.Rule__r = rule;
+		MaskingRule__mdt rule = TST_Factory.newMaskingRule(new Map<SObjectField, Object>
+		{
+				MaskingRule__mdt.DeveloperName => 'TestCacheByCsv',
+				MaskingRule__mdt.ApplicableFieldTypes__c => 'STRING;TEXTAREA'
+		});
+		MaskingTarget__mdt target = TST_Factory.newMaskingTarget(new Map<SObjectField, Object>(), rule);
 
 		Set<DisplayType> first = UTIL_FrameworkMasker.parseApplicableFieldTypes(target);
 		UTIL_FrameworkMasker.parseApplicableFieldTypes(target);
@@ -1745,6 +1784,177 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description Verifies the preview seam masks a value with a single rule even when no active
+	 * MaskingTarget exists for the field — the core of dormant-rule preview. A dormant Regex phone
+	 * rule (no target configured) redacts a phone-shaped value, proving the active-target cache is
+	 * bypassed.
+	 */
+	@IsTest
+	private static void maskValueAgainstRuleRedactsDormantRegexRuleWithNoActiveTarget()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('PreviewPhone', SEL_MaskingRule.MODE_REGEX, '\\d{3}-\\d{3}-\\d{4}', '[PHONE_REDACTED]', 10)
+					.withOverride(MaskingRule__mdt.IsActive__c, false)
+					.withoutInsertion(true)
+					.build();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.Text__c, rule, '415-555-1234');
+
+			Assert.areEqual('[PHONE_REDACTED]', result.maskedValue, 'a dormant Regex rule redacts the value with no active target configured');
+			Assert.areEqual(1, result.rulesMatched, 'the single preview rule matched once');
+		}
+	}
+
+	/**
+	 * @description Verifies the preview seam applies a JsonKey rule to a JSON payload, redacting the
+	 * value of the matched key while leaving the rest of the document intact.
+	 */
+	@IsTest
+	private static void maskValueAgainstRuleMasksJsonKeyRuleOnJsonPayload()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('PreviewJsonKey', SEL_MaskingRule.MODE_JSON_KEY, 'password', '[REDACTED]', 10)
+					.withOverride(MaskingRule__mdt.IsActive__c, false)
+					.withoutInsertion(true)
+					.build();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.TextArea__c, rule, '{"password":"secret","name":"bob"}');
+
+			Assert.areEqual(1, result.rulesMatched, 'the JsonKey rule matched the password key');
+			Assert.isTrue(result.maskedValue.contains('[REDACTED]'), 'the matched key value is redacted');
+			Assert.isFalse(result.maskedValue.contains('secret'), 'the original secret value is gone');
+		}
+	}
+
+	/**
+	 * @description Verifies the preview seam leaves a non-JSON scalar unchanged when handed a JsonKey
+	 * rule — a correct no-op, not a failure. The console must not misread this as a broken rule, so the
+	 * seam records zero matches rather than mutating the value.
+	 */
+	@IsTest
+	private static void maskValueAgainstRuleNoOpsJsonKeyRuleOnNonJsonScalar()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('PreviewJsonKey', SEL_MaskingRule.MODE_JSON_KEY, 'password', '[REDACTED]', 10)
+					.withOverride(MaskingRule__mdt.IsActive__c, false)
+					.withoutInsertion(true)
+					.build();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.Text__c, rule, 'just a plain string');
+
+			Assert.areEqual('just a plain string', result.maskedValue, 'a JsonKey rule leaves a non-JSON scalar unchanged');
+			Assert.areEqual(0, result.rulesMatched, 'no JsonKey match is recorded for a non-JSON scalar');
+		}
+	}
+
+	/**
+	 * @description Verifies the preview seam returns the value unchanged when handed a blank value,
+	 * short-circuiting before any rule runs.
+	 */
+	@IsTest
+	private static void maskValueAgainstRuleReturnsUnmaskedForBlankValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('PreviewPhone', SEL_MaskingRule.MODE_REGEX, '\\d{3}-\\d{3}-\\d{4}', '[PHONE_REDACTED]', 10)
+					.withoutInsertion(true)
+					.build();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.Text__c, rule, '');
+
+			Assert.areEqual('', result.maskedValue, 'an empty value is returned unchanged');
+			Assert.areEqual(0, result.rulesMatched, 'no rule fires on an empty value');
+		}
+	}
+
+	/**
+	 * @description Round-trips the shipped `MaskAddress` rule exactly as it deploys — a Regex catch-all
+	 * that replaces the whole value with a static token — proving the new dormant rule redacts a postal
+	 * address through the framework masker, independent of the advisor surface.
+	 */
+	@IsTest
+	private static void shippedMaskAddressRuleRedactsAddressValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_FrameworkMasker.MaskingResult result =
+					UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.Text__c, shippedRule(SEL_MaskingRule.RULE_MASK_ADDRESS), '742 Evergreen Terrace, Springfield');
+
+			Assert.areEqual('[ADDRESS_REDACTED]', result.maskedValue, 'the shipped MaskAddress rule replaces the whole address with its token');
+			Assert.areEqual(1, result.rulesMatched, 'the MaskAddress rule matched once');
+		}
+	}
+
+	/**
+	 * @description Round-trips the shipped `MaskFreeText` rule — proving the dormant catch-all redacts a
+	 * free-text value to its static token through the framework masker.
+	 */
+	@IsTest
+	private static void shippedMaskFreeTextRuleRedactsTextValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_FrameworkMasker.MaskingResult result =
+					UTIL_FrameworkMasker.maskValueAgainstRule
+							(
+									Foobar__c.TextArea__c,
+									shippedRule(SEL_MaskingRule.RULE_MASK_FREE_TEXT),
+									'Private note: customer prefers email contact only.'
+							);
+
+			Assert.areEqual('[TEXT_REDACTED]', result.maskedValue, 'the shipped MaskFreeText rule replaces the whole free-text value with its token');
+			Assert.areEqual(1, result.rulesMatched, 'the MaskFreeText rule matched once');
+		}
+	}
+
+	/**
+	 * @description Round-trips the shipped `MaskPhoneInternational` rule — proving the dormant catch-all
+	 * redacts an international-format phone value (with a leading country code) to its static token.
+	 */
+	@IsTest
+	private static void shippedMaskPhoneInternationalRuleRedactsValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_FrameworkMasker.MaskingResult result =
+					UTIL_FrameworkMasker.maskValueAgainstRule(Foobar__c.Text__c, shippedRule(SEL_MaskingRule.RULE_MASK_PHONE_INTERNATIONAL), '+44 20 7946 0958');
+
+			Assert.areEqual('[PHONE_REDACTED]', result.maskedValue, 'the shipped MaskPhoneInternational rule replaces the whole phone number with its token');
+			Assert.areEqual(1, result.rulesMatched, 'the MaskPhoneInternational rule matched once');
+		}
+	}
+
+	/**
+	 * @description Returns the shipped `MaskingRule__mdt` record with the given developer name, read
+	 * through the framework's `SEL_MaskingTarget` selector (not a raw `getAll()`), so a round-trip test
+	 * exercises the rule exactly as it ships (pattern, replacement, mode) via the same seam production
+	 * uses, rather than a hand-built mock. Fails the test with a clear message when the rule is not
+	 * deployed, so an un-deployed or renamed record surfaces as "rule not deployed" rather than an opaque
+	 * downstream token-mismatch assertion.
+	 *
+	 * @param developerName The rule developer name to find (for example `MaskAddress`).
+	 *
+	 * @return The deployed rule (never `null` — a missing rule fails the test).
+	 */
+	private static MaskingRule__mdt shippedRule(String developerName)
+	{
+		MaskingRule__mdt found = null;
+		for(MaskingRule__mdt rule : new SEL_MaskingTarget().getAllRulesById().values())
+		{
+			if(rule.DeveloperName == developerName)
+			{
+				found = rule;
+				break;
+			}
+		}
+		Assert.isNotNull(found, 'the shipped rule ' + developerName + ' must be deployed to the org for the round-trip test to run');
+		return found;
+	}
+
+	/**
 	 * @description Retrieves the committed test admin user set up in @TestSetup for use with
 	 * System.runAs, so each test body runs with a fresh permission-evaluation context.
 	 *
@@ -1765,5 +1975,366 @@ private class UTIL_FrameworkMasker_TEST
 	private static User getLowPrivilegeUser()
 	{
 		return new SEL_User().findByCompanyName(LOW_PRIVILEGE_COMPANY);
+	}
+
+	/**
+	 * @description Tests that an untuned predecessor's target is dropped on a surface its untuned
+	 * active successor mirrors: the predecessor token survives untouched (its rule never ran), the
+	 * successor token is masked, and the result reports the successor as the only matched rule.
+	 */
+	@IsTest
+	private static void shouldSuppressUntunedPredecessorTargetOnMirroredSurface()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockSupersessionPair(false, false, true);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_TOKEN + ' ' + SUCCESSOR_REPLACEMENT, record.Name, 'The successor must mask its surface while the suppressed predecessor leaves its token untouched');
+			Assert.isTrue(result.matchedRuleDeveloperNames.contains(SUCCESSOR_RULE_NAME), 'The successor rule must run on the mirrored surface');
+			Assert.isFalse(result.matchedRuleDeveloperNames.contains(PREDECESSOR_RULE_NAME), 'The suppressed predecessor rule must never run on the mirrored surface');
+		}
+	}
+
+	/**
+	 * @description Tests that a predecessor target keeps masking a surface the successor does not
+	 * mirror (the subscriber-custom-object shape). The rule-level verdict positively holds — only
+	 * the missing successor surface keeps the predecessor binding alive, so the case cannot pass
+	 * vacuously.
+	 */
+	@IsTest
+	private static void shouldNotSuppressWhenSuccessorTargetMissingOnSurface()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockSupersessionPair(false, false, false);
+			Foobar__c record = buildSupersessionRecord();
+
+			Assert.isTrue(SEL_MaskingRule.findSupersededRuleNames(new SEL_MaskingTarget().getAllRulesById().values()).contains(PREDECESSOR_RULE_NAME),
+					'Positive control: the rule-level verdict must hold so only the missing successor surface keeps the predecessor running');
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_TOKEN, record.Name, 'The predecessor must keep masking surfaces the successor does not cover');
+		}
+	}
+
+	/**
+	 * @description Tests that a tuned predecessor (live fingerprint no longer matching the
+	 * successor's ReplacesFingerprint__c) is never suppressed — both rules run and the tuned
+	 * replacement lands, proving the subscriber's customisation stayed in force.
+	 */
+	@IsTest
+	private static void shouldNotSuppressTunedPredecessor()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockSupersessionPair(true, false, true);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(TUNED_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name, 'A tuned predecessor must keep running alongside the successor');
+		}
+	}
+
+	/**
+	 * @description Tests that a tuned successor (live fingerprint no longer matching its own
+	 * ShippedFingerprint__c) suppresses nothing — the predecessor keeps masking. The successor's
+	 * tuning here (MinInputLength above the input length) also keeps its own token untouched,
+	 * mirroring the narrowed-coverage hole that motivated the two-sided predicate.
+	 */
+	@IsTest
+	private static void shouldNotSuppressWhenSuccessorTuned()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockSupersessionPair(false, true, true);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_TOKEN, record.Name, 'A tuned successor must not evict its predecessor — the predecessor still masks the surface');
+		}
+	}
+
+	/**
+	 * @description Tests that suppression requires an exact field|caller surface match: a
+	 * wildcard predecessor target and a successor target bound to one specific field carry
+	 * different composite keys, so both rules run.
+	 */
+	@IsTest
+	private static void shouldNotSuppressAcrossDifferentSurfaceKeys()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<MaskingRule__mdt> pair = buildSupersessionRulePair(false, false);
+			registerMockTarget(pair[0], null, null);
+			registerMockTarget(pair[1], UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name), null);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name,
+					'A wildcard predecessor target and a field-specific successor target bind different surfaces — neither may be dropped');
+		}
+	}
+
+	/**
+	 * @description Tests that suppression links stay independent across coexisting pairs: with
+	 * pair one fully mirrored on the surface and pair two's successor target absent, pair one's
+	 * predecessor is suppressed while pair two's predecessor keeps masking — pair one's surface
+	 * coverage must never count for pair two's verdict.
+	 */
+	@IsTest
+	private static void shouldSuppressEachSupersessionLinkIndependently()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<MaskingRule__mdt> firstPair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
+					SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
+			List<MaskingRule__mdt> secondPair = buildSupersessionRulePairNamed('OldTextRule', 'PRED2-TOKEN', '[P2]', 'NewTextRule', 'SUCC2-TOKEN', '[S2]');
+			primeRuleUniverse(new List<MaskingRule__mdt> {firstPair[0], firstPair[1], secondPair[0], secondPair[1]});
+			registerMockTarget(firstPair[0], null, null);
+			registerMockTarget(firstPair[1], null, null);
+			registerMockTarget(secondPair[0], null, null);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, PREDECESSOR_TOKEN + ' ' + SUCCESSOR_TOKEN + ' PRED2-TOKEN')
+					.withoutInsertion()
+					.build();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_TOKEN + ' ' + SUCCESSOR_REPLACEMENT + ' [P2]', record.Name,
+					'Pair-one suppression must not evict pair-two\'s predecessor — its own successor has no target on this surface');
+		}
+	}
+
+	/**
+	 * @description Tests that a TUNED sibling successor cannot piggyback on another successor's
+	 * verdict for the same predecessor: the genuine successor mirrors only one specific field, so
+	 * the predecessor keeps its wildcard surface even though the tuned sibling's wildcard target
+	 * sits on it — a tuned successor's targets must never key suppression surfaces.
+	 */
+	@IsTest
+	private static void shouldNotLetTunedSiblingSuccessorPiggybackOnAnotherLinksVerdict()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<MaskingRule__mdt> pair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
+					SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
+			MaskingRule__mdt tunedSibling = (MaskingRule__mdt)mockRuleBuilder('TunedSiblingRule', SEL_MaskingRule.MODE_EXACT_MATCH, 'SIBLING-TOKEN', '[T]', 200)
+					.withOverride(MaskingRule__mdt.Replaces__c, PREDECESSOR_RULE_NAME)
+					.withoutInsertion(true)
+					.build();
+			tunedSibling.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(pair[0]);
+			tunedSibling.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(tunedSibling);
+			tunedSibling.MinInputLength__c = 99;
+			primeRuleUniverse(new List<MaskingRule__mdt> {pair[0], pair[1], tunedSibling});
+			registerMockTarget(pair[0], null, null);
+			registerMockTarget(pair[1], UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name), null);
+			registerMockTarget(tunedSibling, null, null);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, PREDECESSOR_TOKEN + ' ' + SUCCESSOR_TOKEN + ' SIBLING-TOKEN')
+					.withoutInsertion()
+					.build();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT + ' SIBLING-TOKEN', record.Name,
+					'A tuned successor must not piggyback on its sibling\'s verdict — the predecessor keeps surfaces its genuine successor does not mirror');
+		}
+	}
+
+	/**
+	 * @description Tests that the caller dimension participates in surface matching: a
+	 * caller-scoped predecessor target and an unscoped successor target bind different surfaces,
+	 * so both rules run for that caller.
+	 */
+	@IsTest
+	private static void shouldNotSuppressCallerScopedPredecessorSurface()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<MaskingRule__mdt> pair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
+					SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
+			primeRuleUniverse(pair);
+			registerMockTarget(pair[0], null, SAMPLE_CALLER);
+			registerMockTarget(pair[1], null, null);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.forRecord(record).calledFrom(SAMPLE_CALLER).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name,
+					'A caller-scoped predecessor surface differs from the unscoped successor surface — no suppression, both rules run');
+		}
+	}
+
+	/**
+	 * @description Tests that an org-local clone sharing the packaged predecessor's DeveloperName
+	 * AND functional values keeps masking when the packaged predecessor is suppressed — rule
+	 * identity is namespace-qualified end-to-end (dedupe, verdict, suppression), so the packaged
+	 * verdict can never evict the clone's binding. Namespaces are derived so the proof holds
+	 * unmanaged, managed, and rebuilt under any namespace.
+	 */
+	@IsTest
+	private static void shouldNotSuppressIdenticalCloneFromAnotherNamespace()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String runningNamespace = UTIL_System.getManagedPackageNamespace();
+			String foreignNamespace = (runningNamespace ?? UTIL_String.EMPTY) + 'subscriber';
+			MaskingRule__mdt predecessor = (MaskingRule__mdt)mockRuleBuilder(PREDECESSOR_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT, 200)
+					.withOverride(MaskingRule__mdt.NamespacePrefix, runningNamespace)
+					.withoutInsertion(true)
+					.build();
+			MaskingRule__mdt successor = (MaskingRule__mdt)mockRuleBuilder(SUCCESSOR_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT, 200)
+					.withOverride(MaskingRule__mdt.Replaces__c, PREDECESSOR_RULE_NAME)
+					.withOverride(MaskingRule__mdt.NamespacePrefix, runningNamespace)
+					.withoutInsertion(true)
+					.build();
+			successor.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(predecessor);
+			successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);
+			MaskingRule__mdt clone = (MaskingRule__mdt)mockRuleBuilder(PREDECESSOR_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT, 200)
+					.withOverride(MaskingRule__mdt.NamespacePrefix, foreignNamespace)
+					.withoutInsertion(true)
+					.build();
+			primeRuleUniverse(new List<MaskingRule__mdt> {predecessor, successor, clone});
+			registerMockTarget(predecessor, null, null);
+			registerMockTarget(successor, null, null);
+			registerMockTarget(clone, null, null);
+			Foobar__c record = buildSupersessionRecord();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name,
+					'The packaged predecessor is suppressed, but the identically-configured clone from another namespace must keep masking');
+		}
+	}
+
+	/**
+	 * @description Builds the standard supersession rule pair (predecessor + successor naming it
+	 * via Replaces__c, both fingerprints set exactly as the shipped metadata would carry them),
+	 * applies the requested tuning AFTER fingerprint capture, and primes the rule universe seam
+	 * so the successor rule is visible to verdicts even when no target references it.
+	 *
+	 * @param predecessorTuned Tune the predecessor's Replacement__c (fingerprint drifts; rule still matches its token)
+	 * @param successorTuned Tune the successor's MinInputLength__c (fingerprint drifts; rule stops matching the short input)
+	 *
+	 * @return The pair — index 0 predecessor, index 1 successor
+	 */
+	private static List<MaskingRule__mdt> buildSupersessionRulePair(Boolean predecessorTuned, Boolean successorTuned)
+	{
+		List<MaskingRule__mdt> pair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
+				SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
+
+		if(predecessorTuned)
+		{
+			pair[0].Replacement__c = TUNED_REPLACEMENT;
+		}
+
+		if(successorTuned)
+		{
+			pair[1].MinInputLength__c = 99;
+		}
+
+		primeRuleUniverse(pair);
+
+		return pair;
+	}
+
+	/**
+	 * @description Builds a supersession rule pair with explicit names, tokens, and replacements
+	 * so fixtures can hold several independent pairs. Both fingerprints are captured exactly as
+	 * the shipped metadata would carry them. Does NOT prime the rule universe seam — callers
+	 * composing multiple pairs prime it once via primeRuleUniverse.
+	 *
+	 * @param predecessorName The predecessor rule DeveloperName
+	 * @param predecessorToken The token only the predecessor matches
+	 * @param predecessorReplacement The replacement the predecessor writes
+	 * @param successorName The successor rule DeveloperName
+	 * @param successorToken The token only the successor matches
+	 * @param successorReplacement The replacement the successor writes
+	 *
+	 * @return The pair — index 0 predecessor, index 1 successor
+	 */
+	private static List<MaskingRule__mdt> buildSupersessionRulePairNamed
+			(
+					String predecessorName,
+					String predecessorToken,
+					String predecessorReplacement,
+					String successorName,
+					String successorToken,
+					String successorReplacement
+			)
+	{
+		MaskingRule__mdt predecessor = (MaskingRule__mdt)mockRuleBuilder(predecessorName, SEL_MaskingRule.MODE_EXACT_MATCH, predecessorToken, predecessorReplacement, 200)
+				.withoutInsertion(true)
+				.build();
+		MaskingRule__mdt successor = (MaskingRule__mdt)mockRuleBuilder(successorName, SEL_MaskingRule.MODE_EXACT_MATCH, successorToken, successorReplacement, 200)
+				.withOverride(MaskingRule__mdt.Replaces__c, predecessorName)
+				.withoutInsertion(true)
+				.build();
+		successor.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(predecessor);
+		successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);
+
+		return new List<MaskingRule__mdt> {predecessor, successor};
+	}
+
+	/**
+	 * @description Primes the rule-universe seam with the given rules so verdicts see exactly
+	 * this universe. Keys are positional — clones legitimately share a DeveloperName, and the
+	 * universe consumers read values only.
+	 *
+	 * @param rules The complete rule universe for the test
+	 */
+	private static void primeRuleUniverse(List<MaskingRule__mdt> rules)
+	{
+		Map<String, MaskingRule__mdt> rulesByKey = new Map<String, MaskingRule__mdt>();
+
+		for(Integer index = 0; index < rules.size(); index++)
+		{
+			rulesByKey.put(String.valueOf(index), rules[index]);
+		}
+
+		SEL_MaskingTarget.allRulesOverrideForTest = rulesByKey;
+	}
+
+	/**
+	 * @description Builds and registers the standard supersession matrix fixture: wildcard
+	 * predecessor target, and (optionally) a wildcard successor target mirroring the same
+	 * surface.
+	 *
+	 * @param predecessorTuned Tune the predecessor after fingerprint capture
+	 * @param successorTuned Tune the successor after fingerprint capture
+	 * @param successorTargetPresent Register the mirroring successor target (false = subscriber-custom-object shape)
+	 */
+	private static void mockSupersessionPair(Boolean predecessorTuned, Boolean successorTuned, Boolean successorTargetPresent)
+	{
+		List<MaskingRule__mdt> pair = buildSupersessionRulePair(predecessorTuned, successorTuned);
+
+		registerMockTarget(pair[0], null, null);
+
+		if(successorTargetPresent)
+		{
+			registerMockTarget(pair[1], null, null);
+		}
+	}
+
+	/**
+	 * @description Builds an uninserted Foobar__c whose Name carries both supersession tokens, so
+	 * each rule's application is independently observable in the output value regardless of rule
+	 * execution order.
+	 *
+	 * @return An uninserted Foobar__c ready for the framework masker
+	 */
+	private static Foobar__c buildSupersessionRecord()
+	{
+		return (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, PREDECESSOR_TOKEN + ' ' + SUCCESSOR_TOKEN)
+				.withoutInsertion()
+				.build();
 	}
 }

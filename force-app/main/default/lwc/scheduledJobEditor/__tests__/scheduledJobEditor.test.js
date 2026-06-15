@@ -612,6 +612,19 @@ describe('c-scheduled-job-editor', () =>
 				let result = getter.call(context);
 				expect(result[0].isLocked).toBe(false);
 			});
+
+			it('treats a parameter with no dataType as an untyped field', () =>
+			{
+				let context = createMockContext({
+					parameterDefinitions: [{name: 'mystery', label: 'Mystery', isRequired: false}], parameterValues: {mystery: 'x'}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('editParameterFields');
+				let result = getter.call(context);
+				expect(result[0].isText).toBe(false);
+				expect(result[0].isNumeric).toBe(false);
+				expect(result[0].isToggle).toBe(false);
+			});
 		});
 
 		describe('scheduleHeading', () =>
@@ -630,6 +643,13 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext({userTimezone: ''});
 				let getter = getGetter('scheduleHeading');
 				expect(getter.call(context)).toBe('Schedule');
+			});
+
+			it('falls back to the raw timezone id when Intl cannot format the zone', () =>
+			{
+				let context = createMockContext({userTimezone: 'Totally/Bogus_Zone'});
+				let getter = getGetter('scheduleHeading');
+				expect(getter.call(context)).toBe('Schedule (Totally/Bogus_Zone)');
 			});
 		});
 
@@ -765,6 +785,20 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext();
 				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
 				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to load record');
+			});
+
+			it('defaults to an empty parameter map when the stored JSON omits nameValueMap', () =>
+			{
+				getFieldValue
+				.mockReturnValueOnce(null)
+				.mockReturnValueOnce('Job')
+				.mockReturnValueOnce('0 0 1 * * ?')
+				.mockReturnValueOnce(true)
+				.mockReturnValueOnce('Active job')
+				.mockReturnValueOnce('{"unexpected":true}');
+				let context = createMockContext();
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				expect(context.parameterValues).toEqual({});
 			});
 		});
 
@@ -928,6 +962,15 @@ describe('c-scheduled-job-editor', () =>
 				});
 				expect(context.parameterValues.objectName).toBe('Account');
 				expect(context.parameterValues.batchSize).toBe('500');
+			});
+
+			it('coerces a missing change value to an empty string', () =>
+			{
+				let context = createMockContext({parameterValues: {}});
+				prototype.handleParameterChange.call(context, {
+					target: {dataset: {parameterName: 'objectName'}, type: 'text'}, detail: {}
+				});
+				expect(context.parameterValues.objectName).toBe('');
 			});
 		});
 
@@ -1163,6 +1206,23 @@ describe('c-scheduled-job-editor', () =>
 				await prototype.handleSave.call(context);
 				let parsedInactive = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
 				expect(parsedInactive.isActive).toBe(false);
+			});
+
+			it('serializes a null parameter value as an empty string in the save payload', async() =>
+			{
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT'}],
+					parameterValues: {objectName: null}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters.objectName).toBe('');
 			});
 		});
 

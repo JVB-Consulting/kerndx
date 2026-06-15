@@ -6,8 +6,11 @@
  *
  * SPEC vs ACTUAL — target/rule counts:
  *   Spec expected: 5 MaskingTarget__mdt records for ApiCall__c × 10 active MaskingRule__mdt
- *   Actual deployed framework: 2 wildcard targets (ApiCall_All_Card → MaskCreditCard,
- *   ApiCall_All_Secret → MaskSecretKeys) × 2 active framework rules. Plus subscriber-side
+ *   Actual deployed framework: 3 wildcard targets ship for ApiCall__c (ApiCall_All_Card →
+ *   MaskCreditCard, ApiCall_All_PaymentCard → MaskPaymentCard, ApiCall_All_Secret →
+ *   MaskSecretKeys) × 3 active framework rules — but the Card target defers to the
+ *   PaymentCard successor at shipped values, so 2 targets evaluate per record
+ *   (PaymentCard + Secret); effective density is unchanged. Plus subscriber-side
  *   test fixtures from earlier sections may add ~1 additional active rule + 1 single-field
  *   target on Url. Realistic eval count: ~1000 per trigger fire (lower bound 800 framework-only,
  *   not the spec's ~10,000). Sections 45-51 will establish the Tier-1 load-test pattern regardless.
@@ -15,7 +18,7 @@
  *
  * BEHAVIOUR ASSERTIONS (hard gate):
  *   - All 200 records inserted and persisted (no rollback)
- *   - No sampled record retains the raw Visa card number '4111111111111111' (MaskCreditCard active)
+ *   - No sampled record retains the raw Visa card number '4111111111111111' (MaskPaymentCard active)
  *   - Zero [MASKING_FAILURE] sentinels in sampled records
  *   - No invalidated rules post-run (pre-flight CMDT query confirms active rules)
  *   NOTE: SSN pattern '123-45-6789' is NOT asserted — MaskSsn is inactive in the deployed package.
@@ -31,8 +34,9 @@
  * Prerequisites:
  *   - subscriber scratch org with kern managed package installed
  *   - MaskingFramework_Enabled feature flag ON (default)
- *   - kern__MaskingTarget__mdt: ApiCall_All_Card + ApiCall_All_Secret active
- *   - kern__MaskingRule__mdt: MaskCreditCard + MaskSecretKeys active
+ *   - kern__MaskingTarget__mdt: ApiCall_All_PaymentCard + ApiCall_All_Secret active
+ *     (ApiCall_All_Card also ships active but defers to the PaymentCard successor)
+ *   - kern__MaskingRule__mdt: MaskPaymentCard + MaskSecretKeys (+ legacy MaskCreditCard) active
  *   - TriggerSetting.ApiCall has ApplyMasking__c = true (shipped default)
  *
  * Run (in isolation):
@@ -65,25 +69,27 @@ final String SENSITIVE_URL = 'https://admin:hunter2@api.example.com/bulk-load-44
 // a plain string and cannot be reliably filtered or compared in subscriber anon Apex. Report
 // total active counts; masking fires correctly via the framework's internal resolution path
 // (confirmed: 50/50 sampled records show CARD_REDACTED after insert).
-// Source truth: 2 ApiCall__c targets deployed (ApiCall_All_Card, ApiCall_All_Secret).
-// Spec expected 5 ApiCall__c targets × 10 active rules = 50 target-rule pairs. Actual: 2 × 2 = 4.
+// Source truth: 3 ApiCall__c targets ship (ApiCall_All_Card, ApiCall_All_PaymentCard,
+// ApiCall_All_Secret); the Card target defers to the PaymentCard successor, so 2 evaluate.
+// Spec expected 5 ApiCall__c targets × 10 active rules = 50 target-rule pairs. Effective: 2 × 2 = 4.
 Integer activeTotalTargets =
 [
-	SELECT COUNT()
-	FROM kern__MaskingTarget__mdt
-	WHERE kern__IsActive__c = true
+		SELECT COUNT()
+		FROM kern__MaskingTarget__mdt
+		WHERE kern__IsActive__c = TRUE
 ];
 Integer activeRuleCount =
 [
-	SELECT COUNT()
-	FROM kern__MaskingRule__mdt
-	WHERE kern__IsActive__c = true
+		SELECT COUNT()
+		FROM kern__MaskingRule__mdt
+		WHERE kern__IsActive__c = TRUE
 ];
 System.debug(LoggingLevel.INFO,
-	'Pre-flight: ' + activeTotalTargets + ' total active MaskingTarget(s) (all SObjects) × '
-	+ activeRuleCount + ' active rule(s). Known ApiCall__c targets: 2 (ApiCall_All_Card, ApiCall_All_Secret). '
-	+ 'Known active rules: 2 (MaskCreditCard, MaskSecretKeys). Spec 5×10; actual 2×2=4 pairs. '
-	+ 'Actual regex pressure ≈ ' + (BATCH_SIZE * 2 * 2) + ' evaluations per trigger fire (field wildcard).');
+		'Pre-flight: ' + activeTotalTargets + ' total active MaskingTarget(s) (all SObjects) × '
+		+ activeRuleCount + ' active rule(s). Known ApiCall__c targets: 3 shipped, 2 effective '
+		+ '(ApiCall_All_PaymentCard + ApiCall_All_Secret; ApiCall_All_Card defers to the successor). '
+		+ 'Known active rules: 3 (MaskPaymentCard, MaskSecretKeys, legacy MaskCreditCard). Spec 5×10; effective 2×2=4 pairs. '
+		+ 'Actual regex pressure ≈ ' + (BATCH_SIZE * 2 * 2) + ' evaluations per trigger fire (field wildcard).');
 
 // Capture pre-run governor baselines
 Long startWallMs = System.currentTimeMillis();
@@ -118,21 +124,24 @@ try
 	// BEHAVIOUR ASSERTION 1: count persisted via query (all 200 must exist)
 	Integer persistedCount =
 	[
-		SELECT COUNT()
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
+			SELECT COUNT()
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
 	];
 
 	Assert.areEqual(BATCH_SIZE, persistedCount,
-		'44: all ' + BATCH_SIZE + ' records must be persisted — no rollback. Got: ' + persistedCount);
+			'44: all ' + BATCH_SIZE + ' records must be persisted — no rollback. Got: ' + persistedCount);
 
 	// BEHAVIOUR ASSERTIONS 2-4: sample 50 records from the org (committed rows reflect trigger mutations)
 	List<kern__ApiCall__c> sample =
 	[
-		SELECT Id, kern__Request__c, kern__Response__c, kern__URL__c
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
-		LIMIT 50
+			SELECT Id,
+					kern__Request__c,
+					kern__Response__c,
+					kern__URL__c
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
+			LIMIT 50
 	];
 
 	Integer rawCardRetained = 0;
@@ -142,9 +151,12 @@ try
 	for(kern__ApiCall__c row : sample)
 	{
 		String requestBody = row.kern__Request__c == null ? '' : row.kern__Request__c;
-		if(requestBody.contains(VISA_CARD)) { rawCardRetained++; }
+		if(requestBody.contains(VISA_CARD))
+		{
+			rawCardRetained++;
+		}
 		if(requestBody.contains(MASKING_FAILURE_SENTINEL)
-			|| (row.kern__Response__c != null && row.kern__Response__c.contains(MASKING_FAILURE_SENTINEL)))
+				|| (row.kern__Response__c != null && row.kern__Response__c.contains(MASKING_FAILURE_SENTINEL)))
 		{
 			maskingFailures++;
 		}
@@ -155,39 +167,39 @@ try
 	}
 
 	Assert.areEqual(0, rawCardRetained,
-		'44: no sampled record should retain raw Visa card number "' + VISA_CARD
-		+ '" — masker must have replaced it. Raw retained: ' + rawCardRetained + '/' + sample.size());
+			'44: no sampled record should retain raw Visa card number "' + VISA_CARD
+			+ '" — masker must have replaced it. Raw retained: ' + rawCardRetained + '/' + sample.size());
 
 	Assert.areEqual(0, maskingFailures,
-		'44: no [MASKING_FAILURE] sentinels expected in sampled records. Found: '
-		+ maskingFailures + '/' + sample.size());
+			'44: no [MASKING_FAILURE] sentinels expected in sampled records. Found: '
+			+ maskingFailures + '/' + sample.size());
 
 	// BEHAVIOUR ASSERTION 5: no invalidated rules in per-transaction set
 	// Observable via: confirm active rules still query correctly (invalidation resets each tx anyway)
 	Integer postRunActiveRules =
 	[
-		SELECT COUNT()
-		FROM kern__MaskingRule__mdt
-		WHERE kern__IsActive__c = true
+			SELECT COUNT()
+			FROM kern__MaskingRule__mdt
+			WHERE kern__IsActive__c = TRUE
 	];
 	Assert.areEqual(activeRuleCount, postRunActiveRules,
-		'44: active rule count must not change during the test transaction. Before: '
-		+ activeRuleCount + ' After: ' + postRunActiveRules);
+			'44: active rule count must not change during the test transaction. Before: '
+			+ activeRuleCount + ' After: ' + postRunActiveRules);
 
 	// PERF_ROW emission (soft gate — harvested by Task 2.6 perf-history harvester)
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 44, 'metric' => 'wallMs', 'value' => wallMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 44, 'metric' => 'cpuMs', 'value' => cpuMs}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 44, 'metric' => 'soqlCount', 'value' => soqlCount}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 44, 'metric' => 'dmlCount', 'value' => dmlCount}));
-	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object>{'section' => 44, 'metric' => 'heapBytesPeak', 'value' => heapBytesPeak}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 44, 'metric' => 'wallMs', 'value' => wallMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 44, 'metric' => 'cpuMs', 'value' => cpuMs}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 44, 'metric' => 'soqlCount', 'value' => soqlCount}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 44, 'metric' => 'dmlCount', 'value' => dmlCount}));
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 44, 'metric' => 'heapBytesPeak', 'value' => heapBytesPeak}));
 
 	System.debug(LoggingLevel.INFO,
-		'44 PASS: ' + BATCH_SIZE + ' records inserted + persisted. '
-		+ 'Sample of ' + sample.size() + ': ' + maskedCount + ' show CARD_REDACTED, '
-		+ '0 raw card retained, 0 MASKING_FAILURE sentinels. '
-		+ 'Deployed: 2 ApiCall targets × 2 active rules (MaskCreditCard + MaskSecretKeys). '
-		+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount + ' dml=' + dmlCount
-		+ ' heap=' + heapBytesPeak + ' bytes');
+			'44 PASS: ' + BATCH_SIZE + ' records inserted + persisted. '
+			+ 'Sample of ' + sample.size() + ': ' + maskedCount + ' show CARD_REDACTED, '
+			+ '0 raw card retained, 0 MASKING_FAILURE sentinels. '
+			+ 'Deployed: 3 ApiCall targets (2 effective) × 3 active rules (MaskPaymentCard + MaskSecretKeys + legacy MaskCreditCard). '
+			+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount + ' dml=' + dmlCount
+			+ ' heap=' + heapBytesPeak + ' bytes');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -203,10 +215,10 @@ try
 {
 	List<kern__ApiCall__c> residualRows =
 	[
-		SELECT Id
-		FROM kern__ApiCall__c
-		WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
-		LIMIT 9000
+			SELECT Id
+			FROM kern__ApiCall__c
+			WHERE kern__ServiceName__c = :('LoadMasker44-' + RUN_STAMP)
+			LIMIT 9000
 	];
 	if(!residualRows.isEmpty())
 	{

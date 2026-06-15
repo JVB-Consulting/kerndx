@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Credentials</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts the value portion of HTTP Authorization headers. Consumes an optional &quot;Bearer &quot; scheme prefix so the actual token is redacted, not left behind. Keeps the header name intact so log readers can tell a header was present.</value>
     </values>

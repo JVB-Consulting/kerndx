@@ -2,8 +2,8 @@
 /**
  * @description Controller for the Health Check component. Runs diagnostic checks
  * to verify that required post-install configuration (CSP Trusted Site,
- * Platform Cache) is in place, and surfaces retention recommendations for
- * framework data objects.
+ * Platform Cache) is in place, surfaces retention recommendations for
+ * framework data objects, and reports the org's data-masking posture.
  *
  * @see CTRL_HealthCheck_TEST
  *
@@ -11,7 +11,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity')
 public inherited sharing class CTRL_HealthCheck
@@ -45,6 +45,55 @@ public inherited sharing class CTRL_HealthCheck
 	 */
 	@TestVisible
 	private static final String CHECK_DATA_RETENTION = System.Label.HealthCheck_DataRetention_CheckName;
+
+	/**
+	 * @description Display name for the Data Masking posture health check.
+	 */
+	@TestVisible
+	private static final String CHECK_MASKING_POSTURE = System.Label.HealthCheck_MaskingPosture_CheckName;
+
+	/**
+	 * @description Display name for the Custom-Object Masking Coverage health check.
+	 */
+	private static final String CHECK_CUSTOM_OBJECT_COVERAGE = System.Label.HealthCheck_CustomObjectCoverage_CheckName;
+
+	// Priority ordering (lower = higher priority, sorted to the top of each severity section in the UI).
+	// Platform Cache partitions and the CSP Trusted Site are the most foundational to the package working,
+	// so they outrank resolver / retention configuration if they ever co-appear in the same severity section.
+	/**
+	 * @description Display priority for the Organisation Cache health check.
+	 */
+	private static final Integer PRIORITY_ORG_CACHE = 10;
+
+	/**
+	 * @description Display priority for the Session Cache health check.
+	 */
+	private static final Integer PRIORITY_SESSION_CACHE = 20;
+
+	/**
+	 * @description Display priority for the Trusted Site health check.
+	 */
+	private static final Integer PRIORITY_TRUSTED_SITE = 30;
+
+	/**
+	 * @description Display priority for the Class Type Resolver health check.
+	 */
+	private static final Integer PRIORITY_CLASS_TYPE_RESOLVER = 40;
+
+	/**
+	 * @description Display priority for the Data Masking posture health check.
+	 */
+	private static final Integer PRIORITY_MASKING_POSTURE = 45;
+
+	/**
+	 * @description Display priority for the Custom-Object Masking Coverage health check.
+	 */
+	private static final Integer PRIORITY_CUSTOM_OBJECT_COVERAGE = 46;
+
+	/**
+	 * @description Display priority for the Data Retention health check.
+	 */
+	private static final Integer PRIORITY_DATA_RETENTION = 50;
 
 	/**
 	 * @description Status value indicating a health check passed.
@@ -144,6 +193,43 @@ public inherited sharing class CTRL_HealthCheck
 	private static final String DETAIL_DATA_RETENTION_MISSING = System.Label.HealthCheck_DataRetention_Missing;
 
 	/**
+	 * @description Detail message template when active masking targets mask nothing. {0} is populated with the dead-target count.
+	 */
+	@TestVisible
+	private static final String DETAIL_MASKING_POSTURE_DEAD = System.Label.HealthCheck_MaskingPosture_DeadConfig;
+
+	/**
+	 * @description Detail message when no object in the org carries active masking yet.
+	 */
+	@TestVisible
+	private static final String DETAIL_MASKING_POSTURE_NONE_ACTIVE = System.Label.HealthCheck_MaskingPosture_NoneActive;
+
+	/**
+	 * @description Detail message template when masking is active and healthy. {0} is populated with the count of objects carrying active masking.
+	 */
+	@TestVisible
+	private static final String DETAIL_MASKING_POSTURE_HEALTHY = System.Label.HealthCheck_MaskingPosture_Healthy;
+
+	/**
+	 * @description Detail message template when checked custom objects show no unmasked likely-sensitive fields. {0} is populated with the checked-object count.
+	 */
+	@TestVisible
+	private static final String DETAIL_CUSTOM_OBJECT_COVERAGE_HEALTHY = System.Label.HealthCheck_CustomObjectCoverage_Healthy;
+
+	/**
+	 * @description Detail message template when custom objects hold likely-sensitive fields with no masking.
+	 * {0} is populated with the object count, {1} with the comma-separated object names.
+	 */
+	@TestVisible
+	private static final String DETAIL_CUSTOM_OBJECT_COVERAGE_UNPROTECTED = System.Label.HealthCheck_CustomObjectCoverage_Unprotected;
+
+	/**
+	 * @description Detail suffix counting the custom objects one run left unchecked once the assessment bound was reached. {0} is populated with the unchecked-object count.
+	 */
+	@TestVisible
+	private static final String DETAIL_CUSTOM_OBJECT_COVERAGE_UNCHECKED = System.Label.HealthCheck_CustomObjectCoverage_Unchecked;
+
+	/**
 	 * @description Default nightly 2 am cron expression for all framework purge jobs.
 	 */
 	private static final String DEFAULT_CRON = '0 0 2 * * ?';
@@ -203,7 +289,9 @@ public inherited sharing class CTRL_HealthCheck
 				checkSessionCache(),
 				checkTrustedSite(),
 				checkClassTypeResolver(),
-				checkDataRetention()
+				checkDataRetention(),
+				checkMaskingPosture(),
+				checkCustomObjectMaskingCoverage()
 		};
 	}
 
@@ -227,7 +315,7 @@ public inherited sharing class CTRL_HealthCheck
 			DTO_RetentionProposal proposal = new DTO_RetentionProposal();
 			proposal.objectApiName = describe.getName();
 			proposal.objectLabel = describe.getLabel();
-			proposal.recordCount = (Integer)QRY_Builder.selectFrom(objectType).withSystemMode().count();
+			proposal.recordCount = (Integer)QRY_Builder.selectFrom(objectType).systemModeInternal().count();
 			proposal.retentionDays = recommendation.retentionDays;
 			proposal.schedulerName = recommendation.schedulerName;
 			proposal.schedulerClassName = SCHED_PurgeRecords.class.getName();
@@ -364,10 +452,6 @@ public inherited sharing class CTRL_HealthCheck
 		return coveredObjects;
 	}
 
-	// Priority ordering (lower = higher priority, sorted to the top of each severity section in the UI):
-	//   10 = Organisation Cache, 20 = Session Cache, 30 = Trusted Site, 40 = Class Type Resolver, 50 = Data Retention.
-	// Platform Cache partitions and the CSP Trusted Site are the most foundational to the package working,
-	// so they outrank resolver / retention configuration if they ever co-appear in the same severity section.
 	/**
 	 * @description Checks whether Organisation Cache has capacity allocated.
 	 * Organisation Cache is required for circuit breaker, API retry, and distributed state.
@@ -382,7 +466,7 @@ public inherited sharing class CTRL_HealthCheck
 		result.name = CHECK_ORG_CACHE;
 		result.status = isAllocated ? STATUS_PASS : STATUS_FAIL;
 		result.detail = isAllocated ? DETAIL_ORG_CACHE_ALLOCATED : DETAIL_ORG_CACHE_NOT_ALLOCATED;
-		result.priority = 10;
+		result.priority = PRIORITY_ORG_CACHE;
 
 		return result;
 	}
@@ -401,7 +485,7 @@ public inherited sharing class CTRL_HealthCheck
 		result.name = CHECK_SESSION_CACHE;
 		result.status = isAllocated ? STATUS_PASS : STATUS_WARN;
 		result.detail = isAllocated ? DETAIL_SESSION_CACHE_ALLOCATED : DETAIL_SESSION_CACHE_NOT_ALLOCATED;
-		result.priority = 20;
+		result.priority = PRIORITY_SESSION_CACHE;
 
 		return result;
 	}
@@ -421,7 +505,7 @@ public inherited sharing class CTRL_HealthCheck
 		result.name = CHECK_TRUSTED_SITE;
 		result.status = isConfigured ? STATUS_PASS : STATUS_FAIL;
 		result.detail = String.format(isConfigured ? DETAIL_TRUSTED_SITE_CONFIGURED : DETAIL_TRUSTED_SITE_MISSING, formatArgs);
-		result.priority = 30;
+		result.priority = PRIORITY_TRUSTED_SITE;
 
 		return result;
 	}
@@ -429,6 +513,9 @@ public inherited sharing class CTRL_HealthCheck
 	/**
 	 * @description Checks whether a ClassTypeResolver__mdt record is configured and its
 	 * referenced resolver class can be resolved at runtime and extends BaseClassResolver.
+	 * Each class name resolves through the same Subscriber-First primitive the resolver-chain
+	 * bootstrap applies (not through the chain itself, which this check validates), so the
+	 * verdict always matches what the chain will actually load.
 	 *
 	 * @return Health check result for Class Type Resolver (Warn when missing, unresolvable, or invalid type)
 	 */
@@ -436,7 +523,7 @@ public inherited sharing class CTRL_HealthCheck
 	{
 		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
 		result.name = CHECK_CLASS_TYPE_RESOLVER;
-		result.priority = 40;
+		result.priority = PRIORITY_CLASS_TYPE_RESOLVER;
 
 		List<ClassTypeResolver__mdt> resolvers = new SEL_ClassTypeResolver().findAll();
 
@@ -453,7 +540,7 @@ public inherited sharing class CTRL_HealthCheck
 
 		for(ClassTypeResolver__mdt resolver : resolvers)
 		{
-			Type resolverType = Type.forName(resolver.ClassName__c);
+			Type resolverType = UTIL_TypeResolver.getTypeForClassName(resolver.ClassName__c);
 
 			if(resolverType == null)
 			{
@@ -501,7 +588,7 @@ public inherited sharing class CTRL_HealthCheck
 	{
 		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
 		result.name = CHECK_DATA_RETENTION;
-		result.priority = 50;
+		result.priority = PRIORITY_DATA_RETENTION;
 
 		List<SObjectType> unconfigured = getUnconfiguredRetentionObjectTypes();
 
@@ -520,11 +607,87 @@ public inherited sharing class CTRL_HealthCheck
 		{
 			String objectLabel = UTIL_SObjectDescribe.getDescribe(objectType).getDescribe().getLabel();
 			objectLabels.add(objectLabel);
-			result.recordCounts.add(new DTO_ObjectRecordCount(objectLabel, (Integer)QRY_Builder.selectFrom(objectType).withSystemMode().count()));
+			result.recordCounts.add(new DTO_ObjectRecordCount(objectLabel, (Integer)QRY_Builder.selectFrom(objectType).systemModeInternal().count()));
 		}
 
 		result.detail = String.format(DETAIL_DATA_RETENTION_MISSING, new List<String> {String.join(objectLabels, ', ')});
 		result.actionLabel = System.Label.HealthCheck_ScheduledJobsActionLabel;
+		return result;
+	}
+
+	/**
+	 * @description Checks the org's data-masking posture by reading CTRL_MaskingAdvisor.getOrgPostureSummary().
+	 * Warns when any active masking target masks nothing (its rule is missing or inactive) so the admin can fix
+	 * or remove it, warns when no object carries active masking yet, and otherwise passes with the count of
+	 * masked objects. The Review-masking action deep-links into the Data Masking Advisor.
+	 *
+	 * @return Health check result for Data Masking (Warn on dead config or zero active masking, Pass otherwise)
+	 */
+	private static DTO_HealthCheckResult checkMaskingPosture()
+	{
+		CTRL_MaskingAdvisor.DTO_OrgPostureSummary posture = CTRL_MaskingAdvisor.getOrgPostureSummary();
+
+		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
+		result.name = CHECK_MASKING_POSTURE;
+		result.priority = PRIORITY_MASKING_POSTURE;
+
+		if(posture.deadConfigCount > 0)
+		{
+			result.status = STATUS_WARN;
+			result.detail = String.format(DETAIL_MASKING_POSTURE_DEAD, new List<Object> {posture.deadConfigCount});
+			result.actionLabel = System.Label.HealthCheck_ReviewMasking_ActionLabel;
+			return result;
+		}
+
+		if(posture.objectsWithActiveTargets == 0)
+		{
+			result.status = STATUS_WARN;
+			result.detail = DETAIL_MASKING_POSTURE_NONE_ACTIVE;
+			result.actionLabel = System.Label.HealthCheck_ReviewMasking_ActionLabel;
+			return result;
+		}
+
+		result.status = STATUS_PASS;
+		result.detail = String.format(DETAIL_MASKING_POSTURE_HEALTHY, new List<Object> {posture.objectsWithActiveTargets});
+		return result;
+	}
+
+	/**
+	 * @description Checks the masking coverage of the subscriber's own custom objects via
+	 * CTRL_MaskingAdvisor.summarizeCustomObjectCoverage() — a bounded sweep, so one run never walks an
+	 * unbounded object list in orgs with large custom-object counts. Warns naming the objects that hold
+	 * likely-sensitive fields with no active masking; passes with the checked count otherwise. Either
+	 * way the detail appends how many candidates the bound left unchecked, so a bounded pass is never
+	 * mistaken for a full scan. The Review-masking action deep-links into the Data Masking Advisor,
+	 * whose on-demand scan covers everything the bounded sweep cannot.
+	 *
+	 * @return Health check result for Custom-Object Masking Coverage (Warn when unmasked sensitive custom objects exist, Pass otherwise)
+	 */
+	private static DTO_HealthCheckResult checkCustomObjectMaskingCoverage()
+	{
+		CTRL_MaskingAdvisor.DTO_CustomObjectCoverageSummary coverage = CTRL_MaskingAdvisor.summarizeCustomObjectCoverage();
+
+		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
+		result.name = CHECK_CUSTOM_OBJECT_COVERAGE;
+		result.priority = PRIORITY_CUSTOM_OBJECT_COVERAGE;
+
+		String uncheckedSuffix = coverage.unassessedObjectCount > 0 ?
+				UTIL_String.SPACE + String.format(DETAIL_CUSTOM_OBJECT_COVERAGE_UNCHECKED, new List<Object> {coverage.unassessedObjectCount}) : UTIL_String.EMPTY;
+
+		if(coverage.objectsRequiringAttention.isEmpty())
+		{
+			result.status = STATUS_PASS;
+			result.detail = String.format(DETAIL_CUSTOM_OBJECT_COVERAGE_HEALTHY, new List<Object> {coverage.assessedObjectCount}) + uncheckedSuffix;
+			return result;
+		}
+
+		result.status = STATUS_WARN;
+		result.detail = String.format
+				(
+						DETAIL_CUSTOM_OBJECT_COVERAGE_UNPROTECTED,
+						new List<Object> {coverage.objectsRequiringAttention.size(), String.join(coverage.objectsRequiringAttention, ', ')}
+				) + uncheckedSuffix;
+		result.actionLabel = System.Label.HealthCheck_ReviewMasking_ActionLabel;
 		return result;
 	}
 
@@ -539,11 +702,11 @@ public inherited sharing class CTRL_HealthCheck
 		String orgUrl = Url.getOrgDomainUrl().toExternalForm();
 
 		List<CspTrustedSite> trustedSites = QRY_Builder.selectFrom(CspTrustedSite.SObjectType)
-				.withSystemMode()
+				.systemModeInternal()
 				.addField(CspTrustedSite.EndpointUrl)
 				.condition(CspTrustedSite.IsActive).equals(true)
 				.condition(CspTrustedSite.EndpointUrl).equals(orgUrl)
-				.bypassSharing()
+				.bypassSharingInternal()
 				.toList();
 
 		return !trustedSites.isEmpty();

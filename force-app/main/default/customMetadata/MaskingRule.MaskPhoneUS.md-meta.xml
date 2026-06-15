@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Contact</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts US-format phone numbers: optional country code, parentheses around area code, hyphen/dot/space separators. Does not match international numbers — add more rules for other regions if needed.</value>
     </values>

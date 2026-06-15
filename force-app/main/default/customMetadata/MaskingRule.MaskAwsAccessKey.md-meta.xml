@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Credentials</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts AWS access key IDs. Matches the AKIA (permanent) and ASIA (session) prefixes followed by 16 uppercase alphanumerics — the standard 20-char AWS access key format. Case-sensitive to avoid over-matching.</value>
     </values>

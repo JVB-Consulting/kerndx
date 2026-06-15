@@ -1,0 +1,124 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.detail__pill-row
+{
+	margin : 0 0 0.75rem;
+}
+
+.detail__pill
+{
+	background    : #FBE9D8;
+	border-radius : 9999px;
+	color         : #8A5A00;
+	font-size     : 0.6875rem;
+	font-weight   : 600;
+	padding       : 0.0625rem 0.5625rem;
+}
+
+.detail__pill[data-on="true"]
+{
+	background : #E3F1EF;
+	color      : #0B827C;
+}
+
+.detail__row
+{
+	margin-bottom : 0.8125rem;
+}
+
+.detail__key
+{
+	color          : #706E6B;
+	font-size      : 0.65625rem;
+	font-weight    : 700;
+	letter-spacing : 0.05em;
+	text-transform : uppercase;
+}
+
+.detail__value
+{
+	font-size  : 0.8125rem;
+	margin-top : 0.125rem;
+}
+
+.detail__value_muted
+{
+	color : #706E6B;
+}
+
+.detail__test
+{
+	align-items : flex-end;
+	display     : flex;
+	gap         : 0.375rem;
+	margin-top  : 0.3125rem;
+}
+
+.detail__test-input
+{
+	flex : 1 1 auto;
+}
+
+.detail__test-button
+{
+	flex : 0 0 auto;
+}
+
+.detail__test-out
+{
+	font-size  : 0.78125rem;
+	margin-top : 0.4375rem;
+	min-height : 1.125rem;
+}
+
+.detail__test-message
+{
+	color : #706E6B;
+}
+
+.detail__example
+{
+	align-items   : center;
+	background    : #FAFAFA;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.375rem;
+	display       : inline-flex;
+	flex-wrap     : wrap;
+	gap           : 0.5rem;
+	padding       : 0.4375rem 0.625rem;
+}
+
+.detail__example-after
+{
+	color       : #0B827C;
+	font-weight : 600;
+}
+
+.detail__example-arrow
+{
+	color : #C9C7C5;
+}
+
+.detail__toggle
+{
+	align-items : center;
+	cursor      : pointer;
+	display     : inline-flex;
+	font-weight : 600;
+	gap         : 0.5rem;
+}
+
+.detail__toggle-box
+{
+	accent-color : #0176D3;
+	cursor       : pointer;
+	height       : 0.9375rem;
+	margin       : 0;
+	width        : 0.9375rem;
+}
+
+.detail__foot-note
+{
+	color        : #706E6B;
+	font-size    : 0.78125rem;
+	margin-right : auto;
+}

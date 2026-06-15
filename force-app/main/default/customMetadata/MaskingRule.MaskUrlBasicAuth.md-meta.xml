@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Credentials</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts username and password embedded in URLs as https://user:password@host style. Preserves the scheme and host so log readers still see which endpoint was hit, but removes the credentials that would otherwise leak into URL fields.</value>
     </values>

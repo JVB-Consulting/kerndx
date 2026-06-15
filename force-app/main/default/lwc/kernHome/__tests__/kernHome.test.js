@@ -21,6 +21,8 @@ jest.mock('@salesforce/label/c.KernHome_StreamingMonitor_Title', () => ({default
 jest.mock('@salesforce/label/c.KernHome_StreamingMonitor_Description', () => ({default: 'Monitor platform events...'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_ChainMonitor_Title', () => ({default: 'Chain Monitor'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_ChainMonitor_Description', () => ({default: 'Monitor async chain executions...'}), {virtual: true});
+jest.mock('@salesforce/label/c.KernHome_DataMaskingAdvisor_Title', () => ({default: 'Data Masking Advisor'}), {virtual: true});
+jest.mock('@salesforce/label/c.KernHome_DataMaskingAdvisor_Description', () => ({default: 'Surface sensitive fields, preview rule output...'}), {virtual: true});
 
 describe('c-kern-home', () =>
 {
@@ -68,12 +70,12 @@ describe('c-kern-home', () =>
 		expect(outerCard.iconName).toBe('utility:setup');
 	});
 
-	it('should render three tool cards inside the Administration Tools card', async() =>
+	it('should render four tool cards inside the Administration Tools card', async() =>
 	{
 		const element = await createComponent();
 
 		const toolCards = getToolCards(element);
-		expect(toolCards).toHaveLength(3);
+		expect(toolCards).toHaveLength(4);
 	});
 
 	it('should render the expected tool titles', async() =>
@@ -84,6 +86,7 @@ describe('c-kern-home', () =>
 		expect(toolCards[0].title).toBe('API Test Harness');
 		expect(toolCards[1].title).toBe('Streaming Event Monitor');
 		expect(toolCards[2].title).toBe('Chain Monitor');
+		expect(toolCards[3].title).toBe('Data Masking Advisor');
 	});
 
 	it('should render the expected icon names on each tool card (matching their tab motifs)', async() =>
@@ -94,6 +97,7 @@ describe('c-kern-home', () =>
 		expect(toolCards[0].iconName).toBe('custom:custom63');
 		expect(toolCards[1].iconName).toBe('custom:custom30');
 		expect(toolCards[2].iconName).toBe('custom:custom57');
+		expect(toolCards[3].iconName).toBe('custom:custom91');
 	});
 
 	it('should navigate to the api test harness tab when the open button is clicked', async() =>
@@ -132,6 +136,19 @@ describe('c-kern-home', () =>
 
 		expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({
 			type: 'standard__navItemPage', attributes: {apiName: 'ChainMonitor'}
+		}));
+	});
+
+	it('should navigate to the data masking advisor page when the open button is clicked', async() =>
+	{
+		const element = await createComponent();
+
+		const button = element.shadowRoot.querySelector('lightning-button[data-key="dataMaskingAdvisor"]');
+		button.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({
+			type: 'standard__navItemPage', attributes: {apiName: 'DataMaskingAdvisor'}
 		}));
 	});
 

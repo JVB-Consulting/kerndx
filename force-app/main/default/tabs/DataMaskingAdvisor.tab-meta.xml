@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>The Data Masking Advisor tab surfaces sensitive fields on a chosen object, previews masking rule output, and builds a deployable masking configuration bundle.</description>
+    <flexiPage>DataMaskingAdvisor</flexiPage>
+    <label>Data Masking Advisor</label>
+    <motif>Custom91: Shield</motif>
+</CustomTab>

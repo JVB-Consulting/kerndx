@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Shared helper that maps masking-rule field-type literals to friendly display names and renders the comma-joined "applies to" line, so the
+		rule-detail popup and the add-rule menu agree on the wording.
+	</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Field Type Labels</masterLabel>
+</LightningComponentBundle>

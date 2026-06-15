@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Financial</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts IBAN-format international bank account numbers (two-letter country, two check digits, bank identifier, then up to 16 alphanumeric chars). Case-sensitive to avoid matching lowercase prose. Ships with Block DML; review with your PCI compliance team.</value>
     </values>

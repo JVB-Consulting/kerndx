@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.dma-inv__intro
+{
+	margin-bottom : 12px;
+}
+
+.dma-inv__k
+{
+	color         : var(--slds-g-color-neutral-base-30, #5C5C5C);
+	font-size     : 0.75rem;
+	font-weight   : 700;
+	letter-spacing : 0.05em;
+	margin-bottom : 4px;
+	text-transform : uppercase;
+}
+
+.dma-inv__progress
+{
+	align-items : center;
+	display     : flex;
+	min-height  : 1.5rem;
+	position    : relative;
+}
+
+.dma-inv__preview
+{
+	border        : 1px solid var(--slds-g-color-border-base-1, #E5E5E5);
+	border-radius : 0.25rem;
+	margin-top    : 6px;
+}
+
+.dma-inv__preview th span,
+.dma-inv__preview td span
+{
+	display       : block;
+	overflow      : hidden;
+	text-overflow : ellipsis;
+	white-space   : nowrap;
+}
+
+.dma-inv__preview th
+{
+	font-size : 0.6875rem;
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Regulated-field inventory export dialog for the Data Masking Advisor — picks a scope (custom / masked / all objects) and format (CSV / JSON), fetches that scope's per-object inventory, previews it, and downloads the file client-side.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Inventory Export Dialog</masterLabel>
+</LightningComponentBundle>

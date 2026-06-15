@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Financial</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts SWIFT/BIC codes (8 or 11 uppercase characters: four-letter bank, two-letter country, two-char location, optional three-char branch). Case-sensitive so lowercase prose doesn&apos;t over-match. Ships with Block DML; review with your PCI compliance team.</value>
     </values>

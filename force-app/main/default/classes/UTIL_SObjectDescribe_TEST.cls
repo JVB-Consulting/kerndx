@@ -37,7 +37,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -87,6 +87,13 @@ private class UTIL_SObjectDescribe_TEST
 	 * @description Assertion message for SObject type equality checks
 	 */
 	private static final String MSG_SOBJECT_TYPE = 'SObject type should match expected';
+	/**
+	 * @description Developer name of the master record type, which is available to every user on every
+	 * object in any org — the one record type a managed-package test can assert availability of without
+	 * depending on subscriber profile/permission-set assignment (packaged record-type visibilities do
+	 * not propagate to a subscriber org on install).
+	 */
+	private static final String RT_MASTER = 'Master';
 	/**
 	 * @description Assertion message for value equality checks
 	 */
@@ -205,7 +212,7 @@ private class UTIL_SObjectDescribe_TEST
 		DescribeSObjectResult nullDescribeResult = null;
 		SObject nullSObjectRecord = null;
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullString), MSG_NULL_RESULT);
-		Assert.isNull(UTIL_SObjectDescribe.getDescribe(''), MSG_NULL_RESULT);
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(UTIL_String.EMPTY), MSG_NULL_RESULT);
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(' '), MSG_NULL_RESULT);
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullSObjectType), MSG_NULL_RESULT);
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullDescribeResult), MSG_NULL_RESULT);
@@ -287,7 +294,7 @@ private class UTIL_SObjectDescribe_TEST
 		Assert.areEqual(SObjectType.Foobar__c.fields.getMap().size(), fields.size(), MSG_SIZE_EQUALITY);
 
 		Assert.isNull(fields.get(null), MSG_NULL_RESULT);
-		Assert.isNull(fields.get(''), MSG_NULL_RESULT);
+		Assert.isNull(fields.get(UTIL_String.EMPTY), MSG_NULL_RESULT);
 	}
 
 	/**
@@ -801,7 +808,7 @@ private class UTIL_SObjectDescribe_TEST
 		Test.startTest();
 
 		UTIL_SObjectDescribe.FieldMetadata nullResult = foobarDescribe.getFieldMetadata(null);
-		UTIL_SObjectDescribe.FieldMetadata emptyResult = foobarDescribe.getFieldMetadata('');
+		UTIL_SObjectDescribe.FieldMetadata emptyResult = foobarDescribe.getFieldMetadata(UTIL_String.EMPTY);
 		UTIL_SObjectDescribe.FieldMetadata blankResult = foobarDescribe.getFieldMetadata(' ');
 		UTIL_SObjectDescribe.FieldMetadata invalidResult = foobarDescribe.getFieldMetadata('NonExistentField__c');
 
@@ -1067,6 +1074,45 @@ private class UTIL_SObjectDescribe_TEST
 		Test.stopTest();
 
 		Assert.isNull(recordTypeId, MSG_NULL_RESULT);
+	}
+
+	/**
+	 * @description Tests isRecordTypeAvailable returns true when the named record type exists and is
+	 * available to the running user. Asserts against the master record type, which is available to every
+	 * user in any org, so the test holds in both the unmanaged dev org and a managed subscriber install —
+	 * a packaged custom record type's visibility does not propagate to subscriber profiles/permission
+	 * sets, so its availability to the test-running user cannot be assumed.
+	 *
+	 * @see UTIL_SObjectDescribe.isRecordTypeAvailable
+	 */
+	@IsTest
+	private static void isRecordTypeAvailableReturnsTrueForAvailableRecordType()
+	{
+		Test.startTest();
+
+		Boolean available = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, RT_MASTER);
+
+		Test.stopTest();
+
+		Assert.isTrue(available, 'the master record type is available to every user, so it should report available');
+	}
+
+	/**
+	 * @description Tests isRecordTypeAvailable returns false when no record type matches the developer
+	 * name — the resolver finds no RecordTypeInfo, so the type cannot be available to anyone.
+	 *
+	 * @see UTIL_SObjectDescribe.isRecordTypeAvailable
+	 */
+	@IsTest
+	private static void isRecordTypeAvailableReturnsFalseForUnknownRecordType()
+	{
+		Test.startTest();
+
+		Boolean available = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, 'NonExistentRecordType');
+
+		Test.stopTest();
+
+		Assert.isFalse(available, 'An unknown developer name resolves to no record type, so it is not available');
 	}
 
 	/**
@@ -1348,5 +1394,129 @@ private class UTIL_SObjectDescribe_TEST
 		String result = builder.toString();
 		Assert.isTrue(result.contains(Account.Name.getDescribe().getName()), 'Should contain Name field');
 		Assert.isTrue(result.contains(Account.Industry.getDescribe().getName()), 'Should contain Industry field');
+	}
+
+	/**
+	 * @description Tests that getAllFieldInformation returns display metadata for every field on the object.
+	 *
+	 * @see UTIL_SObjectDescribe.getAllFieldInformation
+	 */
+	@IsTest
+	private static void getAllFieldInformationReturnsEveryField()
+	{
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields = UTIL_SObjectDescribe.getAllFieldInformation(SEL_Foobar.OBJECT_NAME);
+
+		Assert.isFalse(fields.isEmpty(), 'Every field on the object should be returned');
+		Assert.isNotNull(fields.get('Name'), 'The Name field should be present');
+	}
+
+	/**
+	 * @description Tests that getFieldInformation returns the label and DisplayType name for a requested field.
+	 *
+	 * @see UTIL_SObjectDescribe.getFieldInformation
+	 */
+	@IsTest
+	private static void getFieldInformationReturnsRequestedFieldMetadata()
+	{
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields = UTIL_SObjectDescribe.getFieldInformation(SEL_Foobar.OBJECT_NAME, new List<String> {'Name'});
+
+		UTIL_SObjectDescribe.DTO_FieldInformation nameField = fields.get('Name');
+		Assert.isNotNull(nameField, 'The requested field should be returned');
+		Assert.isTrue(String.isNotBlank(nameField.fieldLabel), 'The field label should be populated');
+		Assert.isTrue(String.isNotBlank(nameField.fieldType), 'The field type should be populated');
+		Assert.isNull(nameField.lookupObjectApiName, 'A non-lookup field carries no related object');
+	}
+
+	/**
+	 * @description Tests that getFieldInformation returns null when the object name is blank.
+	 *
+	 * @see UTIL_SObjectDescribe.getFieldInformation
+	 */
+	@IsTest
+	private static void getFieldInformationReturnsNullForBlankObjectName()
+	{
+		Assert.isNull(UTIL_SObjectDescribe.getFieldInformation(UTIL_String.EMPTY, new List<String> {'Name'}), 'A blank object name should yield null');
+	}
+
+	/**
+	 * @description Tests that getFieldInformation populates the related object API name for a lookup field and
+	 * silently skips a field that does not exist on the object.
+	 *
+	 * @see UTIL_SObjectDescribe.getFieldInformation
+	 */
+	@IsTest
+	private static void getFieldInformationPopulatesLookupAndSkipsUnknownField()
+	{
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields =
+				UTIL_SObjectDescribe.getFieldInformation(SEL_Foobar.OBJECT_NAME, new List<String> {SEL_Foobar.FIELD_LOOKUP, 'NonExistentField__x'});
+
+		Assert.areEqual(1, fields.size(), 'The non-existent field should be skipped');
+		UTIL_SObjectDescribe.DTO_FieldInformation lookupField = fields.get(SEL_Foobar.FIELD_LOOKUP);
+		Assert.isNotNull(lookupField, 'The lookup field should be returned');
+		Assert.areEqual(DisplayType.REFERENCE.name(), lookupField.fieldType, 'A lookup field is typed REFERENCE');
+		Assert.isTrue(String.isNotBlank(lookupField.lookupObjectApiName), 'The related object API name should be populated');
+	}
+
+	/**
+	 * @description Tests that the type-filtered getFieldInformation overload builds metadata only for
+	 * fields whose DisplayType is in the allowed set, skipping the rest before any DTO is constructed.
+	 *
+	 * @see UTIL_SObjectDescribe.getFieldInformation
+	 */
+	@IsTest
+	private static void getFieldInformationFiltersToAllowedTypes()
+	{
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields = UTIL_SObjectDescribe.getFieldInformation
+				(
+						SEL_Foobar.OBJECT_NAME,
+						new List<String> {SEL_Foobar.FIELD_LOOKUP, 'Name'},
+						new Set<DisplayType> {DisplayType.REFERENCE}
+				);
+
+		Assert.areEqual(1, fields.size(), 'Only the REFERENCE-typed field is kept; the non-matching field is skipped');
+		Assert.isNotNull(fields.get(SEL_Foobar.FIELD_LOOKUP), 'The REFERENCE lookup field is included');
+		Assert.isNull(fields.get('Name'), 'A non-REFERENCE field is excluded by the allowed-types filter');
+	}
+
+	/**
+	 * @description Tests that the type-filtered getAllFieldInformation overload returns only fields whose
+	 * DisplayType is in the allowed set across the whole object.
+	 *
+	 * @see UTIL_SObjectDescribe.getAllFieldInformation
+	 */
+	@IsTest
+	private static void getAllFieldInformationWithAllowedTypesExcludesOtherTypes()
+	{
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fields =
+				UTIL_SObjectDescribe.getAllFieldInformation(SEL_Foobar.OBJECT_NAME, new Set<DisplayType> {DisplayType.REFERENCE});
+
+		Assert.isFalse(fields.isEmpty(), 'The object exposes at least one REFERENCE field');
+		Assert.isNotNull(fields.get(SEL_Foobar.FIELD_LOOKUP), 'The REFERENCE lookup field is included');
+		Assert.isNull(fields.get('Name'), 'A non-REFERENCE field is excluded from the all-fields filtered result');
+		for(UTIL_SObjectDescribe.DTO_FieldInformation field : fields.values())
+		{
+			Assert.areEqual(DisplayType.REFERENCE.name(), field.fieldType, 'Every returned field is the allowed REFERENCE type');
+		}
+	}
+
+	/**
+	 * @description Tests that the system-managed exclusion skips read-only fields Salesforce controls
+	 * under the hood — here the standard `Case.CaseNumber` auto-number (a text-typed field that is not
+	 * writable) is dropped while the writable `Case.Subject` text field is kept. Field-level security is
+	 * not consulted; the exclusion is purely intrinsic (formula / roll-up / auto-number).
+	 *
+	 * @see UTIL_SObjectDescribe.getAllFieldInformation
+	 */
+	@IsTest
+	private static void getAllFieldInformationExcludesSystemManagedReadOnlyFields()
+	{
+		Set<DisplayType> textTypes = new Set<DisplayType> {DisplayType.STRING, DisplayType.TEXTAREA, DisplayType.EMAIL, DisplayType.PHONE, DisplayType.URL};
+
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> withoutExclusion = UTIL_SObjectDescribe.getAllFieldInformation('Case', textTypes, false);
+		Assert.isNotNull(withoutExclusion.get('CaseNumber'), 'the auto-number field is text-shaped, so the type gate alone still includes it');
+
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> withExclusion = UTIL_SObjectDescribe.getAllFieldInformation('Case', textTypes, true);
+		Assert.isNull(withExclusion.get('CaseNumber'), 'the auto-number field Salesforce assigns is excluded as system-managed');
+		Assert.isNotNull(withExclusion.get('Subject'), 'a writable text field is still included');
 	}
 }

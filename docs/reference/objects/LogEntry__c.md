@@ -29,10 +29,12 @@ Persistent log entries captured by the Kern logging framework. Each record repre
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [DurationMs__c](#durationms__c) | Duration of the operation in milliseconds. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExceptionType__c](#exceptiontype__c) | Fully qualified Apex exception class name (e.g., System.DmlException). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExecutionEvent__c](#executionevent__c) | Salesforce execution context (Quiddity) that produced this log entry. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Fingerprint__c](#fingerprint__c) | Grouping key for log flood control. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Limits__c](#limits__c) | JSON snapshot of Salesforce governor limits at the time the event was logged. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [LineNumber__c](#linenumber__c) | Source code line number in the Apex class where the exception occurred. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevel__c](#loglevel__c) | Severity level of this log entry: DEBUG, INFO, WARN, or ERROR. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Message__c](#message__c) | Full log message content. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [OccurrenceCount__c](#occurrencecount__c) | Total occurrences counted in this rollup row's window, including the occurrence sampled by the fingerprint's detail row. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ParentTransactionId__c](#parenttransactionid__c) | Transaction ID of the parent process that spawned this execution context. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RecordId__c](#recordid__c) | Salesforce record ID associated with this log entry, if applicable. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RecordLink__c](#recordlink__c) | Formula-generated hyperlink to the record associated with this log entry. |
@@ -174,6 +176,23 @@ Salesforce execution context (Quiddity) that produced this log entry.
 | `TRANSACTION_FINALIZER_QUEUEABLE` | TRANSACTION_FINALIZER_QUEUEABLE | Yes |
 | `VF` | VF | Yes |
 
+### Fingerprint__c
+
+```apex
+global String Fingerprint__c
+```
+
+Grouping key for log flood control. Detail rows store detail:<key> (at most one per fingerprint, enforced by uniqueness); daily rollup rows store rollup:<key>:<yyyyMMdd>. Blank on ungrouped entries. The framework reserves the bypass: key prefix for bypass-audit fingerprints.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(216), case-sensitive |
+| Required | false |
+| Unique | true |
+| External ID | true |
+
 ### Limits__c
 
 ```apex
@@ -242,6 +261,23 @@ Full log message content. May contain exception details, stack traces, or diagno
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Long Text Area(131072) |
+
+### OccurrenceCount__c
+
+```apex
+global Decimal OccurrenceCount__c
+```
+
+Total occurrences counted in this rollup row's window, including the occurrence sampled by the fingerprint's detail row. Populated only on rollup rows; SUM this field over rollup rows for true occurrence totals.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Number(12,0) |
+| Required | false |
+| Unique | false |
+| External ID | false |
 
 ### ParentTransactionId__c
 

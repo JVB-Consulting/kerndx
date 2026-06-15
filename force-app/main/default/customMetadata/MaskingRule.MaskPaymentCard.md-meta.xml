@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask Payment Card Numbers</label>
+    <protected>false</protected>
+    <values>
+        <field>ApplicableFieldTypes__c</field>
+        <value xsi:type="xsd:string">STRING;TEXTAREA;ENCRYPTEDSTRING</value>
+    </values>
+    <values>
+        <field>CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Payment</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Redacts 13-19 digit numbers passing the Luhn (mod-10) checksum. Covers all major card brands (Visa, Mastercard, Amex, Discover, JCB, UnionPay, Maestro); spaces or hyphens allowed. Blocks saving if masking fails. Review with PCI before disabling.</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>MinInputLength__c</field>
+        <value xsi:type="xsd:double">13.0</value>
+    </values>
+    <values>
+        <field>Mode__c</field>
+        <value xsi:type="xsd:string">CreditCard</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">200.0</value>
+    </values>
+    <values>
+        <field>Pattern__c</field>
+        <value xsi:type="xsd:string">\b\d(?:[ -]?\d){12,18}\b</value>
+    </values>
+    <values>
+        <field>Replacement__c</field>
+        <value xsi:type="xsd:string">[CARD_REDACTED]</value>
+    </values>
+    <values>
+        <field>ReplacesFingerprint__c</field>
+        <value xsi:type="xsd:string">4a7d0e90c279226127cf2431ed41c6f0cafc98efa6b60704370d258a1e67ad99</value>
+    </values>
+    <values>
+        <field>Replaces__c</field>
+        <value xsi:type="xsd:string">MaskCreditCard</value>
+    </values>
+    <values>
+        <field>ShippedFingerprint__c</field>
+        <value xsi:type="xsd:string">0593ef03f0725e64e777c5bda0622dea9385658e9da7b492a60cee7d564c3a56</value>
+    </values>
+</CustomMetadata>

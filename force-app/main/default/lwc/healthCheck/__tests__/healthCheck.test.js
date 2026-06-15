@@ -2,11 +2,11 @@
 /**
  * @description Jest unit tests for healthCheck LWC component
  * @author Jason van Beukering
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 import {createElement} from 'lwc';
 import HealthCheck from 'c/healthCheck';
-import {mockCallControllerMethod, mockShowSuccessToast} from 'c/componentBuilder';
+import {mockCallControllerMethod, mockShowSuccessToast, mockNavigate} from 'c/componentBuilder';
 
 const mockModalOpen = jest.fn().mockResolvedValue('confirmed');
 jest.mock('c/classTypeResolverSetupModal', () => ({
@@ -77,6 +77,8 @@ jest.mock('@salesforce/label/c.HealthCheck_DataRetention_CustomizingHelp',
 		() => ({default: 'Each Set up button opens the scheduled job editor with recommended defaults prefilled. Tweak anything before saving.'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_FailSection_Heading', () => ({default: 'Action required'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_WarnSection_Heading', () => ({default: 'Review recommended'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_MaskingPosture_CheckName', () => ({default: 'Data Masking'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName', () => ({default: 'Custom-Object Masking Coverage'}), {virtual: true});
 
 const MOCK_RESULTS = [
 	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
@@ -154,6 +156,37 @@ const MOCK_RESULTS_WITH_RETENTION_WARN = [
 			{objectName: 'Async Chain Execution', recordCount: 300}
 		]
 	}
+];
+
+const MOCK_RESULTS_WITH_MASKING_WARN = [
+	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
+	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
+	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
+	{
+		name: 'Data Masking',
+		status: 'Warn',
+		detail: '2 masking target(s) are masking nothing — open the advisor to fix or remove them.',
+		actionLabel: 'Review masking',
+		priority: 45
+	},
+	{name: 'Data Retention', status: 'Pass', detail: 'Scheduled purge jobs are configured.', actionLabel: null, priority: 50}
+];
+
+const MOCK_RESULTS_WITH_COVERAGE_WARN = [
+	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
+	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
+	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
+	{name: 'Data Masking', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
+	{
+		name: 'Custom-Object Masking Coverage',
+		status: 'Warn',
+		detail: '2 of your custom objects hold likely-sensitive fields with no masking configured: CustomerFeedback__c, SupportTranscript__c.',
+		actionLabel: 'Review masking',
+		priority: 46
+	},
+	{name: 'Data Retention', status: 'Pass', detail: 'Scheduled purge jobs are configured.', actionLabel: null, priority: 50}
 ];
 
 describe('c-health-check', () =>
@@ -383,6 +416,61 @@ describe('c-health-check', () =>
 		await Promise.resolve();
 
 		expect(mockModalOpen).toHaveBeenCalledWith(expect.objectContaining({size: 'medium'}));
+	});
+
+	it('should render the masking warn result with a Review-masking action button', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
+
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		expect(maskingButton).toBeTruthy();
+		expect(maskingButton.label).toBe('Review masking');
+	});
+
+	it('should navigate to the Data Masking Advisor when the masking review action is clicked', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
+
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		maskingButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		expect(mockNavigate).toHaveBeenCalledWith({type: 'standard__navItemPage', attributes: {apiName: 'DataMaskingAdvisor'}});
+	});
+
+	it('should not open the class type resolver modal when the masking review action is clicked', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
+
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		maskingButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(mockModalOpen).not.toHaveBeenCalled();
+	});
+
+	it('should deep-link to the Data Masking Advisor with an auto-scan request when the custom-object coverage action is clicked', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_COVERAGE_WARN);
+
+		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Custom-Object Masking Coverage"]');
+		coverageButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		expect(mockNavigate).toHaveBeenCalledWith({type: 'standard__navItemPage', attributes: {apiName: 'DataMaskingAdvisor'}, state: {c__scan: '1'}});
+	});
+
+	it('should not open the class type resolver modal when the custom-object coverage action is clicked', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_COVERAGE_WARN);
+
+		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Custom-Object Masking Coverage"]');
+		coverageButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(mockModalOpen).not.toHaveBeenCalled();
 	});
 
 	it('should re-run health checks after the setup modal closes', async() =>

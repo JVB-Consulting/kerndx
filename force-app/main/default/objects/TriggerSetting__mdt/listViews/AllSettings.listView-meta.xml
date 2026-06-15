@@ -4,6 +4,8 @@
     <columns>DeveloperName</columns>
     <columns>MasterLabel</columns>
     <columns>SObjectType__c</columns>
+    <columns>ObjectApiNameOverride__c</columns>
+    <columns>ApplyMasking__c</columns>
     <columns>BypassExecution__c</columns>
     <columns>BypassFeatureFlag__c</columns>
     <columns>RequiredFeatureFlag__c</columns>

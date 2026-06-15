@@ -1,0 +1,631 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card icon-name="utility:privately_shared" title={labels.cardTitle}>
+		<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="refresh-button" icon-name="utility:refresh" onclick={handleRefresh} size="small" slot="actions"
+		                       variant="bare"></lightning-button-icon>
+
+		<div class="slds-p-horizontal_medium slds-p-bottom_small">
+			<template lwc:if={isLoading}>
+				<lightning-spinner alternative-text={labels.cardTitle} size="small"></lightning-spinner>
+			</template>
+
+			<p class="slds-text-body_regular slds-text-color_weak slds-p-bottom_small" data-testid="scope-banner">{labels.scopeBannerBody}</p>
+
+			<template lwc:if={hasDeadConfig}>
+				<div class="slds-box slds-theme_warning slds-m-bottom_small" data-testid="dead-config-banner" role="alert">
+					<h3 class="slds-text-heading_small slds-text-color_error">
+						<strong>{labels.deadConfigHeading}</strong>
+					</h3>
+					<p class="slds-text-body_regular slds-m-top_xx-small">{deadConfigSummary}</p>
+					<ul class="slds-list_dotted slds-m-top_x-small">
+						<template for:each={deadConfigFindings} for:item="finding">
+							<li class="slds-text-body_regular" data-testid="dead-config-item" key={finding.targetDeveloperName}>{finding.message}</li>
+						</template>
+					</ul>
+				</div>
+			</template>
+
+			<div class="slds-var-m-top_small">
+				<template lwc:if={showEmptyHint}>
+					<h3 class="slds-text-heading_small slds-var-m-bottom_x-small">{labels.coverageHeading}</h3>
+					<div class="dma-landing-actions">
+						<button class="slds-button slds-button_neutral" data-testid="add-object-button" onclick={handleOpenAddObject} type="button">{labels.addObjectButton}
+						</button>
+						<button class="slds-button slds-button_neutral" data-testid="inventory-export-button" onclick={handleOpenInventoryExport} type="button">
+							{labels.inventoryExportButton}
+						</button>
+					</div>
+				</template>
+				<template lwc:else>
+					<button class="dma-scan-back" data-testid="back-to-all-objects" onclick={handleBackToLanding} type="button">{labels.addObjectBack}</button>
+				</template>
+
+				<template lwc:if={showScanProvenance}>
+					<div class="dma-scan-provenance slds-m-top_small" data-testid="coverage-provenance" role="status">
+						<span aria-hidden="true">🔍</span>
+						<span class="dma-scan-provenance__text">{scanProvenanceText}</span>
+						<button class="dma-scan-back" data-testid="coverage-back-to-scan" onclick={handleBackToScan} type="button">{labels.coverageScanBackToScan}</button>
+					</div>
+				</template>
+
+				<template lwc:if={showEmptyHint}>
+					<template lwc:if={hasPosture}>
+						<section aria-labelledby="dma-posture-heading" class="slds-box slds-m-top_small" data-testid="posture-summary">
+							<h3 class="slds-text-heading_small" id="dma-posture-heading">{labels.postureHeading}</h3>
+							<p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{labels.postureAsConfiguredNote}</p>
+							<div class="dma-posture-grid slds-m-top_x-small">
+								<div class="dma-posture-tile" data-testid="posture-objects">
+									<span class="slds-assistive-text">{postureObjectsAriaLabel}</span>
+									<p aria-hidden="true" class="dma-posture-tile__num" data-testid="posture-objects-count">{postureSummary.objectsWithActiveTargets}</p>
+									<p aria-hidden="true" class="dma-posture-tile__lbl" data-testid="posture-objects-label">{labels.postureObjectsWithMasking}</p>
+								</div>
+								<div class="dma-posture-tile" data-testid="posture-dead">
+									<span class="slds-assistive-text">{postureDeadAriaLabel}</span>
+									<p aria-hidden="true" class="dma-posture-tile__num" data-testid="posture-dead-count">{postureSummary.deadConfigCount}</p>
+									<p aria-hidden="true" class="dma-posture-tile__lbl" data-testid="posture-dead-label">{labels.postureDeadConfigurations}</p>
+								</div>
+							</div>
+							<template lwc:if={postureNothingMasked}>
+								<p class="slds-text-body_regular slds-m-top_x-small" data-testid="posture-barely-masked" role="status">{labels.postureBarelyMaskedNote}</p>
+							</template>
+						</section>
+						<template lwc:if={hasInventory}>
+							<section aria-labelledby="dma-inventory-heading" class="dma-inventory" data-testid="inventory">
+								<h3 class="dma-inventory__heading" id="dma-inventory-heading">{labels.inventoryHeading}</h3>
+								<template for:each={decoratedInventory} for:item="row">
+									<button class="dma-inv-row" data-api-name={row.objectApiName} data-testid="inventory-row" key={row.objectApiName}
+									        onclick={handleInventoryRowClick} type="button">
+										<span class="dma-inv-row__name">{row.objectLabel}<small>{row.objectApiName}</small></span>
+										<span class="dma-inv-row__rules">
+											<template for:each={row.ruleChips} for:item="chip">
+												<span class="dma-rule-chip" data-state="inherited" key={chip.key}><span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.label}</span>
+											</template>
+										</span>
+										<span class="dma-inv-row__meta">{row.metaText}<template lwc:if={row.hasDead}> · <span class="dma-inv-dead">{row.deadText}</span></template></span>
+										<span aria-hidden="true" class="dma-inv-row__chev">›</span>
+									</button>
+								</template>
+								<p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small" data-testid="inventory-footer">{labels.inventoryFooter}</p>
+							</section>
+						</template>
+					</template>
+					<template lwc:else>
+						<div class="slds-box slds-box_small slds-theme_default slds-m-top_small slds-text-align_center" data-testid="coverage-empty">
+							<p class="slds-text-heading_small">{labels.emptyHeading}</p>
+							<p class="slds-text-body_regular slds-text-color_weak slds-m-top_xx-small">{labels.emptyBody}</p>
+						</div>
+					</template>
+				</template>
+
+				<template lwc:if={showEmptyHint}>
+					<section class="dma-scan slds-m-top_medium" data-testid="coverage-scan-section">
+						<div class="dma-scan__head">
+							<h3 class="slds-text-heading_small" data-testid="coverage-scan-heading">{labels.coverageScanHeading}</h3>
+							<template lwc:if={scanShowResults}>
+								<button class="dma-scan-back dma-scan__rescan" data-testid="coverage-rescan" onclick={handleScan} type="button">{labels.coverageScanRescan}</button>
+							</template>
+						</div>
+
+						<template lwc:if={isScanIdle}>
+							<div class="dma-scan__idle">
+								<div class="dma-scan__idle-text">
+									<p class="slds-text-body_regular">{labels.coverageScanIntro}</p>
+									<p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small" data-testid="coverage-population-note">{scanPopulationNote}</p>
+									<template lwc:if={hasManagedCustomObjects}>
+										<p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small" data-testid="coverage-managed-clause">{scanManagedClause}</p>
+									</template>
+									<p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{labels.coverageScanHowItWorks}</p>
+									<template lwc:if={hasManagedCustomObjects}>
+										<label class="dma-scan__managed slds-m-top_x-small">
+											<input checked={includeManaged} data-testid="coverage-managed-toggle" onchange={handleToggleManaged} type="checkbox"/>
+											<span>{scanIncludeManagedLabel}</span>
+										</label>
+									</template>
+								</div>
+								<template lwc:if={hasScanCandidates}>
+									<button class="slds-button slds-button_brand dma-scan__cta" data-testid="coverage-scan-button" onclick={handleScan} type="button">
+										{scanButtonLabel}
+									</button>
+								</template>
+								<template lwc:else>
+									<p class="slds-text-body_small slds-text-color_weak" data-testid="coverage-no-candidates">{labels.coverageScanNoCandidates}</p>
+								</template>
+							</div>
+						</template>
+
+						<template lwc:if={isScanRunning}>
+							<div class="dma-scan__progress" data-testid="coverage-scan-progress" role="status">
+								<div class="dma-scan__progress-row">
+									<span class="slds-text-body_small">{scanProgressText} <span class="slds-text-color_weak">{scanInFlightNote}</span></span>
+									<button class="slds-button slds-button_neutral dma-scan__cancel" data-testid="coverage-scan-cancel" onclick={handleCancelScan} type="button">
+										{labels.coverageScanCancel}
+									</button>
+								</div>
+								<div class="dma-scan__bar">
+									<div class="dma-scan__bar-fill" style={scanProgressBarStyle}></div>
+								</div>
+							</div>
+						</template>
+
+						<template lwc:if={scanShowResults}>
+							<template lwc:if={isScanCancelled}>
+								<p class="dma-scan__summary slds-text-color_weak slds-m-top_x-small" data-testid="coverage-partial-note">{scanPartialNote}</p>
+							</template>
+							<template lwc:else>
+								<p class="dma-scan__summary slds-m-top_x-small" data-testid="coverage-scan-summary">{scanSummaryText}</p>
+							</template>
+
+							<template lwc:if={scanHasFlagged}>
+								<template for:each={scanFlaggedRows} for:item="row">
+									<button class="dma-inv-row dma-scan__row" data-api-name={row.apiName} data-testid="coverage-flagged-row" key={row.apiName}
+									        onclick={handleScanRowClick} type="button">
+										<span class="dma-inv-row__name">{row.apiName}<small>{row.objectLabel}</small></span>
+										<span class="dma-inv-row__rules">
+											<template for:each={row.flaggedFields} for:item="field">
+												<span class="dma-scan__chip" data-sens={field.sensitivityLevel} data-testid="coverage-flagged-field" key={field.key}><i
+														aria-hidden="true"></i>{field.text}</span>
+											</template>
+										</span>
+										<span class="dma-scan__none">{labels.coverageScanNoMaskingPill}</span>
+										<span aria-hidden="true" class="dma-inv-row__chev">›</span>
+									</button>
+								</template>
+								<p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small" data-testid="coverage-flagged-footer">{labels.coverageScanFlaggedFooter}</p>
+							</template>
+							<template lwc:else>
+								<div class="dma-scan__allclear slds-m-top_x-small" data-testid="coverage-empty-state"><span aria-hidden="true">✓</span>
+									{labels.coverageScanEmptyState}
+								</div>
+							</template>
+
+							<template lwc:if={showScanCleanNote}>
+								<p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small" data-testid="coverage-clean-note">{scanCleanNote}</p>
+							</template>
+
+							<template lwc:if={hasManagedCustomObjects}>
+								<label class="dma-scan__managed slds-m-top_small">
+									<input checked={includeManaged} data-testid="coverage-managed-toggle" onchange={handleToggleManaged} type="checkbox"/>
+									<span>{scanIncludeManagedLabel}</span>
+								</label>
+							</template>
+						</template>
+					</section>
+				</template>
+
+				<template lwc:if={isHeuristicOnlyMode}>
+					<div class="slds-box slds-m-top_small" data-testid="heuristic-only-notice" role="status">
+						<p class="slds-text-body_regular slds-text-color_weak">{labels.heuristicOnlyNotice}</p>
+					</div>
+				</template>
+
+				<template lwc:if={hasFieldLoadError}>
+					<div class="slds-box slds-theme_error slds-m-top_small" data-testid="coverage-advisor-error" role="alert">
+						<p class="slds-text-body_regular">{labels.errorLoadFailed}</p>
+					</div>
+				</template>
+
+				<template lwc:if={hasLoadedFields}>
+					<!-- Configuration-health banner (collapsed by default): inactive object-wide rules + dead field targets. -->
+					<template lwc:if={hasHealthFindings}>
+						<div class="dma-health slds-m-top_small" data-testid="health-banner">
+							<div class="dma-coverage__head">
+								<span aria-hidden="true" class="dma-coverage__glyph dma-coverage__glyph_warn">⚠</span>
+								<span class="dma-coverage__title dma-coverage__title_warn" data-testid="health-banner-heading">{healthBannerHeading}</span>
+								<button aria-controls="dma-health-detail" aria-expanded={healthAriaExpanded} class="dma-coverage__toggle dma-coverage__toggle_warn"
+								        data-testid="health-banner-toggle" onclick={handleToggleHealth} type="button">{healthBannerToggleLabel}
+								</button>
+							</div>
+							<div id="dma-health-detail">
+								<template lwc:if={healthOpen}>
+									<template lwc:if={healthObjectWideDetail}>
+										<p class="dma-health__line" data-testid="health-object-wide-detail">{healthObjectWideDetail}</p>
+									</template>
+									<template lwc:if={hasDeadFieldTargets}>
+										<ul class="dma-health__list">
+											<template for:each={healthDeadFieldDetails} for:item="detail">
+												<li class="dma-health__line" data-testid="health-dead-detail" key={detail.key}>{detail.text}</li>
+											</template>
+										</ul>
+									</template>
+								</template>
+							</div>
+						</div>
+					</template>
+
+					<!-- Object-wide coverage banner (always rendered, even at zero): active object-wide rules as tickable chips. -->
+					<section class="dma-coverage slds-m-top_small" data-testid="object-wide-banner">
+						<div class="dma-coverage__head">
+							<span aria-hidden="true" class="dma-coverage__glyph">🛈</span>
+							<span class="dma-coverage__title" data-testid="object-wide-banner-heading">{objectWideBannerHeading}</span>
+							<button aria-controls="dma-object-wide-detail" aria-expanded={bannerAriaExpanded} class="dma-coverage__toggle" data-testid="object-wide-banner-toggle"
+							        onclick={handleToggleBanner} type="button">{objectWideBannerToggleLabel}
+							</button>
+						</div>
+						<div id="dma-object-wide-detail">
+							<template lwc:if={bannerOpen}>
+								<div class="dma-coverage__rules slds-m-top_x-small">
+									<template for:each={objectWideBannerChips} for:item="chip">
+										<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
+										      data-testid="object-wide-chip" key={chip.key}>
+											<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box" data-testid="object-wide-chip-toggle"
+											       data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
+											<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
+											<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key} data-detail-origin={chip.origin}
+											        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-testid="chip-detail" onclick={handleChipDetail}
+											        title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+											<template lwc:if={chip.flag}>
+												<span class="dma-chip__flag">{chip.flag}</span>
+											</template>
+											<template lwc:if={chip.supersededByLabel}>
+												<span class="dma-chip__superseded" data-testid="chip-superseded-flag">{labels.chipSupersededFlag}</span>
+											</template>
+										</span>
+									</template>
+									<button class="dma-add-rule" data-testid="add-object-wide-rule" onclick={handleAddObjectWideRule} type="button">{labels.addObjectWideRule}
+									</button>
+								</div>
+								<p class="dma-coverage__note" data-testid="object-wide-banner-note">{objectWideBannerNote}</p>
+							</template>
+						</div>
+					</section>
+
+					<div aria-live="polite" class="dma-summary-bar slds-m-top_small" role="status">
+						<div class="dma-summary" data-testid="summary-strip">
+							<span class="dma-summary__stat" data-testid="summary-ready">{summaryReadyText}</span>
+							<span aria-hidden="true" class="dma-summary__dot">·</span>
+							<span class="dma-summary__stat" data-testid="summary-to-review">{summaryToReviewText}</span>
+							<span aria-hidden="true" class="dma-summary__dot">·</span>
+							<span class="dma-summary__stat" data-testid="summary-other">{summaryOtherText}</span>
+							<template lwc:if={hasExportChanges}>
+								<span aria-hidden="true" class="dma-summary__dot">·</span>
+								<span class="dma-summary__stat" data-testid="summary-changes">{summaryChangesText}</span>
+							</template>
+						</div>
+						<lightning-button class="dma-summary-bar__cta" data-testid="export-package-button" disabled={exportButtonDisabled} label={labels.exportPackageLabel}
+						                  onclick={handleExport} variant="brand"></lightning-button>
+					</div>
+					<template lwc:if={hasDraftState}>
+						<div class="dma-summary-actions slds-m-top_xx-small">
+							<button class="dma-summary__clear" data-testid="clear-draft-button" onclick={handleClearDraft} type="button">{labels.clearDraft}</button>
+						</div>
+					</template>
+					<template lwc:if={showNoChangesNote}>
+						<p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small" data-testid="no-changes-note">{labels.noChangesQueued}</p>
+					</template>
+
+					<template lwc:if={hasReadyRows}>
+						<section class="dma-card slds-m-top_medium" data-testid="section-ready">
+							<div class="dma-card__bar">
+								<h3 class="dma-card__title slds-text-heading_small" data-testid="section-ready-heading">{readySectionHeading}</h3>
+							</div>
+							<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="section-ready-guidance">{labels.sectionReadyGuidance}</p>
+
+							<div class="slds-scrollable_x">
+								<table class="slds-table slds-table_bordered slds-table_cell-buffer">
+									<thead>
+									<tr>
+										<th scope="col"><span class="slds-truncate" title={labels.columnField}>{labels.columnField}</span></th>
+										<th scope="col"><span class="slds-truncate" title={labels.columnSensitivity}>{labels.columnSensitivity}</span></th>
+										<th scope="col"><span class="slds-truncate" title={labels.columnMaskingRules}>{labels.columnMaskingRules}</span></th>
+									</tr>
+									</thead>
+									<tbody>
+									<template for:each={readyRows} for:item="row">
+										<tr class="dma-field-row" data-api-name={row.apiName} data-testid="field-row" key={row.apiName}>
+											<td>
+												<strong class="dma-fieldname">{row.label}</strong>
+												<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak">{row.apiName} · {row.type}</p>
+												<template lwc:if={row.showReason}>
+													<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak" data-testid="field-reason">{row.reasonText}</p>
+												</template>
+												<template lwc:if={row.markerLabel}>
+													<span class="dma-marker" data-testid="override-marker">
+														<span aria-hidden="true" class="dma-marker__glyph">✎</span>
+														<span class="dma-marker__label">{row.markerLabel}</span>
+														<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
+														        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+													</span>
+												</template>
+											</td>
+											<td>
+												<span class="dma-sens">
+													<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
+													        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+														<span>{row.sensitivityBadgeLabel}</span>
+														<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
+														<span aria-hidden="true" class="dma-badge__caret">▾</span>
+													</button>
+													<span class="dma-conf" data-signal={row.matchStrength} data-testid="signal-band">
+														<span aria-hidden="true" class="dma-conf__bars">
+															<template for:each={row.signalBars} for:item="bar">
+																<span class="dma-conf__bar" data-lit={bar.lit} key={bar.key}></span>
+															</template>
+														</span>
+														<span class="dma-conf__label">{row.signalBandLabel}</span>
+													</span>
+												</span>
+											</td>
+											<td>
+												<div class="dma-rules-cell">
+													<template lwc:if={row.hasObjectWideContextChips}>
+														<div class="dma-rules-line">
+															<span class="dma-rules-src">{labels.maskingCellObjectWideLine}</span>
+															<span class="dma-rules-chips">
+																<template for:each={row.objectWideContextChips} for:item="chip">
+																	<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
+																	        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																	        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																	        title={chip.supersededByLabel} type="button">
+																		<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
+																</template>
+															</span>
+														</div>
+													</template>
+													<div class="dma-rules-line">
+														<span class="dma-rules-src">{labels.maskingCellFieldLevelLine}</span>
+														<span class="dma-rules-chips">
+															<template for:each={row.fieldChips} for:item="chip">
+																<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
+																      data-testid="field-chip" key={chip.key}>
+																	<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box" data-testid="field-chip-toggle"
+																	       data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
+																	<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
+																	<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
+																	        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																	        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																	<template lwc:if={chip.flag}>
+																		<span class="dma-chip__flag">{chip.flag}</span>
+																	</template>
+																	<template lwc:if={chip.supersededByLabel}>
+																		<span class="dma-chip__superseded" data-testid="chip-superseded-flag">{labels.chipSupersededFlag}</span>
+																	</template>
+																</span>
+															</template>
+															<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
+															        type="button">{labels.addRule}</button>
+														</span>
+													</div>
+												</div>
+											</td>
+										</tr>
+									</template>
+									</tbody>
+								</table>
+							</div>
+						</section>
+					</template>
+
+					<template lwc:if={hasManualReviewRows}>
+						<section class="dma-card slds-m-top_medium" data-testid="section-manual-review" id="dma-manual-review-region">
+							<div class="dma-card__bar">
+								<button aria-controls="dma-manual-review-region" aria-expanded={manualReviewAriaExpanded} class="dma-card__toggle"
+								        data-testid="section-manual-review-toggle" onclick={handleToggleManualReview} type="button">
+									<lightning-icon class="dma-card__chev" icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
+									<span class="dma-card__title slds-text-heading_small" data-testid="section-manual-review-heading">{manualReviewSectionHeading}</span>
+								</button>
+							</div>
+
+							<template lwc:if={manualReviewExpanded}>
+								<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="section-manual-review-guidance">
+									{labels.sectionReviewGuidance}</p>
+								<div class="slds-scrollable_x">
+									<table class="slds-table slds-table_bordered slds-table_cell-buffer">
+										<thead>
+										<tr>
+											<th scope="col"><span class="slds-truncate" title={labels.columnField}>{labels.columnField}</span></th>
+											<th scope="col"><span class="slds-truncate" title={labels.columnSensitivity}>{labels.columnSensitivity}</span></th>
+											<th scope="col"><span class="slds-truncate" title={labels.columnMaskingRules}>{labels.columnMaskingRules}</span></th>
+										</tr>
+										</thead>
+										<tbody>
+										<template for:each={manualReviewRows} for:item="row">
+											<tr class="dma-field-row" data-api-name={row.apiName} data-testid="manual-review-row" key={row.apiName}>
+												<td>
+													<strong class="dma-fieldname">{row.label}</strong>
+													<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak">{row.apiName} · {row.type}</p>
+													<template lwc:if={row.showReason}>
+														<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak" data-testid="field-reason">{row.reasonText}</p>
+													</template>
+													<template lwc:if={row.markerLabel}>
+														<span class="dma-marker" data-testid="override-marker">
+															<span aria-hidden="true" class="dma-marker__glyph">✎</span>
+															<span class="dma-marker__label">{row.markerLabel}</span>
+															<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
+															        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+														</span>
+													</template>
+												</td>
+												<td>
+													<span class="dma-sens">
+														<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
+														        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+															<span>{row.sensitivityBadgeLabel}</span>
+															<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
+															<span aria-hidden="true" class="dma-badge__caret">▾</span>
+														</button>
+														<span class="dma-conf" data-signal={row.matchStrength} data-testid="signal-band">
+															<span aria-hidden="true" class="dma-conf__bars">
+																<template for:each={row.signalBars} for:item="bar">
+																	<span class="dma-conf__bar" data-lit={bar.lit} key={bar.key}></span>
+																</template>
+															</span>
+															<span class="dma-conf__label">{row.signalBandLabel}</span>
+														</span>
+													</span>
+												</td>
+												<td>
+													<div class="dma-rules-cell">
+														<template lwc:if={row.hasObjectWideContextChips}>
+															<div class="dma-rules-line">
+																<span class="dma-rules-src">{labels.maskingCellObjectWideLine}</span>
+																<span class="dma-rules-chips">
+																	<template for:each={row.objectWideContextChips} for:item="chip">
+																		<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
+																		        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																		        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																		        title={chip.supersededByLabel} type="button">
+																			<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
+																	</template>
+																</span>
+															</div>
+														</template>
+														<div class="dma-rules-line">
+															<span class="dma-rules-src">{labels.maskingCellFieldLevelLine}</span>
+															<span class="dma-rules-chips">
+																<template for:each={row.fieldChips} for:item="chip">
+																	<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
+																	      data-testid="field-chip" key={chip.key}>
+																		<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box"
+																		       data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
+																		       onchange={handleChipToggle} type="checkbox"/>
+																		<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
+																		<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
+																		        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																		        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																		<template lwc:if={chip.flag}>
+																			<span class="dma-chip__flag">{chip.flag}</span>
+																		</template>
+																		<template lwc:if={chip.supersededByLabel}>
+																			<span class="dma-chip__superseded" data-testid="chip-superseded-flag">{labels.chipSupersededFlag}</span>
+																		</template>
+																	</span>
+																</template>
+																<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
+																        type="button">{labels.addRule}</button>
+															</span>
+														</div>
+													</div>
+												</td>
+											</tr>
+										</template>
+										</tbody>
+									</table>
+								</div>
+							</template>
+						</section>
+					</template>
+
+					<template lwc:if={hasOtherRows}>
+						<section class="dma-card slds-m-top_medium" data-testid="section-other" id="dma-other-region">
+							<div class="dma-card__bar">
+								<button aria-controls="dma-other-region" aria-expanded={otherAriaExpanded} class="dma-card__toggle" data-testid="section-other-toggle"
+								        onclick={handleToggleOther} type="button">
+									<lightning-icon class="dma-card__chev" icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
+									<span class="dma-card__title slds-text-heading_small" data-testid="section-other-heading">{otherSectionHeading}</span>
+								</button>
+							</div>
+
+							<template lwc:if={otherExpanded}>
+								<div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
+									<lightning-input checked={otherMissesOnly} data-testid="other-misses-toggle" label={labels.otherMissesOnlyLabel}
+									                 onchange={handleOtherMissesToggle} type="checkbox"></lightning-input>
+								</div>
+								<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="section-other-summary">{labels.sectionOtherSummary}</p>
+								<template lwc:if={isOtherCapped}>
+									<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="other-row-cap-note">{otherCapNote}</p>
+								</template>
+								<div class="slds-scrollable_x">
+									<table class="slds-table slds-table_bordered slds-table_cell-buffer">
+										<thead>
+										<tr>
+											<th scope="col"><span class="slds-truncate" title={labels.columnField}>{labels.columnField}</span></th>
+											<th scope="col"><span class="slds-truncate" title={labels.columnSensitivity}>{labels.columnSensitivity}</span></th>
+											<th scope="col"><span class="slds-truncate" title={labels.columnMaskingRules}>{labels.columnMaskingRules}</span></th>
+										</tr>
+										</thead>
+										<tbody>
+										<template for:each={otherRowsRendered} for:item="row">
+											<tr class="dma-field-row" data-api-name={row.apiName} data-testid="other-field-row" key={row.apiName}>
+												<td>
+													<strong class="dma-fieldname">{row.label}</strong>
+													<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak">{row.apiName} · {row.type}</p>
+													<template lwc:if={row.isLowConfidenceMatch}>
+														<span class="dma-lowconf" data-testid="low-confidence-tag"><span aria-hidden="true" class="dma-lowconf__glyph">⚠</span>{labels.lowConfidenceMatchTag}</span>
+													</template>
+													<template lwc:if={row.showReason}>
+														<p class="dma-fieldmeta slds-text-body_small slds-text-color_weak" data-testid="other-reason">{row.reasonText}</p>
+													</template>
+													<template lwc:if={row.markerLabel}>
+														<span class="dma-marker" data-testid="override-marker">
+															<span aria-hidden="true" class="dma-marker__glyph">✎</span>
+															<span class="dma-marker__label">{row.markerLabel}</span>
+															<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
+															        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+														</span>
+													</template>
+												</td>
+												<td>
+													<span class="dma-sens">
+														<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
+														        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+															<span>{row.sensitivityBadgeLabel}</span>
+															<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
+															<span aria-hidden="true" class="dma-badge__caret">▾</span>
+														</button>
+														<span class="dma-conf" data-signal={row.matchStrength} data-testid="signal-band">
+															<span aria-hidden="true" class="dma-conf__bars">
+																<template for:each={row.signalBars} for:item="bar">
+																	<span class="dma-conf__bar" data-lit={bar.lit} key={bar.key}></span>
+																</template>
+															</span>
+															<span class="dma-conf__label">{row.signalBandLabel}</span>
+														</span>
+													</span>
+												</td>
+												<td>
+													<div class="dma-rules-cell">
+														<template lwc:if={row.hasObjectWideContextChips}>
+															<div class="dma-rules-line">
+																<span class="dma-rules-src">{labels.maskingCellObjectWideLine}</span>
+																<span class="dma-rules-chips">
+																	<template for:each={row.objectWideContextChips} for:item="chip">
+																		<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
+																		        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																		        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																		        title={chip.supersededByLabel} type="button">
+																			<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
+																	</template>
+																</span>
+															</div>
+														</template>
+														<div class="dma-rules-line">
+															<span class="dma-rules-src">{labels.maskingCellFieldLevelLine}</span>
+															<span class="dma-rules-chips">
+																<template for:each={row.fieldChips} for:item="chip">
+																	<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
+																	      data-testid="field-chip" key={chip.key}>
+																		<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box"
+																		       data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
+																		       onchange={handleChipToggle} type="checkbox"/>
+																		<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
+																		<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
+																		        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																		        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																		<template lwc:if={chip.flag}>
+																			<span class="dma-chip__flag">{chip.flag}</span>
+																		</template>
+																		<template lwc:if={chip.supersededByLabel}>
+																			<span class="dma-chip__superseded" data-testid="chip-superseded-flag">{labels.chipSupersededFlag}</span>
+																		</template>
+																	</span>
+																</template>
+																<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
+																        type="button">{labels.addRule}</button>
+															</span>
+														</div>
+													</div>
+												</td>
+											</tr>
+										</template>
+										</tbody>
+									</table>
+								</div>
+							</template>
+						</section>
+					</template>
+
+				</template>
+			</div>
+		</div>
+	</lightning-card>
+</template>

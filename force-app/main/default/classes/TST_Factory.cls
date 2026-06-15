@@ -11,7 +11,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  *
  * @since 1.0
  *
@@ -224,7 +224,7 @@ global without sharing class TST_Factory
 	 * {
 	 *     return new SEL_User().findByCompanyName('my-test-user');
 	 * }
-	 * }
+	 * ```
 	 */
 	global static User newUser(String profileName, String companyName)
 	{
@@ -287,7 +287,7 @@ global without sharing class TST_Factory
 		Profile profile = new SEL_Profile().findByName(profileName);
 		Assert.isNotNull(profile, 'Profile not found: ' + profileName);
 		User user = newUser(profileName, companyName);
-		insert user;
+		Database.insert(new List<User> {user}, true, AccessLevel.SYSTEM_MODE);
 		createPermissionSetAssignments(new List<User> {user}, permissionSetName);
 		return user;
 	}
@@ -908,6 +908,62 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Builds an in-memory `MaskingRule__mdt` with a mock Id, applying the given field overrides.
+	 * Custom metadata cannot be inserted via DML, so the record is built without insertion; the mock Id lets a
+	 * `MaskingTarget__mdt.Rule__c` reference it. Pass an empty map for an all-defaults rule.
+	 *
+	 * @param overrides Field overrides to stamp on the rule. An `Id` override is ignored — the builder assigns
+	 *        the mock Id.
+	 *
+	 * @return The in-memory rule with a mock Id.
+	 */
+	public static MaskingRule__mdt newMaskingRule(Map<SObjectField, Object> overrides)
+	{
+		return (MaskingRule__mdt)TST_Builder.of(MaskingRule__mdt.SObjectType)
+				.withOverrides(overrides)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Builds an in-memory `MaskingTarget__mdt` with a mock Id, applying the given field overrides.
+	 * Built without insertion (custom metadata cannot be inserted via DML). Pass an empty map for an
+	 * all-defaults target.
+	 *
+	 * @param overrides Field overrides to stamp on the target. An `Id` override is ignored.
+	 *
+	 * @return The in-memory target with a mock Id.
+	 */
+	public static MaskingTarget__mdt newMaskingTarget(Map<SObjectField, Object> overrides)
+	{
+		return (MaskingTarget__mdt)TST_Builder.of(MaskingTarget__mdt.SObjectType)
+				.withOverrides(overrides)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Builds an in-memory `MaskingTarget__mdt` linked to the given rule — the `Rule__c` lookup Id
+	 * is taken from the rule's mock Id and the `Rule__r` relationship is wired after the build, so the target
+	 * resolves its rule in-memory without a query. Custom-metadata relationships cannot be set through the
+	 * builder, which is why this overload wires `Rule__r` post-build.
+	 *
+	 * @param overrides Field overrides to stamp on the target. `Rule__c` is set from `rule`.
+	 * @param rule The rule the target references.
+	 *
+	 * @return The in-memory target linked to the rule.
+	 */
+	public static MaskingTarget__mdt newMaskingTarget(Map<SObjectField, Object> overrides, MaskingRule__mdt rule)
+	{
+		Map<SObjectField, Object> withRule = overrides == null ? new Map<SObjectField, Object>() : overrides.clone();
+		withRule.put(MaskingTarget__mdt.Rule__c, rule.Id);
+
+		MaskingTarget__mdt target = newMaskingTarget(withRule);
+		target.Rule__r = rule;
+		return target;
+	}
+
+	/**
 	 * @description Creates and inserts a list of Foobar__c records with initialized fields.
 	 * Uses TST_Builder for record creation and insertion.
 	 *
@@ -1331,7 +1387,7 @@ global without sharing class TST_Factory
 
 			newLoginFrequencyRecords.add(loginFrequency);
 		}
-		insert newLoginFrequencyRecords;
+		Database.insert(newLoginFrequencyRecords, true, AccessLevel.SYSTEM_MODE);
 		return newLoginFrequencyRecords;
 	}
 
@@ -1627,8 +1683,7 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates a pre-configured SObjectBuilder for Foobar__c with
-	 * common fields and record type.
+	 * @description Creates a pre-configured SObjectBuilder for Foobar__c with common fields.
 	 *
 	 * @return A TST_Builder.Builder instance.
 	 */
@@ -1648,9 +1703,14 @@ global without sharing class TST_Factory
 				Foobar__c.Text__c
 		};
 
+		// Stamp DefaultFoobar only when it is available to the running user. A subscriber org may not
+		// assign this packaged record type to the running profile; stamping it anyway fails the insert
+		// with INVALID_CROSS_REFERENCE_KEY, so fall back to the master record type when it is unavailable.
+		String recordTypeDeveloperName = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, SEL_Foobar.RT_DEFAULT) ? SEL_Foobar.RT_DEFAULT : null;
+
 		return TST_Builder.of(Foobar__c.SObjectType)
 				.withDefaultedFields(fieldsToDefault)
-				.withRecordType(SEL_Foobar.RT_DEFAULT);
+				.withRecordType(recordTypeDeveloperName);
 	}
 
 	/**

@@ -3,7 +3,7 @@
 //
 // Expected behaviour after install:
 // - MaskSecretKeys (JsonKeyValue) redacts JSON values under password/token/apiKey
-// - MaskCreditCard redacts 13-19 digit sequences
+// - MaskPaymentCard redacts 13-19 digit sequences (it replaces MaskCreditCard on the framework objects)
 // - Other rules (SSN, email, phone, JWT, auth, urlAuth, aws) are INACTIVE by default,
 //   so those values persist raw.
 
@@ -21,7 +21,13 @@ call.kern__Request__c = body;
 call.kern__Response__c = '{"status":"ok","token":"secret-abc"}';
 insert call;
 
-kern__ApiCall__c apiStored = [SELECT kern__Request__c, kern__Response__c FROM kern__ApiCall__c WHERE Id = :call.Id];
+kern__ApiCall__c apiStored =
+[
+		SELECT kern__Request__c,
+				kern__Response__c
+		FROM kern__ApiCall__c
+		WHERE Id = :call.Id
+];
 Boolean passApiPassword = !apiStored.kern__Request__c.contains('hunter2') && apiStored.kern__Request__c.contains('***SECRET***');
 Boolean passApiCard = !apiStored.kern__Request__c.contains('4111-1111-1111-1111');
 Boolean passApiToken = apiStored.kern__Response__c.contains('***SECRET***');
@@ -41,7 +47,13 @@ issue.kern__RequestBody__c = body;
 issue.kern__Status__c = 'Open';
 insert issue;
 
-kern__ApiIssue__c issueStored = [SELECT kern__ErrorMessages__c, kern__RequestBody__c FROM kern__ApiIssue__c WHERE Id = :issue.Id];
+kern__ApiIssue__c issueStored =
+[
+		SELECT kern__ErrorMessages__c,
+				kern__RequestBody__c
+		FROM kern__ApiIssue__c
+		WHERE Id = :issue.Id
+];
 Boolean passIssuePassword = issueStored.kern__RequestBody__c.contains('***SECRET***') && !issueStored.kern__RequestBody__c.contains('hunter2');
 Boolean passIssueCard = !issueStored.kern__RequestBody__c.contains('4111-1111-1111-1111');
 System.debug((passIssuePassword ? 'PASS: ' : 'FAIL: ') + 'ApiIssue.RequestBody password redacted');
@@ -58,7 +70,13 @@ chain.kern__ContextData__c = body;
 chain.kern__ErrorMessage__c = 'boom: hunter2 leaked';
 insert chain;
 
-kern__AsyncChainExecution__c chainStored = [SELECT kern__ContextData__c, kern__ErrorMessage__c FROM kern__AsyncChainExecution__c WHERE Id = :chain.Id];
+kern__AsyncChainExecution__c chainStored =
+[
+		SELECT kern__ContextData__c,
+				kern__ErrorMessage__c
+		FROM kern__AsyncChainExecution__c
+		WHERE Id = :chain.Id
+];
 Boolean passChainPassword = chainStored.kern__ContextData__c.contains('***SECRET***') && !chainStored.kern__ContextData__c.contains('hunter2');
 Boolean passChainCard = !chainStored.kern__ContextData__c.contains('4111-1111-1111-1111');
 // ErrorMessage is a plain string, not JSON — Secret rule (JsonKeyValue mode) will not fire on it.

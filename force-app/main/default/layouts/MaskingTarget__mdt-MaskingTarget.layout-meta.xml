@@ -40,7 +40,7 @@
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
-                <behavior>Required</behavior>
+                <behavior>Edit</behavior>
                 <field>Field__c</field>
             </layoutItems>
         </layoutColumns>

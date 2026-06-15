@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Replaces__c</fullName>
+    <description>DeveloperName of the masking rule this rule supersedes. When set, and both this rule and the named predecessor still carry their original shipped values, the framework applies this rule instead of the predecessor on every surface where both are bound. Leave blank for rules that do not supersede anything. Package-controlled.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>DeveloperName of the rule this rule supersedes. Managed by the package — blank for normal rules.</inlineHelpText>
+    <label>Replaces</label>
+    <length>40</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

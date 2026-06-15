@@ -2,6 +2,63 @@
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Grants access to subscriber integration test components.</description>
     <label>Subscriber Test Access</label>
+    <fieldPermissions>
+        <field>SubscriberCdcMarker__c.HeaderChangeOrigin__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcMarker__c.HeaderChangeType__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcMarker__c.HeaderEntityName__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcMarker__c.HeaderRecordIdCount__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcMarker__c.HeaderRecordIds__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcProbe__c.ProbeLabel__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>SubscriberCdcProbe__c.ProbeSequence__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <objectPermissions>
+        <object>SubscriberCdcMarker__c</object>
+        <allowRead>true</allowRead>
+        <allowCreate>true</allowCreate>
+        <allowEdit>true</allowEdit>
+        <allowDelete>true</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>true</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>SubscriberCdcProbe__c</object>
+        <allowRead>true</allowRead>
+        <allowCreate>true</allowCreate>
+        <allowEdit>true</allowEdit>
+        <allowDelete>true</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>true</modifyAllRecords>
+    </objectPermissions>
+    <tabSettings>
+        <tab>kern__DataMaskingAdvisor</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
     <tabSettings>
         <tab>SubscriberLwcTestPage</tab>
         <visibility>Visible</visibility>

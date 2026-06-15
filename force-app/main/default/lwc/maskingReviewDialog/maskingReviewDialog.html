@@ -1,0 +1,41 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="review__subhead">
+			<span class="review__field-label">{fieldLabel}</span>
+			<span class="review__field-ref">{fieldReference}</span>
+		</p>
+
+		<dl class="review__rows">
+			<dt class="review__key">{labels.classificationHeading}</dt>
+			<dd class="review__value">
+				<span data-testid="classification-display">{classificationDisplay}</span>
+				<template if:true={hasSignal}>
+					<span class="review__signal" data-testid="signal-band">{signalText}</span>
+				</template>
+			</dd>
+			<template if:true={hasReason}>
+				<dt class="review__key">{labels.whyHeading}</dt>
+				<dd class="review__value review__value_muted" data-testid="why-row">{reason}</dd>
+			</template>
+		</dl>
+
+		<div class="review__may">
+			<span class="review__key" id="may-contain-heading">{labels.mayContainHeading}</span>
+			<ul aria-labelledby="may-contain-heading" class="review__hints">
+				<template for:each={mayContainItems} for:item="hint">
+					<li data-testid="may-contain-item" key={hint.key}>{hint.value}</li>
+				</template>
+			</ul>
+		</div>
+
+		<lightning-radio-group class="review__levels" data-testid="level-radio" label={labels.setClassificationHeading} name="sensitivityLevel" onchange={handleLevelChange}
+		                       options={levelOptions} type="radio" value={selectedLevel}></lightning-radio-group>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<span class="review__note" data-testid="footer-note">{labels.footerNote}</span>
+		<lightning-button data-testid="cancel-button" label={labels.cancel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="apply-button" label={labels.apply} onclick={handleApply} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

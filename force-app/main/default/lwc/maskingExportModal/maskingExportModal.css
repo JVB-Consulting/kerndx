@@ -1,0 +1,188 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Export-package dialog body content. The modal chrome (header, footer, backdrop, focus-trap) is supplied
+   by lightning/modal; these rules style only the slotted content, using the advisor's SLDS-light palette
+   (teal masked-value accent, brand blue for the add verb). */
+
+.dma-export__summary
+{
+	color     : #706E6B;
+	font-size : 13px;
+	margin    : 0 0 14px;
+}
+
+.dma-export__k
+{
+	color          : #706E6B;
+	font-size      : 10.5px;
+	font-weight    : 700;
+	letter-spacing : 0.05em;
+	text-transform : uppercase;
+}
+
+.dma-export__list
+{
+	border        : 1px solid #DDDBDA;
+	border-radius : 6px;
+	margin        : 5px 0 14px;
+	max-height    : 180px;
+	overflow-y    : auto;
+}
+
+.dma-pkg-row
+{
+	align-items   : center;
+	border-bottom : 1px solid #F0F0F0;
+	display       : flex;
+	font-size     : 12.5px;
+	gap           : 8px;
+	padding       : 7px 10px;
+}
+
+.dma-pkg-row:last-child
+{
+	border-bottom : none;
+}
+
+.dma-pkg-row_empty
+{
+	color : #706E6B;
+}
+
+.dma-pkg-row__glyph
+{
+	flex      : 0 0 auto;
+	font-size : 12px;
+}
+
+.dma-pkg-row__main
+{
+	color : #16325C;
+	flex  : 1 1 auto;
+}
+
+.dma-pkg-row__arrow
+{
+	color  : #C9C7C5;
+	margin : 0 4px;
+}
+
+.dma-pkg-row__tag
+{
+	color          : #706E6B;
+	font-size      : 10.5px;
+	letter-spacing : 0.04em;
+	margin-left    : 6px;
+	text-transform : uppercase;
+}
+
+.dma-pkg-row__verb
+{
+	border-radius  : 9999px;
+	flex           : 0 0 auto;
+	font-size      : 10px;
+	font-weight    : 700;
+	letter-spacing : 0.04em;
+	padding        : 1px 8px;
+	text-transform : uppercase;
+}
+
+.dma-pkg-row__verb[data-verb="add"]
+{
+	background : #E8F3FE;
+	color      : #0176D3;
+}
+
+.dma-pkg-row__verb[data-verb="disable"]
+{
+	background : #FDECEA;
+	color      : #B3261E;
+}
+
+.dma-pkg-row__verb[data-verb="re-enable"]
+{
+	background : #E3F1EF;
+	color      : #0B827C;
+}
+
+/* The package chip names the artifact to download — neutral slate-on-grey "file" treatment (the teal token
+   is reserved for masked/after values), clearing AA contrast at this text size. */
+.dma-export__pkg
+{
+	align-items   : center;
+	background    : #F3F3F3;
+	border        : 1px solid #DDDBDA;
+	border-radius : 6px;
+	color         : #16325C;
+	display       : inline-flex;
+	font-family   : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size     : 13px;
+	font-weight   : 600;
+	margin        : 0 0 14px;
+	overflow-wrap : anywhere;
+	padding       : 8px 12px;
+	word-break    : break-word;
+}
+
+.dma-export__deploy
+{
+	border-top  : 1px solid #EBEAE9;
+	margin-top  : 4px;
+	padding-top : 12px;
+}
+
+.dma-export__deploy-intro,
+.dma-export__deploy-note
+{
+	color     : #706E6B;
+	font-size : 12px;
+	margin    : 0 0 8px;
+}
+
+.dma-export__deploy-note
+{
+	margin : 10px 0 0;
+}
+
+.dma-export__alias
+{
+	display   : block;
+	margin    : 0 0 8px;
+	max-width : 240px;
+}
+
+.dma-export__cmd
+{
+	background    : #0B1B2B;
+	border-radius : 6px;
+	color         : #D6E4F0;
+	font-family   : ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size     : 12px;
+	line-height   : 1.55;
+	margin        : 0;
+	max-height    : 120px;
+	overflow-y    : auto;
+	padding       : 9px 11px;
+	white-space   : pre-wrap;
+	word-break    : break-word;
+}
+
+.dma-export__copy
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : #FFFFFF;
+	border             : 1px solid #DDDBDA;
+	border-radius      : 4px;
+	color              : #0176D3;
+	cursor             : pointer;
+	font               : inherit;
+	font-size          : 11.5px;
+	font-weight        : 600;
+	margin-top         : 7px;
+	padding            : 4px 11px;
+}
+
+.dma-export__copy:hover
+{
+	background : #F3F8FD;
+}

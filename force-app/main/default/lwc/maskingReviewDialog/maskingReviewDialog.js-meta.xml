@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Badge-as-reclassify Review dialog for the Data Masking Advisor. Built on lightning/modal; shows classification, signal band, and type-based hints, and resolves the chosen sensitivity level.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Review Dialog</masterLabel>
+</LightningComponentBundle>

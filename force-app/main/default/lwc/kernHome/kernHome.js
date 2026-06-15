@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Kern developer control room. Displays health check banner and launch cards
- * for API Test Harness, Streaming Event Monitor, and Chain Monitor.
+ * for API Test Harness, Streaming Event Monitor, Chain Monitor, and Data Masking Advisor.
  *
  * @author Jason van Beukering
  *
@@ -16,6 +16,8 @@ import STREAMING_MONITOR_TITLE from '@salesforce/label/c.KernHome_StreamingMonit
 import STREAMING_MONITOR_DESCRIPTION from '@salesforce/label/c.KernHome_StreamingMonitor_Description';
 import CHAIN_MONITOR_TITLE from '@salesforce/label/c.KernHome_ChainMonitor_Title';
 import CHAIN_MONITOR_DESCRIPTION from '@salesforce/label/c.KernHome_ChainMonitor_Description';
+import DATA_MASKING_ADVISOR_TITLE from '@salesforce/label/c.KernHome_DataMaskingAdvisor_Title';
+import DATA_MASKING_ADVISOR_DESCRIPTION from '@salesforce/label/c.KernHome_DataMaskingAdvisor_Description';
 
 export default class KernHome extends ComponentBuilder('navigation')
 {
@@ -47,6 +49,14 @@ export default class KernHome extends ComponentBuilder('navigation')
 			description: CHAIN_MONITOR_DESCRIPTION,
 			buttonLabel: TOOL_OPEN_BUTTON,
 			launchTarget: 'ChainMonitor'
+		},
+		{
+			key: 'dataMaskingAdvisor',
+			iconName: 'custom:custom91',
+			title: DATA_MASKING_ADVISOR_TITLE,
+			description: DATA_MASKING_ADVISOR_DESCRIPTION,
+			buttonLabel: TOOL_OPEN_BUTTON,
+			launchTarget: 'DataMaskingAdvisor'
 		}
 	];
 

@@ -1,0 +1,50 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="dma-export__summary" data-testid="change-summary">{summaryText}</p>
+
+		<div class="dma-export__k" data-testid="package-heading">{packageHeadingText}</div>
+		<div class="dma-export__list">
+			<template if:true={hasChanges}>
+				<template for:each={contentsRows} for:item="row">
+					<div class="dma-pkg-row" data-testid="package-row" data-verb={row.verb} key={row.key}>
+						<span aria-hidden="true" class="dma-pkg-row__glyph">{row.glyph}</span>
+						<span class="dma-pkg-row__main" data-testid="package-row-main">
+							<template if:true={row.isField}>
+								<span>{row.fieldLabel}</span>
+								<span aria-hidden="true" class="dma-pkg-row__arrow">→</span>
+								<strong>{row.ruleLabel}</strong>
+							</template>
+							<template if:true={row.isObjectWide}>
+								<strong>{row.ruleLabel}</strong>
+								<span class="dma-pkg-row__tag">{labels.objectWideTag}</span>
+							</template>
+						</span>
+						<span class="dma-pkg-row__verb" data-testid="package-row-verb" data-verb={row.verb}>{row.verbLabel}</span>
+					</div>
+				</template>
+			</template>
+			<template if:false={hasChanges}>
+				<div class="dma-pkg-row dma-pkg-row_empty" data-testid="package-row-empty">{labels.noChanges}</div>
+			</template>
+		</div>
+
+		<template if:true={hasFileName}>
+			<div class="dma-export__pkg" data-testid="package-name">{fileName}</div>
+		</template>
+
+		<div class="dma-export__deploy">
+			<p class="dma-export__deploy-intro" data-testid="deploy-a-intro">{labels.deployCliIntro}</p>
+			<lightning-input class="dma-export__alias" data-testid="alias-input" label={labels.orgAliasLabel} onchange={handleAliasChange} placeholder={labels.orgAliasPlaceholder}
+			                 type="text" value={aliasValue}></lightning-input>
+			<pre aria-label={labels.deployCommandAriaLabel} class="dma-export__cmd" data-testid="deploy-command" tabindex="0">{deployCommand}</pre>
+			<button class="dma-export__copy" data-testid="copy-command-button" onclick={handleCopyCommand} type="button">{copyButtonLabel}</button>
+			<p class="dma-export__deploy-note" data-testid="deploy-b-note">{labels.deployOtherToolsNote}</p>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button data-testid="cancel-button" label={labels.cancel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="download-button" label={labels.download} onclick={handleDownload} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

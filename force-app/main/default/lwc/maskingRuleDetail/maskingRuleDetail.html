@@ -1,0 +1,72 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={ruleLabel}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="detail__pill-row">
+			<span class="detail__pill" data-on={pillActive} data-testid="rule-pill">{pillText}</span>
+		</p>
+
+		<template lwc:if={supersededByLabel}>
+			<p class="detail__value detail__value_muted" data-testid="superseded-note">{supersededByLabel}</p>
+		</template>
+
+		<div class="detail__row">
+			<span class="detail__key">{labels.whatItMasksHeading}</span>
+			<p class="detail__value" data-testid="what-it-masks">{descriptionText}</p>
+		</div>
+
+		<div class="detail__row">
+			<span class="detail__key" id="detail-test-heading">{labels.testHeading}</span>
+			<div class="detail__test">
+				<lightning-input aria-describedby="detail-test-heading" class="detail__test-input" data-testid="test-input" label={labels.testInputAria} onchange={handleTestInput}
+				                 placeholder={labels.testInputPlaceholder} type="text" variant="label-hidden"></lightning-input>
+				<lightning-button class="detail__test-button" data-testid="test-button" label={labels.testButton} onclick={handleRunTest}></lightning-button>
+			</div>
+			<div aria-live="polite" class="detail__test-out" data-testid="test-output" role="status">
+				<template lwc:if={preview.showMasked}>
+					<span class="detail__example" data-testid="test-masked">
+						<span>{preview.before}</span>
+						<span aria-hidden="true" class="detail__example-arrow">→</span>
+						<span class="detail__example-after">{preview.after}</span>
+					</span>
+				</template>
+				<template lwc:if={preview.message}>
+					<span class="detail__test-message" data-testid="test-message">{preview.message}</span>
+				</template>
+			</div>
+		</div>
+
+		<div class="detail__row">
+			<span class="detail__key">{labels.appliesToHeading}</span>
+			<p class="detail__value" data-testid="applies-to">{appliesToText}</p>
+		</div>
+
+		<div class="detail__row">
+			<span class="detail__key">{labels.whereHeading}</span>
+			<p class="detail__value" data-testid="where-applied">{whereText}</p>
+		</div>
+
+		<template lwc:if={isManaged}>
+			<div class="detail__row">
+				<label class="detail__toggle">
+					<input checked={wantActive} class="detail__toggle-box" data-testid="masked-after-deploy" onchange={handleCheckboxChange} type="checkbox"/>
+					<span>{labels.maskedAfterDeployLabel}</span>
+				</label>
+				<p class="detail__value detail__value_muted" data-testid="after-deploy-note">{afterDeployNote}</p>
+			</div>
+		</template>
+
+		<template lwc:if={showObjectWideManagedNote}>
+			<p class="detail__value detail__value_muted" data-testid="object-wide-managed-note">{labels.objectWideManagedNote}</p>
+		</template>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<template lwc:if={showCandidateNote}>
+			<span class="detail__foot-note" data-testid="candidate-note">{labels.candidateNote}</span>
+		</template>
+		<template lwc:if={showManageInSetup}>
+			<lightning-button class="detail__setup-link" data-testid="manage-in-setup" label={labels.manageInSetup} onclick={handleManageInSetup} variant="base"></lightning-button>
+		</template>
+		<lightning-button data-testid="done-button" label={labels.done} onclick={handleDone} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

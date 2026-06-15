@@ -8,7 +8,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -59,14 +59,25 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that getAllCustomChangeCaptureEvents returns a list.
+	 * @description Tests that getAllCustomChangeCaptureEvents returns only custom ChangeEvent
+	 * entities — standard ChangeEvents and non-ChangeEvent rows are filtered out.
 	 */
 	@IsTest
 	private static void shouldGetAllCustomChangeCaptureEvents()
 	{
+		TST_Mock.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.Label, 'Change Event: Foobar')
+				.withOverride(EntityDefinition.QualifiedApiName, 'Foobar__ChangeEvent')
+				.build();
+		TST_Mock.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.Label, 'Asset Change Event')
+				.withOverride(EntityDefinition.QualifiedApiName, 'AssetChangeEvent')
+				.build();
+
 		List<EntityDefinition> results = new SEL_EntityDefinition().getAllCustomChangeCaptureEvents();
 
-		Assert.isNotNull(results, 'Should return list');
+		Assert.areEqual(1, results.size(), 'Only the custom __ChangeEvent row should survive the filter');
+		Assert.areEqual('Foobar__ChangeEvent', results[0].QualifiedApiName, 'Custom ChangeEvent api name should pass through unmodified');
 	}
 
 	/**
@@ -108,5 +119,59 @@ private class SEL_EntityDefinition_TEST
 
 		Assert.isNotNull(results, 'Should return a list, never null');
 		Assert.isTrue(results.isEmpty(), 'Unknown durable Id should yield no rows');
+	}
+
+	/**
+	 * @description Tests that `findSelectableObjects` returns the customizable entities an administrator
+	 * can analyze in the advisor. Every org exposes customizable objects (e.g. Account), so the result is
+	 * non-empty — exercising the query path.
+	 */
+	@IsTest
+	private static void findSelectableObjectsReturnsCustomizableObjects()
+	{
+		List<EntityDefinition> results = new SEL_EntityDefinition().findSelectableObjects();
+
+		Assert.isNotNull(results, 'Should return a list, never null');
+		Assert.isFalse(results.isEmpty(), 'an org always exposes customizable objects such as Account');
+	}
+
+	/**
+	 * @description Tests that `findSelectableObjects` offers only objects that can host an Apex trigger.
+	 * Masking is applied through the trigger framework, so a non-triggerable object can never be masked and
+	 * must not appear in the advisor's picker. A customizable, triggerable object such as `Account` is
+	 * offered, while a customizable but non-triggerable object such as `PricebookEntry` is excluded.
+	 */
+	@IsTest
+	private static void findSelectableObjectsExcludesNonTriggerableObjects()
+	{
+		Set<String> selectable = new Set<String>();
+		for(EntityDefinition entity : new SEL_EntityDefinition().findSelectableObjects())
+		{
+			selectable.add(entity.QualifiedApiName);
+		}
+
+		Assert.isTrue(selectable.contains('Account'), 'a customizable triggerable object such as Account is still offered');
+		Assert.isFalse(selectable.contains('PricebookEntry'), 'a customizable but non-triggerable object is excluded from the picker');
+	}
+
+	/**
+	 * @description Tests that `findSelectableObjects` projects `NamespacePrefix`, which the Data Masking
+	 * Advisor reads to scope its custom-object coverage scan to the subscriber's own (un-namespaced)
+	 * objects — managed-package objects are excluded from the default scan population. Reading the field
+	 * off every returned row proves the projection carries it (an unqueried field throws SObjectException).
+	 */
+	@IsTest
+	private static void findSelectableObjectsProjectsNamespacePrefix()
+	{
+		Boolean foundUnNamespacedObject = false;
+		for(EntityDefinition entity : new SEL_EntityDefinition().findSelectableObjects())
+		{
+			if(entity.NamespacePrefix == null)
+			{
+				foundUnNamespacedObject = true;
+			}
+		}
+
+		Assert.isTrue(foundUnNamespacedObject, 'every org exposes selectable objects without a namespace prefix, such as Account');
 	}
 }

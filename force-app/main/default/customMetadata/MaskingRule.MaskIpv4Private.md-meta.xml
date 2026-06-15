@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Network</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts private/loopback IPv4 addresses (RFC1918 ranges 10.x, 172.16-31.x, 192.168.x, plus 127.x loopback). Ships inactive — enable only if your compliance scope treats internal IP addresses as sensitive identifiers.</value>
     </values>

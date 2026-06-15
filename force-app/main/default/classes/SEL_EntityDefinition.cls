@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class SEL_EntityDefinition extends SEL_Base
 {
@@ -121,8 +121,6 @@ public inherited sharing class SEL_EntityDefinition extends SEL_Base
 	 */
 	public List<EntityDefinition> getAllStandardPlatformEvents()
 	{
-		final String changeEventSuffix = 'ChangeEvent';
-
 		List<EntityDefinition> foundEntities = query
 				.condition(EntityDefinition.IsCustomizable).equals(false)
 				.condition(EntityDefinition.IsEverCreatable).equals(true)
@@ -134,7 +132,7 @@ public inherited sharing class SEL_EntityDefinition extends SEL_Base
 
 		for(EntityDefinition foundEntity : foundEntities)
 		{
-			if(!foundEntity.QualifiedApiName.endsWith(changeEventSuffix))
+			if(!foundEntity.QualifiedApiName.endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX))
 			{
 				platformEventDefinitions.add(foundEntity);
 			}
@@ -167,13 +165,37 @@ public inherited sharing class SEL_EntityDefinition extends SEL_Base
 	}
 
 	/**
-	 * @description Finds entity definitions for custom Change Data Capture events.
+	 * @description Finds entity definitions for custom Change Data Capture events. Custom
+	 * ChangeEvent entities are published under the `System` publisher with a fixed capability
+	 * shape (Apex-triggerable, not customizable, not searchable, not queryable); the
+	 * `endsWith('ChangeEvent')` (`LIKE '%ChangeEvent'`) predicate also matches standard
+	 * ChangeEvents, so rows are post-filtered to the literal `__ChangeEvent` suffix that only
+	 * custom objects produce.
 	 *
 	 * @return List of custom Change Data Capture EntityDefinition records
 	 */
 	public List<EntityDefinition> getAllCustomChangeCaptureEvents()
 	{
-		return findByPublisher('<local>');
+		List<EntityDefinition> changeEventEntities = query
+				.condition(EntityDefinition.PublisherId).equals('System')
+				.condition(EntityDefinition.IsApexTriggerable).equals(true)
+				.condition(EntityDefinition.IsCustomizable).equals(false)
+				.condition(EntityDefinition.IsSearchable).equals(false)
+				.condition(EntityDefinition.IsQueryable).equals(false)
+				.condition(EntityDefinition.QualifiedApiName).endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX)
+				.toList();
+
+		List<EntityDefinition> customChangeEvents = new List<EntityDefinition>();
+
+		for(EntityDefinition changeEventEntity : changeEventEntities)
+		{
+			if(changeEventEntity.QualifiedApiName.endsWith(UTIL_SObjectDescribe.CUSTOM_CHANGE_EVENT_SUFFIX))
+			{
+				customChangeEvents.add(changeEventEntity);
+			}
+		}
+
+		return customChangeEvents;
 	}
 
 	/**
@@ -211,6 +233,27 @@ public inherited sharing class SEL_EntityDefinition extends SEL_Base
 		return query
 				.addField(EntityDefinition.DurableId)
 				.condition(EntityDefinition.DurableId).isIn(new List<String>(durableIds))
+				.toList();
+	}
+
+	/**
+	 * @description Finds the SObjects an administrator can choose to analyze in the Data Masking Advisor:
+	 * every customizable entity that can also host an Apex trigger, ordered by label. The `IsCustomizable`
+	 * filter excludes system and setup-only entities; the `IsTriggerable` filter additionally excludes objects
+	 * the framework cannot mask — masking is applied through the trigger framework, so a non-triggerable object
+	 * (for example PricebookEntry, custom metadata types, or custom settings) can never be masked and must not
+	 * be offered. `NamespacePrefix` is projected so the advisor can scope its custom-object coverage scan to
+	 * the subscriber's own (un-namespaced) objects, treating managed-package objects as an explicit opt-in.
+	 *
+	 * @return Customizable, triggerable EntityDefinition records ordered by label.
+	 */
+	public List<EntityDefinition> findSelectableObjects()
+	{
+		return query
+				.addField(EntityDefinition.NamespacePrefix)
+				.condition(EntityDefinition.IsCustomizable).equals(true)
+				.condition(EntityDefinition.IsTriggerable).equals(true)
+				.orderBy(EntityDefinition.Label).ascending()
 				.toList();
 	}
 }

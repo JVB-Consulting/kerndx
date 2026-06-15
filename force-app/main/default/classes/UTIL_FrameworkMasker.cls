@@ -28,7 +28,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  *
  * @example
  * ```apex
@@ -39,7 +39,7 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public inherited sharing class UTIL_FrameworkMasker
 {
 	/**
@@ -203,10 +203,100 @@ public inherited sharing class UTIL_FrameworkMasker
 	{
 		if(!cachedTargets.containsKey(sObjectType))
 		{
-			cachedTargets.put(sObjectType, sortByRuleOrder(removeDuplicateTargets(new SEL_MaskingTarget().findActiveForSObjectType(sObjectType))));
+			cachedTargets.put(sObjectType, sortByRuleOrder(suppressSupersededTargets(removeDuplicateTargets(new SEL_MaskingTarget().findActiveForSObjectType(sObjectType)))));
 		}
 
 		return cachedTargets.get(sObjectType);
+	}
+
+	/**
+	 * @description Per-transaction cache of the supersession links (qualified successor name →
+	 * qualified predecessor names, every pair having passed the full two-sided verdict). Built
+	 * once per request — fingerprint hashing happens here, not per target-cache build.
+	 */
+	private static final Map<String, Set<String>> cachedSupersessionLinks
+	{
+		get
+		{
+			if(cachedSupersessionLinks == null)
+			{
+				cachedSupersessionLinks = SEL_MaskingRule.findSupersessionLinks(new SEL_MaskingTarget().getAllRulesById().values());
+			}
+			return cachedSupersessionLinks;
+		}
+		set;
+	}
+
+	/**
+	 * @description Drops a predecessor-rule target when one of ITS OWN verdict-passing
+	 * successors has an active target on the SAME field|caller surface. Pair-scoped by design
+	 * (spec: per-link independence): a surface covered only by an unrelated link's successor —
+	 * or by a tuned successor that failed its own verdict — never suppresses this predecessor,
+	 * and a subscriber target on a surface the successor does not mirror is never dropped.
+	 * Operating on the findActiveForSObjectType result means "active" is always target-active
+	 * AND rule-active. Admin-facing visibility of suppression state lives on the advisor
+	 * surfaces, which render the same verdict.
+	 *
+	 * @param targets The deduped active targets for one SObjectType
+	 *
+	 * @return The targets minus suppressed predecessor bindings
+	 */
+	private static List<MaskingTarget__mdt> suppressSupersededTargets(List<MaskingTarget__mdt> targets)
+	{
+		if(cachedSupersessionLinks.isEmpty())
+		{
+			return targets;
+		}
+
+		Map<String, Set<String>> surfaceKeysByPredecessorName = new Map<String, Set<String>>();
+
+		for(MaskingTarget__mdt target : targets)
+		{
+			Set<String> predecessorNames = cachedSupersessionLinks.get(SEL_MaskingRule.resolveQualifiedDeveloperName(ruleFor(target)));
+
+			if(predecessorNames == null)
+			{
+				continue;
+			}
+
+			for(String predecessorName : predecessorNames)
+			{
+				if(!surfaceKeysByPredecessorName.containsKey(predecessorName))
+				{
+					surfaceKeysByPredecessorName.put(predecessorName, new Set<String>());
+				}
+				surfaceKeysByPredecessorName.get(predecessorName).add(buildSurfaceKey(target));
+			}
+		}
+
+		List<MaskingTarget__mdt> kept = new List<MaskingTarget__mdt>();
+
+		for(MaskingTarget__mdt target : targets)
+		{
+			Set<String> mirroredSurfaceKeys = surfaceKeysByPredecessorName.get(SEL_MaskingRule.resolveQualifiedDeveloperName(ruleFor(target)));
+
+			if(mirroredSurfaceKeys == null || !mirroredSurfaceKeys.contains(buildSurfaceKey(target)))
+			{
+				kept.add(target);
+			}
+		}
+
+		return kept;
+	}
+
+	/**
+	 * @description Composite field|caller surface key for supersession matching. A successor
+	 * target suppresses a predecessor target only when both bind exactly the same surface.
+	 * Targets are already scoped to one SObjectType when keyed, so wildcard (blank-field)
+	 * targets of different objects can never collide.
+	 *
+	 * @param target The target to key
+	 *
+	 * @return The field|caller composite key
+	 */
+	private static String buildSurfaceKey(MaskingTarget__mdt target)
+	{
+		return (resolveQualifiedFieldName(target) ?? UTIL_String.EMPTY) + '|' + (target.CallerClass__c ?? UTIL_String.EMPTY);
 	}
 
 	/**
@@ -252,7 +342,7 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		List<SObjectField> fields = new List<SObjectField>();
 		Map<String, SObjectField> fieldMap = UTIL_SObjectDescribe.getObjectFieldMap(sObjectType);
-		Boolean isPlatformEvent = UTIL_SObjectDescribe.getObjectNameFromType(sObjectType).endsWith('__e');
+		Boolean isPlatformEvent = UTIL_SObjectDescribe.getObjectNameFromType(sObjectType).endsWith(UTIL_SObjectDescribe.PLATFORM_EVENT_SUFFIX);
 
 		for(SObjectField field : fieldMap.values())
 		{
@@ -328,9 +418,11 @@ public inherited sharing class UTIL_FrameworkMasker
 
 	/**
 	 * @description Removes duplicate MaskingTarget records that share the same
-	 * `RuleDeveloperName | Field | CallerClass` composite key. If an admin (or subscriber)
-	 * configures two functionally identical targets, only the first occurrence is kept —
-	 * preventing confusing audit output where the same rule appears to match twice.
+	 * `QualifiedRuleDeveloperName | Field | CallerClass` composite key. If an admin (or
+	 * subscriber) configures two functionally identical targets, only the first occurrence is
+	 * kept — preventing confusing audit output where the same rule appears to match twice. The
+	 * rule name is namespace-qualified so a packaged rule and an org-local clone sharing a
+	 * DeveloperName are distinct bindings, never deduped against each other.
 	 *
 	 * @param targets The raw list from the selector
 	 *
@@ -342,7 +434,7 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		for(MaskingTarget__mdt target : targets)
 		{
-			String ruleName = ruleFor(target).DeveloperName;
+			String ruleName = SEL_MaskingRule.resolveQualifiedDeveloperName(ruleFor(target));
 			String caller = target.CallerClass__c ?? UTIL_String.EMPTY;
 			String compositeKey = ruleName + '|' + resolveQualifiedFieldName(target) + '|' + caller;
 
@@ -1049,6 +1141,52 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		result.maskedLength = result.maskedValue?.length() ?? 0;
 		return result;
+	}
+
+	/**
+	 * @description Masks a single value with one specific rule, bypassing the active-target cache so a
+	 * rule with no active MaskingTarget for the field (a dormant rule, or one configured elsewhere) can
+	 * still be previewed. Synthesizes an in-memory MaskingTarget carrying the rule on its `Rule__r`
+	 * child — the fallback `ruleFor` honours when the by-Id cache misses — then runs the rule through
+	 * the standard field-plan execution path, so Mode dispatch, MinInputLength short-circuiting, JsonKey
+	 * batching, and length truncation all behave exactly as they would at masking time. Reads no
+	 * configured targets and performs no DML.
+	 *
+	 * The `rule` must be a top-level record read in the same transaction (for example from
+	 * `SEL_MaskingTarget.getAllRulesById()`): its fields are read from `Rule__r` in-memory with no JSON
+	 * serialization boundary, so the managed-runtime nested-child field-drop does not apply here. Do not
+	 * introduce a serialize/deserialize step on the synthetic target or the rule passed in.
+	 *
+	 * @param field The field whose value is previewed; supplies the length limit for truncation.
+	 * @param rule The fully-populated rule (Mode/Pattern/Replacement/MinInputLength) to apply.
+	 * @param value The raw value to mask.
+	 *
+	 * @return The MaskingResult; `maskedValue` equals the input when the rule did not match (for example
+	 *         a JsonKey rule against a non-JSON scalar), with `rulesMatched` distinguishing a real no-op.
+	 */
+	public static MaskingResult maskValueAgainstRule(SObjectField field, MaskingRule__mdt rule, String value)
+	{
+		if(field == null || rule == null || String.isEmpty(value))
+		{
+			return newResult(value);
+		}
+
+		MaskingTarget__mdt previewTarget = new MaskingTarget__mdt();
+		previewTarget.Rule__r = rule;
+
+		FieldPlan previewPlan = new FieldPlan();
+		previewPlan.field = field;
+
+		if(rule.Mode__c == SEL_MaskingRule.MODE_JSON_KEY)
+		{
+			previewPlan.jsonKeyTargets.add(previewTarget);
+		}
+		else
+		{
+			previewPlan.otherTargets.add(previewTarget);
+		}
+
+		return maskValueWithPlan(previewPlan, value);
 	}
 
 	/**

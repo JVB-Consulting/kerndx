@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Credentials</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts JSON Web Tokens (three dot-separated base64url segments starting with the standard eyJ header). Catches accidental token leakage without matching unrelated base64-looking strings.</value>
     </values>

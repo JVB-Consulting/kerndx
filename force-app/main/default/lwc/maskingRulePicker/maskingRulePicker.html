@@ -1,0 +1,37 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class={pickerClass} onfocusout={handleFocusOut} onmouseleave={handleMouseLeave}>
+		<input aria-activedescendant={activeDescendantId} aria-autocomplete="list" aria-controls={listboxId} aria-expanded={ariaExpanded} aria-haspopup="listbox" aria-label={label}
+		       autocomplete="off" class="rulepick__input" disabled={disabled} onclick={handleOpen} onfocus={handleOpen} oninput={handleInput} onkeydown={handleKeyDown}/
+ placeholder={placeholder} role="combobox" type="text" value={searchTerm}>
+		<svg aria-hidden="true" class="rulepick__chevron" fill="none" focusable="false" viewBox="0 0 14 14">
+			<path d="M3.5 5 L7 8.5 L10.5 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+		</svg>
+
+		<div class="rulepick__menu">
+			<ul class="rulepick__listbox" id={listboxId} role="listbox">
+				<template for:each={filteredOptions} for:item="option">
+					<li aria-selected={option.ariaSelected} class={option.optionClass} data-value={option.value} id={option.id} key={option.value}
+					    onmousedown={handleOptionMouseDown} role="option">
+						<span class="rulepick__opt-body">
+							<span class="rulepick__opt-label">{option.label}</span>
+							<template if:true={option.showCategory}>
+								<span class="rulepick__opt-cat">{option.category}</span>
+							</template>
+						</span>
+						<template if:true={option.isSelected}>
+							<span aria-hidden="true" class="rule-picker__selected-check">
+								<svg fill="none" focusable="false" viewBox="0 0 14 14">
+									<path d="M2.5 7.5 L5.5 10.5 L11.5 3.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+								</svg>
+							</span>
+						</template>
+					</li>
+				</template>
+			</ul>
+			<template if:true={isEmpty}>
+				<div aria-live="polite" class="rulepick__empty" role="status">{noMatchesLabel}</div>
+			</template>
+		</div>
+	</div>
+</template>

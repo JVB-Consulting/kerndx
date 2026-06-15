@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Searchable ARIA combobox for choosing a masking rule per field in the Data Masking Advisor. Offers only a field's applicable rules, shows a category secondary line, and emits a rulechange event.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Rule Picker</masterLabel>
+</LightningComponentBundle>

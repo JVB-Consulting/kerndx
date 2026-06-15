@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Rule-detail popup for the Data Masking Advisor. Built on lightning/modal; explains a masking rule, tests it against a sample value, and resolves the chip's desired masked-after-deploy state.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Rule Detail</masterLabel>
+</LightningComponentBundle>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Grouped "Add object" search dialog for the Data Masking Advisor — replaces the flat object picker with a searchable list (attention/own/standard/managed) and resolves the picked object's api name.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Add Object Dialog</masterLabel>
+</LightningComponentBundle>

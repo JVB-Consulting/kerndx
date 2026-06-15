@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Health</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts values under protected-health JSON keys (diagnosis, mrn, rx_number, prescription, icd10, ndc, patient_id). Ships Block DML; review HIPAA before narrowing. Scoped STRING/TEXTAREA — JSON payloads live in free-text fields only.</value>
     </values>

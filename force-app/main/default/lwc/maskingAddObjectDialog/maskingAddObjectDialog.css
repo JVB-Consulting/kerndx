@@ -1,0 +1,111 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.dma-pick__intro
+{
+	margin-bottom : 8px;
+}
+
+.dma-pick__search
+{
+	display : block;
+}
+
+.dma-pick__list
+{
+	border        : 1px solid var(--slds-g-color-border-base-1, #E5E5E5);
+	border-radius : 0.25rem;
+	margin-top    : 8px;
+	max-height    : 22rem;
+	overflow-y    : auto;
+}
+
+.dma-pick__group
+{
+	background     : var(--slds-g-color-neutral-base-95, #F3F3F3);
+	color          : var(--slds-g-color-neutral-base-30, #5C5C5C);
+	font-size      : 0.75rem;
+	font-weight    : 700;
+	letter-spacing : 0.05em;
+	padding        : 6px 12px;
+	position       : sticky;
+	text-transform : uppercase;
+	top            : 0;
+}
+
+.dma-pick__row
+{
+	align-items : center;
+	background  : transparent;
+	border      : none;
+	border-top  : 1px solid var(--slds-g-color-border-base-1, #E5E5E5);
+	cursor      : pointer;
+	display     : flex;
+	font        : inherit;
+	gap         : 10px;
+	padding     : 8px 12px;
+	text-align  : left;
+	width       : 100%;
+}
+
+.dma-pick__row:hover,
+.dma-pick__row:focus
+{
+	background : var(--slds-g-color-neutral-base-95, #F3F3F3);
+	outline    : none;
+}
+
+.dma-pick__name
+{
+	display        : flex;
+	flex-direction : column;
+	min-width      : 0;
+}
+
+.dma-pick__name small
+{
+	color     : var(--slds-g-color-neutral-base-30, #5C5C5C);
+	font-size : 0.75rem;
+}
+
+.dma-pick__pill
+{
+	background    : var(--slds-g-color-neutral-base-90, #ECEBEA);
+	border-radius : 10px;
+	color         : var(--slds-g-color-neutral-base-30, #5C5C5C);
+	font-size     : 0.6875rem;
+	font-weight   : 600;
+	margin-left   : auto;
+	padding       : 1px 8px;
+	white-space   : nowrap;
+}
+
+.dma-pick__pill[data-kind="attention"]
+{
+	background : #FDE9E9;
+	color      : #A30000;
+}
+
+.dma-pick__pill[data-kind="masked"]
+{
+	background : #E3F3E6;
+	color      : #2E7D32;
+}
+
+.dma-pick__expand
+{
+	background : transparent;
+	border     : none;
+	border-top : 1px solid var(--slds-g-color-border-base-1, #E5E5E5);
+	color      : #0B5CAB;
+	cursor     : pointer;
+	display    : block;
+	font       : inherit;
+	padding    : 8px 12px;
+	text-align : left;
+	width      : 100%;
+}
+
+.dma-pick__hint,
+.dma-pick__empty
+{
+	padding : 8px 12px;
+}

@@ -2,8 +2,9 @@
 //
 // Regression guard for the original user-reported bug where
 // 'parentTransactionId: "TID:1234567890123456"' was Luhn-redacted as a credit card
-// number. After the masking perf work the Luhn + issuer-prefix union rule only fires on
-// Luhn-VALID card-shaped digit runs, so arbitrary transaction IDs stay raw.
+// number. The effective card rule on the framework objects (MaskPaymentCard) fires only
+// on Luhn-VALID digit runs — the Luhn (mod-10) gate alone keeps arbitrary transaction
+// IDs raw; there is no issuer-prefix filter on this surface.
 //
 // The payload below mixes a Luhn-VALID card number (must redact) with a longer
 // digit run that is NOT Luhn-valid (must preserve) — a single insert proves both
@@ -23,7 +24,12 @@ call.kern__Status__c = 'Completed';
 call.kern__Request__c = payload;
 insert call;
 
-kern__ApiCall__c stored = [SELECT kern__Request__c FROM kern__ApiCall__c WHERE Id = :call.Id];
+kern__ApiCall__c stored =
+[
+		SELECT kern__Request__c
+		FROM kern__ApiCall__c
+		WHERE Id = :call.Id
+];
 String storedRequest = stored.kern__Request__c;
 
 Boolean passCardRedacted = !storedRequest.contains('4111111111111111');

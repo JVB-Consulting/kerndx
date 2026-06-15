@@ -1,0 +1,27 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={heading}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="slds-text-body_regular" data-testid="modal-lead-paragraph">{leadParagraph}</p>
+		<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-var-m-top_small generate-bundle-modal__rule-table" data-testid="dormant-rule-table">
+			<tbody>
+			<template for:each={dormantRuleRows} for:item="dormantRule">
+				<tr data-testid="dormant-rule-row" key={dormantRule.key}>
+					<td class="slds-text-body_regular">{dormantRule.message}</td>
+				</tr>
+			</template>
+			</tbody>
+		</table>
+		<div class="slds-box slds-box_xx-small slds-theme_shade slds-var-m-top_small" data-testid="scope-note" role="note">
+			<p class="slds-text-body_small">{scopeBody}</p>
+		</div>
+		<div class="slds-var-m-top_medium">
+			<lightning-input checked={acknowledged} data-testid="modal-acknowledge-checkbox" label={acknowledgeLabel} onchange={handleAcknowledgeChange}
+			                 type="checkbox"></lightning-input>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="slds-var-m-right_small" data-testid="modal-cancel-button" label={cancelLabel} onclick={handleCancel} variant="neutral"></lightning-button>
+		<lightning-button data-testid="modal-confirm-button" disabled={confirmDisabled} label={confirmLabel} onclick={handleConfirm} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

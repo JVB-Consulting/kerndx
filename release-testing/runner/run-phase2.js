@@ -15,7 +15,13 @@ function preflightOrgAvailable()
 {
 	try
 	{
-		execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8', timeout: 30_000, stdio: ['pipe', 'pipe', 'pipe']});
+		execSync(`sf org display -o ${ORG_ALIAS} --json`, {
+			encoding: 'utf8', timeout: 30_000, stdio: [
+				'pipe',
+				'pipe',
+				'pipe'
+			]
+		});
 	}
 	catch(err)
 	{
@@ -28,6 +34,7 @@ function preflightOrgAvailable()
 		throw err;
 	}
 }
+
 const SCRIPTS_DIR = path.join(__dirname, '..', 'scripts');
 const RESULTS_PATH = path.join(__dirname, '..', 'results', 'current-run.json');
 const MAX_CONCURRENT = 5;
@@ -60,7 +67,7 @@ const INDEPENDENT_SCRIPTS = [
 	{section: 30, file: 'section-30-resilience-strategies.apex', expected: 11},
 	{section: 31, file: 'section-31-failure-handling.apex', expected: 8},
 	{section: 36, file: 'section-36-masking-applicable-field-types.apex', expected: 4},
-	{section: 37, file: 'section-37-masking-min-input-length.apex', expected: 2},
+	{section: 37, file: 'section-37-masking-min-input-length.apex', expected: 3},
 	{section: 38, file: 'section-38-masking-transactionid-preservation.apex', expected: 3},
 	{section: 39, file: 'section-39-masking-type-filter-warn.apex', expected: 1},
 	{section: 41, file: 'section-41-flow-action-subscriber.apex', expected: 6},
@@ -76,8 +83,7 @@ const INDEPENDENT_SCRIPTS = [
 	{section: 61, file: 'section-61-edge-masking-rollback.apex', expected: 5},
 	{section: 62, file: 'section-62-edge-type-resolver.apex', expected: 4},
 	{section: 63, file: 'section-63-edge-resilience-comp.apex', expected: 6},
-	{section: 64, file: 'section-64-edge-asyncjob-launcher.apex', expected: 6},
-	{section: 65, file: 'section-65-bypass-audit-framework-wide.apex', expected: 5}
+	{section: 64, file: 'section-64-edge-asyncjob-launcher.apex', expected: 6}
 ];
 
 function runScript(scriptPath)
@@ -286,9 +292,7 @@ async function runScanner()
 		if(fs.existsSync(scannerOutputPath))
 		{
 			const pmdData = JSON.parse(fs.readFileSync(scannerOutputPath, 'utf8'));
-			pmdResult.violations = pmdData.violationCounts
-				? pmdData.violationCounts.total || 0
-				: (pmdData.violations ? pmdData.violations.length : 0);
+			pmdResult.violations = pmdData.violationCounts ? pmdData.violationCounts.total || 0 : (pmdData.violations ? pmdData.violations.length : 0);
 		}
 		else
 		{
@@ -366,6 +370,66 @@ async function runSection34()
 	};
 }
 
+async function runSection66()
+{
+	const launchScript = path.join(SCRIPTS_DIR, 'section-66-log-fingerprint.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-66b-log-fingerprint-verify.apex');
+	const expectedLaunch = 2;
+	const expectedVerify = 8;
+
+	console.log('  Section 66: launching fingerprinted log entries via withFingerprint...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 66 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 66: waiting 30s for LogEntryEvent__e delivery + TRG_PersistLogEntry persistence...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	console.log('  Section 66: verifying detail/rollup flood-control shape...');
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 66 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-66': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify} — subscriber withFingerprint -> detail/rollup grouping + OccurrenceCount`
+		}
+	};
+}
+
+async function runSection65()
+{
+	const launchScript = path.join(SCRIPTS_DIR, 'section-65-bypass-audit-framework-wide.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-65b-bypass-audit-verify.apex');
+	const expectedLaunch = 2;
+	const expectedVerify = 6;
+
+	console.log('  Section 65: exercising the four global bypass surfaces (launch)...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 65 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 65: waiting 30s for LogEntryEvent__e delivery + TRG_PersistLogEntry persistence...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	console.log('  Section 65: verifying object-qualified bypass-audit targets + flood-control shape...');
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 65 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-65': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify} — four bypass surfaces -> object-qualified query/DML audit targets + flood-control shape`
+		}
+	};
+}
+
 async function runSection42()
 {
 	const {deployCmdtState} = require('./cmdt-deployer');
@@ -382,9 +446,7 @@ async function runSection42()
 
 	return {
 		'section-42': {
-			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL',
-			score: `${result.pass}/${expected}`,
-			notes: 'BlockDml active → test → default restored'
+			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL', score: `${result.pass}/${expected}`, notes: 'BlockDml active → test → default restored'
 		}
 	};
 }
@@ -405,9 +467,7 @@ async function runSection43()
 
 	return {
 		'section-43': {
-			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL',
-			score: `${result.pass}/${expected}`,
-			notes: 'Flag disabled → test → default restored'
+			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL', score: `${result.pass}/${expected}`, notes: 'Flag disabled → test → default restored'
 		}
 	};
 }
@@ -438,6 +498,310 @@ async function runSection56()
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
 			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify}`
+		}
+	};
+}
+
+async function runSection76()
+{
+	const {deployMetadataDir} = require('./cmdt-deployer');
+	const bundlesDir = path.join(__dirname, '..', 'e2e', 'fixtures', 'masking-advisor-bundles');
+	const baselineScript = path.join(SCRIPTS_DIR, 'section-76-masking-advisor-roundtrip.apex');
+	const verifyCreatedScript = path.join(SCRIPTS_DIR, 'section-76b-masking-advisor-verify-created.apex');
+	const verifyDisabledScript = path.join(SCRIPTS_DIR, 'section-76c-masking-advisor-verify-disabled.apex');
+	const verifyReenabledScript = path.join(SCRIPTS_DIR, 'section-76d-masking-advisor-verify-reenabled.apex');
+
+	// 3 baseline + 3 create + 3 disable + 2 re-enable + 3 cleanup re-verify
+	const expected = 14;
+	let totalPass = 0;
+	let totalFail = 0;
+
+	async function step(label, scriptPath)
+	{
+		console.log(`  Section 76 (${label}): running...`);
+		const result = await runScript(scriptPath);
+		totalPass += result.pass;
+		totalFail += result.fail;
+		console.log(`  Section 76 (${label}): ${result.pass} pass, ${result.fail} fail`);
+	}
+
+	await step('baseline', baselineScript);
+
+	console.log('  Section 76: deploying create bundle (advisor-format, Export-modal deploy command)...');
+	deployMetadataDir(path.join(bundlesDir, 'create'));
+	await step('verify create', verifyCreatedScript);
+
+	console.log('  Section 76: deploying disable bundle...');
+	deployMetadataDir(path.join(bundlesDir, 'disable'));
+	await step('verify disable', verifyDisabledScript);
+
+	console.log('  Section 76: deploying re-enable bundle...');
+	deployMetadataDir(path.join(bundlesDir, 'reenable'));
+	await step('verify re-enable', verifyReenabledScript);
+
+	console.log('  Section 76: cleanup — restoring disabled steady state...');
+	deployMetadataDir(path.join(bundlesDir, 'disable'));
+	await step('verify cleanup', verifyDisabledScript);
+
+	return {
+		'section-76': {
+			result: totalPass === expected && totalFail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${expected}`,
+			notes: 'Advisor bundle round-trip: baseline → create → disable → re-enable → cleanup'
+		}
+	};
+}
+
+async function runSection67()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const scriptPath = path.join(SCRIPTS_DIR, 'section-67-post-trigger-actions.apex');
+	const expected = 6;
+
+	console.log('  Section 67: deploying postaction-enabled...');
+	await deployCmdtState('postaction-enabled');
+	const result = await runScript(scriptPath);
+	console.log(`  Section 67: ${result.pass} pass, ${result.fail} fail`);
+
+	console.log('  Section 67: restoring postaction-disabled...');
+	await deployCmdtState('postaction-disabled');
+
+	return {
+		'section-67': {
+			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${result.pass}/${expected}`,
+			notes: 'Post-action core: ordering, dispatch-scope, touched types, object-scope filter, entry-criteria'
+		}
+	};
+}
+
+async function runSection68()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const flagOffScript = path.join(SCRIPTS_DIR, 'section-68-post-trigger-actions-flag-gate.apex');
+	const flagOnScript = path.join(SCRIPTS_DIR, 'section-68b-post-trigger-actions-flag-gate.apex');
+	const expected = 2;
+
+	console.log('  Section 68: deploying postaction-disabled (flag off)...');
+	await deployCmdtState('postaction-disabled');
+	const flagOffResult = await runScript(flagOffScript);
+	console.log(`  Section 68 (flag off): ${flagOffResult.pass} pass, ${flagOffResult.fail} fail`);
+
+	console.log('  Section 68: deploying postaction-enabled (flag on)...');
+	await deployCmdtState('postaction-enabled');
+	const flagOnResult = await runScript(flagOnScript);
+	console.log(`  Section 68 (flag on): ${flagOnResult.pass} pass, ${flagOnResult.fail} fail`);
+
+	console.log('  Section 68: restoring postaction-disabled...');
+	await deployCmdtState('postaction-disabled');
+
+	const totalPass = flagOffResult.pass + flagOnResult.pass;
+	return {
+		'section-68': {
+			result: totalPass === expected && flagOffResult.fail === 0 && flagOnResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${expected}`,
+			notes: 'Required-feature-flag gate: off (dormant) then on (fires)'
+		}
+	};
+}
+
+async function runSection69()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const scriptPath = path.join(SCRIPTS_DIR, 'section-69-post-trigger-actions-no-dml.apex');
+	const expected = 2;
+
+	console.log('  Section 69: deploying dml-active...');
+	await deployCmdtState('dml-active');
+	const result = await runScript(scriptPath);
+	console.log(`  Section 69: ${result.pass} pass, ${result.fail} fail`);
+
+	console.log('  Section 69: restoring postaction-disabled...');
+	await deployCmdtState('postaction-disabled');
+
+	return {
+		'section-69': {
+			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL', score: `${result.pass}/${expected}`, notes: 'No-DML contract guard: exception text + rollback'
+		}
+	};
+}
+
+async function runSection70()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const logAndContinueScript = path.join(SCRIPTS_DIR, 'section-70-post-trigger-actions-failure-policy.apex');
+	const blockDmlScript = path.join(SCRIPTS_DIR, 'section-70b-post-trigger-actions-failure-policy.apex');
+	const expected = 4;
+
+	console.log('  Section 70: deploying failing-logandcontinue...');
+	await deployCmdtState('failing-logandcontinue');
+	const logAndContinueResult = await runScript(logAndContinueScript);
+	console.log(`  Section 70 (LogAndContinue): ${logAndContinueResult.pass} pass, ${logAndContinueResult.fail} fail`);
+
+	console.log('  Section 70: deploying failing-blockdml...');
+	await deployCmdtState('failing-blockdml');
+	const blockDmlResult = await runScript(blockDmlScript);
+	console.log(`  Section 70 (BlockDml): ${blockDmlResult.pass} pass, ${blockDmlResult.fail} fail`);
+
+	console.log('  Section 70: restoring postaction-disabled...');
+	await deployCmdtState('postaction-disabled');
+
+	const totalPass = logAndContinueResult.pass + blockDmlResult.pass;
+	return {
+		'section-70': {
+			result: totalPass === expected && logAndContinueResult.fail === 0 && blockDmlResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${expected}`,
+			notes: 'FailureAction policy: LogAndContinue (commit) vs BlockDml (rollback)'
+		}
+	};
+}
+
+async function runSection71()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const launchScript = path.join(SCRIPTS_DIR, 'section-71-cdc-header-recorder.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-71b-cdc-header-verify.apex');
+	const expected = 3;
+
+	console.log('  Section 71: deploying cdc-header-enabled (recorder flag on)...');
+	await deployCmdtState('cdc-header-enabled');
+
+	console.log('  Section 71: launching CDC probe inserts...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 71 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 71: waiting 30s for change-event delivery...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	console.log('  Section 71: verifying delivered markers...');
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 71 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	console.log('  Section 71: restoring cdc-header-disabled...');
+	await deployCmdtState('cdc-header-disabled');
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	return {
+		'section-71': {
+			result: totalPass === expected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${expected}`,
+			notes: 'CDC header recorder: probe inserts deliver change events, sink records markers, record ids audited'
+		}
+	};
+}
+
+async function runSection72()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const launchScript = path.join(SCRIPTS_DIR, 'section-72-cdc-blockdml-degrade.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-72b-cdc-blockdml-degrade-verify.apex');
+	const expected = 4;
+
+	console.log('  Section 72: deploying cdc-blockdml-degrade-active...');
+	await deployCmdtState('cdc-blockdml-degrade-active');
+
+	console.log('  Section 72: launching CDC probe inserts (recorder + BlockDml degrade)...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 72 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 72: waiting 30s for change-event delivery...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	console.log('  Section 72: verifying degrade...');
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 72 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	console.log('  Section 72: restoring cdc-header-disabled...');
+	await deployCmdtState('cdc-header-disabled');
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	return {
+		'section-72': {
+			result: totalPass === expected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${expected}`,
+			notes: 'CDC BlockDml degrade: degrade-exclusive cdc-block-dml-degraded WARN logged (the proof); recorder co-action + source rows intact'
+		}
+	};
+}
+
+async function runSection75()
+{
+	const launchScript = path.join(SCRIPTS_DIR, 'section-75-queueable-unhandled-exception.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-75b-queueable-unhandled-exception-verify.apex');
+	const expectedLaunch = 1;
+	const expectedVerify = 2;
+
+	console.log('  Section 75: launching throwing async step...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 75 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 75: waiting 30s for the queueable to run and fail...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	console.log('  Section 75: verifying the surfaced Failed AsyncApexJob...');
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 75 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-75': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Queueable unhandled-exception surfacing: a throwing framework-launched step surfaces as a Failed AsyncApexJob with the exception identity in ExtendedStatus'
+		}
+	};
+}
+
+async function runSection77()
+{
+	const {deployCmdtState, deleteCmdtRecords} = require('./cmdt-deployer');
+	const scriptPath = path.join(SCRIPTS_DIR, 'section-77-masking-cmdt-collision.apex');
+	const expectedSeeded = 2;
+	const expectedRecovered = 3;
+
+	console.log('  Section 77: deploying collision-clone state (org-local MaskPaymentCard, unprefixed record name)...');
+	await deployCmdtState('collision-clone');
+
+	// The clone delete lives in a finally with explicit cleanup guidance: anything escaping the
+	// seeded window would otherwise leave the org carrying the colliding record — degraded on
+	// fixed builds, fully bricked on builds without the engine fallback.
+	let seededResult;
+	try
+	{
+		seededResult = await runScript(scriptPath);
+		console.log(`  Section 77 (collision seeded): ${seededResult.pass} pass, ${seededResult.fail} fail`);
+	}
+	finally
+	{
+		console.log('  Section 77: deleting the org-local clone (recovery)...');
+		try
+		{
+			await deleteCmdtRecords(['kern__MaskingRule.MaskPaymentCard']);
+		}
+		catch(deleteFailure)
+		{
+			console.error('  Section 77: clone delete FAILED — the org STILL carries the colliding org-local record (framework DML degraded, or bricked on builds without the engine fallback).');
+			console.error('  Manual cleanup: cd ~/.kern-cmdt-staging && sf project delete source -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__MaskingRule.MaskPaymentCard" --no-prompt');
+			throw deleteFailure;
+		}
+	}
+
+	console.log('  Section 77: waiting 30s for the seeded invocation\'s WARN log event to persist...');
+	await new Promise(resolve => setTimeout(resolve, 30_000));
+
+	const recoveredResult = await runScript(scriptPath);
+	console.log(`  Section 77 (recovered): ${recoveredResult.pass} pass, ${recoveredResult.fail} fail`);
+
+	const totalPass = seededResult.pass + recoveredResult.pass;
+	const totalExpected = expectedSeeded + expectedRecovered;
+
+	return {
+		'section-77': {
+			result: totalPass === totalExpected && seededResult.fail === 0 && recoveredResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Masking CMDT name-collision tolerance: collision seeded → inserts survive on the engine fallback (the pre-fix brick) → clone deleted → fast path recovered + collision WARN persisted'
 		}
 	};
 }
@@ -488,13 +852,46 @@ async function main()
 	console.log('\nStep 6e: Section 56 (edge async chain — launch + verify)...');
 	const section56Results = await runSection56();
 
+	console.log('\nStep 6f: Section 76 (masking advisor round-trip — bundle deploys)...');
+	const section76Results = await runSection76();
+
+	console.log('\nStep 6g: Section 67 (post-trigger actions — core behaviour — CMDT cycle)...');
+	const section67Results = await runSection67();
+
+	console.log('\nStep 6h: Section 68 (post-trigger actions — feature-flag gate — CMDT cycle)...');
+	const section68Results = await runSection68();
+
+	console.log('\nStep 6i: Section 69 (post-trigger actions — no-DML guard — CMDT cycle)...');
+	const section69Results = await runSection69();
+
+	console.log('\nStep 6j: Section 70 (post-trigger actions — failure-action policy — CMDT cycle)...');
+	const section70Results = await runSection70();
+
+	console.log('\nStep 6k: Section 71 (CDC change-event header recorder — launch + verify)...');
+	const section71Results = await runSection71();
+
+	console.log('\nStep 6l: Section 72 (CDC BlockDml degrade — launch + verify)...');
+	const section72Results = await runSection72();
+
+	console.log('\nStep 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...');
+	const section75Results = await runSection75();
+
+	console.log('\nStep 6n: Section 66 (log-fingerprint flood control — subscriber API — launch + verify)...');
+	const section66Results = await runSection66();
+
+	console.log('\nStep 6o: Section 65 (framework-wide bypass audit — launch + verify)...');
+	const section65Results = await runSection65();
+
+	console.log('\nStep 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...');
+	const section77Results = await runSection77();
+
 	console.log('\nStep 7: Test classes + Scanner...');
 	const [testClassResults, scannerResults] = await Promise.all([
 		runTestClasses(),
 		runScanner()
 	]);
 
-	const allScripts = {...scriptResults, ...section3Results, ...section11Results, ...section22Results, ...section27Results, ...section34Results, ...section35Results, ...section42Results, ...section43Results, ...section56Results};
+	const allScripts = {...scriptResults, ...section3Results, ...section11Results, ...section22Results, ...section27Results, ...section34Results, ...section35Results, ...section42Results, ...section43Results, ...section56Results, ...section76Results, ...section67Results, ...section68Results, ...section69Results, ...section70Results, ...section71Results, ...section72Results, ...section75Results, ...section66Results, ...section65Results, ...section77Results};
 	const allPassing = Object.values(allScripts).every(r => r.result === 'PASS');
 
 	let results = {};
@@ -540,5 +937,27 @@ if(require.main === module)
 }
 
 module.exports = {
-	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection3, runSection11, runSection22, runSection27, runSection35, runTestClasses, runScanner, main
+	INDEPENDENT_SCRIPTS,
+	MAX_CONCURRENT,
+	runScript,
+	runBatch,
+	runSection3,
+	runSection11,
+	runSection22,
+	runSection27,
+	runSection35,
+	runSection76,
+	runSection67,
+	runSection68,
+	runSection69,
+	runSection70,
+	runSection71,
+	runSection72,
+	runSection75,
+	runSection66,
+	runSection65,
+	runSection77,
+	runTestClasses,
+	runScanner,
+	main
 };

@@ -1,0 +1,100 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Review dialog body content. The modal chrome (header, footer, backdrop, focus-trap) is
+   supplied by lightning/modal; these rules style only the slotted content, using the advisor's
+   SLDS-light token values. */
+
+.review__subhead
+{
+	align-items : baseline;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 8px;
+	margin      : 0 0 16px;
+}
+
+.review__field-label
+{
+	color       : #16325C;
+	font-weight : 600;
+}
+
+.review__field-ref
+{
+	color       : #969492;
+	font-family : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size   : 12.5px;
+}
+
+.review__rows
+{
+	border-top            : 1px solid #EBEAE9;
+	display               : grid;
+	gap                   : 10px 12px;
+	grid-template-columns : 140px 1fr;
+	margin                : 0 0 4px;
+	padding               : 8px 0;
+}
+
+.review__rows dd
+{
+	margin : 0;
+}
+
+.review__key
+{
+	color       : #706E6B;
+	font-size   : 12.5px;
+	font-weight : 600;
+}
+
+.review__value
+{
+	color : #3E3E3C;
+}
+
+.review__value_muted
+{
+	color : #706E6B;
+}
+
+.review__signal
+{
+	color       : #706E6B;
+	font-size   : 12px;
+	font-weight : 600;
+	margin-left : 8px;
+}
+
+.review__may
+{
+	border-top : 1px solid #EBEAE9;
+	padding    : 12px 0;
+}
+
+.review__hints
+{
+	color        : #706E6B;
+	font-size    : 13px;
+	margin       : 8px 0 0;
+	padding-left : 18px;
+}
+
+.review__hints li
+{
+	margin : 2px 0;
+}
+
+.review__levels
+{
+	border-top  : 1px solid #EBEAE9;
+	display     : block;
+	padding-top : 12px;
+}
+
+.review__note
+{
+	color        : #706E6B;
+	flex         : 1;
+	font-size    : 12px;
+	margin-right : auto;
+}

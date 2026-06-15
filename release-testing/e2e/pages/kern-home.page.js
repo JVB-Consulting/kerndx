@@ -114,6 +114,66 @@ class KernHomePage
 		return this.healthCheck().locator(`lightning-button[data-name="${checkName}"]`).first();
 	}
 
+	/**
+	 * @description Locator for a passing health-check chip with the given check name. A passing check
+	 * renders as a chip (not an action item), so this is the Pass-state signal for a specific check.
+	 *
+	 * @param {string} checkName The health-check display name.
+	 *
+	 * @return {import('@playwright/test').Locator} The passing chip locator, scoped to the health check.
+	 */
+	healthCheckPassingChip(checkName)
+	{
+		return this.healthCheck().locator('[data-testid="health-check-passing-chip"]', {hasText: checkName}).first();
+	}
+
+	/**
+	 * @description Reads the rendered posture of a single health check: `warn` when it surfaces an action
+	 * button, `pass` when it renders as a passing chip, or `pending` when neither has rendered yet (the
+	 * result is still loading).
+	 *
+	 * @param {string} checkName The health-check display name.
+	 *
+	 * @return {Promise<'warn'|'pass'|'pending'>} The current rendered posture.
+	 */
+	async readHealthCheckPosture(checkName)
+	{
+		if(await this.healthCheckActionButton(checkName).isVisible().catch(() => false))
+		{
+			return 'warn';
+		}
+		if(await this.healthCheckPassingChip(checkName).isVisible().catch(() => false))
+		{
+			return 'pass';
+		}
+		return 'pending';
+	}
+
+	/**
+	 * @description Re-runs the health check until the named check reaches the expected posture, absorbing
+	 * the brief propagation delay between a custom-metadata deploy and the recomputed result. Throws when
+	 * it never settles so a genuine non-recompute fails loudly rather than hanging on a stale render.
+	 *
+	 * @param {string} checkName The health-check display name.
+	 * @param {'warn'|'pass'} expected The posture to wait for.
+	 * @param {number} attempts Maximum number of refresh attempts.
+	 *
+	 * @return {Promise<void>}
+	 */
+	async refreshUntilHealthCheckPosture(checkName, expected, attempts = 6)
+	{
+		for(let attempt = 0; attempt < attempts; attempt++)
+		{
+			await this.refreshHealthCheck();
+			if(await this.readHealthCheckPosture(checkName) === expected)
+			{
+				return;
+			}
+			await this.page.waitForTimeout(2_000);
+		}
+		throw new Error(`Health check "${checkName}" did not reach posture "${expected}" after ${attempts} refreshes`);
+	}
+
 	async clickHealthCheckActionNewTab(checkName)
 	{
 		const healthCheck = this.healthCheck();
@@ -124,7 +184,9 @@ class KernHomePage
 		const popupPromise = this.page.context().waitForEvent('page', {timeout: 15_000});
 		await button.click();
 		const popup = await popupPromise;
-		await popup.waitForLoadState('domcontentloaded').catch(() => {});
+		await popup.waitForLoadState('domcontentloaded').catch(() =>
+		{
+		});
 		return popup;
 	}
 
@@ -200,7 +262,9 @@ class KernHomePage
 	{
 		const modal = this.applyRetentionModal();
 		await modal.locator('[data-testid="confirm-button"]').click();
-		await modal.waitFor({state: 'hidden', timeout: 15_000}).catch(() => {});
+		await modal.waitFor({state: 'hidden', timeout: 15_000}).catch(() =>
+		{
+		});
 		await waitForSpinnerGone(this.page);
 	}
 

@@ -11,6 +11,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Identity</value>
+    </values>
+    <values>
         <field>Description__c</field>
         <value xsi:type="xsd:string">Redacts US-format Social Security Numbers — nine digits, optionally separated by hyphens or spaces (separators must be consistent: 123456789 or 123-45-6789 match, 12345-6789 does not). Excludes invalid prefixes 000 and 666.</value>
     </values>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>App page hosting the Data Masking Advisor — surfaces sensitive fields, previews rule output, and builds a deployable masking configuration bundle.</description>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentName>dataMaskingAdvisor</componentName>
+                <identifier>c_dataMaskingAdvisor</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>region1</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <name>region2</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <name>region3</name>
+        <type>Region</type>
+    </flexiPageRegions>
+    <masterLabel>Data Masking Advisor</masterLabel>
+    <template>
+        <name>flexipage:appHomeTemplateHeaderTwoColumnsLeftSidebar</name>
+    </template>
+    <type>AppPage</type>
+</FlexiPage>

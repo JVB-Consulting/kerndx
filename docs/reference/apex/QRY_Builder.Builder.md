@@ -44,6 +44,7 @@ List<Account> accounts = query.toList();
 | Method | Description |
 |--------|-------------|
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addCondition](#addcondition)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a pre-built condition to the query. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([QRY_Function](QRY_Function.md) functionField, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Projects a SOQL date-function expression into SELECT under an explicit alias, for read-back via AggregateRow (e.g. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Adds a single field without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Adds a single field without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addFields](#addfields)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Adds fields to the selection without disabling default fields. |
@@ -96,6 +97,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.QueryPage](QRY_Builder.QueryPage.md) [getPage](#getpage)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) requestedPageNumber, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) requestedPageSize) | Executes a paged query and returns results with pagination metadata. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getRandomItem](#getrandomitem)() | Returns a single random record matching the query criteria. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getRandomItems](#getrandomitems)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) randomCount) | Returns multiple random records matching the query criteria. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([QRY_Function](QRY_Function.md) functionField) | Adds a SOQL date-function expression to the GROUP BY clause (e.g. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) groupField) | Adds a field to the GROUP BY clause using an SObjectField token. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupField) | Adds a GROUP BY clause. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [grouping](#grouping)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds a GROUPING(field) expression to the SELECT clause for use with ROLLUP or CUBE. |
@@ -114,6 +116,8 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [nullsLast](#nullslast)() | Sets the last ORDER BY clause to NULLS LAST. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Starts an OR condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts an OR condition on a field using its API name. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([QRY_Function](QRY_Function.md) functionField) | Orders by a SOQL date-function expression, ascending (e.g. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([QRY_Function](QRY_Function.md) functionField, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending) | Orders by a SOQL date-function expression, ascending or descending. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds an ORDER BY clause (default ascending). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending) | Adds an ORDER BY clause with a dynamic sort direction. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) nullsLast) | Adds an ORDER BY clause with a dynamic sort direction and nulls placement. |
@@ -229,6 +233,35 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Industry).equals('Technology')
     .addCondition(statusGroup)
     .toList();
+```
+
+### addField
+
+```apex
+global virtual QRY_Builder.Builder addField(QRY_Function functionField, String alias)
+```
+
+Projects a SOQL date-function expression into SELECT under an explicit alias, for
+read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
+Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
+
+**Parameters:**
+
+- `functionField` ([QRY_Function](QRY_Function.md)) - The date-function expression, from a QRY_Function factory
+- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The read-back alias for the projected expression
+
+**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .addField(QRY_Function.calendarMonth(Opportunity.CloseDate), 'closeMonth')
+    .count('Id')
+    .groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+    .toAggregateList();
 ```
 
 ### addField
@@ -1409,6 +1442,33 @@ List<Account> randoms = QRY_Builder.selectFrom(Account.SObjectType)
 ### groupBy
 
 ```apex
+global virtual QRY_Builder.Builder groupBy(QRY_Function functionField)
+```
+
+Adds a SOQL date-function expression to the GROUP BY clause (e.g. CALENDAR_MONTH(CloseDate)),
+bucketing records by that date part. Use the same QRY_Function factory in addField to project the bucket.
+
+**Parameters:**
+
+- `functionField` ([QRY_Function](QRY_Function.md)) - The date-function expression, from a QRY_Function factory
+
+**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .addField(QRY_Function.calendarMonth(Opportunity.CloseDate), 'closeMonth')
+    .count('Id')
+    .groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+    .toAggregateList();
+```
+
+### groupBy
+
+```apex
 global QRY_Builder.Builder groupBy(SObjectField groupField)
 ```
 
@@ -1843,6 +1903,51 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition('Industry').equals('Technology')
     .orCondition('Industry').equals('Finance')
     .toList();
+```
+
+### orderBy
+
+```apex
+global virtual QRY_Builder.Builder orderBy(QRY_Function functionField)
+```
+
+Orders by a SOQL date-function expression, ascending (e.g. ORDER BY CALENDAR_MONTH(CloseDate)).
+
+**Parameters:**
+
+- `functionField` ([QRY_Function](QRY_Function.md)) - The date-function expression, from a QRY_Function factory
+
+**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+.orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
+```
+
+### orderBy
+
+```apex
+global virtual QRY_Builder.Builder orderBy(QRY_Function functionField, Boolean sortDescending)
+```
+
+Orders by a SOQL date-function expression, ascending or descending.
+
+**Parameters:**
+
+- `functionField` ([QRY_Function](QRY_Function.md)) - The date-function expression, from a QRY_Function factory
+- `sortDescending` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - When true, sorts DESCENDING; otherwise ASCENDING
+
+**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+
+**Since:** 1.1
+
+**Example:**
+
+```apex
+.orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate), true)
 ```
 
 ### orderBy

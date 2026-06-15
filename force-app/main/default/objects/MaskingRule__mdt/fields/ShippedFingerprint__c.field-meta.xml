@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ShippedFingerprint__c</fullName>
+    <description>SHA-256 fingerprint of this rule's own shipped behaviour values. The framework only lets this rule supersede its predecessor while this rule still carries its shipped values — customising this rule turns supersession off and both rules run. Package-controlled.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Fingerprint of this rule's shipped values. Managed by the package.</inlineHelpText>
+    <label>Shipped Fingerprint</label>
+    <length>64</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

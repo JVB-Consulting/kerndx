@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Add-rule menu for the Data Masking Advisor. Built on lightning/modal; lists addable masking rules for a field or object-wide and resolves the chosen rule, or a create-custom-rule action.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Masking Add Rule Menu</masterLabel>
+</LightningComponentBundle>

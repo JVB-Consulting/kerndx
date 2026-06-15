@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Category__c</fullName>
+    <description>An optional short category label for this rule. The Data Masking Advisor shows it as a hint beside the rule so reviewers can see at a glance what kind of data the rule is meant for. The categories the shipped rules use are Contact, Personal, Payment, Health, Credentials, Financial, Identity, and Network — reuse one of these for your own rules so they group consistently, or enter your own. Free-text and optional — leave blank to show the rule with no category.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Optional category hint shown beside the rule in the Data Masking Advisor. Shipped rules use Contact, Personal, Payment, Health, Credentials, Financial, Identity, or Network — reuse one for consistency, or enter your own. Leave blank for no category.</inlineHelpText>
+    <label>Category</label>
+    <length>40</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

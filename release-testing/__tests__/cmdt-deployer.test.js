@@ -29,12 +29,7 @@ jest.spyOn(fs, 'rmSync').mockImplementation(() =>
 });
 
 const {
-	deployCmdtState,
-	getAvailableStates,
-	NamedOrgNotFoundError,
-	isNamedOrgNotFoundError,
-	FIXTURES_DIR,
-	STAGING_DIR
+	deployCmdtState, deployMetadataDir, deleteCmdtRecords, getAvailableStates, NamedOrgNotFoundError, isNamedOrgNotFoundError, FIXTURES_DIR, STAGING_DIR
 } = require('../runner/cmdt-deployer');
 
 describe('deployCmdtState', () =>
@@ -114,6 +109,94 @@ describe('deployCmdtState', () =>
 		deployCmdtState('baseline');
 
 		expect(fs.mkdirSync).toHaveBeenCalledWith(expect.stringContaining('customMetadata'), {recursive: true});
+	});
+});
+
+describe('deleteCmdtRecords', () =>
+{
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+	});
+
+	it('should run a destructive source delete from the staging project with one -m per record', () =>
+	{
+		execSync.mockReturnValue(JSON.stringify({status: 0}));
+
+		deleteCmdtRecords(['kern__MaskingRule.MaskPaymentCard']);
+
+		expect(execSync).toHaveBeenCalledWith(
+				expect.stringContaining(`sf project delete source -o ${getSubscriberOrgAlias()} -m "CustomMetadata:kern__MaskingRule.MaskPaymentCard" --no-prompt --json`),
+				expect.objectContaining({cwd: STAGING_DIR}));
+	});
+
+	it('should throw when the delete fails', () =>
+	{
+		execSync.mockReturnValue(JSON.stringify({status: 1, result: {status: 'Failed'}}));
+
+		expect(() => deleteCmdtRecords(['kern__MaskingRule.MaskPaymentCard'])).toThrow('CMDT delete failed');
+	});
+
+	it('should accept a successful delete with result.status Succeeded', () =>
+	{
+		execSync.mockReturnValue(JSON.stringify({status: 1, result: {status: 'Succeeded'}}));
+
+		expect(() => deleteCmdtRecords(['kern__MaskingRule.MaskPaymentCard'])).not.toThrow();
+	});
+});
+
+describe('deployMetadataDir', () =>
+{
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+	});
+
+	it('should throw when the bundle has no metadata directory', () =>
+	{
+		fs.existsSync.mockReturnValue(false);
+		expect(() => deployMetadataDir('/bundles/create')).toThrow('Bundle metadata directory not found');
+	});
+
+	it('should run the Export-modal deploy command from the bundle root', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		execSync.mockReturnValue(JSON.stringify({status: 0}));
+
+		deployMetadataDir('/bundles/create');
+
+		expect(execSync)
+		.toHaveBeenCalledWith(`sf project deploy start --metadata-dir metadata -o ${getSubscriberOrgAlias()} --json`, expect.objectContaining({cwd: '/bundles/create'}));
+	});
+
+	it('should throw when the bundle deploy fails', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		execSync.mockReturnValue(JSON.stringify({status: 1, result: {status: 'Failed'}}));
+
+		expect(() => deployMetadataDir('/bundles/create')).toThrow('Bundle deploy failed');
+	});
+
+	it('should accept successful deploy with result.status Succeeded', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		execSync.mockReturnValue(JSON.stringify({status: 1, result: {status: 'Succeeded'}}));
+
+		expect(() => deployMetadataDir('/bundles/create')).not.toThrow();
+	});
+
+	it('throws NamedOrgNotFoundError when sf reports unknown org alias', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		const err = new Error('Command failed: sf project deploy start');
+		err.stderr = 'Error: No AuthInfo found for name MyOrg';
+		err.stdout = '';
+		execSync.mockImplementation(() =>
+		{
+			throw err;
+		});
+
+		expect(() => deployMetadataDir('/bundles/create')).toThrow(NamedOrgNotFoundError);
 	});
 });
 
@@ -230,7 +313,10 @@ describe('deployCmdtState — NamedOrgNotFoundError path', () =>
 		const err = new Error('Command failed: sf project deploy start');
 		err.stderr = 'Error: No AuthInfo found for name MyOrg';
 		err.stdout = '';
-		execSync.mockImplementation(() => { throw err; });
+		execSync.mockImplementation(() =>
+		{
+			throw err;
+		});
 
 		expect(() => deployCmdtState('baseline')).toThrow(NamedOrgNotFoundError);
 	});
@@ -242,7 +328,10 @@ describe('deployCmdtState — NamedOrgNotFoundError path', () =>
 		const err = new Error('Command failed: sf project deploy start');
 		err.stderr = 'Error: Connection timeout';
 		err.stdout = '';
-		execSync.mockImplementation(() => { throw err; });
+		execSync.mockImplementation(() =>
+		{
+			throw err;
+		});
 
 		expect(() => deployCmdtState('baseline')).toThrow('Command failed');
 		expect(() => deployCmdtState('baseline')).not.toThrow(NamedOrgNotFoundError);

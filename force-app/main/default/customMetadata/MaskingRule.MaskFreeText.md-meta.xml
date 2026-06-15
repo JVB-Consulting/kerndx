@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask Free Text</label>
+    <protected>false</protected>
+    <values>
+        <field>ApplicableFieldTypes__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Category__c</field>
+        <value xsi:type="xsd:string">Personal</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Redacts the whole field value with a fixed [TEXT_REDACTED] token. For free-text fields such as notes or descriptions where the entire value should be hidden. Dormant by default — wire an active masking target to a field.</value>
+    </values>
+    <values>
+        <field>FailureAction__c</field>
+        <value xsi:type="xsd:string">LogAndContinue</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>MinInputLength__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Mode__c</field>
+        <value xsi:type="xsd:string">Regex</value>
+    </values>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">520.0</value>
+    </values>
+    <values>
+        <field>Pattern__c</field>
+        <value xsi:type="xsd:string">(?s).+</value>
+    </values>
+    <values>
+        <field>Replacement__c</field>
+        <value xsi:type="xsd:string">[TEXT_REDACTED]</value>
+    </values>
+</CustomMetadata>

@@ -1,0 +1,84 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p class="dma-pick__intro slds-text-body_small slds-text-color_weak" data-testid="add-object-intro">{labels.intro}</p>
+
+		<lightning-input class="dma-pick__search" data-testid="add-object-search" label={labels.searchPlaceholder} onchange={handleSearch} placeholder={labels.searchPlaceholder}
+		                 type="search" value={searchTerm} variant="label-hidden"></lightning-input>
+
+		<div class="dma-pick__list">
+			<template lwc:if={hasAttention}>
+				<div class="dma-pick__group-wrap" data-testid="add-object-group-attention">
+					<div class="dma-pick__group">{labels.groupAttention}</div>
+					<template for:each={attentionRows} for:item="row">
+						<button class="dma-pick__row" data-api-name={row.apiName} data-testid="add-object-option" key={row.key} onclick={handlePick} type="button">
+							<span class="dma-pick__name">{row.apiName}<small>{row.label}</small></span>
+							<template lwc:if={row.hasPill}>
+								<span class="dma-pick__pill" data-kind={row.pillKind} data-testid="add-object-pill">{row.pillLabel}</span>
+							</template>
+						</button>
+					</template>
+				</div>
+			</template>
+
+			<template lwc:if={hasOwn}>
+				<div class="dma-pick__group-wrap" data-testid="add-object-group-own">
+					<div class="dma-pick__group">{labels.groupOwn}</div>
+					<template for:each={ownRows} for:item="row">
+						<button class="dma-pick__row" data-api-name={row.apiName} data-testid="add-object-option" key={row.key} onclick={handlePick} type="button">
+							<span class="dma-pick__name">{row.apiName}<small>{row.label}</small></span>
+							<template lwc:if={row.hasPill}>
+								<span class="dma-pick__pill" data-kind={row.pillKind} data-testid="add-object-pill">{row.pillLabel}</span>
+							</template>
+						</button>
+					</template>
+				</div>
+			</template>
+
+			<template lwc:if={hasStandard}>
+				<div class="dma-pick__group-wrap" data-testid="add-object-group-standard">
+					<div class="dma-pick__group">{labels.groupStandard}</div>
+					<template for:each={standardRows} for:item="row">
+						<button class="dma-pick__row" data-api-name={row.apiName} data-testid="add-object-option" key={row.key} onclick={handlePick} type="button">
+							<span class="dma-pick__name">{row.apiName}<small>{row.label}</small></span>
+							<template lwc:if={row.hasPill}>
+								<span class="dma-pick__pill" data-kind={row.pillKind} data-testid="add-object-pill">{row.pillLabel}</span>
+							</template>
+						</button>
+					</template>
+					<template lwc:if={showStandardHint}>
+						<p class="dma-pick__hint slds-text-body_small slds-text-color_weak" data-testid="add-object-standard-hint">{standardHintText}</p>
+					</template>
+				</div>
+			</template>
+
+			<template lwc:if={hasManagedGroup}>
+				<div class="dma-pick__group-wrap" data-testid="add-object-group-managed">
+					<div class="dma-pick__group">{managedHeading}</div>
+					<template lwc:if={showManagedExpand}>
+						<button class="dma-pick__expand" data-testid="add-object-managed-expand" onclick={handleExpandManaged} type="button">{managedExpandLabel}</button>
+					</template>
+					<template for:each={managedRows} for:item="row">
+						<button class="dma-pick__row" data-api-name={row.apiName} data-testid="add-object-option" key={row.key} onclick={handlePick} type="button">
+							<span class="dma-pick__name">{row.apiName}<small>{row.label}</small></span>
+							<template lwc:if={row.hasPill}>
+								<span class="dma-pick__pill" data-kind={row.pillKind} data-testid="add-object-pill">{row.pillLabel}</span>
+							</template>
+						</button>
+					</template>
+					<template lwc:if={showManagedHint}>
+						<p class="dma-pick__hint slds-text-body_small slds-text-color_weak" data-testid="add-object-managed-hint">{managedHintText}</p>
+					</template>
+				</div>
+			</template>
+
+			<template lwc:if={showEmptyState}>
+				<p class="dma-pick__empty slds-text-body_small slds-text-color_weak" data-testid="add-object-empty">{emptyText}</p>
+			</template>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button data-testid="add-object-close" label={labels.close} onclick={handleClose}></lightning-button>
+	</lightning-modal-footer>
+</template>

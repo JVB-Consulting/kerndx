@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date March 2025, February 2026, May 2026
+ * @date March 2025, June 2026
  *
  * @since 1.0
  *
@@ -277,6 +277,9 @@ global inherited sharing class UTIL_TypeResolver
 	 * @description Resolves the Type for a given class name using Subscriber-First resolution.
 	 * Tries to resolve without namespace first (subscriber-defined classes), then falls back to
 	 * package namespace if not found. This allows subscribers to override package classes.
+	 * Package-internal (not part of the resolver chain): callers that validate resolver
+	 * configuration (e.g. the Health Check) share this primitive so their verdicts match the
+	 * chain bootstrap's own resolution behaviour.
 	 *
 	 * @param typeName The class name to resolve (include namespace prefix if required).
 	 *
@@ -287,7 +290,7 @@ global inherited sharing class UTIL_TypeResolver
 	 * Type resolvedType = UTIL_TypeResolver.getTypeForClassName('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
 	 * ```
 	 */
-	private static Type getTypeForClassName(String typeName)
+	public static Type getTypeForClassName(String typeName)
 	{
 		Type classType;
 		if(String.isNotBlank(typeName))

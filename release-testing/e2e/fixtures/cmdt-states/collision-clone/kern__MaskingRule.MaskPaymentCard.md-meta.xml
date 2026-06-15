@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mask Payment Card Numbers (clone)</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__ApplicableFieldTypes__c</field>
+        <value xsi:type="xsd:string">STRING;TEXTAREA;ENCRYPTEDSTRING</value>
+    </values>
+    <values>
+        <field>kern__CaseSensitive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>kern__Category__c</field>
+        <value xsi:type="xsd:string">Payment</value>
+    </values>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Org-local clone of the shipped Mask Payment Card Numbers rule. The UNPREFIXED record name collides with the packaged DeveloperName — the state a subscriber creates by cloning a shipped rule in Setup. Seeded and deleted by release-test section 77.</value>
+    </values>
+    <values>
+        <field>kern__FailureAction__c</field>
+        <value xsi:type="xsd:string">BlockDml</value>
+    </values>
+    <values>
+        <field>kern__IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__MinInputLength__c</field>
+        <value xsi:type="xsd:double">13.0</value>
+    </values>
+    <values>
+        <field>kern__Mode__c</field>
+        <value xsi:type="xsd:string">CreditCard</value>
+    </values>
+    <values>
+        <field>kern__Order__c</field>
+        <value xsi:type="xsd:double">200.0</value>
+    </values>
+    <values>
+        <field>kern__Pattern__c</field>
+        <value xsi:type="xsd:string">\b\d(?:[ -]?\d){12,18}\b</value>
+    </values>
+    <values>
+        <field>kern__Replacement__c</field>
+        <value xsi:type="xsd:string">[CARD_REDACTED]</value>
+    </values>
+</CustomMetadata>

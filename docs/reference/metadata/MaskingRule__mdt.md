@@ -25,6 +25,7 @@ Defines a rule for masking sensitive data in a field — what to look for and wh
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ApplicableFieldTypes__c](#applicablefieldtypes__c) | Optional semicolon-delimited list of field types this rule applies to. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [CaseSensitive__c](#casesensitive__c) | When checked, the Pattern matches only exact case. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Category__c](#category__c) | An optional short category label for this rule. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Description__c](#description__c) | Plain-language explanation of what this rule detects and why it exists. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | What to do if applying this rule throws an error at runtime (for example, a bad regex or an unparseable JSON payload). |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | Controls whether this rule runs. |
@@ -34,6 +35,9 @@ Defines a rule for masking sensitive data in a field — what to look for and wh
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Execution sequence when multiple rules apply to the same field. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Pattern__c](#pattern__c) | What to look for. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Replacement__c](#replacement__c) | What to replace matched content with. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Replaces__c](#replaces__c) | DeveloperName of the masking rule this rule supersedes. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ReplacesFingerprint__c](#replacesfingerprint__c) | SHA-256 fingerprint of the superseded rule's original shipped behaviour values. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ShippedFingerprint__c](#shippedfingerprint__c) | SHA-256 fingerprint of this rule's own shipped behaviour values. |
 
 ---
 
@@ -70,6 +74,23 @@ When checked, the Pattern matches only exact case. When unchecked, matching is c
 |-----------|-------|
 | Data Type | Checkbox |
 | Default Value | false |
+
+### Category__c
+
+```apex
+global String Category__c
+```
+
+An optional short category label for this rule. The Data Masking Advisor shows it as a hint beside the rule so reviewers can see at a glance what kind of data the rule is meant for. The categories the shipped rules use are Contact, Personal, Payment, Health, Credentials, Financial, Identity, and Network — reuse one of these for your own rules so they group consistently, or enter your own. Free-text and optional — leave blank to show the rule with no category.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(40) |
+| Required | false |
+| Unique | false |
+| External ID | false |
 
 ### Description__c
 
@@ -217,6 +238,57 @@ What to replace matched content with. In Regex mode, use $1, $2 etc. to refer to
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Text(255) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### Replaces__c
+
+```apex
+global String Replaces__c
+```
+
+DeveloperName of the masking rule this rule supersedes. When set, and both this rule and the named predecessor still carry their original shipped values, the framework applies this rule instead of the predecessor on every surface where both are bound. Leave blank for rules that do not supersede anything. Package-controlled.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(40) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### ReplacesFingerprint__c
+
+```apex
+global String ReplacesFingerprint__c
+```
+
+SHA-256 fingerprint of the superseded rule's original shipped behaviour values. The framework only suppresses the predecessor when its live values still match this fingerprint — any customisation you made to the predecessor keeps it running. Package-controlled.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(64) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### ShippedFingerprint__c
+
+```apex
+global String ShippedFingerprint__c
+```
+
+SHA-256 fingerprint of this rule's own shipped behaviour values. The framework only lets this rule supersede its predecessor while this rule still carries its shipped values — customising this rule turns supersession off and both rules run. Package-controlled.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(64) |
 | Required | false |
 | Unique | false |
 | External ID | false |

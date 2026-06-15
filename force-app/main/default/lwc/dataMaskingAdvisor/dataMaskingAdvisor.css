@@ -1,0 +1,995 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* SLDS-light surface palette + render-token vocabulary for the field rows. The host custom
+   properties seed the colours; the badge / signal-band / chip classes consume them so the sensitivity
+   cell renders a coloured pill + a signal-strength meter and the masking cell renders checkbox rule
+   chips, rather than raw classification text. Masked / "after" values are always teal. */
+:host
+{
+	--dma-bg            : #F3F3F3;
+	--dma-border        : #DDDBDA;
+	--dma-border-strong : #C9C7C5;
+	--dma-brand         : #0176D3;
+	--dma-brand-dark    : #014486;
+	--dma-hairline      : #EBEAE9;
+	--dma-not-bg        : #E9F2FE;
+	--dma-not-fg        : #0B5CAB;
+	--dma-possibly-bg   : #FEF0D9;
+	--dma-possibly-fg   : #8C4B00;
+	--dma-radius        : 10px;
+	--dma-sensitive-bg  : #FEE9EA;
+	--dma-sensitive-fg  : #BA0517;
+	--dma-shadow-card   : 0 1px 1px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.05);
+	--dma-surface       : #FFFFFF;
+	--dma-teal          : #0B827C;
+	--dma-warn-bg       : #FEF5E7;
+	--dma-warn-border   : #FDCA6C;
+	--dma-warn-fg       : #8A5A00;
+	--dma-weak          : #706E6B;
+}
+
+/* Summary strip + export bar: at-a-glance counts on the left, the Export-package action on the right. */
+.dma-summary-bar
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 10px;
+}
+
+.dma-summary-bar__cta
+{
+	margin-left : auto;
+}
+
+.dma-summary
+{
+	align-items : center;
+	color       : #444444;
+	display     : flex;
+	flex-wrap   : wrap;
+	font-size   : 13px;
+	font-weight : 600;
+	gap         : 8px;
+}
+
+.dma-summary__dot
+{
+	color : var(--dma-border-strong);
+}
+
+/* Clear-draft action under the summary strip — a link-style button that discards the saved session draft. */
+.dma-summary__clear
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : var(--dma-brand);
+	cursor             : pointer;
+	font-family        : inherit;
+	font-size          : 12px;
+	font-weight        : 600;
+	padding            : 0;
+	text-decoration    : underline;
+}
+
+.dma-summary__clear:hover
+{
+	color : var(--dma-brand-dark);
+}
+
+/* Section card surface (Ready / Needs review / Other). */
+.dma-card
+{
+	background    : var(--dma-surface);
+	border        : 1px solid var(--dma-border);
+	border-radius : var(--dma-radius);
+	box-shadow    : var(--dma-shadow-card);
+	padding       : 12px 16px;
+}
+
+.dma-card__bar
+{
+	align-items : center;
+	display     : flex;
+	gap         : 10px;
+}
+
+.dma-card__title
+{
+	margin : 0;
+}
+
+/* Collapsible section toggle: a reset button that carries the heading + chevron. */
+.dma-card__toggle
+{
+	align-items        : center;
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : inherit;
+	cursor             : pointer;
+	display            : inline-flex;
+	font-family        : inherit;
+	gap                : 6px;
+	margin             : 0;
+	padding            : 2px 0;
+}
+
+.dma-card__chev
+{
+	transition : transform 130ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dma-card__toggle[aria-expanded="true"] .dma-card__chev
+{
+	transform : rotate(180deg);
+}
+
+/* Field cell: name, muted api·type line, optional reason, reclassify marker. */
+.dma-fieldname
+{
+	font-size   : 13.5px;
+	font-weight : 700;
+}
+
+.dma-fieldmeta
+{
+	margin-top : 1px;
+}
+
+.dma-badge
+{
+	align-items   : center;
+	border-radius : 4px;
+	display       : inline-flex;
+	font-size     : 12px;
+	font-weight   : 600;
+	gap           : 4px;
+	line-height   : 1.4;
+	padding       : 3px 10px;
+	white-space   : nowrap;
+}
+
+.dma-badge[data-sensitivity="Sensitive"]
+{
+	background : var(--dma-sensitive-bg);
+	color      : var(--dma-sensitive-fg);
+}
+
+.dma-badge[data-sensitivity="PossiblySensitive"]
+{
+	background : var(--dma-possibly-bg);
+	color      : var(--dma-possibly-fg);
+}
+
+.dma-badge[data-sensitivity="NotSensitive"]
+{
+	background : var(--dma-not-bg);
+	color      : var(--dma-not-fg);
+}
+
+/* Clickable affordance for the badge-as-reclassify control: a same-colour border + caret make the
+   badge read as a button that opens the Review dialog. */
+.dma-badge[data-interactive]
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	border             : 1px solid currentColor;
+	cursor             : pointer;
+	font-family        : inherit;
+	margin             : 0;
+	padding-right      : 7px;
+	transition         : box-shadow 130ms cubic-bezier(0.4, 0, 0.2, 1), filter 130ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dma-badge[data-interactive]:hover
+{
+	box-shadow : 0 1px 4px rgba(0, 0, 0, 0.16);
+	filter     : saturate(1.12);
+}
+
+.dma-badge__caret
+{
+	font-size : 9px;
+	opacity   : 0.9;
+}
+
+/* Sensitivity cell stacks the badge above the signal meter. */
+.dma-sens
+{
+	align-items    : flex-start;
+	display        : inline-flex;
+	flex-direction : column;
+	gap            : 5px;
+}
+
+/* Signal-strength meter: three bars + a band word, no percentage. The lit bars carry the strength
+   visually; the word carries the same meaning for assistive tech (the bars are aria-hidden). Label
+   colours are darkened from the bar hues so the text clears AA contrast at this size. */
+.dma-conf
+{
+	align-items : center;
+	display     : inline-flex;
+	gap         : 8px;
+}
+
+.dma-conf__bars
+{
+	align-items : flex-end;
+	display     : inline-flex;
+	gap         : 2px;
+	height      : 14px;
+}
+
+.dma-conf__bar
+{
+	background    : var(--dma-hairline);
+	border-radius : 1px;
+	width         : 4px;
+}
+
+.dma-conf__bar:nth-child(1)
+{
+	height : 6px;
+}
+
+.dma-conf__bar:nth-child(2)
+{
+	height : 10px;
+}
+
+.dma-conf__bar:nth-child(3)
+{
+	height : 14px;
+}
+
+.dma-conf__label
+{
+	font-size   : 12.5px;
+	font-weight : 600;
+}
+
+.dma-conf[data-signal="Weak"] .dma-conf__bar[data-lit="true"]
+{
+	background : #B86200;
+}
+
+.dma-conf[data-signal="Weak"] .dma-conf__label
+{
+	color : #8C4B00;
+}
+
+.dma-conf[data-signal="Moderate"] .dma-conf__bar[data-lit="true"]
+{
+	background : #706E6B;
+}
+
+.dma-conf[data-signal="Moderate"] .dma-conf__label
+{
+	color : #3E3E3C;
+}
+
+.dma-conf[data-signal="Strong"] .dma-conf__bar[data-lit="true"]
+{
+	background : #2E844A;
+}
+
+.dma-conf[data-signal="Strong"] .dma-conf__label
+{
+	color : #1D6B4F;
+}
+
+/* In-place reclassify marker + inline revert on a row the admin moved between sections. The pencil
+   glyph is decorative (aria-hidden); the label text carries the meaning, and Revert restores the row. */
+.dma-marker
+{
+	align-items : center;
+	color       : var(--dma-weak);
+	display     : inline-flex;
+	font-size   : 11px;
+	gap         : 6px;
+	margin-top  : 4px;
+}
+
+.dma-marker__glyph
+{
+	font-size : 11px;
+}
+
+.dma-marker__label
+{
+	font-weight : 600;
+}
+
+.dma-marker__revert
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : var(--dma-brand);
+	cursor             : pointer;
+	font-family        : inherit;
+	font-size          : 11px;
+	font-weight        : 600;
+	padding            : 0;
+	text-decoration    : underline;
+}
+
+.dma-marker__revert:hover
+{
+	color : var(--dma-brand-dark);
+}
+
+/* Low-confidence-match tag: a small amber pill on an Other-section field the resolver flagged on a single
+   weak signal, surfacing it as worth a second look without promoting it out of the noise list. */
+.dma-lowconf
+{
+	align-items   : center;
+	background    : var(--dma-warn-bg);
+	border        : 1px solid var(--dma-warn-border);
+	border-radius : 10px;
+	color         : var(--dma-warn-fg);
+	display       : inline-flex;
+	font-size     : 11px;
+	font-weight   : 600;
+	gap           : 4px;
+	margin-top    : 4px;
+	padding       : 1px 8px;
+}
+
+.dma-lowconf__glyph
+{
+	font-size : 11px;
+}
+
+/* Masking cell: two labelled lines (Object-wide / Field-level), each a wrapping list of rule chips. */
+.dma-rules-cell
+{
+	display        : flex;
+	flex-direction : column;
+	gap            : 7px;
+	min-width      : 280px;
+}
+
+.dma-rules-line
+{
+	align-items : flex-start;
+	display     : flex;
+	gap         : 10px;
+}
+
+.dma-rules-src
+{
+	color          : var(--dma-weak);
+	flex           : 0 0 auto;
+	font-size      : 9.5px;
+	font-weight    : 700;
+	letter-spacing : 0.06em;
+	padding-top    : 5px;
+	text-transform : uppercase;
+	width          : 76px;
+}
+
+.dma-rules-chips
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 6px;
+}
+
+/* Read-only context chip: an object-wide rule that already applies to this field (no checkbox). */
+.dma-rule-chip
+{
+	align-items        : center;
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : 1px solid transparent;
+	border-radius      : 9999px;
+	color              : inherit;
+	cursor             : pointer;
+	display            : inline-flex;
+	font-family        : inherit;
+	font-size          : 11.5px;
+	font-weight        : 600;
+	gap                : 4px;
+	padding            : 3px 11px 3px 9px;
+	white-space        : nowrap;
+}
+
+.dma-rule-chip:hover
+{
+	filter : brightness(0.97);
+}
+
+.dma-rule-chip__glyph
+{
+	font-size : 10px;
+}
+
+.dma-rule-chip[data-state="inherited"]
+{
+	background   : #E3F1EF;
+	border-color : #BFE0DB;
+	color        : var(--dma-teal);
+}
+
+/* Tickable rule chip — its checkbox is the desired "active after deploy" state; coloured by origin
+   and desired state. An unticked active chip (will disable) and an unticked candidate (struck) read
+   distinctly from a ticked existing rule. */
+.dma-chip
+{
+	align-items   : center;
+	border        : 1px solid;
+	border-radius : 9999px;
+	display       : inline-flex;
+	font-size     : 11.5px;
+	font-weight   : 600;
+	gap           : 5px;
+	padding       : 2px 10px 2px 6px;
+	white-space   : nowrap;
+}
+
+.dma-chip__box
+{
+	accent-color : var(--dma-brand);
+	cursor       : pointer;
+	flex         : 0 0 auto;
+	height       : 14px;
+	margin       : 0;
+	width        : 14px;
+}
+
+.dma-chip__glyph
+{
+	font-size : 10px;
+}
+
+/* The chip's rule name is a button that opens the rule-detail popup; reset the native button chrome so it
+   reads as the chip label, with a hover affordance to signal it is clickable. */
+.dma-chip__label
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : inherit;
+	cursor             : pointer;
+	font               : inherit;
+	padding            : 0;
+	text-align         : left;
+}
+
+.dma-chip__label:hover
+{
+	text-decoration : underline;
+}
+
+.dma-chip__flag
+{
+	font-size      : 9px;
+	font-weight    : 700;
+	letter-spacing : 0.04em;
+	opacity        : 0.9;
+	text-transform : uppercase;
+}
+
+/* The glanceable marker on a chip whose rule another rule replaces — the full guidance lives in the
+   chip's title tooltip and the rule-detail popup. */
+.dma-chip__superseded
+{
+	color          : #444444;
+	font-size      : 9px;
+	font-style     : italic;
+	letter-spacing : 0.04em;
+	opacity        : 0.9;
+	text-transform : uppercase;
+}
+
+/* The dashed-pill "add rule" trigger that opens the add-rule menu, sitting at the end of a chips line. */
+.dma-add-rule
+{
+	align-items        : center;
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : var(--dma-surface);
+	border             : 1px dashed var(--dma-border-strong);
+	border-radius      : 9999px;
+	color              : var(--dma-weak);
+	cursor             : pointer;
+	display            : inline-flex;
+	font-family        : inherit;
+	font-size          : 11.5px;
+	font-weight        : 600;
+	gap                : 4px;
+	padding            : 3px 11px;
+}
+
+.dma-add-rule:hover
+{
+	border-color : var(--dma-brand);
+	color        : var(--dma-brand);
+}
+
+.dma-chip[data-origin="active"][data-desired="true"]
+{
+	background   : #E3F1EF;
+	border-color : #BFE0DB;
+	color        : var(--dma-teal);
+}
+
+.dma-chip[data-origin="active"][data-desired="false"]
+{
+	background   : #FDECEA;
+	border-color : #F3B9B3;
+	color        : #B3261E;
+}
+
+.dma-chip[data-origin="active"][data-desired="false"] .dma-chip__label
+{
+	text-decoration : line-through;
+}
+
+.dma-chip[data-origin="inactive"][data-desired="false"]
+{
+	background   : #FBE9D8;
+	border-color : #EECFA3;
+	color        : var(--dma-warn-fg);
+}
+
+.dma-chip[data-origin="inactive"][data-desired="true"]
+{
+	background   : #E3F1EF;
+	border-color : #BFE0DB;
+	color        : var(--dma-teal);
+}
+
+.dma-chip[data-origin="candidate"][data-desired="true"]
+{
+	background   : #E8F3FE;
+	border-color : #9CC8F3;
+	color        : var(--dma-brand);
+}
+
+.dma-chip[data-origin="candidate"][data-desired="false"]
+{
+	background   : var(--dma-surface);
+	border-color : var(--dma-border-strong);
+	color        : var(--dma-weak);
+}
+
+.dma-chip[data-origin="candidate"][data-desired="false"] .dma-chip__label
+{
+	text-decoration       : line-through;
+	text-decoration-color : var(--dma-border-strong);
+}
+
+/* Object-wide coverage banner: a soft blue panel with a collapsed summary + expandable rule chips. */
+.dma-coverage
+{
+	background    : #EEF4FB;
+	border        : 1px solid #C9DCF0;
+	border-radius : 8px;
+	padding       : 11px 14px;
+}
+
+.dma-coverage__head
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 8px;
+}
+
+.dma-coverage__glyph
+{
+	color     : var(--dma-not-fg);
+	font-size : 15px;
+}
+
+.dma-coverage__title
+{
+	color       : #0B3D73;
+	font-size   : 13px;
+	font-weight : 700;
+}
+
+.dma-coverage__toggle
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : var(--dma-not-fg);
+	cursor             : pointer;
+	font-family        : inherit;
+	font-size          : 12px;
+	font-weight        : 600;
+	margin-left        : auto;
+	padding            : 0;
+	white-space        : nowrap;
+}
+
+.dma-coverage__rules
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 6px;
+}
+
+.dma-coverage__note
+{
+	color      : #355B80;
+	font-size  : 12px;
+	margin-top : 7px;
+}
+
+/* Configuration-health banner: an amber variant of the coverage banner. */
+.dma-health
+{
+	background    : var(--dma-warn-bg);
+	border        : 1px solid var(--dma-warn-border);
+	border-radius : 8px;
+	padding       : 11px 14px;
+}
+
+.dma-coverage__glyph_warn
+{
+	color : var(--dma-warn-fg);
+}
+
+.dma-coverage__title_warn
+{
+	color : var(--dma-warn-fg);
+}
+
+.dma-coverage__toggle_warn
+{
+	color : var(--dma-warn-fg);
+}
+
+.dma-health__line
+{
+	color      : #6B4E00;
+	font-size  : 12px;
+	margin-top : 7px;
+}
+
+.dma-health__list
+{
+	color     : #6B4E00;
+	font-size : 12px;
+	margin    : 6px 0 0 18px;
+}
+
+/* Org-wide posture tiles on the Review landing: two headline counts (objects masked, dead configurations). */
+.dma-landing-actions
+{
+	display   : flex;
+	flex-wrap : wrap;
+	gap       : 8px;
+}
+
+.dma-posture-grid
+{
+	display               : grid;
+	gap                   : 10px;
+	grid-template-columns : repeat(2, minmax(160px, 260px));
+}
+
+.dma-posture-tile
+{
+	background    : #FBFBFB;
+	border        : 1px solid var(--dma-border);
+	border-radius : 8px;
+	padding       : 12px 14px;
+}
+
+.dma-posture-tile__num
+{
+	font-size   : 26px;
+	font-weight : 300;
+	line-height : 1.1;
+}
+
+.dma-posture-tile__lbl
+{
+	color      : var(--dma-weak);
+	font-size  : 11.5px;
+	margin-top : 2px;
+}
+
+/* Drillable inventory: one button-row per masked object — label + applied-rule chips + counts → opens it. */
+.dma-inventory
+{
+	margin-top : 14px;
+}
+
+.dma-inventory__heading
+{
+	font-size     : 13px;
+	font-weight   : 700;
+	margin-bottom : 4px;
+}
+
+.dma-inv-row
+{
+	align-items        : center;
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : var(--dma-surface);
+	border             : 1px solid var(--dma-border);
+	border-radius      : 8px;
+	color              : inherit;
+	cursor             : pointer;
+	display            : flex;
+	font               : inherit;
+	gap                : 14px;
+	margin-top         : 8px;
+	padding            : 12px 14px;
+	text-align         : left;
+	transition         : border-color 120ms, box-shadow 120ms;
+	width              : 100%;
+}
+
+.dma-inv-row:hover
+{
+	border-color : var(--dma-brand);
+	box-shadow   : 0 1px 6px rgba(1, 118, 211, 0.12);
+}
+
+.dma-inv-row__name
+{
+	font-weight : 700;
+	min-width   : 130px;
+}
+
+.dma-inv-row__name small
+{
+	color       : var(--dma-weak);
+	display     : block;
+	font-size   : 11px;
+	font-weight : 400;
+}
+
+.dma-inv-row__rules
+{
+	display   : inline-flex;
+	flex      : 1 1 auto;
+	flex-wrap : wrap;
+	gap       : 6px;
+}
+
+.dma-inv-row__meta
+{
+	color       : var(--dma-weak);
+	font-size   : 11.5px;
+	text-align  : right;
+	white-space : nowrap;
+}
+
+.dma-inv-dead
+{
+	color       : var(--dma-sensitive-fg);
+	font-weight : 600;
+}
+
+.dma-inv-row__chev
+{
+	color     : var(--dma-border-strong);
+	font-size : 16px;
+}
+
+@media (prefers-reduced-motion : reduce)
+{
+	.dma-badge[data-interactive]
+	{
+		transition : none;
+	}
+
+	.dma-card__chev
+	{
+		transition : none;
+	}
+}
+
+/* Custom-object coverage scan: an on-demand sweep of the subscriber's own custom objects for
+   likely-sensitive fields with no masking, with idle / running / done / cancelled states. */
+.dma-scan
+{
+	border-top  : 1px solid var(--dma-hairline);
+	padding-top : 14px;
+}
+
+.dma-scan__head
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 10px;
+}
+
+.dma-scan__rescan
+{
+	margin-left : auto;
+}
+
+.dma-scan__idle
+{
+	align-items   : flex-start;
+	background    : #FBFBFB;
+	border        : 1px dashed var(--dma-border-strong);
+	border-radius : 8px;
+	display       : flex;
+	flex-wrap     : wrap;
+	gap           : 14px;
+	margin-top    : 10px;
+	padding       : 14px 16px;
+}
+
+.dma-scan__idle-text
+{
+	flex : 1 1 300px;
+}
+
+.dma-scan__managed
+{
+	align-items : center;
+	display     : inline-flex;
+	gap         : 6px;
+}
+
+.dma-scan__cta
+{
+	flex : 0 0 auto;
+}
+
+.dma-scan__progress
+{
+	background    : #FBFBFB;
+	border        : 1px solid var(--dma-border);
+	border-radius : 8px;
+	margin-top    : 10px;
+	padding       : 14px 16px;
+}
+
+.dma-scan__progress-row
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 10px;
+}
+
+.dma-scan__cancel
+{
+	margin-left : auto;
+}
+
+.dma-scan__bar
+{
+	background    : var(--dma-hairline);
+	border-radius : 9999px;
+	height        : 8px;
+	margin-top    : 10px;
+	overflow      : hidden;
+}
+
+.dma-scan__bar-fill
+{
+	background    : var(--dma-brand);
+	border-radius : 9999px;
+	height        : 100%;
+	transition    : width 200ms ease;
+}
+
+.dma-scan__summary
+{
+	font-weight : 600;
+	margin-top  : 10px;
+}
+
+.dma-scan__row
+{
+	border-color : #F3B9B3;
+}
+
+.dma-scan__chip
+{
+	align-items   : center;
+	background    : #FFFFFF;
+	border        : 1px solid var(--dma-border);
+	border-radius : 9999px;
+	color         : #444444;
+	display       : inline-flex;
+	font-size     : 11px;
+	font-weight   : 600;
+	gap           : 5px;
+	padding       : 2px 9px;
+	white-space   : nowrap;
+}
+
+.dma-scan__chip i
+{
+	border-radius : 50%;
+	display       : inline-block;
+	height        : 7px;
+	width         : 7px;
+}
+
+.dma-scan__chip[data-sens="Sensitive"] i
+{
+	background : var(--dma-sensitive-fg);
+}
+
+.dma-scan__chip[data-sens="PossiblySensitive"] i
+{
+	background : var(--dma-possibly-fg);
+}
+
+.dma-scan__none
+{
+	background     : var(--dma-sensitive-bg);
+	border-radius  : 9999px;
+	color          : var(--dma-sensitive-fg);
+	font-size      : 10.5px;
+	font-weight    : 700;
+	letter-spacing : 0.03em;
+	padding        : 2px 9px;
+	text-transform : uppercase;
+	white-space    : nowrap;
+}
+
+.dma-scan__allclear
+{
+	align-items   : center;
+	background    : #EBF7EE;
+	border        : 1px solid #ACD4B4;
+	border-radius : 8px;
+	color         : #1D6B4F;
+	display       : flex;
+	font-weight   : 600;
+	gap           : 10px;
+	padding       : 12px 14px;
+}
+
+.dma-scan-provenance
+{
+	align-items   : center;
+	background    : #EEF4FB;
+	border        : 1px solid #C9DCF0;
+	border-radius : 8px;
+	color         : #0B3D73;
+	display       : flex;
+	flex-wrap     : wrap;
+	gap           : 10px;
+	padding       : 10px 14px;
+}
+
+.dma-scan-provenance__text
+{
+	flex : 1 1 auto;
+}
+
+.dma-scan-back
+{
+	-webkit-appearance : none;
+	appearance         : none;
+	background         : none;
+	border             : none;
+	color              : var(--dma-brand);
+	cursor             : pointer;
+	font               : inherit;
+	font-weight        : 600;
+	padding            : 0;
+}
+
+.dma-scan-back:hover
+{
+	text-decoration : underline;
+}

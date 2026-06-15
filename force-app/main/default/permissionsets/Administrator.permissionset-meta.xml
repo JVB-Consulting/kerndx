@@ -69,6 +69,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>CTRL_MaskingAdvisor</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>CTRL_RetryApiIssue</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -1103,6 +1107,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>LogEntry__c.Fingerprint__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>LogEntry__c.Limits__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -1119,6 +1128,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>LogEntry__c.Message__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>LogEntry__c.OccurrenceCount__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -1319,6 +1333,10 @@
     </tabSettings>
     <tabSettings>
         <tab>ChainMonitor</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>DataMaskingAdvisor</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>

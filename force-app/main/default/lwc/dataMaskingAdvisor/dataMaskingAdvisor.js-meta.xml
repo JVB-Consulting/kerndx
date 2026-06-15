@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Helps an administrator find sensitive fields, preview how Kern framework masking redacts representative values, and assemble a deployable masking configuration bundle.</description>
+	<masterLabel>Data Masking Advisor</masterLabel>
+	<isExposed>true</isExposed>
+	<targets>
+		<target>lightning__AppPage</target>
+		<target>lightning__Tab</target>
+	</targets>
+</LightningComponentBundle>
