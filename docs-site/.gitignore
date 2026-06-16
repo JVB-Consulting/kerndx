@@ -3,3 +3,4 @@ src/
 .vitepress/dist/
 .vitepress/cache/
 .vitepress/sidebar.generated.mjs
+.vitepress/lastmod.generated.json
