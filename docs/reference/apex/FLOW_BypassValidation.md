@@ -1,6 +1,7 @@
 ---
 title: "FLOW_BypassValidation"
 type: class
+pageClass: reference
 description: "Flow invocable action to bypass validation rules for the current transaction. Use this before DML operations in Flow to temporarily disable validation rules. Important: Bypasses are cleared at the end"
 author: "Jason Van Beukering"
 group: "Validation"
@@ -47,23 +48,27 @@ Flow invocable action to bypass validation rules for the current transaction. Us
 
 ### bypass
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Validation' description='Bypasses validation rules for an object, group, or specific rule for the current transaction.' label='Bypass Validation') global static void bypass(List<FLOW_BypassValidation.DTO_Request> requests)
 ```
 
 Sets a validation bypass for the current transaction.
 
-**Parameters:**
+**Parameters**
 
-- `requests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of bypass requests
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of bypass requests |
 
-**Throws:**
+**Throws**
 
-- [System.NoSuchElementException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if an invalid bypass type is provided (with a user-friendly message)
+| Exception | Description |
+|-----------|-------------|
+| [System.NoSuchElementException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if an invalid bypass type is provided (with a user-friendly message) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Bypass all Account validation rules
@@ -72,4 +77,6 @@ request.bypassType = 'OBJECT_NAME';
 request.name = 'Account';
 FLOW_BypassValidation.bypass(new List<FLOW_BypassValidation.DTO_Request>{request});
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "SEL_PermissionSetGroup"
 type: class
+pageClass: reference
 description: "Selector for the PermissionSetGroup SObject. Provides default field configuration and query methods for PermissionSetGroup records. In test context, automatically recalculates groups that are not yet "
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -49,21 +50,25 @@ List<PermissionSetGroup> groups = new SEL_PermissionSetGroup().findByName(new Se
 
 ### SEL_PermissionSetGroup
 
+<div class="apex-member">
+
 ```apex
 global SEL_PermissionSetGroup()
 ```
 
 Constructs a PermissionSetGroup selector with the PermissionSetGroup SObjectType.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_PermissionSetGroup instance = new SEL_PermissionSetGroup();
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global List<PermissionSetGroup> findByName(Set<String> groupNames)
@@ -72,20 +77,24 @@ global List<PermissionSetGroup> findByName(Set<String> groupNames)
 Finds PermissionSetGroups by developer names. In test context, recalculates
 groups that are not yet updated.
 
-**Parameters:**
+**Parameters**
 
-- `groupNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - A set of unique developer names of the PermissionSetGroup records to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `groupNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | A set of unique developer names of the PermissionSetGroup records to retrieve |
 
-**Returns:** [PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm) - A list of PermissionSetGroup records that match the specified names
+**Returns** [PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm) — A list of PermissionSetGroup records that match the specified names
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> names = new Set<String>{'ReadOnly', 'EditAccess'};
 List<PermissionSetGroup> groups = new SEL_PermissionSetGroup().findByName(names);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global PermissionSetGroup findByName(String developerName)
@@ -93,21 +102,25 @@ global PermissionSetGroup findByName(String developerName)
 
 Finds a PermissionSetGroup by developer name. Returns the first match or null.
 
-**Parameters:**
+**Parameters**
 
-- `developerName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The unique developer name of the PermissionSetGroup to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `developerName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The unique developer name of the PermissionSetGroup to retrieve |
 
-**Returns:** [PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm) - The PermissionSetGroup record that matches the specified name, or null if no match is found
+**Returns** [PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm) — The PermissionSetGroup record that matches the specified name, or null if no match is found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PermissionSetGroup foundGroup = new SEL_PermissionSetGroup().findByName('ReadOnly');
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -115,13 +128,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for PermissionSetGroup queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of PermissionSetGroup SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of PermissionSetGroup SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

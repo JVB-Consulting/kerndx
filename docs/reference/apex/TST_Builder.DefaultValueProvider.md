@@ -1,6 +1,7 @@
 ---
 title: "TST_Builder.DefaultValueProvider"
 type: class
+pageClass: reference
 description: "Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvider' (which extends this class) to customize default value generation. @note Using a virtual class instead of an interfac"
 since: "1.0"
 category: apex
@@ -34,22 +35,24 @@ Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvid
 
 ### getDefaultMapOfValues
 
+<div class="apex-member">
+
 ```apex
 global virtual Map<String, TST_Builder.DefaultFieldValueProvider> getDefaultMapOfValues(SObjectType sObjectType, Map<String, Object> mapOfValuesOverride)
 ```
 
 Gets the default map of values for a given SObjectType.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType.
-- `mapOfValuesOverride` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map of override values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType. |
+| `mapOfValuesOverride` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map of override values. |
 
-**Returns:** [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md) - A map of default field values, keyed by fully-qualified field name (e.g., 'Name' or 'Account.Name').
+**Returns** [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md) — A map of default field values, keyed by fully-qualified field name (e.g., 'Name' or 'Account.Name').
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Map<String, DefaultFieldValueProvider> getDefaultMapOfValues(SObjectType sObjectType, Map<String, Object> mapOfValuesOverride)
@@ -59,4 +62,6 @@ global override Map<String, DefaultFieldValueProvider> getDefaultMapOfValues(SOb
     return defaults;
 }
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "FeatureFlag__mdt"
 type: sobject
+pageClass: reference
 description: "This object is the master record for a single feature flag. It acts as the parent and defines the feature's name, its master on/off switch, and its final fallback behavior."
 category: metadata
 ---

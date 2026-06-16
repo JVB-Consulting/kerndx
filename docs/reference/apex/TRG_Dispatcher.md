@@ -1,6 +1,7 @@
 ---
 title: "TRG_Dispatcher"
 type: class
+pageClass: reference
 description: "Factory class for instantiating and executing configured trigger actions. Manages the lifecycle of trigger actions and supports bypassing specific actions. Adapted from: Apex Trigger Actions Framework"
 author: "Jason Van Beukering"
 group: "Triggers"
@@ -44,6 +45,8 @@ trigger TRG_Foobar on Foobar__c (before insert, before update)
 
 ### run
 
+<div class="apex-member">
+
 ```apex
 global void run()
 ```
@@ -63,15 +66,14 @@ completes). Because each trigger timing (before/after) is a separate top-level d
 post-actions can fire once per timing per DML operation; post-actions are expected to be
 idempotent or to gate on `touchedSObjectTypes`.
 
-**Throws:**
+**Throws**
 
-- [UTIL_Exceptions.ConfigurationException](UTIL_Exceptions.ConfigurationException.md) - If a TriggerAction__mdt row reaches dispatch with both ApexClassName__c and FlowName__c blank.
-The MutuallyExclusiveTarget validation rule blocks this configuration at deploy time, so the path is reachable only via Tooling-API insertion that bypasses the VR.
-- [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) - If called outside of a trigger execution context.
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.ConfigurationException](UTIL_Exceptions.ConfigurationException.md) | If a TriggerAction__mdt row reaches dispatch with both ApexClassName__c and FlowName__c blank. The MutuallyExclusiveTarget validation rule blocks this configuration at deploy time, so the path is reachable only via Tooling-API insertion that bypasses the VR. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If called outside of a trigger execution context. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 trigger TRG_Foobar on Foobar__c (before insert, before update)
@@ -79,4 +81,6 @@ trigger TRG_Foobar on Foobar__c (before insert, before update)
     new TRG_Dispatcher().run();
 }
 ```
+
+</div>
 

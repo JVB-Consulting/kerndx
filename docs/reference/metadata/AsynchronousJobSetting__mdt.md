@@ -1,6 +1,7 @@
 ---
 title: "AsynchronousJobSetting__mdt"
 type: sobject
+pageClass: reference
 description: "Declarative configuration for asynchronous job classes. The DeveloperName of each record should match the Apex class name it configures."
 category: metadata
 ---

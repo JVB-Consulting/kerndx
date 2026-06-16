@@ -1,6 +1,7 @@
 ---
 title: "SCHED_PurgeRecords"
 type: class
+pageClass: reference
 description: "A scheduled job that deletes records from a specified Salesforce object based on age or all records, configurable via attributes."
 author: "Jason Van Beukering"
 group: "Bulk DML"

@@ -1,6 +1,7 @@
 ---
 title: "UTIL_SObjectDescribe"
 type: class
+pageClass: reference
 description: "A semi-intelligent wrapper for standard Apex Schema methods, providing internal caching to avoid hitting describe limits and helper methods for handling relationship field names and namespaces."
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -97,29 +98,35 @@ String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 
 ### extractValidObjectFieldNames
 
+<div class="apex-member">
+
 ```apex
 global static Set<String> extractValidObjectFieldNames(String objectName, Set<String> fieldNames)
 ```
 
 Filters a set of field names, returning only those that are valid for the given object.
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the object
-- `fieldNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The field names to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object |
+| `fieldNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The field names to check |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set containing only the valid field names
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set containing only the valid field names
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fields = new Set<String>{ 'Name', 'InvalidField__c', 'Industry' };
 Set<String> validFields = UTIL_SObjectDescribe.extractValidObjectFieldNames('Account', fields);
 ```
 
+</div>
+
 ### flushCache
+
+<div class="apex-member">
 
 ```apex
 global static void flushCache()
@@ -127,16 +134,18 @@ global static void flushCache()
 
 Clears the cache of global describe and SObject describe instances to free heap space.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe.flushCache();
 System.debug(UTIL_SObjectDescribe.getDescribe('Account')); // Forces new describe instance
 ```
 
+</div>
+
 ### getAllFieldNames
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getAllFieldNames(SObjectType objectType)
@@ -144,19 +153,23 @@ global static Set<String> getAllFieldNames(SObjectType objectType)
 
 Returns all queryable field names for an object by SObjectType (includes record type fields).
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of field names for the object
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of field names for the object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fieldNames = UTIL_SObjectDescribe.getAllFieldNames(Account.SObjectType);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getAllFieldNames(String objectName)
@@ -164,19 +177,23 @@ global static Set<String> getAllFieldNames(String objectName)
 
 Returns all queryable field names for an object by API name (includes record type fields).
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the object
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of field names for the object
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of field names for the object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fieldNames = UTIL_SObjectDescribe.getAllFieldNames('Account');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getAllFieldNames(String objectName, Boolean includeRecordType)
@@ -184,22 +201,26 @@ global static Set<String> getAllFieldNames(String objectName, Boolean includeRec
 
 Returns all queryable field names for an object, optionally including record type fields.
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the object
-- `includeRecordType` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to include RecordType relationship fields
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object |
+| `includeRecordType` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to include RecordType relationship fields |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of field names for the object
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of field names for the object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fieldNames = UTIL_SObjectDescribe.getAllFieldNames('Account', false);
 ```
 
+</div>
+
 ### getCachedFieldDescribe
+
+<div class="apex-member">
 
 ```apex
 global static DescribeFieldResult getCachedFieldDescribe(SObjectField field)
@@ -209,22 +230,26 @@ Static accessor for field describes that enables context-agnostic lookups.
 This method allows classes like QRY_Generator and QRY_Builder to resolve field names
 without needing to know the parent SObjectType.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token to describe.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token to describe. |
 
-**Returns:** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) - The cached `DescribeFieldResult` for the field, or null if the field is null.
+**Returns** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) — The cached `DescribeFieldResult` for the field, or null if the field is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String fieldName = UTIL_SObjectDescribe.getCachedFieldDescribe(Account.Name)?.getName();
 System.debug(fieldName); // Outputs: Name
 ```
 
+</div>
+
 ### getCachedFieldName
+
+<div class="apex-member">
 
 ```apex
 global static String getCachedFieldName(SObjectField field)
@@ -234,22 +259,26 @@ Static convenience method to get a field's API name directly from an SObjectFiel
 Uses the global field describe cache for efficiency. This is the preferred method when you only
 need the field name and don't require the full DescribeFieldResult.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token to get the name for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token to get the name for. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The field's API name, or null if the field is null.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The field's API name, or null if the field is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Name);
 System.debug(fieldName); // Outputs: Name
 ```
 
+</div>
+
 ### getDefaultPicklistValue
+
+<div class="apex-member">
 
 ```apex
 global static String getDefaultPicklistValue(DescribeFieldResult fieldDescribe)
@@ -257,19 +286,23 @@ global static String getDefaultPicklistValue(DescribeFieldResult fieldDescribe)
 
 Retrieves the default picklist value for a given field describe.
 
-**Parameters:**
+**Parameters**
 
-- `fieldDescribe` ([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm)) - The DescribeFieldResult to retrieve a picklist value for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldDescribe` | [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) | The DescribeFieldResult to retrieve a picklist value for. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The default picklist value, or null if no default is available.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The default picklist value, or null if no default is available.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c.getDescribe());
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String getDefaultPicklistValue(DescribeFieldResult fieldDescribe, Boolean returnFirstEntryIfNoDefault)
@@ -277,20 +310,24 @@ global static String getDefaultPicklistValue(DescribeFieldResult fieldDescribe, 
 
 Retrieves the default picklist value for a given field describe.
 
-**Parameters:**
+**Parameters**
 
-- `fieldDescribe` ([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm)) - The DescribeFieldResult to retrieve a picklist value for.
-- `returnFirstEntryIfNoDefault` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If no default is found, return the first entry if available.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldDescribe` | [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) | The DescribeFieldResult to retrieve a picklist value for. |
+| `returnFirstEntryIfNoDefault` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If no default is found, return the first entry if available. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The default picklist value, or null if no default (or first entry) is available.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The default picklist value, or null if no default (or first entry) is available.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c.getDescribe(), true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String getDefaultPicklistValue(SObjectField objectField)
@@ -298,19 +335,23 @@ global static String getDefaultPicklistValue(SObjectField objectField)
 
 Retrieves the default picklist value for a given SObject field.
 
-**Parameters:**
+**Parameters**
 
-- `objectField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObject field to retrieve a picklist value for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObject field to retrieve a picklist value for. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The default picklist value, or null if no default is available.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The default picklist value, or null if no default is available.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String getDefaultPicklistValue(SObjectField objectField, Boolean returnFirstEntryIfNoDefault)
@@ -318,22 +359,26 @@ global static String getDefaultPicklistValue(SObjectField objectField, Boolean r
 
 Retrieves the default picklist value for a given SObject field.
 
-**Parameters:**
+**Parameters**
 
-- `objectField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObject field to retrieve a picklist value for.
-- `returnFirstEntryIfNoDefault` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If no default is found, return the first entry if available.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObject field to retrieve a picklist value for. |
+| `returnFirstEntryIfNoDefault` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If no default is found, return the first entry if available. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The default picklist value, or null if no default (or first entry) is available.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The default picklist value, or null if no default (or first entry) is available.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c, true);
 ```
 
+</div>
+
 ### getDefaultRecordType
+
+<div class="apex-member">
 
 ```apex
 global static Id getDefaultRecordType(SObjectType objectType)
@@ -341,21 +386,25 @@ global static Id getDefaultRecordType(SObjectType objectType)
 
 Retrieves the Id of the default record type for an SObject.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The Id of the default record type, or null if not found.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The Id of the default record type, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id recordTypeId = UTIL_SObjectDescribe.getDefaultRecordType(Account.SObjectType);
 ```
 
+</div>
+
 ### getDescribe
+
+<div class="apex-member">
 
 ```apex
 global DescribeSObjectResult getDescribe()
@@ -363,11 +412,9 @@ global DescribeSObjectResult getDescribe()
 
 Retrieves the raw `DescribeSObjectResult` for the described object.
 
-**Returns:** [DescribeSObjectResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject_describe.htm) - The `DescribeSObjectResult` containing detailed metadata for the object.
+**Returns** [DescribeSObjectResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject_describe.htm) — The `DescribeSObjectResult` containing detailed metadata for the object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -375,21 +422,25 @@ DescribeSObjectResult result = describe.getDescribe();
 System.debug(result.getLabel()); // Outputs: Account
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static UTIL_SObjectDescribe getDescribe(DescribeSObjectResult describeResult)
 ```
 
 Retrieves a cached `UTIL_SObjectDescribe` instance for the specified `DescribeSObjectResult`.
 
-**Parameters:**
+**Parameters**
 
-- `describeResult` ([DescribeSObjectResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject_describe.htm)) - The DescribeSObjectResult for the SObject.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `describeResult` | [DescribeSObjectResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject_describe.htm) | The DescribeSObjectResult for the SObject. |
 
-**Returns:** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) - A `UTIL_SObjectDescribe` instance, or null if the describe result is null.
+**Returns** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) — A `UTIL_SObjectDescribe` instance, or null if the describe result is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DescribeSObjectResult result = Account.SObjectType.getDescribe();
@@ -397,21 +448,25 @@ UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(result);
 System.debug(describe.getSObjectType()); // Outputs: Account
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static UTIL_SObjectDescribe getDescribe(SObject instance)
 ```
 
 Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject instance.
 
-**Parameters:**
+**Parameters**
 
-- `instance` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject instance.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `instance` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject instance. |
 
-**Returns:** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) - A `UTIL_SObjectDescribe` instance, or null if the instance is null.
+**Returns** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) — A `UTIL_SObjectDescribe` instance, or null if the instance is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account acc = new Account();
@@ -419,26 +474,34 @@ UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(acc);
 System.debug(describe.getNameField().getDescribe().name); // Outputs: Name
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static UTIL_SObjectDescribe getDescribe(SObjectType objectType)
 ```
 
 Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type. |
 
-**Returns:** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) - A `UTIL_SObjectDescribe` instance, or null if the object type is null.
+**Returns** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) — A `UTIL_SObjectDescribe` instance, or null if the object type is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(Account.SObjectType);
 System.debug(describe.getDescribe().name); // Outputs: Account
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_SObjectDescribe getDescribe(String sObjectName)
@@ -446,22 +509,26 @@ global static UTIL_SObjectDescribe getDescribe(String sObjectName)
 
 Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject name.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject. |
 
-**Returns:** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) - A `UTIL_SObjectDescribe` instance, or null if the SObject name is invalid.
+**Returns** [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md) — A `UTIL_SObjectDescribe` instance, or null if the SObject name is invalid.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 System.debug(describe.getSObjectType()); // Outputs: Account
 ```
 
+</div>
+
 ### getField
+
+<div class="apex-member">
 
 ```apex
 global SObjectField getField(String name)
@@ -469,15 +536,15 @@ global SObjectField getField(String name)
 
 Retrieves an `SObjectField` by name, with namespace handling enabled by default.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to retrieve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to retrieve. |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - The `SObjectField` corresponding to the provided name, or null if not found.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — The `SObjectField` corresponding to the provided name, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
@@ -485,22 +552,26 @@ SObjectField field = describe.getField('LastName');
 System.debug(field.getDescribe().getLabel()); // Outputs: Last Name
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global SObjectField getField(String fieldName, Boolean implyNamespace)
 ```
 
 Retrieves an `SObjectField` by name, handling relationship notation (e.g., 'Account' vs. 'AccountId') and optional namespace prefixing.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to retrieve.
-- `implyNamespace` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to automatically handle namespace prefixes.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to retrieve. |
+| `implyNamespace` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to automatically handle namespace prefixes. |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - The `SObjectField` corresponding to the provided name, or null if not found.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — The `SObjectField` corresponding to the provided name, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
@@ -508,7 +579,11 @@ SObjectField field = describe.getField('Account', false);
 System.debug(field?.getDescribe().name); // Outputs: AccountId
 ```
 
+</div>
+
 ### getFieldDescribe
+
+<div class="apex-member">
 
 ```apex
 global DescribeFieldResult getFieldDescribe(SObjectField field)
@@ -519,21 +594,25 @@ This overload accepts an `SObjectField` directly, providing type safety and avoi
 Delegates to the static `getCachedFieldDescribe` method to ensure both instance-based and
 static-based lookups share the same global cache.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token to describe.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token to describe. |
 
-**Returns:** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) - The `DescribeFieldResult` for the field, or null if the field is null.
+**Returns** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) — The `DescribeFieldResult` for the field, or null if the field is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 DescribeFieldResult fieldDescribe = describe.getFieldDescribe(Account.Name);
 System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global DescribeFieldResult getFieldDescribe(String fieldName)
@@ -543,15 +622,15 @@ Retrieves a cached `DescribeFieldResult` for the given field name.
 This method provides significant performance benefits when repeatedly accessing field metadata,
 as it caches the describe result after the first call.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to describe.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to describe. |
 
-**Returns:** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) - The `DescribeFieldResult` for the field, or null if the field doesn't exist.
+**Returns** [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) — The `DescribeFieldResult` for the field, or null if the field doesn't exist.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -559,7 +638,11 @@ DescribeFieldResult fieldDescribe = describe.getFieldDescribe('Name');
 System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
 ```
 
+</div>
+
 ### getFieldName
+
+<div class="apex-member">
 
 ```apex
 global String getFieldName(SObjectField field)
@@ -569,15 +652,15 @@ Retrieves the API name for the given `SObjectField` token.
 Delegates to the static `getCachedFieldName` method to ensure both instance-based and
 static-based lookups share the same global cache.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token to get the name for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token to get the name for. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The field's API name, or null if the field is null.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The field's API name, or null if the field is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -585,7 +668,11 @@ String fieldName = describe.getFieldName(Account.Name);
 System.debug(fieldName); // Outputs: Name
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global UTIL_SObjectDescribe.FieldsMap getFields()
@@ -593,11 +680,9 @@ global UTIL_SObjectDescribe.FieldsMap getFields()
 
 Retrieves a wrapped map of fields with namespace handling for the described object.
 
-**Returns:** [UTIL_SObjectDescribe.FieldsMap](UTIL_SObjectDescribe.FieldsMap.md) - A `FieldsMap` containing the fields of the described object.
+**Returns** [UTIL_SObjectDescribe.FieldsMap](UTIL_SObjectDescribe.FieldsMap.md) — A `FieldsMap` containing the fields of the described object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -605,7 +690,11 @@ UTIL_SObjectDescribe.FieldsMap fields = describe.getFields();
 System.debug(fields.get('Name')?.getDescribe().getLabel()); // Outputs: Name
 ```
 
+</div>
+
 ### getFieldSetsMap
+
+<div class="apex-member">
 
 ```apex
 global Map<String, FieldSet> getFieldSetsMap()
@@ -613,11 +702,9 @@ global Map<String, FieldSet> getFieldSetsMap()
 
 Retrieves a map of field set names to `FieldSet` objects for the described object.
 
-**Returns:** [FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm) - A map of field set names to `FieldSet` objects.
+**Returns** [FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm) — A map of field set names to `FieldSet` objects.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -625,7 +712,11 @@ Map<String, FieldSet> fieldSets = describe.getFieldSetsMap();
 System.debug(fieldSets.keySet()); // Outputs: Set of field set names
 ```
 
+</div>
+
 ### getFieldsMap
+
+<div class="apex-member">
 
 ```apex
 global Map<String, SObjectField> getFieldsMap()
@@ -633,11 +724,9 @@ global Map<String, SObjectField> getFieldsMap()
 
 Retrieves a map of field API names to `SObjectField` instances. Use `getFields()` for namespace handling.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - A map of field API names to `SObjectField` instances.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A map of field API names to `SObjectField` instances.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -645,7 +734,11 @@ Map<String, SObjectField> fieldMap = describe.getFieldsMap();
 System.debug(fieldMap.keySet().size()); // Outputs: Number of fields on Account
 ```
 
+</div>
+
 ### getGlobalDescribe
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_SObjectDescribe.GlobalDescribeMap getGlobalDescribe()
@@ -653,18 +746,20 @@ global static UTIL_SObjectDescribe.GlobalDescribeMap getGlobalDescribe()
 
 Retrieves a wrapped map of global `SObjectType` names to `SObjectType` instances with namespace handling.
 
-**Returns:** [UTIL_SObjectDescribe.GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) - A `GlobalDescribeMap` containing global `SObjectType` data.
+**Returns** [UTIL_SObjectDescribe.GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) — A `GlobalDescribeMap` containing global `SObjectType` data.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 System.debug(globalDescribe.get('Account')?.getDescribe().getLabel()); // Outputs: Account
 ```
 
+</div>
+
 ### getNameField
+
+<div class="apex-member">
 
 ```apex
 global SObjectField getNameField()
@@ -672,11 +767,9 @@ global SObjectField getNameField()
 
 Retrieves the name field of the SObject (where `isNameField()` is true).
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - The `SObjectField` where `isNameField()` is true, or null if no such field exists.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — The `SObjectField` where `isNameField()` is true, or null if no such field exists.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -684,7 +777,11 @@ SObjectField nameField = describe.getNameField();
 System.debug(nameField.getDescribe().name); // Outputs: Name
 ```
 
+</div>
+
 ### getNestableFieldNames
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getNestableFieldNames(String objectName)
@@ -692,19 +789,23 @@ global static Set<String> getNestableFieldNames(String objectName)
 
 Walks the object tree and returns all fields for related objects (one level deep).
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the starting object
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the starting object |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of fields using multipart dot notation (e.g. Account.Name)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of fields using multipart dot notation (e.g. Account.Name)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fields = UTIL_SObjectDescribe.getNestableFieldNames('Contact');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getNestableFieldNames(String objectName, Integer levels)
@@ -712,22 +813,26 @@ global static Set<String> getNestableFieldNames(String objectName, Integer level
 
 Walks the object tree and returns all fields for related objects up to the specified depth.
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the starting object
-- `levels` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of levels to traverse (maximum 5)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the starting object |
+| `levels` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of levels to traverse (maximum 5) |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of fields using multipart dot notation (e.g. Account.Name)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of fields using multipart dot notation (e.g. Account.Name)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> fields = UTIL_SObjectDescribe.getNestableFieldNames('Contact', 2);
 ```
 
+</div>
+
 ### getObjectFieldMap
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObjectField> getObjectFieldMap(SObjectType objectType)
@@ -735,19 +840,23 @@ global static Map<String, SObjectField> getObjectFieldMap(SObjectType objectType
 
 Returns the field map for an object by SObjectType.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The type of the object for which to retrieve a field map
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The type of the object for which to retrieve a field map |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - A Map of SObject Fields keyed by field API name
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A Map of SObject Fields keyed by field API name
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObjectField> fields = UTIL_SObjectDescribe.getObjectFieldMap(Account.SObjectType);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObjectField> getObjectFieldMap(String objectName)
@@ -755,21 +864,25 @@ global static Map<String, SObjectField> getObjectFieldMap(String objectName)
 
 Returns the field map for an object by API name.
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the object to retrieve fields for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the object to retrieve fields for |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - A Map of SObject Fields keyed by field API name
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A Map of SObject Fields keyed by field API name
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObjectField> fields = UTIL_SObjectDescribe.getObjectFieldMap('Account');
 ```
 
+</div>
+
 ### getObjectFieldReferenceMap
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObjectField> getObjectFieldReferenceMap(String objectName)
@@ -777,21 +890,25 @@ global static Map<String, SObjectField> getObjectFieldReferenceMap(String object
 
 Returns a map of reference (lookup/master-detail) fields keyed by relationship name.
 
-**Parameters:**
+**Parameters**
 
-- `objectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the object to retrieve fields map for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the object to retrieve fields map for |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - A Map of SObject Fields keyed by relationship name; non-reference fields are excluded
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A Map of SObject Fields keyed by relationship name; non-reference fields are excluded
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObjectField> refFields = UTIL_SObjectDescribe.getObjectFieldReferenceMap('Contact');
 ```
 
+</div>
+
 ### getObjectNameFromId
+
+<div class="apex-member">
 
 ```apex
 global static String getObjectNameFromId(Id objectId)
@@ -799,21 +916,25 @@ global static String getObjectNameFromId(Id objectId)
 
 Returns the API name of an object based on its ID.
 
-**Parameters:**
+**Parameters**
 
-- `objectId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - An Id of an SObject
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | An Id of an SObject |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The API name of the object, or null if the ID is invalid.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The API name of the object, or null if the ID is invalid.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String objectName = UTIL_SObjectDescribe.getObjectNameFromId(recordId); // e.g. 'Account'
 ```
 
+</div>
+
 ### getObjectNameFromType
+
+<div class="apex-member">
 
 ```apex
 global static String getObjectNameFromType(SObjectType objectType)
@@ -821,23 +942,27 @@ global static String getObjectNameFromType(SObjectType objectType)
 
 Will get the API name for the SObject given a specific type. Uses a describe cache
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The object type for which to get the name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type for which to get the name |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The Name of the object
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The Name of the object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType);
 ```
 
-**See Also:** [UTIL_SObjectDescribe.getDescribe](#getdescribe)
+**See Also** [UTIL_SObjectDescribe.getDescribe](#getdescribe)
+
+</div>
 
 ### getPicklistEntries
+
+<div class="apex-member">
 
 ```apex
 global static List<PicklistEntry> getPicklistEntries(SObjectField pickField)
@@ -845,21 +970,25 @@ global static List<PicklistEntry> getPicklistEntries(SObjectField pickField)
 
 Returns a list of picklist entries for a given SObject field reference.
 
-**Parameters:**
+**Parameters**
 
-- `pickField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - SObject Field reference for the picklist field
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pickField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | SObject Field reference for the picklist field |
 
-**Returns:** [PicklistEntry](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_PicklistEntry.htm) - List of picklist entries
+**Returns** [PicklistEntry](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_PicklistEntry.htm) — List of picklist entries
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<PicklistEntry> entries = UTIL_SObjectDescribe.getPicklistEntries(Account.Industry);
 ```
 
+</div>
+
 ### getPicklistEntriesMap
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, String> getPicklistEntriesMap(SObjectField pickField)
@@ -867,19 +996,23 @@ global static Map<String, String> getPicklistEntriesMap(SObjectField pickField)
 
 Returns a map of picklist label-to-value pairs for a given SObject field reference.
 
-**Parameters:**
+**Parameters**
 
-- `pickField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The Object Field which to retrieve entries
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pickField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The Object Field which to retrieve entries |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A map of picklist values keyed by label
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A map of picklist values keyed by label
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, String> valueByLabel = UTIL_SObjectDescribe.getPicklistEntriesMap(Account.Industry);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, String> getPicklistEntriesMap(SObjectField pickField, Boolean useLabelAsKey)
@@ -887,22 +1020,26 @@ global static Map<String, String> getPicklistEntriesMap(SObjectField pickField, 
 
 Returns a map of picklist entries with configurable key for a given SObject field reference.
 
-**Parameters:**
+**Parameters**
 
-- `pickField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The Object Field for which to retrieve entries
-- `useLabelAsKey` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If true the key will be the picklist label, else it will be the API value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pickField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The Object Field for which to retrieve entries |
+| `useLabelAsKey` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true the key will be the picklist label, else it will be the API value |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A map of the found items
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A map of the found items
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, String> labelByValue = UTIL_SObjectDescribe.getPicklistEntriesMap(Account.Industry, false);
 ```
 
+</div>
+
 ### getPicklistValues
+
+<div class="apex-member">
 
 ```apex
 global static List<DTO_PickList> getPicklistValues(String objectApiName, Id recordTypeId)
@@ -912,22 +1049,26 @@ Returns all picklist values for a given object and record type combination
 as a list of DTO_PickList objects, including dependent picklist relationships.
 Uses ConnectApi.RecordUi natively and transforms the results into framework DTOs.
 
-**Parameters:**
+**Parameters**
 
-- `objectApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject
-- `recordTypeId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The record type ID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject |
+| `recordTypeId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The record type ID |
 
-**Returns:** [DTO_PickList](DTO_PickList.md) - A list of DTO_PickList objects containing picklist names and their values
+**Returns** [DTO_PickList](DTO_PickList.md) — A list of DTO_PickList objects containing picklist names and their values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_PickList> pickLists = UTIL_SObjectDescribe.getPicklistValues('Account', recordTypeId);
 ```
 
+</div>
+
 ### getPicklistValuesByRecordType
+
+<div class="apex-member">
 
 ```apex
 global static ConnectApi.PicklistValuesCollection getPicklistValuesByRecordType(String objectApiName, Id recordTypeId)
@@ -936,22 +1077,26 @@ global static ConnectApi.PicklistValuesCollection getPicklistValuesByRecordType(
 Returns all picklist values for a given object and record type combination,
 including dependent picklist relationships. Uses ConnectApi.RecordUi natively.
 
-**Parameters:**
+**Parameters**
 
-- `objectApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject
-- `recordTypeId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The record type ID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject |
+| `recordTypeId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The record type ID |
 
-**Returns:** The ConnectApi picklist values collection
+**Returns** The ConnectApi picklist values collection
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 ConnectApi.PicklistValuesCollection collection = UTIL_SObjectDescribe.getPicklistValuesByRecordType('Account', recordTypeId);
 ```
 
+</div>
+
 ### getRawGlobalDescribe
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObjectType> getRawGlobalDescribe()
@@ -959,18 +1104,20 @@ global static Map<String, SObjectType> getRawGlobalDescribe()
 
 Retrieves a cached map of global `SObjectType` names to `SObjectType` instances.
 
-**Returns:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) - A map of `SObjectType` names to `SObjectType` instances.
+**Returns** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) — A map of `SObjectType` names to `SObjectType` instances.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObjectType> globalDescribe = UTIL_SObjectDescribe.getRawGlobalDescribe();
 System.debug(globalDescribe.containsKey('Account')); // Outputs: true
 ```
 
+</div>
+
 ### getRecordTypeByDeveloperName
+
+<div class="apex-member">
 
 ```apex
 global static Id getRecordTypeByDeveloperName(SObjectType objectType, String recordTypeName)
@@ -978,22 +1125,26 @@ global static Id getRecordTypeByDeveloperName(SObjectType objectType, String rec
 
 Retrieves the Id of a record type for an SObject by its developer name.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type.
-- `recordTypeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The developer name of the record type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type. |
+| `recordTypeName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The developer name of the record type. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The Id of the record type, or null if not found.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The Id of the record type, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id recordTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Account.SObjectType, 'Customer');
 ```
 
+</div>
+
 ### getSObjectFieldNames
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> getSObjectFieldNames(Set<SObjectField> objectFields)
@@ -1001,22 +1152,26 @@ global static Set<String> getSObjectFieldNames(Set<SObjectField> objectFields)
 
 Converts a set of SObjectField tokens to their API name strings.
 
-**Parameters:**
+**Parameters**
 
-- `objectFields` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The fields for which to get field names
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectFields` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The fields for which to get field names |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of SObject field API names
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of SObject field API names
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<SObjectField> fields = new Set<SObjectField>{ Account.Name, Account.Industry };
 Set<String> names = UTIL_SObjectDescribe.getSObjectFieldNames(fields); // {'Name', 'Industry'}
 ```
 
+</div>
+
 ### getSObjectType
+
+<div class="apex-member">
 
 ```apex
 global SObjectType getSObjectType()
@@ -1024,11 +1179,9 @@ global SObjectType getSObjectType()
 
 Returns the `SObjectType` this instance is based on, useful for retrieving metadata about the specific object.
 
-**Returns:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) - The `SObjectType` of the described object.
+**Returns** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) — The `SObjectType` of the described object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
@@ -1036,7 +1189,11 @@ SObjectType objType = describe.getSObjectType();
 System.debug(objType); // Outputs: Account
 ```
 
+</div>
+
 ### getSObjectTypeById
+
+<div class="apex-member">
 
 ```apex
 global static SObjectType getSObjectTypeById(Id objectId)
@@ -1044,21 +1201,25 @@ global static SObjectType getSObjectTypeById(Id objectId)
 
 Returns the SObjectType token for a given record ID.
 
-**Parameters:**
+**Parameters**
 
-- `objectId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - An Id of an SObject
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | An Id of an SObject |
 
-**Returns:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) - The SObjectType for the record, or null if the ID is null.
+**Returns** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) — The SObjectType for the record, or null if the ID is null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObjectType accountType = UTIL_SObjectDescribe.getSObjectTypeById(someAccountId);
 ```
 
+</div>
+
 ### getSObjectTypeByName
+
+<div class="apex-member">
 
 ```apex
 global static SObjectType getSObjectTypeByName(String objectApiName)
@@ -1066,21 +1227,25 @@ global static SObjectType getSObjectTypeByName(String objectApiName)
 
 Returns the SObjectType token for a given object API name.
 
-**Parameters:**
+**Parameters**
 
-- `objectApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the object
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object |
 
-**Returns:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) - The corresponding SObjectType or null if the API name is invalid.
+**Returns** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) — The corresponding SObjectType or null if the API name is invalid.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObjectType accountType = UTIL_SObjectDescribe.getSObjectTypeByName('Account');
 ```
 
+</div>
+
 ### isPersonAccountEnabled
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isPersonAccountEnabled()
@@ -1088,18 +1253,20 @@ global static Boolean isPersonAccountEnabled()
 
 Determines whether Person Accounts are enabled by checking for the `isPersonAccount` field on Account.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if Person Accounts are enabled, `false` otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if Person Accounts are enabled, `false` otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean isPersonAccountEnabled = UTIL_SObjectDescribe.isPersonAccountEnabled();
 System.debug(isPersonAccountEnabled); // Outputs: true or false based on org configuration
 ```
 
+</div>
+
 ### isRecordTypeAvailable
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isRecordTypeAvailable(SObjectType objectType, String recordTypeName)
@@ -1112,16 +1279,16 @@ RecordTypeId so an insert does not fail with INVALID_CROSS_REFERENCE_KEY when th
 assigned to the running user — for example a packaged record type that a subscriber has not
 assigned to the profile the code runs under.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type.
-- `recordTypeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The developer name of the record type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type. |
+| `recordTypeName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The developer name of the record type. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - true when the record type exists and is available to the running user; false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the record type exists and is available to the running user; false otherwise.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 if(UTIL_SObjectDescribe.isRecordTypeAvailable(Account.SObjectType, 'Customer'))
@@ -1129,4 +1296,6 @@ if(UTIL_SObjectDescribe.isRecordTypeAvailable(Account.SObjectType, 'Customer'))
     account.RecordTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Account.SObjectType, 'Customer');
 }
 ```
+
+</div>
 

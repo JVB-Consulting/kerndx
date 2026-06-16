@@ -1,6 +1,7 @@
 ---
 title: "IF_Queryable"
 type: class
+pageClass: reference
 description: "Interface for any object that can execute a query. Implemented by QRY_Builder.Builder and SEL_Base. Allows polymorphic query execution across framework components such as batch jobs, async processors,"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
@@ -56,17 +57,21 @@ public class MyQueryable implements IF_Queryable
 
 ### count
 
+<div class="apex-member">
+
 ```apex
 global abstract Integer count()
 ```
 
 Returns the count of matching records.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Number of matching records
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Number of matching records
 
-**Since:** 1.0
+</div>
 
 ### exists
+
+<div class="apex-member">
 
 ```apex
 global abstract Boolean exists()
@@ -74,11 +79,13 @@ global abstract Boolean exists()
 
 Returns true if any records match the query.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if at least one record matches
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if at least one record matches
 
-**Since:** 1.0
+</div>
 
 ### getFirst
+
+<div class="apex-member">
 
 ```apex
 global abstract SObject getFirst()
@@ -86,11 +93,13 @@ global abstract SObject getFirst()
 
 Executes the query and returns the first matching record, or null.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - First matching SObject or null
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — First matching SObject or null
 
-**Since:** 1.0
+</div>
 
 ### toList
+
+<div class="apex-member">
 
 ```apex
 global abstract List<SObject> toList()
@@ -98,11 +107,13 @@ global abstract List<SObject> toList()
 
 Executes the query and returns all matching records.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching SObjects
 
-**Since:** 1.0
+</div>
 
 ### toQueryLocator
+
+<div class="apex-member">
 
 ```apex
 global abstract Database.QueryLocator toQueryLocator()
@@ -110,7 +121,7 @@ global abstract Database.QueryLocator toQueryLocator()
 
 Returns a QueryLocator for batch processing.
 
-**Returns:** [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) - QueryLocator for this query
+**Returns** [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) — QueryLocator for this query
 
-**Since:** 1.0
+</div>
 

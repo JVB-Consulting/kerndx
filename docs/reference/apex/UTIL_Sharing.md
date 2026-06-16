@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Sharing"
 type: class
+pageClass: reference
 description: "Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. Known access-mode consistency issue (tracked as a known issue). Share-record "
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -52,6 +53,8 @@ List<SObject> tempShares = UTIL_Sharing.grantTemporary(accounts, groupId, 'Read'
 
 ### grant
 
+<div class="apex-member">
+
 ```apex
 global static List<SObject> grant(List<SObject> records, Id userOrGroupId, String accessLevel)
 ```
@@ -59,21 +62,23 @@ global static List<SObject> grant(List<SObject> records, Id userOrGroupId, Strin
 Grants permanent access to the specified records for a user or group.
 Creates share records that remain until explicitly deleted.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObject records to share (must have an Id).
-- `userOrGroupId` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The ID of the User or Group to grant access to.
-- `accessLevel` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The level of access to grant ('Read', 'Edit', or 'All').
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObject records to share (must have an Id). |
+| `userOrGroupId` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The ID of the User or Group to grant access to. |
+| `accessLevel` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The level of access to grant ('Read', 'Edit', or 'All'). |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The created share records.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The created share records.
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if any parameter is invalid.
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if any parameter is invalid. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -84,7 +89,11 @@ Id groupId = new SEL_Group().findByName('AllUsers').Id;
 List<SObject> shares = UTIL_Sharing.grant(accounts, groupId, 'Edit');
 ```
 
+</div>
+
 ### grantTemporary
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> grantTemporary(List<SObject> records, Id userOrGroupId, String accessLevel, Integer validityMinutes)
@@ -93,22 +102,24 @@ global static List<SObject> grantTemporary(List<SObject> records, Id userOrGroup
 Grants temporary access to the specified records for a user or group.
 Creates share records and schedules their automatic revocation after the validity period.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObject records to share (must have an Id).
-- `userOrGroupId` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The ID of the User or Group to grant access to.
-- `accessLevel` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The level of access to grant ('Read', 'Edit', or 'All').
-- `validityMinutes` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The duration in minutes before access is revoked.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObject records to share (must have an Id). |
+| `userOrGroupId` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The ID of the User or Group to grant access to. |
+| `accessLevel` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The level of access to grant ('Read', 'Edit', or 'All'). |
+| `validityMinutes` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The duration in minutes before access is revoked. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The created share records.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The created share records.
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if any parameter is invalid.
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if any parameter is invalid. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -118,4 +129,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 Id groupId = new SEL_Group().findByName('AllUsers').Id;
 List<SObject> shares = UTIL_Sharing.grantTemporary(accounts, groupId, 'Edit', 60);
 ```
+
+</div>
 

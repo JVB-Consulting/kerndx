@@ -1,3 +1,7 @@
+---
+navOrder: 66
+---
+
 # DTOs - Guide
 
 **Framework:** KernDX

@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CheckObjectPermissions.DTO_Request"
 type: class
+pageClass: reference
 description: "DTO containing the name of the object for which to object permissions"
 since: "1.0"
 category: apex

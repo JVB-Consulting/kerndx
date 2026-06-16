@@ -1,3 +1,7 @@
+---
+navOrder: 36
+---
+
 # Fast Start - Async Processing
 
 **Framework:** KernDX | **Total time:** ~25 minutes

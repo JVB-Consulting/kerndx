@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Limits.LimitCheck"
 type: class
+pageClass: reference
 description: "Fluent limit inspector scoped to a single governor limit type. Provides methods to check remaining budget, usage percentage, exhaustion, and threshold proximity."
 since: "1.0"
 category: apex
@@ -43,17 +44,21 @@ Fluent limit inspector scoped to a single governor limit type. Provides methods 
 
 ### isExhausted
 
+<div class="apex-member">
+
 ```apex
 global Boolean isExhausted()
 ```
 
 Returns whether the limit has been fully consumed (no remaining budget).
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True when remaining() is less than or equal to zero
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when remaining() is less than or equal to zero
 
-**Since:** 1.0
+</div>
 
 ### isNearLimit
+
+<div class="apex-member">
 
 ```apex
 global Boolean isNearLimit(Decimal threshold)
@@ -62,15 +67,19 @@ global Boolean isNearLimit(Decimal threshold)
 Returns whether usage has reached or exceeded the given threshold. Values greater
 than 1.0 are automatically normalised by dividing by 100 (e.g. 80 becomes 0.8).
 
-**Parameters:**
+**Parameters**
 
-- `threshold` ([Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm)) - The threshold as a decimal (0.0–1.0) or percentage (e.g. 80 for 80%)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `threshold` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The threshold as a decimal (0.0–1.0) or percentage (e.g. 80 for 80%) |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True when percentUsed() is at or above the normalised threshold
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when percentUsed() is at or above the normalised threshold
 
-**Since:** 1.0
+</div>
 
 ### maximum
+
+<div class="apex-member">
 
 ```apex
 global Integer maximum()
@@ -78,11 +87,13 @@ global Integer maximum()
 
 Returns the maximum allowed units for this limit type.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Governor limit maximum
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Governor limit maximum
 
-**Since:** 1.0
+</div>
 
 ### percentUsed
+
+<div class="apex-member">
 
 ```apex
 global Decimal percentUsed()
@@ -90,11 +101,13 @@ global Decimal percentUsed()
 
 Returns the percentage of the limit consumed as a value between 0.0 and 1.0.
 
-**Returns:** [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) - Usage percentage (0.0 = none used, 1.0 = fully exhausted)
+**Returns** [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) — Usage percentage (0.0 = none used, 1.0 = fully exhausted)
 
-**Since:** 1.0
+</div>
 
 ### remaining
+
+<div class="apex-member">
 
 ```apex
 global Integer remaining()
@@ -102,11 +115,13 @@ global Integer remaining()
 
 Returns the number of limit units remaining before the governor limit is hit.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Remaining budget (maximum - used)
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Remaining budget (maximum - used)
 
-**Since:** 1.0
+</div>
 
 ### used
+
+<div class="apex-member">
 
 ```apex
 global Integer used()
@@ -114,9 +129,9 @@ global Integer used()
 
 Returns the number of limit units consumed in this transaction.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Current usage count
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Current usage count
 
-**Since:** 1.0
+</div>
 
 ---
 

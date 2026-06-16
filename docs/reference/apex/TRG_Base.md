@@ -1,6 +1,7 @@
 ---
 title: "TRG_Base"
 type: class
+pageClass: reference
 description: "The base class for trigger actions, designed to be extended and implement relevant interfaces. This class provides the core functionality for executing trigger actions based on the trigger context, wi"
 author: "Jason Van Beukering"
 group: "Triggers"
@@ -176,6 +177,8 @@ Example:
 
 ### bypass
 
+<div class="apex-member">
+
 ```apex
 global static void bypass(SObjectType sObjectType)
 ```
@@ -183,18 +186,22 @@ global static void bypass(SObjectType sObjectType)
 Bypasses trigger actions for the specified SObject type.
 Type-safe overload that accepts an SObjectType token instead of a string name.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType token of the object to bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType token of the object to bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // true
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void bypass(String sObjectName)
@@ -202,18 +209,22 @@ global static void bypass(String sObjectName)
 
 Bypasses trigger actions for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject type to bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject type to bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // true
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void bypass(String name, TRG_Base.BypassType type)
@@ -221,21 +232,25 @@ global static void bypass(String name, TRG_Base.BypassType type)
 
 Bypasses a trigger by name, dispatching to the correct bypass set based on the bypass type.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The object API name or action class name to bypass
-- `type` ([TRG_Base.BypassType](TRG_Base.BypassType.md)) - The bypass type (OBJECT_NAME or CLASS_NAME)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The object API name or action class name to bypass |
+| `type` | [TRG_Base.BypassType](TRG_Base.BypassType.md) | The bypass type (OBJECT_NAME or CLASS_NAME) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account', TRG_Base.BypassType.OBJECT_NAME);
 TRG_Base.bypass('TRG_SetDefaults', TRG_Base.BypassType.CLASS_NAME);
 ```
 
+</div>
+
 ### bypassAction
+
+<div class="apex-member">
 
 ```apex
 global static void bypassAction(String actionClassName)
@@ -243,20 +258,24 @@ global static void bypassAction(String actionClassName)
 
 Bypasses a specific trigger action class by name.
 
-**Parameters:**
+**Parameters**
 
-- `actionClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name of the trigger action to bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypassAction('TRG_SetFoobarDefaults');
 Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
 ```
 
+</div>
+
 ### clearActionBypass
+
+<div class="apex-member">
 
 ```apex
 global static void clearActionBypass(String actionClassName)
@@ -264,13 +283,13 @@ global static void clearActionBypass(String actionClassName)
 
 Clears the bypass for a specific trigger action class, allowing it to execute.
 
-**Parameters:**
+**Parameters**
 
-- `actionClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name of the trigger action to clear from bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to clear from bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypassAction('TRG_SetFoobarDefaults');
@@ -278,7 +297,11 @@ TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
 Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
 ```
 
+</div>
+
 ### clearAllActionBypasses
+
+<div class="apex-member">
 
 ```apex
 global static void clearAllActionBypasses()
@@ -286,9 +309,7 @@ global static void clearAllActionBypasses()
 
 Clears all action-level bypasses, allowing all trigger action classes to execute.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypassAction('TRG_SetFoobarDefaults');
@@ -297,7 +318,11 @@ TRG_Base.clearAllActionBypasses();
 Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
 ```
 
+</div>
+
 ### clearAllBypasses
+
+<div class="apex-member">
 
 ```apex
 global static void clearAllBypasses()
@@ -305,9 +330,7 @@ global static void clearAllBypasses()
 
 Clears all SObject type bypasses, allowing all trigger actions to execute.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account');
@@ -316,19 +339,23 @@ TRG_Base.clearAllBypasses();
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static void clearAllBypasses(TRG_Base.BypassType type)
 ```
 
 Clears all trigger bypasses, dispatching to the correct bypass set based on the bypass type.
 
-**Parameters:**
+**Parameters**
 
-- `type` ([TRG_Base.BypassType](TRG_Base.BypassType.md)) - The bypass type (OBJECT_NAME or CLASS_NAME)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | [TRG_Base.BypassType](TRG_Base.BypassType.md) | The bypass type (OBJECT_NAME or CLASS_NAME) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account', TRG_Base.BypassType.OBJECT_NAME);
@@ -336,7 +363,11 @@ TRG_Base.clearAllBypasses(TRG_Base.BypassType.OBJECT_NAME);
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
 
+</div>
+
 ### clearBypass
+
+<div class="apex-member">
 
 ```apex
 global static void clearBypass(SObjectType sObjectType)
@@ -345,13 +376,13 @@ global static void clearBypass(SObjectType sObjectType)
 Clears the bypass for the specified SObject type, allowing trigger actions to execute.
 Type-safe overload that accepts an SObjectType token instead of a string name.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType token of the object to clear from bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType token of the object to clear from bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass(Account.SObjectType);
@@ -359,19 +390,23 @@ TRG_Base.clearBypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // false
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static void clearBypass(String sObjectName)
 ```
 
 Clears the bypass for the specified SObject type, allowing trigger actions to execute.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject type to clear from bypass.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject type to clear from bypass. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account');
@@ -379,20 +414,24 @@ TRG_Base.clearBypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static void clearBypass(String name, TRG_Base.BypassType type)
 ```
 
 Clears a trigger bypass by name, dispatching to the correct bypass set based on the bypass type.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The object API name or action class name to clear
-- `type` ([TRG_Base.BypassType](TRG_Base.BypassType.md)) - The bypass type (OBJECT_NAME or CLASS_NAME)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The object API name or action class name to clear |
+| `type` | [TRG_Base.BypassType](TRG_Base.BypassType.md) | The bypass type (OBJECT_NAME or CLASS_NAME) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account', TRG_Base.BypassType.OBJECT_NAME);
@@ -400,7 +439,11 @@ TRG_Base.clearBypass('Account', TRG_Base.BypassType.OBJECT_NAME);
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
 
+</div>
+
 ### isActionBypassed
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isActionBypassed(String actionClassName)
@@ -408,22 +451,26 @@ global static Boolean isActionBypassed(String actionClassName)
 
 Checks if a specific trigger action class is bypassed.
 
-**Parameters:**
+**Parameters**
 
-- `actionClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name of the trigger action to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean True if the action class is bypassed, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if the action class is bypassed, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypassAction('TRG_SetFoobarDefaults');
 Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
 ```
 
+</div>
+
 ### isBypassed
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isBypassed(SObjectType sObjectType)
@@ -432,20 +479,24 @@ global static Boolean isBypassed(SObjectType sObjectType)
 Checks if trigger actions are bypassed for the specified SObject type.
 Type-safe overload that accepts an SObjectType token instead of a string name.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType token of the object to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType token of the object to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean True if the SObject type is bypassed, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if the SObject type is bypassed, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // true
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isBypassed(String sObjectName)
@@ -453,20 +504,24 @@ global static Boolean isBypassed(String sObjectName)
 
 Checks if trigger actions are bypassed for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject type to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject type to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean True if the SObject type is bypassed, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if the SObject type is bypassed, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // true
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isBypassed(String name, TRG_Base.BypassType type)
@@ -474,23 +529,27 @@ global static Boolean isBypassed(String name, TRG_Base.BypassType type)
 
 Checks if a trigger is bypassed, dispatching to the correct bypass set based on the bypass type.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The object API name or action class name to check
-- `type` ([TRG_Base.BypassType](TRG_Base.BypassType.md)) - The bypass type (OBJECT_NAME or CLASS_NAME)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The object API name or action class name to check |
+| `type` | [TRG_Base.BypassType](TRG_Base.BypassType.md) | The bypass type (OBJECT_NAME or CLASS_NAME) |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if bypassed
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if bypassed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.bypass('Account', TRG_Base.BypassType.OBJECT_NAME);
 Boolean result = TRG_Base.isBypassed('Account', TRG_Base.BypassType.OBJECT_NAME); // true
 ```
 
+</div>
+
 ### resolveBypassType
+
+<div class="apex-member">
 
 ```apex
 global static TRG_Base.BypassType resolveBypassType(String bypassTypeString)
@@ -499,25 +558,31 @@ global static TRG_Base.BypassType resolveBypassType(String bypassTypeString)
 Parses a bypass type string into the corresponding BypassType enum value.
 Wraps the standard valueOf call with a user-friendly error message on failure.
 
-**Parameters:**
+**Parameters**
 
-- `bypassTypeString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The string to parse (must be 'OBJECT_NAME' or 'CLASS_NAME')
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `bypassTypeString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to parse (must be 'OBJECT_NAME' or 'CLASS_NAME') |
 
-**Returns:** [TRG_Base.BypassType](TRG_Base.BypassType.md) - The parsed BypassType enum value
+**Returns** [TRG_Base.BypassType](TRG_Base.BypassType.md) — The parsed BypassType enum value
 
-**Throws:**
+**Throws**
 
-- [System.Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If the string does not match a valid BypassType value
+| Exception | Description |
+|-----------|-------------|
+| [System.Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If the string does not match a valid BypassType value |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.BypassType type = TRG_Base.resolveBypassType('OBJECT_NAME');
 ```
 
+</div>
+
 ### run
+
+<div class="apex-member">
 
 ```apex
 global void run()
@@ -526,14 +591,14 @@ global void run()
 Executes the relevant trigger action based on the implemented interface and trigger context.
 This method checks the trigger operation and calls the appropriate interface method if implemented.
 
-**Throws:**
+**Throws**
 
-- [TypeException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If the class does not implement the required interface for the current context.
-- [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) - If called outside of a trigger execution context.
+| Exception | Description |
+|-----------|-------------|
+| [TypeException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If the class does not implement the required interface for the current context. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If called outside of a trigger execution context. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class CustomTriggerAction extends TRG_Base implements IF_Trigger.BeforeInsert
@@ -550,7 +615,11 @@ public class CustomTriggerAction extends TRG_Base implements IF_Trigger.BeforeIn
 // In a trigger context, calling run() will invoke beforeInsert for BEFORE_INSERT
 ```
 
+</div>
+
 ### setBypassReason
+
+<div class="apex-member">
 
 ```apex
 global static void setBypassReason(String reason)
@@ -561,17 +630,19 @@ subsequent bypass audit log entry. Use before a batch of bypass calls to documen
 operational context (e.g., a data migration or incident response). Pass `null` or empty
 to clear.
 
-**Parameters:**
+**Parameters**
 
-- `reason` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The reason string to record, or null to clear the previously set reason.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `reason` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The reason string to record, or null to clear the previously set reason. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TRG_Base.setBypassReason('Customer data migration 2026-04-19');
 TRG_Base.bypass(Account.SObjectType);
 TRG_Base.bypass(Contact.SObjectType);
 ```
+
+</div>
 

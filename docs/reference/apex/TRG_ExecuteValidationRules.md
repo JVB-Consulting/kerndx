@@ -1,6 +1,7 @@
 ---
 title: "TRG_ExecuteValidationRules"
 type: class
+pageClass: reference
 description: "Pre-built trigger action that executes formula-driven validation rules. This class implements all trigger interfaces and automatically executes validation rules configured via ValidationRuleGroup__mdt"
 author: "Jason Van Beukering"
 group: "Validation"
@@ -62,6 +63,8 @@ Description__c: Executes formula-driven validation rules for Account records
 
 ### afterDelete
 
+<div class="apex-member">
+
 ```apex
 global void afterDelete(List<SObject> oldRecords)
 ```
@@ -69,19 +72,23 @@ global void afterDelete(List<SObject> oldRecords)
 Executes validation rules after records are deleted.
 Typically used for warning-only validations that log but don't block.
 
-**Parameters:**
+**Parameters**
 
-- `oldRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of deleted records
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of deleted records |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.afterDelete(records);
 ```
 
+</div>
+
 ### afterInsert
+
+<div class="apex-member">
 
 ```apex
 global void afterInsert(List<SObject> newRecords)
@@ -90,19 +97,23 @@ global void afterInsert(List<SObject> newRecords)
 Executes validation rules after new records are inserted.
 Typically used for warning-only validations that log but don't block.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of newly inserted records
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of newly inserted records |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.afterInsert(records);
 ```
 
+</div>
+
 ### afterUndelete
+
+<div class="apex-member">
 
 ```apex
 global void afterUndelete(List<SObject> newRecords)
@@ -111,19 +122,23 @@ global void afterUndelete(List<SObject> newRecords)
 Executes validation rules after records are undeleted.
 Typically used for warning-only validations that log but don't block.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of undeleted records
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of undeleted records |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.afterUndelete(records);
 ```
 
+</div>
+
 ### afterUpdate
+
+<div class="apex-member">
 
 ```apex
 global void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)
@@ -132,20 +147,24 @@ global void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 Executes validation rules after records are updated.
 Typically used for warning-only validations that log but don't block.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of records with new values
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of records with old values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of records with new values |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of records with old values |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.afterUpdate(records, records);
 ```
 
+</div>
+
 ### beforeDelete
+
+<div class="apex-member">
 
 ```apex
 global void beforeDelete(List<SObject> oldRecords)
@@ -153,19 +172,23 @@ global void beforeDelete(List<SObject> oldRecords)
 
 Executes validation rules before records are deleted.
 
-**Parameters:**
+**Parameters**
 
-- `oldRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of records to be deleted
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of records to be deleted |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.beforeDelete(records);
 ```
 
+</div>
+
 ### beforeInsert
+
+<div class="apex-member">
 
 ```apex
 global void beforeInsert(List<SObject> newRecords)
@@ -173,19 +196,23 @@ global void beforeInsert(List<SObject> newRecords)
 
 Executes validation rules before new records are inserted.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of new records to validate
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of new records to validate |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.beforeInsert(records);
 ```
 
+</div>
+
 ### beforeUpdate
+
+<div class="apex-member">
 
 ```apex
 global void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)
@@ -193,16 +220,18 @@ global void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 
 Executes validation rules before records are updated.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of records with new values
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of records with old values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of records with new values |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of records with old values |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.beforeUpdate(records, records);
 ```
+
+</div>
 

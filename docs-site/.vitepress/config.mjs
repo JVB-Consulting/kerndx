@@ -4,9 +4,36 @@ import {withMermaid} from 'vitepress-plugin-mermaid';
 import sidebar from './sidebar.generated.mjs';
 import {repoUrl} from '../scripts/repo.mjs';
 import {seoHeadEntries} from '../scripts/seo-head.mjs';
+import githubLight from 'shiki/themes/github-light.mjs';
+import githubDark from 'shiki/themes/github-dark.mjs';
+import responsiveTables from './theme/responsive-tables.mjs';
 
 const HOSTNAME = 'https://docs.jvb-consulting.io';
 const BASE = process.env.DOCS_BASE || '/';
+
+// ── Apex signature syntax colors ────────────────────────────────────────────
+// VitePress emits per-token inline colors from the Shiki theme, so retuning the
+// Apex scopes (method / type / modifier / parameter) can only be done in the theme
+// itself — CSS cannot reach them. We extend the bundled GitHub themes with Apex-scope
+// overrides so reference signatures read like Salesforce's docs: method names
+// bronze-bold, types blue, modifiers red (no italic), parameters orange. Every other
+// language keeps the stock GitHub palette. Scope aliases (the non-`.apex` forms) are
+// defensive against grammar drift.
+const APEX_LIGHT = {method: '#8a623c', type: '#1f6feb', modifier: '#cf222e', param: '#953800'};
+const APEX_DARK = {method: '#e0a064', type: '#79c0ff', modifier: '#ff7b72', param: '#ffa657'};
+
+function apexScopeRules(p)
+{
+	return [
+		{scope: ['entity.name.function.apex', 'entity.name.function'], settings: {foreground: p.method, fontStyle: 'bold'}},
+		{scope: ['storage.type.apex', 'keyword.type.apex', 'entity.name.type.apex', 'support.class.apex', 'support.type.apex'], settings: {foreground: p.type}},
+		{scope: ['storage.modifier.apex', 'storage.modifier'], settings: {foreground: p.modifier, fontStyle: ''}},
+		{scope: ['entity.name.variable.parameter.apex', 'variable.parameter.apex', 'variable.parameter'], settings: {foreground: p.param}}
+	];
+}
+
+const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...githubLight.tokenColors, ...apexScopeRules(APEX_LIGHT)]};
+const apexDarkTheme = {...githubDark, name: 'kerndx-apex-dark', tokenColors: [...githubDark.tokenColors, ...apexScopeRules(APEX_DARK)]};
 
 export default withMermaid(defineConfig({
 	title: 'KernDX',
@@ -28,6 +55,16 @@ export default withMermaid(defineConfig({
 		['meta', {name: 'author', content: 'JVB Consulting'}]
 	],
 	themeConfig: {
+		// F-shape top nav — most-important-first. "Why KernDX" leads (the evaluator's
+		// first question), then the daily-driver paths, then lookup. Each tab lands on the
+		// canonical first page of the matching sidebar section, so the top nav and the
+		// left sidebar stay consistent. (The version selector lives in the sidebar.)
+		nav: [
+			{text: 'Why KernDX', link: '/'},
+			{text: 'Get Started', link: '/installation'},
+			{text: 'Fast Starts', link: '/fast-starts'},
+			{text: 'Reference', link: '/reference/'}
+		],
 		search: {
 			provider: 'local', options: {
 				// The corpus is code-heavy (269 auto-generated Apex reference pages). Indexing
@@ -55,7 +92,14 @@ export default withMermaid(defineConfig({
 		}, socialLinks: [{icon: 'github', link: repoUrl()}]
 	},
 	markdown: {
-		lineNumbers: false
+		lineNumbers: false,
+		// Custom Apex signature colors (see APEX_LIGHT/DARK above) + the responsive-table
+		// plugin that labels each <td> for the mobile stacked-card layout.
+		theme: {light: apexLightTheme, dark: apexDarkTheme},
+		config(md)
+		{
+			md.use(responsiveTables);
+		}
 	}, // Canonical + Open Graph + Twitter card per page.
 	transformPageData(pageData)
 	{

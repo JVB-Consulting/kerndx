@@ -1,6 +1,7 @@
 ---
 title: "FieldSetGroup__mdt"
 type: sobject
+pageClass: reference
 description: "Groups multiple field sets for an object into a single configuration record. Used to drive multi-section UI layouts such as accordion panels."
 category: metadata
 ---

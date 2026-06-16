@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.Nestable"
 type: class
+pageClass: reference
 description: "Interface for condition containers that support adding nested conditions. Extends Evaluable so groups can be passed to QRY_Builder.addCondition()."
 since: "1.0"
 category: apex
@@ -36,17 +37,21 @@ Interface for condition containers that support adding nested conditions. Extend
 
 ### add
 
+<div class="apex-member">
+
 ```apex
 global abstract QRY_Condition.Nestable add(QRY_Condition.Evaluable condition)
 ```
 
 Adds a condition to this group.
 
-**Parameters:**
+**Parameters**
 
-- `condition` ([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md)) - The condition to add.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `condition` | [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) | The condition to add. |
 
-**Returns:** [QRY_Condition.Nestable](QRY_Condition.Nestable.md) - The updated Nestable with the new condition added.
+**Returns** [QRY_Condition.Nestable](QRY_Condition.Nestable.md) — The updated Nestable with the new condition added.
 
-**Since:** 1.0
+</div>
 

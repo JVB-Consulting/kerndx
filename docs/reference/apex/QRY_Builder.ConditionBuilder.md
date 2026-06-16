@@ -1,6 +1,7 @@
 ---
 title: "QRY_Builder.ConditionBuilder"
 type: class
+pageClass: reference
 description: "Fluent builder for field-level conditions (WHERE and HAVING)."
 since: "1.0"
 category: apex
@@ -70,21 +71,23 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 
 ### contains
 
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder contains(String value)
 ```
 
 Adds a LIKE condition with wildcards on both sides (contains).
 
-**Parameters:**
+**Parameters**
 
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Text to search for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Text to search for |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -92,7 +95,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### endsWith
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder endsWith(String value)
@@ -100,15 +107,15 @@ global QRY_Builder.Builder endsWith(String value)
 
 Adds a LIKE condition with wildcard at start (ends with).
 
-**Parameters:**
+**Parameters**
 
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Text suffix
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Text suffix |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -116,7 +123,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### equals
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder equals(Object value)
@@ -124,15 +135,15 @@ global QRY_Builder.Builder equals(Object value)
 
 Adds an = condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -140,21 +151,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder equals(SObject record)
 ```
 
 Adds an = condition comparing to an SObject's Id.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - SObject whose Id to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | SObject whose Id to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -162,7 +177,11 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### excludes
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder excludes(List<Object> values)
@@ -170,15 +189,15 @@ global QRY_Builder.Builder excludes(List<Object> values)
 
 Adds an EXCLUDES condition for multi-picklist fields.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values that must not be selected
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values that must not be selected |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> excluded = new List<Object>{'Inactive', 'Archived'};
@@ -186,6 +205,10 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .condition('Tags__c').excludes(excluded)
     .toList();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder excludes(Set<Object> values)
@@ -193,15 +216,15 @@ global QRY_Builder.Builder excludes(Set<Object> values)
 
 Adds an EXCLUDES condition for multi-picklist fields using a Set.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values that must not be selected
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values that must not be selected |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> excluded = new Set<Object>{'Inactive', 'Archived'};
@@ -210,7 +233,11 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### excludesStrict
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder excludesStrict(List<Object> values)
@@ -218,19 +245,21 @@ global QRY_Builder.Builder excludesStrict(List<Object> values)
 
 Adds an EXCLUDES condition with strict empty list handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values that must not be selected (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values that must not be selected (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> excluded = new List<Object>{'Inactive', 'Archived'};
@@ -239,25 +268,31 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder excludesStrict(Set<Object> values)
 ```
 
 Adds an EXCLUDES condition with strict empty set handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values that must not be selected (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values that must not be selected (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> excluded = new Set<Object>{'Inactive', 'Archived'};
@@ -266,7 +301,11 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### greaterThan
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder greaterThan(Object value)
@@ -274,15 +313,15 @@ global QRY_Builder.Builder greaterThan(Object value)
 
 Adds a > condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -290,7 +329,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### greaterThanOrEquals
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder greaterThanOrEquals(Object value)
@@ -298,15 +341,15 @@ global QRY_Builder.Builder greaterThanOrEquals(Object value)
 
 Adds a >= condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -314,7 +357,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### includes
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder includes(List<Object> values)
@@ -322,15 +369,15 @@ global QRY_Builder.Builder includes(List<Object> values)
 
 Adds an INCLUDES condition for multi-picklist fields.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values that must all be selected
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values that must all be selected |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> interests = new List<Object>{'Technology', 'Finance'};
@@ -338,6 +385,10 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .condition('Interests__c').includes(interests)
     .toList();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder includes(Set<Object> values)
@@ -345,15 +396,15 @@ global QRY_Builder.Builder includes(Set<Object> values)
 
 Adds an INCLUDES condition for multi-picklist fields using a Set.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values that must all be selected
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values that must all be selected |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> interests = new Set<Object>{'Technology', 'Finance'};
@@ -362,7 +413,11 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### includesStrict
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder includesStrict(List<Object> values)
@@ -370,19 +425,21 @@ global QRY_Builder.Builder includesStrict(List<Object> values)
 
 Adds an INCLUDES condition with strict empty list handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values that must all be selected (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values that must all be selected (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> interests = new List<Object>{'Technology', 'Finance'};
@@ -391,25 +448,31 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder includesStrict(Set<Object> values)
 ```
 
 Adds an INCLUDES condition with strict empty set handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values that must all be selected (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values that must all be selected (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> interests = new Set<Object>{'Technology', 'Finance'};
@@ -418,7 +481,11 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### isIn
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder isIn(List<Object> values)
@@ -426,15 +493,15 @@ global QRY_Builder.Builder isIn(List<Object> values)
 
 Adds an IN condition using a List.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values to include
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values to include |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> types = new List<Object>{'Customer', 'Partner'};
@@ -443,21 +510,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isIn(List<SObject> records)
 ```
 
 Adds an IN condition using a List of SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to include (their Ids will be matched)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to include (their Ids will be matched) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -465,22 +536,26 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isIn(List<SObject> records, SObjectField field)
 ```
 
 Adds an IN condition by extracting field values from SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to extract values from
-- `field` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field to extract values from
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to extract values from |
+| `field` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field to extract values from |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -488,21 +563,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isIn(QRY_Builder.Builder subquery)
 ```
 
 Adds a semi-join IN condition using a subquery.
 
-**Parameters:**
+**Parameters**
 
-- `subquery` ([QRY_Builder.Builder](QRY_Builder.Builder.md)) - Builder representing the subquery
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `subquery` | [QRY_Builder.Builder](QRY_Builder.Builder.md) | Builder representing the subquery |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.Builder subquery = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -513,21 +592,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isIn(Set<Object> values)
 ```
 
 Adds an IN condition using a Set.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values to include
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values to include |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> industries = new Set<Object>{'Technology', 'Finance'};
@@ -536,7 +619,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### isInStrict
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder isInStrict(List<Object> values)
@@ -544,19 +631,21 @@ global QRY_Builder.Builder isInStrict(List<Object> values)
 
 Adds an IN condition with strict empty list handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values to include (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values to include (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> statuses = new List<Object>{'Active', 'Pending'};
@@ -565,25 +654,31 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isInStrict(List<SObject> records)
 ```
 
 Adds an IN condition using SObjects with strict handling.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to include (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to include (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if records is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> parents = [SELECT Id FROM Account LIMIT 10];
@@ -592,26 +687,32 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isInStrict(List<SObject> records, SObjectField field)
 ```
 
 Adds an IN condition by extracting field values with strict handling.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to extract values from (must not be null or empty)
-- `field` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field to extract values from
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to extract values from (must not be null or empty) |
+| `field` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field to extract values from |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if records is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = [SELECT AccountId FROM Contact LIMIT 10];
@@ -620,25 +721,31 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder isInStrict(Set<Object> values)
 ```
 
 Adds an IN condition with strict empty set handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values to include (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values to include (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> statuses = new Set<Object>{'Active', 'Pending'};
@@ -647,7 +754,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### isNotNull
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder isNotNull()
@@ -655,11 +766,9 @@ global QRY_Builder.Builder isNotNull()
 
 Adds an IS NOT NULL condition.
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -667,7 +776,11 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### isNull
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder isNull()
@@ -675,11 +788,9 @@ global QRY_Builder.Builder isNull()
 
 Adds an IS NULL condition.
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -687,7 +798,11 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### lessThan
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder lessThan(Object value)
@@ -695,15 +810,15 @@ global QRY_Builder.Builder lessThan(Object value)
 
 Adds a < condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -711,7 +826,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### lessThanOrEquals
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder lessThanOrEquals(Object value)
@@ -719,15 +838,15 @@ global QRY_Builder.Builder lessThanOrEquals(Object value)
 
 Adds a <= condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -735,7 +854,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### notEquals
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder notEquals(Object value)
@@ -743,15 +866,15 @@ global QRY_Builder.Builder notEquals(Object value)
 
 Adds a != condition.
 
-**Parameters:**
+**Parameters**
 
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Value to compare against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Value to compare against |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -759,21 +882,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notEquals(SObject record)
 ```
 
 Adds a != condition comparing to an SObject's Id.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - SObject whose Id to exclude
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | SObject whose Id to exclude |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -781,7 +908,11 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### notIn
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder notIn(QRY_Builder.Builder subquery)
@@ -789,15 +920,15 @@ global QRY_Builder.Builder notIn(QRY_Builder.Builder subquery)
 
 Adds an anti-join NOT IN condition using a subquery.
 
-**Parameters:**
+**Parameters**
 
-- `subquery` ([QRY_Builder.Builder](QRY_Builder.Builder.md)) - Builder representing the subquery
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `subquery` | [QRY_Builder.Builder](QRY_Builder.Builder.md) | Builder representing the subquery |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.Builder subquery = QRY_Builder.selectFrom(Contact.SObjectType)
@@ -808,7 +939,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### notInSet
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder notInSet(List<Object> values)
@@ -816,15 +951,15 @@ global QRY_Builder.Builder notInSet(List<Object> values)
 
 Adds a NOT IN condition using a List.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values to exclude
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values to exclude |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> excluded = new List<Object>{'Competitor', 'Other'};
@@ -833,21 +968,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSet(List<SObject> records)
 ```
 
 Adds a NOT IN condition using a List of SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to exclude
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to exclude |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> excluded = [SELECT Id FROM Account WHERE Type = 'Competitor'];
@@ -856,22 +995,26 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSet(List<SObject> records, SObjectField field)
 ```
 
 Adds a NOT IN condition by extracting field values from SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to extract values from
-- `field` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field to extract values from
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to extract values from |
+| `field` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field to extract values from |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = [SELECT AccountId FROM Contact WHERE IsDeleted = true];
@@ -880,21 +1023,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSet(Set<Object> values)
 ```
 
 Adds a NOT IN condition using a Set.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values to exclude
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values to exclude |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> excluded = new Set<Object>{'Competitor', 'Other'};
@@ -903,7 +1050,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### notInSetStrict
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder notInSetStrict(List<Object> values)
@@ -911,19 +1062,21 @@ global QRY_Builder.Builder notInSetStrict(List<Object> values)
 
 Adds a NOT IN condition with strict empty list handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - Values to exclude (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | Values to exclude (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> excluded = new List<Object>{'Competitor', 'Other'};
@@ -932,25 +1085,31 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSetStrict(List<SObject> records)
 ```
 
 Adds a NOT IN condition using SObjects with strict handling.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to exclude (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to exclude (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if records is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> excluded = [SELECT Id FROM Account WHERE Type = 'Competitor'];
@@ -959,26 +1118,32 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSetStrict(List<SObject> records, SObjectField field)
 ```
 
 Adds a NOT IN condition by extracting field values with strict handling.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - SObjects to extract values from (must not be null or empty)
-- `field` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field to extract values from
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | SObjects to extract values from (must not be null or empty) |
+| `field` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field to extract values from |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if records is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Contact> contacts = [SELECT AccountId FROM Contact WHERE IsDeleted = true];
@@ -987,25 +1152,31 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global QRY_Builder.Builder notInSetStrict(Set<Object> values)
 ```
 
 Adds a NOT IN condition with strict empty set handling.
 
-**Parameters:**
+**Parameters**
 
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Values to exclude (must not be null or empty)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Values to exclude (must not be null or empty) |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if values is null or empty
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if values is null or empty |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Object> excluded = new Set<Object>{'Competitor', 'Other'};
@@ -1014,7 +1185,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### startsWith
+
+<div class="apex-member">
 
 ```apex
 global QRY_Builder.Builder startsWith(String value)
@@ -1022,19 +1197,21 @@ global QRY_Builder.Builder startsWith(String value)
 
 Adds a LIKE condition with wildcard at end (starts with).
 
-**Parameters:**
+**Parameters**
 
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Text prefix
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Text prefix |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Name).startsWith('Acme')
     .toList();
 ```
+
+</div>
 

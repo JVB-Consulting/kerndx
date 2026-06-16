@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.ProtectedAction"
 type: class
+pageClass: reference
 description: "Interface for code that needs circuit breaker protection (no return value) Implement this interface to use the simplified execute() method which handles allowRequest(), recordSuccess(), and recordFail"
 since: "1.0"
 category: apex
@@ -53,9 +54,13 @@ breaker.execute(new SendEmailAction('user@example.com'));
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global abstract void execute()
 ```
 
 The code to execute with circuit breaker protection
+
+</div>
 

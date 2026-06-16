@@ -1,6 +1,7 @@
 ---
 title: "DTO_ScheduledParameterDefinition.DataType"
 type: class
+pageClass: reference
 description: "Enumeration of supported input data types for scheduled job parameters."
 since: "1.0"
 category: apex

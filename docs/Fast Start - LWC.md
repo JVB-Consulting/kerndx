@@ -1,3 +1,7 @@
+---
+navOrder: 30
+---
+
 # Fast Start - LWC
 
 **Framework:** KernDX | **Total time:** ~30 minutes

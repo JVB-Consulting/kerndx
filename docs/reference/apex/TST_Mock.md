@@ -1,6 +1,7 @@
 ---
 title: "TST_Mock"
 type: class
+pageClass: reference
 description: "Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records"
 author: "Jason Van Beukering"
 group: "Testing"
@@ -59,6 +60,8 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 
 ### clear
 
+<div class="apex-member">
+
 ```apex
 global static void clear()
 ```
@@ -66,13 +69,15 @@ global static void clear()
 Clears all registered mock records for all SObject types and resets the
 QRY_Builder mock layer.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.clear();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void clear(SObjectType objectType)
@@ -81,19 +86,23 @@ global static void clear(SObjectType objectType)
 Clears registered mock records for a specific SObject type and resets its
 QRY_Builder mock layer.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to clear mocks for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to clear mocks for. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.clear(Foobar__c.SObjectType);
 ```
 
+</div>
+
 ### get
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> get(SObjectType objectType)
@@ -101,21 +110,25 @@ global static List<SObject> get(SObjectType objectType)
 
 Retrieves all mock records registered for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to retrieve mocks for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to retrieve mocks for. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The list of registered mock records, or an empty list if none registered.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The list of registered mock records, or an empty list if none registered.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> mocks = TST_Mock.get(Foobar__c.SObjectType);
 ```
 
+</div>
+
 ### of
+
+<div class="apex-member">
 
 ```apex
 global static TST_Mock.MockBuilder of(SObjectType objectType)
@@ -125,15 +138,15 @@ Creates a new MockBuilder for the specified SObject type. Records built via
 the returned builder are automatically created with mock IDs (no DML) and registered
 with TST_Mock for query interception.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to build mock records for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to build mock records for. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - A new MockBuilder instance configured for the specified type.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — A new MockBuilder instance configured for the specified type.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
@@ -141,7 +154,11 @@ Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
 ### register
+
+<div class="apex-member">
 
 ```apex
 global static void register(SObjectType objectType, List<SObject> records)
@@ -150,14 +167,14 @@ global static void register(SObjectType objectType, List<SObject> records)
 Registers a list of mock records for the specified SObject type. Appends to any
 previously registered records for the same type and updates the QRY_Builder mock layer.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to register mocks for.
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The mock records to register.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to register mocks for. |
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The mock records to register. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Foobar__c> mocks = new List<Foobar__c>
@@ -168,27 +185,35 @@ List<Foobar__c> mocks = new List<Foobar__c>
 TST_Mock.register(Foobar__c.SObjectType, mocks);
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static void register(SObjectType objectType, SObject record)
 ```
 
 Registers a single mock record for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to register the mock for.
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The mock record to register.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to register the mock for. |
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The mock record to register. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c mock = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
 TST_Mock.register(Foobar__c.SObjectType, mock);
 ```
 
+</div>
+
 ### throwsException
+
+<div class="apex-member">
 
 ```apex
 global static void throwsException(SObjectType objectType)
@@ -198,17 +223,21 @@ Convenience overload that throws a generic QueryException for the given
 SObjectType. The synthesized message names the type so failures point to which mock
 fired without manual message threading.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType for which queries should throw.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType for which queries should throw. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.throwsException(Account.SObjectType);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void throwsException(SObjectType objectType, Exception exceptionToThrow)
@@ -223,14 +252,14 @@ same SObjectType, the exception is thrown first (records are unreachable).
 
 Cleared by TST_Mock.clear() and TST_Mock.clear(SObjectType).
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType for which queries should throw.
-- `exceptionToThrow` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception instance to throw.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType for which queries should throw. |
+| `exceptionToThrow` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception instance to throw. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.throwsException(Account.SObjectType, new QueryException('Simulated SOQL failure'));
@@ -245,22 +274,28 @@ catch(QueryException error)
 }
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static void throwsException(SObjectType objectType, String errorMessage)
 ```
 
 Convenience overload that throws a QueryException with the given message.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType for which queries should throw.
-- `errorMessage` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The message attached to the synthesized QueryException.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType for which queries should throw. |
+| `errorMessage` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The message attached to the synthesized QueryException. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.throwsException(Account.SObjectType, 'Simulated SOQL failure');
 ```
+
+</div>
 

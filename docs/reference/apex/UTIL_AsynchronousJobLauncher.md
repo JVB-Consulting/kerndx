@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsynchronousJobLauncher"
 type: class
+pageClass: reference
 description: "Provides a simplified, static entry point for running complex asynchronous jobs using the UTIL_AdaptiveAsynchronousProcessor engine."
 author: "Jason Van Beukering"
 group: "Async Processing"
@@ -53,6 +54,8 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(items, processor, 50);
 
 ### process
 
+<div class="apex-member">
+
 ```apex
 global static Id process(List<Object> items, IF_Async.Processable processor)
 ```
@@ -61,16 +64,16 @@ Starts an adaptive asynchronous job with automatic execution strategy selection.
 The framework automatically chooses between Queueable and Batch Apex based on the number of items
 and available governor limits, optimizing for performance.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The Items to process
-- `processor` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - An instance of a class that implements Processable.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The Items to process |
+| `processor` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | An instance of a class that implements Processable. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The ID of the started asynchronous job.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Process a list of accounts using a custom processor
@@ -80,6 +83,10 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, processor);
 System.debug('Job started with ID: ' + jobId);
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static Id process(List<Object> items, IF_Async.Processable processor, Integer jobSize)
 ```
@@ -87,17 +94,17 @@ global static Id process(List<Object> items, IF_Async.Processable processor, Int
 Starts an adaptive asynchronous job with a custom job size for batch or queueable processing.
 The job size controls how many records are processed in each batch execution or queueable transaction.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The Items to process
-- `processor` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - An instance of a class that implements Processable.
-- `jobSize` ([IF_Async.Processable](IF_Async.Processable.md)) - The size of each job to be executed
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The Items to process |
+| `processor` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | An instance of a class that implements Processable. |
+| `jobSize` | [IF_Async.Processable](IF_Async.Processable.md) | The size of each job to be executed |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The ID of the started asynchronous job.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Process contacts with a custom batch size of 50
@@ -107,6 +114,10 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(contacts, processor, 50);
 System.debug('Processing 500 contacts in batches of 50. Job ID: ' + jobId);
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static Id process(UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request, IF_Async.Processable processor)
 ```
@@ -115,16 +126,16 @@ Starts an adaptive asynchronous job with full configuration control via a reques
 This method provides maximum flexibility, allowing you to configure batch size, queueable job size,
 execution strategy, and other advanced settings through the DTO_AsynchronousJobRequest object.
 
-**Parameters:**
+**Parameters**
 
-- `request` ([UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md)) - The AsynchronousJobRequest containing the data and configuration.
-- `processor` ([IF_Async.Processable](IF_Async.Processable.md)) - An instance of a class that implements Processable.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `request` | [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) | The AsynchronousJobRequest containing the data and configuration. |
+| `processor` | [IF_Async.Processable](IF_Async.Processable.md) | An instance of a class that implements Processable. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The ID of the started asynchronous job.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Process opportunities with advanced configuration
@@ -137,4 +148,6 @@ IF_Async.Processable processor = new OpportunityProcessor();
 Id jobId = UTIL_AsynchronousJobLauncher.process(request, processor);
 System.debug('Advanced processing started with Job ID: ' + jobId);
 ```
+
+</div>
 

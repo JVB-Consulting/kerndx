@@ -1,6 +1,7 @@
 ---
 title: "API_Base"
 type: class
+pageClass: reference
 description: "Base class for all API web service calls (outbound and inbound). Provides common functionality for HTTP request handling, error management, and data persistence."
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -172,6 +173,8 @@ Example:
 
 ### configure
 
+<div class="apex-member">
+
 ```apex
 global virtual void configure()
 ```
@@ -179,9 +182,7 @@ global virtual void configure()
 Initializes global variables and timers. Override this method to configure
 DTOs, mock types, timeouts, and other service-specific settings.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void configure()
@@ -193,7 +194,11 @@ global override void configure()
 }
 ```
 
+</div>
+
 ### getBody
+
+<div class="apex-member">
 
 ```apex
 global virtual String getBody()
@@ -201,11 +206,9 @@ global virtual String getBody()
 
 Returns the HTTP request body.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - String The request body, empty by default.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String The request body, empty by default.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getBody()
@@ -214,7 +217,11 @@ global override String getBody()
 }
 ```
 
+</div>
+
 ### getEncoding
+
+<div class="apex-member">
 
 ```apex
 global abstract String getEncoding()
@@ -222,11 +229,9 @@ global abstract String getEncoding()
 
 Returns the HTTP character encoding.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - String The encoding scheme, must be implemented by subclasses.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String The encoding scheme, must be implemented by subclasses.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getEncoding()
@@ -235,7 +240,11 @@ global override String getEncoding()
 }
 ```
 
+</div>
+
 ### getHttpMethod
+
+<div class="apex-member">
 
 ```apex
 global virtual API_Base.HttpMethod getHttpMethod()
@@ -243,11 +252,9 @@ global virtual API_Base.HttpMethod getHttpMethod()
 
 Returns the HTTP method for the service.
 
-**Returns:** [API_Base.HttpMethod](API_Base.HttpMethod.md) - The HTTP method enum value, or null by default.
+**Returns** [API_Base.HttpMethod](API_Base.HttpMethod.md) — The HTTP method enum value, or null by default.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override HttpMethod getHttpMethod()
@@ -256,7 +263,11 @@ global override HttpMethod getHttpMethod()
 }
 ```
 
+</div>
+
 ### getValidationErrors
+
+<div class="apex-member">
 
 ```apex
 global virtual List<String> getValidationErrors()
@@ -266,11 +277,9 @@ Determines if the web service request should be aborted. Returns a list of valid
 Subscribers override this to add custom validation. Framework validation is handled internally
 by performValidation() — no super call needed.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of error messages. Empty list means validation passed.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of error messages. Empty list means validation passed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override List<String> getValidationErrors()
@@ -284,7 +293,11 @@ global override List<String> getValidationErrors()
 }
 ```
 
+</div>
+
 ### handleError
+
+<div class="apex-member">
 
 ```apex
 global virtual void handleError(Exception exceptionThrown)
@@ -292,13 +305,13 @@ global virtual void handleError(Exception exceptionThrown)
 
 Handles errors encountered during the service call.
 
-**Parameters:**
+**Parameters**
 
-- `exceptionThrown` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception to handle.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `exceptionThrown` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception to handle. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void handleError(Exception exceptionThrown)
@@ -308,7 +321,11 @@ global override void handleError(Exception exceptionThrown)
 }
 ```
 
+</div>
+
 ### isDisabled
+
+<div class="apex-member">
 
 ```apex
 global virtual Boolean isDisabled()
@@ -317,11 +334,9 @@ global virtual Boolean isDisabled()
 Checks if the API is disabled for the current user.
 Override to add custom disable logic.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean True if the API is disabled, otherwise false.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if the API is disabled, otherwise false.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Boolean isDisabled()
@@ -330,7 +345,11 @@ global override Boolean isDisabled()
 }
 ```
 
+</div>
+
 ### onSuccess
+
+<div class="apex-member">
 
 ```apex
 global virtual void onSuccess()
@@ -338,9 +357,7 @@ global virtual void onSuccess()
 
 Registers database changes after a successful call.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onSuccess()
@@ -349,4 +366,6 @@ global override void onSuccess()
     doUpdate(updatedRecord);
 }
 ```
+
+</div>
 

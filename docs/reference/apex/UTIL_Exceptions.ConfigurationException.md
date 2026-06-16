@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Exceptions.ConfigurationException"
 type: class
+pageClass: reference
 description: "Thrown when required platform configuration is absent or malformed. Typical triggers include missing custom metadata records, unset custom settings, or incompatible configuration values that prevent n"
 group: "Utilities"
 since: "1.0"

@@ -1,3 +1,7 @@
+---
+navOrder: 32
+---
+
 # Strategic Guide — Operations
 
 > Steady-state operating model for an installed KernDX package: distribution and packaging mechanics, exit / reversibility analysis, post-handover support tiers, performance

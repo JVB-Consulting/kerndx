@@ -1,6 +1,7 @@
 ---
 title: "UTIL_HttpClient"
 type: class
+pageClass: reference
 description: "Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and A"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -61,22 +62,24 @@ HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
 
 ### del
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_HttpClient.RequestBuilder del(String credential, String path)
 ```
 
 Creates a DELETE request for the specified credential and path.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential or ApiCredential__mdt DeveloperName
-- `path` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append to the endpoint
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential or ApiCredential__mdt DeveloperName |
+| `path` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append to the endpoint |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder for further configuration
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder for further configuration
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.del('CRM', '/contacts/{id}')
@@ -84,7 +87,11 @@ HttpResponse response = UTIL_HttpClient.del('CRM', '/contacts/{id}')
    .send();
 ```
 
+</div>
+
 ### get
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_HttpClient.RequestBuilder get(String credential, String path)
@@ -92,16 +99,16 @@ global static UTIL_HttpClient.RequestBuilder get(String credential, String path)
 
 Creates a GET request for the specified credential and path.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential or ApiCredential__mdt DeveloperName
-- `path` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append to the endpoint
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential or ApiCredential__mdt DeveloperName |
+| `path` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append to the endpoint |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder for further configuration
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder for further configuration
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.get('CRM', '/accounts/{id}')
@@ -109,7 +116,11 @@ HttpResponse response = UTIL_HttpClient.get('CRM', '/accounts/{id}')
    .send();
 ```
 
+</div>
+
 ### patch
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_HttpClient.RequestBuilder patch(String credential, String path)
@@ -117,16 +128,16 @@ global static UTIL_HttpClient.RequestBuilder patch(String credential, String pat
 
 Creates a PATCH request for the specified credential and path.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential or ApiCredential__mdt DeveloperName
-- `path` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append to the endpoint
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential or ApiCredential__mdt DeveloperName |
+| `path` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append to the endpoint |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder for further configuration
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder for further configuration
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.patch('CRM', '/contacts/{id}')
@@ -135,7 +146,11 @@ HttpResponse response = UTIL_HttpClient.patch('CRM', '/contacts/{id}')
    .send();
 ```
 
+</div>
+
 ### post
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_HttpClient.RequestBuilder post(String credential, String path)
@@ -143,16 +158,16 @@ global static UTIL_HttpClient.RequestBuilder post(String credential, String path
 
 Creates a POST request for the specified credential and path.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential or ApiCredential__mdt DeveloperName
-- `path` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append to the endpoint
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential or ApiCredential__mdt DeveloperName |
+| `path` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append to the endpoint |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder for further configuration
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder for further configuration
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.post('EmailService', '/send')
@@ -160,7 +175,11 @@ HttpResponse response = UTIL_HttpClient.post('EmailService', '/send')
    .send();
 ```
 
+</div>
+
 ### put
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_HttpClient.RequestBuilder put(String credential, String path)
@@ -168,16 +187,16 @@ global static UTIL_HttpClient.RequestBuilder put(String credential, String path)
 
 Creates a PUT request for the specified credential and path.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential or ApiCredential__mdt DeveloperName
-- `path` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append to the endpoint
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential or ApiCredential__mdt DeveloperName |
+| `path` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append to the endpoint |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder for further configuration
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder for further configuration
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.put('CRM', '/contacts/{id}')
@@ -186,7 +205,11 @@ HttpResponse response = UTIL_HttpClient.put('CRM', '/contacts/{id}')
    .send();
 ```
 
+</div>
+
 ### useHandler
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_HttpClient.RequestBuilder useHandler(Type handlerType)
@@ -194,15 +217,15 @@ global static UTIL_HttpClient.RequestBuilder useHandler(Type handlerType)
 
 Creates a delegation mode request for the specified subscriber handler.
 
-**Parameters:**
+**Parameters**
 
-- `handlerType` ([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)) - The API_Outbound subclass Type to delegate to
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `handlerType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The API_Outbound subclass Type to delegate to |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - A RequestBuilder configured for delegation mode
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — A RequestBuilder configured for delegation mode
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
@@ -210,4 +233,6 @@ API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
    .withParameter(API_SendEmail.PARAM_RECIPIENT, email)
    .invoke();
 ```
+
+</div>
 

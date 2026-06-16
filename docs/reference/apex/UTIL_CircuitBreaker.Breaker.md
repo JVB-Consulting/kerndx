@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.Breaker"
 type: class
+pageClass: reference
 description: "Interface for circuit breaker operations. This interface defines the contract for circuit breaker behavior, including: Request gating (allowRequest) Success/failure recording State inspection and metr"
 since: "1.0"
 category: apex
@@ -44,15 +45,21 @@ Interface for circuit breaker operations. This interface defines the contract fo
 
 ### allowRequest
 
+<div class="apex-member">
+
 ```apex
 global abstract Boolean allowRequest()
 ```
 
 Determines if a request is allowed through the circuit breaker
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the request should proceed, false if it should fail fast
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the request should proceed, false if it should fail fast
+
+</div>
 
 ### execute
+
+<div class="apex-member">
 
 ```apex
 global abstract void execute(UTIL_CircuitBreaker.ProtectedAction action)
@@ -68,15 +75,19 @@ This is a convenience method that abstracts the boilerplate pattern:
 
 - Records success/failure automatically
 
-**Parameters:**
+**Parameters**
 
-- `action` ([UTIL_CircuitBreaker.ProtectedAction](UTIL_CircuitBreaker.ProtectedAction.md)) - The action to execute with circuit breaker protection
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `action` | [UTIL_CircuitBreaker.ProtectedAction](UTIL_CircuitBreaker.ProtectedAction.md) | The action to execute with circuit breaker protection |
 
-**Throws:**
+**Throws**
 
-- Exception - if the circuit is OPEN and request is blocked
+| Exception | Description |
+|-----------|-------------|
+| Exception | if the circuit is OPEN and request is blocked |
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('API_SendGridEmail');
@@ -91,6 +102,10 @@ catch(UTIL_CircuitBreaker.OpenException e)
 }
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global abstract Object execute(UTIL_CircuitBreaker.Provider action)
 ```
@@ -100,17 +115,21 @@ Executes an action within the circuit breaker context (with return value)
 This overload allows actions to return data, eliminating the need for member variables
 to capture API responses.
 
-**Parameters:**
+**Parameters**
 
-- `action` ([UTIL_CircuitBreaker.Provider](UTIL_CircuitBreaker.Provider.md)) - The action to execute with circuit breaker protection
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `action` | [UTIL_CircuitBreaker.Provider](UTIL_CircuitBreaker.Provider.md) | The action to execute with circuit breaker protection |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The result from action.execute() (caller must cast to appropriate type)
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The result from action.execute() (caller must cast to appropriate type)
 
-**Throws:**
+**Throws**
 
-- Exception - if the circuit is OPEN and request is blocked
+| Exception | Description |
+|-----------|-------------|
+| Exception | if the circuit is OPEN and request is blocked |
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('API_GetCustomerData');
@@ -128,7 +147,11 @@ catch(UTIL_CircuitBreaker.OpenException e)
 }
 ```
 
+</div>
+
 ### forceOpen
+
+<div class="apex-member">
 
 ```apex
 global abstract void forceOpen()
@@ -136,7 +159,11 @@ global abstract void forceOpen()
 
 Manually forces the circuit breaker to OPEN state (use with caution)
 
+</div>
+
 ### getMetrics
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.Metrics getMetrics()
@@ -144,9 +171,13 @@ global abstract UTIL_CircuitBreaker.Metrics getMetrics()
 
 Gets detailed metrics about the circuit breaker
 
-**Returns:** [UTIL_CircuitBreaker.Metrics](UTIL_CircuitBreaker.Metrics.md) - Circuit metrics including failure count, state, etc.
+**Returns** [UTIL_CircuitBreaker.Metrics](UTIL_CircuitBreaker.Metrics.md) — Circuit metrics including failure count, state, etc.
+
+</div>
 
 ### getState
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.State getState()
@@ -154,9 +185,13 @@ global abstract UTIL_CircuitBreaker.State getState()
 
 Gets the current state of the circuit breaker
 
-**Returns:** [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) - The current circuit state
+**Returns** [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) — The current circuit state
+
+</div>
 
 ### recordFailure
+
+<div class="apex-member">
 
 ```apex
 global abstract void recordFailure()
@@ -164,7 +199,11 @@ global abstract void recordFailure()
 
 Records a failed request
 
+</div>
+
 ### recordSuccess
+
+<div class="apex-member">
 
 ```apex
 global abstract void recordSuccess()
@@ -172,7 +211,11 @@ global abstract void recordSuccess()
 
 Records a successful request
 
+</div>
+
 ### reset
+
+<div class="apex-member">
 
 ```apex
 global abstract void reset()
@@ -180,7 +223,11 @@ global abstract void reset()
 
 Manually resets the circuit breaker to CLOSED state (use with caution)
 
+</div>
+
 ### withFailureThreshold
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.Breaker withFailureThreshold(Integer threshold)
@@ -188,13 +235,19 @@ global abstract UTIL_CircuitBreaker.Breaker withFailureThreshold(Integer thresho
 
 Sets the failure threshold (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `threshold` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of failures before opening the circuit
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `threshold` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of failures before opening the circuit |
 
-**Returns:** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) - This instance for method chaining
+**Returns** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) — This instance for method chaining
+
+</div>
 
 ### withHalfOpenMaxAttempts
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.Breaker withHalfOpenMaxAttempts(Integer maxAttempts)
@@ -202,13 +255,19 @@ global abstract UTIL_CircuitBreaker.Breaker withHalfOpenMaxAttempts(Integer maxA
 
 Sets the maximum attempts allowed in HALF_OPEN state (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `maxAttempts` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Maximum number of requests allowed in HALF_OPEN state
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxAttempts` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Maximum number of requests allowed in HALF_OPEN state |
 
-**Returns:** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) - This instance for method chaining
+**Returns** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) — This instance for method chaining
+
+</div>
 
 ### withSuccessThreshold
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.Breaker withSuccessThreshold(Integer threshold)
@@ -216,13 +275,19 @@ global abstract UTIL_CircuitBreaker.Breaker withSuccessThreshold(Integer thresho
 
 Sets the success threshold for HALF_OPEN state (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `threshold` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of consecutive successes needed to close circuit
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `threshold` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of consecutive successes needed to close circuit |
 
-**Returns:** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) - This instance for method chaining
+**Returns** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) — This instance for method chaining
+
+</div>
 
 ### withTimeout
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_CircuitBreaker.Breaker withTimeout(Integer seconds)
@@ -230,9 +295,13 @@ global abstract UTIL_CircuitBreaker.Breaker withTimeout(Integer seconds)
 
 Sets the timeout period in seconds (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `seconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Timeout in seconds before transitioning from OPEN to HALF_OPEN
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `seconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Timeout in seconds before transitioning from OPEN to HALF_OPEN |
 
-**Returns:** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) - This instance for method chaining
+**Returns** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) — This instance for method chaining
+
+</div>
 

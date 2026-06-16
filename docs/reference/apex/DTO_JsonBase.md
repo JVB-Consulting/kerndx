@@ -1,6 +1,7 @@
 ---
 title: "DTO_JsonBase"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transforming JSON data into structured objects and vice versa. Inherited by other DTO clas"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -52,6 +53,8 @@ public class DTO_Invoice extends DTO_JsonBase
 
 ### deserialize
 
+<div class="apex-member">
+
 ```apex
 global override virtual DTO_Base deserialize(String dtoString)
 ```
@@ -60,23 +63,27 @@ Deserializes a JSON string into an instance of the current DTO class. Uses the
 `getObjectType` method to identify the appropriate class for deserialization.
 The returned instance is populated with values from the provided JSON string.
 
-**Parameters:**
+**Parameters**
 
-- `dtoString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - A JSON string representing the serialized data for the DTO.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A JSON string representing the serialized data for the DTO. |
 
-**Returns:** [DTO_Base](DTO_Base.md) - A deserialized DTO instance populated with values from the JSON string.
+**Returns** [DTO_Base](DTO_Base.md) — A deserialized DTO instance populated with values from the JSON string.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_Base result = instance.deserialize('value');
 ```
 
-**See Also:** [DTO_JsonBase.getObjectType](#getobjecttype)
+**See Also** [DTO_JsonBase.getObjectType](#getobjecttype)
+
+</div>
 
 ### getObjectType
+
+<div class="apex-member">
 
 ```apex
 global virtual Type getObjectType()
@@ -85,21 +92,25 @@ global virtual Type getObjectType()
 Retrieves the type of the current DTO, used when deserializing JSON data back into an instance of the specific class.
 Implementing this method in descendant classes is required only if the class is private; to properly deserialize.
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The class type of the DTO.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The class type of the DTO.
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if the current class name can't be resolved to a Type (due to the class not being publicly visible)
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the current class name can't be resolved to a Type (due to the class not being publicly visible) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type result = instance.getObjectType();
 ```
 
+</div>
+
 ### serialize
+
+<div class="apex-member">
 
 ```apex
 global override virtual String serialize()
@@ -109,13 +120,13 @@ Serializes the current DTO instance into a JSON string, omitting null values
 to create a compact JSON representation. Useful for sending structured data
 over web services in a lightweight format.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A JSON string representation of the current DTO, excluding null values.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A JSON string representation of the current DTO, excluding null values.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = instance.serialize();
 ```
+
+</div>
 

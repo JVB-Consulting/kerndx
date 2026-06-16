@@ -1,3 +1,7 @@
+---
+navOrder: 70
+---
+
 # Objects & Metadata - Guide
 
 **Framework:** KernDX

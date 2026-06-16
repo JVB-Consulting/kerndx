@@ -1,6 +1,7 @@
 ---
 title: "DML_Builder.TransactionResult"
 type: class
+pageClass: reference
 description: "Result object returned by execute() containing the outcome of all DML operations in the transaction. Provides methods to inspect success/failure status, retrieve generated IDs, and access errors."
 since: "1.0"
 category: apex
@@ -36,23 +37,27 @@ Result object returned by execute() containing the outcome of all DML operations
 
 ### getErrors
 
+<div class="apex-member">
+
 ```apex
 global List<Database.Error> getErrors()
 ```
 
 Returns all errors from failed DML operations across all operation types.
 
-**Returns:** [Database.Error](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_error.htm) - List of Database.Error objects from all failed operations.
+**Returns** [Database.Error](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_error.htm) — List of Database.Error objects from all failed operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Database.Error> errors = result.getErrors();
 ```
 
+</div>
+
 ### getFailureCount
+
+<div class="apex-member">
 
 ```apex
 global Integer getFailureCount()
@@ -60,17 +65,19 @@ global Integer getFailureCount()
 
 Returns the count of failed DML operations across all operation types.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Number of failed operations.
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Number of failed operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer failureCount = result.getFailureCount();
 ```
 
+</div>
+
 ### getInsertedIds
+
+<div class="apex-member">
 
 ```apex
 global List<Id> getInsertedIds()
@@ -78,17 +85,19 @@ global List<Id> getInsertedIds()
 
 Returns the IDs of all successfully inserted records.
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - List of inserted record IDs.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — List of inserted record IDs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Id> newIds = result.getInsertedIds();
 ```
 
+</div>
+
 ### getSuccessCount
+
+<div class="apex-member">
 
 ```apex
 global Integer getSuccessCount()
@@ -96,17 +105,19 @@ global Integer getSuccessCount()
 
 Returns the count of successful DML operations across all operation types.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Number of successful operations.
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Number of successful operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer successCount = result.getSuccessCount();
 ```
 
+</div>
+
 ### isSuccess
+
+<div class="apex-member">
 
 ```apex
 global Boolean isSuccess()
@@ -114,11 +125,9 @@ global Boolean isSuccess()
 
 Returns true if all DML operations completed successfully.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if no failures occurred.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if no failures occurred.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.TransactionResult result = DML_Builder.newTransaction()
@@ -126,4 +135,6 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
     .execute();
 Assert.isTrue(result.isSuccess(), 'Should succeed');
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "FLOW_GetPicklistValues.DTO_Response"
 type: class
+pageClass: reference
 description: "Provides the outcome of the picklist values retrieval."
 since: "1.0"
 category: apex

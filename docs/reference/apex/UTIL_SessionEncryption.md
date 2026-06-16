@@ -1,6 +1,7 @@
 ---
 title: "UTIL_SessionEncryption"
 type: class
+pageClass: reference
 description: "Utility class providing bi-directional encryption and decryption capabilities with automatic key management and expiry. This class uses AES256 encryption combined with HMAC-SHA256 (Encrypt-then-MAC) t"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -63,6 +64,8 @@ Boolean available = UTIL_SessionEncryption.isAvailable();
 
 ### decrypt
 
+<div class="apex-member">
+
 ```apex
 global static String decrypt(String encryptedTextValue)
 ```
@@ -70,20 +73,22 @@ global static String decrypt(String encryptedTextValue)
 Decrypts a Base64-encoded string using the cached encryption key.
 Verifies the HMAC before attempting decryption to ensure integrity.
 
-**Parameters:**
+**Parameters**
 
-- `encryptedTextValue` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Base64-encoded encrypted string (IV:Cipher:HMAC).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `encryptedTextValue` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Base64-encoded encrypted string (IV:Cipher:HMAC). |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - String The decrypted string, or the input if it is blank.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String The decrypted string, or the input if it is blank.
 
-**Throws:**
+**Throws**
 
-- [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If decryption fails due to invalid key or algorithm issues.
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If the encrypted text is invalid or no encryption key is found.
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If decryption fails due to invalid key or algorithm issues. |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If the encrypted text is invalid or no encryption key is found. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String plainTextValue = 'Sensitive Data';
@@ -100,7 +105,11 @@ System.debug('Invalid input: ' + e.getMessage());
 }
 ```
 
+</div>
+
 ### encrypt
+
+<div class="apex-member">
 
 ```apex
 global static String encrypt(String plainTextValue)
@@ -111,19 +120,21 @@ The method generates a new key if none exists in the cache and stores it with an
 
 Format: Base64(IV) : Base64(Cipher) : Base64(HMAC)
 
-**Parameters:**
+**Parameters**
 
-- `plainTextValue` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The string to encrypt.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `plainTextValue` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to encrypt. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - String The encrypted string in Base64 format with HMAC, or the input if it is blank.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String The encrypted string in Base64 format with HMAC, or the input if it is blank.
 
-**Throws:**
+**Throws**
 
-- [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If encryption fails due to invalid key, algorithm issues, or cache write failures.
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If encryption fails due to invalid key, algorithm issues, or cache write failures. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String plainTextValue = 'Sensitive Data';
@@ -134,7 +145,11 @@ encrypted = UTIL_SessionEncryption.encrypt(blankInput);
 System.debug(encrypted); // Outputs: ''
 ```
 
+</div>
+
 ### isAvailable
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isAvailable()
@@ -143,13 +158,13 @@ global static Boolean isAvailable()
 Safely checks if the Crypto utility is available for use (Cache is online).
 Useful for UI controllers to check availability without needing try/catch blocks.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean True if cache is available, False otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if cache is available, False otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = UTIL_SessionEncryption.isAvailable();
 ```
+
+</div>
 

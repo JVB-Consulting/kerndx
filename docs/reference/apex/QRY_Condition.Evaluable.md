@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.Evaluable"
 type: class
+pageClass: reference
 description: "Interface for condition classes. Pass to QRY_Builder.addCondition()."
 since: "1.0"
 category: apex
@@ -41,13 +42,19 @@ interface value = instance.Evaluable;
 
 ### toSoql
 
+<div class="apex-member">
+
 ```apex
 global abstract String toSoql()
 ```
 
 Converts the condition to a SOQL query string.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A valid SOQL query string.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A valid SOQL query string.
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global abstract String toSoql(QRY_Condition.SoqlOptions options)
@@ -55,9 +62,13 @@ global abstract String toSoql(QRY_Condition.SoqlOptions options)
 
 Converts the condition to a SOQL query string using specific options.
 
-**Parameters:**
+**Parameters**
 
-- `options` ([QRY_Condition.SoqlOptions](QRY_Condition.SoqlOptions.md)) - The SOQL options for customization.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `options` | [QRY_Condition.SoqlOptions](QRY_Condition.SoqlOptions.md) | The SOQL options for customization. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A valid SOQL query string.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A valid SOQL query string.
+
+</div>
 

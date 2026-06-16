@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.AfterUndelete"
 type: class
+pageClass: reference
 description: "Handler contract for the after-undelete trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the after-undelete trigger event.
 
 ### afterUndelete
 
+<div class="apex-member">
+
 ```apex
 global abstract void afterUndelete(List<SObject> newRecords)
 ```
@@ -42,13 +45,13 @@ Called after records have been restored from the Recycle Bin,
 enabling re-linking of relationships, reactivation of dependent processes,
 or synchronisation with external systems.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects that were restored.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects that were restored. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_RestoreRelatedData extends TRG_Base implements IF_Trigger.AfterUndelete
@@ -62,4 +65,6 @@ public class TRG_RestoreRelatedData extends TRG_Base implements IF_Trigger.After
     }
 }
 ```
+
+</div>
 

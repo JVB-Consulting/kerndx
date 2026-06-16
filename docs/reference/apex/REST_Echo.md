@@ -1,6 +1,7 @@
 ---
 title: "REST_Echo"
 type: class
+pageClass: reference
 description: "REST Endpoint wrapper class for the inbound echo test service. This class serves as a RESTFUL endpoint that listens for POST requests to the /echo/* URL mapping. The echo method processes incoming req"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -49,6 +50,8 @@ Assert.areEqual('{"message":"Hello, Echo!"}', response.getBody());
 
 ### echo
 
+<div class="apex-member">
+
 ```apex
 @HttpPost global static void echo()
 ```
@@ -59,9 +62,7 @@ It is typically used for echoing data back or testing the APIs response to inbou
 In this implementation, it calls the `processInboundService` method from the `API_Dispatcher`
 to trigger further handling of the request based on the `API_Echo` class configuration.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Sample HTTP Request:
 
@@ -82,4 +83,6 @@ Apex (called automatically by the framework):
 ```apex
 REST_Echo.echo();
 ```
+
+</div>
 

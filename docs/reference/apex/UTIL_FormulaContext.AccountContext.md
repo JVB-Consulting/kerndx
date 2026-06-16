@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.AccountContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Account object.  Provides typed access to Account records in formula evaluations. The Trigger Action Framework automatically uses this context when `EntryCriteriaContext"
 since: "1.0"
 category: apex

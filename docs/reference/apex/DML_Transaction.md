@@ -1,6 +1,7 @@
 ---
 title: "DML_Transaction"
 type: class
+pageClass: reference
 description: "Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency ordering via topological sort, parent-child relationship resolution, and lifecycle hooks for extensi"
 author: "Jason Van Beukering"
 group: "DML"
@@ -74,21 +75,25 @@ aTransaction.commitWork();
 
 ### DML_Transaction
 
+<div class="apex-member">
+
 ```apex
 global DML_Transaction()
 ```
 
 Initializes a new transaction with empty collections for managing DML operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
 ```
 
+</div>
+
 ### commitWork
+
+<div class="apex-member">
 
 ```apex
 global virtual void commitWork()
@@ -96,15 +101,17 @@ global virtual void commitWork()
 
 Commits all registered DML operations using inherited sharing.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doInsert(new Account(Name = 'Test'));
 dmlTransaction.commitWork();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global virtual void commitWork(Boolean enforceSharing)
@@ -112,13 +119,13 @@ global virtual void commitWork(Boolean enforceSharing)
 
 Commits all registered DML operations with configurable sharing enforcement.
 
-**Parameters:**
+**Parameters**
 
-- `enforceSharing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `enforceSharing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -126,7 +133,11 @@ dmlTransaction.doInsert(new Account(Name = 'Test'));
 dmlTransaction.commitWork(false);
 ```
 
+</div>
+
 ### doDelete
+
+<div class="apex-member">
 
 ```apex
 global void doDelete(List<SObject> records)
@@ -134,13 +145,13 @@ global void doDelete(List<SObject> records)
 
 Registers multiple records for deletion.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to delete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to delete. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -148,19 +159,23 @@ dmlTransaction.doDelete(obsoleteRecords);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doDelete(SObject record)
 ```
 
 Registers a record for deletion.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to delete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to delete. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -168,7 +183,11 @@ dmlTransaction.doDelete(obsoleteRecord);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### doInsert
+
+<div class="apex-member">
 
 ```apex
 global void doInsert(List<SObject> records)
@@ -176,13 +195,13 @@ global void doInsert(List<SObject> records)
 
 Registers multiple records for insertion.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to insert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to insert. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -190,25 +209,33 @@ dmlTransaction.doInsert(new List<Account>{new Account(Name = 'A'), new Account(N
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doInsert(SObject record)
 ```
 
 Registers a record for insertion.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to insert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to insert. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doInsert(new Account(Name = 'Test'));
 dmlTransaction.commitWork();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global void doInsert(SObject child, SObjectField relationshipField, SObject parent)
@@ -217,15 +244,15 @@ global void doInsert(SObject child, SObjectField relationshipField, SObject pare
 Registers a child record for insertion with a relationship to a parent record.
 The child's relationship field will be populated with the parent's Id after commit.
 
-**Parameters:**
+**Parameters**
 
-- `child` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The child SObject to insert.
-- `relationshipField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The field linking the child to the parent (e.g., Contact.AccountId).
-- `parent` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The parent SObject.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `child` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The child SObject to insert. |
+| `relationshipField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field linking the child to the parent (e.g., Contact.AccountId). |
+| `parent` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The parent SObject. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -236,7 +263,11 @@ dmlTransaction.doInsert(child, Contact.AccountId, parent);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### doSave
+
+<div class="apex-member">
 
 ```apex
 global void doSave(SObject record)
@@ -245,13 +276,13 @@ global void doSave(SObject record)
 Saves a record by inserting (if no Id) or updating (if Id exists).
 Convenience method for mixed operations.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to save.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to save. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -259,7 +290,11 @@ dmlTransaction.doSave(new Account(Name = 'Test'));
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### doUndelete
+
+<div class="apex-member">
 
 ```apex
 global void doUndelete(List<SObject> records)
@@ -267,13 +302,13 @@ global void doUndelete(List<SObject> records)
 
 Registers multiple records for undelete.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to undelete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to undelete. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -281,19 +316,23 @@ dmlTransaction.doUndelete(deletedAccounts);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doUndelete(SObject record)
 ```
 
 Registers a record for undelete.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to undelete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to undelete. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -301,7 +340,11 @@ dmlTransaction.doUndelete(deletedAccount);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### doUpdate
+
+<div class="apex-member">
 
 ```apex
 global void doUpdate(List<SObject> records)
@@ -309,13 +352,13 @@ global void doUpdate(List<SObject> records)
 
 Registers multiple records for update.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -323,19 +366,23 @@ dmlTransaction.doUpdate(existingAccounts);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doUpdate(SObject record)
 ```
 
 Registers a record for update.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -343,21 +390,25 @@ dmlTransaction.doUpdate(existingAccount);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doUpdate(SObject record, SObjectField relationshipField, SObject parent)
 ```
 
 Registers a record for update with a relationship to a parent record.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to update.
-- `relationshipField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The field linking the record to the parent.
-- `parent` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The parent SObject whose Id will be set on the relationship field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to update. |
+| `relationshipField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field linking the record to the parent. |
+| `parent` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The parent SObject whose Id will be set on the relationship field. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -365,7 +416,11 @@ dmlTransaction.doUpdate(contact, Contact.AccountId, newAccount);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### doUpsert
+
+<div class="apex-member">
 
 ```apex
 global void doUpsert(List<SObject> records)
@@ -373,13 +428,13 @@ global void doUpsert(List<SObject> records)
 
 Registers multiple records for upsert without an external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to upsert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to upsert. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -387,26 +442,34 @@ dmlTransaction.doUpsert(accounts);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doUpsert(List<SObject> records, SObjectField externalIdField)
 ```
 
 Registers multiple records for upsert using a specific external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to upsert.
-- `externalIdField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The external ID field for matching.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to upsert. |
+| `externalIdField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The external ID field for matching. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doUpsert(accounts, Account.ExternalId__c);
 dmlTransaction.commitWork();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global void doUpsert(SObject record)
@@ -415,19 +478,23 @@ global void doUpsert(SObject record)
 Registers a record for upsert without an external ID field.
 Uses the record's Id field for matching if present.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to upsert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to upsert. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doUpsert(account);
 dmlTransaction.commitWork();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global void doUpsert(SObject record, SObjectField externalIdField)
@@ -436,14 +503,14 @@ global void doUpsert(SObject record, SObjectField externalIdField)
 Registers a record for upsert using a specific external ID field.
 All records of the same SObjectType within a single transaction must use the same external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to upsert.
-- `externalIdField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The external ID field for matching.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to upsert. |
+| `externalIdField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The external ID field for matching. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -451,22 +518,26 @@ dmlTransaction.doUpsert(account, Account.ExternalId__c);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global void doUpsert(SObject child, SObjectField relationshipField, SObjectField externalIdField, SObject parent)
 ```
 
 Registers a child record for upsert with a parent relationship and external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `child` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The child SObject to upsert.
-- `relationshipField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The field linking the child to the parent.
-- `externalIdField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The external ID field for matching.
-- `parent` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The parent SObject.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `child` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The child SObject to upsert. |
+| `relationshipField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field linking the child to the parent. |
+| `externalIdField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The external ID field for matching. |
+| `parent` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The parent SObject. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -474,7 +545,11 @@ dmlTransaction.doUpsert(child, Contact.AccountId, Contact.ExternalId__c, parent)
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### onCommitWorkFinished
+
+<div class="apex-member">
 
 ```apex
 global virtual void onCommitWorkFinished(Boolean wasSuccessful)
@@ -482,13 +557,13 @@ global virtual void onCommitWorkFinished(Boolean wasSuccessful)
 
 Hook called after the commit process finalizes, indicating success or failure.
 
-**Parameters:**
+**Parameters**
 
-- `wasSuccessful` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether the commit was successful.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wasSuccessful` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether the commit was successful. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onCommitWorkFinished(Boolean wasSuccessful)
@@ -501,7 +576,11 @@ global override void onCommitWorkFinished(Boolean wasSuccessful)
 }
 ```
 
+</div>
+
 ### onCommitWorkFinishing
+
+<div class="apex-member">
 
 ```apex
 global virtual void onCommitWorkFinishing()
@@ -509,9 +588,7 @@ global virtual void onCommitWorkFinishing()
 
 Hook called after DML operations but before finalization.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onCommitWorkFinishing()
@@ -521,7 +598,11 @@ global override void onCommitWorkFinishing()
 }
 ```
 
+</div>
+
 ### onCommitWorkStarting
+
+<div class="apex-member">
 
 ```apex
 global virtual void onCommitWorkStarting()
@@ -529,9 +610,7 @@ global virtual void onCommitWorkStarting()
 
 Hook called before the commit process starts.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onCommitWorkStarting()
@@ -541,7 +620,11 @@ global override void onCommitWorkStarting()
 }
 ```
 
+</div>
+
 ### onDMLFinished
+
+<div class="apex-member">
 
 ```apex
 global virtual void onDMLFinished()
@@ -549,9 +632,7 @@ global virtual void onDMLFinished()
 
 Hook called after DML operations complete.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onDMLFinished()
@@ -561,7 +642,11 @@ global override void onDMLFinished()
 }
 ```
 
+</div>
+
 ### onDMLStarting
+
+<div class="apex-member">
 
 ```apex
 global virtual void onDMLStarting()
@@ -569,9 +654,7 @@ global virtual void onDMLStarting()
 
 Hook called before DML operations start.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onDMLStarting()
@@ -581,7 +664,11 @@ global override void onDMLStarting()
 }
 ```
 
+</div>
+
 ### setAccessLevel
+
+<div class="apex-member">
 
 ```apex
 global void setAccessLevel(AccessLevel accessLevel)
@@ -591,13 +678,13 @@ Sets the `AccessLevel` that will be passed to every DML operation via the
 `DML_SharingProxy` three-arg methods. When null, the proxy resolves to the flag-driven
 default (`UserModeDml_Enabled`).
 
-**Parameters:**
+**Parameters**
 
-- `accessLevel` ([AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm)) - The AccessLevel to apply; null to inherit the flag-driven default.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | The AccessLevel to apply; null to inherit the flag-driven default. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction transaction = new DML_Transaction();
@@ -606,7 +693,11 @@ transaction.doInsert(records);
 transaction.commitWork();
 ```
 
+</div>
+
 ### setAllowPartial
+
+<div class="apex-member">
 
 ```apex
 global void setAllowPartial(Boolean allow)
@@ -615,13 +706,13 @@ global void setAllowPartial(Boolean allow)
 Sets whether partial success is allowed for DML operations.
 When enabled, failed records do not cause the entire transaction to roll back.
 
-**Parameters:**
+**Parameters**
 
-- `allow` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - True to allow partial success, false for all-or-nothing (default).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `allow` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | True to allow partial success, false for all-or-nothing (default). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -630,7 +721,11 @@ dmlTransaction.doInsert(records);
 dmlTransaction.commitWork();
 ```
 
+</div>
+
 ### setSuppressLogging
+
+<div class="apex-member">
 
 ```apex
 global void setSuppressLogging(Boolean suppress)
@@ -639,13 +734,13 @@ global void setSuppressLogging(Boolean suppress)
 Sets whether to suppress LOG_Builder error logging for partial DML results.
 When enabled, partial failures are not logged.
 
-**Parameters:**
+**Parameters**
 
-- `suppress` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - True to suppress logging, false to allow logging (default).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `suppress` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | True to suppress logging, false to allow logging (default). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
@@ -654,4 +749,6 @@ dmlTransaction.setSuppressLogging(true);
 dmlTransaction.doInsert(records);
 dmlTransaction.commitWork();
 ```
+
+</div>
 

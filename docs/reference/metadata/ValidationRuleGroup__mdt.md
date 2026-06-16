@@ -1,6 +1,7 @@
 ---
 title: "ValidationRuleGroup__mdt"
 type: sobject
+pageClass: reference
 description: "Groups validation rules for a specific object and trigger context. Binds to a TriggerSetting and defines when validation rules in this group should execute (timing and operations). Enables application"
 category: metadata
 ---

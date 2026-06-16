@@ -1,6 +1,7 @@
 ---
 title: "DTO_ScheduledParameterDefinition"
 type: class
+pageClass: reference
 description: "A Data Transfer Object describing a single parameter definition supported by a scheduled job class. Used by classes implementing IF_Schedulable to declare their configurable parameters via getParamete"
 author: "Jason Van Beukering"
 group: "Schedulables"
@@ -70,23 +71,27 @@ DTO_ScheduledParameterDefinition.of('profileNames')
 
 ### asBoolean
 
+<div class="apex-member">
+
 ```apex
 global DTO_ScheduledParameterDefinition asBoolean()
 ```
 
 Sets the data type to FLAG (boolean).
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - This parameter instance for method chaining.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — This parameter instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('allOrNothing', 'All or Nothing').asBoolean().withDefault('false')
 ```
 
+</div>
+
 ### asNumeric
+
+<div class="apex-member">
 
 ```apex
 global DTO_ScheduledParameterDefinition asNumeric()
@@ -94,17 +99,19 @@ global DTO_ScheduledParameterDefinition asNumeric()
 
 Sets the data type to NUMERIC (whole number input).
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - This parameter instance for method chaining.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — This parameter instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('batchSize', 'Batch Size').asNumeric().withDefault('2000')
 ```
 
+</div>
+
 ### of
+
+<div class="apex-member">
 
 ```apex
 global static DTO_ScheduledParameterDefinition of(String name)
@@ -114,22 +121,25 @@ Creates a new TEXT parameter definition with a label derived from the API name.
 Optional by default. Use `.withLabel()` to override the label,
 `.asNumeric()` or `.asBoolean()` to change the data type.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the parameter. Also used to generate the display label
-by splitting on camelCase boundaries (e.g., 'profileNames' becomes 'Profile Names').
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the parameter. Also used to generate the display label by splitting on camelCase boundaries (e.g., 'profileNames' becomes 'Profile Names'). |
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - A new DTO_ScheduledParameterDefinition instance with TEXT data type.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — A new DTO_ScheduledParameterDefinition instance with TEXT data type.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('profileNames')
     .required()
     .withDescription('Pipe-separated profile names to target')
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static DTO_ScheduledParameterDefinition of(String name, String label)
@@ -138,22 +148,26 @@ global static DTO_ScheduledParameterDefinition of(String name, String label)
 Creates a new TEXT parameter definition with an explicit label. Optional by default.
 Use `.asNumeric()` or `.asBoolean()` to change the data type.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the parameter.
-- `label` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The display label for the parameter.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the parameter. |
+| `label` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The display label for the parameter. |
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - A new DTO_ScheduledParameterDefinition instance with TEXT data type.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — A new DTO_ScheduledParameterDefinition instance with TEXT data type.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('minimumNumberOfDays', 'Minimum Age (Days)').asNumeric()
 ```
 
+</div>
+
 ### required
+
+<div class="apex-member">
 
 ```apex
 global DTO_ScheduledParameterDefinition required()
@@ -161,17 +175,19 @@ global DTO_ScheduledParameterDefinition required()
 
 Marks this parameter as required.
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - This parameter instance for method chaining.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — This parameter instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('objectName', 'Object Name').required()
 ```
 
+</div>
+
 ### withDefault
+
+<div class="apex-member">
 
 ```apex
 global DTO_ScheduledParameterDefinition withDefault(String defaultValue)
@@ -179,22 +195,26 @@ global DTO_ScheduledParameterDefinition withDefault(String defaultValue)
 
 Sets the default value for this parameter.
 
-**Parameters:**
+**Parameters**
 
-- `defaultValue` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The default value as a string.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `defaultValue` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The default value as a string. |
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - This parameter instance for method chaining.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — This parameter instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('batchSize').asNumeric()
     .withDefault('2000')
 ```
 
+</div>
+
 ### withDescription
+
+<div class="apex-member">
 
 ```apex
 global DTO_ScheduledParameterDefinition withDescription(String description)
@@ -202,20 +222,22 @@ global DTO_ScheduledParameterDefinition withDescription(String description)
 
 Sets the help text description for this parameter.
 
-**Parameters:**
+**Parameters**
 
-- `description` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The description text to display as field-level help.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `description` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The description text to display as field-level help. |
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - This parameter instance for method chaining.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — This parameter instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('profileNames', 'Profile Names')
     .withDescription('Pipe-separated profile names to target')
 ```
+
+</div>
 
 ---
 

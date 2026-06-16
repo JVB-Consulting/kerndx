@@ -1,6 +1,7 @@
 ---
 title: "FLOW_ClearValidationBypass"
 type: class
+pageClass: reference
 description: "Flow invocable action to clear validation rule bypasses for the current transaction. Use this after DML operations in Flow to explicitly clear bypasses set by FLOW_BypassValidation. Important: While b"
 author: "Jason Van Beukering"
 group: "Validation"
@@ -47,6 +48,8 @@ Flow invocable action to clear validation rule bypasses for the current transact
 
 ### clearBypass
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Validation' description='Clears validation rule bypasses for an object, group, or specific rule for the current transaction.' label='Clear Validation Bypass') global static void clearBypass(List<FLOW_ClearValidationBypass.DTO_Request> requests)
 ```
@@ -55,13 +58,13 @@ Clears validation rule bypasses for the current transaction.
 If clearAll is true, all active bypasses are removed. Otherwise, the specified
 name is removed from all bypass lists (object, group, and rule).
 
-**Parameters:**
+**Parameters**
 
-- `requests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of clear bypass requests
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of clear bypass requests |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Clear Account bypass
@@ -69,4 +72,6 @@ FLOW_ClearValidationBypass.DTO_Request request = new FLOW_ClearValidationBypass.
 request.name = 'Account';
 FLOW_ClearValidationBypass.clearBypass(new List<FLOW_ClearValidationBypass.DTO_Request>{request});
 ```
+
+</div>
 

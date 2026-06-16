@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Exceptions"
 type: class
+pageClass: reference
 description: "Centralised container for framework-specific exception types. Groups related exception classes under a single outer class to minimise top-level file count while keeping each exception independently re"
 author: "Jason Van Beukering"
 group: "Utilities"

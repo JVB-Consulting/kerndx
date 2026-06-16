@@ -1,6 +1,7 @@
 ---
 title: "SEL_ObjectPermission.ObjectPermissionType"
 type: class
+pageClass: reference
 description: "A Permission that a User might have on a SObjectType."
 since: "1.0"
 category: apex

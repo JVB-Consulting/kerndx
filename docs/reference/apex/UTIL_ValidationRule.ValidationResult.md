@@ -1,6 +1,7 @@
 ---
 title: "UTIL_ValidationRule.ValidationResult"
 type: class
+pageClass: reference
 description: "Result of validating a single record. Contains all validation errors/warnings for that record."
 since: "1.0"
 category: apex
@@ -82,26 +83,32 @@ Example:
 
 ### ValidationResult
 
+<div class="apex-member">
+
 ```apex
 global ValidationResult(Integer recordIndex, Id recordId)
 ```
 
 Constructs a new ValidationResult for the given record.
 
-**Parameters:**
+**Parameters**
 
-- `recordIndex` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The index in the trigger list
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The record ID (may be null for before insert)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordIndex` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The index in the trigger list |
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The record ID (may be null for before insert) |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.ValidationResult instance = new UTIL_ValidationRule.ValidationResult(10, recordId);
 ```
 
+</div>
+
 ### getErrorMessage
+
+<div class="apex-member">
 
 ```apex
 global String getErrorMessage()
@@ -109,17 +116,19 @@ global String getErrorMessage()
 
 Gets concatenated error message string.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - All error messages joined by newlines
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — All error messages joined by newlines
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = instance.getErrorMessage();
 ```
 
+</div>
+
 ### getErrorsBySeverity
+
+<div class="apex-member">
 
 ```apex
 global List<UTIL_ValidationRule.ValidationError> getErrorsBySeverity(String severity)
@@ -127,19 +136,21 @@ global List<UTIL_ValidationRule.ValidationError> getErrorsBySeverity(String seve
 
 Gets errors filtered by severity.
 
-**Parameters:**
+**Parameters**
 
-- `severity` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The severity to filter by ('Error' or 'Warning')
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `severity` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The severity to filter by ('Error' or 'Warning') |
 
-**Returns:** [UTIL_ValidationRule.ValidationError](UTIL_ValidationRule.ValidationError.md) - List of errors matching the severity
+**Returns** [UTIL_ValidationRule.ValidationError](UTIL_ValidationRule.ValidationError.md) — List of errors matching the severity
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ValidationError> result = instance.getErrorsBySeverity('Error');
 ```
+
+</div>
 
 ---
 

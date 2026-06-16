@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.PostAction"
 type: class
+pageClass: reference
 description: "Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. Use for cross-"
 since: "1.1"
 category: apex
@@ -32,6 +33,8 @@ Handler contract for a post-trigger action — an Apex class that runs exactly o
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global abstract void execute(IF_Trigger.PostActionContext context)
 ```
@@ -40,14 +43,13 @@ Called once per outermost dispatch with the context of touched
 SObject types. Implementations should be idempotent within a single transaction —
 a transaction with N top-level DML statements fires post-actions N times.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md)) - The post-action context for this dispatch. Carries the set of
-SObject types whose triggers participated in the transaction.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md) | The post-action context for this dispatch. Carries the set of SObject types whose triggers participated in the transaction. |
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_EmitTransactionAudit implements IF_Trigger.PostAction
@@ -61,4 +63,6 @@ public class TRG_EmitTransactionAudit implements IF_Trigger.PostAction
     }
 }
 ```
+
+</div>
 

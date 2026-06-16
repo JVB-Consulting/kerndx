@@ -1,6 +1,7 @@
 ---
 title: "DTO_NameValue"
 type: class
+pageClass: reference
 description: "DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or configuration settings. Designed for flexibility in flows, Aura components, or Apex logic, supportin"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
@@ -51,15 +52,15 @@ pair.value = 'Hello World';
 
 ### DTO_NameValue
 
+<div class="apex-member">
+
 ```apex
 global DTO_NameValue()
 ```
 
 Default no-argument constructor for flow and invocable compatibility.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValue pair = new DTO_NameValue();
@@ -67,24 +68,30 @@ pair.name = 'MergeField';
 pair.value = 'Hello World';
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DTO_NameValue(String name, String value)
 ```
 
 Constructs a new name-value pair with the specified key and value.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the data field or placeholder.
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The value associated with the field name.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the data field or placeholder. |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The value associated with the field name. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValue pair = new DTO_NameValue('MergeField', 'Hello World');
 ```
+
+</div>
 
 ---
 

@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerEnd.DTO_Request"
 type: class
+pageClass: reference
 description: "Input parameters for ending Flow correlation."
 since: "1.0"
 category: apex

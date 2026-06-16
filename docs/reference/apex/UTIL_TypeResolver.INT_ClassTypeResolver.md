@@ -1,6 +1,7 @@
 ---
 title: "UTIL_TypeResolver.INT_ClassTypeResolver"
 type: class
+pageClass: reference
 description: "Interface for resolving Type objects from class names and chaining resolvers. Custom resolvers must be exception-safe. The default chain implementation (PackageClassResolver.resolveType) delegates to "
 since: "1.0"
 category: apex
@@ -35,6 +36,8 @@ Interface for resolving Type objects from class names and chaining resolvers. Cu
 
 ### resolveType
 
+<div class="apex-member">
+
 ```apex
 global abstract Type resolveType(String typeName)
 ```
@@ -44,22 +47,26 @@ Resolves a Type object from a class name. Returning `null` signals
 propagates to the caller without consulting later resolvers — see the
 exception-safety contract on the interface ApexDoc.
 
-**Parameters:**
+**Parameters**
 
-- `typeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the class to resolve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `typeName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the class to resolve. |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The resolved Type object, or null if not found.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The resolved Type object, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
 Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
 ```
 
+</div>
+
 ### setNext
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_TypeResolver.INT_ClassTypeResolver setNext(UTIL_TypeResolver.INT_ClassTypeResolver nextTypeResolver)
@@ -67,19 +74,21 @@ global abstract UTIL_TypeResolver.INT_ClassTypeResolver setNext(UTIL_TypeResolve
 
 Sets the next resolver in the chain.
 
-**Parameters:**
+**Parameters**
 
-- `nextTypeResolver` ([UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md)) - The next resolver to try if this one fails.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `nextTypeResolver` | [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) | The next resolver to try if this one fails. |
 
-**Returns:** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) - The next resolver in the chain.
+**Returns** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) — The next resolver in the chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
 INT_ClassTypeResolver nextResolver = new CustomClassResolver();
 resolver.setNext(nextResolver);
 ```
+
+</div>
 

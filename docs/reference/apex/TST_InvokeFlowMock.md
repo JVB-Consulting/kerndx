@@ -1,6 +1,7 @@
 ---
 title: "TST_InvokeFlowMock"
 type: class
+pageClass: reference
 description: "Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview A"
 author: "Jason Van Beukering"
 group: "Triggers"
@@ -59,26 +60,32 @@ Assert.isTrue(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'), 'Flow should 
 
 ### assertInvoked
 
+<div class="apex-member">
+
 ```apex
 global static void assertInvoked(String flowName, Integer expectedCount)
 ```
 
 Asserts that a mocked flow was invoked an exact number of times.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to verify
-- `expectedCount` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The expected number of invocations
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to verify |
+| `expectedCount` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The expected number of invocations |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.assertInvoked('Foobar_SetDefaults', 1);
 ```
 
+</div>
+
 ### assertNotInvoked
+
+<div class="apex-member">
 
 ```apex
 global static void assertNotInvoked(String flowName)
@@ -86,19 +93,23 @@ global static void assertNotInvoked(String flowName)
 
 Asserts that a mocked flow was never invoked.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to verify
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to verify |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.assertNotInvoked('Foobar_SetDefaults');
 ```
 
+</div>
+
 ### clear
+
+<div class="apex-member">
 
 ```apex
 global static void clear()
@@ -109,9 +120,11 @@ Clears all registered mocks and invocation counts.
 Salesforce resets static state between tests, but `clear()` is exposed for
 scenarios where multiple register/invoke cycles run inside a single test method.
 
-**Since:** 1.0
+</div>
 
 ### forFlow
+
+<div class="apex-member">
 
 ```apex
 global static TST_InvokeFlowMock.MockBuilder forFlow(String flowName)
@@ -119,25 +132,31 @@ global static TST_InvokeFlowMock.MockBuilder forFlow(String flowName)
 
 Creates a fluent builder for registering a mock flow response.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name (matches TriggerAction__mdt.FlowName__c)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name (matches TriggerAction__mdt.FlowName__c) |
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - A new MockBuilder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — A new MockBuilder for chaining
 
-**Throws:**
+**Throws**
 
-- [UTIL_Exceptions.ConfigurationException](UTIL_Exceptions.ConfigurationException.md) - When flowName is blank
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.ConfigurationException](UTIL_Exceptions.ConfigurationException.md) | When flowName is blank |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.forFlow('Foobar_SetDefaults').succeed().register();
 ```
 
+</div>
+
 ### getLastInputHeader
+
+<div class="apex-member">
 
 ```apex
 global static Object getLastInputHeader(String flowName)
@@ -156,15 +175,19 @@ call site:
 (DTO_ChangeEventHeader)TST_InvokeFlowMock.getLastInputHeader('Foobar_OnChange');
 `
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to check |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The `header` input variable from the last invocation, or null when the flow has not been invoked or the context did not carry a header
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The `header` input variable from the last invocation, or null when the flow has not been invoked or the context did not carry a header
 
-**Since:** 1.1
+</div>
 
 ### getLastInputPriorRecord
+
+<div class="apex-member">
 
 ```apex
 global static SObject getLastInputPriorRecord(String flowName)
@@ -177,22 +200,26 @@ not supply a prior record (insert / before-delete / after-undelete).
 Pairs with `getLastInputRecord` for update-context tests asserting the flow received
 both the new and prior record state.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to check |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The `recordPrior` SObject from the last invocation, or null when no prior record
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The `recordPrior` SObject from the last invocation, or null when no prior record
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c oldValues = (Foobar__c)TST_InvokeFlowMock.getLastInputPriorRecord('Foobar_OnUpdate');
 Assert.areEqual('Old TextArea', oldValues.TextArea__c, 'Flow should see prior TextArea');
 ```
 
+</div>
+
 ### getLastInputRecord
+
+<div class="apex-member">
 
 ```apex
 global static SObject getLastInputRecord(String flowName)
@@ -206,22 +233,26 @@ the input they expected (typically: an upstream Apex action's mutation) without
 inspecting the trigger record's final state. The returned SObject is the in-memory
 reference passed into the flow input map; mutating it after retrieval is undefined.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to check |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The `record` SObject from the last invocation, or null if never invoked
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The `record` SObject from the last invocation, or null if never invoked
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c observed = (Foobar__c)TST_InvokeFlowMock.getLastInputRecord('Foobar_SetDefaults');
 Assert.areEqual('upstream-set', observed.TextArea__c, 'Flow should see upstream Apex mutation');
 ```
 
+</div>
+
 ### wasInvoked
+
+<div class="apex-member">
 
 ```apex
 global static Boolean wasInvoked(String flowName)
@@ -232,15 +263,15 @@ conditional test branching where the assertion shape varies on whether the flow 
 (e.g. "only validate flow output write-back if the flow was reached"). For pass/fail
 count checks, prefer `assertInvoked(name, count)` or `assertNotInvoked(name)`.
 
-**Parameters:**
+**Parameters**
 
-- `flowName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The flow API name to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flowName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The flow API name to check |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the flow was invoked at least once
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the flow was invoked at least once
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'))
@@ -249,4 +280,6 @@ if(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'))
     Assert.areEqual('From flow', result.TextArea__c, 'Flow output should land');
 }
 ```
+
+</div>
 

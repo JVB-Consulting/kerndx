@@ -1,6 +1,7 @@
 ---
 title: "FLOW_SendEmail.DTO_Request"
 type: class
+pageClass: reference
 description: "Data Transfer Object (DTO) representing the input parameters for a single email request."
 since: "1.0"
 category: apex

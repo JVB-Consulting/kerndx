@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.Operator"
 type: class
+pageClass: reference
 description: "SOQL comparison operators used to build query conditions. Operator SOQL Description EQUALS = Equal to NOT_EQUALS != Not equal to LESS_THAN < Less than LESS_THAN_OR_EQUAL_TO <= Less than or equal to GR"
 since: "1.0"
 category: apex

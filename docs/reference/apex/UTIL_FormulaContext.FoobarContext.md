@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.FoobarContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in formula evaluations. This context class enables comprehensive testing of formula evaluation function"
 since: "1.0"
 category: apex

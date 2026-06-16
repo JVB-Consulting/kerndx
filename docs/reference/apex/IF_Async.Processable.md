@@ -1,6 +1,7 @@
 ---
 title: "IF_Async.Processable"
 type: class
+pageClass: reference
 description: "Interface for defining the core processing logic to be executed by an asynchronous job."
 since: "1.0"
 category: apex
@@ -34,15 +35,19 @@ Interface for defining the core processing logic to be executed by an asynchrono
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global abstract void execute(List<Object> items)
 ```
 
 Executes the business logic on a list of items.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of objects to process in the current transaction.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of objects to process in the current transaction. |
 
-**Since:** 1.0
+</div>
 

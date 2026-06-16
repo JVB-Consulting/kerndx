@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest"
 type: class
+pageClass: reference
 description: "Request object for initiating an asynchronous process."
 since: "1.0"
 category: apex
@@ -179,6 +180,8 @@ Example:
 
 ### DTO_AsynchronousJobRequest
 
+<div class="apex-member">
+
 ```apex
 global DTO_AsynchronousJobRequest(IF_Queryable queryable)
 ```
@@ -186,13 +189,13 @@ global DTO_AsynchronousJobRequest(IF_Queryable queryable)
 Constructor for processing records retrieved from an IF_Queryable.
 Supports QRY_Builder.Builder and SEL_Base instances directly.
 
-**Parameters:**
+**Parameters**
 
-- `queryable` ([IF_Queryable](IF_Queryable.md)) - The IF_Queryable defining the records to process.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `queryable` | [IF_Queryable](IF_Queryable.md) | The IF_Queryable defining the records to process. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 IF_Queryable query = QRY_Builder.selectFrom(Account.SObjectType)
@@ -203,25 +206,33 @@ DTO_AsynchronousJobRequest request = new DTO_AsynchronousJobRequest(query)
 Id jobId = UTIL_AsynchronousJobLauncher.process(request, new MyProcessor());
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DTO_AsynchronousJobRequest(List<Object> items)
 ```
 
 Constructor for processing a predefined list of objects.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of objects to process.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of objects to process. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest instance = new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(new List<Object>{'a', 'b'});
 ```
 
+</div>
+
 ### withAsyncOptions
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withAsyncOptions(AsyncOptions options)
@@ -229,21 +240,25 @@ global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withAsyncOptions(
 
 Sets the maximum stack depth for chaining
 
-**Parameters:**
+**Parameters**
 
-- `options` ([AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm)) - The asynchronous options to use
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `options` | [AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm) | The asynchronous options to use |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_AsynchronousJobRequest result = instance.withAsyncOptions(new AsyncOptions());
 ```
 
+</div>
+
 ### withBatchSize
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withBatchSize(Integer size)
@@ -251,21 +266,25 @@ global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withBatchSize(Int
 
 Sets the batch job size for Batch Apex execution.
 
-**Parameters:**
+**Parameters**
 
-- `size` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of items per batch execution.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `size` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of items per batch execution. |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_AsynchronousJobRequest result = instance.withBatchSize(10);
 ```
 
+</div>
+
 ### withDelayMinutes
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withDelayMinutes(Integer minutes)
@@ -275,19 +294,21 @@ Sets the delay in minutes before processing starts.
 For delays greater than 10 minutes, the framework automatically chains queueables
 until the delay expires, making this suitable for any duration.
 
-**Parameters:**
+**Parameters**
 
-- `minutes` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The delay in minutes before processing begins (0 or greater).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `minutes` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The delay in minutes before processing begins (0 or greater). |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if minutes is less than 0.
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if minutes is less than 0. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Process immediately (default)
@@ -301,7 +322,11 @@ DTO_AsynchronousJobRequest request = new DTO_AsynchronousJobRequest(items)
 Id jobId = UTIL_AsynchronousJobLauncher.process(request, new MyProcessor());
 ```
 
+</div>
+
 ### withExecutionStrategy
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy strategy)
@@ -309,21 +334,25 @@ global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withExecutionStra
 
 Sets the execution strategy for determine what job type to use
 
-**Parameters:**
+**Parameters**
 
-- `strategy` ([IF_Async.AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md)) - The execution strategy to employ
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `strategy` | [IF_Async.AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) | The execution strategy to employ |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_AsynchronousJobRequest result = instance.withExecutionStrategy(new IF_Async.AsynchronousExecutionStrategy());
 ```
 
+</div>
+
 ### withLimitAtWhichToBatch
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withLimitAtWhichToBatch(Integer threshold)
@@ -331,21 +360,25 @@ global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withLimitAtWhichT
 
 Sets the threshold at which processing switches from Queueable to Batch Apex.
 
-**Parameters:**
+**Parameters**
 
-- `threshold` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of items that will trigger Batch Apex execution.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `threshold` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of items that will trigger Batch Apex execution. |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_AsynchronousJobRequest result = instance.withLimitAtWhichToBatch(10);
 ```
 
+</div>
+
 ### withQueueableJobSize
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withQueueableJobSize(Integer size)
@@ -353,17 +386,19 @@ global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withQueueableJobS
 
 Sets the chunk size for Queueable execution.
 
-**Parameters:**
+**Parameters**
 
-- `size` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of items per Queueable execution.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `size` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of items per Queueable execution. |
 
-**Returns:** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) - The AsynchronousJobRequest instance for method chaining.
+**Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_AsynchronousJobRequest result = instance.withQueueableJobSize(10);
 ```
+
+</div>
 

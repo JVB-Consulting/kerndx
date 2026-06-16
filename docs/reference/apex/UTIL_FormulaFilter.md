@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaFilter"
 type: class
+pageClass: reference
 description: "Class that can filter list of SObject based on Formula Information provided adapted from:apex-trigger-actions-framework"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -57,27 +58,33 @@ UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newReco
 
 ### UTIL_FormulaFilter
 
+<div class="apex-member">
+
 ```apex
 global UTIL_FormulaFilter(String processName, String contextClassName, String formula)
 ```
 
 Constructs a new instance with the formula details
 
-**Parameters:**
+**Parameters**
 
-- `processName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the process calling the filter, will be used if an error is generated during process so logging will be specific
-- `contextClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class that will provide the relevant variables, context to the formula.
-- `formula` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The boolean formula to execute
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `processName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the process calling the filter, will be used if an error is generated during process so logging will be specific |
+| `contextClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class that will provide the relevant variables, context to the formula. |
+| `formula` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The boolean formula to execute |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_FormulaFilter instance = new UTIL_FormulaFilter('value', 'value', 'RecordType.Name = \'Default\'');
 ```
 
+</div>
+
 ### filter
+
+<div class="apex-member">
 
 ```apex
 global UTIL_FormulaFilter.DTO_FilterResults filter(List<SObject> oldRecords, List<SObject> newRecords)
@@ -90,22 +97,26 @@ If the formula evaluates to true for a record, it is included in the filtered li
 
 *NOTE: Make sure that if both the old and new records lists are not null they are the same size*
 
-**Parameters:**
+**Parameters**
 
-- `oldRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of old SObjects to filter.
-- `newRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of new SObjects to filter.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of old SObjects to filter. |
+| `newRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of new SObjects to filter. |
 
-**Returns:** [UTIL_FormulaFilter.DTO_FilterResults](UTIL_FormulaFilter.DTO_FilterResults.md) - An object containing the filtered lists of new and old SObjects.
+**Returns** [UTIL_FormulaFilter.DTO_FilterResults](UTIL_FormulaFilter.DTO_FilterResults.md) — An object containing the filtered lists of new and old SObjects.
 
-**Throws:**
+**Throws**
 
-- [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - Exception could be thrown if the any of the formula build method's fail
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | Exception could be thrown if the any of the formula build method's fail |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_FilterResults result = instance.filter(records, records);
 ```
+
+</div>
 

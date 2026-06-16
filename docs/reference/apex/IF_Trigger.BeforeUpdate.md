@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.BeforeUpdate"
 type: class
+pageClass: reference
 description: "Handler contract for the before-update trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the before-update trigger event.
 
 ### beforeUpdate
 
+<div class="apex-member">
+
 ```apex
 global abstract void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 ```
@@ -41,14 +44,14 @@ global abstract void beforeUpdate(List<SObject> newRecords, List<SObject> oldRec
 Called before modified records are saved, enabling field-level
 validation, change detection, or in-memory transformations using old and new state.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects with their proposed field values.
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The batch of SObjects with their values prior to the update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects with their proposed field values. |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The batch of SObjects with their values prior to the update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_TrackStatusChange extends TRG_Base implements IF_Trigger.BeforeUpdate
@@ -65,4 +68,6 @@ public class TRG_TrackStatusChange extends TRG_Base implements IF_Trigger.Before
     }
 }
 ```
+
+</div>
 

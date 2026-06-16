@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerLog.DTO_Request"
 type: class
+pageClass: reference
 description: "Input parameters for logging a Flow event."
 since: "1.0"
 category: apex

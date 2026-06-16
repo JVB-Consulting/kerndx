@@ -1,6 +1,7 @@
 ---
 title: "SCHED_PerformBatchedCallouts"
 type: class
+pageClass: reference
 description: "The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API calls that are queued for outbound processing. This class retrieves a list of queued API calls, updates"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -43,6 +44,8 @@ System.schedule('Process Batched Callouts', '0 0 0 * * ?', new SCHED_PerformBatc
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global void execute(SchedulableContext context)
 ```
@@ -51,16 +54,18 @@ Executes the scheduled job, retrieving a list of API calls that are batched and 
 processing, updating their status to indicate they are queued, and committing the updated records to the database.
 This method allows for controlled and consistent processing of API callouts on a scheduled basis.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm)) - relevant context
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm) | relevant context |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Schedule the job to run every day at midnight to process batched API calls.
 System.schedule('Process Batched API Calls', '0 0 0 * * ?', new SCHED_PerformBatchedCallouts());
 ```
+
+</div>
 

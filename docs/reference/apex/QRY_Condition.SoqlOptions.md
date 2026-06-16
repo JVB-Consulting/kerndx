@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.SoqlOptions"
 type: class
+pageClass: reference
 description: "Options for SOQL generation."
 since: "1.0"
 category: apex

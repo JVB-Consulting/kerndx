@@ -1,3 +1,7 @@
+---
+navOrder: 90
+---
+
 # Fast Start - Code Scanning
 
 **Framework:** KernDX | **Total time:** ~20 minutes

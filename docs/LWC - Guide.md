@@ -1,3 +1,7 @@
+---
+navOrder: 30
+---
+
 # LWC - Guide
 
 **Framework:** KernDX

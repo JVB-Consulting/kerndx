@@ -1,3 +1,7 @@
+---
+navOrder: 38
+---
+
 # Fast Start - Feature Flags
 
 **Framework:** KernDX | **Total time:** ~25 minutes

@@ -1,6 +1,7 @@
 ---
 title: "API_MockFactory.MockResponse"
 type: class
+pageClass: reference
 description: "Represents a mock HTTP response with fault simulation options."
 since: "1.0"
 category: apex

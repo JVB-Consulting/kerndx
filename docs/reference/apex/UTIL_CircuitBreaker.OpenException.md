@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.OpenException"
 type: class
+pageClass: reference
 description: "Exception thrown when circuit breaker is OPEN and blocks a request"
 since: "1.0"
 category: apex

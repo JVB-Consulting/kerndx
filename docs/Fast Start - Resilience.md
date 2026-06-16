@@ -1,3 +1,7 @@
+---
+navOrder: 62
+---
+
 # Fast Start - Resilience
 
 **Framework:** KernDX | **Total time:** ~25 minutes

@@ -1,6 +1,7 @@
 ---
 title: "PROC_UpdateFields.DTO_Field"
 type: class
+pageClass: reference
 description: "DTO representing a field to update on an SObject."
 since: "1.0"
 category: apex
@@ -40,23 +41,27 @@ DTO representing a field to update on an SObject.
 
 ### setObjectValue
 
+<div class="apex-member">
+
 ```apex
 global void setObjectValue(SObject currentSObject)
 ```
 
 Sets the field value on an SObject based on the specified update method.
 
-**Parameters:**
+**Parameters**
 
-- `currentSObject` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `currentSObject` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.setObjectValue(record);
 ```
+
+</div>
 
 ---
 

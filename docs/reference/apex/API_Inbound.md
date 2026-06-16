@@ -1,6 +1,7 @@
 ---
 title: "API_Inbound"
 type: class
+pageClass: reference
 description: "Base class for all inbound REST API web service calls. Provides foundational functionality for handling incoming HTTP requests, processing them, parsing request/response DTOs, and sending appropriate "
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -192,22 +193,26 @@ Example:
 
 ### API_Inbound
 
+<div class="apex-member">
+
 ```apex
 global API_Inbound()
 ```
 
 Constructor. Initializes the object and parses the inbound request body.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Called automatically when the REST endpoint is invoked
 private class MyHandler extends API_Inbound { }
 ```
 
+</div>
+
 ### configure
+
+<div class="apex-member">
 
 ```apex
 global override virtual void configure()
@@ -215,9 +220,7 @@ global override virtual void configure()
 
 Initializes class variables and sets up request details including headers and URL parameters.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void configure()
@@ -228,7 +231,11 @@ global override void configure()
 }
 ```
 
+</div>
+
 ### getEncoding
+
+<div class="apex-member">
 
 ```apex
 global override virtual String getEncoding()
@@ -236,11 +243,9 @@ global override virtual String getEncoding()
 
 Retrieves the HTTP character encoding for the request.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The content type header from the incoming request.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The content type header from the incoming request.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getEncoding()
@@ -249,7 +254,11 @@ global override String getEncoding()
 }
 ```
 
+</div>
+
 ### getHttpMethod
+
+<div class="apex-member">
 
 ```apex
 global override API_Base.HttpMethod getHttpMethod()
@@ -257,17 +266,19 @@ global override API_Base.HttpMethod getHttpMethod()
 
 Retrieves the HTTP method of the current inbound request.
 
-**Returns:** [API_Base.HttpMethod](API_Base.HttpMethod.md) - The HTTP method of the current request.
+**Returns** [API_Base.HttpMethod](API_Base.HttpMethod.md) — The HTTP method of the current request.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpMethod method = getHttpMethod(); // Returns the inbound request's HTTP method
 ```
 
+</div>
+
 ### handleError
+
+<div class="apex-member">
 
 ```apex
 global override virtual void handleError(Exception error)
@@ -275,13 +286,13 @@ global override virtual void handleError(Exception error)
 
 Handles exceptions during request processing, setting appropriate status codes and writing the response.
 
-**Parameters:**
+**Parameters**
 
-- `error` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception that needs to be managed.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `error` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception that needs to be managed. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void handleError(Exception error)
@@ -291,7 +302,11 @@ global override void handleError(Exception error)
 }
 ```
 
+</div>
+
 ### isDisabled
+
+<div class="apex-member">
 
 ```apex
 global override Boolean isDisabled()
@@ -299,11 +314,9 @@ global override Boolean isDisabled()
 
 Checks custom settings to determine if the API has been disabled for the current user.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the API is disabled, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the API is disabled, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Boolean isDisabled()
@@ -312,7 +325,11 @@ global override Boolean isDisabled()
 }
 ```
 
+</div>
+
 ### onCommitWorkFinishing
+
+<div class="apex-member">
 
 ```apex
 global override virtual void onCommitWorkFinishing()
@@ -320,9 +337,7 @@ global override virtual void onCommitWorkFinishing()
 
 Performs actions after a commit is completed, such as setting the response and updating the API call.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onCommitWorkFinishing()
@@ -332,7 +347,11 @@ global override void onCommitWorkFinishing()
 }
 ```
 
+</div>
+
 ### onCommitWorkStarting
+
+<div class="apex-member">
 
 ```apex
 global override virtual void onCommitWorkStarting()
@@ -340,9 +359,7 @@ global override virtual void onCommitWorkStarting()
 
 Performs actions before committing changes to the database.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onCommitWorkStarting()
@@ -352,7 +369,11 @@ global override void onCommitWorkStarting()
 }
 ```
 
+</div>
+
 ### onSuccess
+
+<div class="apex-member">
 
 ```apex
 global override virtual void onSuccess()
@@ -361,9 +382,7 @@ global override virtual void onSuccess()
 Registers database changes after a successful call.
 Simulates an error for testing if `returnErrorResponse` is set.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void onSuccess()
@@ -373,7 +392,11 @@ global override void onSuccess()
 }
 ```
 
+</div>
+
 ### parseRequest
+
+<div class="apex-member">
 
 ```apex
 global virtual void parseRequest()
@@ -381,9 +404,7 @@ global virtual void parseRequest()
 
 Parses the inbound request body and populates the requestPayload with deserialized JSON data.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void parseRequest()
@@ -393,7 +414,11 @@ global override void parseRequest()
 }
 ```
 
+</div>
+
 ### processRequest
+
+<div class="apex-member">
 
 ```apex
 global virtual void processRequest()
@@ -402,9 +427,7 @@ global virtual void processRequest()
 Handles the processing of the received request.
 Implement in descendant classes to define specific logic for handling API endpoints.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void processRequest()
@@ -414,7 +437,11 @@ global override void processRequest()
 }
 ```
 
+</div>
+
 ### updateCallResult
+
+<div class="apex-member">
 
 ```apex
 global virtual void updateCallResult()
@@ -423,9 +450,7 @@ global virtual void updateCallResult()
 Updates the results of the call, such as status and response body.
 Override in descendant classes to implement specific update logic.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void updateCallResult()
@@ -435,7 +460,11 @@ global override void updateCallResult()
 }
 ```
 
+</div>
+
 ### updateResponseDTO
+
+<div class="apex-member">
 
 ```apex
 global virtual void updateResponseDTO()
@@ -444,9 +473,7 @@ global virtual void updateResponseDTO()
 Updates the response DTO with relevant information before the response is sent.
 Override in inheriting classes to customize the response body data.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void updateResponseDTO()
@@ -456,7 +483,11 @@ global override void updateResponseDTO()
 }
 ```
 
+</div>
+
 ### writeResponse
+
+<div class="apex-member">
 
 ```apex
 global virtual void writeResponse()
@@ -465,9 +496,7 @@ global virtual void writeResponse()
 Writes the response to the client based on the call result.
 Override to modify the response written to the client.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void writeResponse()
@@ -476,4 +505,6 @@ global override void writeResponse()
     // customize response writing
 }
 ```
+
+</div>
 

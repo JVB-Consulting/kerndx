@@ -1,6 +1,7 @@
 ---
 title: "UTIL_HttpClient.RequestBuilder"
 type: class
+pageClass: reference
 description: "Fluent builder for configuring and executing HTTP requests through API_Dispatcher."
 since: "1.0"
 category: apex
@@ -73,23 +74,27 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 
 ### asMap
 
+<div class="apex-member">
+
 ```apex
 global Map<String, Object> asMap()
 ```
 
 Executes the request and deserializes the response body as an untyped Map.
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The deserialized response as Map of String to Object
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The deserialized response as Map of String to Object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, Object> data = UTIL_HttpClient.get('MyService', '/data').asMap();
 ```
 
+</div>
+
 ### asString
+
+<div class="apex-member">
 
 ```apex
 global String asString()
@@ -97,17 +102,19 @@ global String asString()
 
 Executes the request and returns the response body as a String.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The response body string
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The response body string
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String body = UTIL_HttpClient.get('MyService', '/data').asString();
 ```
 
+</div>
+
 ### body
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder body(Object requestBody)
@@ -115,15 +122,15 @@ global UTIL_HttpClient.RequestBuilder body(Object requestBody)
 
 Sets the request body by JSON-serializing the provided object.
 
-**Parameters:**
+**Parameters**
 
-- `requestBody` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The object to serialize as JSON
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requestBody` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The object to serialize as JSON |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -131,21 +138,25 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global UTIL_HttpClient.RequestBuilder body(String requestBody)
 ```
 
 Sets the request body as a raw string.
 
-**Parameters:**
+**Parameters**
 
-- `requestBody` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The raw body string
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requestBody` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The raw body string |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -153,7 +164,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### credential
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder credential(String credential)
@@ -161,15 +176,15 @@ global UTIL_HttpClient.RequestBuilder credential(String credential)
 
 Sets the Named Credential for the endpoint.
 
-**Parameters:**
+**Parameters**
 
-- `credential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential name |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.useHandler(API_SendEmail.class)
@@ -177,7 +192,11 @@ UTIL_HttpClient.useHandler(API_SendEmail.class)
    .invoke();
 ```
 
+</div>
+
 ### deserialize
+
+<div class="apex-member">
 
 ```apex
 global Object deserialize(Type responseType)
@@ -185,22 +204,26 @@ global Object deserialize(Type responseType)
 
 Executes the request and deserializes the response body into the specified type.
 
-**Parameters:**
+**Parameters**
 
-- `responseType` ([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)) - The Apex Type to deserialize into
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `responseType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The Apex Type to deserialize into |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The deserialized response object
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The deserialized response object
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 MyDTO result = (MyDTO)UTIL_HttpClient.get('MyService', '/data')
    .deserialize(MyDTO.class);
 ```
 
+</div>
+
 ### header
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder header(String name, String value)
@@ -208,16 +231,16 @@ global UTIL_HttpClient.RequestBuilder header(String name, String value)
 
 Adds a single header to the request.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The header name
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The header value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The header name |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The header value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -225,7 +248,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### headers
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder headers(Map<String, String> headerMap)
@@ -233,15 +260,15 @@ global UTIL_HttpClient.RequestBuilder headers(Map<String, String> headerMap)
 
 Adds multiple headers to the request.
 
-**Parameters:**
+**Parameters**
 
-- `headerMap` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of header names to values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `headerMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of header names to values |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -249,7 +276,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### invoke
+
+<div class="apex-member">
 
 ```apex
 global API_Outbound invoke()
@@ -257,11 +288,9 @@ global API_Outbound invoke()
 
 Executes in delegation mode and returns the delegate handler instance.
 
-**Returns:** [API_Outbound](API_Outbound.md) - The executed API_Outbound delegate handler
+**Returns** [API_Outbound](API_Outbound.md) — The executed API_Outbound delegate handler
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
@@ -270,7 +299,11 @@ API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
 API_SendEmail.DTO_Response dto = (API_SendEmail.DTO_Response)handler.responsePayload;
 ```
 
+</div>
+
 ### method
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder method(API_Base.HttpMethod httpMethod)
@@ -278,15 +311,15 @@ global UTIL_HttpClient.RequestBuilder method(API_Base.HttpMethod httpMethod)
 
 Sets the HTTP method for the request.
 
-**Parameters:**
+**Parameters**
 
-- `httpMethod` ([API_Base.HttpMethod](API_Base.HttpMethod.md)) - The HTTP method enum value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `httpMethod` | [API_Base.HttpMethod](API_Base.HttpMethod.md) | The HTTP method enum value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/data')
@@ -294,7 +327,11 @@ UTIL_HttpClient.post('MyService', '/data')
    .send();
 ```
 
+</div>
+
 ### onFailure
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder onFailure(UTIL_HttpClient.FailureAction action)
@@ -302,15 +339,15 @@ global UTIL_HttpClient.RequestBuilder onFailure(UTIL_HttpClient.FailureAction ac
 
 Sets the failure handling strategy.
 
-**Parameters:**
+**Parameters**
 
-- `action` ([UTIL_HttpClient.FailureAction](UTIL_HttpClient.FailureAction.md)) - The failure action to apply
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `action` | [UTIL_HttpClient.FailureAction](UTIL_HttpClient.FailureAction.md) | The failure action to apply |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -318,7 +355,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### path
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder path(String urlPath)
@@ -326,15 +367,15 @@ global UTIL_HttpClient.RequestBuilder path(String urlPath)
 
 Sets the URL path for the request.
 
-**Parameters:**
+**Parameters**
 
-- `urlPath` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The URL path to append
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `urlPath` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The URL path to append |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/api')
@@ -342,7 +383,11 @@ UTIL_HttpClient.post('MyService', '/api')
    .send();
 ```
 
+</div>
+
 ### pathParam
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder pathParam(String name, String value)
@@ -350,16 +395,16 @@ global UTIL_HttpClient.RequestBuilder pathParam(String name, String value)
 
 Replaces a {name} placeholder in the URL path with a value.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The placeholder name (without braces)
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The replacement value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The placeholder name (without braces) |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The replacement value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.get('CRM', '/accounts/{id}')
@@ -367,7 +412,11 @@ UTIL_HttpClient.get('CRM', '/accounts/{id}')
    .send();
 ```
 
+</div>
+
 ### queryParam
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder queryParam(String name, String value)
@@ -375,16 +424,16 @@ global UTIL_HttpClient.RequestBuilder queryParam(String name, String value)
 
 Adds a query parameter to the request URL.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.get('MyService', '/search')
@@ -393,7 +442,11 @@ UTIL_HttpClient.get('MyService', '/search')
    .send();
 ```
 
+</div>
+
 ### replaceRequestToken
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder replaceRequestToken(String searchToken, String replaceToken)
@@ -402,16 +455,16 @@ global UTIL_HttpClient.RequestBuilder replaceRequestToken(String searchToken, St
 Registers a single request body replacement token. The search token in the serialized request
 body will be replaced with the replace token before sending.
 
-**Parameters:**
+**Parameters**
 
-- `searchToken` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The token to search for in the request body
-- `replaceToken` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The token to replace it with
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchToken` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The token to search for in the request body |
+| `replaceToken` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The token to replace it with |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('PaymentGateway', '/charges')
@@ -420,7 +473,11 @@ UTIL_HttpClient.post('PaymentGateway', '/charges')
    .send();
 ```
 
+</div>
+
 ### replaceRequestTokens
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder replaceRequestTokens(Map<String, String> tokens)
@@ -429,15 +486,15 @@ global UTIL_HttpClient.RequestBuilder replaceRequestTokens(Map<String, String> t
 Registers multiple request body replacement tokens. Each search token in the serialized
 request body will be replaced with its corresponding replace token before sending.
 
-**Parameters:**
+**Parameters**
 
-- `tokens` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of search tokens to their replacement values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tokens` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of search tokens to their replacement values |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('PaymentGateway', '/charges')
@@ -446,7 +503,11 @@ UTIL_HttpClient.post('PaymentGateway', '/charges')
    .send();
 ```
 
+</div>
+
 ### replaceResponseToken
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder replaceResponseToken(String searchToken, String replaceToken)
@@ -455,16 +516,16 @@ global UTIL_HttpClient.RequestBuilder replaceResponseToken(String searchToken, S
 Registers a single response body replacement token. The search token in the response
 body will be replaced with the replace token after receiving.
 
-**Parameters:**
+**Parameters**
 
-- `searchToken` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The token to search for in the response body
-- `replaceToken` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The token to replace it with
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchToken` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The token to search for in the response body |
+| `replaceToken` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The token to replace it with |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.get('PaymentGateway', '/charges')
@@ -472,7 +533,11 @@ HttpResponse response = UTIL_HttpClient.get('PaymentGateway', '/charges')
    .send();
 ```
 
+</div>
+
 ### replaceResponseTokens
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder replaceResponseTokens(Map<String, String> tokens)
@@ -481,15 +546,15 @@ global UTIL_HttpClient.RequestBuilder replaceResponseTokens(Map<String, String> 
 Registers multiple response body replacement tokens. Each search token in the response
 body will be replaced with its corresponding replace token after receiving.
 
-**Parameters:**
+**Parameters**
 
-- `tokens` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of search tokens to their replacement values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tokens` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of search tokens to their replacement values |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.get('PaymentGateway', '/charges')
@@ -497,7 +562,11 @@ HttpResponse response = UTIL_HttpClient.get('PaymentGateway', '/charges')
    .send();
 ```
 
+</div>
+
 ### retryOn
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder retryOn(Set<Integer> statusCodes)
@@ -505,15 +574,15 @@ global UTIL_HttpClient.RequestBuilder retryOn(Set<Integer> statusCodes)
 
 Restricts retry to specific HTTP status codes.
 
-**Parameters:**
+**Parameters**
 
-- `statusCodes` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The status codes eligible for retry
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `statusCodes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The status codes eligible for retry |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -522,7 +591,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### send
+
+<div class="apex-member">
 
 ```apex
 global HttpResponse send()
@@ -530,17 +603,19 @@ global HttpResponse send()
 
 Executes the HTTP request and returns the raw HttpResponse.
 
-**Returns:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) - The HttpResponse from the callout
+**Returns** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) — The HttpResponse from the callout
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.get('MyService', '/data').send();
 ```
 
+</div>
+
 ### skipLogging
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder skipLogging()
@@ -548,11 +623,9 @@ global UTIL_HttpClient.RequestBuilder skipLogging()
 
 Skips ApiCall__c persistence for this request.
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.get('MyService', '/healthCheck')
@@ -560,7 +633,11 @@ UTIL_HttpClient.get('MyService', '/healthCheck')
    .send();
 ```
 
+</div>
+
 ### timeout
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder timeout(Integer milliseconds)
@@ -568,15 +645,15 @@ global UTIL_HttpClient.RequestBuilder timeout(Integer milliseconds)
 
 Sets the request timeout in milliseconds.
 
-**Parameters:**
+**Parameters**
 
-- `milliseconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The timeout value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `milliseconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The timeout value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.get('MyService', '/data')
@@ -584,7 +661,11 @@ UTIL_HttpClient.get('MyService', '/data')
    .send();
 ```
 
+</div>
+
 ### withCircuitBreaker
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withCircuitBreaker()
@@ -592,11 +673,9 @@ global UTIL_HttpClient.RequestBuilder withCircuitBreaker()
 
 Enables circuit breaker protection using the credential name as identifier.
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -604,21 +683,25 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global UTIL_HttpClient.RequestBuilder withCircuitBreaker(String circuitName)
 ```
 
 Enables circuit breaker protection with a custom identifier.
 
-**Parameters:**
+**Parameters**
 
-- `circuitName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The circuit breaker identifier
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `circuitName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The circuit breaker identifier |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -626,7 +709,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### withCorrelationId
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withCorrelationId(String correlationId)
@@ -634,15 +721,15 @@ global UTIL_HttpClient.RequestBuilder withCorrelationId(String correlationId)
 
 Sets a correlation ID for cross-transaction log tracing.
 
-**Parameters:**
+**Parameters**
 
-- `correlationId` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The correlation identifier
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `correlationId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The correlation identifier |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -650,7 +737,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### withExponentialBackoff
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withExponentialBackoff(Integer maxRetries, Integer baseBackoffSeconds)
@@ -658,16 +749,16 @@ global UTIL_HttpClient.RequestBuilder withExponentialBackoff(Integer maxRetries,
 
 Enables synchronous retry with exponential backoff.
 
-**Parameters:**
+**Parameters**
 
-- `maxRetries` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum number of retry attempts
-- `baseBackoffSeconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The base backoff period in seconds
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxRetries` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum number of retry attempts |
+| `baseBackoffSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The base backoff period in seconds |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -675,7 +766,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### withIdempotencyKey
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withIdempotencyKey(String idempotencyKey)
@@ -684,15 +779,15 @@ global UTIL_HttpClient.RequestBuilder withIdempotencyKey(String idempotencyKey)
 Sets an explicit idempotency key for duplicate detection.
 When set, this key takes priority over auto-generated keys.
 
-**Parameters:**
+**Parameters**
 
-- `idempotencyKey` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The idempotency key value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `idempotencyKey` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The idempotency key value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('PaymentGateway', '/charges')
@@ -701,7 +796,11 @@ UTIL_HttpClient.post('PaymentGateway', '/charges')
    .send();
 ```
 
+</div>
+
 ### withMockResponse
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withMockResponse(API_MockFactory.MockResponse mockResponse)
@@ -709,15 +808,15 @@ global UTIL_HttpClient.RequestBuilder withMockResponse(API_MockFactory.MockRespo
 
 Sets a mock response to inject at framework level, overriding the handler's own mock.
 
-**Parameters:**
+**Parameters**
 
-- `mockResponse` ([API_MockFactory.MockResponse](API_MockFactory.MockResponse.md)) - The mock response to inject
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mockResponse` | [API_MockFactory.MockResponse](API_MockFactory.MockResponse.md) | The mock response to inject |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.MockResponse mock = new API_MockFactory.MockResponse();
@@ -727,7 +826,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### withParameter
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withParameter(String name, String value)
@@ -735,16 +838,16 @@ global UTIL_HttpClient.RequestBuilder withParameter(String name, String value)
 
 Adds a request parameter for subscriber handler mode.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter value
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter value |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.useHandler(API_SendEmail.class)
@@ -752,7 +855,11 @@ UTIL_HttpClient.useHandler(API_SendEmail.class)
    .invoke();
 ```
 
+</div>
+
 ### withParameters
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withParameters(Map<String, String> parameters)
@@ -760,15 +867,15 @@ global UTIL_HttpClient.RequestBuilder withParameters(Map<String, String> paramet
 
 Adds multiple request parameters for subscriber handler mode.
 
-**Parameters:**
+**Parameters**
 
-- `parameters` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of parameter names to values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameters` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of parameter names to values |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, String> parameters = new Map<String, String>{'key' => 'value'};
@@ -777,7 +884,11 @@ UTIL_HttpClient.useHandler(API_SendEmail.class)
    .invoke();
 ```
 
+</div>
+
 ### withRetry
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries)
@@ -785,15 +896,15 @@ global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries)
 
 Enables synchronous retry with the specified maximum attempts.
 
-**Parameters:**
+**Parameters**
 
-- `maxRetries` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum number of retry attempts
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxRetries` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum number of retry attempts |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -801,22 +912,26 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries, Integer backoffSeconds)
 ```
 
 Enables synchronous retry with a linear backoff.
 
-**Parameters:**
+**Parameters**
 
-- `maxRetries` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum number of retry attempts
-- `backoffSeconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The backoff period in seconds
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxRetries` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum number of retry attempts |
+| `backoffSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The backoff period in seconds |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
@@ -824,7 +939,11 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
+</div>
+
 ### withTriggeringRecord
+
+<div class="apex-member">
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withTriggeringRecord(Id recordId)
@@ -832,19 +951,21 @@ global UTIL_HttpClient.RequestBuilder withTriggeringRecord(Id recordId)
 
 Links this callout to a triggering business record.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Salesforce record Id
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Salesforce record Id |
 
-**Returns:** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) - This builder for method chaining
+**Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
    .withTriggeringRecord(record.Id)
    .send();
 ```
+
+</div>
 

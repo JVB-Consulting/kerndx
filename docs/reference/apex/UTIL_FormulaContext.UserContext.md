@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.UserContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for User object. Provides typed access to User records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can "
 since: "1.0"
 category: apex

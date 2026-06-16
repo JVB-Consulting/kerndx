@@ -1,3 +1,7 @@
+---
+navOrder: 90
+---
+
 # Code Scanning - Guide
 
 **Framework:** KernDX

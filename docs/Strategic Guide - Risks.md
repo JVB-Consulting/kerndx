@@ -1,3 +1,7 @@
+---
+navOrder: 18
+---
+
 # Strategic Guide — Risks
 
 > Risk classification for architects, governance reviewers, and architecture review boards: technical / organisational / ecosystem risks, modular-stack risks, hard questions ARBs

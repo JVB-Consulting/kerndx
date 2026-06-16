@@ -1,6 +1,7 @@
 ---
 title: "FLOW_ExecuteValidationRules"
 type: class
+pageClass: reference
 description: "Flow invocable action to execute validation rules against records. Use this in Record-Triggered Flows or Screen Flows to validate records before DML and display user-friendly error messages. Usage in "
 author: "Jason Van Beukering"
 group: "Validation"
@@ -48,21 +49,23 @@ Flow invocable action to execute validation rules against records. Use this in R
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Validation' description='Validates records against formula-driven validation rules. Returns errors/warnings without blocking save.' label='Execute Validation Rules') global static List<FLOW_ExecuteValidationRules.DTO_Response> execute(List<FLOW_ExecuteValidationRules.DTO_Request> requests)
 ```
 
 Executes validation rules against the provided records.
 
-**Parameters:**
+**Parameters**
 
-- `requests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of validation requests (typically just one from Flow)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of validation requests (typically just one from Flow) |
 
-**Returns:** [FLOW_ExecuteValidationRules.DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md) - List of validation responses with errors and warnings
+**Returns** [FLOW_ExecuteValidationRules.DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md) — List of validation responses with errors and warnings
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Programmatic usage example
@@ -76,4 +79,6 @@ if(responses[0].hasErrors)
     // Handle validation errors
 }
 ```
+
+</div>
 

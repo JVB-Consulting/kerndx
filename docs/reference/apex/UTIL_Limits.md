@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Limits"
 type: class
+pageClass: reference
 description: "Fluent interface for inspecting Salesforce governor limits. Provides named factory methods per limit type for IDE discoverability and a LimitCheck builder for threshold and exhaustion checks."
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -65,17 +66,21 @@ UTIL_Limits.cpuTime().remaining();
 
 ### aggregateQueries
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_Limits.LimitCheck aggregateQueries()
 ```
 
 Returns a LimitCheck for aggregate queries.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to aggregate queries
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to aggregate queries
 
-**Since:** 1.0
+</div>
 
 ### callouts
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck callouts()
@@ -83,11 +88,13 @@ global static UTIL_Limits.LimitCheck callouts()
 
 Returns a LimitCheck for HTTP callouts.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to callouts
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to callouts
 
-**Since:** 1.0
+</div>
 
 ### cpuTime
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck cpuTime()
@@ -95,11 +102,13 @@ global static UTIL_Limits.LimitCheck cpuTime()
 
 Returns a LimitCheck for CPU time (milliseconds).
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to CPU time
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to CPU time
 
-**Since:** 1.0
+</div>
 
 ### dmlRows
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck dmlRows()
@@ -107,11 +116,13 @@ global static UTIL_Limits.LimitCheck dmlRows()
 
 Returns a LimitCheck for DML rows.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to DML rows
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to DML rows
 
-**Since:** 1.0
+</div>
 
 ### dmlStatements
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck dmlStatements()
@@ -119,11 +130,13 @@ global static UTIL_Limits.LimitCheck dmlStatements()
 
 Returns a LimitCheck for DML statements.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to DML statements
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to DML statements
 
-**Since:** 1.0
+</div>
 
 ### emailInvocations
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck emailInvocations()
@@ -131,11 +144,13 @@ global static UTIL_Limits.LimitCheck emailInvocations()
 
 Returns a LimitCheck for email invocations.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to email invocations
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to email invocations
 
-**Since:** 1.0
+</div>
 
 ### futureCalls
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck futureCalls()
@@ -143,11 +158,13 @@ global static UTIL_Limits.LimitCheck futureCalls()
 
 Returns a LimitCheck for future calls.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to future calls
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to future calls
 
-**Since:** 1.0
+</div>
 
 ### heapSize
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck heapSize()
@@ -155,11 +172,13 @@ global static UTIL_Limits.LimitCheck heapSize()
 
 Returns a LimitCheck for heap size (bytes).
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to heap size
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to heap size
 
-**Since:** 1.0
+</div>
 
 ### mobilePushApexCalls
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck mobilePushApexCalls()
@@ -167,11 +186,13 @@ global static UTIL_Limits.LimitCheck mobilePushApexCalls()
 
 Returns a LimitCheck for mobile push Apex calls.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to mobile push Apex calls
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to mobile push Apex calls
 
-**Since:** 1.0
+</div>
 
 ### publishImmediateDml
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck publishImmediateDml()
@@ -179,11 +200,13 @@ global static UTIL_Limits.LimitCheck publishImmediateDml()
 
 Returns a LimitCheck for publish immediate DML operations.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to publish immediate DML
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to publish immediate DML
 
-**Since:** 1.0
+</div>
 
 ### queueableJobs
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck queueableJobs()
@@ -191,11 +214,13 @@ global static UTIL_Limits.LimitCheck queueableJobs()
 
 Returns a LimitCheck for queueable jobs.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to queueable jobs
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to queueable jobs
 
-**Since:** 1.0
+</div>
 
 ### snapshot
+
+<div class="apex-member">
 
 ```apex
 global static List<UTIL_Limits.LimitCheck> snapshot()
@@ -203,17 +228,19 @@ global static List<UTIL_Limits.LimitCheck> snapshot()
 
 Returns a LimitCheck for every governor limit type.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - List of LimitCheck instances, one per limit type
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — List of LimitCheck instances, one per limit type
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<UTIL_Limits.LimitCheck> allLimits = UTIL_Limits.snapshot();
 ```
 
+</div>
+
 ### soqlQueries
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck soqlQueries()
@@ -221,11 +248,13 @@ global static UTIL_Limits.LimitCheck soqlQueries()
 
 Returns a LimitCheck for SOQL queries.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to SOQL queries
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL queries
 
-**Since:** 1.0
+</div>
 
 ### soqlQueryLocatorRows
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck soqlQueryLocatorRows()
@@ -233,11 +262,13 @@ global static UTIL_Limits.LimitCheck soqlQueryLocatorRows()
 
 Returns a LimitCheck for SOQL query locator rows.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to SOQL query locator rows
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL query locator rows
 
-**Since:** 1.0
+</div>
 
 ### soqlQueryRows
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck soqlQueryRows()
@@ -245,11 +276,13 @@ global static UTIL_Limits.LimitCheck soqlQueryRows()
 
 Returns a LimitCheck for SOQL query rows.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to SOQL query rows
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL query rows
 
-**Since:** 1.0
+</div>
 
 ### soslQueries
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Limits.LimitCheck soslQueries()
@@ -257,11 +290,13 @@ global static UTIL_Limits.LimitCheck soslQueries()
 
 Returns a LimitCheck for SOSL queries.
 
-**Returns:** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) - LimitCheck scoped to SOSL queries
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOSL queries
 
-**Since:** 1.0
+</div>
 
 ### toDebugString
+
+<div class="apex-member">
 
 ```apex
 global static String toDebugString()
@@ -269,13 +304,13 @@ global static String toDebugString()
 
 Returns a human-readable summary of all governor limits in the format "Label: used of maximum".
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Multi-line string with one line per limit type
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Multi-line string with one line per limit type
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String limitsDebug = UTIL_Limits.toDebugString();
 ```
+
+</div>
 
