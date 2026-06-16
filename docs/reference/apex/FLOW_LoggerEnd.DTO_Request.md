@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerEnd.DTO_Request
 ```
 
 Input parameters for ending Flow correlation.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -44,9 +46,7 @@ Input parameters for ending Flow correlation.
 
 Correlation ID from Start Flow Correlation
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.correlationId;
@@ -62,9 +62,7 @@ String value = instance.correlationId;
 
 Error message if Flow failed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.errorMessage;
@@ -80,9 +78,7 @@ String value = instance.errorMessage;
 
 Name of the Flow for logging
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.flowName;
@@ -98,9 +94,7 @@ String value = instance.flowName;
 
 Whether the Flow completed successfully
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.success;

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Email`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_SendEmail
 ```
 
 Provides an invocable entry point for sending emails via Salesforce Flow with advanced capabilities. Supports: Hybrid execution (Direct Apex or delegating to a secondary Flow). Custom Merge Fields (replacing [placeholder] text). Conditional Activity Logging (using standard TargetObjectId or the Workflow Engine).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_SendEmail.DTO_Request request = new FLOW_SendEmail.DTO_Request();
@@ -33,6 +33,8 @@ request.whatId = opportunityId;
 request.saveAsActivity = true;
 List<FLOW_SendEmail.DTO_Response> responses = FLOW_SendEmail.sendEmail(new List<FLOW_SendEmail.DTO_Request> {request});
 ```
+
+</div>
 
 ---
 

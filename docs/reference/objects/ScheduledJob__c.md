@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ScheduledJob__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class ScheduledJob__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Declarative scheduled job configuration. Each record defines a schedulable Apex class, cron expression, and activation status. The trigger framework automatically starts, stops, and monitors jobs based on record changes.
+
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_ApiIssue extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 
 Selector for the ApiIssue__c SObject. Provides query methods for retrieving and filtering failed API calls, including deduplication via request parameter hash and status-based filtering.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService('API_SendEmail');
@@ -33,6 +33,8 @@ ApiIssue__c issue = (ApiIssue__c)new SEL_ApiIssue().findById(issueId);
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

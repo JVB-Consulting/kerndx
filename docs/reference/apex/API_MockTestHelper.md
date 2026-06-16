@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_MockTestHelper
 ```
 
 Test helper for API mock verification. Provides assertion methods that delegate to API_MockFactory verification API with descriptive error messages.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.forService('API_SendEmail').body('{}').statusCode(200).register();
@@ -32,6 +32,8 @@ API_MockTestHelper.assertServiceCalledTimes('API_SendEmail', 1);
 ```
 
 **See Also:** [API_MockFactory](API_MockFactory.md)
+
+</div>
 
 ---
 

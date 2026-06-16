@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_GetPicklistValues.DTO_Request
 ```
 
 Request DTO containing the information required to retrieve picklist values.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -42,9 +44,7 @@ Request DTO containing the information required to retrieve picklist values.
 
 The object API name for the SObject whose picklist values are being retrieved.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.objectApiName;
@@ -60,9 +60,7 @@ String value = instance.objectApiName;
 
 The Record Type API name for which to retrieve specifically configured picklist values.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.recordTypeApiName;

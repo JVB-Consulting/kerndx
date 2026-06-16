@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SCHED_PerformBatchedCallouts implements Schedulable
 ```
@@ -22,13 +24,13 @@ global inherited sharing class SCHED_PerformBatchedCallouts implements Schedulab
 
 The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API calls that are queued for outbound processing. This class retrieves a list of queued API calls, updates their status to indicate readiness for processing, and commits the updates to the database. This enables efficient handling and scheduling of multiple API requests.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 System.schedule('Process Batched Callouts', '0 0 0 * * ?', new SCHED_PerformBatchedCallouts());
 ```
+
+</div>
 
 ---
 

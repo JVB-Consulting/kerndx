@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaFilter
 ```
 
 Class that can filter list of SObject based on Formula Information provided adapted from:apex-trigger-actions-framework
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_FormulaFilter filter = new UTIL_FormulaFilter(
@@ -30,6 +30,8 @@ UTIL_FormulaFilter filter = new UTIL_FormulaFilter(
 );
 UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newRecords);
 ```
+
+</div>
 
 ---
 

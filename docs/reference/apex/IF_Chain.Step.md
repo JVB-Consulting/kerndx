@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Chain.Step
 ```
@@ -19,7 +21,7 @@ global interface IF_Chain.Step
 
 Interface for defining the business logic of a single chain step. Each step receives a shared context and returns a result indicating success or failure.
 
-**Since:** 1.0
+</div>
 
 ---
 

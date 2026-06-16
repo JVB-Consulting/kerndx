@@ -14,20 +14,22 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_TypeResolver
 ```
 
 Utility class containing type resolution components for resolving Apex class types.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_TypeResolver.INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
 Type handlerType = resolver.resolveType('TRG_SetFoobarDefaults');
 ```
+
+</div>
 
 ---
 

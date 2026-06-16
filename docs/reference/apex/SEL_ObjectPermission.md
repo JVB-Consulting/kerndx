@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_ObjectPermission
 ```
 
 Provides methods for querying and evaluating user access permissions on Salesforce objects. Simplifies permission checks by exposing operations such as read or create access for single or multiple users via PermissionSetAssignment with semi-join into ObjectPermissions.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean canRead = SEL_ObjectPermission.hasReadAccess(userId, Account.SObjectType);
 Boolean canCreate = SEL_ObjectPermission.hasCreateAccess(userId, Case.SObjectType);
 Set<Id> readers = SEL_ObjectPermission.hasReadAccess(userIds, Account.SObjectType);
 ```
+
+</div>
 
 ---
 

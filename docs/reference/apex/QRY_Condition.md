@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Query Infrastructure`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Condition
 ```
@@ -32,9 +34,7 @@ that cannot be expressed with the fluent API alone (e.g., grouped OR conditions)
 
     - OrCondition/AndCondition: grouping conditions
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.Evaluable condition = new QRY_Condition.OrCondition()
@@ -46,6 +46,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 ```
 
 **See Also:** [QRY_Builder](QRY_Builder.md)
+
+</div>
 
 ---
 

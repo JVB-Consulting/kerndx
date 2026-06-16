@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class TST_InvokeFlowMock.MockBuilder
 ```
 
 Fluent builder for registering a mock flow response.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
@@ -27,6 +27,8 @@ TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
     .withOutputRecord(record)
     .register();
 ```
+
+</div>
 
 ---
 

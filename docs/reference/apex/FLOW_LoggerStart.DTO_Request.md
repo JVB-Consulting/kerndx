@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerStart.DTO_Request
 ```
 
 Input parameters for starting Flow correlation.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -43,9 +45,7 @@ Input parameters for starting Flow correlation.
 
 Additional context to include with the log entry
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.additionalContext;
@@ -61,9 +61,7 @@ String value = instance.additionalContext;
 
 Name of the Flow for logging
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.flowName;
@@ -79,9 +77,7 @@ String value = instance.flowName;
 
 Optional record ID for context
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.recordId;

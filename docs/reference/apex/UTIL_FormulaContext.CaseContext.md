@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaContext.CaseContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
@@ -19,9 +21,7 @@ global inherited sharing class UTIL_FormulaContext.CaseContext implements UTIL_F
 
 Formula evaluation context for Case object. Provides typed access to Case records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can also be used directly in custom Apex. Note: Class is named CaseContext because Case is an Apex reserved keyword. Formula Variable Names: oldRecord, newRecord
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Trigger Action Framework formulas:
@@ -40,6 +40,8 @@ Boolean matches = (Boolean)formula.evaluate(context);
 ```
 
 **See Also:** [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
+
+</div>
 
 ---
 
@@ -64,9 +66,7 @@ global Case newRecord
 
 Case record state AFTER DML (null on delete).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Case value = instance.newRecord;
@@ -82,9 +82,7 @@ global Case oldRecord
 
 Case record state BEFORE DML (null on insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Case value = instance.oldRecord;

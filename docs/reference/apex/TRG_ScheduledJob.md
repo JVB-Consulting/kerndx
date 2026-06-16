@@ -12,11 +12,15 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_ScheduledJob on ScheduledJob__c ( before insert, before update, before delete )
 ```
 
 TRG_ScheduledJob activated by saving Scheduled Job records (rule: 1 record per periodic job setting)
+
+</div>
 
 ---
 

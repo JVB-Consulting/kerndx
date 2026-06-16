@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Query Infrastructure`
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Queryable
 ```
@@ -22,9 +24,7 @@ global interface IF_Queryable
 
 Interface for any object that can execute a query. Implemented by QRY_Builder.Builder and SEL_Base. Allows polymorphic query execution across framework components such as batch jobs, async processors, and purge utilities.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class MyQueryable implements IF_Queryable
@@ -38,6 +38,8 @@ public class MyQueryable implements IF_Queryable
 ```
 
 **See Also:** [QRY_Builder](QRY_Builder.md), [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

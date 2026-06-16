@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class LOG_Builder.LogScope
 ```
 
 A logging scope that buffers log entries until closed. On creation, suspends immediate log publishing. On close, flushes all buffered logs and resumes publishing. Provides a simpler alternative to manual suspendSaving/flushBuffer/resumeSaving patterns.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 LOG_Builder.LogScope scope = LOG_Builder.scope();
@@ -27,6 +27,8 @@ LOG_Builder.build().debug('Step 1').at('BatchJob.execute').emit();
 LOG_Builder.build().debug('Step 2').at('BatchJob.execute').emit();
 scope.close();
 ```
+
+</div>
 
 ---
 

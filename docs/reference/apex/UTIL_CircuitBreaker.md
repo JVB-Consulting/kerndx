@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Resilience`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_CircuitBreaker
 ```
 
 Factory for creating circuit breaker instances to prevent cascading failures and provide fast failure when external services are unavailable. The circuit breaker has three states: CLOSED (normal operation), OPEN (failing fast), and HALF_OPEN (testing recovery). Features: Three-state circuit breaker pattern (CLOSED, OPEN, HALF_OPEN) Configurable failure threshold and timeout periods Automatic state transitions based on success/failure rates Integration with Platform Cache for distributed state management Per-service circuit breaker instances with shared state across transactions Detailed state tracking and metrics Convenient execute() helpers for protected actions Circuit States: CLOSED: Normal operation, requests pass through OPEN: Circuit is open, requests fail immediately without attempting the call HALF_OPEN: Testing if service has recovered, limited requests allowed through State Transitions: CLOSED → OPEN: When failure count exceeds threshold OPEN → HALF_OPEN: After timeout period expires HALF_OPEN → CLOSED: When success count indicates recovery HALF_OPEN → OPEN: When failures continue
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Example 1: Simple usage with execute() helper (RECOMMENDED)
 
@@ -71,6 +71,8 @@ if(!breaker.allowRequest())
 ```
 
 **See Also:** [API_Outbound](API_Outbound.md), [UTIL_Cache](UTIL_Cache.md), [UTIL_Retry](UTIL_Retry.md)
+
+</div>
 
 ---
 

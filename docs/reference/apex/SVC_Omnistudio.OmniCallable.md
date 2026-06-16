@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface SVC_Omnistudio.OmniCallable
 ```
 
 A global inner interface that allows the SVC_Omnistudio class to instantiate a class and perform an operation within the Omnistudio framework. Classes implementing this interface are expected to define the call method to execute custom logic using provided parameters.
 
-**Since:** 1.0
+</div>
 
 ---
 

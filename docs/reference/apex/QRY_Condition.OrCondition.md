@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Condition.OrCondition extends QRY_Condition.ConditionGroup
 ```
@@ -19,15 +21,15 @@ global inherited sharing class QRY_Condition.OrCondition extends QRY_Condition.C
 
 Represents a SOQL "OR" condition group.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.OrCondition group = new QRY_Condition.OrCondition();
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Pending'));
 ```
+
+</div>
 
 ---
 

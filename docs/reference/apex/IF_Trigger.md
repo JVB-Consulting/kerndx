@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class IF_Trigger
 ```
 
 Contracts for metadata-driven trigger action handlers. Each nested interface corresponds to a Salesforce trigger event and defines the callback signature that handler classes must implement. Handlers extend TRG_Base and declare the interfaces matching the events they handle; the TRG_Dispatcher invokes the correct callback at runtime based on TriggerAction__mdt configuration. Adapted from: apex-trigger-actions-framework
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
@@ -38,6 +38,8 @@ public class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 ```
 
 **See Also:** [TRG_Base](TRG_Base.md)
+
+</div>
 
 ---
 

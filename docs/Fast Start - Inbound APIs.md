@@ -714,9 +714,7 @@ After completing this guide, you understand the **inbound API architecture** in 
 
 ## Next Steps
 
-| Topic                       | Link                                                                    |
-|-----------------------------|-------------------------------------------------------------------------|
-| Building Outbound APIs      | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)     |
-| Feature Flag Gating         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)     |
-| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md)                   |
-| Data Masking                | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |
+- [Building Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)
+- [Feature Flag Gating](Fast%20Start%20-%20Feature%20Flags.md)
+- [Complete Web Services Guide](Web%20Services%20-%20Guide.md)
+- [Data Masking](Web%20Services%20-%20Guide.md#advanced-features)

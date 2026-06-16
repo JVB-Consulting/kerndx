@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Bulk DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SCHED_PurgeRecords extends SCHED_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SCHED_PurgeRecords extends SCHED_Base
 
 A scheduled job that deletes records from a specified Salesforce object based on age or all records, configurable via attributes.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SCHED_PurgeRecords job = new SCHED_PurgeRecords();
@@ -36,6 +36,8 @@ System.schedule('Purge Old Logs', '0 0 1 * * ?', job);
 ```
 
 **See Also:** [SCHED_Base](SCHED_Base.md), [UTIL_PurgeRecords](UTIL_PurgeRecords.md)
+
+</div>
 
 ---
 

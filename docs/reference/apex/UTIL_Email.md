@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Email`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Email
 ```
 
 Utility class for validating and sending emails within the Salesforce platform. Includes a unicode-aware email validation pattern and a two-step deliverability detection mechanism.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean valid = UTIL_Email.isValidEmailAddress('user@example.com');
 UTIL_Email.sendEmail(new List<String>{'admin@example.com'}, 'Alert', 'System notification body', false, null);
 UTIL_Email.DeliverabilityAccessLevel level = UTIL_Email.getEmailDeliverabilityAccessLevel();
 ```
+
+</div>
 
 ---
 

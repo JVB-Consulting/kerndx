@@ -8,6 +8,7 @@
 
 const ALLOWED = /<\/?(?:br|hr|img|a|sub|sup|kbd|code|em|strong|b|i|u|small|mark|del|ins|div|span|p|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6]|details|summary|blockquote|pre)\b(?:"[^"]*"|'[^']*'|[^<>])*>/gi;
 const SENTINEL = String.fromCharCode(0);
+const BLOCKQUOTE = String.fromCharCode(1);
 
 // Replace {{ / }} with HTML entities so Vue never reads them as a mustache. The entities
 // decode to the same braces in the rendered DOM, so the visible/copyable text is unchanged.
@@ -43,7 +44,14 @@ export function escapeAngles(md)
 			tags.push(m);
 			return `${SENTINEL}${tags.length - 1}${SENTINEL}`;
 		});
+		// Protect blockquote markers before escaping. A '>' at line start (CommonMark allows
+		// up to three leading spaces, and one or more '>' for nesting) is a blockquote marker,
+		// not a generic close — escaping it to &gt; turns every multi-line blockquote into a
+		// literal-'>' paragraph and collapses any list inside it. Generic '>' mid-line still
+		// escapes normally.
+		s = s.replace(/^[ \t]{0,3}(?:>[ \t]?)+/gm, (m) => m.replace(/>/g, BLOCKQUOTE));
 		s = s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		s = s.replace(new RegExp(BLOCKQUOTE, 'g'), '>');
 		s = s.replace(new RegExp(`${SENTINEL}(\\d+)${SENTINEL}`, 'g'), (_m, n) => tags[Number(n)]);
 		s = neutralizeMustache(s);
 		return s;

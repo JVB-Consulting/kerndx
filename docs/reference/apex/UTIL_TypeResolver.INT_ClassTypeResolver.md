@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_TypeResolver.INT_ClassTypeResolver
 ```
@@ -19,7 +21,7 @@ global interface UTIL_TypeResolver.INT_ClassTypeResolver
 
 Interface for resolving Type objects from class names and chaining resolvers. Custom resolvers must be exception-safe. The default chain implementation (PackageClassResolver.resolveType) delegates to nextResolver?.resolveType(...) via the ?? operator and DOES NOT catch and fall through on exception. A custom resolver that throws will propagate the exception to the caller, bypassing any later resolver in the chain. Implementations should either return null for "I cannot resolve this — try the next resolver" OR catch their own exceptions and convert them to null before returning.
 
-**Since:** 1.0
+</div>
 
 ---
 

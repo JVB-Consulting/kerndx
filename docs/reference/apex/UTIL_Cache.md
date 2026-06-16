@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Cache
 ```
@@ -57,9 +59,7 @@ custom object instead and use SOQL `FOR UPDATE` row locks; that is the only Sale
 primitive. See "Don't Use Cache for Counters or Semaphores" in the Utilities Developer Guide
 (Platform Cache Framework → Best Practices) for the full pattern with the seed-the-row prerequisite.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Cache.Store cache = UTIL_Cache.org();
@@ -68,6 +68,8 @@ Object cached = cache.get('configKey');
 ```
 
 **See Also:** [UTIL_System](UTIL_System.md)
+
+</div>
 
 ---
 

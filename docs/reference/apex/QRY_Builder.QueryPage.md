@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class QRY_Builder.QueryPage
 ```
 
 Result container for paged queries, providing records and pagination metadata.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -104,9 +106,7 @@ global Database.PaginationCursor cursor
 The PaginationCursor state for LWC round-trips.
 Can be passed back to the server for stable pagination across requests.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)
@@ -125,9 +125,7 @@ global Integer deletedRecords
 Number of records deleted since the cursor was created.
 Useful for detecting data changes between page fetches.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)
@@ -145,9 +143,7 @@ global Integer pageNumber
 
 The current page number (1-based).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)
@@ -165,9 +161,7 @@ global Integer pageSize
 
 Number of records per page.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)
@@ -185,9 +179,7 @@ global List<SObject> records
 
 The records for the requested page.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)
@@ -205,9 +197,7 @@ global Integer totalRecords
 
 Total number of records matching the query criteria.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Account.SObjectType)

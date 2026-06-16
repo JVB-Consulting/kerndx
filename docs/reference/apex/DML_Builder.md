@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class DML_Builder
 ```
 
 Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a terminal method to commit all operations via DML_Transaction.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.TransactionResult result = DML_Builder.newTransaction()
@@ -34,6 +34,8 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 ```
 
 **See Also:** [DML_Transaction](DML_Transaction.md)
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_BypassValidation.DTO_Request
 ```
 
 Request DTO for the Bypass Validation invocable action. Specifies which validation rules to bypass by type (object, group, or rule) and name.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -51,8 +53,6 @@ Defaults to OBJECT_NAME if not specified.
 
 To clear bypasses, use the FLOW_ClearValidationBypass action instead.
 
-**Since:** 1.0
-
 ### name
 
 ```apex
@@ -68,6 +68,4 @@ The name of the object, group, or rule to bypass. Interpretation depends on bypa
     For RULE_NAME: The ValidationRule__mdt DeveloperName
 
 Required for all bypass types.
-
-**Since:** 1.0
 

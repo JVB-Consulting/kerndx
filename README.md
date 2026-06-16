@@ -21,22 +21,22 @@ One managed package, but not all-or-nothing: switch on the parts that fit your s
 
 ### Came here looking for…
 
-| If you want | KernDX gives you | Try it in 30 min |
-|---|---|---|
-| **Trigger framework** | metadata-driven + audit-logged bypass + 4-level kill switch + recursion control | [Fast Start - Trigger Actions](./docs/Fast%20Start%20-%20Trigger%20Actions.md) |
-| **SOQL query builder** | FLS-enforced by default + audited bypass + fluent API + subclassable | [Fast Start - Selectors](./docs/Fast%20Start%20-%20Selectors.md) |
-| **DML wrapper** | `USER_MODE` default + transactional batching + async DML + dependency graph | [Fast Start - DML](./docs/Fast%20Start%20-%20DML.md) |
-| **Outbound HTTP** | retry / circuit-breaker / idempotency body-hash / dead-letter queue | [Fast Start - Outbound APIs](./docs/Fast%20Start%20-%20Outbound%20APIs.md) |
-| **Inbound REST** | two-class routing pattern + DTO marshalling + body-hash 409 on replay | [Fast Start - Inbound APIs](./docs/Fast%20Start%20-%20Inbound%20APIs.md) |
-| **Logging** | platform-event transport + correlation IDs threaded across triggers/async/HTTP | [Fast Start - Logging](./docs/Fast%20Start%20-%20Logging.md) |
-| **Async orchestration** | chained Queueables + shared state + finalizer recovery + Chain Monitor LWC | [Fast Start - Async Processing](./docs/Fast%20Start%20-%20Async%20Processing.md) |
-| **Test data factory** | builder pattern + parent-child wiring + DML-free selector mocks | [Fast Start - Test Data](./docs/Fast%20Start%20-%20Test%20Data.md) |
-| **Feature flags** | metadata + per-user/profile + Apex/Flow/LWC + pluggable strategies | [Fast Start - Feature Flags](./docs/Fast%20Start%20-%20Feature%20Flags.md) |
-| **Custom validations** | metadata-driven + shadow mode + 3-level bypass — zero Apex | [Fast Start - Custom Validations](./docs/Fast%20Start%20-%20Custom%20Validations.md) |
-| **Resilient callouts** | retry + exponential backoff + circuit breaker on any callout, no boilerplate | [Fast Start - Resilience](./docs/Fast%20Start%20-%20Resilience.md) |
-| **Secure data access** | `USER_MODE` CRUD/FLS enforced on every read and write by default | [Fast Start - Security](./docs/Fast%20Start%20-%20Security.md) |
-| **Data masking** | write-time field redaction on a configurable field set + a Data Masking Advisor to scan, deploy config, and inventory regulated fields | [Fast Start - Data Masking](./docs/Fast%20Start%20-%20Data%20Masking.md) |
-| **LWC components** | base class with toasts, Apex calls, navigation, and logging wired in | [Fast Start - LWC](./docs/Fast%20Start%20-%20LWC.md) |
+Each has a Fast Start you can finish in under 30 minutes — jump to the one you came for:
+
+- **Trigger framework** — metadata-driven, audit-logged bypass, 4-level kill switch, recursion control. [Fast Start →](./docs/Fast%20Start%20-%20Trigger%20Actions.md)
+- **SOQL query builder** — FLS-enforced by default, audited bypass, fluent API, subclassable. [Fast Start →](./docs/Fast%20Start%20-%20Selectors.md)
+- **DML wrapper** — `USER_MODE` by default, transactional batching, async DML, dependency graph. [Fast Start →](./docs/Fast%20Start%20-%20DML.md)
+- **Outbound HTTP** — retry, circuit breaker, idempotency body-hash, dead-letter queue. [Fast Start →](./docs/Fast%20Start%20-%20Outbound%20APIs.md)
+- **Inbound REST** — two-class routing pattern, DTO marshalling, body-hash 409 on replay. [Fast Start →](./docs/Fast%20Start%20-%20Inbound%20APIs.md)
+- **Logging** — platform-event transport, correlation IDs threaded across triggers, async, and HTTP. [Fast Start →](./docs/Fast%20Start%20-%20Logging.md)
+- **Async orchestration** — chained Queueables, shared state, finalizer recovery, Chain Monitor LWC. [Fast Start →](./docs/Fast%20Start%20-%20Async%20Processing.md)
+- **Test data factory** — builder pattern, parent-child wiring, DML-free selector mocks. [Fast Start →](./docs/Fast%20Start%20-%20Test%20Data.md)
+- **Feature flags** — metadata-driven, per-user/profile, Apex/Flow/LWC, pluggable strategies. [Fast Start →](./docs/Fast%20Start%20-%20Feature%20Flags.md)
+- **Custom validations** — metadata-driven, shadow mode, 3-level bypass, zero Apex. [Fast Start →](./docs/Fast%20Start%20-%20Custom%20Validations.md)
+- **Resilient callouts** — retry, exponential backoff, and circuit breaker on any callout, no boilerplate. [Fast Start →](./docs/Fast%20Start%20-%20Resilience.md)
+- **Secure data access** — `USER_MODE` CRUD/FLS enforced on every read and write by default. [Fast Start →](./docs/Fast%20Start%20-%20Security.md)
+- **Data masking** — write-time field redaction on a configurable field set, plus a Data Masking Advisor to scan, deploy config, and inventory regulated fields. [Fast Start →](./docs/Fast%20Start%20-%20Data%20Masking.md)
+- **LWC components** — a base class with toasts, Apex calls, navigation, and logging wired in. [Fast Start →](./docs/Fast%20Start%20-%20LWC.md)
 
 → Comparing against alternatives? [Choosing a Framework](./docs/Strategic%20Guide%20-%20Choosing%20a%20Framework.md) covers head-to-head trade-offs vs `taf`, `fflib`, `rflib`, `nebula-logger`, `apex-libra`, the [Apex Fluently](https://github.com/beyond-the-cloud-dev) libraries, and `fflib-mocks`.
 

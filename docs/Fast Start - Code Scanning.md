@@ -341,12 +341,10 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 
 ## Next Steps
 
-| Topic                                             | Link                                                                    |
-|---------------------------------------------------|-------------------------------------------------------------------------|
-| Code Scanning Guide (CI/CD recipes, custom rules) | [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md)                 |
-| Fast Start - Selectors                            | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)               |
-| Fast Start - DML                                  | [Fast Start - DML](Fast%20Start%20-%20DML.md)                           |
-| Fast Start - Logging                              | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                   |
-| Fast Start - Trigger Actions                      | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) |
-| Fast Start - Test Data                            | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)             |
-| Fast Start - Outbound APIs                        | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)     |
+- [Code Scanning Guide (CI/CD recipes, custom rules)](Code%20Scanning%20-%20Guide.md)
+- [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)
+- [Fast Start - DML](Fast%20Start%20-%20DML.md)
+- [Fast Start - Logging](Fast%20Start%20-%20Logging.md)
+- [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)
+- [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)

@@ -12,6 +12,8 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_AsyncChainExecution on AsyncChainExecution__c ( before insert, before update )
 ```
@@ -19,6 +21,8 @@ trigger TRG_AsyncChainExecution on AsyncChainExecution__c ( before insert, befor
 Trigger on AsyncChainExecution__c. Fires the configured trigger actions for data masking before insert and update so context data, step logs, and error messages persisted across the chain's Queueable transactions are redacted before storage.
 
 **See Also:** [AsyncChainExecution__c](../objects/AsyncChainExecution__c.md)
+
+</div>
 
 ---
 

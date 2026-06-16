@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_GetPicklistValues
 ```
 
 Invocable method to get all the picklist values for a particular object for a given record type. Delegates to UTIL_SObjectDescribe for ConnectApi retrieval and transformation. Caches responses in org cache to reduce repeated ConnectApi calls for the same requests.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_GetPicklistValues.DTO_Request request = new FLOW_GetPicklistValues.DTO_Request();
@@ -33,6 +33,8 @@ List<DTO_PickList> pickLists = responses[0].pickLists;
 ```
 
 **See Also:** [DTO_PickList](DTO_PickList.md), [DTO_PicklistValue](DTO_PicklistValue.md), [UTIL_SObjectDescribe](UTIL_SObjectDescribe.md)
+
+</div>
 
 ---
 

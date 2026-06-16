@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 @JsonAccess(serializable='always' deserializable='always') global virtual class DTO_BaseTable extends DTO_JsonBase
 ```
@@ -22,9 +24,7 @@ category: apex
 
 A Data Transfer Object (DTO) class that structures webservice handler responses into a common table format, providing column and row handling for a unified data view. Supports functionality for dynamic column definition and row addition.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_BaseTable table = new DTO_BaseTable();
@@ -32,6 +32,8 @@ table.addColumn('Account Name', 'name', 'text', true);
 table.addColumn('Revenue', 'revenue', 'currency');
 table.addRow(new Map<String, Object>{'name' => 'Acme Corp', 'revenue' => 50000});
 ```
+
+</div>
 
 ---
 
@@ -196,9 +198,7 @@ global transient List<DTO_BaseTable.DTO_Column> tableColumns
 
 List of table columns within this table
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_BaseTable table = new DTO_BaseTable();
@@ -217,9 +217,7 @@ global transient List<Object> tableRows
 
 List of table rows within this table
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_BaseTable table = new DTO_BaseTable();

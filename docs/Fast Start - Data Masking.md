@@ -338,12 +338,10 @@ Knowing the boundaries keeps you from reaching for masking where a different con
 
 ## Next Steps
 
-| Topic                                        | Link                                                                     |
-|----------------------------------------------|--------------------------------------------------------------------------|
-| Data Masking Developer Guide                 | [Data Masking - Guide](Data%20Masking%20-%20Guide.md)                    |
-| Masking in the broader security picture      | [Security - Guide](Security%20-%20Guide.md#data-masking)                 |
-| `ApplyMasking__c` and the trigger framework  | [Triggers - Guide](Triggers%20-%20Guide.md)                              |
-| Put an object on the trigger framework       | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)  |
-| A worked masking example on outbound callouts | [Web Services - Guide](Web%20Services%20-%20Guide.md)                    |
-| The Data Masking Advisor component family    | [LWC - Guide](LWC%20-%20Guide.md)                                        |
-| `MaskingRule__mdt` and `MaskingTarget__mdt` schema | [Objects & Metadata - Guide](Objects%20%26%20Metadata%20-%20Guide.md) |
+- [Data Masking Developer Guide](Data%20Masking%20-%20Guide.md)
+- [Masking in the broader security picture](Security%20-%20Guide.md#data-masking)
+- [`ApplyMasking__c` and the trigger framework](Triggers%20-%20Guide.md)
+- [Put an object on the trigger framework](Fast%20Start%20-%20Trigger%20Actions.md)
+- [A worked masking example on outbound callouts](Web%20Services%20-%20Guide.md)
+- [The Data Masking Advisor component family](LWC%20-%20Guide.md)
+- [`MaskingRule__mdt` and `MaskingTarget__mdt` schema](Objects%20%26%20Metadata%20-%20Guide.md)

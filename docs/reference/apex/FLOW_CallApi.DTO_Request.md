@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CallApi.DTO_Request
 ```
 
 Data Transfer Object representing the web service call request.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -46,8 +48,6 @@ Data Transfer Object representing the web service call request.
 
 The full class name of the API handler to invoke.
 
-**Since:** 1.0
-
 ### extractPath
 
 ```apex
@@ -57,8 +57,6 @@ The full class name of the API handler to invoke.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 A JSONPath expression to extract a specific element from the response body.
-
-**Since:** 1.0
 
 ### idempotencyKey
 
@@ -70,8 +68,6 @@ A JSONPath expression to extract a specific element from the response body.
 
 Explicit idempotency key for duplicate detection. If blank, auto-generated when enabled.
 
-**Since:** 1.0
-
 ### inputDelimiter
 
 ```apex
@@ -81,8 +77,6 @@ Explicit idempotency key for duplicate detection. If blank, auto-generated when 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The delimiter used to split input parameters, defaults to a comma.
-
-**Since:** 1.0
 
 ### inputs
 
@@ -94,8 +88,6 @@ The delimiter used to split input parameters, defaults to a comma.
 
 A comma-delimited list of parameters in the format paramName=paramValue.
 
-**Since:** 1.0
-
 ### recordId
 
 ```apex
@@ -105,6 +97,4 @@ A comma-delimited list of parameters in the format paramName=paramValue.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The ID of the record triggering the callout.
-
-**Since:** 1.0
 

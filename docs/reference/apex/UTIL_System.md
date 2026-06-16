@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_System
 ```
 
 Namespace, type resolution, and platform utility methods. Provides runtime introspection for managed package namespace detection, class type resolution, API version retrieval, and session management.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String namespace = UTIL_System.getManagedPackageNamespace();
 Type handlerType = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults');
 Type validated = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults', IF_Trigger.BeforeInsert.class);
 ```
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CallApiAsync
 ```
 
 Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed outside of immediate flows or triggers. Leverages the adaptive asynchronous processor to manage API requests efficiently.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> apiCalls = new List<ApiCall__c>();
@@ -30,6 +30,8 @@ ApiCall__c apiCall = TST_Factory.newOutboundApiCall('API_GetCustomerInfo', recor
 apiCalls.add(apiCall);
 FLOW_CallApiAsync.invokeApiCallAsynchronously(apiCalls);
 ```
+
+</div>
 
 ---
 

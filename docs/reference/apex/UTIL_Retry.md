@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Resilience`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Retry
 ```
 
 Factory for retry strategies with nested interface definitions. Provides a clean API for creating and configuring retry strategies with exponential or linear backoff. This factory pattern reduces namespace pollution by nesting the interface inside the factory class. Features: Nested interfaces for clean type organization Fluent configuration API Standard implementations (exponential, linear) Custom strategy support via interface Jitter support to prevent thundering herd
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Example 1: Simple exponential backoff
 
@@ -62,6 +62,8 @@ public class RateLimitStrategy implements UTIL_Retry.Strategy
     // Implement fluent setters...
 }
 ```
+
+</div>
 
 ---
 

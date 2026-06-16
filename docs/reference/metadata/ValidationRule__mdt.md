@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ValidationRule__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class ValidationRule__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Defines an individual validation rule with a formula-based condition, error message, and configuration options. Rules are grouped by ValidationRuleGroup__mdt and evaluated during trigger execution.
+
+</div>
 
 ---
 

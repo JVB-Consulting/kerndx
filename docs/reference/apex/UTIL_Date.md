@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Date
 ```
 
 Provides date and datetime helper operations such as business day arithmetic, weekday/weekend checks, ISO 8601 serialization, cron generation, and date formatting.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Date nextBusinessDay = UTIL_Date.addBusinessDays(Date.today(), 5);
@@ -30,6 +30,8 @@ Boolean weekend = UTIL_Date.isWeekend(Date.today());
 String cron = UTIL_Date.getCronExpression(Datetime.now().addHours(1));
 String iso = UTIL_Date.toIso8601(Date.today());
 ```
+
+</div>
 
 ---
 

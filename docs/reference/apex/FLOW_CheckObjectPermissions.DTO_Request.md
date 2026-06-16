@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckObjectPermissions.DTO_Request
 ```
 
 DTO containing the name of the object for which to object permissions
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -40,6 +42,4 @@ DTO containing the name of the object for which to object permissions
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the object for which to check permissions.
-
-**Since:** 1.0
 

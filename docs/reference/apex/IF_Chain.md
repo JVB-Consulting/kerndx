@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Async`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class IF_Chain
 ```
 
 A container for shared global interfaces used by the async chain orchestration framework. Subscribers implement these interfaces to define chain step logic and conditional branching.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class MyStep implements IF_Chain.Step
@@ -36,6 +36,8 @@ public class MyStep implements IF_Chain.Step
 ```
 
 **See Also:** [UTIL_AsyncChain](UTIL_AsyncChain.md)
+
+</div>
 
 ---
 

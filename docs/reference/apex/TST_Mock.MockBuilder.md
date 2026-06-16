@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TST_Mock.MockBuilder
 ```
 
 Fluent builder wrapper that delegates to TST_Builder.Builder for record construction and auto-registers built records with TST_Mock.
 
-**Since:** 1.0
+</div>
 
 ---
 

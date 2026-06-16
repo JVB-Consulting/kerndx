@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Async Processing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsynchronousJobLauncher
 ```
 
 Provides a simplified, static entry point for running complex asynchronous jobs using the UTIL_AdaptiveAsynchronousProcessor engine.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> items = new List<Object>{ 'item1', 'item2', 'item3' };
@@ -31,6 +31,8 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(items, processor, 50);
 ```
 
 **See Also:** [IF_Async](IF_Async.md)
+
+</div>
 
 ---
 

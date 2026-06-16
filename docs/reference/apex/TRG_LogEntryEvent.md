@@ -12,11 +12,15 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_LogEntryEvent on LogEntryEvent__e (after insert)
 ```
 
 Log entry event trigger for handling log events
+
+</div>
 
 ---
 

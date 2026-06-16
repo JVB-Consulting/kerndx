@@ -14,17 +14,19 @@ category: apex
 
 **Class** · Group: `Logging`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerEnd
 ```
 
 Ends a logging correlation for a Flow. Use this at the end of a Flow to log completion status.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 `In Flow Builder: ` Add "End Flow Correlation" action at the end of your Flow Pass the Correlation ID from "Start Flow Correlation" Set Flow Name and Success status `Optionally set Error Message if the Flow failed `
+
+</div>
 
 ---
 

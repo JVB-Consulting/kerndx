@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global abstract class UTIL_TypeResolver.BaseClassResolver implements UTIL_TypeResolver.INT_ClassTypeResolver
 ```
@@ -21,9 +23,9 @@ global abstract class UTIL_TypeResolver.BaseClassResolver implements UTIL_TypeRe
 
 Abstract base class for implementing custom type resolvers, typically registered via custom metadata.
 
-**Since:** 1.0
-
 **See Also:** [ClassTypeResolver__mdt](../metadata/ClassTypeResolver__mdt.md)
+
+</div>
 
 ---
 
@@ -84,9 +86,7 @@ global UTIL_TypeResolver.INT_ClassTypeResolver nextResolver
 
 Holds the reference to the next resolver in the chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 INT_ClassTypeResolver value = instance.nextResolver;

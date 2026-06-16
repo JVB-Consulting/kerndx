@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaContext.AccountContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
@@ -30,9 +32,7 @@ directly in custom Apex code for any formula evaluation scenario.
 
     - `newRecord` - Account state after DML
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // --- Trigger Action Framework Usage ---
@@ -59,6 +59,8 @@ for(Account account : accounts)
 
 **See Also:** [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
 
+</div>
+
 ---
 
 ## Fields
@@ -83,9 +85,7 @@ global Account newRecord
 The Account record state AFTER the DML operation.
 Contains the record with all field values as they will be saved to the database.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account value = instance.newRecord;
@@ -103,9 +103,7 @@ The Account record state BEFORE the DML operation.
 This property is null during insert operations since no prior record exists.
 Use oldRecord.Id = null in formulas to detect insert operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account value = instance.oldRecord;

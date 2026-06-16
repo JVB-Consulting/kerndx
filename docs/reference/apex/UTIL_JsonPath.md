@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_JsonPath
 ```
 
 Utility class to streamline parsing nested JSON data structures. Provides methods to navigate and extract data from JSON using dot notation paths, with support for type-safe value retrieval and existence checks. Adapted from open-force.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_JsonPath json = new UTIL_JsonPath('{"account": {"name": "Acme", "active": true}}');
@@ -30,6 +30,8 @@ String name = json.get('account.name').getStringValue();
 Boolean active = json.get('account.active').getBooleanValue();
 Boolean exists = json.exists('account.name');
 ```
+
+</div>
 
 ---
 

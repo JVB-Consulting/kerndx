@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum QRY_Condition.Operator
 ```
 
 SOQL comparison operators used to build query conditions. Operator SOQL Description EQUALS = Equal to NOT_EQUALS != Not equal to LESS_THAN < Less than LESS_THAN_OR_EQUAL_TO <= Less than or equal to GREATER_THAN > Greater than GREATER_THAN_OR_EQUAL_TO >= Greater than or equal to LIKE_X LIKE Pattern matching IN_X IN Value in set NOT_IN NOT IN Value not in set INCLUDES INCLUDES Multi-select picklist includes EXCLUDES EXCLUDES Multi-select picklist excludes
 
-**Since:** 1.0
+</div>
 
 ---
 

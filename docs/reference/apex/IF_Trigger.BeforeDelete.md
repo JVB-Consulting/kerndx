@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Trigger.BeforeDelete
 ```
@@ -19,7 +21,7 @@ global interface IF_Trigger.BeforeDelete
 
 Handler contract for the before-delete trigger event.
 
-**Since:** 1.0
+</div>
 
 ---
 

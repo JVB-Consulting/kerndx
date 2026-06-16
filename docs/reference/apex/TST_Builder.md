@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TST_Builder
 ```
@@ -22,9 +24,7 @@ global inherited sharing class TST_Builder
 
 An advanced factory for creating and inserting SObject records for Apex tests. This class provides a flexible way to generate test data, automatically handling required fields and complex object relationships using a fluid builder pattern.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType).build();
@@ -35,6 +35,8 @@ List<SObject> accounts = TST_Builder.of(Account.SObjectType).withCount(5).buildL
 ```
 
 **See Also:** [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md)
+
+</div>
 
 ---
 

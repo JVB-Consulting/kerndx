@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_ValidationRule.INT_BulkValidationContext
 ```
 
 Optional interface for bulk-optimized validation contexts. Implement this in addition to INT_SObjectFormulaEvaluationContext when your context class needs to query related data. The preLoad() method is called once per batch of records BEFORE the record loop, allowing you to perform bulk queries and cache results for use in setContext().
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class VAL_AccountWithContactsContext
@@ -48,6 +48,8 @@ global class VAL_AccountWithContactsContext
     }
 }
 ```
+
+</div>
 
 ---
 

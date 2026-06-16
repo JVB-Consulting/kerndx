@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaContext.FoobarContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
@@ -19,9 +21,7 @@ global inherited sharing class UTIL_FormulaContext.FoobarContext implements UTIL
 
 Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in formula evaluations. This context class enables comprehensive testing of formula evaluation functionality within the managed package without requiring subscriber-created classes. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can also be used directly in custom Apex for testing purposes. Formula Variable Names: oldRecord, newRecord
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Trigger Action Framework formulas:
@@ -40,6 +40,8 @@ Boolean matches = (Boolean)formula.evaluate(context);
 ```
 
 **See Also:** [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
+
+</div>
 
 ---
 
@@ -64,9 +66,7 @@ global Foobar__c newRecord
 
 Foobar__c record state AFTER DML (null on delete).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c value = instance.newRecord;
@@ -82,9 +82,7 @@ global Foobar__c oldRecord
 
 Foobar__c record state BEFORE DML (null on insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c value = instance.oldRecord;

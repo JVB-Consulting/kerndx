@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ScheduleSetting__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class ScheduleSetting__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Stores runtime state for scheduled jobs, such as the last successful execution time. Used by scheduled jobs for incremental processing.
+
+</div>
 
 ---
 

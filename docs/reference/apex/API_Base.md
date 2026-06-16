@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global abstract inherited sharing class API_Base extends DML_Transaction
 ```
@@ -24,9 +26,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 Base class for all API web service calls (outbound and inbound). Provides common functionality for HTTP request handling, error management, and data persistence.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class API_MyService extends API_Outbound
@@ -38,6 +38,8 @@ public class API_MyService extends API_Outbound
     }
 }
 ```
+
+</div>
 
 ---
 

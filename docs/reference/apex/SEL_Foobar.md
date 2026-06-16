@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_Foobar extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_Foobar extends SEL_Base
 
 Selector for the Foobar__c SObject. Provides query methods and field/metadata constants for the framework's test data object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c record = (Foobar__c)new SEL_Foobar().findById(recordId);
@@ -33,6 +33,8 @@ List<Foobar__c> records = new SEL_Foobar().findByField(Foobar__c.Picklist__c, 'A
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing abstract class UTIL_AsyncChain.ChainStep implements IF_Chain.Step
 ```
@@ -21,9 +23,7 @@ global inherited sharing abstract class UTIL_AsyncChain.ChainStep implements IF_
 
 Abstract base class for individual steps in an async chain. Each step runs in its own Queueable transaction, providing governor limit isolation.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class LoadDataStep extends UTIL_AsyncChain.ChainStep
@@ -36,6 +36,8 @@ public class LoadDataStep extends UTIL_AsyncChain.ChainStep
     }
 }
 ```
+
+</div>
 
 ---
 
@@ -110,6 +112,4 @@ global String stepName
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 Optional step name for identification in logs and status.
-
-**Since:** 1.0
 

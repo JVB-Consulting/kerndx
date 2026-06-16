@@ -554,12 +554,10 @@ After completing this guide, you understand **secure-by-default data access** in
 
 ## Next Steps
 
-| Topic                                        | Link                                                                |
-|----------------------------------------------|---------------------------------------------------------------------|
-| Selectors (secure query patterns)            | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)           |
-| DML Builder (secure writes)                  | [Fast Start - DML](Fast%20Start%20-%20DML.md)                       |
-| Test Data Patterns                           | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)         |
-| Code Scanning (catch security anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Complete Security Guide                      | [Security - Guide](Security%20-%20Guide.md)                         |
-| QRY_Builder Reference                        | [reference/apex/QRY_Builder.md](reference/apex/QRY_Builder.md)      |
-| DML_Builder Reference                        | [reference/apex/DML_Builder.md](reference/apex/DML_Builder.md)      |
+- [Selectors (secure query patterns)](Fast%20Start%20-%20Selectors.md)
+- [DML Builder (secure writes)](Fast%20Start%20-%20DML.md)
+- [Test Data Patterns](Fast%20Start%20-%20Test%20Data.md)
+- [Code Scanning (catch security anti-patterns)](Fast%20Start%20-%20Code%20Scanning.md)
+- [Complete Security Guide](Security%20-%20Guide.md)
+- [QRY_Builder Reference](reference/apex/QRY_Builder.md)
+- [DML_Builder Reference](reference/apex/DML_Builder.md)

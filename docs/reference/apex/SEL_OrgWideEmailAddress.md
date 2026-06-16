@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_OrgWideEmailAddress extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_OrgWideEmailAddress extends SEL_Base
 
 Selector for the OrgWideEmailAddress SObject. Provides query methods for retrieving organization-wide email addresses configured in Salesforce.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<OrgWideEmailAddress> addresses = new SEL_OrgWideEmailAddress().findByName(new Set<String>{'noreply@company.com'});
@@ -32,6 +32,8 @@ OrgWideEmailAddress randomAddress = (OrgWideEmailAddress)new SEL_OrgWideEmailAdd
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

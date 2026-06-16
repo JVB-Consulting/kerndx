@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extends TST_Builder.DefaultValueProvider
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 
 Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS class to override default values or define custom required fields for SObjects.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class MyDefaultProvider extends UTIL_SObjectBuilderDefaultProvider
@@ -41,6 +41,8 @@ global class MyDefaultProvider extends UTIL_SObjectBuilderDefaultProvider
 ```
 
 **See Also:** [TST_Builder](TST_Builder.md)
+
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing virtual class TRG_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing virtual class TRG_Base
 
 The base class for trigger actions, designed to be extended and implement relevant interfaces. This class provides the core functionality for executing trigger actions based on the trigger context, with support for bypassing specific SObject types. It is adapted from the apex-trigger-actions-framework.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
@@ -43,6 +43,8 @@ public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_T
 ```
 
 **See Also:** [TRG_Dispatcher](TRG_Dispatcher.md), [IF_Trigger](IF_Trigger.md)
+
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Schedulables`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SCHED_ProcessLoginHistory implements Schedulable
 ```
@@ -22,13 +24,13 @@ global inherited sharing class SCHED_ProcessLoginHistory implements Schedulable
 
 Scheduled job that runs daily to process login history data. Launches PROC_LoginFrequencyAggregator via the adaptive async framework using Batch Apex. Batch is required because finish() updates ScheduleSetting__c (a setup object), which must run in a separate transaction from execute()'s LoginFrequency__c DML to avoid MIXED_DML_OPERATION.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 System.schedule('Daily Login History', '0 0 2 * * ?', new SCHED_ProcessLoginHistory());
 ```
+
+</div>
 
 ---
 

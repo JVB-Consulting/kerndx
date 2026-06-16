@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum QRY_Condition.UnitOfTime
 ```
 
 Units of time for SOQL date literals.
 
-**Since:** 1.0
+</div>
 
 ---
 

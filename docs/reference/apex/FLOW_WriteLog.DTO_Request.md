@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_WriteLog.DTO_Request
 ```
 
 Data Transfer Object (DTO) for log requests, specifying log level, message details, and context.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -46,8 +48,6 @@ Data Transfer Object (DTO) for log requests, specifying log level, message detai
 
 An optional class and method name for context.
 
-**Since:** 1.0
-
 ### correlationId
 
 ```apex
@@ -57,8 +57,6 @@ An optional class and method name for context.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 An optional correlation ID for tracing across transactions.
-
-**Since:** 1.0
 
 ### logLevel
 
@@ -70,8 +68,6 @@ An optional correlation ID for tracing across transactions.
 
 The logging level (DEBUG, INFO, WARN, ERROR).
 
-**Since:** 1.0
-
 ### message
 
 ```apex
@@ -82,9 +78,7 @@ The logging level (DEBUG, INFO, WARN, ERROR).
 
 The detailed (long) message to log.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.message;
@@ -100,9 +94,7 @@ String value = instance.message;
 
 An optional record ID associated with the log entry.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.recordId;
@@ -118,9 +110,7 @@ String value = instance.recordId;
 
 An optional short summary of the message.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.shortMessage;

@@ -12,6 +12,8 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_ApiCall on ApiCall__c ( before insert, before update, before delete )
 ```
@@ -19,6 +21,8 @@ trigger TRG_ApiCall on ApiCall__c ( before insert, before update, before delete 
 Trigger on ApiCall__c. Fires the configured trigger actions for content-document cleanup on delete and for data masking before insert and update.
 
 **See Also:** [ApiCall__c](../objects/ApiCall__c.md)
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum UTIL_Email.DeliverabilityAccessLevel
 ```
 
 Enum representing the three possible email deliverability settings in a Salesforce org.
 
-**Since:** 1.0
+</div>
 
 ---
 

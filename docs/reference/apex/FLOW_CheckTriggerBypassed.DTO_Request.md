@@ -11,21 +11,23 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckTriggerBypassed.DTO_Request
 ```
 
 A DTO indicating what action has been bypassed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_Request request = new DTO_Request();
 request.name = 'Account';
 request.bypassType = 'OBJECT_NAME';
 ```
+
+</div>
 
 ---
 
@@ -50,8 +52,6 @@ request.bypassType = 'OBJECT_NAME';
 
 The type of bypass: either CLASS_NAME or OBJECT_NAME.
 
-**Since:** 1.0
-
 ### name
 
 ```apex
@@ -61,6 +61,4 @@ The type of bypass: either CLASS_NAME or OBJECT_NAME.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the trigger action class or SObject to check bypass status for.
-
-**Since:** 1.0
 

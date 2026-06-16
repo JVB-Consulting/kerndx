@@ -12,11 +12,15 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_Foobar on Foobar__c ( before insert, after insert, before update, after update, before delete, after delete, after undelete )
 ```
 
 Example trigger demonstrating the Trigger Action framework
+
+</div>
 
 ---
 

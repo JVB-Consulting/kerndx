@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class API_Inbound extends API_Base
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 
 Base class for all inbound REST API web service calls. Provides foundational functionality for handling incoming HTTP requests, processing them, parsing request/response DTOs, and sending appropriate responses.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 @RestResource(urlMapping='/api/echo/*')
@@ -44,6 +44,8 @@ global with sharing class API_Echo
     }
 }
 ```
+
+</div>
 
 ---
 

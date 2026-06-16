@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface QRY_Condition.Nestable implements QRY_Condition.Evaluable
 ```
@@ -21,7 +23,7 @@ global interface QRY_Condition.Nestable implements QRY_Condition.Evaluable
 
 Interface for condition containers that support adding nested conditions. Extends Evaluable so groups can be passed to QRY_Builder.addCondition().
 
-**Since:** 1.0
+</div>
 
 ---
 

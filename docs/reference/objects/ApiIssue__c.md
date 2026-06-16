@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ApiIssue__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class ApiIssue__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Tracks API integration issues for troubleshooting, manual resolution, and automatic retry of failed service calls. Each record captures the error details, request parameters, and links to the originating API call.
+
+</div>
 
 ---
 

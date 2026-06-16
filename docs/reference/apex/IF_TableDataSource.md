@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Controllers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_TableDataSource
 ```
 
 Generic Interface for Table data sources
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class AccountTableSource implements IF_TableDataSource
@@ -35,6 +35,8 @@ public class AccountTableSource implements IF_TableDataSource
     }
 }
 ```
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_ExecuteValidationRules.DTO_Response
 ```
 
 Response DTO for the Execute Validation Rules invocable action. Contains the validation results including errors, warnings, and summary flags. Use hasErrors in a Decision element to determine whether to proceed with DML or display errors.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -47,9 +49,7 @@ Combined error message string containing all blocking error messages joined
 by newlines. Useful for simple text display in a Flow screen when you don't need to show
 individual field-level errors. Empty string if no errors occurred.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.errorMessage;
@@ -67,9 +67,7 @@ List of blocking validation errors. Each error contains the rule name, message,
 field name, severity, and record index. Display these in a custom LWC component like
 lwcValidationErrors for detailed field-level error presentation.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_FlowValidationError> value = instance.errors;
@@ -87,9 +85,7 @@ True if any blocking validation errors occurred. Use this in a Flow Decision
 element to determine whether to proceed with record save or redirect back to edit screen.
 Only errors with severity 'Error' that are not in shadow mode are considered blocking.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.hasErrors;
@@ -107,9 +103,7 @@ True if any warnings occurred. Warnings include validation rules with severity
 'Warning' and rules running in shadow mode. These do not block the save operation but may
 be displayed to users for informational purposes.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.hasWarnings;
@@ -127,9 +121,7 @@ List of validation warnings. Includes both warning-severity rules and errors
 from rules running in shadow mode. Shadow mode errors are captured here for monitoring
 purposes without blocking the save operation.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_FlowValidationError> value = instance.warnings;

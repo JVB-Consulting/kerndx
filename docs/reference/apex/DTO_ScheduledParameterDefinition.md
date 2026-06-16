@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Schedulables`
 
+<div class="apex-member apex-class">
+
 ```apex
 @JsonAccess(serializable='always' deserializable='always') global inherited sharing class DTO_ScheduledParameterDefinition extends DTO_JsonBase
 ```
@@ -22,9 +24,7 @@ category: apex
 
 A Data Transfer Object describing a single parameter definition supported by a scheduled job class. Used by classes implementing IF_Schedulable to declare their configurable parameters via getParameterDefinitions(), enabling dynamic form rendering in the scheduledJobEditor LWC component. Uses a fluent builder pattern.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_ScheduledParameterDefinition.of('profileNames')
@@ -33,6 +33,8 @@ DTO_ScheduledParameterDefinition.of('profileNames')
 ```
 
 **See Also:** [IF_Schedulable](IF_Schedulable.md), [SCHED_Base](SCHED_Base.md), [DTO_JsonBase](DTO_JsonBase.md)
+
+</div>
 
 ---
 
@@ -255,8 +257,6 @@ The input data type name determining which UI control to render.
 Stored as the DataType enum name string (TEXT, NUMERIC, FLAG) because the Aura
 transport serializes Apex enums as empty objects.
 
-**Since:** 1.0
-
 ### defaultValue
 
 ```apex
@@ -266,8 +266,6 @@ transport serializes Apex enums as empty objects.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The default value pre-populated when the parameter is not yet configured.
-
-**Since:** 1.0
 
 ### description
 
@@ -279,8 +277,6 @@ The default value pre-populated when the parameter is not yet configured.
 
 Help text describing the parameter's purpose and expected format.
 
-**Since:** 1.0
-
 ### isRequired
 
 ```apex
@@ -290,8 +286,6 @@ Help text describing the parameter's purpose and expected format.
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Whether this parameter must be provided for the job to function.
-
-**Since:** 1.0
 
 ### label
 
@@ -303,8 +297,6 @@ Whether this parameter must be provided for the job to function.
 
 The user-facing display label for the parameter.
 
-**Since:** 1.0
-
 ### name
 
 ```apex
@@ -314,6 +306,4 @@ The user-facing display label for the parameter.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the parameter (key used in DTO_NameValues).
-
-**Since:** 1.0
 

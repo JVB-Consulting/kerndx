@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class DTO_PickList
 ```
 
 A Data Transfer Object (DTO) representing a single picklist and all associated values. This class is typically used to retrieve and manage picklist values dynamically, often for use in invocable actions.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_PickList picklist = new DTO_PickList();
@@ -31,6 +31,8 @@ picklist.values = new List<DTO_PicklistValue>();
 ```
 
 **See Also:** [FLOW_GetPicklistValues](FLOW_GetPicklistValues.md)
+
+</div>
 
 ---
 
@@ -57,9 +59,7 @@ picklist.values = new List<DTO_PicklistValue>();
 The default value for the picklist, represented as a DTO_PicklistValue object.
 If there is no default value, this field will be null.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_PicklistValue value = instance.defaultValue;
@@ -76,9 +76,7 @@ DTO_PicklistValue value = instance.defaultValue;
 The API name of the picklist field. This name is used for programmatic references
 and is case-sensitive.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.picklistName;
@@ -97,9 +95,7 @@ DTO_PicklistValue object, which includes both the label and API name of the valu
 This list corresponds to the field's available options and respects any record-type-specific
 or object-specific restrictions.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_PicklistValue> value = instance.values;

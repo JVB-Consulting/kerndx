@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum IF_Async.AsynchronousExecutionStrategy
 ```
 
 Enum defining different asynchronous execution strategies.
 
-**Since:** 1.0
+</div>
 
 ---
 

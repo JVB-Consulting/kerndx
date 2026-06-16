@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_Cache.Store
 ```
 
 Interface for Platform Cache operations
 
-**Since:** 1.0
+</div>
 
 ---
 

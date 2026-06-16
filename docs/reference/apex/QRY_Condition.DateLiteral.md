@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Condition.DateLiteral implements QRY_Condition.Evaluable
 ```
@@ -19,9 +21,7 @@ global inherited sharing class QRY_Condition.DateLiteral implements QRY_Conditio
 
 Provides SOQL date literal values for use in QRY_Builder conditions. Implements Evaluable so date literals can be passed as condition values to FieldCondition and through the QRY_Builder fluent API. Date literals are special SOQL keywords (TODAY, LAST_N_DAYS:30, etc.) that represent relative date/time ranges and cannot be expressed as bind variables.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Records created in the last 30 days
@@ -33,6 +33,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition('CreatedDate').equals(new QRY_Condition.DateLiteral().today())
     .toList();
 ```
+
+</div>
 
 ---
 

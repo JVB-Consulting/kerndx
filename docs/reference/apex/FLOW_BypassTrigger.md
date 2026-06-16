@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_BypassTrigger
 ```
 
 Flow invocable action to manage trigger bypasses. Supports bypassing a specific trigger action or object, clearing a specific bypass, and clearing all bypasses in a single action.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_BypassTrigger.DTO_Request request = new FLOW_BypassTrigger.DTO_Request();
@@ -33,6 +33,8 @@ FLOW_BypassTrigger.execute(new List<FLOW_BypassTrigger.DTO_Request> {request});
 ```
 
 **See Also:** [FLOW_CheckTriggerBypassed](FLOW_CheckTriggerBypassed.md), [TRG_Base](TRG_Base.md)
+
+</div>
 
 ---
 

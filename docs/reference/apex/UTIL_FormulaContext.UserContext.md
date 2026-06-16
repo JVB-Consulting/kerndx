@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaContext.UserContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
@@ -19,9 +21,7 @@ global inherited sharing class UTIL_FormulaContext.UserContext implements UTIL_F
 
 Formula evaluation context for User object. Provides typed access to User records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can also be used directly in custom Apex. Note: Class is named UserContext because User is an Apex reserved keyword. Formula Variable Names: oldRecord, newRecord
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Trigger Action Framework formulas:
@@ -39,6 +39,8 @@ Boolean matches = (Boolean)formula.evaluate(context);
 ```
 
 **See Also:** [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
+
+</div>
 
 ---
 
@@ -63,9 +65,7 @@ global User newRecord
 
 User record state AFTER DML (null on delete).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 User value = instance.newRecord;
@@ -81,9 +81,7 @@ global User oldRecord
 
 User record state BEFORE DML (null on insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 User value = instance.oldRecord;

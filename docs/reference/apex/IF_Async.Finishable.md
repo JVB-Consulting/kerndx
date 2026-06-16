@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Async.Finishable
 ```
 
 Optional interface for defining finalizer logic that runs after all data is processed. Implement this for cleanup or notification actions.
 
-**Since:** 1.0
+</div>
 
 ---
 

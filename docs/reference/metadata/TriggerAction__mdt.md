@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class TriggerAction__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class TriggerAction__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Registers a single trigger action: one Apex class bound to one trigger event (e.g. Before Insert) on one object. Controls execution order, entry criteria, recursion, bypass, and performance logging. Each record belongs to a parent Trigger Setting that identifies the object.
+
+</div>
 
 ---
 

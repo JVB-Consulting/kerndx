@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_Group extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_Group extends SEL_Base
 
 Selector for Salesforce Group objects. Provides query methods for group lookup and recursive group membership resolution including role-based groups, role hierarchies, and nested group membership.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Group foundGroup = new SEL_Group().findByName('Approvers');
@@ -33,6 +33,8 @@ List<User> members = new SEL_Group().findAllUsers(new Set<Id>{groupId});
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

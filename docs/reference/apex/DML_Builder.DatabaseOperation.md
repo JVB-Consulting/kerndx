@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum DML_Builder.DatabaseOperation
 ```
 
 Enum to specify the type of DML operation for external use.
 
-**Since:** 1.0
+</div>
 
 ---
 

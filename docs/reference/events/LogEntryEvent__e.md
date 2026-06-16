@@ -10,6 +10,8 @@ category: events
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class LogEntryEvent__e extends SObject
 ```
@@ -17,6 +19,8 @@ global class LogEntryEvent__e extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 High-volume platform event that transports log data asynchronously. Persisted to LogEntry__c records via trigger. Ensures zero DML impact on the calling transaction and survives rollbacks.
+
+</div>
 
 ---
 

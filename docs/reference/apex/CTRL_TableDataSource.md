@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Controllers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class CTRL_TableDataSource
 ```
 
 Controller class responsible for managing the instantiation of a data source class that supports the table data source interface. This controller allows fetching table data from dynamically specified classes, providing flexible table-based data retrieval capabilities.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_BaseTable result = CTRL_TableDataSource.fetch(
@@ -32,6 +32,8 @@ DTO_BaseTable result = CTRL_TableDataSource.fetch(
 ```
 
 **See Also:** [IF_TableDataSource](IF_TableDataSource.md)
+
+</div>
 
 ---
 

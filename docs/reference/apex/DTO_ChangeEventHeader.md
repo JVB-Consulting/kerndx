@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class DTO_ChangeEventHeader
 ```
 
 A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as a strongly-typed input variable. The platform header type is not Flow-addressable directly; this DTO mirrors its public fields with the @InvocableVariable + @AuraEnabled annotations required for Flow Apex-defined variables and invocable-action parameters. global is required so subscriber-namespace flows can reference the type cross-namespace. Stability contract: this is a stable additive subset of the platform header. New platform header fields added in future Salesforce releases are added here as new @InvocableVariable fields — never modified or removed — so existing subscriber flows remain compatible.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 EventBus.ChangeEventHeader platformHeader =
@@ -32,6 +32,8 @@ DTO_ChangeEventHeader flowHeader = new DTO_ChangeEventHeader(platformHeader);
 ```
 
 **See Also:** [EventBus.ChangeEventHeader](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_eventbus_ChangeEventHeader.htm)
+
+</div>
 
 ---
 

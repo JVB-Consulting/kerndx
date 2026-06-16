@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Trigger.PostActionEntryCriteria
 ```
 
 Optional entry-criteria contract for a post-trigger action. Implementing classes are referenced from PostTriggerAction__mdt.EntryCriteriaContextClassName__c and consulted before the post-action's execute(context) is invoked. Returning false skips the row; returning true proceeds to execution. Use for context-level gating (e.g. "only run when Account records were touched AND feature flag X is enabled"). Evaluators should be cheap — configuration lookups, feature-flag checks, Set membership tests, at most one bounded SOQL. Expensive evaluators undermine the cost benefit of having an entry criteria at all.
 
-**Since:** 1.1
+</div>
 
 ---
 

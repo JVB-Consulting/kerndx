@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 @JsonAccess(serializable='always' deserializable='always') global inherited sharing virtual class DTO_Base
 ```
@@ -22,15 +24,15 @@ category: apex
 
 A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for serialization, deserialization, and transformation of DTOs. Supports pretty-print formatting for JSON content.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_Base dto = new DTO_Base();
 String json = dto.serialize();
 dto.populate(recordId, new DTO_NameValues());
 ```
+
+</div>
 
 ---
 

@@ -351,9 +351,7 @@ this entirely.
 
 ## Next Steps
 
-| Topic                                      | Link                                                                    |
-|--------------------------------------------|-------------------------------------------------------------------------|
-| Full E2E runbook (all phases, all helpers) | [release-testing/RUNBOOK.md](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md)             |
-| Trigger actions to test end-to-end         | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) |
-| Logging to verify in Kern app              | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                   |
-| Outbound API calls with test isolation     | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)     |
+- [Full E2E runbook (all phases, all helpers)](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md)
+- [Trigger actions to test end-to-end](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Logging to verify in Kern app](Fast%20Start%20-%20Logging.md)
+- [Outbound API calls with test isolation](Fast%20Start%20-%20Outbound%20APIs.md)

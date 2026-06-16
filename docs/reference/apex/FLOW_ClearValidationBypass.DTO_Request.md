@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_ClearValidationBypass.DTO_Request
 ```
 
 Request DTO for the Clear Validation Bypass invocable action. Specifies which bypass to clear by name or clears all bypasses.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -42,8 +44,6 @@ Request DTO for the Clear Validation Bypass invocable action. Specifies which by
 
 When true, clears all active bypasses. The Name field is ignored.
 
-**Since:** 1.0
-
 ### name
 
 ```apex
@@ -56,6 +56,4 @@ The name of the bypassed object, group, or rule to clear.
 This should match the name used when creating the bypass with FLOW_BypassValidation.
 The bypass is cleared from all lists (object, group, and rule) regardless of how it was set.
 Ignored when clearAll is true.
-
-**Since:** 1.0
 

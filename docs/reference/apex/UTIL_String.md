@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_String
 ```
 
 Various string manipulation utilities
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String shortened = UTIL_String.abbreviate('Now is the time for all good men', 10);
@@ -30,6 +30,8 @@ String joined = UTIL_String.join(new List<Object>{'a', 'b', 'c'}, ',');
 List<String> parts = UTIL_String.split('one,two,three', ',');
 String replaced = UTIL_String.replace('Hello World', 'World', 'Apex');
 ```
+
+</div>
 
 ---
 

@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_HttpClient.RequestBuilder
 ```
 
 Fluent builder for configuring and executing HTTP requests through API_Dispatcher.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
@@ -27,6 +27,8 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
    .timeout(30000)
    .asMap();
 ```
+
+</div>
 
 ---
 

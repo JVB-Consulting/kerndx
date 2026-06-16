@@ -1063,11 +1063,9 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 
 ## Next Steps
 
-| Topic                          | Link                                                                                   |
-|--------------------------------|----------------------------------------------------------------------------------------|
-| Fast Start - Outbound APIs     | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)                    |
-| Fast Start - Trigger Actions   | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)                |
-| Fast Start - Logging           | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                                  |
-| Feature Flags Developer Guide  | [Feature Flags - Guide](Feature%20Flags%20-%20Guide.md)                                 |
-| UTIL_FeatureFlag API Reference | [reference/apex/UTIL_FeatureFlag.md](reference/apex/UTIL_FeatureFlag.md)               |
-| FeatureFlag__mdt Object        | [reference/metadata/FeatureFlag__mdt.md](reference/metadata/FeatureFlag__mdt.md)       |
+- [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)
+- [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Fast Start - Logging](Fast%20Start%20-%20Logging.md)
+- [Feature Flags Developer Guide](Feature%20Flags%20-%20Guide.md)
+- [UTIL_FeatureFlag API Reference](reference/apex/UTIL_FeatureFlag.md)
+- [FeatureFlag__mdt Object](reference/metadata/FeatureFlag__mdt.md)

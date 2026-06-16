@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Builder.DataCategoryBuilder
 ```
 
 Fluent builder for WITH DATA CATEGORY filters.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> articles = QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
@@ -29,6 +29,8 @@ List<SObject> articles = QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectT
     .withDataCategory('Product__c').below('Electronics__c')
     .toList();
 ```
+
+</div>
 
 ---
 

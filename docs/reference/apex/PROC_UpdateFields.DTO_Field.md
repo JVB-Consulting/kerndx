@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class PROC_UpdateFields.DTO_Field
 ```
 
 DTO representing a field to update on an SObject.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -77,9 +79,7 @@ global String name
 
 API name of the field to update (e.g., 'Name').
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.name;
@@ -95,9 +95,7 @@ global PROC_UpdateFields.FieldUpdateMethod updateMethod
 
 Method to use for updating the field (default: REPLACE).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FieldUpdateMethod value = instance.updateMethod;
@@ -113,9 +111,7 @@ global Object value
 
 Value to apply to the field.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object value = instance.value;

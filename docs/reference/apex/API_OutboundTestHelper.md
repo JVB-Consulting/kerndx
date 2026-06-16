@@ -14,19 +14,21 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_OutboundTestHelper
 ```
 
 Class has base methods that can be used to test an outbound service.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_OutboundTestHelper.assertCallSuccessful(SERVICE_NAME, record.Id, parameters);
 ```
+
+</div>
 
 ---
 

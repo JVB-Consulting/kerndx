@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum UTIL_CircuitBreaker.State
 ```
 
 Enum representing the circuit breaker state
 
-**Since:** 1.0
+</div>
 
 ---
 

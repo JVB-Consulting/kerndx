@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_Hierarchy.Selector
 ```
 
 Selector class that provides hierarchy operations for a specific SObject type. Created via SEL_Hierarchy.forField(parentField) - caches field metadata for efficient reuse.
 
-**Since:** 1.0
+</div>
 
 ---
 

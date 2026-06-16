@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SObjectDescribe.FieldListBuilder extends UTIL_String.DelimitedListBuilder
 ```
 
 Builds a comma-separated field list from SObjectField tokens and optional FieldSet definitions.
 
-**Since:** 1.0
+</div>
 
 ---
 

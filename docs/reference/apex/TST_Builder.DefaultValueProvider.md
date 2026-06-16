@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual class TST_Builder.DefaultValueProvider
 ```
@@ -19,7 +21,7 @@ global virtual class TST_Builder.DefaultValueProvider
 
 Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvider' (which extends this class) to customize default value generation. @note Using a virtual class instead of an interface allows adding new methods in future managed package versions without breaking existing subscriber implementations.
 
-**Since:** 1.0
+</div>
 
 ---
 

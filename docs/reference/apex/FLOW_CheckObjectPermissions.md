@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckObjectPermissions
 ```
 
 Will check what the current user's object permissions are
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_CheckObjectPermissions.DTO_Request request = new FLOW_CheckObjectPermissions.DTO_Request();
@@ -30,6 +30,8 @@ request.objectApiName = 'Account';
 List<FLOW_CheckObjectPermissions.DTO_Response> results = FLOW_CheckObjectPermissions.checkPermissions(new List<FLOW_CheckObjectPermissions.DTO_Request> {request});
 Boolean canCreate = results[0].hasCreateAccess;
 ```
+
+</div>
 
 ---
 

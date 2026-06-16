@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Trigger.PostAction
 ```
 
 Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. Use for cross-object or transaction-scoped work that cannot be done from inside an individual trigger action: audit aggregation, asynchronous job enqueue, transaction-wide telemetry. DML is contractually prohibited — the framework throws if a post-trigger action performs DML, regardless of the row's FailureAction setting. Registered via PostTriggerAction__mdt. The framework fires post-actions at the outermost dispatch unwind, in Order__c ascending. Optional gates apply in order: BypassExecution → BypassFeatureFlag / RequiredFeatureFlag → TriggerSetting scope → EntryCriteriaContextClassName.
 
-**Since:** 1.1
+</div>
 
 ---
 

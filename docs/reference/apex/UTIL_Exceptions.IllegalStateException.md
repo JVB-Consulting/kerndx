@@ -12,15 +12,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Exceptions.IllegalStateException
 ```
 
 Thrown when an operation is attempted on an object whose internal state does not support that operation. Use this to enforce lifecycle constraints such as calling methods out of order or re-entering a finalised workflow.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(isFinished)
@@ -28,6 +28,8 @@ if(isFinished)
     throw new UTIL_Exceptions.IllegalStateException('Transaction has already been committed.');
 }
 ```
+
+</div>
 
 ---
 

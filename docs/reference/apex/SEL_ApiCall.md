@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_ApiCall extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 
 Selector for the ApiCall__c object. Provides query methods for service call management, status tracking, and assertion utilities for test verification.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> calls = new SEL_ApiCall().findByServiceName('API_SendEmail');
@@ -33,6 +33,8 @@ ApiCall__c existing = new SEL_ApiCall().findByIdempotencyKey('550e8400-e29b-41d4
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Sharing
 ```
 
 Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. Known access-mode consistency issue (tracked as a known issue). Share-record DML is currently hard-coded to .withSystemMode().bypassSharing(). The time-bound revocation queueable legitimately needs SYSTEM_MODE as a cleanup fallback (it runs hours after grant, so the original user's session may no longer be valid). The grant / grantTemporary insert path is harder to justify: UTIL_Sharing is global and the target is a caller-specified parent object's share table, not a framework-owned bookkeeping object, so silently elevating to SYSTEM_MODE + bypassSharing() lets a low-privilege subscriber caller grant access to records they have no native right to share. This is the same privilege-escalation shape that was corrected for UTIL_PurgeRecords and UTIL_BulkUpdates — those utilities now inherit the flag-driven default so the running user's FLS/CRUD applies. UTIL_Sharing should move to the same posture for the grant path; the change is deferred because it would alter subscriber-visible behaviour of a global API and needs release-note coordination. Supports any SObject type that has a corresponding Share object (custom objects with __Share and standard objects like AccountShare, CaseShare, etc.).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -37,6 +37,8 @@ List<SObject> tempShares = UTIL_Sharing.grantTemporary(accounts, groupId, 'Read'
 ```
 
 **See Also:** [UTIL_AsynchronousJobLauncher](UTIL_AsynchronousJobLauncher.md)
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Feature Flags`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FeatureFlag
 ```
 
 Provides static methods to check if a feature is enabled. It reads Custom Metadata records to determine if a feature should be active for the current user or for a specific user (user context evaluation). User Context Evaluation: Use isEnabled(flagName, userId) or isEnabled(flagName, username) when you need to evaluate a feature flag for a user other than the currently running user. This is essential for: TxnSecurity.EventCondition implementations (check flags for the event user, not the policy context) Batch Apex processing (evaluate flags for each user being processed) Platform Event handlers (check flags for the event publisher) Admin tools (preview flag status for troubleshooting) Performance and SOQL Cost: The first isEnabled(...) call per transaction loads every active flag and its active strategies in one CMDT query (SEL_FeatureFlag.activeFlags static cache); subsequent calls reuse that cache. Most strategy types then add 1 SOQL per evaluation — Hierarchical/List Custom Setting, Custom Metadata, Profile, Public Group, Permission Set Group, and unprefixed (subscriber-local) Custom Permission. Namespaced or core. Custom Permission for the running user is free (FeatureManagement.checkPermission()). For per-record loops or batch jobs, hoist the boolean out of the loop, or implement an INT_FeatureFlagStrategy handler that calls typed MyCS__c.getInstance(...) to dodge SOQL on Custom Setting reads. See the Utilities Guide → "Performance and SOQL Cost" for the full per-strategy cost table and a worked example.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Simple check to see if a feature is enabled for the running user
@@ -39,6 +39,8 @@ if(UTIL_FeatureFlag.isEnabled('Block_Large_Export', reportEvent.UserId))
 ```
 
 **See Also:** [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md)
+
+</div>
 
 ---
 

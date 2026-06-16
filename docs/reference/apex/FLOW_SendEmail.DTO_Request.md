@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_SendEmail.DTO_Request
 ```
 
 Data Transfer Object (DTO) representing the input parameters for a single email request.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -48,8 +50,6 @@ Data Transfer Object (DTO) representing the input parameters for a single email 
 
 A list of ContentVersion IDs to attach to the email.
 
-**Since:** 1.0
-
 ### mergeFields
 
 ```apex
@@ -60,8 +60,6 @@ A list of ContentVersion IDs to attach to the email.
 
 A list of custom key-value pairs to replace placeholders in the email body (e.g., [InvoiceNumber]).
 
-**Since:** 1.0
-
 ### orgWideEmailAddress
 
 ```apex
@@ -71,8 +69,6 @@ A list of custom key-value pairs to replace placeholders in the email body (e.g.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The email address defined in Organization-Wide Email Addresses to be used as the sender.
-
-**Since:** 1.0
 
 ### saveAsActivity
 
@@ -85,8 +81,6 @@ The email address defined in Organization-Wide Email Addresses to be used as the
 Determines if a Task should be created.
 Note: This is ignored if whatId is null or if useStandardLogActivity is enabled (which handles logging natively).
 
-**Since:** 1.0
-
 ### templateUniqueName
 
 ```apex
@@ -97,8 +91,6 @@ Note: This is ignored if whatId is null or if useStandardLogActivity is enabled 
 
 The DeveloperName of the Email Template.
 
-**Since:** 1.0
-
 ### toAddress
 
 ```apex
@@ -108,8 +100,6 @@ The DeveloperName of the Email Template.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The recipient. Can be a standard Email Address or the Salesforce ID of a Contact, Lead, or User.
-
-**Since:** 1.0
 
 ### useStandardLogActivity
 
@@ -124,8 +114,6 @@ Controls the mechanism used for Activity Logging.
     true: Uses standard Messaging.SingleEmailMessage activity logging (counts towards limits).
     false: Uses a custom Task insertion approach (via Workflow Engine/Flow).
 
-**Since:** 1.0
-
 ### whatId
 
 ```apex
@@ -135,6 +123,4 @@ Controls the mechanism used for Activity Logging.
 **Type:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)
 
 The ID of the record that the email is related to (e.g., Opportunity, Case). Used for merge fields.
-
-**Since:** 1.0
 

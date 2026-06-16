@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_UserRole extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_UserRole extends SEL_Base
 
 Selector for the UserRole SObject. Provides query methods for retrieving user roles and traversing the role hierarchy.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UserRole role = (UserRole)new SEL_UserRole().findById(roleId);
@@ -32,6 +32,8 @@ List<UserRole> childRoles = new SEL_UserRole().findAllChildRoles(new Set<Id>{par
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

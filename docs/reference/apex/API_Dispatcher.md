@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_Dispatcher
 ```
 
 Factory class for orchestrating the execution of web service handlers. Manages the lifecycle of API calls, including handler initiation, error handling, and change commitment. Supports both single and batch processing of web service requests.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Process an inbound REST service
@@ -31,6 +31,8 @@ API_Dispatcher.processInboundService(API_UpdateInvoice.class.getName());
 ApiCall__c apiCall = TST_Factory.newOutboundApiCall('API_SendEmail', recordId, parameters);
 API_Base handler = API_Dispatcher.execute(apiCall);
 ```
+
+</div>
 
 ---
 

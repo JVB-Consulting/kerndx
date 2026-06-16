@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_ContentVersion extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_ContentVersion extends SEL_Base
 
 Selector for the ContentVersion object. Provides query methods for retrieving content versions by publishing location, content document, and workspace folders.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ContentVersion> versions = new SEL_ContentVersion().findByFirstPublishLocationId(recordId);
@@ -33,6 +33,8 @@ ContentVersion version = (ContentVersion)new SEL_ContentVersion().findById(versi
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

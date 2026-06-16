@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_BypassTrigger.DTO_Request
 ```
 
 Request DTO for the Trigger Bypass invocable action.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -47,8 +49,6 @@ The action to perform. Valid values:
     CLEAR: Remove a specific item from the bypass list
     CLEAR_ALL: Clear all items from the bypass list (name is ignored)
 
-**Since:** 1.0
-
 ### bypassType
 
 ```apex
@@ -59,8 +59,6 @@ The action to perform. Valid values:
 
 The type of bypass: either CLASS_NAME or OBJECT_NAME.
 
-**Since:** 1.0
-
 ### name
 
 ```apex
@@ -70,6 +68,4 @@ The type of bypass: either CLASS_NAME or OBJECT_NAME.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the trigger action class or SObject. Required for BYPASS and CLEAR actions, ignored for CLEAR_ALL.
-
-**Since:** 1.0
 

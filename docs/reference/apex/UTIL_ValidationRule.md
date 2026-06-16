@@ -14,11 +14,25 @@ category: apex
 
 **Class** · Group: `Validation`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_ValidationRule
 ```
 
 Formula-driven declarative validation framework for advanced validation scenarios that standard Salesforce validation rules cannot handle. This framework enables: Cross-object validation requiring queries Complex conditional logic exceeding native formula limits Validation with sophisticated bypass rules Shadow mode for safe production testing Warning severity that logs but allows save Important: This framework complements standard validation rules. Use native Salesforce validation rules for simple field checks. Use this framework for advanced scenarios.
+
+**Example**
+
+```apex
+List<UTIL_ValidationRule.ValidationResult> results =
+    UTIL_ValidationRule.validate(Trigger.new, Trigger.old, TriggerOperation.BEFORE_UPDATE);
+UTIL_ValidationRule.applyErrors(Trigger.new, results);
+```
+
+**See Also:** [ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md), [ValidationRule__mdt](../metadata/ValidationRule__mdt.md), [TRG_ExecuteValidationRules](TRG_ExecuteValidationRules.md)
+
+</div>
 
 ## Usage Patterns
 
@@ -58,18 +72,6 @@ finally
 }
 
 ```
-
-**Since:** 1.0
-
-**Example:**
-
-```apex
-List<UTIL_ValidationRule.ValidationResult> results =
-    UTIL_ValidationRule.validate(Trigger.new, Trigger.old, TriggerOperation.BEFORE_UPDATE);
-UTIL_ValidationRule.applyErrors(Trigger.new, results);
-```
-
-**See Also:** [ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md), [ValidationRule__mdt](../metadata/ValidationRule__mdt.md), [TRG_ExecuteValidationRules](TRG_ExecuteValidationRules.md)
 
 ---
 

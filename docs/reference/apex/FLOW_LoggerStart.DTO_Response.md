@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerStart.DTO_Response
 ```
 
 Output containing the generated correlation ID.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -41,9 +43,7 @@ Output containing the generated correlation ID.
 
 Generated correlation ID to pass to subsequent actions
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.correlationId;

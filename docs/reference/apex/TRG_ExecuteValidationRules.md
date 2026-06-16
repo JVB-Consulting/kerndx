@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Validation`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base implements IF_Trigger.BeforeInsert, IF_Trigger.AfterInsert, IF_Trigger.BeforeUpdate, IF_Trigger.AfterUpdate, IF_Trigger.BeforeDelete, IF_Trigger.AfterDelete, IF_Trigger.AfterUndelete
 ```
@@ -26,9 +28,7 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 
 Pre-built trigger action that executes formula-driven validation rules. This class implements all trigger interfaces and automatically executes validation rules configured via ValidationRuleGroup__mdt and ValidationRule__mdt for the current trigger context. Subscriber Org Setup: Create TriggerSetting__mdt for your object (if not already exists) Create TriggerAction__mdt pointing to kern.TRG_ExecuteValidationRules Configure ValidationRuleGroup__mdt linked to your TriggerSetting Create ValidationRule__mdt records with formulas and error messages
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // TriggerAction__mdt configuration (no code required)
@@ -42,6 +42,8 @@ Description__c: Executes formula-driven validation rules for Account records
 ```
 
 **See Also:** [UTIL_ValidationRule](UTIL_ValidationRule.md), [ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md), [ValidationRule__mdt](../metadata/ValidationRule__mdt.md)
+
+</div>
 
 ---
 

@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class LogEntry__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class LogEntry__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Persistent log entries captured by the Kern logging framework. Each record represents a single logged event from Apex, Flows, or LWC, published asynchronously via LogEntryEvent__e.
+
+</div>
 
 ---
 

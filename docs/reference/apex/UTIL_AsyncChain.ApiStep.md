@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsyncChain.ApiStep extends UTIL_AsyncChain.ChainStep
 ```
@@ -21,9 +23,7 @@ global inherited sharing class UTIL_AsyncChain.ApiStep extends UTIL_AsyncChain.C
 
 Chain step adapter that executes any API_Outbound handler as part of an async chain. Wraps the full web service lifecycle (validation, callout, response parsing, DML, ApiCall__c persistence) via UTIL_HttpClient delegation mode, allowing existing outbound services to run inside chains with zero changes to the service class. Configuration is stored in the ChainContext (not on the step instance) because steps are serialized as class names and instantiated via reflection. At build-time, the ChainBuilder calls writeConfig() to persist the step's configuration into the initial context. At execution-time, work() reads the configuration back from the context using the current step index.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('OrderProcessing')
@@ -37,6 +37,8 @@ UTIL_AsyncChain.newChain('OrderProcessing')
     .onError(new NotifyAdminStep())
     .execute();
 ```
+
+</div>
 
 ---
 

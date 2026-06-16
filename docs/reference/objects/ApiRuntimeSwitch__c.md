@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ApiRuntimeSwitch__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class ApiRuntimeSwitch__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Hierarchical custom setting that provides runtime API kill switches at the org, profile, or user level. User-level overrides profile-level, which overrides org-level. For granular per-service control, use ApiSetting__mdt.IsActive__c instead.
+
+</div>
 
 ---
 

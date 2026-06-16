@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Bulk DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_BulkUpdates
 ```
 
 Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownership, and deactivating users. Operations are performed using adaptive async processing which automatically selects between Queueable and Batch execution based on data volume and governor limits. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have CRUD and FLS on the target object and fields for the bulk update to succeed. This is deliberate: UTIL_BulkUpdates is global, and silently elevating to SYSTEM_MODE would let a low-privilege subscriber Apex caller mutate records and fields they have no native right to edit. Integrations that genuinely need admin-mandate semantics should construct a PROC_UpdateFields directly with DTO_Parameters.accessLevel = AccessLevel.SYSTEM_MODE behind a caller-side permission check; the framework declines to make that elevation implicit.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.invalidateEmailFields(Contact.Email);
@@ -31,6 +31,8 @@ UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Chatter Free User'}, 365);
 ```
 
 **See Also:** [PROC_UpdateFields](PROC_UpdateFields.md)
+
+</div>
 
 ---
 
