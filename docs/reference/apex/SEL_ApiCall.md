@@ -39,14 +39,14 @@ ApiCall__c existing = new SEL_ApiCall().findByIdempotencyKey('550e8400-e29b-41d4
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [assertServiceAborted](#assertserviceaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have an aborted status. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [assertServiceAborted](#assertserviceaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorPhrase) | Verifies that API calls for a specific service name have an aborted status and optionally checks for a specific error phrase. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [assertServiceCompleted](#assertservicecompleted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have a completed status. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [assertServiceFailed](#assertservicefailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have a failed status. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [assertServiceFailed](#assertservicefailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorPhrase) | Verifies that API calls for a specific service name have a failed status and optionally checks for a specific error phrase. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findByServiceName](#findbyservicename)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Retrieves ApiCall__c records by a specific service name. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the default fields for ApiCall__c queries. |
-| global [SEL_ApiCall](#sel_apicall)() | Constructs a new SEL_ApiCall selector instance. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceAborted](#assertserviceaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have an aborted status. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceAborted](#assertserviceaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorPhrase) | Verifies that API calls for a specific service name have an aborted status and optionally checks for a specific error phrase. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceCompleted](#assertservicecompleted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have a completed status. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceFailed](#assertservicefailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Verifies that API calls for a specific service name have a failed status. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceFailed](#assertservicefailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorPhrase) | Verifies that API calls for a specific service name have a failed status and optionally checks for a specific error phrase. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [findByServiceName](#findbyservicename)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Retrieves ApiCall__c records by a specific service name. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the default fields for ApiCall__c queries. |
+| global  [SEL_ApiCall](#sel_apicall)() | Constructs a new SEL_ApiCall selector instance. |
 
 ---
 
@@ -89,8 +89,6 @@ Verifies that API calls for a specific service name have an aborted status.
 ```apex
 List<ApiCall__c> aborted = SEL_ApiCall.assertServiceAborted('MyExternalService');
 ```
-
-### assertServiceAborted
 
 ```apex
 global static List<ApiCall__c> assertServiceAborted(String serviceName, String errorPhrase)
@@ -157,8 +155,6 @@ Verifies that API calls for a specific service name have a failed status.
 ```apex
 List<ApiCall__c> result = SEL_ApiCall.assertServiceFailed('SEL_ApiCall');
 ```
-
-### assertServiceFailed
 
 ```apex
 global static List<ApiCall__c> assertServiceFailed(String serviceName, String errorPhrase)

@@ -59,3 +59,16 @@ test('API Reference apex ordering: classes then interfaces then enums, then alph
     '/reference/apex/anenum'                                // enums
   ])
 })
+
+test('API Reference area index page leads its subgroup (the landing surfaces first)', () => {
+  const sidebar = generateSidebar([
+    page('reference/apex/ZClass.md', 'reference/apex/zclass', { type: 'class' }),
+    page('reference/apex/index.md', 'reference/apex', { title: 'Apex Classes' }),
+    page('reference/apex/AClass.md', 'reference/apex/aclass', { type: 'class' })
+  ])
+  const api = sidebar.find(s => s.text === 'API Reference')
+  const apex = api.items.find(s => s.text === 'apex')
+  // The landing page must lead the subgroup, not sink below the classes.
+  assert.equal(apex.items[0].link, '/reference/apex')
+  assert.equal(apex.items[0].text, 'Apex Classes')
+})

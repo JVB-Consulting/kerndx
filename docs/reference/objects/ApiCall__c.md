@@ -23,7 +23,7 @@ Tracks API calls (inbound and outbound) through their full lifecycle. Each recor
 
 | Field | Description |
 |-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [ApiIssues__r](#apiissues__r) | Reciprocal relationship for ApiIssue__c.ApiCall__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [ApiIssues__r](#apiissues__r) | Reciprocal relationship for ApiIssue__c.ApiCall__c. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CalloutDurationMs__c](#calloutdurationms__c) | Time taken for the actual HTTP callout to the external service, in milliseconds. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CommitDurationMs__c](#commitdurationms__c) | Time taken to commit (DML) records produced by the API handler, in milliseconds. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [DeadLettered__c](#deadlettered__c) | Formula field that evaluates to true when retries are exhausted or manually dead-lettered. |

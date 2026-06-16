@@ -36,7 +36,7 @@ Boolean canCreate = results[0].hasCreateAccess;
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [checkPermissions](#checkpermissions)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckObjectPermissions.DTO_Request](FLOW_CheckObjectPermissions.DTO_Request.md)> dtoRequests) | Method to check the running users' access to the object names provided |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckObjectPermissions.DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md)> [checkPermissions](#checkpermissions)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckObjectPermissions.DTO_Request](FLOW_CheckObjectPermissions.DTO_Request.md)> dtoRequests) | Method to check the running users' access to the object names provided |
 
 ## Inner Classes
 

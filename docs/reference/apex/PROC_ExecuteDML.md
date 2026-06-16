@@ -43,9 +43,9 @@ UTIL_AsynchronousJobLauncher.process(
 | Method | Description |
 |--------|-------------|
 | global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the configured DML operation on the provided list of records. |
-| global [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation) | Constructs a DML processor with the specified operation and default all-or-nothing behavior. |
-| global [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing) | Constructs a DML processor with the specified operation and transaction behavior. |
-| global [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing, [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Constructs a DML processor with an explicit AccessLevel. |
+| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation) | Constructs a DML processor with the specified operation and default all-or-nothing behavior. |
+| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing) | Constructs a DML processor with the specified operation and transaction behavior. |
+| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing, [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Constructs a DML processor with an explicit AccessLevel. |
 
 ---
 
@@ -72,8 +72,6 @@ Access mode inherits the flag-driven default.
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_INSERT);
 ```
 
-### PROC_ExecuteDML
-
 ```apex
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing)
 ```
@@ -93,8 +91,6 @@ Access mode inherits the flag-driven default.
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_UPDATE, false);
 ```
-
-### PROC_ExecuteDML
 
 ```apex
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing, AccessLevel accessLevel)

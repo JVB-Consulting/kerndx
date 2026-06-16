@@ -24,17 +24,17 @@ SOQL comparison operators used to build query conditions. Operator SOQL Descript
 
 | Value | Description |
 |----------|-------------|
-| global [EQUALS](#equals) | Equal to (=) |
-| global [EXCLUDES](#excludes) | Multi-select picklist excludes |
-| global [GREATER_THAN](#greater_than) | Greater than (>) |
-| global [GREATER_THAN_OR_EQUAL_TO](#greater_than_or_equal_to) | Greater than or equal to (>=) |
-| global [IN_X](#in_x) | Value in set (IN) |
-| global [INCLUDES](#includes) | Multi-select picklist includes |
-| global [LESS_THAN](#less_than) | Less than (<) |
-| global [LESS_THAN_OR_EQUAL_TO](#less_than_or_equal_to) | Less than or equal to (<=) |
-| global [LIKE_X](#like_x) | Pattern matching (LIKE) |
-| global [NOT_EQUALS](#not_equals) | Not equal to (!=) |
-| global [NOT_IN](#not_in) | Value not in set (NOT IN) |
+| global  [EQUALS](#equals) | Equal to (=) |
+| global  [EXCLUDES](#excludes) | Multi-select picklist excludes |
+| global  [GREATER_THAN](#greater_than) | Greater than (>) |
+| global  [GREATER_THAN_OR_EQUAL_TO](#greater_than_or_equal_to) | Greater than or equal to (>=) |
+| global  [IN_X](#in_x) | Value in set (IN) |
+| global  [INCLUDES](#includes) | Multi-select picklist includes |
+| global  [LESS_THAN](#less_than) | Less than (<) |
+| global  [LESS_THAN_OR_EQUAL_TO](#less_than_or_equal_to) | Less than or equal to (<=) |
+| global  [LIKE_X](#like_x) | Pattern matching (LIKE) |
+| global  [NOT_EQUALS](#not_equals) | Not equal to (!=) |
+| global  [NOT_IN](#not_in) | Value not in set (NOT IN) |
 
 ---
 

@@ -32,12 +32,12 @@ List<Account> myAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 | Value | Description |
 |----------|-------------|
-| global [DELEGATED](#delegated) | Records delegated to another user. |
-| global [EVERYTHING](#everything) | All records the user has access to. |
-| global [MINE](#mine) | Records owned by the current user. |
-| global [MY_TEAM_TERRITORY](#my_team_territory) | Records in the current user's team territory. |
-| global [MY_TERRITORY](#my_territory) | Records in the current user's territory. |
-| global [TEAM](#team) | Records owned by the current user's team. |
+| global  [DELEGATED](#delegated) | Records delegated to another user. |
+| global  [EVERYTHING](#everything) | All records the user has access to. |
+| global  [MINE](#mine) | Records owned by the current user. |
+| global  [MY_TEAM_TERRITORY](#my_team_territory) | Records in the current user's team territory. |
+| global  [MY_TERRITORY](#my_territory) | Records in the current user's territory. |
+| global  [TEAM](#team) | Records owned by the current user's team. |
 
 ---
 

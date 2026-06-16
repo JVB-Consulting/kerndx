@@ -23,7 +23,7 @@ Links outbound API handlers to their Salesforce Named Credential for endpoint re
 
 | Field | Description |
 |-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [ApiSettings__r](#apisettings__r) | Reciprocal relationship for ApiSetting__mdt.ApiCredential__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiSetting__mdt](../metadata/ApiSetting__mdt.md)> [ApiSettings__r](#apisettings__r) | Reciprocal relationship for ApiSetting__mdt.ApiCredential__c. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [NamedCredential__c](#namedcredential__c) | The API name of the Salesforce Named Credential to use for authentication. |
 
 ---

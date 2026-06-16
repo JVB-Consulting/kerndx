@@ -38,7 +38,7 @@ Data Transfer Object representing the web service call request.
 ### apiName
 
 ```apex
-@InvocableVariable(required=true description='The full class name of the API handler' label='API Name') global String apiName
+@InvocableVariable(required=true description='The full class name of the API handler' label='API Name' placeholderText='API_PostExample') global String apiName
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
@@ -86,7 +86,7 @@ The delimiter used to split input parameters, defaults to a comma.
 ### inputs
 
 ```apex
-@InvocableVariable(required=false description='A list of parameters in the format paramName=paramValue,paramName2=paramValue2' label='Inputs') global String inputs
+@InvocableVariable(required=false description='A list of parameters in the format paramName=paramValue,paramName2=paramValue2' label='Inputs' placeholderText='ubiNum=1234') global String inputs
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

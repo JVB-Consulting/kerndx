@@ -46,12 +46,12 @@ TST_Factory.newTriggerActionForContext('TRG_SetFoobarDefaults', setting, Trigger
 | global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) priority, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock inbound ApiSetting__mdt record with a custom priority and additional field overrides, registered with TST_Mock for query interception. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Creates an uncommitted ApiCall__c record for an outbound web service call. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Creates an uncommitted ApiCall__c record for an outbound web service call with a triggering object. |
-| global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> requestParameters) | Creates an uncommitted ApiCall__c record for an outbound web service call with parameters. |
-| global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterValue) | Creates an uncommitted ApiCall__c record for an outbound web service call with a single parameter. |
+| global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> requestParameters) | Creates an uncommitted ApiCall__c record for an outbound web service call with parameters. |
+| global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterValue) | Creates an uncommitted ApiCall__c record for an outbound web service call with a single parameter. |
 | global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newOutboundApiSetting](#newoutboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock outbound ApiSetting__mdt record via TST_Mock for query interception. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUser](#newuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName) | Creates a single uncommitted User record with the specified profile. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUser](#newuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName) | Creates an uncommitted User record with a custom company name. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [newUsers](#newusers)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUsers) | Creates a list of uncommitted User records with the specified profile. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [newUsers](#newusers)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUsers) | Creates a list of uncommitted User records with the specified profile. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUserWithPermissionSet](#newuserwithpermissionset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) permissionSetName) | Creates and inserts a User with the specified profile + company name, then assigns the named permission set (or permission set group). |
 
 ---
@@ -82,8 +82,6 @@ PermissionSet permissionSet = [SELECT Id FROM PermissionSet WHERE Name = 'Custom
 TST_Factory.createPermissionSetAssignments(users, permissionSet.Id);
 System.debug('Permission Set Assignments Created');
 ```
-
-### createPermissionSetAssignments
 
 ```apex
 global static void createPermissionSetAssignments(List<User> users, String permissionSetOrGroupName)
@@ -130,8 +128,6 @@ ApiCall__c apiCall = TST_Factory.newApiCall();
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
-
-### newApiCall
 
 ```apex
 global static ApiCall__c newApiCall(String serviceName)
@@ -254,8 +250,6 @@ The setting is registered in the mock cache and will be returned by SEL_ApiSetti
 ApiSetting__mdt setting = TST_Factory.newInboundApiSetting('API_Echo', '/echo/*');
 ```
 
-### newInboundApiSetting
-
 ```apex
 global static ApiSetting__mdt newInboundApiSetting(String className, String endpointPath, Integer priority)
 ```
@@ -278,8 +272,6 @@ with TST_Mock for query interception.
 ```apex
 ApiSetting__mdt setting = TST_Factory.newInboundApiSetting('API_Echo', '/echo/*', 50);
 ```
-
-### newInboundApiSetting
 
 ```apex
 global static ApiSetting__mdt newInboundApiSetting(String className, String endpointPath, Integer priority, Map<SObjectField, Object> overrides)
@@ -332,8 +324,6 @@ insert outboundApiCall;
 System.debug('Outbound API Call Id: ' + outboundApiCall.Id);
 ```
 
-### newOutboundApiCall
-
 ```apex
 global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId)
 ```
@@ -358,8 +348,6 @@ ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id);
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
-
-### newOutboundApiCall
 
 ```apex
 global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId, Map<String, String> requestParameters)
@@ -390,8 +378,6 @@ ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id, p
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
-
-### newOutboundApiCall
 
 ```apex
 global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId, String parameterName, String parameterValue)
@@ -468,8 +454,6 @@ User testUser = TST_Factory.newUser('System Administrator');
 insert testUser;
 System.debug('User Email: ' + testUser.Email);
 ```
-
-### newUser
 
 ```apex
 global static User newUser(String profileName, String companyName)

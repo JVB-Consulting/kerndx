@@ -32,8 +32,8 @@ UTIL_HttpClient.post('MyService', '/send')
 
 | Value | Description |
 |----------|-------------|
-| global [LOG_FAILURE](#log_failure) | Log an ApiIssue__c record without retrying. |
-| global [RETRY_THEN_LOG](#retry_then_log) | Retry the request, then log a failure record if all retries are exhausted. |
+| global  [LOG_FAILURE](#log_failure) | Log an ApiIssue__c record without retrying. |
+| global  [RETRY_THEN_LOG](#retry_then_log) | Retry the request, then log a failure record if all retries are exhausted. |
 
 ---
 

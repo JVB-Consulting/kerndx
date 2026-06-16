@@ -34,13 +34,13 @@ if(context.touchedSObjectTypes.contains(Account.SObjectType))
 
 | Property | Description |
 |----------|-------------|
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [touchedSObjectTypes](#touchedsobjecttypes) | The SObject types whose triggers participated in the transaction. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [touchedSObjectTypes](#touchedsobjecttypes) | The SObject types whose triggers participated in the transaction. |
 
 ## Methods
 
 | Method | Description |
 |--------|-------------|
-| global [PostActionContext](#postactioncontext)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> touched) | Constructs a post-action context with the supplied set of touched SObject types. |
+| global  [PostActionContext](#postactioncontext)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> touched) | Constructs a post-action context with the supplied set of touched SObject types. |
 
 ---
 

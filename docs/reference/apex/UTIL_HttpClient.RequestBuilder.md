@@ -33,7 +33,7 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 
 | Method | Description |
 |--------|-------------|
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMap](#asmap)() | Executes the request and deserializes the response body as an untyped Map. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asMap](#asmap)() | Executes the request and deserializes the response body as an untyped Map. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [asString](#asstring)() | Executes the request and returns the response body as a String. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [body](#body)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) requestBody) | Sets the request body by JSON-serializing the provided object. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [body](#body)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) requestBody) | Sets the request body as a raw string. |
@@ -130,8 +130,6 @@ UTIL_HttpClient.post('MyService', '/send')
    .body(new Map<String, String>{'key' => 'value'})
    .send();
 ```
-
-### body
 
 ```apex
 global UTIL_HttpClient.RequestBuilder body(String requestBody)
@@ -606,8 +604,6 @@ UTIL_HttpClient.post('MyService', '/send')
    .send();
 ```
 
-### withCircuitBreaker
-
 ```apex
 global UTIL_HttpClient.RequestBuilder withCircuitBreaker(String circuitName)
 ```
@@ -804,8 +800,6 @@ UTIL_HttpClient.post('MyService', '/send')
    .withRetry(3)
    .send();
 ```
-
-### withRetry
 
 ```apex
 global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries, Integer backoffSeconds)

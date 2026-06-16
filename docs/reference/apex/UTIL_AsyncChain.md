@@ -39,7 +39,7 @@ UTIL_AsyncChain.newChain('DataMigration')
 |--------|-------------|
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failed](#failed)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | Creates a failed step result from an exception, using the exception message. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failed](#failed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a failed step result with a descriptive message. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getStatus](#getstatus)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) chainExecutionId) | Retrieves the current status of a chain execution as a map of key-value pairs. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [getStatus](#getstatus)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) chainExecutionId) | Retrieves the current status of a chain execution as a map of key-value pairs. |
 | global static [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [newChain](#newchain)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) chainName) | Creates a new chain builder for composing a sequence of async steps. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [succeeded](#succeeded)() | Creates a successful step result with no message. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [succeeded](#succeeded)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a successful step result with a descriptive message. |
@@ -81,8 +81,6 @@ Creates a failed step result from an exception, using the exception message.
 try { riskyOperation(); }
 catch(Exception error) { return UTIL_AsyncChain.failed(error); }
 ```
-
-### failed
 
 ```apex
 global static UTIL_AsyncChain.StepResult failed(String message)
@@ -167,8 +165,6 @@ Creates a successful step result with no message.
 return UTIL_AsyncChain.succeeded();
 ```
 
-### succeeded
-
 ```apex
 global static UTIL_AsyncChain.StepResult succeeded(String message)
 ```
@@ -188,8 +184,6 @@ Creates a successful step result with a descriptive message.
 ```apex
 return UTIL_AsyncChain.succeeded('Processed 42 records');
 ```
-
-### succeeded
 
 ```apex
 global static UTIL_AsyncChain.StepResult succeeded(String message, Object data)

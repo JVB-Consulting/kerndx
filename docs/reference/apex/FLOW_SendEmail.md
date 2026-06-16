@@ -39,7 +39,7 @@ List<FLOW_SendEmail.DTO_Response> responses = FLOW_SendEmail.sendEmail(new List<
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [sendEmail](#sendemail)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_SendEmail.DTO_Request](FLOW_SendEmail.DTO_Request.md)> dtoEmails) | Invocable method to process email requests. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_SendEmail.DTO_Response](FLOW_SendEmail.DTO_Response.md)> [sendEmail](#sendemail)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_SendEmail.DTO_Request](FLOW_SendEmail.DTO_Request.md)> dtoEmails) | Invocable method to process email requests. |
 
 ## Inner Classes
 

@@ -35,8 +35,8 @@ Result of a cache operation with detailed status information
 
 | Method | Description |
 |--------|-------------|
-| global [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Constructor for success result |
-| global [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeAttempted, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Constructor for failure result |
+| global  [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Constructor for success result |
+| global  [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeAttempted, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Constructor for failure result |
 
 ---
 
@@ -63,8 +63,6 @@ Constructor for success result
 ```apex
 UTIL_Cache.OperationResult instance = new UTIL_Cache.OperationResult(true, new Status(), new Scope());
 ```
-
-### OperationResult
 
 ```apex
 global OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeAttempted, String errorMessage)

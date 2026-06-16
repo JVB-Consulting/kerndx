@@ -24,9 +24,9 @@ Result object returned by execute() containing the outcome of all DML operations
 
 | Method | Description |
 |--------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getErrors](#geterrors)() | Returns all errors from failed DML operations across all operation types. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Database.Error](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_error.htm)> [getErrors](#geterrors)() | Returns all errors from failed DML operations across all operation types. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getFailureCount](#getfailurecount)() | Returns the count of failed DML operations across all operation types. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getInsertedIds](#getinsertedids)() | Returns the IDs of all successfully inserted records. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [getInsertedIds](#getinsertedids)() | Returns the IDs of all successfully inserted records. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getSuccessCount](#getsuccesscount)() | Returns the count of successful DML operations across all operation types. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isSuccess](#issuccess)() | Returns true if all DML operations completed successfully. |
 

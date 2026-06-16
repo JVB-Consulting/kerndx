@@ -91,8 +91,6 @@ This method enables retrieval of relevant data using an ID parameter.
 instance.populate(recordId);
 ```
 
-### populate
-
 ```apex
 global virtual void populate(Id recordId, DTO_NameValues dtoRequestParameters)
 ```

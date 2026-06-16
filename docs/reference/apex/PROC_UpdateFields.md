@@ -53,7 +53,7 @@ PROC_UpdateFields processor = new PROC_UpdateFields(params);
 |--------|-------------|
 | global [IF_Queryable](IF_Queryable.md) [buildQueryable](#buildqueryable)() | Builds a queryable for the configured object and fields. |
 | global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the field update operation on the provided list of records. |
-| global [PROC_UpdateFields](#proc_updatefields)([PROC_UpdateFields.DTO_Parameters](PROC_UpdateFields.DTO_Parameters.md) parameters) | Constructs a field update processor with the specified parameters. |
+| global  [PROC_UpdateFields](#proc_updatefields)([PROC_UpdateFields.DTO_Parameters](PROC_UpdateFields.DTO_Parameters.md) parameters) | Constructs a field update processor with the specified parameters. |
 
 ## Inner Classes
 

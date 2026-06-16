@@ -24,9 +24,9 @@ Enumeration of supported input data types for scheduled job parameters.
 
 | Value | Description |
 |----------|-------------|
-| global [FLAG](#flag) | Boolean input. |
-| global [NUMERIC](#numeric) | Whole number input. |
-| global [TEXT](#text) | Free-text string input. |
+| global  [FLAG](#flag) | Boolean input. |
+| global  [NUMERIC](#numeric) | Whole number input. |
+| global  [TEXT](#text) | Free-text string input. |
 
 ---
 

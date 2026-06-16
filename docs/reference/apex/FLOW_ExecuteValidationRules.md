@@ -33,7 +33,7 @@ Flow invocable action to execute validation rules against records. Use this in R
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ExecuteValidationRules.DTO_Request](FLOW_ExecuteValidationRules.DTO_Request.md)> requests) | Executes validation rules against the provided records. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ExecuteValidationRules.DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ExecuteValidationRules.DTO_Request](FLOW_ExecuteValidationRules.DTO_Request.md)> requests) | Executes validation rules against the provided records. |
 
 ## Inner Classes
 

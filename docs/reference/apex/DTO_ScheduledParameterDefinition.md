@@ -131,8 +131,6 @@ DTO_ScheduledParameterDefinition.of('profileNames')
     .withDescription('Pipe-separated profile names to target')
 ```
 
-### of
-
 ```apex
 global static DTO_ScheduledParameterDefinition of(String name, String label)
 ```

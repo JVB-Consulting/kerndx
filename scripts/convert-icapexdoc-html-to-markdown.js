@@ -526,40 +526,91 @@ function linkToMarkdown(cheerioApi, linkElement, cleanName = '')
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Extract type with link from a cell
- * Handles: "global static List<Type>" -> modifiers="global static", type linked
+ * Serialize a table cell's contents to Markdown in document order, preserving
+ * every type as a link and every literal character (angle brackets, commas,
+ * parameter names) verbatim. Replaces fragile raw-HTML regex rewriting, which
+ * collided on substring type names (SObject within SObjectField) and lost
+ * nested generics / multi-parameter content.
+ *
+ * Angle brackets are emitted decoded (bare `<`/`>`); the docs-site materializer
+ * (docs-site/scripts/markdown-safety.mjs) escapes them for VitePress rendering.
+ *
+ * @param {CheerioAPI} cheerioApi - Cheerio API
+ * @param {CheerioElement} node - Element whose contents to serialize
+ * @param {string} cleanName - Clean name for self-link resolution
+ * @param {{skipAnchors: number}} [state] - Mutable counter of leading <a> elements to
+ *   drop (used to omit the method-name link when serializing a parameter list)
+ * @returns {string} Markdown serialization of the node's contents
+ */
+function serializeTypeCell(cheerioApi, node, cleanName = '', state)
+{
+	const ctx = state || {skipAnchors: 0};
+	let out = '';
+	cheerioApi(node).contents().each((i, child) =>
+	{
+		if(child.type === 'text')
+		{
+			out += child.data || '';
+		}
+		else if(child.type === 'tag' && child.name === 'a')
+		{
+			if(ctx.skipAnchors > 0)
+			{
+				ctx.skipAnchors -= 1;
+				return;
+			}
+			const text = cheerioApi(child).text().trim();
+			const fixedHref = fixLink(cheerioApi(child).attr('href') || '', cleanName);
+			out += fixedHref && text ? `[${text}](${fixedHref})` : text;
+		}
+		else if(child.type === 'tag')
+		{
+			// <code>, <b>, <div>, ... — descend, keeping inner text (brackets, commas).
+			out += serializeTypeCell(cheerioApi, child, cleanName, ctx);
+		}
+	});
+	return out;
+}
+
+/**
+ * Remove Markdown link syntax, leaving the link text: `[List](url)` -> `List`.
+ * @param {string} md - Markdown string
+ * @returns {string} Plain text
+ */
+function stripMarkdownLinks(md)
+{
+	return md.replace(/\[([^\]]+)]\([^)]*\)/g, '$1');
+}
+
+/**
+ * Extract a member's type from a summary cell, preserving generics and links.
+ * "global static Map<Id, List<SObject>>" -> modifiers="global static",
+ * typeWithLink="[Map](..)<[Id](..), [List](..)<[SObject](..)>>".
  * @param {CheerioAPI} cheerioApi - Cheerio API
  * @param {CheerioElement} cell - Table cell element
  * @param {string} cleanName - Clean name for link fixing
  * @returns {{modifiers: string, type: string, typeWithLink: string, full: string}}
  */
-// noinspection FunctionWithMultipleReturnPointsJS,FunctionTooLongJS,JSValidateJSDoc
+// noinspection JSValidateJSDoc
 function extractTypeWithLink(cheerioApi, cell, cleanName = '')
 {
-	const links = cheerioApi(cell).find('a');
 	const fullText = cheerioApi(cell).text().trim().replace(/\s+/g, ' ');
+	const {modifiers} = extractModifiers(fullText);
 
-	if(links.length > 0)
+	const serialized = serializeTypeCell(cheerioApi, cell, cleanName).replace(/\s+/g, ' ').trim();
+
+	let typeWithLink = serialized;
+	if(modifiers)
 	{
-		const {modifiers} = extractModifiers(fullText);
-
-		const typeLink = links.first();
-		const typeName = typeLink.text().trim();
-		const href = typeLink.attr('href') || '';
-
-		const fixedHref = fixLink(href, cleanName);
-		const typeWithLink = fixedHref ? `[${typeName}](${fixedHref})` : typeName;
-
-		return {
-			modifiers, type: typeName, typeWithLink, full: modifiers ? `${modifiers} ${typeWithLink}` : typeWithLink
-		};
+		const escaped = modifiers.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		typeWithLink = serialized.replace(new RegExp(`^${escaped}\\s*`), '');
 	}
 
-	// No links - extract modifiers from plain text
-	const {modifiers, remainingWords} = extractModifiers(fullText);
-	const type = remainingWords.join(' ') || fullText;
+	const type = stripMarkdownLinks(typeWithLink) || fullText;
 
-	return {modifiers, type, typeWithLink: type, full: fullText};
+	return {
+		modifiers, type, typeWithLink, full: modifiers ? `${modifiers} ${typeWithLink}` : typeWithLink
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -939,41 +990,18 @@ function buildMembersSummary(cheerioApi, cleanName)
 		const methodName = nameLink.text().trim().replace(/[`*]/g, '');
 
 		let fullSignature = methodName;
-		const nameCellHtml = nameCell.html() || '';
 
-		if(nameCellHtml.includes('('))
+		// Serialize the name cell's parameter list in document order, dropping the
+		// leading method-name anchor so only "(params)" remains. The DOM walk keeps
+		// every type linked and every parameter intact (the old per-link HTML regex
+		// collided on substring type names and destroyed nested/multi-param content).
+		const params = serializeTypeCell(cheerioApi, cells[2], cleanName, {skipAnchors: 1})
+		.replace(/\s+/g, ' ')
+		.trim();
+		const parenIndex = params.indexOf('(');
+		if(parenIndex >= 0)
 		{
-			let paramsMarkdown = nameCellHtml.substring(nameCellHtml.indexOf('</a>') + 4);
-
-			const paramLinks = cheerioApi(nameCell).find('a').slice(1);
-			paramLinks.each((j, paramLink) =>
-			{
-				const paramHref = cheerioApi(paramLink).attr('href') || '';
-				const paramText = cheerioApi(paramLink).text().trim();
-				const fixedParamHref = fixLink(paramHref, cleanName);
-
-				if(fixedParamHref && paramText)
-				{
-					const escapedText = paramText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-					const htmlLinkPattern = new RegExp(`<a[^>]*>[\\s\\S]*?${escapedText}[\\s\\S]*?</a>`, 'gi');
-					paramsMarkdown = paramsMarkdown.replace(htmlLinkPattern, `[${paramText}](${fixedParamHref})`);
-				}
-			});
-
-			paramsMarkdown = paramsMarkdown
-			.replace(/<\/?b>/gi, '')
-			.replace(/<\/?code>/gi, '')
-			.replace(/<br\s*\/?>/gi, '')
-			.replace(/<[^>]+>/g, '')
-			.replace(/&nbsp;/g, ' ')
-			.replace(/&amp;/g, '&')
-			.replace(/&lt;/g, '<')
-			.replace(/&gt;/g, '>')
-			.replace(/&quot;/g, '"')
-			.replace(/\s+/g, ' ')
-			.trim();
-
-			fullSignature = normalizeSignature(methodName + paramsMarkdown);
+			fullSignature = normalizeSignature(methodName + params.substring(parenIndex));
 		}
 
 		const member = {name: methodName, fullSignature, typeInfo, description: descText, href};
@@ -1741,6 +1769,89 @@ function generateEnumValueDetails(enumConstantDetails)
 }
 
 /**
+ * Render a single method overload's body (signature block, description,
+ * parameters, returns, throws, since, example, see-also). Overloads of the
+ * same name share one `###` heading emitted by the caller; this returns only
+ * the per-overload body beneath it.
+ * @param {Object} m - Method detail object (id, signature, description, parameters, etc.)
+ * @returns {string} Markdown for the overload body
+ */
+// noinspection FunctionWithMultipleLoopsJS - Iterates over parameters and exceptions
+function renderMethodOverload(m)
+{
+	let md = '```apex\n' + m.signature + '\n```\n\n';
+
+	if(m.description)
+	{
+		md += m.description + '\n\n';
+	}
+
+	if(m.parameters.length > 0)
+	{
+		md += '**Parameters:**\n\n';
+		m.parameters.forEach((param, idx) =>
+		{
+			const typeInfo = m.parameterTypes && m.parameterTypes[idx];
+			const typeLink = typeInfo && typeInfo.href ? `[${typeInfo.name}](${typeInfo.href})` : '';
+
+			if(param.name)
+			{
+				md += typeLink ? `- \`${param.name}\` (${typeLink}) - ${param.description}\n` : `- \`${param.name}\` - ${param.description}\n`;
+			}
+			else
+			{
+				md += `- ${param.description}\n`;
+			}
+		});
+		md += '\n';
+	}
+
+	if(m.returns || m.returnTypeWithLink)
+	{
+		if(m.returnTypeWithLink && m.returns)
+		{
+			md += `**Returns:** ${m.returnTypeWithLink} - ${m.returns}\n\n`;
+		}
+		else if(m.returnTypeWithLink)
+		{
+			md += `**Returns:** ${m.returnTypeWithLink}\n\n`;
+		}
+		else
+		{
+			md += `**Returns:** ${m.returns}\n\n`;
+		}
+	}
+
+	if(m.exceptions && m.exceptions.length > 0)
+	{
+		md += '**Throws:**\n\n';
+		m.exceptions.forEach(exc =>
+		{
+			const typeStr = exc.typeLink ? `[${exc.type}](${exc.typeLink})` : (exc.type || 'Exception');
+			md += exc.description ? `- ${typeStr} - ${exc.description}\n` : `- ${typeStr}\n`;
+		});
+		md += '\n';
+	}
+
+	if(m.since)
+	{
+		md += `**Since:** ${m.since}\n\n`;
+	}
+
+	if(m.example)
+	{
+		md += '**Example:**\n\n' + m.example + '\n\n';
+	}
+
+	if(m.seeAlso.length > 0)
+	{
+		md += '**See Also:** ' + m.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+	}
+
+	return md;
+}
+
+/**
  * Generate method details section with parameters, return types, and exceptions
  * @param {Array<Object>} methodDetails - Array of method detail objects containing id, signature, description, parameters, etc.
  * @returns {string} Markdown string with method details section
@@ -1755,78 +1866,30 @@ function generateMethodDetails(methodDetails)
 
 	let md = '---\n\n## Method Details\n\n';
 
+	// Group overloads by method name so the right-rail "On this page" outline lists
+	// each name once. Each overload keeps its own signature block + parameters /
+	// returns beneath the shared heading. Summary-table links target `#name`, which
+	// now resolves to this single heading rather than an arbitrary `-1` duplicate.
+	const groups = [];
+	const groupIndex = new Map();
 	methodDetails.forEach(m =>
 	{
-		const headingId = m.id.split('(')[0];
-		md += `### ${headingId}\n\n`;
-		md += '```apex\n' + m.signature + '\n```\n\n';
-
-		if(m.description)
+		const name = m.id.split('(')[0];
+		if(!groupIndex.has(name))
 		{
-			md += m.description + '\n\n';
+			groupIndex.set(name, groups.length);
+			groups.push({name, overloads: []});
 		}
+		groups[groupIndex.get(name)].overloads.push(m);
+	});
 
-		if(m.parameters.length > 0)
+	groups.forEach(group =>
+	{
+		md += `### ${group.name}\n\n`;
+		group.overloads.forEach(m =>
 		{
-			md += '**Parameters:**\n\n';
-			m.parameters.forEach((param, idx) =>
-			{
-				const typeInfo = m.parameterTypes && m.parameterTypes[idx];
-				const typeLink = typeInfo && typeInfo.href ? `[${typeInfo.name}](${typeInfo.href})` : '';
-
-				if(param.name)
-				{
-					md += typeLink ? `- \`${param.name}\` (${typeLink}) - ${param.description}\n` : `- \`${param.name}\` - ${param.description}\n`;
-				}
-				else
-				{
-					md += `- ${param.description}\n`;
-				}
-			});
-			md += '\n';
-		}
-
-		if(m.returns || m.returnTypeWithLink)
-		{
-			if(m.returnTypeWithLink && m.returns)
-			{
-				md += `**Returns:** ${m.returnTypeWithLink} - ${m.returns}\n\n`;
-			}
-			else if(m.returnTypeWithLink)
-			{
-				md += `**Returns:** ${m.returnTypeWithLink}\n\n`;
-			}
-			else
-			{
-				md += `**Returns:** ${m.returns}\n\n`;
-			}
-		}
-
-		if(m.exceptions && m.exceptions.length > 0)
-		{
-			md += '**Throws:**\n\n';
-			m.exceptions.forEach(exc =>
-			{
-				const typeStr = exc.typeLink ? `[${exc.type}](${exc.typeLink})` : (exc.type || 'Exception');
-				md += exc.description ? `- ${typeStr} - ${exc.description}\n` : `- ${typeStr}\n`;
-			});
-			md += '\n';
-		}
-
-		if(m.since)
-		{
-			md += `**Since:** ${m.since}\n\n`;
-		}
-
-		if(m.example)
-		{
-			md += '**Example:**\n\n' + m.example + '\n\n';
-		}
-
-		if(m.seeAlso.length > 0)
-		{
-			md += '**See Also:** ' + m.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
-		}
+			md += renderMethodOverload(m);
+		});
 	});
 
 	return md;

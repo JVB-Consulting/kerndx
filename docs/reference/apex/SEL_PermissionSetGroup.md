@@ -38,10 +38,10 @@ List<PermissionSetGroup> groups = new SEL_PermissionSetGroup().findByName(new Se
 
 | Method | Description |
 |--------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> groupNames) | Finds PermissionSetGroups by developer names. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm)> [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> groupNames) | Finds PermissionSetGroups by developer names. |
 | global [PermissionSetGroup](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionsetgroup.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) developerName) | Finds a PermissionSetGroup by developer name. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the core fields for PermissionSetGroup queries. |
-| global [SEL_PermissionSetGroup](#sel_permissionsetgroup)() | Constructs a PermissionSetGroup selector with the PermissionSetGroup SObjectType. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for PermissionSetGroup queries. |
+| global  [SEL_PermissionSetGroup](#sel_permissionsetgroup)() | Constructs a PermissionSetGroup selector with the PermissionSetGroup SObjectType. |
 
 ---
 
@@ -86,8 +86,6 @@ groups that are not yet updated.
 Set<String> names = new Set<String>{'ReadOnly', 'EditAccess'};
 List<PermissionSetGroup> groups = new SEL_PermissionSetGroup().findByName(names);
 ```
-
-### findByName
 
 ```apex
 global PermissionSetGroup findByName(String developerName)

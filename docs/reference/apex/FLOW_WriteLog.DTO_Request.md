@@ -38,7 +38,7 @@ Data Transfer Object (DTO) for log requests, specifying log level, message detai
 ### classMethod
 
 ```apex
-@InvocableVariable(required=false description='The class and method name for logging context (defaults to FLOW_WriteLog.writeLog)' label='Class.Method') global String classMethod
+@InvocableVariable(required=false description='The class and method name for logging context (defaults to FLOW_WriteLog.writeLog)' label='Class.Method' placeholderText='MyFlow.ErrorHandler') global String classMethod
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
@@ -62,7 +62,7 @@ An optional correlation ID for tracing across transactions.
 ### logLevel
 
 ```apex
-@InvocableVariable(description='The level at which to log the message' label='Log Level') global String logLevel
+@InvocableVariable(description='The level at which to log the message' label='Log Level' placeholderText='Use one of the following values: DEBUG|INFO|WARN|ERROR' defaultValue='INFO') global String logLevel
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

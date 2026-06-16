@@ -34,7 +34,7 @@ Request DTO for the Bypass Validation invocable action. Specifies which validati
 ### bypassType
 
 ```apex
-@InvocableVariable(description='Type of bypass: OBJECT_NAME, GROUP_NAME, or RULE_NAME' label='Bypass Type') global String bypassType
+@InvocableVariable(description='Type of bypass: OBJECT_NAME, GROUP_NAME, or RULE_NAME' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
@@ -55,7 +55,7 @@ To clear bypasses, use the FLOW_ClearValidationBypass action instead.
 ### name
 
 ```apex
-@InvocableVariable(required=true description='Object API name, group DeveloperName, or rule DeveloperName to bypass.' label='Name') global String name
+@InvocableVariable(required=true description='Object API name, group DeveloperName, or rule DeveloperName to bypass.' label='Name' placeholderText='Account') global String name
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

@@ -28,7 +28,7 @@ Request object for initiating an asynchronous process.
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [batchJobSize](#batchjobsize) | The number of records to process in each Batch Apex transaction. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [delayMinutes](#delayminutes) | The delay in minutes before processing starts. |
 | global [IF_Async.AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) [executionStrategy](#executionstrategy) | The execution strategy for queueable processing. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [itemsToProcess](#itemstoprocess) | The list of objects to process. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [itemsToProcess](#itemstoprocess) | The list of objects to process. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [limitAtWhichToBatch](#limitatwhichtobatch) | The record count threshold at which the framework switches from Queueable to Batch Apex. |
 | global [IF_Queryable](IF_Queryable.md) [queryable](#queryable) | The queryable used for query-based jobs. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [queueableJobSize](#queueablejobsize) | The number of records to process in each Queueable job transaction. |
@@ -37,8 +37,8 @@ Request object for initiating an asynchronous process.
 
 | Method | Description |
 |--------|-------------|
-| global [DTO_AsynchronousJobRequest](#dto_asynchronousjobrequest)([IF_Queryable](IF_Queryable.md) queryable) | Constructor for processing records retrieved from an IF_Queryable. |
-| global [DTO_AsynchronousJobRequest](#dto_asynchronousjobrequest)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Constructor for processing a predefined list of objects. |
+| global  [DTO_AsynchronousJobRequest](#dto_asynchronousjobrequest)([IF_Queryable](IF_Queryable.md) queryable) | Constructor for processing records retrieved from an IF_Queryable. |
+| global  [DTO_AsynchronousJobRequest](#dto_asynchronousjobrequest)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Constructor for processing a predefined list of objects. |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withAsyncOptions](#withasyncoptions)([AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm) options) | Sets the maximum stack depth for chaining |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withBatchSize](#withbatchsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) size) | Sets the batch job size for Batch Apex execution. |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withDelayMinutes](#withdelayminutes)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minutes) | Sets the delay in minutes before processing starts. |
@@ -202,8 +202,6 @@ DTO_AsynchronousJobRequest request = new DTO_AsynchronousJobRequest(query)
     .withBatchSize(100);
 Id jobId = UTIL_AsynchronousJobLauncher.process(request, new MyProcessor());
 ```
-
-### DTO_AsynchronousJobRequest
 
 ```apex
 global DTO_AsynchronousJobRequest(List<Object> items)

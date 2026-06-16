@@ -31,7 +31,7 @@ Starts a logging correlation for a Flow. Use this at the beginning of a Flow to 
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerStart.DTO_Request](FLOW_LoggerStart.DTO_Request.md)> dtoRequests) | Starts a correlation context for Flow logging. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerStart.DTO_Request](FLOW_LoggerStart.DTO_Request.md)> dtoRequests) | Starts a correlation context for Flow logging. |
 
 ## Inner Classes
 

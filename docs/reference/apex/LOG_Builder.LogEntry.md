@@ -89,8 +89,6 @@ Sets the log level to DEBUG with the given batch of messages.
 
 **Since:** 1.0
 
-### debug
-
 ```apex
 global LOG_Builder.LogEntry debug(String message)
 ```
@@ -154,8 +152,6 @@ Sets the log level to ERROR with the given exception.
 
 **Since:** 1.0
 
-### error
-
 ```apex
 global LOG_Builder.LogEntry error(List<String> messages)
 ```
@@ -169,8 +165,6 @@ Sets the log level to ERROR with the given batch of messages.
 **Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
 
 **Since:** 1.0
-
-### error
 
 ```apex
 global LOG_Builder.LogEntry error(String message)
@@ -202,8 +196,6 @@ Associates a record ID with the log entry.
 
 **Since:** 1.0
 
-### forRecord
-
 ```apex
 global LOG_Builder.LogEntry forRecord(String recordId)
 ```
@@ -234,8 +226,6 @@ Sets the log level to INFO with the given batch of messages.
 
 **Since:** 1.0
 
-### info
-
 ```apex
 global LOG_Builder.LogEntry info(String message)
 ```
@@ -265,8 +255,6 @@ Sets the log level to WARN with the given batch of messages.
 **Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
 
 **Since:** 1.0
-
-### warn
 
 ```apex
 global LOG_Builder.LogEntry warn(String message)

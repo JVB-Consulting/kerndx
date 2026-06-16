@@ -25,7 +25,7 @@ Represents a mock HTTP response with fault simulation options.
 | Field | Description |
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [body](#body) | The response body content (supports {{request.field}} interpolation). |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [headers](#headers) | Response headers as key-value pairs. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [headers](#headers) | Response headers as key-value pairs. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The HTTP status text (e.g., "OK", "Internal Server Error"). |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [statusCode](#statuscode) | The HTTP status code. |
 

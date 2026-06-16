@@ -35,7 +35,7 @@ group.add(new QRY_Condition.FieldCondition('Type__c', QRY_Condition.Operator.EQU
 | Method | Description |
 |--------|-------------|
 | global override [QRY_Condition.Nestable](QRY_Condition.Nestable.md) [add](#add)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a condition to this AND group. |
-| global [AndCondition](#andcondition)() | Constructor for creating an AND condition group. |
+| global  [AndCondition](#andcondition)() | Constructor for creating an AND condition group. |
 
 ---
 

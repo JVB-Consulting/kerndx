@@ -55,24 +55,24 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [andCondition](#andcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Starts an AND condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [andCondition](#andcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts an AND condition on a field using its API name. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [ascending](#ascending)() | Sets the last ORDER BY clause to ASCENDING. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asGroupedMapById](#asgroupedmapbyid)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results grouped by an Id field (e.g. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asGroupedMapById](#asgroupedmapbyid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results grouped by an Id field. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asGroupedMapByString](#asgroupedmapbystring)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results grouped by a String field value. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asGroupedMapByString](#asgroupedmapbystring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results grouped by a String field value. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [asIdList](#asidlist)() | Returns the results as a List of Ids. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [asIdSet](#asidset)() | Executes the query and returns a Set of record Ids. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMap](#asmap)() | Executes the query and returns results as a Map. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMapById](#asmapbyid)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results as a Map keyed by the specified Id field (e.g. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMapById](#asmapbyid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results as a Map keyed by the specified Id field. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMapByString](#asmapbystring)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results as a Map keyed by a String field value. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [asMapByString](#asmapbystring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results as a Map keyed by a String field value. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [asStringSet](#asstringset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct String values for the specified field. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [asStringSet](#asstringset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct String values for the specified field. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [asValueSet](#asvalueset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct values for the specified field. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)>> [asGroupedMapById](#asgroupedmapbyid)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results grouped by an Id field (e.g. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)>> [asGroupedMapById](#asgroupedmapbyid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results grouped by an Id field. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)>> [asGroupedMapByString](#asgroupedmapbystring)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results grouped by a String field value. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)>> [asGroupedMapByString](#asgroupedmapbystring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results grouped by a String field value. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [asIdList](#asidlist)() | Returns the results as a List of Ids. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [asIdSet](#asidset)() | Executes the query and returns a Set of record Ids. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [asMap](#asmap)() | Executes the query and returns results as a Map. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [asMapById](#asmapbyid)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results as a Map keyed by the specified Id field (e.g. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [asMapById](#asmapbyid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results as a Map keyed by the specified Id field. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [asMapByString](#asmapbystring)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) keyField) | Executes the query and returns the results as a Map keyed by a String field value. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [asMapByString](#asmapbystring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns the results as a Map keyed by a String field value. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [asStringSet](#asstringset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct String values for the specified field. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [asStringSet](#asstringset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct String values for the specified field. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct values for the specified field. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies an AVG aggregate function. |
-| global [Builder](#builder)() | Default constructor. |
-| global [Builder](#builder)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Constructor that sets the SObject type. |
+| global  [Builder](#builder)() | Default constructor. |
+| global  [Builder](#builder)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Constructor that sets the SObject type. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules using a without sharing proxy class. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Starts a WHERE condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts a WHERE condition on a field using its API name. |
@@ -91,12 +91,12 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [forReference](#forreference)() | Locks returned records FOR REFERENCE. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [forUpdate](#forupdate)() | Locks returned records FOR UPDATE. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [forView](#forview)() | Locks returned records FOR VIEW. |
-| global virtual [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getDefaultFields](#getdefaultfields)() | Override to provide default fields for this selector. |
+| global virtual [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getDefaultFields](#getdefaultfields)() | Override to provide default fields for this selector. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getFirst](#getfirst)() | Executes the query and returns the first record (or null). |
 | global [QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md) [getFirstAggregate](#getfirstaggregate)() | Executes an aggregate query and returns the first result as a typed AggregateRow. |
 | global [QRY_Builder.QueryPage](QRY_Builder.QueryPage.md) [getPage](#getpage)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) requestedPageNumber, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) requestedPageSize) | Executes a paged query and returns results with pagination metadata. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getRandomItem](#getrandomitem)() | Returns a single random record matching the query criteria. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getRandomItems](#getrandomitems)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) randomCount) | Returns multiple random records matching the query criteria. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [getRandomItems](#getrandomitems)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) randomCount) | Returns multiple random records matching the query criteria. |
 | global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([QRY_Function](QRY_Function.md) functionField) | Adds a SOQL date-function expression to the GROUP BY clause (e.g. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) groupField) | Adds a field to the GROUP BY clause using an SObjectField token. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [groupBy](#groupby)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupField) | Adds a GROUP BY clause. |
@@ -132,9 +132,9 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [subselect](#subselect)([QRY_Builder.Builder](QRY_Builder.Builder.md) childQuery, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) relationshipName) | Adds a child subquery (child relationship query). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a SUM aggregate function. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [suppressPerformanceLogging](#suppressperformancelogging)() | Suppresses performance logging for this query. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [toAggregateList](#toaggregatelist)() | Executes an aggregate query and returns results as typed AggregateRow wrappers. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md)> [toAggregateList](#toaggregatelist)() | Executes an aggregate query and returns results as typed AggregateRow wrappers. |
 | global [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) [toCursor](#tocursor)() | Returns a Database.Cursor for large data set traversal. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [toList](#tolist)() | Executes the query and returns a List of SObjects. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [toList](#tolist)() | Executes the query and returns a List of SObjects. |
 | global [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) [toQueryLocator](#toquerylocator)() | Returns a Database.QueryLocator for batch processing. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toSoql](#tosoql)() | Generates and returns the SOQL string without executing it. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [usingScope](#usingscope)([QRY_Builder.Scope](QRY_Builder.Scope.md) scopeValue) | Filters records by visibility scope using USING SCOPE clause. |
@@ -185,8 +185,6 @@ Default constructor.
 ```apex
 QRY_Builder.Builder query = new QRY_Builder.Builder();
 ```
-
-### Builder
 
 ```apex
 global Builder(SObjectType sObjectType)
@@ -264,8 +262,6 @@ QRY_Builder.selectFrom(Opportunity.SObjectType)
     .toAggregateList();
 ```
 
-### addField
-
 ```apex
 global QRY_Builder.Builder addField(SObjectField objectField)
 ```
@@ -287,8 +283,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .addField(Account.Website)
     .toList();
 ```
-
-### addField
 
 ```apex
 global QRY_Builder.Builder addField(String fieldName)
@@ -336,8 +330,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### addFields
-
 ```apex
 global QRY_Builder.Builder addFields(List<String> fieldNames)
 ```
@@ -384,8 +376,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .addFieldSet(fs)
     .toList();
 ```
-
-### addFieldSet
 
 ```apex
 global QRY_Builder.Builder addFieldSet(String fieldSetName)
@@ -454,8 +444,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .andCondition(Account.Type).equals('Customer')
     .toList();
 ```
-
-### andCondition
 
 ```apex
 global QRY_Builder.ConditionBuilder andCondition(String fieldName)
@@ -528,8 +516,6 @@ Map<Id, List<SObject>> contactsByAccount = QRY_Builder.selectFrom(Contact.SObjec
     .asGroupedMapById(Contact.AccountId);
 ```
 
-### asGroupedMapById
-
 ```apex
 global Map<Id, List<SObject>> asGroupedMapById(String fieldName)
 ```
@@ -578,8 +564,6 @@ Map<String, List<SObject>> accountsByIndustry = QRY_Builder.selectFrom(Account.S
     .addField(Account.Industry)
     .asGroupedMapByString(Account.Industry);
 ```
-
-### asGroupedMapByString
 
 ```apex
 global Map<String, List<SObject>> asGroupedMapByString(String fieldName)
@@ -694,8 +678,6 @@ Map<Id, SObject> contactsByAccount = QRY_Builder.selectFrom(Contact.SObjectType)
     .asMapById(Contact.AccountId);
 ```
 
-### asMapById
-
 ```apex
 global Map<Id, SObject> asMapById(String fieldName)
 ```
@@ -745,8 +727,6 @@ Map<String, SObject> accountByName = QRY_Builder.selectFrom(Account.SObjectType)
     .addField(Account.Name)
     .asMapByString(Account.Name);
 ```
-
-### asMapByString
 
 ```apex
 global Map<String, SObject> asMapByString(String fieldName)
@@ -798,8 +778,6 @@ Set<String> nicknames = QRY_Builder.selectFrom(User.SObjectType)
     .asStringSet(User.CommunityNickname);
 ```
 
-### asStringSet
-
 ```apex
 global Set<String> asStringSet(String fieldName)
 ```
@@ -845,8 +823,6 @@ Set<Object> industries = QRY_Builder.selectFrom(Account.SObjectType)
     .addField(Account.Industry)
     .asValueSet(Account.Industry);
 ```
-
-### asValueSet
 
 ```apex
 global Set<Object> asValueSet(String fieldName)
@@ -939,8 +915,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### condition
-
 ```apex
 global QRY_Builder.ConditionBuilder condition(String fieldName)
 ```
@@ -982,8 +956,6 @@ Integer total = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Type).equals('Customer')
     .count();
 ```
-
-### count
 
 ```apex
 global QRY_Builder.Builder count(String fieldName)
@@ -1032,8 +1004,6 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
     .countDistinct(Contact.Email)
     .toList();
 ```
-
-### countDistinct
 
 ```apex
 global QRY_Builder.Builder countDistinct(String fieldName)
@@ -1145,8 +1115,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### fields
-
 ```apex
 global QRY_Builder.Builder fields(List<String> fieldNames)
 ```
@@ -1193,8 +1161,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .fieldSet(fs)
     .toList();
 ```
-
-### fieldSet
 
 ```apex
 global QRY_Builder.Builder fieldSet(String fieldSetName)
@@ -1466,8 +1432,6 @@ QRY_Builder.selectFrom(Opportunity.SObjectType)
     .toAggregateList();
 ```
 
-### groupBy
-
 ```apex
 global QRY_Builder.Builder groupBy(SObjectField groupField)
 ```
@@ -1492,8 +1456,6 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Account.SObjectT
     .count('Id')
     .toAggregateList();
 ```
-
-### groupBy
 
 ```apex
 global QRY_Builder.Builder groupBy(String groupField)
@@ -1545,8 +1507,6 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Opportunity.SObj
     .rollup()
     .toAggregateList();
 ```
-
-### grouping
 
 ```apex
 global QRY_Builder.Builder grouping(String fieldName)
@@ -1880,8 +1840,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### orCondition
-
 ```apex
 global QRY_Builder.ConditionBuilder orCondition(String fieldName)
 ```
@@ -1927,8 +1885,6 @@ Orders by a SOQL date-function expression, ascending (e.g. ORDER BY CALENDAR_MON
 .orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
 ```
 
-### orderBy
-
 ```apex
 global virtual QRY_Builder.Builder orderBy(QRY_Function functionField, Boolean sortDescending)
 ```
@@ -1949,8 +1905,6 @@ Orders by a SOQL date-function expression, ascending or descending.
 ```apex
 .orderBy(QRY_Function.calendarMonth(Opportunity.CloseDate), true)
 ```
-
-### orderBy
 
 ```apex
 global QRY_Builder.Builder orderBy(SObjectField field)
@@ -1973,8 +1927,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .orderBy(Account.Name).ascending()
     .toList();
 ```
-
-### orderBy
 
 ```apex
 global QRY_Builder.Builder orderBy(SObjectField field, Boolean sortDescending)
@@ -2000,8 +1952,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .orderBy(Account.Name, isDescending)
     .toList();
 ```
-
-### orderBy
 
 ```apex
 global QRY_Builder.Builder orderBy(SObjectField field, Boolean sortDescending, Boolean nullsLast)
@@ -2029,8 +1979,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### orderBy
-
 ```apex
 global QRY_Builder.Builder orderBy(String fieldName)
 ```
@@ -2052,8 +2000,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .orderBy('CreatedDate').descending()
     .toList();
 ```
-
-### orderBy
 
 ```apex
 global QRY_Builder.Builder orderBy(String fieldName, Boolean sortDescending)
@@ -2079,8 +2025,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .orderBy('CreatedDate', isDescending)
     .toList();
 ```
-
-### orderBy
 
 ```apex
 global QRY_Builder.Builder orderBy(String fieldName, Boolean sortDescending, Boolean nullsLast)

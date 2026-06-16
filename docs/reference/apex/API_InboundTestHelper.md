@@ -38,13 +38,13 @@ API_Base handler = API_InboundTestHelper.assertCallSuccessful(API_UpdateInvoice.
 | Method | Description |
 |--------|-------------|
 | global static [API_Base](API_Base.md) [assertCallAborted](#assertcallaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Executes a callout and ensures that the call was aborted due to the API being disabled. |
-| global static [API_Base](API_Base.md) [assertCallAborted](#assertcallaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) exceptionMessage) | Executes a callout and ensures that the call was aborted due to the API being disabled. |
+| global static [API_Base](API_Base.md) [assertCallAborted](#assertcallaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [DTO_Base](DTO_Base.md) dtoRequest, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) exceptionMessage) | Executes a callout and ensures that the call was aborted due to the API being disabled. |
 | global static [API_Base](API_Base.md) [assertCallAborted](#assertcallaborted)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) exceptionMessage) | Executes a callout and ensures that the call was aborted due to the API being disabled. |
 | global static [API_Base](API_Base.md) [assertCallFailed](#assertcallfailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Executes an inbound service call and asserts that it failed. |
 | global static [API_Base](API_Base.md) [assertCallFailed](#assertcallfailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [DTO_Base](DTO_Base.md) dtoRequest) | Executes an inbound service call with a DTO body and asserts that it failed. |
 | global static [API_Base](API_Base.md) [assertCallSuccessful](#assertcallsuccessful)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Executes an inbound service call and asserts that it completed successfully. |
 | global static [API_Base](API_Base.md) [assertCallSuccessful](#assertcallsuccessful)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [DTO_Base](DTO_Base.md) dtoRequest) | Executes an inbound service call with a DTO body and asserts that it completed successfully. |
-| global static [API_Base](API_Base.md) [assertCallSuccessful](#assertcallsuccessful)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Executes an inbound service call with a DTO body and custom headers, asserts successful completion. |
+| global static [API_Base](API_Base.md) [assertCallSuccessful](#assertcallsuccessful)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [DTO_Base](DTO_Base.md) dtoRequest, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Executes an inbound service call with a DTO body and custom headers, asserts successful completion. |
 | global static void [setupRestContext](#setuprestcontext)() | Sets up the RestContext objects of "request" and "response" to prepare for testing inbound service calls. |
 | global static void [setupRestContext](#setuprestcontext)([DTO_Base](DTO_Base.md) dtoRequest) | Sets up the RestContext objects of "request" and "response" for testing purposes. |
 | global static void [setupRestContext](#setuprestcontext)([DTO_Base](DTO_Base.md) dtoRequest, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Sets up the RestContext with a serialized DTO body and custom headers. |
@@ -76,8 +76,6 @@ This method takes a service name and returns an instance of the handler for furt
 API_Base result = API_InboundTestHelper.assertCallAborted('API_InboundTestHelper');
 ```
 
-### assertCallAborted
-
 ```apex
 global static API_Base assertCallAborted(String serviceName, DTO_Base dtoRequest, String exceptionMessage)
 ```
@@ -100,8 +98,6 @@ This method takes a service name and the request DTO, sets up the RestContext, a
 ```apex
 API_Base result = API_InboundTestHelper.assertCallAborted('API_InboundTestHelper', new DTO_Base(), 'An error occurred');
 ```
-
-### assertCallAborted
 
 ```apex
 global static API_Base assertCallAborted(String serviceName, String exceptionMessage)
@@ -147,8 +143,6 @@ Executes an inbound service call and asserts that it failed.
 API_Base handler = API_InboundTestHelper.assertCallFailed('API_Echo');
 ```
 
-### assertCallFailed
-
 ```apex
 global static API_Base assertCallFailed(String serviceName, DTO_Base dtoRequest)
 ```
@@ -193,8 +187,6 @@ Sets up RestContext internally before executing. Mirrors the outbound test helpe
 API_Base handler = API_InboundTestHelper.assertCallSuccessful('API_Echo');
 ```
 
-### assertCallSuccessful
-
 ```apex
 global static API_Base assertCallSuccessful(String serviceName, DTO_Base dtoRequest)
 ```
@@ -215,8 +207,6 @@ Executes an inbound service call with a DTO body and asserts that it completed s
 ```apex
 API_Base handler = API_InboundTestHelper.assertCallSuccessful('API_Echo', new DTO_Base());
 ```
-
-### assertCallSuccessful
 
 ```apex
 global static API_Base assertCallSuccessful(String serviceName, DTO_Base dtoRequest, Map<String, String> headers)
@@ -257,8 +247,6 @@ This method initializes the request and response objects with default values.
 API_InboundTestHelper.setupRestContext();
 ```
 
-### setupRestContext
-
 ```apex
 global static void setupRestContext(DTO_Base dtoRequest)
 ```
@@ -277,8 +265,6 @@ This method serializes the provided DTO into the request body to simulate a real
 ```apex
 API_InboundTestHelper.setupRestContext(new DTO_Base());
 ```
-
-### setupRestContext
 
 ```apex
 global static void setupRestContext(DTO_Base dtoRequest, Map<String, String> headers)

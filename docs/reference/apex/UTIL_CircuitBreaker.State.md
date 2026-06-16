@@ -24,9 +24,9 @@ Enum representing the circuit breaker state
 
 | Value | Description |
 |----------|-------------|
-| global [CLOSED](#closed) | Normal operation - requests pass through |
-| global [HALF_OPEN](#half_open) | Testing recovery - limited requests allowed to test if service recovered |
-| global [OPEN](#open) | Circuit is open - requests fail fast without attempting call |
+| global  [CLOSED](#closed) | Normal operation - requests pass through |
+| global  [HALF_OPEN](#half_open) | Testing recovery - limited requests allowed to test if service recovered |
+| global  [OPEN](#open) | Circuit is open - requests fail fast without attempting call |
 
 ---
 

@@ -74,8 +74,6 @@ an exception. Returns null when the class cannot be found or has compilation err
 Type classType = UTIL_System.findTypeForClassName('SCHED_DeactivateUsers');
 ```
 
-### findTypeForClassName
-
 ```apex
 global static Type findTypeForClassName(String className, Type expectedType)
 ```
@@ -278,8 +276,6 @@ Will return the Type for a given object class name
 ```apex
 Type classType = UTIL_System.getTypeForClassName('UTIL_System');
 ```
-
-### getTypeForClassName
 
 ```apex
 global static Type getTypeForClassName(String className, Type expectedType)

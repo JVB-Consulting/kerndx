@@ -25,7 +25,7 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 | Method | Description |
 |--------|-------------|
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [build](#build)() | Builds a single mock record with a mock ID and registers it with TST_Mock for query interception. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [buildList](#buildlist)() | Builds a list of mock records with mock IDs and registers them with TST_Mock for query interception. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [buildList](#buildlist)() | Builds a list of mock records with mock IDs and registers them with TST_Mock for query interception. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count) | Adds child records to the parent mock without field overrides. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent mock using SObjectField token overrides. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent mock using String field name overrides. |
@@ -115,8 +115,6 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
-### withChildren
-
 ```apex
 global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count, Map<SObjectField, Object> overrides)
 ```
@@ -142,8 +140,6 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     })
     .build();
 ```
-
-### withChildren
 
 ```apex
 global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count, Map<String, Object> overrides)
@@ -171,8 +167,6 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
-### withChildren
-
 ```apex
 global TST_Mock.MockBuilder withChildren(String relationshipName, TST_Builder.Builder childBuilder)
 ```
@@ -199,8 +193,6 @@ Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
     )
     .build();
 ```
-
-### withChildren
 
 ```apex
 global TST_Mock.MockBuilder withChildren(TST_Builder.Builder childBuilder)
@@ -280,8 +272,6 @@ List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
     .buildList();
 ```
 
-### withCycle
-
 ```apex
 global TST_Mock.MockBuilder withCycle(String fieldName, List<Object> values)
 ```
@@ -330,8 +320,6 @@ TST_Mock.of(Account.SObjectType)
     .withDefaultedField(Account.Description)
     .build();
 ```
-
-### withDefaultedField
 
 ```apex
 global TST_Mock.MockBuilder withDefaultedField(String fieldName)
@@ -402,8 +390,6 @@ TST_Mock.of(Account.SObjectType)
     .withOptionalField(Account.Name)
     .build();
 ```
-
-### withOptionalField
 
 ```apex
 global TST_Mock.MockBuilder withOptionalField(String fieldName)
@@ -476,8 +462,6 @@ TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
-### withOverride
-
 ```apex
 global TST_Mock.MockBuilder withOverride(String fieldName, Object value)
 ```
@@ -525,8 +509,6 @@ TST_Mock.of(Foobar__c.SObjectType)
     .withOverrides(new Map<SObjectField, Object>{ Foobar__c.Name => 'Test' })
     .build();
 ```
-
-### withOverrides
 
 ```apex
 global TST_Mock.MockBuilder withOverrides(Map<String, Object> overrides)

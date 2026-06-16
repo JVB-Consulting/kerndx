@@ -46,7 +46,7 @@ UTIL_PurgeRecords.deleteOlderThanNDays('Task', 'CreatedDate', 30, false, 200);
 | global static void [deleteOlderThanNDays](#deleteolderthanndays)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) daysThreshold) | Deletes records older than the specified number of days from the given SObject type, using CreatedDate as the default date field. |
 | global static void [deleteOlderThanNDays](#deleteolderthanndays)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dateFieldApiName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) daysThreshold) | Deletes records older than the specified number of days based on the specified date field. |
 | global static void [deleteOlderThanNDays](#deleteolderthanndays)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dateFieldApiName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) daysThreshold, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAtomic) | Deletes records older than the specified number of days with configurable atomicity. |
-| global static void [deleteOlderThanNDays](#deleteolderthanndays)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dateFieldApiName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) daysThreshold, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) batchSize) | Deletes records older than the specified number of days with customizable date field, atomicity, and batch size. |
+| global static void [deleteOlderThanNDays](#deleteolderthanndays)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dateFieldApiName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) daysThreshold, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAtomic, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) batchSize) | Deletes records older than the specified number of days with customizable date field, atomicity, and batch size. |
 
 ---
 
@@ -72,8 +72,6 @@ Deletes all records of the specified SObject type with default non-atomic behavi
 UTIL_PurgeRecords.deleteAllRecords(Account.SObjectType);
 ```
 
-### deleteAllRecords
-
 ```apex
 global static void deleteAllRecords(SObjectType sObjectType, Boolean isAtomic)
 ```
@@ -93,8 +91,6 @@ Deletes all records of the specified SObject type with configurable atomicity.
 UTIL_PurgeRecords.deleteAllRecords(Account.SObjectType, true);
 ```
 
-### deleteAllRecords
-
 ```apex
 global static void deleteAllRecords(String objectApiName)
 ```
@@ -112,8 +108,6 @@ Deletes all records of the specified SObject type with default non-atomic behavi
 ```apex
 UTIL_PurgeRecords.deleteAllRecords('Account');
 ```
-
-### deleteAllRecords
 
 ```apex
 global static void deleteAllRecords(String objectApiName, Boolean isAtomic)
@@ -134,8 +128,6 @@ Deletes all records of the specified SObject type with specified atomicity.
 UTIL_PurgeRecords.deleteAllRecords('Contact', true);
 System.debug('All Contact records deleted atomically');
 ```
-
-### deleteAllRecords
 
 ```apex
 global static void deleteAllRecords(String objectApiName, Boolean isAtomic, Integer batchSize)
@@ -180,8 +172,6 @@ using CreatedDate as the default date field.
 UTIL_PurgeRecords.deleteOlderThanNDays(Task.SObjectType, 30);
 ```
 
-### deleteOlderThanNDays
-
 ```apex
 global static void deleteOlderThanNDays(String objectApiName, Integer daysThreshold)
 ```
@@ -203,8 +193,6 @@ UTIL_PurgeRecords.deleteOlderThanNDays('Task', 30);
 System.debug('Deleted Task records older than 30 days');
 ```
 
-### deleteOlderThanNDays
-
 ```apex
 global static void deleteOlderThanNDays(String objectApiName, String dateFieldApiName, Integer daysThreshold)
 ```
@@ -224,8 +212,6 @@ Deletes records older than the specified number of days based on the specified d
 ```apex
 UTIL_PurgeRecords.deleteOlderThanNDays('Task', 'CreatedDate', 30);
 ```
-
-### deleteOlderThanNDays
 
 ```apex
 global static void deleteOlderThanNDays(String objectApiName, String dateFieldApiName, Integer daysThreshold, Boolean isAtomic)
@@ -247,8 +233,6 @@ Deletes records older than the specified number of days with configurable atomic
 ```apex
 UTIL_PurgeRecords.deleteOlderThanNDays('Task', 'CreatedDate', 30, true);
 ```
-
-### deleteOlderThanNDays
 
 ```apex
 global static void deleteOlderThanNDays(String objectApiName, String dateFieldApiName, Integer daysThreshold, Boolean isAtomic, Integer batchSize)

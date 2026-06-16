@@ -42,8 +42,8 @@ pair.value = 'Hello World';
 
 | Method | Description |
 |--------|-------------|
-| global [DTO_NameValue](#dto_namevalue)() | Default no-argument constructor for flow and invocable compatibility. |
-| global [DTO_NameValue](#dto_namevalue)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Constructs a new name-value pair with the specified key and value. |
+| global  [DTO_NameValue](#dto_namevalue)() | Default no-argument constructor for flow and invocable compatibility. |
+| global  [DTO_NameValue](#dto_namevalue)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Constructs a new name-value pair with the specified key and value. |
 
 ---
 
@@ -66,8 +66,6 @@ DTO_NameValue pair = new DTO_NameValue();
 pair.name = 'MergeField';
 pair.value = 'Hello World';
 ```
-
-### DTO_NameValue
 
 ```apex
 global DTO_NameValue(String name, String value)

@@ -39,7 +39,7 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 |--------|-------------|
 | global static void [clear](#clear)() | Clears all registered mock records for all SObject types and resets the QRY_Builder mock layer. |
 | global static void [clear](#clear)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Clears registered mock records for a specific SObject type and resets its QRY_Builder mock layer. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [get](#get)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Retrieves all mock records registered for the specified SObject type. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [get](#get)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Retrieves all mock records registered for the specified SObject type. |
 | global static [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [of](#of)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Creates a new MockBuilder for the specified SObject type. |
 | global static void [register](#register)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers a list of mock records for the specified SObject type. |
 | global static void [register](#register)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single mock record for the specified SObject type. |
@@ -73,8 +73,6 @@ QRY_Builder mock layer.
 ```apex
 TST_Mock.clear();
 ```
-
-### clear
 
 ```apex
 global static void clear(SObjectType objectType)
@@ -170,8 +168,6 @@ List<Foobar__c> mocks = new List<Foobar__c>
 TST_Mock.register(Foobar__c.SObjectType, mocks);
 ```
 
-### register
-
 ```apex
 global static void register(SObjectType objectType, SObject record)
 ```
@@ -214,8 +210,6 @@ fired without manual message threading.
 TST_Mock.throwsException(Account.SObjectType);
 ```
 
-### throwsException
-
 ```apex
 global static void throwsException(SObjectType objectType, Exception exceptionToThrow)
 ```
@@ -250,8 +244,6 @@ catch(QueryException error)
     Assert.areEqual('Simulated SOQL failure', error.getMessage(), 'Caught the simulated failure');
 }
 ```
-
-### throwsException
 
 ```apex
 global static void throwsException(SObjectType objectType, String errorMessage)

@@ -25,7 +25,7 @@ A fluid builder for configuring and creating SObject records. Obtain an instance
 | Method | Description |
 |--------|-------------|
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [build](#build)() | Executes the build operation and creates a single SObject record. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [buildList](#buildlist)() | Executes the build operation and creates a list of SObject records. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [buildList](#buildlist)() | Executes the build operation and creates a list of SObject records. |
 | global [TST_Builder.Builder](TST_Builder.Builder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count) | Adds child records to the parent being built without field overrides. |
 | global [TST_Builder.Builder](TST_Builder.Builder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent being built using SObjectField tokens. |
 | global [TST_Builder.Builder](TST_Builder.Builder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent being built using String field names. |
@@ -129,8 +129,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.areEqual(3, account.Contacts.size());
 ```
 
-### withChildren
-
 ```apex
 global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Map<SObjectField, Object> overrides)
 ```
@@ -161,8 +159,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.areEqual(3, account.Contacts.size());
 ```
 
-### withChildren
-
 ```apex
 global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Map<String, Object> overrides)
 ```
@@ -190,8 +186,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
     })
     .build();
 ```
-
-### withChildren
 
 ```apex
 global TST_Builder.Builder withChildren(String relationshipName, TST_Builder.Builder childBuilder)
@@ -224,8 +218,6 @@ Foobar__c foobar = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
     )
     .build();
 ```
-
-### withChildren
 
 ```apex
 global TST_Builder.Builder withChildren(TST_Builder.Builder childBuilder)
@@ -311,8 +303,6 @@ List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType)
 // Alpha, Beta, Gamma, Alpha, Beta, Gamma
 ```
 
-### withCycle
-
 ```apex
 global TST_Builder.Builder withCycle(String fieldName, List<Object> values)
 ```
@@ -367,8 +357,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.withoutInsertion()
 	.build();
 ```
-
-### withDefaultedField
 
 ```apex
 global TST_Builder.Builder withDefaultedField(String fieldName)
@@ -452,8 +440,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNull(account.Name);
 ```
 
-### withOptionalField
-
 ```apex
 global TST_Builder.Builder withOptionalField(String fieldName)
 ```
@@ -532,8 +518,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNull(account.Id);
 ```
 
-### withoutInsertion
-
 ```apex
 global TST_Builder.Builder withoutInsertion(Boolean withMockIds)
 ```
@@ -600,8 +584,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
-### withOverride
-
 ```apex
 global TST_Builder.Builder withOverride(String fieldName, Object value)
 ```
@@ -657,8 +639,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 .withoutInsertion()
 .build();
 ```
-
-### withOverrides
 
 ```apex
 global TST_Builder.Builder withOverrides(Map<String, Object> overrides)

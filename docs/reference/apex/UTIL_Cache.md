@@ -289,8 +289,6 @@ else
 }
 ```
 
-### isAvailable
-
 ```apex
 global static Boolean isAvailable(UTIL_Cache.Scope cacheType)
 ```

@@ -90,8 +90,6 @@ else
 }
 ```
 
-### isEnabled
-
 ```apex
 global static Boolean isEnabled(String flagName, Id userId)
 ```
@@ -143,8 +141,6 @@ global class MySecurityPolicy implements TxnSecurity.EventCondition
     }
 }
 ```
-
-### isEnabled
 
 ```apex
 global static Boolean isEnabled(String flagName, String username)

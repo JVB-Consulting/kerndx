@@ -24,7 +24,7 @@ Result of validating a single record. Contains all validation errors/warnings fo
 
 | Property | Description |
 |----------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [errors](#errors) | List of validation errors/warnings for this record. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_ValidationRule.ValidationError](UTIL_ValidationRule.ValidationError.md)> [errors](#errors) | List of validation errors/warnings for this record. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isValid](#isvalid) | True if the record passed all validation rules. |
 
 ## Fields
@@ -39,8 +39,8 @@ Result of validating a single record. Contains all validation errors/warnings fo
 | Method | Description |
 |--------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getErrorMessage](#geterrormessage)() | Gets concatenated error message string. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getErrorsBySeverity](#geterrorsbyseverity)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Gets errors filtered by severity. |
-| global [ValidationResult](#validationresult)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Constructs a new ValidationResult for the given record. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_ValidationRule.ValidationError](UTIL_ValidationRule.ValidationError.md)> [getErrorsBySeverity](#geterrorsbyseverity)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Gets errors filtered by severity. |
+| global  [ValidationResult](#validationresult)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Constructs a new ValidationResult for the given record. |
 
 ---
 

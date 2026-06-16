@@ -42,23 +42,23 @@ aTransaction.commitWork();
 |--------|-------------|
 | global virtual void [commitWork](#commitwork)() | Commits all registered DML operations using inherited sharing. |
 | global virtual void [commitWork](#commitwork)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) enforceSharing) | Commits all registered DML operations with configurable sharing enforcement. |
-| global [DML_Transaction](#dml_transaction)() | Initializes a new transaction with empty collections for managing DML operations. |
+| global  [DML_Transaction](#dml_transaction)() | Initializes a new transaction with empty collections for managing DML operations. |
 | global void [doDelete](#dodelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for deletion. |
 | global void [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for deletion. |
 | global void [doInsert](#doinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for insertion. |
 | global void [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for insertion. |
-| global void [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for insertion with a relationship to a parent record. |
+| global void [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for insertion with a relationship to a parent record. |
 | global void [doSave](#dosave)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Saves a record by inserting (if no Id) or updating (if Id exists). |
 | global void [doUndelete](#doundelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for undelete. |
 | global void [doUndelete](#doundelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for undelete. |
 | global void [doUpdate](#doupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for update. |
 | global void [doUpdate](#doupdate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for update. |
-| global void [doUpdate](#doupdate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a record for update with a relationship to a parent record. |
+| global void [doUpdate](#doupdate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a record for update with a relationship to a parent record. |
 | global void [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for upsert without an external ID field. |
-| global void [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) externalIdField) | Registers multiple records for upsert using a specific external ID field. |
+| global void [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField) | Registers multiple records for upsert using a specific external ID field. |
 | global void [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for upsert without an external ID field. |
-| global void [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) externalIdField) | Registers a record for upsert using a specific external ID field. |
-| global void [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) externalIdField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for upsert with a parent relationship and external ID field. |
+| global void [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField) | Registers a record for upsert using a specific external ID field. |
+| global void [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) relationshipField, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for upsert with a parent relationship and external ID field. |
 | global virtual void [onCommitWorkFinished](#oncommitworkfinished)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) wasSuccessful) | Hook called after the commit process finalizes, indicating success or failure. |
 | global virtual void [onCommitWorkFinishing](#oncommitworkfinishing)() | Hook called after DML operations but before finalization. |
 | global virtual void [onCommitWorkStarting](#oncommitworkstarting)() | Hook called before the commit process starts. |
@@ -106,8 +106,6 @@ dmlTransaction.doInsert(new Account(Name = 'Test'));
 dmlTransaction.commitWork();
 ```
 
-### commitWork
-
 ```apex
 global virtual void commitWork(Boolean enforceSharing)
 ```
@@ -149,8 +147,6 @@ DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doDelete(obsoleteRecords);
 dmlTransaction.commitWork();
 ```
-
-### doDelete
 
 ```apex
 global void doDelete(SObject record)
@@ -194,8 +190,6 @@ dmlTransaction.doInsert(new List<Account>{new Account(Name = 'A'), new Account(N
 dmlTransaction.commitWork();
 ```
 
-### doInsert
-
 ```apex
 global void doInsert(SObject record)
 ```
@@ -215,8 +209,6 @@ DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doInsert(new Account(Name = 'Test'));
 dmlTransaction.commitWork();
 ```
-
-### doInsert
 
 ```apex
 global void doInsert(SObject child, SObjectField relationshipField, SObject parent)
@@ -289,8 +281,6 @@ dmlTransaction.doUndelete(deletedAccounts);
 dmlTransaction.commitWork();
 ```
 
-### doUndelete
-
 ```apex
 global void doUndelete(SObject record)
 ```
@@ -333,8 +323,6 @@ dmlTransaction.doUpdate(existingAccounts);
 dmlTransaction.commitWork();
 ```
 
-### doUpdate
-
 ```apex
 global void doUpdate(SObject record)
 ```
@@ -354,8 +342,6 @@ DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doUpdate(existingAccount);
 dmlTransaction.commitWork();
 ```
-
-### doUpdate
 
 ```apex
 global void doUpdate(SObject record, SObjectField relationshipField, SObject parent)
@@ -401,8 +387,6 @@ dmlTransaction.doUpsert(accounts);
 dmlTransaction.commitWork();
 ```
 
-### doUpsert
-
 ```apex
 global void doUpsert(List<SObject> records, SObjectField externalIdField)
 ```
@@ -423,8 +407,6 @@ DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doUpsert(accounts, Account.ExternalId__c);
 dmlTransaction.commitWork();
 ```
-
-### doUpsert
 
 ```apex
 global void doUpsert(SObject record)
@@ -447,8 +429,6 @@ dmlTransaction.doUpsert(account);
 dmlTransaction.commitWork();
 ```
 
-### doUpsert
-
 ```apex
 global void doUpsert(SObject record, SObjectField externalIdField)
 ```
@@ -470,8 +450,6 @@ DML_Transaction dmlTransaction = new DML_Transaction();
 dmlTransaction.doUpsert(account, Account.ExternalId__c);
 dmlTransaction.commitWork();
 ```
-
-### doUpsert
 
 ```apex
 global void doUpsert(SObject child, SObjectField relationshipField, SObjectField externalIdField, SObject parent)

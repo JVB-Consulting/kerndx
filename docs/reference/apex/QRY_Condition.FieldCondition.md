@@ -34,8 +34,8 @@ QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(
 
 | Method | Description |
 |--------|-------------|
-| global [FieldCondition](#fieldcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
-| global [FieldCondition](#fieldcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
+| global  [FieldCondition](#fieldcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
+| global  [FieldCondition](#fieldcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
 
 ---
 
@@ -62,8 +62,6 @@ Constructor for FieldCondition with a specified field, operator, and value.
 ```apex
 QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition(Account.Name, new Operator(), 'value');
 ```
-
-### FieldCondition
 
 ```apex
 global FieldCondition(String fieldName, QRY_Condition.Operator fieldOperator, Object fieldValue)

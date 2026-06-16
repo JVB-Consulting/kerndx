@@ -24,9 +24,9 @@ A Data Transfer Object (DTO) used to wrap the original parameters provided by Om
 
 | Property | Description |
 |----------|-------------|
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [inputMap](#inputmap) | Provides access to all input variables provided in the parameter map. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [optionMap](#optionmap) | Provides access to various option parameters that control the behavior of the call operation. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [outputMap](#outputmap) | Provides access to the output map where results of the operation can be stored. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [inputMap](#inputmap) | Provides access to all input variables provided in the parameter map. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [optionMap](#optionmap) | Provides access to various option parameters that control the behavior of the call operation. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [outputMap](#outputmap) | Provides access to the output map where results of the operation can be stored. |
 
 ## Methods
 

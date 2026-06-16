@@ -24,8 +24,8 @@ Builds a comma-separated field list from SObjectField tokens and optional FieldS
 
 | Method | Description |
 |--------|-------------|
-| global [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Initializes a FieldListBuilder with a list of SObjectField tokens. |
-| global [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm)> fieldSets) | Initializes a FieldListBuilder with fields and optional FieldSets. |
+| global  [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Initializes a FieldListBuilder with a list of SObjectField tokens. |
+| global  [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm)> fieldSets) | Initializes a FieldListBuilder with fields and optional FieldSets. |
 
 ---
 
@@ -50,8 +50,6 @@ Initializes a FieldListBuilder with a list of SObjectField tokens.
 ```apex
 UTIL_SObjectDescribe.FieldListBuilder builder = new UTIL_SObjectDescribe.FieldListBuilder(new List<SObjectField>{Account.Name});
 ```
-
-### FieldListBuilder
 
 ```apex
 global FieldListBuilder(List<SObjectField> objectFields, List<FieldSet> fieldSets)
