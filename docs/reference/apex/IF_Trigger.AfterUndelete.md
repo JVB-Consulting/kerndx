@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Trigger.AfterUndelete
 ```
@@ -19,7 +21,7 @@ global interface IF_Trigger.AfterUndelete
 
 Handler contract for the after-undelete trigger event.
 
-**Since:** 1.0
+</div>
 
 ---
 

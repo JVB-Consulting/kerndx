@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class FieldSetGroup__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class FieldSetGroup__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Groups multiple field sets for an object into a single configuration record. Used to drive multi-section UI layouts such as accordion panels.
+
+</div>
 
 ---
 

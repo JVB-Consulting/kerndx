@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_Retry.Strategy
 ```
 
 Interface defining the retry strategy logic. Implement this interface to create custom retry strategies.
 
-**Since:** 1.0
+</div>
 
 ---
 

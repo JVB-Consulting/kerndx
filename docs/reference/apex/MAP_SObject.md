@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class MAP_SObject
 ```
@@ -57,15 +59,15 @@ List<Contact> accountContacts = contactsByAccountId.getAll(someAccountId);
 
 Adapted from: SObjectIndex
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 MAP_SObject contactsByAccountId = MAP_SObject.of(contacts, 'AccountId');
 List<Contact> accountContacts = contactsByAccountId.getAll(someAccountId);
 Contact first = (Contact)contactsByAccountId.get(someAccountId);
 ```
+
+</div>
 
 ---
 

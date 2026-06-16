@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Search
 ```
 
 Generic Interface for searches
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class AccountSearch implements IF_Search
@@ -33,6 +33,8 @@ public class AccountSearch implements IF_Search
     }
 }
 ```
+
+</div>
 
 ---
 

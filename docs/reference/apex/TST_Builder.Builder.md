@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TST_Builder.Builder
 ```
 
 A fluid builder for configuring and creating SObject records. Obtain an instance via TST_Builder.of(SObjectType).
 
-**Since:** 1.0
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Bulk DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SCHED_DeactivateUsers extends SCHED_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SCHED_DeactivateUsers extends SCHED_Base
 
 Scheduled job to automatically deactivate users who haven't logged in for a specified number of days. Configurable with parameters such as profile names, minimum inactivity days, batch size, and transaction behavior.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SCHED_DeactivateUsers job = new SCHED_DeactivateUsers();
@@ -36,6 +36,8 @@ System.schedule('Deactivate Inactive Users', '0 0 2 * * ?', job);
 ```
 
 **See Also:** [SCHED_Base](SCHED_Base.md), [UTIL_BulkUpdates.deactivateUsers](UTIL_BulkUpdates.md#deactivateusers)
+
+</div>
 
 ---
 

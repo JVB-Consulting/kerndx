@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class MaskingTarget__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class MaskingTarget__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Applies a Masking Rule to a specific field on a specific object. Each record says "use this rule on this field". Pick the object first, then the Field picklist filters to fields on that object. Create as many records as you need — the same rule can apply to many fields across many objects.
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum TRG_Base.BypassType
 ```
 
 Indicates the type of trigger bypass being applied.
 
-**Since:** 1.0
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_EmailTemplate extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_EmailTemplate extends SEL_Base
 
 Selector for the EmailTemplate SObject. Provides default field configuration and query methods for EmailTemplate records.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<EmailTemplate> templates = new SEL_EmailTemplate().findByName(new Set<String>{'WelcomeTemplate'});
@@ -32,6 +32,8 @@ EmailTemplate template = (EmailTemplate)new SEL_EmailTemplate().findById(templat
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

@@ -638,12 +638,10 @@ Resilience tools manage *failure*, they don't erase it. Know these boundaries be
 
 ## Next Steps
 
-| Topic                               | Link                                                                           |
-|-------------------------------------|--------------------------------------------------------------------------------|
-| Resilience Developer Guide          | [Resilience - Guide](Resilience%20-%20Guide.md)                                |
-| Outbound API calls (retry built in) | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)            |
-| Correlated logging for traces       | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                          |
-| Complete Web Services Guide         | [Web Services - Guide](Web%20Services%20-%20Guide.md)                          |
-| UTIL_Retry API Reference            | [reference/apex/UTIL_Retry.md](reference/apex/UTIL_Retry.md)                   |
-| UTIL_CircuitBreaker API Reference   | [reference/apex/UTIL_CircuitBreaker.md](reference/apex/UTIL_CircuitBreaker.md) |
-| UTIL_HttpClient API Reference       | [reference/apex/UTIL_HttpClient.md](reference/apex/UTIL_HttpClient.md)         |
+- [Resilience Developer Guide](Resilience%20-%20Guide.md)
+- [Outbound API calls (retry built in)](Fast%20Start%20-%20Outbound%20APIs.md)
+- [Correlated logging for traces](Fast%20Start%20-%20Logging.md)
+- [Complete Web Services Guide](Web%20Services%20-%20Guide.md)
+- [UTIL_Retry API Reference](reference/apex/UTIL_Retry.md)
+- [UTIL_CircuitBreaker API Reference](reference/apex/UTIL_CircuitBreaker.md)
+- [UTIL_HttpClient API Reference](reference/apex/UTIL_HttpClient.md)

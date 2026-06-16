@@ -14,19 +14,21 @@ category: apex
 
 **Class** · Group: `Validation`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_BypassValidation
 ```
 
 Flow invocable action to bypass validation rules for the current transaction. Use this before DML operations in Flow to temporarily disable validation rules. Important: Bypasses are cleared at the end of the transaction. Use FLOW_ClearValidationBypass after your DML to explicitly clear bypasses for clarity.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 `// Flow Configuration: Action: Bypass Validation Input: ` BypassType: OBJECT_NAME (or GROUP_NAME or RULE_NAME) Name: Account // Perform DML... Action: Clear Validation Bypass Input: `Name: Account `
 
 **See Also:** [UTIL_ValidationRule](UTIL_ValidationRule.md), [FLOW_ExecuteValidationRules](FLOW_ExecuteValidationRules.md), [FLOW_ClearValidationBypass](FLOW_ClearValidationBypass.md)
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Async Processing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class IF_Async
 ```
 
 A container for shared global interfaces used by the asynchronous framework.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class MyProcessor implements IF_Async.Processable
@@ -33,6 +33,8 @@ public class MyProcessor implements IF_Async.Processable
     }
 }
 ```
+
+</div>
 
 ---
 

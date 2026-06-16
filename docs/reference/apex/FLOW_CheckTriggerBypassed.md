@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckTriggerBypassed
 ```
 
 This class is used to check whether certain triggers or actions are bypassed in the system. The class provides a method that can be invoked from a flow or Apex to determine if an object-level, Apex trigger class-level, or flow action-level bypass is active. It is based on the metadata-driven trigger actions framework that enables trigger execution to be turned on or off based on metadata configuration. adapted from:apex-trigger-actions-framework
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_CheckTriggerBypassed.DTO_Request request = new FLOW_CheckTriggerBypassed.DTO_Request();
@@ -31,6 +31,8 @@ request.bypassType = 'OBJECT_NAME';
 List<Boolean> results = FLOW_CheckTriggerBypassed.isBypassed(new List<FLOW_CheckTriggerBypassed.DTO_Request> {request});
 Boolean isBypassed = results[0];
 ```
+
+</div>
 
 ---
 

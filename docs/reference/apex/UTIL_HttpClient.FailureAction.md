@@ -11,21 +11,23 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum UTIL_HttpClient.FailureAction
 ```
 
 Defines the action to take when an HTTP call fails.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_HttpClient.post('MyService', '/send')
    .onFailure(UTIL_HttpClient.FailureAction.LOG_FAILURE)
    .send();
 ```
+
+</div>
 
 ---
 

@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_Hierarchy
 ```
@@ -34,9 +36,7 @@ Works with any SObject that has a self-referencing lookup field (e.g., Account.P
 
     - Uses efficient Map-based lookups over iterations
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Simple usage - find ultimate parent
@@ -56,6 +56,8 @@ List<SObject> updates = accountHierarchy.propagateToDescendants
 );
 update updates;
 ```
+
+</div>
 
 ---
 

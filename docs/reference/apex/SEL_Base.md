@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global abstract inherited sharing class SEL_Base implements IF_Queryable
 ```
@@ -24,9 +26,7 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 
 Abstract base class for all selectors. Provides lazy-loaded field management and IF_Queryable implementation. Subclasses define their SObjectType and core fields; the base class handles query builder creation with all configured fields.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class SEL_Account extends SEL_Base
@@ -51,6 +51,8 @@ global List<Account> findByIndustry(String industry)
 ```
 
 **See Also:** [IF_Queryable](IF_Queryable.md)
+
+</div>
 
 ---
 

@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual interface QRY_Condition.Evaluable
 ```
@@ -19,13 +21,13 @@ global virtual interface QRY_Condition.Evaluable
 
 Interface for condition classes. Pass to QRY_Builder.addCondition().
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 interface value = instance.Evaluable;
 ```
+
+</div>
 
 ---
 

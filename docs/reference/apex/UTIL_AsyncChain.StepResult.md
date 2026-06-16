@@ -11,20 +11,22 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsyncChain.StepResult
 ```
 
 Immutable result object returned by each ChainStep to indicate success or failure. Use the static factory methods to create instances.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.StepResult result = UTIL_AsyncChain.succeeded('All records processed');
 UTIL_AsyncChain.StepResult failure = UTIL_AsyncChain.failed('Missing required field');
 ```
+
+</div>
 
 ---
 

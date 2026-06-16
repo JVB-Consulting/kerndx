@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class LogSetting__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class LogSetting__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Controls logging behaviour: log level threshold, class filtering, performance logging thresholds, and context data size limits. Hierarchy: Org > Profile > User.
+
+</div>
 
 ---
 

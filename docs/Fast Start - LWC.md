@@ -592,11 +592,9 @@ The full catalogue, including programmatic building blocks like `sObjectLookup`,
 
 ## Next Steps
 
-| Topic                                    | Link                                                                |
-|------------------------------------------|---------------------------------------------------------------------|
-| Server-side persistent logging           | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)               |
-| Building the Apex controller's queries   | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)           |
-| DML from your controller methods         | [Fast Start - DML](Fast%20Start%20-%20DML.md)                       |
-| Feature flags in the UI                  | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) |
-| Catching LWC anti-patterns automatically | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Complete LWC developer reference         | [LWC - Guide](LWC%20-%20Guide.md)                                   |
+- [Server-side persistent logging](Fast%20Start%20-%20Logging.md)
+- [Building the Apex controller's queries](Fast%20Start%20-%20Selectors.md)
+- [DML from your controller methods](Fast%20Start%20-%20DML.md)
+- [Feature flags in the UI](Fast%20Start%20-%20Feature%20Flags.md)
+- [Catching LWC anti-patterns automatically](Fast%20Start%20-%20Code%20Scanning.md)
+- [Complete LWC developer reference](LWC%20-%20Guide.md)

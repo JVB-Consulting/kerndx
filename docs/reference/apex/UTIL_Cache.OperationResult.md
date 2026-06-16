@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Cache.OperationResult
 ```
 
 Result of a cache operation with detailed status information
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -108,9 +110,7 @@ global UTIL_Cache.Scope cacheTypeUsed
 
 Cache type used (SESSION, ORG, or null if unavailable)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Scope value = instance.cacheTypeUsed;
@@ -126,9 +126,7 @@ global String errorMessage
 
 Error message if operation failed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.errorMessage;
@@ -144,9 +142,7 @@ global Integer keysFound
 
 Number of keys found (for read operations)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.keysFound;
@@ -162,9 +158,7 @@ global Integer keysRequested
 
 Number of keys requested (for bulk operations)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.keysRequested;
@@ -180,9 +174,7 @@ global UTIL_Cache.Status status
 
 Detailed status of the operation
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Status value = instance.status;
@@ -198,9 +190,7 @@ global Boolean success
 
 Whether the operation succeeded (true for SUCCESS statuses and CACHE_MISS)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.success;

@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class DTO_NameValue
 ```
 
 DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or configuration settings. Designed for flexibility in flows, Aura components, or Apex logic, supporting scenarios like email template merge fields, parameter passing, or custom metadata updates.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValue pair = new DTO_NameValue();
 pair.name = 'MergeField';
 pair.value = 'Hello World';
 ```
+
+</div>
 
 ---
 
@@ -107,8 +109,6 @@ DTO_NameValue pair = new DTO_NameValue('MergeField', 'Hello World');
 
 The name of the data field or placeholder, used as a key in invocable methods.
 
-**Since:** 1.0
-
 ### value
 
 ```apex
@@ -118,6 +118,4 @@ The name of the data field or placeholder, used as a key in invocable methods.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The value associated with the field name, used for substitution or configuration.
-
-**Since:** 1.0
 

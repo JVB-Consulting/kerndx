@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class UTIL_ValidationRule.ValidationResult
 ```
 
 Result of validating a single record. Contains all validation errors/warnings for that record.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -166,9 +168,7 @@ global Id recordId
 
 The record ID (available in all contexts except before insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id value = instance.recordId;
@@ -184,9 +184,7 @@ global Integer recordIndex
 
 The index of the record in the trigger list (for before insert correlation).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.recordIndex;

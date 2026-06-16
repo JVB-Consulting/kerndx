@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ApiCredential__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class ApiCredential__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Links outbound API handlers to their Salesforce Named Credential for endpoint resolution and authentication.
+
+</div>
 
 ---
 

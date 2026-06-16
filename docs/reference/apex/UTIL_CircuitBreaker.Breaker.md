@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_CircuitBreaker.Breaker
 ```
 
 Interface for circuit breaker operations. This interface defines the contract for circuit breaker behavior, including: Request gating (allowRequest) Success/failure recording State inspection and metrics Configuration via fluent API Convenient execute() helpers for protected actions
 
-**Since:** 1.0
+</div>
 
 ---
 

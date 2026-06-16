@@ -410,11 +410,9 @@ Don't rely on chain context for authenticated callouts; use a Named Credential i
 
 ## Next Steps
 
-| Topic                        | Link                                                                   |
-|------------------------------|------------------------------------------------------------------------|
-| Outbound HTTP calls          | [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)    |
-| DML Builder (sync and async) | [Fast Start - DML](Fast%20Start%20-%20DML.md)                          |
-| Logging and correlation      | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                  |
-| Feature flag gating          | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)    |
-| Complete async reference     | [Async Processing - Guide](Async%20Processing%20-%20Guide.md)          |
-| `UTIL_AsyncChain` API        | [reference/apex/UTIL_AsyncChain.md](reference/apex/UTIL_AsyncChain.md) |
+- [Outbound HTTP calls](Fast%20Start%20-%20Outbound%20APIs.md)
+- [DML Builder (sync and async)](Fast%20Start%20-%20DML.md)
+- [Logging and correlation](Fast%20Start%20-%20Logging.md)
+- [Feature flag gating](Fast%20Start%20-%20Feature%20Flags.md)
+- [Complete async reference](Async%20Processing%20-%20Guide.md)
+- [`UTIL_AsyncChain` API](reference/apex/UTIL_AsyncChain.md)

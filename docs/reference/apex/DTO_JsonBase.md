@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 @JsonAccess(serializable='always' deserializable='always') global inherited sharing virtual class DTO_JsonBase extends DTO_Base
 ```
@@ -24,9 +26,7 @@ category: apex
 
 A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transforming JSON data into structured objects and vice versa. Inherited by other DTO classes that require JSON handling capabilities.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 @JsonAccess(Serializable='always' Deserializable='always')
@@ -36,6 +36,8 @@ public class DTO_Invoice extends DTO_JsonBase
     public String status;
 }
 ```
+
+</div>
 
 ---
 

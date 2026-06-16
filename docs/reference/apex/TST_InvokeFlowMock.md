@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TST_InvokeFlowMock
 ```
 
 Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview API entirely. Mirrors the fluent shape of API_MockFactory so the patterns transfer one-to-one. Subscriber-facing global surface (locked at v1.0): forFlow(String) — entry point returning a MockBuilder MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register() clear(), assertInvoked(name, count), assertNotInvoked(name), wasInvoked(name) getLastInputRecord(name), getLastInputPriorRecord(name) — verify the flow saw upstream Apex mutations Framework-internal surface (used by TRG_InvokeFlow): isMocked(name), getMockResult(name), recordInvocation(name, record, priorRecord)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
@@ -32,6 +32,8 @@ TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
     .register();
 Assert.isTrue(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'), 'Flow should be invoked');
 ```
+
+</div>
 
 ---
 

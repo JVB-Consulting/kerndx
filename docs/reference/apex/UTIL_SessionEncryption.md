@@ -14,11 +14,23 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SessionEncryption
 ```
 
 Utility class providing bi-directional encryption and decryption capabilities with automatic key management and expiry. This class uses AES256 encryption combined with HMAC-SHA256 (Encrypt-then-MAC) to ensure both confidentiality and integrity.
+
+**Example**
+
+```apex
+String encrypted = UTIL_SessionEncryption.encrypt('Sensitive Data');
+String decrypted = UTIL_SessionEncryption.decrypt(encrypted);
+Boolean available = UTIL_SessionEncryption.isAvailable();
+```
+
+</div>
 
 ## CRITICAL ARCHITECTURAL WARNING
 
@@ -37,16 +49,6 @@ USE THIS CLASS ONLY FOR:
     - Short-lived data passing (e.g., ViewState, temporary token exchange).
 
     - Session-scoped data where data loss is acceptable upon session expiry.
-
-**Since:** 1.0
-
-**Example:**
-
-```apex
-String encrypted = UTIL_SessionEncryption.encrypt('Sensitive Data');
-String decrypted = UTIL_SessionEncryption.decrypt(encrypted);
-Boolean available = UTIL_SessionEncryption.isAvailable();
-```
 
 ---
 

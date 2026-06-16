@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class API_CallCurrentOrg extends API_Outbound
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class API_CallCurrentOrg extends API_Outbound
 
 Base API class for all handlers that call the current Org standard APIs. Uses session-ID-based authentication and resolves the org base URL dynamically via URL.getOrgDomainURL(). Subscribers must add a Remote Site Setting for their My Domain URL.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class API_OrgMetadata extends API_CallCurrentOrg
@@ -37,6 +37,8 @@ global class API_OrgMetadata extends API_CallCurrentOrg
     }
 }
 ```
+
+</div>
 
 ---
 

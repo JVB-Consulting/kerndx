@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_PermissionSetGroup extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_PermissionSetGroup extends SEL_Base
 
 Selector for the PermissionSetGroup SObject. Provides default field configuration and query methods for PermissionSetGroup records. In test context, automatically recalculates groups that are not yet updated.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PermissionSetGroup foundGroup = new SEL_PermissionSetGroup().findByName('ReadOnly');
@@ -32,6 +32,8 @@ List<PermissionSetGroup> groups = new SEL_PermissionSetGroup().findByName(new Se
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

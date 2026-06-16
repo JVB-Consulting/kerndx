@@ -702,11 +702,9 @@ After completing this guide, you understand the **selector pattern** in KernDX:
 
 ## Next Steps
 
-| Topic                                    | Link                                                                |
-|------------------------------------------|---------------------------------------------------------------------|
-| DML Builder (writes)                     | [Fast Start - DML](Fast%20Start%20-%20DML.md)                       |
-| Test Data Patterns                       | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)         |
-| Code Scanning (catch SOQL anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
-| Complete Selectors Guide                 | [Selectors - Guide](Selectors%20-%20Guide.md)                       |
-| QRY_Builder Reference                    | [reference/apex/QRY_Builder.md](reference/apex/QRY_Builder.md)      |
-| SEL_Base Reference                       | [reference/apex/SEL_Base.md](reference/apex/SEL_Base.md)            |
+- [DML Builder (writes)](Fast%20Start%20-%20DML.md)
+- [Test Data Patterns](Fast%20Start%20-%20Test%20Data.md)
+- [Code Scanning (catch SOQL anti-patterns)](Fast%20Start%20-%20Code%20Scanning.md)
+- [Complete Selectors Guide](Selectors%20-%20Guide.md)
+- [QRY_Builder Reference](reference/apex/QRY_Builder.md)
+- [SEL_Base Reference](reference/apex/SEL_Base.md)

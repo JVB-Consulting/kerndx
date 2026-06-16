@@ -14,20 +14,22 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global without sharing class TST_Factory
 ```
 
 Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, providing methods to create records with random data and configure system settings such as API toggles, triggers, and scheduled jobs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TriggerSetting__mdt setting = TST_Factory.newTriggerSetting('Foobar__c');
 TST_Factory.newTriggerActionForContext('TRG_SetFoobarDefaults', setting, TriggerOperation.BEFORE_INSERT);
 ```
+
+</div>
 
 ---
 

@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class PostTriggerAction__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class PostTriggerAction__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Registers a single post-trigger action: one Apex class that runs once at the end of a trigger transaction, after all trigger actions on every object have completed. Use for cross-object work that cannot be done from inside an individual trigger action — aggregate audit emission, asynchronous job enqueue, transaction-scoped telemetry. Post-trigger actions must not perform DML; the dispatcher rethrows if they do.
+
+</div>
 
 ---
 

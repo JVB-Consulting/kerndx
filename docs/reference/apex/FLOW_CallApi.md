@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CallApi
 ```
 
 Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightning Flow or Process Builder. Receives a list of requests, sends them to their respective endpoints, and returns responses as structured data.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_CallApi.DTO_Request request = new FLOW_CallApi.DTO_Request();
@@ -31,6 +31,8 @@ request.recordId = recordId;
 request.inputs = 'customerId=5678';
 List<FLOW_CallApi.DTO_Response> responses = FLOW_CallApi.invokeApiCallSynchronously(new List<FLOW_CallApi.DTO_Request> {request});
 ```
+
+</div>
 
 ---
 

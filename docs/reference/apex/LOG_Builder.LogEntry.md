@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class LOG_Builder.LogEntry
 ```
 
 Fluent builder for constructing rich log entries with context. Provides a chainable API for setting log level, location, record association, and contextual metadata before emitting the log.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 LOG_Builder.build()
@@ -29,6 +29,8 @@ LOG_Builder.build()
     .withContext('amount', payment.Amount__c)
     .emit();
 ```
+
+</div>
 
 ---
 

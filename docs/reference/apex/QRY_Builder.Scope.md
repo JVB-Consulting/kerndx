@@ -11,21 +11,23 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum QRY_Builder.Scope
 ```
 
 Enumeration of valid SOQL scope values for use with the USING SCOPE clause.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> myAccounts = QRY_Builder.selectFrom(Account.SObjectType)
     .usingScope(QRY_Builder.Scope.MINE)
     .toList();
 ```
+
+</div>
 
 ---
 

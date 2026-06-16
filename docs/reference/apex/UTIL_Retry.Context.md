@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_Retry.Context
 ```
 
 Interface defining the retry context. Contains information about the current retry attempt including count, timing, and custom data.
 
-**Since:** 1.0
+</div>
 
 ---
 

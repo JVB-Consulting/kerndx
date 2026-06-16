@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SVC_Omnistudio.Parameters
 ```
 
 A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing them into distinct input, output, and option maps. This global inherited sharing class is designed to simplify the retrieval and management of these parameters within an Omnistudio context.
 
-**Since:** 1.0
+</div>
 
 ---
 

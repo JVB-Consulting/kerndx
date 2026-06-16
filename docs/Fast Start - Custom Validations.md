@@ -406,11 +406,9 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
 ## Next Steps
 
-| Topic                              | Link                                                                           |
-|------------------------------------|--------------------------------------------------------------------------------|
-| Fast Start - Trigger Actions       | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)        |
-| Fast Start - Feature Flags         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)            |
-| Fast Start - Logging               | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                          |
-| Custom Validations Developer Guide | [Validation - Guide](Validation%20-%20Guide.md)                                |
-| UTIL_ValidationRule API Reference  | [reference/apex/UTIL_ValidationRule.md](reference/apex/UTIL_ValidationRule.md) |
-| Formula Functions Reference        | [reference/apex/UTIL_FormulaFilter.md](reference/apex/UTIL_FormulaFilter.md)   |
+- [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
+- [Fast Start - Logging](Fast%20Start%20-%20Logging.md)
+- [Custom Validations Developer Guide](Validation%20-%20Guide.md)
+- [UTIL_ValidationRule API Reference](reference/apex/UTIL_ValidationRule.md)
+- [Formula Functions Reference](reference/apex/UTIL_FormulaFilter.md)

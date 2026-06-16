@@ -14,17 +14,19 @@ category: apex
 
 **Class** · Group: `Logging`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerStart
 ```
 
 Starts a logging correlation for a Flow. Use this at the beginning of a Flow to generate a correlation ID that links all subsequent log entries.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 `In Flow Builder: ` Add "Start Flow Correlation" action at the beginning Set Flow Name (e.g., "Create Account") Optionally set Record ID for context Store the returned Correlation ID in a variable `Pass this ID to subsequent "Log Flow Event" and "End Flow Correlation" actions `
+
+</div>
 
 ---
 

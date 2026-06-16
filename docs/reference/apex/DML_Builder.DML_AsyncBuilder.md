@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class DML_Builder.DML_AsyncBuilder
 ```
 
 Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing.
 
-**Since:** 1.0
+</div>
 
 ---
 

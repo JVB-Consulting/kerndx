@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Exceptions
 ```
 
 Centralised container for framework-specific exception types. Groups related exception classes under a single outer class to minimise top-level file count while keeping each exception independently referenceable.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(config == null)
@@ -30,6 +30,8 @@ if(config == null)
     throw new UTIL_Exceptions.ConfigurationException('Missing required configuration.');
 }
 ```
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SObjectDescribe.GlobalDescribeMap extends UTIL_SObjectDescribe.NamespacedAttributeMap
 ```
 
 A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe.
 
-**Since:** 1.0
+</div>
 
 ---
 

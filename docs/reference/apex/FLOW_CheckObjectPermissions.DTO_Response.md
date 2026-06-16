@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckObjectPermissions.DTO_Response
 ```
 
 DTO containing the permissions per object provided in request.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -46,8 +48,6 @@ DTO containing the permissions per object provided in request.
 
 Whether the running user has create access to the object.
 
-**Since:** 1.0
-
 ### hasDeleteAccess
 
 ```apex
@@ -57,8 +57,6 @@ Whether the running user has create access to the object.
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Whether the running user has delete access to the object.
-
-**Since:** 1.0
 
 ### hasEditAccess
 
@@ -70,8 +68,6 @@ Whether the running user has delete access to the object.
 
 Whether the running user has edit access to the object.
 
-**Since:** 1.0
-
 ### hasReadAccess
 
 ```apex
@@ -81,8 +77,6 @@ Whether the running user has edit access to the object.
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Whether the running user has read access to the object.
-
-**Since:** 1.0
 
 ### isValidObject
 
@@ -94,8 +88,6 @@ Whether the running user has read access to the object.
 
 Whether the provided object API name resolves to a valid SObject type.
 
-**Since:** 1.0
-
 ### objectApiName
 
 ```apex
@@ -105,6 +97,4 @@ Whether the provided object API name resolves to a valid SObject type.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the object these permissions apply to.
-
-**Since:** 1.0
 

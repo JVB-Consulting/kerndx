@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class SEL_User extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 
 Selector for the User SObject. Provides default field configuration and query methods for User records, including retrieval by ID, role, profile, or other fields, as well as generating aliases and community nicknames.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 User currentUser = new SEL_User().getCurrentUser();
@@ -34,6 +34,8 @@ List<User> roleUsers = new SEL_User().findByRoleId(roleIds);
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md), [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)
+
+</div>
 
 ---
 

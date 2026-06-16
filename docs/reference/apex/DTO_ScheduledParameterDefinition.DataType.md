@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum DTO_ScheduledParameterDefinition.DataType
 ```
 
 Enumeration of supported input data types for scheduled job parameters.
 
-**Since:** 1.0
+</div>
 
 ---
 

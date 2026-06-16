@@ -527,13 +527,11 @@ After completing this guide, you understand the **three test data tools** in Ker
 
 ## Next Steps
 
-| Topic                                            | Link                                                                          |
-|--------------------------------------------------|-------------------------------------------------------------------------------|
-| Selectors (query patterns)                       | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                     |
-| DML Builder (writes)                             | [Fast Start - DML](Fast%20Start%20-%20DML.md)                                 |
-| Trigger Actions (testing triggers)               | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)       |
-| Custom Validations                               | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
-| E2E Testing (Playwright + RunLocalTests harness) | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)               |
-| TST_Builder Reference                            | [reference/apex/TST_Builder.md](reference/apex/TST_Builder.md)                |
-| TST_Mock Reference                               | [reference/apex/TST_Mock.md](reference/apex/TST_Mock.md)                      |
-| TST_Factory Reference                            | [reference/apex/TST_Factory.md](reference/apex/TST_Factory.md)                |
+- [Selectors (query patterns)](Fast%20Start%20-%20Selectors.md)
+- [DML Builder (writes)](Fast%20Start%20-%20DML.md)
+- [Trigger Actions (testing triggers)](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Custom Validations](Fast%20Start%20-%20Custom%20Validations.md)
+- [E2E Testing (Playwright + RunLocalTests harness)](Fast%20Start%20-%20E2E%20Testing.md)
+- [TST_Builder Reference](reference/apex/TST_Builder.md)
+- [TST_Mock Reference](reference/apex/TST_Mock.md)
+- [TST_Factory Reference](reference/apex/TST_Factory.md)

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Async`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsyncChain
 ```
 
 Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('DataMigration')
@@ -31,6 +31,8 @@ UTIL_AsyncChain.newChain('DataMigration')
     .onError(new NotifyAdminStep())
     .execute();
 ```
+
+</div>
 
 ---
 

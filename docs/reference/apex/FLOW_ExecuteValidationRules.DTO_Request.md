@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_ExecuteValidationRules.DTO_Request
 ```
 
 Request DTO for the Execute Validation Rules invocable action. Contains the records to validate and the trigger context for rule evaluation.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -46,8 +48,6 @@ AFTER_UPDATE operations to enable change detection in validation formulas (e.g.,
 PRIORVALUE functions). Leave empty for insert, delete, and undelete operations.
 In Record-Triggered Flows, use {!$Record__Prior} to populate this field.
 
-**Since:** 1.0
-
 ### records
 
 ```apex
@@ -59,8 +59,6 @@ In Record-Triggered Flows, use {!$Record__Prior} to populate this field.
 The new/current records to validate. For insert operations, these are the records
 being created. For update operations, these are the records with their new field values.
 For delete operations, these are the records being deleted. This field is required.
-
-**Since:** 1.0
 
 ### triggerContext
 
@@ -74,6 +72,4 @@ The trigger operation context that determines which validation rules to execute.
 Must match a TriggerOperation enum value: BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE,
 AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE. Defaults to BEFORE_INSERT
 if not specified.
-
-**Since:** 1.0
 

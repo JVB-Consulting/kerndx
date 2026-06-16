@@ -11,20 +11,22 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_Base.ServiceCallResult
 ```
 
 Tracks the request, response, and status of a web service call.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_Base.ServiceCallResult result = handler.result;
 Boolean success = result.isSuccess;
 ```
+
+</div>
 
 ---
 
@@ -118,8 +120,6 @@ global List<String> errors
 
 List of errors encountered during the service call.
 
-**Since:** 1.0
-
 ### isMocked
 
 ```apex
@@ -129,8 +129,6 @@ global Boolean isMocked
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Indicates if the service call response was mocked.
-
-**Since:** 1.0
 
 ### parseError
 
@@ -147,8 +145,6 @@ status code and body are populated — but responsePayload is unreliable.
 Subscribers branch on this to distinguish parse failure from transport failure
 without inspecting errors[] strings.
 
-**Since:** 1.0
-
 ### requestBody
 
 ```apex
@@ -158,8 +154,6 @@ global String requestBody
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The request body sent.
-
-**Since:** 1.0
 
 ### requestHeaders
 
@@ -171,8 +165,6 @@ global DTO_NameValues requestHeaders
 
 Request headers as name-value pairs.
 
-**Since:** 1.0
-
 ### responseBody
 
 ```apex
@@ -182,8 +174,6 @@ global String responseBody
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The response body received.
-
-**Since:** 1.0
 
 ### responseHeaders
 
@@ -195,8 +185,6 @@ global DTO_NameValues responseHeaders
 
 Response headers as name-value pairs.
 
-**Since:** 1.0
-
 ### status
 
 ```apex
@@ -206,8 +194,6 @@ global API_Base.WebserviceStatus status
 **Type:** [API_Base.WebserviceStatus](API_Base.WebserviceStatus.md)
 
 The status of the web service call.
-
-**Since:** 1.0
 
 ### statusCode
 
@@ -219,8 +205,6 @@ global String statusCode
 
 The HTTP status code for the request.
 
-**Since:** 1.0
-
 ### url
 
 ```apex
@@ -230,6 +214,4 @@ global String url
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The URL of the endpoint accessed.
-
-**Since:** 1.0
 

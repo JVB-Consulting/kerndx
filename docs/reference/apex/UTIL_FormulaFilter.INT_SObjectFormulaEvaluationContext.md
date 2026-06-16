@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
@@ -19,7 +21,7 @@ global interface UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 
 Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. Implementing classes supply the necessary context for evaluating formulas using SObjects.
 
-**Since:** 1.0
+</div>
 
 ---
 

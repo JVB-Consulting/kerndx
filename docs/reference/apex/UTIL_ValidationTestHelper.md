@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_ValidationTestHelper
 ```
 
 Reusable utility class for testing validation rules. This is NOT a test class itself but provides assertion methods for subscriber test classes and the framework's own test classes to verify validation rule behavior. The class validates records in-memory using the validation framework and provides focused assertions for specific rule failures or passes.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 @IsTest
@@ -40,6 +40,8 @@ private static void shouldPassWhenEmailProvided()
 ```
 
 **See Also:** [UTIL_ValidationRule](UTIL_ValidationRule.md)
+
+</div>
 
 ---
 

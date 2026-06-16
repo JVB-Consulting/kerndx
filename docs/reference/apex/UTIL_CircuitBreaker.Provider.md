@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_CircuitBreaker.Provider
 ```
 
 Interface for code that needs circuit breaker protection (with return value) Implement this interface when your action needs to return data. Use ProtectedAction if no return value is needed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class GetCustomerDataProvider implements UTIL_CircuitBreaker.Provider
@@ -40,6 +40,8 @@ public class GetCustomerDataProvider implements UTIL_CircuitBreaker.Provider
 UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('API_GetCustomerData');
 DTO_CustomerResponse customer = (DTO_CustomerResponse)breaker.execute(new GetCustomerDataProvider(customerId));
 ```
+
+</div>
 
 ---
 

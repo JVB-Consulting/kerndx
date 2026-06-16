@@ -12,6 +12,8 @@ category: apex
 
 **Trigger**
 
+<div class="apex-member apex-class">
+
 ```apex
 trigger TRG_ApiIssue on ApiIssue__c ( before insert, before update )
 ```
@@ -19,6 +21,8 @@ trigger TRG_ApiIssue on ApiIssue__c ( before insert, before update )
 Trigger on ApiIssue__c. Fires the configured trigger actions for data masking before insert and update so sensitive payload fragments captured in the diagnostic record are redacted before persistence, regardless of whether the issue was created by the web-service framework or by subscriber Apex.
 
 **See Also:** [ApiIssue__c](../objects/ApiIssue__c.md)
+
+</div>
 
 ---
 

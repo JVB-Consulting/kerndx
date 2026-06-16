@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class MaskingRule__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class MaskingRule__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. Each rule has a pattern (regex, JSON keys, literal string, or DTO field paths), a replacement value, and a category. Pair a rule with one or more Masking Target records to apply it to specific fields on specific objects.
+
+</div>
 
 ---
 

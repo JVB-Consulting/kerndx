@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_PermissionSet extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_PermissionSet extends SEL_Base
 
 Selector for the PermissionSet SObject. Provides default field configuration and query methods for PermissionSet records, including namespace-aware lookup.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PermissionSet adminSet = new SEL_PermissionSet().findByName('Administrator');
@@ -32,6 +32,8 @@ PermissionSet permissionSet = (PermissionSet)new SEL_PermissionSet().findById(pe
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Random
 ```
 
 Generates random values across multiple data types for testing and development, including numbers, strings, UUIDs, and mock Salesforce IDs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String uuid = UTIL_Random.randomUUID();
@@ -30,6 +30,8 @@ String email = UTIL_Random.randomEmail();
 Integer number = UTIL_Random.nextInteger(1, 100);
 Id mockAccountId = UTIL_Random.randomId(Account.SObjectType);
 ```
+
+</div>
 
 ---
 

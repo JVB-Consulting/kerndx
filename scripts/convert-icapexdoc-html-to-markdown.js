@@ -1513,6 +1513,14 @@ function generateHeader(metadata, signatureInfo)
 		md += badges.join(' · ') + '\n\n';
 	}
 
+	// Class header card — the SAME `apex-member` card the method details use, so the top
+	// of the page is visually cohesive with the members below instead of a run of loose
+	// bold-label lines. The deeper "Usage Patterns" narrative (extendedDescription) stays
+	// a full-width section after the card. Per-version `Since` is intentionally dropped:
+	// with a single published doc version every type is "since 1.0", so the label carries
+	// no information.
+	md += '<div class="apex-member apex-class">\n\n';
+
 	// Signature
 	if(signatureInfo.text)
 	{
@@ -1546,22 +1554,10 @@ function generateHeader(metadata, signatureInfo)
 		md += metadata.description + '\n\n';
 	}
 
-	// Extended description (embedded documentation with headers/code blocks)
-	if(metadata.extendedDescription)
-	{
-		md += metadata.extendedDescription + '\n\n';
-	}
-
-	// Since
-	if(metadata.since)
-	{
-		md += `**Since:** ${metadata.since}\n\n`;
-	}
-
-	// Example
+	// Example (quick start; the deeper Usage Patterns section follows the card)
 	if(metadata.example)
 	{
-		md += '**Example:**\n\n' + metadata.example + '\n\n';
+		md += '**Example**\n\n' + metadata.example + '\n\n';
 	}
 
 	// See Also
@@ -1569,6 +1565,15 @@ function generateHeader(metadata, signatureInfo)
 	{
 		md += '**See Also:** ';
 		md += metadata.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+	}
+
+	md += '</div>\n\n';
+
+	// Usage Patterns narrative (extendedDescription) — a full-width section below the
+	// header card, not crammed into it.
+	if(metadata.extendedDescription)
+	{
+		md += metadata.extendedDescription + '\n\n';
 	}
 
 	md += '---\n\n';
@@ -1717,10 +1722,6 @@ function generatePropertyDetails(propertyDetails)
 		{
 			md += p.description + '\n\n';
 		}
-		if(p.since)
-		{
-			md += `**Since:** ${p.since}\n\n`;
-		}
 		if(p.seeAlso.length > 0)
 		{
 			md += '**See Also:** ' + p.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
@@ -1755,13 +1756,9 @@ function generateEnumValueDetails(enumConstantDetails)
 		{
 			md += e.description + '\n\n';
 		}
-		if(e.since)
-		{
-			md += `**Since:** ${e.since}\n\n`;
-		}
 		if(e.example)
 		{
-			md += '**Example:**\n\n' + e.example + '\n\n';
+			md += '**Example**\n\n' + e.example + '\n\n';
 		}
 		if(e.seeAlso && e.seeAlso.length > 0)
 		{
@@ -1972,13 +1969,9 @@ function generateFieldDetails(fieldDetails, membersSummary)
 		{
 			md += f.description + '\n\n';
 		}
-		if(f.since)
-		{
-			md += `**Since:** ${f.since}\n\n`;
-		}
 		if(f.example)
 		{
-			md += '**Example:**\n\n' + f.example + '\n\n';
+			md += '**Example**\n\n' + f.example + '\n\n';
 		}
 		if(f.seeAlso.length > 0)
 		{

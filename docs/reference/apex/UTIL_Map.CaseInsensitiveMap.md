@@ -11,21 +11,23 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Map.CaseInsensitiveMap
 ```
 
 A Map implementation that performs case-insensitive key lookups. Keys are normalised to lower case for internal storage and retrieval, but the original casing is retained for display and export operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Map.CaseInsensitiveMap ciMap = new UTIL_Map.CaseInsensitiveMap();
 ciMap.put('Acme Ltd', myAccount);
 Account a = (Account) ciMap.get('ACME LTD');
 ```
+
+</div>
 
 ---
 

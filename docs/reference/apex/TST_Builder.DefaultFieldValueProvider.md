@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual class TST_Builder.DefaultFieldValueProvider
 ```
 
 Base class for field-level default value providers. @note Using a virtual class instead of an interface allows adding new methods in future managed package versions without breaking existing implementations.
 
-**Since:** 1.0
+</div>
 
 ---
 

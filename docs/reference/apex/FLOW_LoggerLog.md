@@ -14,17 +14,19 @@ category: apex
 
 **Class** · Group: `Logging`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerLog
 ```
 
 Logs an event within a Flow with correlation support. Use this to log messages, warnings, or errors during Flow execution.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 `In Flow Builder: ` Add "Log Flow Event" action anywhere in your Flow Pass the Correlation ID from "Start Flow Correlation" Set Message and optionally Log Level (DEBUG, INFO, WARN, ERROR) `Optionally set Flow Step to identify where in the Flow the log occurred `
+
+</div>
 
 ---
 

@@ -14,19 +14,21 @@ category: apex
 
 **Class** · Group: `Validation`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_ExecuteValidationRules
 ```
 
 Flow invocable action to execute validation rules against records. Use this in Record-Triggered Flows or Screen Flows to validate records before DML and display user-friendly error messages. Usage in Screen Flow (Pre-DML Validation): User fills in fields on a screen Before "Create Records" element, add "Action" element Call this invocable with the record(s) to validate Check HasErrors output - if true, display errors and loop back to edit screen If false, proceed to Create Records
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 `// Flow Configuration: Action: Execute Validation Rules Input: ` Records: {!$Record} or collection TriggerContext: BEFORE_INSERT OldRecords: (leave empty for insert; use {!$Record__Prior} for update) Output: HasErrors: Boolean - check in Decision element HasWarnings: Boolean - check for non-blocking warnings Errors: List<DTO_FlowValidationError> - display in lwcValidationErrors component Warnings: List<DTO_FlowValidationError> - display shadow mode or warning-severity results `ErrorMessage: String - concatenated message for simple display `
 
 **See Also:** [UTIL_ValidationRule](UTIL_ValidationRule.md), [FLOW_BypassValidation](FLOW_BypassValidation.md)
+
+</div>
 
 ---
 

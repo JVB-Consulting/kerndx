@@ -685,14 +685,12 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 
 ## Next Steps
 
-| Topic                                                    | Link                                                                          |
-|----------------------------------------------------------|-------------------------------------------------------------------------------|
-| Custom Validations (metadata-driven rules)               | [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) |
-| Selectors (query patterns)                               | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                     |
-| DML Builder (after context)                              | [Fast Start - DML](Fast%20Start%20-%20DML.md)                                 |
-| E2E Testing (verify triggers fire end-to-end)            | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)               |
-| Complete Triggers Guide                                  | [Triggers - Guide](Triggers%20-%20Guide.md)                                   |
-| Change Data Capture actions (react to committed changes) | [Triggers - Guide](Triggers%20-%20Guide.md#change-data-capture-actions)       |
-| Post-trigger actions (run logic once per transaction)    | [Triggers - Guide](Triggers%20-%20Guide.md#post-trigger-actions)              |
-| Bypass Mechanisms                                        | [Triggers - Guide](Triggers%20-%20Guide.md#bypass-mechanisms)                 |
-| Feature Flag Integration                                 | [Triggers - Guide](Triggers%20-%20Guide.md#feature-flag-integration)          |
+- [Custom Validations (metadata-driven rules)](Fast%20Start%20-%20Custom%20Validations.md)
+- [Selectors (query patterns)](Fast%20Start%20-%20Selectors.md)
+- [DML Builder (after context)](Fast%20Start%20-%20DML.md)
+- [E2E Testing (verify triggers fire end-to-end)](Fast%20Start%20-%20E2E%20Testing.md)
+- [Complete Triggers Guide](Triggers%20-%20Guide.md)
+- [Change Data Capture actions (react to committed changes)](Triggers%20-%20Guide.md#change-data-capture-actions)
+- [Post-trigger actions (run logic once per transaction)](Triggers%20-%20Guide.md#post-trigger-actions)
+- [Bypass Mechanisms](Triggers%20-%20Guide.md#bypass-mechanisms)
+- [Feature Flag Integration](Triggers%20-%20Guide.md#feature-flag-integration)

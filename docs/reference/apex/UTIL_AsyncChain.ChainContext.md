@@ -11,21 +11,23 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsyncChain.ChainContext
 ```
 
 Shared state container passed between chain steps. Provides key-value storage for inter-step communication and access to chain metadata such as execution ID and correlation ID.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 context.put('accountId', account.Id);
 Id accountId = (Id)context.get('accountId');
 Boolean hasKey = context.has('accountId');
 ```
+
+</div>
 
 ---
 

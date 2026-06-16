@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy implements UTIL_FeatureFlag.INT_FeatureFlagStrategy
 ```
@@ -19,9 +21,7 @@ global interface UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy implements UT
 
 Extended interface for custom strategies that support user context evaluation. Implement this interface instead of INT_FeatureFlagStrategy when your custom strategy needs to evaluate for a specific user (not just the running user). IMPORTANT: You must implement BOTH methods: isEnabled() for backward compatibility and running user scenarios isEnabledForUser() for explicit user context scenarios The recommended pattern is to have isEnabled() delegate to isEnabledForUser().
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy
@@ -38,6 +38,8 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_UserAwareFeature
     }
 }
 ```
+
+</div>
 
 ---
 

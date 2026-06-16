@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Limits
 ```
 
 Fluent interface for inspecting Salesforce governor limits. Provides named factory methods per limit type for IDE discoverability and a LimitCheck builder for threshold and exhaustion checks.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Limits.callouts().isExhausted();
 UTIL_Limits.soqlQueries().isNearLimit(0.8);
 UTIL_Limits.cpuTime().remaining();
 ```
+
+</div>
 
 ---
 

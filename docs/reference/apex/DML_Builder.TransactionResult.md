@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class DML_Builder.TransactionResult
 ```
 
 Result object returned by execute() containing the outcome of all DML operations in the transaction. Provides methods to inspect success/failure status, retrieve generated IDs, and access errors.
 
-**Since:** 1.0
+</div>
 
 ---
 

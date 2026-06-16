@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Selectors`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class SEL_Profile extends SEL_Base
 ```
@@ -22,9 +24,7 @@ global inherited sharing class SEL_Profile extends SEL_Base
 
 Selector for the Profile SObject. Provides default field configuration, query methods, and commonly used profile name constants.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Profile adminProfile = new SEL_Profile().findByName('System Administrator');
@@ -33,6 +33,8 @@ Profile profile = (Profile)new SEL_Profile().findById(profileId);
 ```
 
 **See Also:** [SEL_Base](SEL_Base.md)
+
+</div>
 
 ---
 

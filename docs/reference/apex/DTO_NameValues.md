@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 @JsonAccess(serializable='always' deserializable='always') global inherited sharing class DTO_NameValues extends DTO_JsonBase
 ```
@@ -22,9 +24,7 @@ category: apex
 
 Class for managing and transferring key-value pairs, represented as names and values, between classes. Provides functionalities to store, retrieve, and manipulate these name-value pairs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValues params = new DTO_NameValues();
@@ -33,6 +33,8 @@ params.add('subject', 'Hello');
 String recipient = params.get('recipient');
 Boolean hasAll = params.allExists(new Set<String>{'recipient', 'subject'}, true);
 ```
+
+</div>
 
 ---
 

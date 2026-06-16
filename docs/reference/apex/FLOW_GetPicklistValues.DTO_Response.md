@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_GetPicklistValues.DTO_Response
 ```
 
 Provides the outcome of the picklist values retrieval.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -43,9 +45,7 @@ Provides the outcome of the picklist values retrieval.
 
 Indicates if the retrieval was successful.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.callSuccessful;
@@ -61,9 +61,7 @@ Boolean value = instance.callSuccessful;
 
 If the request was unsuccessful this will contain the error message.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.errorText;
@@ -79,9 +77,7 @@ String value = instance.errorText;
 
 If the request was successful this will contain a list of picklists and their values for a given object and record type.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_PickList> value = instance.pickLists;

@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class QRY_Builder.Builder implements IF_Queryable
 ```
@@ -21,9 +23,7 @@ global virtual inherited sharing class QRY_Builder.Builder implements IF_Queryab
 
 Extensible query builder class. Maintains internal query state and uses QRY_Generator for SOQL building and QRY_Engine for execution.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType)
@@ -31,6 +31,8 @@ QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Industry).equals('Technology');
 List<Account> accounts = query.toList();
 ```
+
+</div>
 
 ---
 

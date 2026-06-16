@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_CircuitBreaker.ProtectedAction
 ```
 
 Interface for code that needs circuit breaker protection (no return value) Implement this interface to use the simplified execute() method which handles allowRequest(), recordSuccess(), and recordFailure() automatically. Use Provider if your action needs to return a value.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class SendEmailAction implements UTIL_CircuitBreaker.ProtectedAction
@@ -39,6 +39,8 @@ public class SendEmailAction implements UTIL_CircuitBreaker.ProtectedAction
 UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('EmailService');
 breaker.execute(new SendEmailAction('user@example.com'));
 ```
+
+</div>
 
 ---
 

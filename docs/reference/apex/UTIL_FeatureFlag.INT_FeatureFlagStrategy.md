@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface UTIL_FeatureFlag.INT_FeatureFlagStrategy
 ```
@@ -19,9 +21,7 @@ global interface UTIL_FeatureFlag.INT_FeatureFlagStrategy
 
 The global interface for all feature evaluation strategies. Implement this interface and reference your class from FeatureFlagStrategy__mdt.CustomHandler__c to replace any built-in strategy. This is the recommended escape hatch when the built-in Hierarchical/List Custom Setting or Custom Metadata strategies cause SOQL hot spots: a custom handler can call typed MyCS__c.getInstance(userId) / MyType__mdt.getInstance(name) directly for zero-SOQL platform-cached reads. See the Utilities Guide → "Performance and SOQL Cost".
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Example implementation of a custom strategy
@@ -35,6 +35,8 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_FeatureFlagStrat
     }
 }
 ```
+
+</div>
 
 ---
 

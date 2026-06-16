@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Schedulables`
 
+<div class="apex-member apex-class">
+
 ```apex
 global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 ```
@@ -24,9 +26,7 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 
 Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definition list. Subscribers extend this class, override getParameterDefinitions() to declare their parameters, and implement execute(SchedulableContext) for job logic. When setParameterValues() is called by the framework, the base class resolves raw string values into typed values (String, Integer, Boolean) based on the DataType declared in getParameterDefinitions(), applying default values where configured. Subclasses read typed values via getTextParameter(), getNumericParameter(), and getBooleanParameter().
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class SCHED_MyJob extends SCHED_Base
@@ -48,6 +48,8 @@ global class SCHED_MyJob extends SCHED_Base
 ```
 
 **See Also:** [DTO_NameValues](DTO_NameValues.md), [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md), [IF_Schedulable](IF_Schedulable.md)
+
+</div>
 
 ---
 

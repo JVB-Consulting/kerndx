@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class DML_Transaction
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class DML_Transaction
 
 Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency ordering via topological sort, parent-child relationship resolution, and lifecycle hooks for extensibility.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Transaction aTransaction = new DML_Transaction();
@@ -34,6 +34,8 @@ aTransaction.commitWork();
 ```
 
 **See Also:** [DML_Builder](DML_Builder.md)
+
+</div>
 
 ---
 

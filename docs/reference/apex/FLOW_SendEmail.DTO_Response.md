@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_SendEmail.DTO_Response
 ```
 
 Data Transfer Object (DTO) representing the outcome of an email request.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -42,8 +44,6 @@ Data Transfer Object (DTO) representing the outcome of an email request.
 
 Detailed error message if success is false.
 
-**Since:** 1.0
-
 ### success
 
 ```apex
@@ -53,6 +53,4 @@ Detailed error message if success is false.
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 true if the email was successfully handed off to the delivery mechanism; false otherwise.
-
-**Since:** 1.0
 

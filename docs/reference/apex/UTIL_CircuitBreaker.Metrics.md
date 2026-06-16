@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_CircuitBreaker.Metrics
 ```
 
 Public class containing circuit breaker metrics
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -46,9 +48,7 @@ global String circuitId
 
 The circuit identifier
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.circuitId;
@@ -64,9 +64,7 @@ global Integer consecutiveSuccesses
 
 Current consecutive success count
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.consecutiveSuccesses;
@@ -82,9 +80,7 @@ global Integer failureCount
 
 Current failure count
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.failureCount;
@@ -100,9 +96,7 @@ global Datetime lastFailureTime
 
 Time of last failure
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Datetime value = instance.lastFailureTime;
@@ -118,9 +112,7 @@ global UTIL_CircuitBreaker.State state
 
 Current state of the circuit
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 State value = instance.state;
@@ -136,9 +128,7 @@ global Datetime stateChangedTime
 
 Time when state last changed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Datetime value = instance.stateChangedTime;

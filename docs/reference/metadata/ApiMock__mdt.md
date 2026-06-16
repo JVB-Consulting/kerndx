@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ApiMock__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class ApiMock__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs.
+
+</div>
 
 ---
 

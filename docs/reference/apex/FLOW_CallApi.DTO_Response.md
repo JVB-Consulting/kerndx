@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CallApi.DTO_Response
 ```
 
 Data Transfer Object representing the web service response or errors.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -44,8 +46,6 @@ Data Transfer Object representing the web service response or errors.
 
 The ID of the ApiCall__c record for this callout.
 
-**Since:** 1.0
-
 ### extractedValue
 
 ```apex
@@ -55,8 +55,6 @@ The ID of the ApiCall__c record for this callout.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The value extracted from the JSON response using the specified JSONPath.
-
-**Since:** 1.0
 
 ### responseBody
 
@@ -68,8 +66,6 @@ The value extracted from the JSON response using the specified JSONPath.
 
 The JSON payload containing the response body or failure message.
 
-**Since:** 1.0
-
 ### success
 
 ```apex
@@ -79,6 +75,4 @@ The JSON payload containing the response body or failure message.
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Whether the API callout completed successfully.
-
-**Since:** 1.0
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_MockFactory
 ```
 
 Central factory for mock response management. Provides test isolation via scoped registries and supports both memory-based (unit tests) and metadata-based (runtime) mocking. Features: Memory mocks for unit tests with test isolation Metadata mocks for runtime/sandbox configuration Call verification for asserting mock invocations Dynamic response interpolation ({{request.field}}) Fault simulation (delays, failure rates)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Register a custom mock response for an outbound service
@@ -31,6 +31,8 @@ API_MockFactory.forService(API_SendEmail.class.getName())
 // Register an error mock
 API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 ```
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SObjectDescribe.FieldsMap extends UTIL_SObjectDescribe.NamespacedAttributeMap
 ```
 
 A subclass of NamespacedAttributeMap for handling field maps returned by DescribeSObjectResult.fields.getMap().
 
-**Since:** 1.0
+</div>
 
 ---
 

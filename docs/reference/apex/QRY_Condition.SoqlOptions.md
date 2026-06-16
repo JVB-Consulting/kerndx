@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class QRY_Condition.SoqlOptions
 ```
 
 Options for SOQL generation.
 
-**Since:** 1.0
+</div>
 
 ---
 

@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class AsyncChainExecution__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class AsyncChainExecution__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Tracks async chain executions including state, step definitions, shared context, and progress. Each record represents one chain execution lifecycle.
+
+</div>
 
 ---
 

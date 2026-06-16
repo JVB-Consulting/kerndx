@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Data Transfer Objects`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class DTO_PicklistValue
 ```
 
 A Data Transfer Object (DTO) representing a single picklist value. This object includes details about the picklist value's display label, API name, and any dependency constraints if the picklist is a dependent picklist.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_PicklistValue entry = new DTO_PicklistValue();
@@ -31,6 +31,8 @@ entry.value = 'Active';
 ```
 
 **See Also:** [FLOW_GetPicklistValues](FLOW_GetPicklistValues.md)
+
+</div>
 
 ---
 
@@ -57,9 +59,7 @@ entry.value = 'Active';
 The display label of the picklist value, intended for use in the user interface (UI).
 This value is typically user-friendly and may differ from the API name of the picklist value.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.label;
@@ -76,8 +76,6 @@ String value = instance.label;
 If the picklist is a dependent picklist, the property contains a list of the controlling value indexes for which this value is valid.
 If the picklist is an independent picklist, the list is empty.
 
-**Since:** 1.0
-
 ### value
 
 ```apex
@@ -89,9 +87,7 @@ If the picklist is an independent picklist, the list is empty.
 The API value of the picklist, used for programmatic access within Apex code and integrations.
 This value is often less user-friendly and is typically consistent across languages and locales.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.value;

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Logging`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_WriteLog
 ```
 
 Provides an invocable method for logging messages at specified levels (DEBUG, INFO, WARN, ERROR) from Salesforce flows. Allows control over log levels and additional details such as short messages and associated record IDs. Utilizes the LOG_Builder utility to write messages to the application log.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_WriteLog.DTO_Request request = new FLOW_WriteLog.DTO_Request();
@@ -35,6 +35,8 @@ FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request> {request});
 ```
 
 **See Also:** [LOG_Builder](LOG_Builder.md)
+
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Builder.ConditionBuilder
 ```
 
 Fluent builder for field-level conditions (WHERE and HAVING).
 
-**Since:** 1.0
+</div>
 
 ---
 

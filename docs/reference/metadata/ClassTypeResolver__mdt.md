@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ClassTypeResolver__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class ClassTypeResolver__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Registers a subscriber-org class that resolves Apex class names to Types at runtime. Required when subscriber classes used by the framework (e.g., trigger handlers, web services, DTOs) are not declared as global. The registered class must implement the framework's type resolver interface.
+
+</div>
 
 ---
 

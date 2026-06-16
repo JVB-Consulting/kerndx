@@ -838,9 +838,7 @@ After completing this guide, you understand the **three ways** to make outbound 
 
 ## Next Steps
 
-| Topic                       | Link                                                                    |
-|-----------------------------|-------------------------------------------------------------------------|
-| Building Inbound APIs       | [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md)       |
-| Feature Flag Gating         | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)     |
-| Complete Web Services Guide | [Web Services - Guide](Web%20Services%20-%20Guide.md)                   |
-| Retry & Circuit Breaker     | [Web Services - Guide](Web%20Services%20-%20Guide.md#advanced-features) |
+- [Building Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md)
+- [Feature Flag Gating](Fast%20Start%20-%20Feature%20Flags.md)
+- [Complete Web Services Guide](Web%20Services%20-%20Guide.md)
+- [Retry & Circuit Breaker](Web%20Services%20-%20Guide.md#advanced-features)

@@ -41,6 +41,21 @@ test('escapes generic-looking pseudo-tags but keeps allowlisted ones in the same
 	assert.equal(escapeAngles('Set<Id> ids and a <br> break'), 'Set&lt;Id&gt; ids and a <br> break');
 });
 
+test('preserves blockquote markers so multi-line blockquotes are not broken', () =>
+{
+	// A '>' at line start is a blockquote marker, not a generic close — escaping it to
+	// &gt; turns the whole quote into a literal-'>' paragraph and collapses any list inside.
+	assert.equal(escapeAngles('> A quoted line'), '> A quoted line');
+	assert.equal(escapeAngles('   > up to three spaces is still a quote'), '   > up to three spaces is still a quote');
+	assert.equal(escapeAngles('>> nested quote'), '>> nested quote');
+});
+
+test('keeps blockquote markers while still escaping generics on the same lines', () =>
+{
+	const md = '> **Thesis.** Built on principles:\n>\n> 1. First with List<Id>\n> 2. Second';
+	assert.equal(escapeAngles(md), '> **Thesis.** Built on principles:\n>\n> 1. First with List&lt;Id&gt;\n> 2. Second');
+});
+
 test('neutralizes Vue mustache interpolation in prose so SSR does not evaluate it', () =>
 {
 	// Vue reads {{ x }} as an interpolation binding; in docs prose it is literal text.

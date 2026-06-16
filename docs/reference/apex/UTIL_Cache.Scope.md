@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum UTIL_Cache.Scope
 ```
 
 Cache type enumeration
 
-**Since:** 1.0
+</div>
 
 ---
 

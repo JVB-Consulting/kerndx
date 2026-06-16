@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum PROC_UpdateFields.FieldUpdateMethod
 ```
 
 Enum defining methods for updating SObject fields.
 
-**Since:** 1.0
+</div>
 
 ---
 

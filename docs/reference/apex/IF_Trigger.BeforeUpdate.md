@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Trigger.BeforeUpdate
 ```
@@ -19,7 +21,7 @@ global interface IF_Trigger.BeforeUpdate
 
 Handler contract for the before-update trigger event.
 
-**Since:** 1.0
+</div>
 
 ---
 

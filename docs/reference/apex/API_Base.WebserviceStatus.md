@@ -11,19 +11,21 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum API_Base.WebserviceStatus
 ```
 
 Enum representing the status of a web service call.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_Base.WebserviceStatus status = API_Base.WebserviceStatus.COMPLETED;
 ```
+
+</div>
 
 ---
 

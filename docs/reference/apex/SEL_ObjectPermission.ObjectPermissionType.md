@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum SEL_ObjectPermission.ObjectPermissionType
 ```
 
 A Permission that a User might have on a SObjectType.
 
-**Since:** 1.0
+</div>
 
 ---
 

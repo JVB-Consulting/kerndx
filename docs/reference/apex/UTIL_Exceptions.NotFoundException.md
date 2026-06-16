@@ -12,15 +12,15 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Exceptions.NotFoundException
 ```
 
 Thrown when a lookup for a specific record or resource yields no results. Commonly raised by selector findByIdOrThrow methods and resource-loading utilities to distinguish "not found" from other failure modes.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = new SEL_Account().findById(accountId);
@@ -29,6 +29,8 @@ if(account == null)
     throw new UTIL_Exceptions.NotFoundException('Account does not exist: ' + accountId);
 }
 ```
+
+</div>
 
 ---
 

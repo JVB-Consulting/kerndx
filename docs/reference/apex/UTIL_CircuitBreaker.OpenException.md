@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_CircuitBreaker.OpenException
 ```
 
 Exception thrown when circuit breaker is OPEN and blocks a request
 
-**Since:** 1.0
+</div>
 
 ---
 

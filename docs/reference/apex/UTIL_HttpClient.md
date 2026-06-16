@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_HttpClient
 ```
 
 Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and ApiCall__c lifecycle management — all routed through API_Dispatcher.execute(). Supports two usage modes: Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points Delegation mode: Subscriber handlers via useHandler() entry point
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
@@ -30,6 +30,8 @@ HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
    .withRetry(3)
    .send();
 ```
+
+</div>
 
 ---
 

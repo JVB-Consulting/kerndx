@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Builder.AggregateRow
 ```
 
 Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
@@ -29,6 +29,8 @@ QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
 Integer total = row.getInteger('expr0');
 String industry = row.getString('Industry');
 ```
+
+</div>
 
 ---
 

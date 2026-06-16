@@ -14,20 +14,22 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_Map
 ```
 
 Static helper methods for common Map operations in Apex, including key-value transformation, entry joining, equality comparison, SObject indexing, and case-insensitive lookups.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, String> params = new Map<String, String>{'key' => 'value', 'name' => 'test'};
 String delimited = UTIL_Map.toDelimitedString(params, ',');
 ```
+
+</div>
 
 ---
 

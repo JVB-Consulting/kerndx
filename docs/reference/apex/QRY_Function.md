@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Query Infrastructure`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Function
 ```
 
 Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder's SELECT, GROUP BY and ORDER BY clauses. One static factory per function; the returned value is an immutable carrier that resolves its wrapped field name once and renders to a finished SOQL expression, so the builder can project, group and sort by the same date part from a single source without hand-spelling raw SOQL. Use the factories with the matching QRY_Builder.Builder overloads — addField, groupBy and orderBy — to bucket records by a date part for reporting.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
@@ -39,6 +39,8 @@ for(QRY_Builder.AggregateRow row : rows)
 ```
 
 **See Also:** [QRY_Builder](QRY_Builder.md)
+
+</div>
 
 ---
 

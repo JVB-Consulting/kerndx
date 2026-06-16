@@ -637,12 +637,10 @@ to the fields that need it.
 
 ## Next Steps
 
-| Topic                                            | Link                                                                     |
-|--------------------------------------------------|--------------------------------------------------------------------------|
-| Fast Start - Feature Flags                       | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)      |
-| Fast Start - Test Data                           | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)              |
-| Code Scanning (catch System.debug anti-patterns) | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)      |
-| Logging Developer Guide                          | [Logging - Guide](Logging%20-%20Guide.md)                                |
-| LOG_Builder API Reference                        | [reference/apex/LOG_Builder.md](reference/apex/LOG_Builder.md)           |
-| LogEntry__c Object                               | [reference/objects/LogEntry__c.md](reference/objects/LogEntry__c.md)     |
-| Flow Logging                                     | [reference/apex/FLOW_LoggerStart.md](reference/apex/FLOW_LoggerStart.md) |
+- [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
+- [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)
+- [Code Scanning (catch System.debug anti-patterns)](Fast%20Start%20-%20Code%20Scanning.md)
+- [Logging Developer Guide](Logging%20-%20Guide.md)
+- [LOG_Builder API Reference](reference/apex/LOG_Builder.md)
+- [LogEntry__c Object](reference/objects/LogEntry__c.md)
+- [Flow Logging](reference/apex/FLOW_LoggerStart.md)

@@ -552,15 +552,13 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 
 ## Next Steps
 
-| Topic                                        | Link                                                                      |
-|----------------------------------------------|---------------------------------------------------------------------------|
-| Selectors (query patterns)                   | [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)                 |
-| Trigger Actions (DML in after context)       | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)   |
-| Test Data Patterns                           | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)               |
-| Async Processing (background DML and chains) | [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md) |
-| Code Scanning (catch DML anti-patterns)      | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)       |
-| Complete DML Guide                           | [DML - Guide](DML%20-%20Guide.md)                                         |
-| DML_Builder Reference                        | [reference/apex/DML_Builder.md](reference/apex/DML_Builder.md)            |
+- [Selectors (query patterns)](Fast%20Start%20-%20Selectors.md)
+- [Trigger Actions (DML in after context)](Fast%20Start%20-%20Trigger%20Actions.md)
+- [Test Data Patterns](Fast%20Start%20-%20Test%20Data.md)
+- [Async Processing (background DML and chains)](Fast%20Start%20-%20Async%20Processing.md)
+- [Code Scanning (catch DML anti-patterns)](Fast%20Start%20-%20Code%20Scanning.md)
+- [Complete DML Guide](DML%20-%20Guide.md)
+- [DML_Builder Reference](reference/apex/DML_Builder.md)
 
 > **Drift guard:** `FastStart_DML_DEMO` + `FastStart_DML_DEMO_TEST` in `release-testing/subscriber/classes/`
 > are the companion classes for this guide. Deploy and run `FastStart_DML_DEMO_TEST` against a subscriber

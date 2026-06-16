@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Async.Processable
 ```
@@ -19,7 +21,7 @@ global interface IF_Async.Processable
 
 Interface for defining the core processing logic to be executed by an asynchronous job.
 
-**Since:** 1.0
+</div>
 
 ---
 

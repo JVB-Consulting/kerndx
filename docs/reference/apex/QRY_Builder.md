@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Query Infrastructure`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Builder
 ```
 
 Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, pagination, caching, and security enforcement. Design Principle: QRY_Builder is an adapter that delegates to the existing query infrastructure. This ensures backwards compatibility while providing a cleaner API surface for new development. 95% Use Case: Inline queries via QRY_Builder.selectFrom(...) 5% Use Case: Extend Builder for reusable custom selectors
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Basic query
@@ -48,6 +48,8 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
 ```
 
 **See Also:** [IF_Queryable](IF_Queryable.md), [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md), [QRY_Function](QRY_Function.md)
+
+</div>
 
 ---
 

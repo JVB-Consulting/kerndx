@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class Foobar__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class Foobar__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Test object for managed package unit tests. Used to demonstrate and validate library functions. Do not use outside test contexts.
+
+</div>
 
 ---
 

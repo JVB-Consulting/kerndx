@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaContext
 ```
@@ -52,9 +54,7 @@ cross-namespace access when the managed package evaluates formulas in subscriber
 
     - Subscriber org context classes must also use `global` for the same reason
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Direct usage with Formula.builder()
@@ -69,6 +69,8 @@ Boolean matches = (Boolean)formula.evaluate(context);
 ```
 
 **See Also:** [UTIL_FormulaFilter](UTIL_FormulaFilter.md), [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md), [FormulaEval.FormulaInstance](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_formulaeval_FormulaInstance.htm)
+
+</div>
 
 ---
 

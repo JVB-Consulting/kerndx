@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Omnistudio`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class SVC_Omnistudio implements Callable
 ```
@@ -22,9 +24,7 @@ global virtual inherited sharing class SVC_Omnistudio implements Callable
 
 SVC_Omnistudio is a factory class that implements the Callable interface and is designed to instantiate and execute operations on specific classes based on a provided class name. It is mainly used within the Omnistudio framework to dynamically manage actions on classes. This class supports passing and handling parameters for both input and output operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Implement an OmniCallable action
@@ -37,6 +37,8 @@ public class MyOmniAction implements SVC_Omnistudio.OmniCallable
     }
 }
 ```
+
+</div>
 
 ---
 

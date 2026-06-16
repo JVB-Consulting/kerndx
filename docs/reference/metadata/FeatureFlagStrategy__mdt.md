@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class FeatureFlagStrategy__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class FeatureFlagStrategy__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Defines a single evaluation rule for a parent Feature Flag. A Feature Flag can have multiple strategies, which are processed in the order specified by the 'Order' field. The first strategy to return 'true' enables the feature.
+
+</div>
 
 ---
 

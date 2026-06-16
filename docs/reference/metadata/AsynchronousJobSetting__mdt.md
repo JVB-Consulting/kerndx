@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class AsynchronousJobSetting__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class AsynchronousJobSetting__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Declarative configuration for asynchronous job classes. The DeveloperName of each record should match the Apex class name it configures.
+
+</div>
 
 ---
 

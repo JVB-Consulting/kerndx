@@ -10,6 +10,8 @@ category: objects
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class ApiCall__c extends SObject
 ```
@@ -17,6 +19,8 @@ global class ApiCall__c extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Tracks API calls (inbound and outbound) through their full lifecycle. Each record represents a single API call with its request, response, status, and performance metrics.
+
+</div>
 
 ---
 

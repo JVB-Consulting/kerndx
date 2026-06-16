@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class FeatureFlag__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class FeatureFlag__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 This object is the master record for a single feature flag. It acts as the parent and defines the feature's name, its master on/off switch, and its final fallback behavior.
+
+</div>
 
 ---
 

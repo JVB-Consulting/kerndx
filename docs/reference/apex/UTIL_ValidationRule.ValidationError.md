@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class UTIL_ValidationRule.ValidationError
 ```
 
 Represents a single validation error or warning.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -85,9 +87,7 @@ UTIL_ValidationRule.ValidationError instance = new UTIL_ValidationRule.Validatio
 
 The field API name to display the error on (may be null for page-level).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.fieldName;
@@ -103,9 +103,7 @@ String value = instance.fieldName;
 
 The validation rule group DeveloperName.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.groupName;
@@ -121,9 +119,7 @@ String value = instance.groupName;
 
 The error message to display.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.message;
@@ -139,9 +135,7 @@ String value = instance.message;
 
 The record ID (available except in before insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id value = instance.recordId;
@@ -157,9 +151,7 @@ Id value = instance.recordId;
 
 The record index in the trigger list (for before insert).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer value = instance.recordIndex;
@@ -175,9 +167,7 @@ Integer value = instance.recordIndex;
 
 The DeveloperName of the validation rule that failed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.ruleName;
@@ -193,9 +183,7 @@ String value = instance.ruleName;
 
 The severity ('Error' or 'Warning').
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.severity;
@@ -211,9 +199,7 @@ String value = instance.severity;
 
 True if this error is from a rule in shadow mode.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.shadowMode;

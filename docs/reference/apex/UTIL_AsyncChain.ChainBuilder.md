@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsyncChain.ChainBuilder
 ```
 
 Fluent builder for configuring and executing an async chain. Provides methods for adding steps, setting context, configuring error/completion handlers, and executing the chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
@@ -30,6 +30,8 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
     .onComplete(new SendConfirmationStep())
     .execute();
 ```
+
+</div>
 
 ---
 

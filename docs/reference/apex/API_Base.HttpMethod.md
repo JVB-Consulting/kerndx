@@ -11,19 +11,21 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global enum API_Base.HttpMethod
 ```
 
 HTTP method verbs for web service calls.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_Base.HttpMethod method = API_Base.HttpMethod.POST;
 ```
+
+</div>
 
 ---
 

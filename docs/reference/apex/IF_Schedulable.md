@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Schedulables`
 
+<div class="apex-member apex-class">
+
 ```apex
 global interface IF_Schedulable implements Schedulable
 ```
@@ -24,9 +26,7 @@ global interface IF_Schedulable implements Schedulable
 
 An interface for a Schedulable class that can declare the parameters it supports and receive validated parameter values at scheduling time. Enables dynamic form rendering in the scheduledJobEditor LWC and required parameter validation by the trigger framework. Implementors have two paths: Extend SCHED_Base for built-in typed parameter resolution, default values, and accessors. Implement IF_Schedulable directly on an existing Schedulable class for full control.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class SCHED_MyJob extends SCHED_Base
@@ -43,6 +43,8 @@ global class SCHED_MyJob extends SCHED_Base
 ```
 
 **See Also:** [Schedulable](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulable.htm), [SCHED_Base](SCHED_Base.md), [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md), [DTO_NameValues](DTO_NameValues.md)
+
+</div>
 
 ---
 

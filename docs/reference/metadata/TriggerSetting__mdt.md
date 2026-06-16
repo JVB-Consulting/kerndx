@@ -10,6 +10,8 @@ category: metadata
 
 **Sobject**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class TriggerSetting__mdt extends SObject
 ```
@@ -17,6 +19,8 @@ global class TriggerSetting__mdt extends SObject
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
 Parent configuration for all trigger actions on a single object. Links to an EntityDefinition to identify the SObject, and provides object-level bypass, permission gating, and performance logging controls that cascade to every child Trigger Action record.
+
+</div>
 
 ---
 

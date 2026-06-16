@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Bulk DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_PurgeRecords
 ```
 
 Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limits. Supports deleting all records or records older than a specified number of days. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have delete CRUD on the target object for the purge to succeed. This is deliberate: UTIL_PurgeRecords is global, so any subscriber Apex caller can reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively delete records they have no native right to delete. Integrations that genuinely need admin-mandate semantics (for example, cleanup utilities behind a custom permission gate) should construct a PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE) explicitly and pair it with a caller-side permission check; the framework declines to make that elevation implicit.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_PurgeRecords.deleteAllRecords(LogEntry__c.SObjectType);
@@ -31,6 +31,8 @@ UTIL_PurgeRecords.deleteOlderThanNDays('Task', 'CreatedDate', 30, false, 200);
 ```
 
 **See Also:** [PROC_ExecuteDML](PROC_ExecuteDML.md)
+
+</div>
 
 ---
 

@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual class QRY_Condition.FieldCondition implements QRY_Condition.Evaluable, QRY_Condition.BindAware
 ```
@@ -19,15 +21,15 @@ global virtual class QRY_Condition.FieldCondition implements QRY_Condition.Evalu
 
 Represents a condition in a SOQL WHERE clause based on a specific field, operator, and value.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(
     'Status__c', QRY_Condition.Operator.EQUALS, 'Active'
 );
 ```
+
+</div>
 
 ---
 

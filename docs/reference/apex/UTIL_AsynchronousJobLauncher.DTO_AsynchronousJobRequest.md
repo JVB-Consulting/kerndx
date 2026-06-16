@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest
 ```
 
 Request object for initiating an asynchronous process.
 
-**Since:** 1.0
+</div>
 
 ---
 

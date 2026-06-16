@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class API_MockFactory.MockBuilder
 ```
 
 Fluent builder for constructing and registering mock responses.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.forService('API_SendEmail')
@@ -27,6 +27,8 @@ API_MockFactory.forService('API_SendEmail')
     .statusCode(200)
     .register();
 ```
+
+</div>
 
 ---
 

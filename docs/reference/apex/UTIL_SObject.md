@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SObject
 ```
 
 SObject runtime operations — filtering, field extraction, list-to-map conversion, and dot-notation field value retrieval.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(contacts, Contact.AccountId, true);
 Map<Id, List<SObject>> contactsByAccount = UTIL_SObject.groupByKey(contacts, Contact.AccountId);
 List<SObject> changed = UTIL_SObject.getChangedRecords(newRecords, oldRecords, Account.Name);
 ```
+
+</div>
 
 ---
 

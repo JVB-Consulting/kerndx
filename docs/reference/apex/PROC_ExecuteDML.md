@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Bulk DML`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 ```
@@ -24,9 +26,7 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 
 Processor for generic DML operations using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports INSERT, UPDATE, DELETE, UPSERT, and UNDELETE operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_UPDATE, false);
@@ -36,6 +36,8 @@ UTIL_AsynchronousJobLauncher.process(
 ```
 
 **See Also:** [IF_Async.Processable](IF_Async.Processable.md), [UTIL_AsynchronousJobLauncher](UTIL_AsynchronousJobLauncher.md)
+
+</div>
 
 ---
 

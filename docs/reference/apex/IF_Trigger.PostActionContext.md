@@ -11,15 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class IF_Trigger.PostActionContext
 ```
 
 Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. Carries the set of SObject types whose triggers participated in the transaction so the post-action can branch on which objects were touched without re-querying. The framework constructs and supplies this object — subscribers should not need to construct it directly outside of unit tests. Why Set&lt;SObjectType&gt; rather than record IDs: the post-action runs once per outermost dispatch with no per-record context, so the type-level discriminator is what's load-bearing. Per-record IDs would (1) carry an unbounded heap cost in batch contexts, (2) leak record material across post-actions written by different teams in the same org. Subscribers needing per-record context should maintain their own domain-specific statics during their trigger actions and consult them inside the post-action.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 // Inside a PostAction.execute(context):
@@ -28,6 +28,8 @@ if(context.touchedSObjectTypes.contains(Account.SObjectType))
     // Account triggers participated; run Account-domain work.
 }
 ```
+
+</div>
 
 ---
 

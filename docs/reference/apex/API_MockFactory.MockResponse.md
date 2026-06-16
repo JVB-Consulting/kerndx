@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class API_MockFactory.MockResponse
 ```
 
 Represents a mock HTTP response with fault simulation options.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -44,8 +46,6 @@ global String body
 
 The response body content (supports {{request.field}} interpolation).
 
-**Since:** 1.0
-
 ### headers
 
 ```apex
@@ -55,8 +55,6 @@ global Map<String, String> headers
 **Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
 
 Response headers as key-value pairs.
-
-**Since:** 1.0
 
 ### status
 
@@ -68,8 +66,6 @@ global String status
 
 The HTTP status text (e.g., "OK", "Internal Server Error").
 
-**Since:** 1.0
-
 ### statusCode
 
 ```apex
@@ -79,6 +75,4 @@ global Integer statusCode
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
 The HTTP status code.
-
-**Since:** 1.0
 

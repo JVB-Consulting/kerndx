@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global class UTIL_Limits.LimitCheck
 ```
 
 Fluent limit inspector scoped to a single governor limit type. Provides methods to check remaining budget, usage percentage, exhaustion, and threshold proximity.
 
-**Since:** 1.0
+</div>
 
 ---
 

@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class PROC_UpdateFields.DTO_Parameters
 ```
 
 DTO for parameters to query and update records.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -50,9 +52,7 @@ explicitly so the bulk commit is not gated on the invoking user's FLS. Subscribe
 PROC_UpdateFields directly may pass AccessLevel.USER_MODE to enforce their secure-by-default
 opt-in.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 AccessLevel mode = instance.accessLevel;
@@ -68,9 +68,7 @@ global Boolean allOrNothing
 
 Indicates if the update requires all-or-nothing behavior (default: false).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean value = instance.allOrNothing;
@@ -86,9 +84,7 @@ global String objectName
 
 API name of the SObject to update (e.g., 'Account').
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.objectName;
@@ -104,9 +100,7 @@ global QRY_Condition.Evaluable searchConditions
 
 Conditions to filter records for updating.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.Evaluable value = instance.searchConditions;
@@ -122,9 +116,7 @@ global List<PROC_UpdateFields.DTO_Field> updateFields
 
 List of field updates to apply to the SObjects.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_Field> value = instance.updateFields;

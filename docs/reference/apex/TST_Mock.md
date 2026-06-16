@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TST_Mock
 ```
 
 Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records used in DML-free unit tests. The nested MockBuilder creates records with mock IDs and auto-registers them for query interception.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
@@ -31,6 +31,8 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 ```
 
 **See Also:** [TST_Builder](TST_Builder.md), [QRY_Builder](QRY_Builder.md)
+
+</div>
 
 ---
 

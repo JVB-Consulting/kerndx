@@ -14,20 +14,22 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_List
 ```
 
 Various list utilities for manipulating lists of objects and SObjects. This class provides methods for converting, transforming, sorting, and partitioning lists, as well as utility methods for checking emptiness and creating typed lists.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean empty = UTIL_List.isEmpty(records);
 List<List<SObject>> batches = UTIL_List.partition(records, 200);
 ```
+
+</div>
 
 ---
 

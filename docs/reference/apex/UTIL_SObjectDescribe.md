@@ -14,21 +14,23 @@ category: apex
 
 **Class** · Group: `Utilities`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_SObjectDescribe
 ```
 
 A semi-intelligent wrapper for standard Apex Schema methods, providing internal caching to avoid hitting describe limits and helper methods for handling relationship field names and namespaces.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(Account.SObjectType);
 SObjectField nameField = describe.getNameField();
 String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 ```
+
+</div>
 
 ---
 

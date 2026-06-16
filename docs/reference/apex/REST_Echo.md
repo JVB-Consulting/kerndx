@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 @RestResource(urlMapping='/echo/*') global inherited sharing class REST_Echo
 ```
 
 REST Endpoint wrapper class for the inbound echo test service. This class serves as a RESTFUL endpoint that listens for POST requests to the /echo/* URL mapping. The echo method processes incoming requests by invoking the relevant service for echo testing. It is designed to handle simple test interactions, often used for verifying the inbound communication functionality of an API or system integration.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 HttpRequest request = new HttpRequest();
@@ -35,6 +35,8 @@ HttpResponse response = new Http().send(request);
 Assert.areEqual(200, response.getStatusCode());
 Assert.areEqual('{"message":"Hello, Echo!"}', response.getBody());
 ```
+
+</div>
 
 ---
 

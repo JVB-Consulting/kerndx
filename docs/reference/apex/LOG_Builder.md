@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Logging`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class LOG_Builder
 ```
@@ -74,9 +76,7 @@ QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 The same applies to subscriber reports, dashboards, cleanup scripts, and audit queries. See
 the Logging Developer Guide → "Querying Log Entries" for worked subscriber examples.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 LOG_Builder.build().error(caughtException).emitAt('MyClass.myMethod');
@@ -84,6 +84,8 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 ```
 
 **See Also:** [LoggingLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_LoggingLevel.htm)
+
+</div>
 
 ---
 

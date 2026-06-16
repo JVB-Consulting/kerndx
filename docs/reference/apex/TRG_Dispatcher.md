@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Triggers`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class TRG_Dispatcher
 ```
 
 Factory class for instantiating and executing configured trigger actions. Manages the lifecycle of trigger actions and supports bypassing specific actions. Adapted from: Apex Trigger Actions Framework
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 trigger TRG_Foobar on Foobar__c (before insert, before update)
@@ -30,6 +30,8 @@ trigger TRG_Foobar on Foobar__c (before insert, before update)
     new TRG_Dispatcher().run();
 }
 ```
+
+</div>
 
 ---
 

@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Feature Flags`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_CheckFeatureFlag
 ```
 
 This class is used in Flows to check whether a specific feature flag is enabled. It provides a method that can be invoked from a flow to determine if a feature is active for the current user based on the UTIL_FeatureFlag utility.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Boolean> results = FLOW_CheckFeatureFlag.isEnabled(new List<String> {'NewDashboard'});
@@ -30,6 +30,8 @@ Boolean isEnabled = results[0];
 ```
 
 **See Also:** [UTIL_FeatureFlag](UTIL_FeatureFlag.md)
+
+</div>
 
 ---
 

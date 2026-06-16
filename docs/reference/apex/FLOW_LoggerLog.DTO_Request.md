@@ -11,13 +11,15 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class FLOW_LoggerLog.DTO_Request
 ```
 
 Input parameters for logging a Flow event.
 
-**Since:** 1.0
+</div>
 
 ---
 
@@ -45,9 +47,7 @@ Input parameters for logging a Flow event.
 
 Additional context to include with the log entry
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.additionalContext;
@@ -63,9 +63,7 @@ String value = instance.additionalContext;
 
 Correlation ID from Start Flow Correlation
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.correlationId;
@@ -81,9 +79,7 @@ String value = instance.correlationId;
 
 Current step/screen name for context
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.flowStep;
@@ -99,9 +95,7 @@ String value = instance.flowStep;
 
 DEBUG, INFO, WARN, or ERROR (default: INFO)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.logLevel;
@@ -117,9 +111,7 @@ String value = instance.logLevel;
 
 Log message
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String value = instance.message;

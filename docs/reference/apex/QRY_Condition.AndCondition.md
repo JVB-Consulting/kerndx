@@ -11,6 +11,8 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class QRY_Condition.AndCondition extends QRY_Condition.ConditionGroup
 ```
@@ -19,15 +21,15 @@ global inherited sharing class QRY_Condition.AndCondition extends QRY_Condition.
 
 Represents a SOQL "AND" condition group.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.AndCondition group = new QRY_Condition.AndCondition();
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
 group.add(new QRY_Condition.FieldCondition('Type__c', QRY_Condition.Operator.EQUALS, 'Customer'));
 ```
+
+</div>
 
 ---
 

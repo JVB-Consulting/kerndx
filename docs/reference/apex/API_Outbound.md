@@ -14,6 +14,8 @@ category: apex
 
 **Class** · Group: `Web Services`
 
+<div class="apex-member apex-class">
+
 ```apex
 global virtual inherited sharing class API_Outbound extends API_Base
 ```
@@ -24,9 +26,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 
 Base class for all outbound web service calls. Extends API_Base to provide functionality for making HTTP callouts, handling responses, managing retries, and token replacements.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public with sharing class API_SendEmail extends API_Outbound
@@ -40,6 +40,8 @@ public with sharing class API_SendEmail extends API_Outbound
     }
 }
 ```
+
+</div>
 
 ---
 
@@ -687,9 +689,7 @@ global Boolean requiresTriggeringRecord
 Whether this service requires a triggering object ID.
 Override in configure() to set to false for services that don't require a triggering record.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void configure()

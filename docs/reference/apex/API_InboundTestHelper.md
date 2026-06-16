@@ -14,15 +14,15 @@ category: apex
 
 **Class** · Group: `Testing`
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class API_InboundTestHelper
 ```
 
 Class has base methods that can be used to assist with testing inbound service calls
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_UpdateInvoice.DTO_Request request = new API_UpdateInvoice.DTO_Request();
@@ -31,6 +31,8 @@ request.status = 'Paid';
 API_InboundTestHelper.setupRestContext(request);
 API_Base handler = API_InboundTestHelper.assertCallSuccessful(API_UpdateInvoice.class.getName());
 ```
+
+</div>
 
 ---
 

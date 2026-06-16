@@ -11,15 +11,17 @@ category: apex
 
 **Class**
 
+<div class="apex-member apex-class">
+
 ```apex
 global inherited sharing class UTIL_FormulaFilter.DTO_FilterResults
 ```
 
 Inner class representing the result of the filter method.
 
-**Since:** 1.0
-
 **See Also:** [UTIL_FormulaFilter.filter](UTIL_FormulaFilter.md#filter)
+
+</div>
 
 ---
 
