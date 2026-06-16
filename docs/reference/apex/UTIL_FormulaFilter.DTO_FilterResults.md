@@ -26,8 +26,8 @@ Inner class representing the result of the filter method.
 
 | Property | Description |
 |----------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [newRecords](#newrecords) | The filtered list of old SObjects. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [oldRecords](#oldrecords) | The filtered list of new SObjects. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [newRecords](#newrecords) | The filtered list of old SObjects. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [oldRecords](#oldrecords) | The filtered list of new SObjects. |
 
 ---
 

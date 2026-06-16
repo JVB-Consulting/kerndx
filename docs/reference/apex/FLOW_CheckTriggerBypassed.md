@@ -37,7 +37,7 @@ Boolean isBypassed = results[0];
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [isBypassed](#isbypassed)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckTriggerBypassed.DTO_Request](FLOW_CheckTriggerBypassed.DTO_Request.md)> dtoRequests) | Returns if the bypass for this object, apex action, or flow action is set to true. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)> [isBypassed](#isbypassed)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckTriggerBypassed.DTO_Request](FLOW_CheckTriggerBypassed.DTO_Request.md)> dtoRequests) | Returns if the bypass for this object, apex action, or flow action is set to true. |
 
 ## Inner Classes
 

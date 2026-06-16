@@ -38,7 +38,7 @@ API_Base handler = API_Dispatcher.execute(apiCall);
 | Method | Description |
 |--------|-------------|
 | global static [API_Base](API_Base.md) [execute](#execute)([ApiCall__c](../objects/ApiCall__c.md) apiCall) | Executes a single API callout for the provided API call record. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> apiCalls) | Processes a list of API callout requests by executing multiple web service handlers. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[API_Base](API_Base.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> apiCalls) | Processes a list of API callout requests by executing multiple web service handlers. |
 | global static [API_Base](API_Base.md) [processInboundService](#processinboundservice)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Processes a single inbound web service request by executing the specified handler. |
 
 ---
@@ -67,8 +67,6 @@ Executes a single API callout for the provided API call record.
 ApiCall__c apiCall = TST_Factory.newInboundApiCall('MyServiceHandler');
 API_Base handler = API_Dispatcher.execute(apiCall);
 ```
-
-### execute
 
 ```apex
 global static List<API_Base> execute(List<ApiCall__c> apiCalls)

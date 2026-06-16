@@ -42,10 +42,10 @@ Set<Id> readers = SEL_ObjectPermission.hasReadAccess(userIds, Account.SObjectTyp
 | Method | Description |
 |--------|-------------|
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasAccess](#hasaccess)([SEL_ObjectPermission.ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) objectAccessLevel, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a specific user has the required access level for a particular SObjectType. |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [hasAccess](#hasaccess)([SEL_ObjectPermission.ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) objectAccessLevel, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> userIds, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Verifies if multiple users have a specified access level for a given object type. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [hasAccess](#hasaccess)([SEL_ObjectPermission.ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) objectAccessLevel, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> userIds, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Verifies if multiple users have a specified access level for a given object type. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasCreateAccess](#hascreateaccess)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a specified user has create access to a particular object type. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasReadAccess](#hasreadaccess)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Determines if a specified user has read access to a particular Salesforce object type. |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [hasReadAccess](#hasreadaccess)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> userIds, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a set of specified users has read access to a given object type. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [hasReadAccess](#hasreadaccess)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> userIds, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a set of specified users has read access to a given object type. |
 
 ---
 
@@ -74,8 +74,6 @@ Checks if a specific user has the required access level for a particular SObject
 ```apex
 Boolean result = SEL_ObjectPermission.hasAccess(new ObjectPermissionType(), recordId, Account.SObjectType);
 ```
-
-### hasAccess
 
 ```apex
 global static Set<Id> hasAccess(SEL_ObjectPermission.ObjectPermissionType objectAccessLevel, Set<Id> userIds, SObjectType objectType)
@@ -144,8 +142,6 @@ Determines if a specified user has read access to a particular Salesforce object
 ```apex
 Boolean result = SEL_ObjectPermission.hasReadAccess(recordId, Account.SObjectType);
 ```
-
-### hasReadAccess
 
 ```apex
 global static Set<Id> hasReadAccess(Set<Id> userIds, SObjectType objectType)

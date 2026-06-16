@@ -24,11 +24,11 @@ Enum to specify the type of DML operation for external use.
 
 | Value | Description |
 |----------|-------------|
-| global [DML_DELETE](#dml_delete) | Delete operation. |
-| global [DML_INSERT](#dml_insert) | Insert operation. |
-| global [DML_UNDELETE](#dml_undelete) | Undelete operation. |
-| global [DML_UPDATE](#dml_update) | Update operation. |
-| global [DML_UPSERT](#dml_upsert) | Upsert operation. |
+| global  [DML_DELETE](#dml_delete) | Delete operation. |
+| global  [DML_INSERT](#dml_insert) | Insert operation. |
+| global  [DML_UNDELETE](#dml_undelete) | Undelete operation. |
+| global  [DML_UPDATE](#dml_update) | Update operation. |
+| global  [DML_UPSERT](#dml_upsert) | Upsert operation. |
 
 ---
 

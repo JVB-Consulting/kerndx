@@ -24,10 +24,10 @@ Cache type enumeration
 
 | Value | Description |
 |----------|-------------|
-| global [AUTO](#auto) | Auto-select dispatch: Session first, fallback to Org. |
-| global [IN_TRANSACTION](#in_transaction) | Transaction cache (in-memory, lifetime = current Apex transaction). |
-| global [ORG](#org) | Org cache (TTL: 5 minutes to 48 hours) |
-| global [SESSION](#session) | Session cache (TTL: 5 minutes to 8 hours) |
+| global  [AUTO](#auto) | Auto-select dispatch: Session first, fallback to Org. |
+| global  [IN_TRANSACTION](#in_transaction) | Transaction cache (in-memory, lifetime = current Apex transaction). |
+| global  [ORG](#org) | Org cache (TTL: 5 minutes to 48 hours) |
+| global  [SESSION](#session) | Session cache (TTL: 5 minutes to 8 hours) |
 
 ---
 

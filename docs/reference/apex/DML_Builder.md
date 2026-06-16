@@ -4,7 +4,7 @@ type: class
 description: "Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a t"
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, May 2026"
+date: "February 2026, June 2026"
 since: "1.0"
 category: apex
 ---
@@ -53,15 +53,15 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 | global [DML_Builder](DML_Builder.md) [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for deletion. |
 | global [DML_Builder](DML_Builder.md) [doInsert](#doinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for insertion. |
 | global [DML_Builder](DML_Builder.md) [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for insertion. |
-| global [DML_Builder](DML_Builder.md) [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for insertion with a relationship to a parent record. |
+| global [DML_Builder](DML_Builder.md) [doInsert](#doinsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) child, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) relationshipField, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) parent) | Registers a child record for insertion with a relationship to a parent record. |
 | global [DML_Builder](DML_Builder.md) [doUndelete](#doundelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for undelete. |
 | global [DML_Builder](DML_Builder.md) [doUndelete](#doundelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for undelete. |
 | global [DML_Builder](DML_Builder.md) [doUpdate](#doupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for update. |
 | global [DML_Builder](DML_Builder.md) [doUpdate](#doupdate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for update. |
 | global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for upsert. |
-| global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) externalIdField) | Registers multiple records for upsert with a specific external ID field. |
+| global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField) | Registers multiple records for upsert with a specific external ID field. |
 | global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for upsert. |
-| global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) externalIdField) | Registers a single record for upsert with a specific external ID field. |
+| global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField) | Registers a single record for upsert with a specific external ID field. |
 | global [DML_Builder.TransactionResult](DML_Builder.TransactionResult.md) [execute](#execute)() | Commits all registered DML operations via DML_Transaction and returns the result. |
 | global static [DML_Builder](DML_Builder.md) [newTransaction](#newtransaction)() | Creates a new DML_Builder instance representing a DML transaction. |
 | global [DML_Builder](DML_Builder.md) [suppressExceptions](#suppressexceptions)() | Suppresses DmlException re-throw in all-or-nothing mode. |
@@ -169,8 +169,6 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
-### doDelete
-
 ```apex
 global DML_Builder doDelete(SObject record)
 ```
@@ -217,8 +215,6 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
-### doInsert
-
 ```apex
 global DML_Builder doInsert(SObject record)
 ```
@@ -240,8 +236,6 @@ DML_Builder.newTransaction()
     .doInsert(new Account(Name = 'Test'))
     .execute();
 ```
-
-### doInsert
 
 ```apex
 global DML_Builder doInsert(SObject child, SObjectField relationshipField, SObject parent)
@@ -292,8 +286,6 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
-### doUndelete
-
 ```apex
 global DML_Builder doUndelete(SObject record)
 ```
@@ -339,8 +331,6 @@ DML_Builder.newTransaction()
     .doUpdate(accounts)
     .execute();
 ```
-
-### doUpdate
 
 ```apex
 global DML_Builder doUpdate(SObject record)
@@ -388,8 +378,6 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
-### doUpsert
-
 ```apex
 global DML_Builder doUpsert(List<SObject> records, SObjectField externalIdField)
 ```
@@ -413,8 +401,6 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
-### doUpsert
-
 ```apex
 global DML_Builder doUpsert(SObject record)
 ```
@@ -436,8 +422,6 @@ DML_Builder.newTransaction()
     .doUpsert(account)
     .execute();
 ```
-
-### doUpsert
 
 ```apex
 global DML_Builder doUpsert(SObject record, SObjectField externalIdField)

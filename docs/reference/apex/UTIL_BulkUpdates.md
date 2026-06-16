@@ -77,8 +77,6 @@ Set<String> profiles = new Set<String>{'Sales Rep', 'Support Rep'};
 UTIL_BulkUpdates.deactivateUsers(profiles, 365);
 ```
 
-### deactivateUsers
-
 ```apex
 global static void deactivateUsers(Set<String> profileNames, Integer minimumDaysInactive, Boolean isAllOrNothing)
 ```
@@ -99,8 +97,6 @@ Deactivates users based on their profile names and last login or creation date, 
 Set<String> profiles = new Set<String>{'Support Rep'};
 UTIL_BulkUpdates.deactivateUsers(profiles, 180, true);
 ```
-
-### deactivateUsers
 
 ```apex
 global static void deactivateUsers(Set<String> profileNames, Integer minimumDaysInactive, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -146,8 +142,6 @@ SObjectField emailField = Account.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField);
 ```
 
-### invalidateEmailFields
-
 ```apex
 global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, Integer recordsPerBatch)
 ```
@@ -167,8 +161,6 @@ Invalidates all valid email addresses for the specified email field, with a cust
 SObjectField emailField = Contact.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField, 200);
 ```
-
-### invalidateEmailFields
 
 ```apex
 global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -192,8 +184,6 @@ SObjectField emailField = Lead.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField, 100, true);
 ```
 
-### invalidateEmailFields
-
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName)
 ```
@@ -214,8 +204,6 @@ Uses the maximum batch size for processing.
 UTIL_BulkUpdates.invalidateEmailFields('Account', 'Email');
 ```
 
-### invalidateEmailFields
-
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName, Boolean isAllOrNothing)
 ```
@@ -235,8 +223,6 @@ Invalidates all valid email addresses for the specified field in a Salesforce ob
 ```apex
 UTIL_BulkUpdates.invalidateEmailFields('Opportunity', 'Email', true);
 ```
-
-### invalidateEmailFields
 
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -309,8 +295,6 @@ Uses the maximum batch size for processing.
 ```apex
 UTIL_BulkUpdates.updateOwner('Opportunity', 'Sales Rep', 'john.doe@example.com');
 ```
-
-### updateOwner
 
 ```apex
 global static void updateOwner(String sObjectName, String existingOwnerProfileName, String newOwnerUsername, Integer recordsPerBatch, Boolean isAllOrNothing)

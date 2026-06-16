@@ -56,7 +56,7 @@ global class SCHED_MyJob extends SCHED_Base
 |--------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [getBooleanParameter](#getbooleanparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a FLAG (boolean) parameter value. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getNumericParameter](#getnumericparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a NUMERIC parameter value. |
-| global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getParameterDefinitions](#getparameterdefinitions)() | Returns the parameter definitions supported by this scheduled job. |
+| global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md)> [getParameterDefinitions](#getparameterdefinitions)() | Returns the parameter definitions supported by this scheduled job. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getTextParameter](#gettextparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a TEXT parameter value. |
 | global void [setParameterValues](#setparametervalues)([DTO_NameValues](DTO_NameValues.md) parameterValues) | Stores the provided parameter values. |
 

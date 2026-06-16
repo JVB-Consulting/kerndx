@@ -40,16 +40,16 @@ String replaced = UTIL_String.replace('Hello World', 'World', 'Apex');
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [abbreviate](#abbreviate)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) offset, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxWidth) | Abbreviates a String using ellipses. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [abbreviate](#abbreviate)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Abbreviates a String to fit within the maximum length of the specified SObjectField. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [join](#join)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> objectArray, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Joins the elements of the provided array into a single String containing the provided list of elements. |
-| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [join](#join)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) separator) |  |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [join](#join)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> stringSet, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Joins the elements of the provided array into a single String containing the provided list of elements. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString) | Will mask the given string |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) percentageOfStringToBeMasked) | Will mask the given string |
-| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) maskCharacter, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) percentageOfStringToBeMasked) | Masks a string |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) maskCharacter, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minimumStringLength, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) percentageOfStringToBeMasked) | Masks a string |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [remove](#remove)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) remove) | Removes all occurrences of a substring from within the source string. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [replace](#replace)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) text, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) searchString, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) replacement) | Replaces all occurrences of a String within another String. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input) | Splits the provided text into an array, using whitespace as the separator. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separatorChars) | Splits the provided text into an array, separators specified. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separatorChars, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) max) | Splits the provided text into an array with a maximum length, separators specified. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [splitByWholeSeparator](#splitbywholeseparator)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Splits the provided text into an array, separator string specified. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input) | Splits the provided text into an array, using whitespace as the separator. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separatorChars) | Splits the provided text into an array, separators specified. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [split](#split)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separatorChars, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) max) | Splits the provided text into an array with a maximum length, separators specified. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [splitByWholeSeparator](#splitbywholeseparator)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Splits the provided text into an array, separator string specified. |
 
 ---
 
@@ -102,8 +102,6 @@ UTIL_String.abbreviate('abcdefg', 4);   // returns 'a...'
 UTIL_String.abbreviate('abcdefg', 3);   // throws IllegalArgumentException
 ```
 
-### abbreviate
-
 ```apex
 global static String abbreviate(String input, Integer offset, Integer maxWidth)
 ```
@@ -149,8 +147,6 @@ UTIL_String.abbreviate('abcdefghijklmno', 12, 10);  // returns '...ijklmno'
 UTIL_String.abbreviate('abcdefghij', 0, 3);         // throws IllegalArgumentException
 UTIL_String.abbreviate('abcdefghij', 5, 6);         // throws IllegalArgumentException
 ```
-
-### abbreviate
 
 ```apex
 global static String abbreviate(String input, SObjectField field)
@@ -207,8 +203,6 @@ UTIL_String.join(new List<Object>{'a', 'b', 'c'}, null);  // returns 'abc'
 UTIL_String.join(new List<Object>{null, '', 'a'}, ';');   // returns ';a'
 ```
 
-### join
-
 ```apex
 global static String join(Set<String> stringSet, String separator)
 ```
@@ -256,8 +250,6 @@ Will mask the given string
 String result = UTIL_String.maskString('value');
 ```
 
-### maskString
-
 ```apex
 global static String maskString(String sensitiveString, Decimal percentageOfStringToBeMasked)
 ```
@@ -278,8 +270,6 @@ Will mask the given string
 ```apex
 String result = UTIL_String.maskString('value', 99.99);
 ```
-
-### maskString
 
 ```apex
 global static String maskString(String sensitiveString, String maskCharacter, Integer minimumStringLength, Decimal percentageOfStringToBeMasked)
@@ -399,8 +389,6 @@ UTIL_String.split('abc  def');    // returns new List<String>{'abc', 'def'}
 UTIL_String.split(' abc ');       // returns new List<String>{'abc'}
 ```
 
-### split
-
 ```apex
 global static List<String> split(String input, String separatorChars)
 ```
@@ -435,8 +423,6 @@ UTIL_String.split('abc def', ' ');      // returns new List<String>{'abc', 'def'
 UTIL_String.split('abc  def', ' ');     // returns new List<String>{'abc', 'def'}
 UTIL_String.split('ab:cd:ef', ':');     // returns new List<String>{'ab', 'cd', 'ef'}
 ```
-
-### split
 
 ```apex
 global static List<String> split(String input, String separatorChars, Integer max)

@@ -25,10 +25,10 @@ Response DTO for the Execute Validation Rules invocable action. Contains the val
 | Field | Description |
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | Combined error message string containing all blocking error messages joined by newlines. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [errors](#errors) | List of blocking validation errors. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_FlowValidationError](DTO_FlowValidationError.md)> [errors](#errors) | List of blocking validation errors. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasErrors](#haserrors) | True if any blocking validation errors occurred. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasWarnings](#haswarnings) | True if any warnings occurred. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [warnings](#warnings) | List of validation warnings. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_FlowValidationError](DTO_FlowValidationError.md)> [warnings](#warnings) | List of validation warnings. |
 
 ---
 

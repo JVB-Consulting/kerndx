@@ -24,10 +24,10 @@ Enum defining different asynchronous execution strategies.
 
 | Value | Description |
 |----------|-------------|
-| global [AUTO](#auto) | Automatically decide between parallel, chainable, or batch based on data size and limits. |
-| global [BATCH](#batch) | Force batch execution regardless of data size. |
-| global [CHAINABLE](#chainable) | Force chainable queueable execution (single parent with chained children). |
-| global [PARALLEL_QUEUEABLES](#parallel_queueables) | Force parallel queueable execution (multiple queueables enqueued simultaneously). |
+| global  [AUTO](#auto) | Automatically decide between parallel, chainable, or batch based on data size and limits. |
+| global  [BATCH](#batch) | Force batch execution regardless of data size. |
+| global  [CHAINABLE](#chainable) | Force chainable queueable execution (single parent with chained children). |
+| global  [PARALLEL_QUEUEABLES](#parallel_queueables) | Force parallel queueable execution (multiple queueables enqueued simultaneously). |
 
 ---
 

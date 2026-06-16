@@ -38,7 +38,7 @@ entry.value = 'Active';
 | Field | Description |
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [label](#label) | The display label of the picklist value, intended for use in the user interface (UI). |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [validFor](#validfor) | If the picklist is a dependent picklist, the property contains a list of the controlling value indexes for which this value is valid. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [validFor](#validfor) | If the picklist is a dependent picklist, the property contains a list of the controlling value indexes for which this value is valid. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [value](#value) | The API value of the picklist, used for programmatic access within Apex code and integrations. |
 
 ---

@@ -52,9 +52,9 @@ public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_T
 | global enum [BypassType](TRG_Base.BypassType.md) | Indicates the type of trigger bypass being applied. |
 | global [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) [context](#context) | The current operation type being processed by the trigger action. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [sObjectName](#sobjectname) | The API name of the SObject being processed by the trigger action. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [triggerNew](#triggernew) | The list of "new" SObjects in the trigger context. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [triggerOld](#triggerold) | The list of "old" SObjects in the trigger context. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [triggerOldMap](#triggeroldmap) | Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerNew](#triggernew) | The list of "new" SObjects in the trigger context. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOld](#triggerold) | The list of "old" SObjects in the trigger context. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOldMap](#triggeroldmap) | Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts. |
 
 ## Methods
 
@@ -196,8 +196,6 @@ TRG_Base.bypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // true
 ```
 
-### bypass
-
 ```apex
 global static void bypass(String sObjectName)
 ```
@@ -216,8 +214,6 @@ Bypasses trigger actions for the specified SObject type.
 TRG_Base.bypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // true
 ```
-
-### bypass
 
 ```apex
 global static void bypass(String name, TRG_Base.BypassType type)
@@ -320,8 +316,6 @@ TRG_Base.clearAllBypasses();
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
 
-### clearAllBypasses
-
 ```apex
 global static void clearAllBypasses(TRG_Base.BypassType type)
 ```
@@ -365,8 +359,6 @@ TRG_Base.clearBypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // false
 ```
 
-### clearBypass
-
 ```apex
 global static void clearBypass(String sObjectName)
 ```
@@ -386,8 +378,6 @@ TRG_Base.bypass('Account');
 TRG_Base.clearBypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 ```
-
-### clearBypass
 
 ```apex
 global static void clearBypass(String name, TRG_Base.BypassType type)
@@ -457,8 +447,6 @@ TRG_Base.bypass(Account.SObjectType);
 Boolean isBypassed = TRG_Base.isBypassed(Account.SObjectType); // true
 ```
 
-### isBypassed
-
 ```apex
 global static Boolean isBypassed(String sObjectName)
 ```
@@ -479,8 +467,6 @@ Checks if trigger actions are bypassed for the specified SObject type.
 TRG_Base.bypass('Account');
 Boolean isBypassed = TRG_Base.isBypassed('Account'); // true
 ```
-
-### isBypassed
 
 ```apex
 global static Boolean isBypassed(String name, TRG_Base.BypassType type)

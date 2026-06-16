@@ -34,7 +34,7 @@ Request DTO containing the information required to retrieve picklist values.
 ### objectApiName
 
 ```apex
-@InvocableVariable(required=true description='The SObject Api Name' label='Object Name') global String objectApiName
+@InvocableVariable(required=true description='The SObject Api Name' label='Object Name' placeholderText='Foobar__c') global String objectApiName
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
@@ -52,7 +52,7 @@ String value = instance.objectApiName;
 ### recordTypeApiName
 
 ```apex
-@InvocableVariable(required=true description='The Record Type Api Name' label='Record Type Name') global String recordTypeApiName
+@InvocableVariable(required=true description='The Record Type Api Name' label='Record Type Name' placeholderText='DefaultFoobar') global String recordTypeApiName
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

@@ -24,8 +24,8 @@ Data Transfer Object (DTO) representing the input parameters for a single email 
 
 | Field | Description |
 |-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [fileIds](#fileids) | A list of ContentVersion IDs to attach to the email. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [mergeFields](#mergefields) | A list of custom key-value pairs to replace placeholders in the email body (e.g., [InvoiceNumber]). |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [fileIds](#fileids) | A list of ContentVersion IDs to attach to the email. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_NameValue](DTO_NameValue.md)> [mergeFields](#mergefields) | A list of custom key-value pairs to replace placeholders in the email body (e.g., [InvoiceNumber]). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [orgWideEmailAddress](#orgwideemailaddress) | The email address defined in Organization-Wide Email Addresses to be used as the sender. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [saveAsActivity](#saveasactivity) | Determines if a Task should be created. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [templateUniqueName](#templateuniquename) | The DeveloperName of the Email Template. |
@@ -76,7 +76,7 @@ The email address defined in Organization-Wide Email Addresses to be used as the
 ### saveAsActivity
 
 ```apex
-@InvocableVariable(description='Indicates if an activity (Task) should be logged against the Related To Id (WhatId). Ignored if Related To Id is null.' label='Save as Activity') global Boolean saveAsActivity
+@InvocableVariable(description='Indicates if an activity (Task) should be logged against the Related To Id (WhatId). Ignored if Related To Id is null.' label='Save as Activity' placeholderText='false' defaultValue='false') global Boolean saveAsActivity
 ```
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
@@ -113,7 +113,7 @@ The recipient. Can be a standard Email Address or the Salesforce ID of a Contact
 ### useStandardLogActivity
 
 ```apex
-@InvocableVariable(description='If True, standard activity logging is used. If False, custom activity logging is performed via the internal Flow.' label='Use Standard Activity Logging') global Boolean useStandardLogActivity
+@InvocableVariable(description='If True, standard activity logging is used. If False, custom activity logging is performed via the internal Flow.' label='Use Standard Activity Logging' placeholderText='false' defaultValue='false') global Boolean useStandardLogActivity
 ```
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)

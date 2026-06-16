@@ -38,9 +38,9 @@ EmailTemplate template = (EmailTemplate)new SEL_EmailTemplate().findById(templat
 
 | Method | Description |
 |--------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> uniqueNames) | Retrieves a list of EmailTemplate records by their DeveloperName field values. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the core fields for EmailTemplate queries. |
-| global [SEL_EmailTemplate](#sel_emailtemplate)() | Constructs an EmailTemplate selector with the EmailTemplate SObjectType. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[EmailTemplate](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_emailtemplate.htm)> [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> uniqueNames) | Retrieves a list of EmailTemplate records by their DeveloperName field values. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for EmailTemplate queries. |
+| global  [SEL_EmailTemplate](#sel_emailtemplate)() | Constructs an EmailTemplate selector with the EmailTemplate SObjectType. |
 
 ---
 

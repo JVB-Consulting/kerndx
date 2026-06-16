@@ -40,12 +40,12 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [includesStrict](#includesstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an INCLUDES condition with strict empty set handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition using a List. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds an IN condition using a List of SObjects. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) field) | Adds an IN condition by extracting field values from SObjects. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds an IN condition by extracting field values from SObjects. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([QRY_Builder.Builder](QRY_Builder.Builder.md) subquery) | Adds a semi-join IN condition using a subquery. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition using a Set. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition with strict empty list handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds an IN condition using SObjects with strict handling. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) field) | Adds an IN condition by extracting field values with strict handling. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds an IN condition by extracting field values with strict handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition with strict empty set handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNotNull](#isnotnull)() | Adds an IS NOT NULL condition. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNull](#isnull)() | Adds an IS NULL condition. |
@@ -56,11 +56,11 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notIn](#notin)([QRY_Builder.Builder](QRY_Builder.Builder.md) subquery) | Adds an anti-join NOT IN condition using a subquery. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition using a List. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds a NOT IN condition using a List of SObjects. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) field) | Adds a NOT IN condition by extracting field values from SObjects. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds a NOT IN condition by extracting field values from SObjects. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition using a Set. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition with strict empty list handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds a NOT IN condition using SObjects with strict handling. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) field) | Adds a NOT IN condition by extracting field values with strict handling. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds a NOT IN condition by extracting field values with strict handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition with strict empty set handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [startsWith](#startswith)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a LIKE condition with wildcard at end (starts with). |
 
@@ -140,8 +140,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### equals
-
 ```apex
 global QRY_Builder.Builder equals(SObject record)
 ```
@@ -188,8 +186,6 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .condition('Tags__c').excludes(excluded)
     .toList();
 ```
-
-### excludes
 
 ```apex
 global QRY_Builder.Builder excludes(Set<Object> values)
@@ -242,8 +238,6 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .condition('Tags__c').excludesStrict(excluded)
     .toList();
 ```
-
-### excludesStrict
 
 ```apex
 global QRY_Builder.Builder excludesStrict(Set<Object> values)
@@ -345,8 +339,6 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .toList();
 ```
 
-### includes
-
 ```apex
 global QRY_Builder.Builder includes(Set<Object> values)
 ```
@@ -398,8 +390,6 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
     .condition('Interests__c').includesStrict(interests)
     .toList();
 ```
-
-### includesStrict
 
 ```apex
 global QRY_Builder.Builder includesStrict(Set<Object> values)
@@ -453,8 +443,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### isIn
-
 ```apex
 global QRY_Builder.Builder isIn(List<SObject> records)
 ```
@@ -476,8 +464,6 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .condition(Contact.AccountId).isIn(parentAccounts)
     .toList();
 ```
-
-### isIn
 
 ```apex
 global QRY_Builder.Builder isIn(List<SObject> records, SObjectField field)
@@ -501,8 +487,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).isIn(contacts, Contact.AccountId)
     .toList();
 ```
-
-### isIn
 
 ```apex
 global QRY_Builder.Builder isIn(QRY_Builder.Builder subquery)
@@ -528,8 +512,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).isIn(subquery)
     .toList();
 ```
-
-### isIn
 
 ```apex
 global QRY_Builder.Builder isIn(Set<Object> values)
@@ -583,8 +565,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### isInStrict
-
 ```apex
 global QRY_Builder.Builder isInStrict(List<SObject> records)
 ```
@@ -611,8 +591,6 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .condition(Contact.AccountId).isInStrict(parents)
     .toList();
 ```
-
-### isInStrict
 
 ```apex
 global QRY_Builder.Builder isInStrict(List<SObject> records, SObjectField field)
@@ -641,8 +619,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).isInStrict(contacts, Contact.AccountId)
     .toList();
 ```
-
-### isInStrict
 
 ```apex
 global QRY_Builder.Builder isInStrict(Set<Object> values)
@@ -783,8 +759,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### notEquals
-
 ```apex
 global QRY_Builder.Builder notEquals(SObject record)
 ```
@@ -859,8 +833,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### notInSet
-
 ```apex
 global QRY_Builder.Builder notInSet(List<SObject> records)
 ```
@@ -883,8 +855,6 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .condition(Contact.AccountId).notInSet(excluded)
     .toList();
 ```
-
-### notInSet
 
 ```apex
 global QRY_Builder.Builder notInSet(List<SObject> records, SObjectField field)
@@ -909,8 +879,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).notInSet(contacts, Contact.AccountId)
     .toList();
 ```
-
-### notInSet
 
 ```apex
 global QRY_Builder.Builder notInSet(Set<Object> values)
@@ -964,8 +932,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
-### notInSetStrict
-
 ```apex
 global QRY_Builder.Builder notInSetStrict(List<SObject> records)
 ```
@@ -992,8 +958,6 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
     .condition(Contact.AccountId).notInSetStrict(excluded)
     .toList();
 ```
-
-### notInSetStrict
 
 ```apex
 global QRY_Builder.Builder notInSetStrict(List<SObject> records, SObjectField field)
@@ -1022,8 +986,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).notInSetStrict(contacts, Contact.AccountId)
     .toList();
 ```
-
-### notInSetStrict
 
 ```apex
 global QRY_Builder.Builder notInSetStrict(Set<Object> values)

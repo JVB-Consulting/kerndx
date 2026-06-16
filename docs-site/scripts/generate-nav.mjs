@@ -81,6 +81,15 @@ function orderCompare(a, b)
 	return (a.frontmatter?.title || a.title || '').localeCompare(b.frontmatter?.title || b.title || '');
 }
 
+// The area landing page (reference/<area>/index.md). It sorts first in its
+// subgroup so the section overview surfaces at the top rather than sinking in
+// among the classes (an untyped index would otherwise fall to apexCompare's
+// unknown-type rank).
+function isAreaIndex(page)
+{
+	return /(^|\/)index\.md$/i.test(page.relPath);
+}
+
 export function generateSidebar(pages)
 {
 	const visible = pages.filter(p => !(p.frontmatter && p.frontmatter.draft));
@@ -140,7 +149,9 @@ export function generateSidebar(pages)
 			for(const area of areaNames)
 			{
 				const cmp = area === 'apex' ? apexCompare : orderCompare;
-				items.push({text: area, collapsed: true, items: bucket.subgroups.get(area).slice().sort(cmp).map(link)});
+				const ordered = bucket.subgroups.get(area).slice().sort((a, b) =>
+						(isAreaIndex(a) ? 0 : 1) - (isAreaIndex(b) ? 0 : 1) || cmp(a, b));
+					items.push({text: area, collapsed: true, items: ordered.map(link)});
 			}
 		}
 		sidebar.push({text: name, collapsed: name === 'API Reference', items});

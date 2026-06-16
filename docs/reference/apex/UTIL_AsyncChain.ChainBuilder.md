@@ -72,8 +72,6 @@ String executionId = UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
-### execute
-
 ```apex
 global String execute(String correlationId)
 ```
@@ -184,8 +182,6 @@ UTIL_AsyncChain.newChain('MyChain')
     .then(new SecondStep())
     .execute();
 ```
-
-### then
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder then(IF_Chain.Step step, Boolean continueOnError)

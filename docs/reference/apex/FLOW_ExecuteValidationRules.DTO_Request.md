@@ -24,8 +24,8 @@ Request DTO for the Execute Validation Rules invocable action. Contains the reco
 
 | Field | Description |
 |-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [oldRecords](#oldrecords) | The previous record values before the change. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [records](#records) | The new/current records to validate. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [oldRecords](#oldrecords) | The previous record values before the change. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [records](#records) | The new/current records to validate. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [triggerContext](#triggercontext) | The trigger operation context that determines which validation rules to execute. |
 
 ---
@@ -64,7 +64,7 @@ For delete operations, these are the records being deleted. This field is requir
 ### triggerContext
 
 ```apex
-@InvocableVariable(description='The trigger operation context matching TriggerOperation enum: BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE, AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE.' label='Trigger Context') global String triggerContext
+@InvocableVariable(description='The trigger operation context matching TriggerOperation enum: BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE, AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE.' label='Trigger Context' placeholderText='BEFORE_INSERT' defaultValue='BEFORE_INSERT') global String triggerContext
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

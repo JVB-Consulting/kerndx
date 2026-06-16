@@ -74,8 +74,6 @@ Filters to categories above any of the specified categories in the hierarchy.
 .withDataCategory('Geography__c').above(new List<String>{'USA__c', 'Canada__c'})
 ```
 
-### above
-
 ```apex
 global QRY_Builder.Builder above(String categoryName)
 ```
@@ -125,8 +123,6 @@ Filters to categories above or below any of the specified categories in the hier
 ```apex
 .withDataCategory('Audience__c').aboveOrBelow(new List<String>{'External', 'Internal'})
 ```
-
-### aboveOrBelow
 
 ```apex
 global QRY_Builder.Builder aboveOrBelow(String categoryName)
@@ -178,8 +174,6 @@ Filters to any of the specified categories.
 .withDataCategory('Geography__c').at(new List<String>{'USA__c', 'Canada__c'})
 ```
 
-### at
-
 ```apex
 global QRY_Builder.Builder at(String categoryName)
 ```
@@ -229,8 +223,6 @@ Filters to categories below any of the specified categories in the hierarchy.
 ```apex
 .withDataCategory('Product__c').below(new List<String>{'Electronics__c', 'Clothing__c'})
 ```
-
-### below
 
 ```apex
 global QRY_Builder.Builder below(String categoryName)

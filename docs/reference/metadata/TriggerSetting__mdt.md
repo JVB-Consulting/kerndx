@@ -30,13 +30,13 @@ Parent configuration for all trigger actions on a single object. Links to an Ent
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | Master switch for performance logging on this object. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ObjectApiNameOverride__c](#objectapinameoverride__c) | Optional text override for the Object Type relationship above. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Object-level performance threshold in milliseconds. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [PostTriggerActions__r](#posttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.TriggerSetting__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[PostTriggerAction__mdt](../metadata/PostTriggerAction__mdt.md)> [PostTriggerActions__r](#posttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.TriggerSetting__c. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [SObjectType__c](#sobjecttype__c) | EntityDefinition relationship that identifies which SObject this trigger setting governs. |
 | global [EntityDefinition](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_entitydefinition.htm) [SObjectType__r](#sobjecttype__r) | EntityDefinition relationship that identifies which SObject this trigger setting governs. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [TriggerActions__r](#triggeractions__r) | Reciprocal relationship for TriggerAction__mdt.TriggerSetting__c. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [ValidationRuleGroups__r](#validationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.TriggerSetting__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[TriggerAction__mdt](../metadata/TriggerAction__mdt.md)> [TriggerActions__r](#triggeractions__r) | Reciprocal relationship for TriggerAction__mdt.TriggerSetting__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md)> [ValidationRuleGroups__r](#validationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.TriggerSetting__c. |
 
 ---
 

@@ -49,8 +49,6 @@ Converts the condition to a SOQL query string.
 
 **Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A valid SOQL query string.
 
-### toSoql
-
 ```apex
 global abstract String toSoql(QRY_Condition.SoqlOptions options)
 ```

@@ -35,7 +35,7 @@ group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.E
 | Method | Description |
 |--------|-------------|
 | global override [QRY_Condition.Nestable](QRY_Condition.Nestable.md) [add](#add)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a condition to this OR group. |
-| global [OrCondition](#orcondition)() | Constructor for creating an OR condition group. |
+| global  [OrCondition](#orcondition)() | Constructor for creating an OR condition group. |
 
 ---
 

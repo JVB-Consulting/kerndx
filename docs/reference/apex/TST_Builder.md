@@ -43,7 +43,7 @@ List<SObject> accounts = TST_Builder.of(Account.SObjectType).withCount(5).buildL
 |----------|-------------|
 | global static [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md) [autoDefaultFieldValueProvider](#autodefaultfieldvalueprovider) | A special marker value that signals the factory to generate a default value for a field, even if it's not required. |
 | global static [TST_Builder.DefaultValueProvider](TST_Builder.DefaultValueProvider.md) [defaultValueProvider](#defaultvalueprovider) | Overrides the default value provider instance with a custom implementation. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [optionalFields](#optionalfields) | A static list of fields to treat as optional for the current transaction's build operations. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [optionalFields](#optionalfields) | A static list of fields to treat as optional for the current transaction's build operations. |
 
 ## Methods
 
@@ -142,8 +142,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.withoutInsertion()
 	.build();
 ```
-
-### of
 
 ```apex
 global static TST_Builder.Builder of(String sObjectName)

@@ -39,7 +39,7 @@ List<DTO_PickList> pickLists = responses[0].pickLists;
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getPickListValues](#getpicklistvalues)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)> dtoRequests) | Retrieves the picklist values for an SObject and record type combination. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_GetPicklistValues.DTO_Response](FLOW_GetPicklistValues.DTO_Response.md)> [getPickListValues](#getpicklistvalues)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_GetPicklistValues.DTO_Request](FLOW_GetPicklistValues.DTO_Request.md)> dtoRequests) | Retrieves the picklist values for an SObject and record type combination. |
 
 ## Inner Classes
 

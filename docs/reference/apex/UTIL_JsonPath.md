@@ -49,7 +49,7 @@ Boolean exists = json.exists('account.name');
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isArray](#isarray)() | Checks if the wrapped JSON data is an array (List). |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isObject](#isobject)() | Checks if the wrapped JSON data is an object (Map). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toStringPretty](#tostringpretty)() | Serializes the wrapped JSON data to a pretty-printed JSON string. |
-| global [UTIL_JsonPath](#util_jsonpath)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) jsonData) | Constructs a UTIL_JsonPath instance from a serialized JSON string. |
+| global  [UTIL_JsonPath](#util_jsonpath)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) jsonData) | Constructs a UTIL_JsonPath instance from a serialized JSON string. |
 
 ## Inner Classes
 

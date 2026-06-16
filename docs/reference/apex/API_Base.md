@@ -61,7 +61,7 @@ public class API_MyService extends API_Outbound
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getBody](#getbody)() | Returns the HTTP request body. |
 | global abstract [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getEncoding](#getencoding)() | Returns the HTTP character encoding. |
 | global virtual [API_Base.HttpMethod](API_Base.HttpMethod.md) [getHttpMethod](#gethttpmethod)() | Returns the HTTP method for the service. |
-| global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getValidationErrors](#getvalidationerrors)() | Determines if the web service request should be aborted. |
+| global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getValidationErrors](#getvalidationerrors)() | Determines if the web service request should be aborted. |
 | global virtual void [handleError](#handleerror)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionThrown) | Handles errors encountered during the service call. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isDisabled](#isdisabled)() | Checks if the API is disabled for the current user. |
 | global virtual void [onSuccess](#onsuccess)() | Registers database changes after a successful call. |

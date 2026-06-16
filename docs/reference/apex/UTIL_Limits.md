@@ -46,7 +46,7 @@ UTIL_Limits.cpuTime().remaining();
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [mobilePushApexCalls](#mobilepushapexcalls)() | Returns a LimitCheck for mobile push Apex calls. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [publishImmediateDml](#publishimmediatedml)() | Returns a LimitCheck for publish immediate DML operations. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [queueableJobs](#queueablejobs)() | Returns a LimitCheck for queueable jobs. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [snapshot](#snapshot)() | Returns a LimitCheck for every governor limit type. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md)> [snapshot](#snapshot)() | Returns a LimitCheck for every governor limit type. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueries](#soqlqueries)() | Returns a LimitCheck for SOQL queries. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryLocatorRows](#soqlquerylocatorrows)() | Returns a LimitCheck for SOQL query locator rows. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryRows](#soqlqueryrows)() | Returns a LimitCheck for SOQL query rows. |

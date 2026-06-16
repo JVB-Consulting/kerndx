@@ -39,8 +39,8 @@ PermissionSet permissionSet = (PermissionSet)new SEL_PermissionSet().findById(pe
 | Method | Description |
 |--------|-------------|
 | global [PermissionSet](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionset.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Retrieves a PermissionSet record by name, searching both subscriber org (NamespacePrefix = null) and managed package namespace. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the core fields for PermissionSet queries. |
-| global [SEL_PermissionSet](#sel_permissionset)() | Constructs a PermissionSet selector with the PermissionSet SObjectType. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for PermissionSet queries. |
+| global  [SEL_PermissionSet](#sel_permissionset)() | Constructs a PermissionSet selector with the PermissionSet SObjectType. |
 
 ---
 

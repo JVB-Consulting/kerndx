@@ -26,7 +26,7 @@ Provides the outcome of the picklist values retrieval.
 |-------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [callSuccessful](#callsuccessful) | Indicates if the retrieval was successful. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorText](#errortext) | If the request was unsuccessful this will contain the error message. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [pickLists](#picklists) | If the request was successful this will contain a list of picklists and their values for a given object and record type. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_PickList](DTO_PickList.md)> [pickLists](#picklists) | If the request was successful this will contain a list of picklists and their values for a given object and record type. |
 
 ---
 

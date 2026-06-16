@@ -46,7 +46,7 @@ When true, clears all active bypasses. The Name field is ignored.
 ### name
 
 ```apex
-@InvocableVariable(description='Object API name, group DeveloperName, or rule DeveloperName to clear from bypass list.' label='Name') global String name
+@InvocableVariable(description='Object API name, group DeveloperName, or rule DeveloperName to clear from bypass list.' label='Name' placeholderText='Account') global String name
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

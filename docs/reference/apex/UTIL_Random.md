@@ -106,8 +106,6 @@ Integer randomInt = UTIL_Random.nextInteger(100);
 System.debug(randomInt); // Outputs: e.g., 42
 ```
 
-### nextInteger
-
 ```apex
 global static Integer nextInteger(Integer lowerBound, Integer upperBound)
 ```
@@ -152,8 +150,6 @@ Builds a random string of the requested length from the printable ASCII characte
 String randomString = UTIL_Random.random(10);
 System.debug(randomString); // Outputs: e.g., "Kj#9mP$2vQ"
 ```
-
-### random
 
 ```apex
 global static String random(Integer length, String characterSet)
@@ -277,8 +273,6 @@ Produces a random decimal value with two digits after the decimal point.
 Decimal randomDec = UTIL_Random.randomDecimal();
 ```
 
-### randomDecimal
-
 ```apex
 global static Decimal randomDecimal(Integer scale)
 ```
@@ -298,8 +292,6 @@ Produces a random decimal with a standard digit count and the caller-specified f
 ```apex
 Decimal randomDec = UTIL_Random.randomDecimal(2);
 ```
-
-### randomDecimal
 
 ```apex
 global static Decimal randomDecimal(Integer length, Integer scale)
@@ -402,8 +394,6 @@ Produces a random integer with a standard length of 6 digits.
 ```apex
 Integer randomInt = UTIL_Random.randomInteger();
 ```
-
-### randomInteger
 
 ```apex
 global static Integer randomInteger(Integer upperBound)

@@ -80,8 +80,6 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, processor);
 System.debug('Job started with ID: ' + jobId);
 ```
 
-### process
-
 ```apex
 global static Id process(List<Object> items, IF_Async.Processable processor, Integer jobSize)
 ```
@@ -108,8 +106,6 @@ IF_Async.Processable processor = new EmailValidationProcessor();
 Id jobId = UTIL_AsynchronousJobLauncher.process(contacts, processor, 50);
 System.debug('Processing 500 contacts in batches of 50. Job ID: ' + jobId);
 ```
-
-### process
 
 ```apex
 global static Id process(UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request, IF_Async.Processable processor)

@@ -87,8 +87,6 @@ newAccount.Status__c = 'Active';
 UTIL_ValidationTestHelper.assertRuleFails(newAccount, oldAccount, 'Account_Cannot_Reactivate', TriggerOperation.BEFORE_UPDATE);
 ```
 
-### assertRuleFails
-
 ```apex
 global static void assertRuleFails(SObject record, String ruleDeveloperName)
 ```
@@ -145,8 +143,6 @@ newAccount.Status__c = 'Inactive';
 UTIL_ValidationTestHelper.assertRulePasses(newAccount, oldAccount, 'Account_Cannot_Reactivate', TriggerOperation.BEFORE_UPDATE);
 ```
 
-### assertRulePasses
-
 ```apex
 global static void assertRulePasses(SObject record, String ruleDeveloperName)
 ```
@@ -197,8 +193,6 @@ Account account = new Account(Name = 'Test');
 UTIL_ValidationRule.ValidationResult result = UTIL_ValidationTestHelper.validate(account);
 Assert.areEqual(2, result.errors.size(), 'Expected 2 validation errors');
 ```
-
-### validate
 
 ```apex
 global static UTIL_ValidationRule.ValidationResult validate(SObject record, SObject oldRecord, TriggerOperation operation)

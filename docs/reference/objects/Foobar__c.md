@@ -29,7 +29,7 @@ Test object for managed package unit tests. Used to demonstrate and validate lib
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [Datetime__c](#datetime__c) | Test DateTime field for unit tests. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Email__c](#email__c) | Test Email field for unit tests. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExternalId__c](#externalid__c) | External ID field for upsert operation testing in DML_Transaction. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [Foobars__r](#foobars__r) | Reciprocal relationship for Foobar__c.Lookup__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Foobar__c](../objects/Foobar__c.md)> [Foobars__r](#foobars__r) | Reciprocal relationship for Foobar__c.Lookup__c. |
 | global [Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) [Geolocation__c](#geolocation__c) | Test Geolocation (Latitude/Longitude) field for unit tests. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [Lookup__c](#lookup__c) | Test Lookup field (self-referential) for unit tests. |
 | global [Foobar__c](../objects/Foobar__c.md) [Lookup__r](#lookup__r) | Test Lookup field (self-referential) for unit tests. |

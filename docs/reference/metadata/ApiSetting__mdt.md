@@ -25,7 +25,7 @@ Configures outbound web service handlers with endpoint paths, retry behavior, ci
 |-------|-------------|
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [ApiCredential__c](#apicredential__c) | The parent object containing the information used by the web service handler to authenticate against the Web Service Endpoint they are calling |
 | global [ApiCredential__mdt](../metadata/ApiCredential__mdt.md) [ApiCredential__r](#apicredential__r) | The parent object containing the information used by the web service handler to authenticate against the Web Service Endpoint they are calling |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [ApiMocks__r](#apimocks__r) | Reciprocal relationship for ApiMock__mdt.ApiSetting__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiMock__mdt](../metadata/ApiMock__mdt.md)> [ApiMocks__r](#apimocks__r) | Reciprocal relationship for ApiMock__mdt.ApiSetting__c. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [BypassFeatureFlag__c](#bypassfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [BypassFeatureFlag__r](#bypassfeatureflag__r) | Optional. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [CircuitBreakerEnabled__c](#circuitbreakerenabled__c) | Enable circuit breaker pattern to prevent cascading failures when the external service is down |

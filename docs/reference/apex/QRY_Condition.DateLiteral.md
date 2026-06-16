@@ -79,8 +79,6 @@ Sets the date literal to LAST_N_*:n.
 new QRY_Condition.DateLiteral().last(4, QRY_Condition.UnitOfTime.QUARTER)
 ```
 
-### last
-
 ```apex
 global QRY_Condition.DateLiteral last(QRY_Condition.UnitOfTime unit)
 ```
@@ -163,8 +161,6 @@ Sets the date literal to NEXT_N_*:n.
 ```apex
 new QRY_Condition.DateLiteral().next(2, QRY_Condition.UnitOfTime.FISCAL_YEAR)
 ```
-
-### next
 
 ```apex
 global QRY_Condition.DateLiteral next(QRY_Condition.UnitOfTime unit)

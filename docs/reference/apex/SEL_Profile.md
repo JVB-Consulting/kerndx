@@ -40,8 +40,8 @@ Profile profile = (Profile)new SEL_Profile().findById(profileId);
 | Method | Description |
 |--------|-------------|
 | global [Profile](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_profile.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName) | Finds a Profile record by name. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the core fields for Profile queries. |
-| global [SEL_Profile](#sel_profile)() | Constructs a Profile selector with the Profile SObjectType. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for Profile queries. |
+| global  [SEL_Profile](#sel_profile)() | Constructs a Profile selector with the Profile SObjectType. |
 
 ---
 

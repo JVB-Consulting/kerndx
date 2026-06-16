@@ -38,15 +38,15 @@ table.addRow(new Map<String, Object>{'name' => 'Acme Corp', 'revenue' => 50000})
 
 | Property | Description |
 |----------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [columns](#columns) | Retrieves the list of columns defined in the table. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [rows](#rows) | Retrieves all rows added to the table. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [columns](#columns) | Retrieves the list of columns defined in the table. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [rows](#rows) | Retrieves all rows added to the table. |
 
 ## Fields
 
 | Field | Description |
 |-------|-------------|
-| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [tableColumns](#tablecolumns) | List of table columns within this table |
-| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [tableRows](#tablerows) | List of table rows within this table |
+| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [tableColumns](#tablecolumns) | List of table columns within this table |
+| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [tableRows](#tablerows) | List of table rows within this table |
 
 ## Methods
 
@@ -127,8 +127,6 @@ The column will not be sortable by default. Useful for defining table structure 
 ```apex
 instance.addColumn('My Label', 'myName', 'value');
 ```
-
-### addColumn
 
 ```apex
 global void addColumn(String label, String fieldName, String type, Boolean sortable)

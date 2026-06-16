@@ -77,25 +77,25 @@ Contact first = (Contact)contactsByAccountId.get(someAccountId);
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [containsKey](#containskey)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) key) | Checks if the index contains records for the specified key at the first index level. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [get](#get)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) key) | Retrieves a single SObject matching the specified key. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [get](#get)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) specification) | Retrieves a single SObject matching the specification SObject on all indexed fields. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getAll](#getall)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> fieldValueMap) | Retrieves all SObjects matching the field-value map for indexed fields. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getAll](#getall)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) key) | Retrieves all SObjects matching the specified key. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getAll](#getall)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) specification) | Retrieves all SObjects matching the specification SObject on all indexed fields. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [getAll](#getall)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> fieldValueMap) | Retrieves all SObjects matching the field-value map for indexed fields. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [getAll](#getall)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) key) | Retrieves all SObjects matching the specified key. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [getAll](#getall)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) specification) | Retrieves all SObjects matching the specification SObject on all indexed fields. |
 | global [MAP_SObject](MAP_SObject.md) [getSubIndex](#getsubindex)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) key) | Retrieves a sub-index for entries matching the specified key. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEmpty](#isempty)() | Checks if the index is empty. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [keySet](#keyset)() | Retrieves the set of unique keys for the current index level. |
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [keySet](#keyset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) field) | Retrieves the set of unique keys for a specific field in the index. |
-| global [MAP_SObject](#map_sobject)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> indexFields) | Initializes a new MAP_SObject with multiple indexed fields. |
-| global [MAP_SObject](#map_sobject)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Initializes a new MAP_SObject with a single indexed field. |
-| global static [MAP_SObject](MAP_SObject.md) [of](#of)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> fieldNames) | Creates an index from a list of records indexed by multiple fields. |
-| global static [MAP_SObject](MAP_SObject.md) [of](#of)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) field) | Creates an index from a list of records indexed by a single field token. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)() | Retrieves the set of unique keys for the current index level. |
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) field) | Retrieves the set of unique keys for a specific field in the index. |
+| global  [MAP_SObject](#map_sobject)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> indexFields) | Initializes a new MAP_SObject with multiple indexed fields. |
+| global  [MAP_SObject](#map_sobject)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Initializes a new MAP_SObject with a single indexed field. |
+| global static [MAP_SObject](MAP_SObject.md) [of](#of)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> fieldNames) | Creates an index from a list of records indexed by multiple fields. |
+| global static [MAP_SObject](MAP_SObject.md) [of](#of)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Creates an index from a list of records indexed by a single field token. |
 | global static [MAP_SObject](MAP_SObject.md) [of](#of)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Creates an index from a list of records indexed by a single field. |
 | global [MAP_SObject](MAP_SObject.md) [put](#put)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) sObjectToAdd) | Adds a single SObject to the index. |
 | global [MAP_SObject](MAP_SObject.md) [putAll](#putall)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> sObjectsToAdd) | Adds a list of SObjects to the index. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [remove](#remove)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> fieldValueMap) | Removes SObjects matching the field-value map from the index. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [remove](#remove)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) specification) | Removes SObjects matching the specification SObject from the index. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [remove](#remove)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> fieldValueMap) | Removes SObjects matching the field-value map from the index. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [remove](#remove)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) specification) | Removes SObjects matching the specification SObject from the index. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the total number of SObjects stored in the index. |
 | global override [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toString](#tostring)() | Returns a string representation of the index structure for debugging purposes. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [values](#values)() | Retrieves all SObjects stored in the index. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [values](#values)() | Retrieves all SObjects stored in the index. |
 
 ---
 
@@ -120,8 +120,6 @@ Initializes a new MAP_SObject with multiple indexed fields.
 ```apex
 MAP_SObject index = new MAP_SObject(new List<String>{'AccountId', 'LastName'});
 ```
-
-### MAP_SObject
 
 ```apex
 global MAP_SObject(String fieldName)
@@ -227,8 +225,6 @@ MAP_SObject index = MAP_SObject.of(accounts, 'Id');
 Account acc = (Account)index.get(someAccountId);
 ```
 
-### get
-
 ```apex
 global SObject get(SObject specification)
 ```
@@ -274,8 +270,6 @@ Map<String, Object> spec = new Map<String, Object>{ 'LastName' => 'Smith' };
 List<Contact> results = index.getAll(spec);
 ```
 
-### getAll
-
 ```apex
 global List<SObject> getAll(Object key)
 ```
@@ -296,8 +290,6 @@ Retrieves all SObjects matching the specified key.
 MAP_SObject index = MAP_SObject.of(contacts, 'AccountId');
 List<Contact> accountContacts = index.getAll(someAccountId);
 ```
-
-### getAll
 
 ```apex
 global List<SObject> getAll(SObject specification)
@@ -382,8 +374,6 @@ MAP_SObject index = MAP_SObject.of(accounts, 'Industry');
 Set<String> industries = index.keySet();
 ```
 
-### keySet
-
 ```apex
 global Set<String> keySet(String field)
 ```
@@ -429,8 +419,6 @@ MAP_SObject contactsByAccountAndName = MAP_SObject.of(contacts, new List<String>
 List<Contact> contacts = contactsByAccountAndName.getAll(new Contact(AccountId = accId, LastName = 'Smith'));
 ```
 
-### of
-
 ```apex
 global static MAP_SObject of(List<SObject> records, SObjectField field)
 ```
@@ -452,8 +440,6 @@ Creates an index from a list of records indexed by a single field token.
 MAP_SObject accountsById = MAP_SObject.of(accounts, Account.Id);
 Account acc = (Account)accountsById.get(someId);
 ```
-
-### of
 
 ```apex
 global static MAP_SObject of(List<SObject> records, String fieldName)
@@ -546,8 +532,6 @@ MAP_SObject index = MAP_SObject.of(contacts, new List<String>{'AccountId', 'Last
 Map<String, Object> spec = new Map<String, Object>{ 'LastName' => 'Smith' };
 List<SObject> removed = index.remove(spec);
 ```
-
-### remove
 
 ```apex
 global List<SObject> remove(SObject specification)

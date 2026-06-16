@@ -37,7 +37,7 @@ List<FLOW_CallApi.DTO_Response> responses = FLOW_CallApi.invokeApiCallSynchronou
 
 | Method | Description |
 |--------|-------------|
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [invokeApiCallSynchronously](#invokeapicallsynchronously)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CallApi.DTO_Request](FLOW_CallApi.DTO_Request.md)> requestDataTransferObjects) | Invokes web service calls synchronously using a list of DTO_Request objects. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CallApi.DTO_Response](FLOW_CallApi.DTO_Response.md)> [invokeApiCallSynchronously](#invokeapicallsynchronously)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CallApi.DTO_Request](FLOW_CallApi.DTO_Request.md)> requestDataTransferObjects) | Invokes web service calls synchronously using a list of DTO_Request objects. |
 
 ## Inner Classes
 

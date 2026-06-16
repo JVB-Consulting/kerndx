@@ -242,8 +242,6 @@ Date monday = Date.newInstance(2026, 2, 16);
 Boolean weekday = UTIL_Date.isWeekDay(monday);
 ```
 
-### isWeekDay
-
 ```apex
 global static Boolean isWeekDay(Datetime inputDatetime)
 ```
@@ -288,8 +286,6 @@ Date sunday = Date.newInstance(2026, 2, 22);
 Boolean weekend = UTIL_Date.isWeekend(sunday);
 ```
 
-### isWeekend
-
 ```apex
 global static Boolean isWeekend(Datetime inputDatetime)
 ```
@@ -328,8 +324,6 @@ Resolves the most recent weekday on or before today.
 ```apex
 Date recentWeekday = UTIL_Date.lastWeekDay();
 ```
-
-### lastWeekDay
 
 ```apex
 global static Date lastWeekDay(Date referenceDate)
@@ -374,8 +368,6 @@ Serializes a `Date` into its ISO 8601 string representation (date portion only).
 Date invoiceDate = Date.newInstance(2026, 6, 1);
 String iso = UTIL_Date.toIso8601(invoiceDate);
 ```
-
-### toIso8601
 
 ```apex
 global static String toIso8601(Datetime inputDatetime)

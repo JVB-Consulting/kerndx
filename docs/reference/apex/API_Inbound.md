@@ -61,7 +61,7 @@ global with sharing class API_Echo
 
 | Method | Description |
 |--------|-------------|
-| global [API_Inbound](#api_inbound)() | Constructor. |
+| global  [API_Inbound](#api_inbound)() | Constructor. |
 | global override virtual void [configure](#configure)() | Initializes class variables and sets up request details including headers and URL parameters. |
 | global override virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getEncoding](#getencoding)() | Retrieves the HTTP character encoding for the request. |
 | global override [API_Base.HttpMethod](API_Base.HttpMethod.md) [getHttpMethod](#gethttpmethod)() | Retrieves the HTTP method of the current inbound request. |

@@ -28,10 +28,10 @@ A subclass of NamespacedAttributeMap for handling field maps returned by Describ
 | global override [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [containsKey](#containskey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Checks if the map contains a key with optional namespace handling. |
 | global [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Retrieves an SObjectField by name with namespace handling enabled by default. |
 | global [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Retrieves an SObjectField by name with optional namespace handling. |
-| global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [keySet](#keyset)() | Returns the key set of the map with namespace handling disabled by default. |
-| global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [keySet](#keyset)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Returns the key set of the map with optional namespace handling. |
+| global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)() | Returns the key set of the map with namespace handling disabled by default. |
+| global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Returns the key set of the map with optional namespace handling. |
 | global override [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the number of entries in the map. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [values](#values)() | Returns the list of SObjectField values in the map. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [values](#values)() | Returns the list of SObjectField values in the map. |
 
 ---
 
@@ -58,8 +58,6 @@ Checks if the map contains a key with namespace handling enabled by default.
 ```apex
 Boolean result = instance.containsKey('myName');
 ```
-
-### containsKey
 
 ```apex
 global override Boolean containsKey(String name, Boolean implyNamespace)
@@ -106,8 +104,6 @@ SObjectField field = describe.getFields().get('Email');
 System.debug(field?.getDescribe().getLabel()); // Outputs: Email
 ```
 
-### get
-
 ```apex
 global SObjectField get(String name, Boolean implyNamespace)
 ```
@@ -148,8 +144,6 @@ Returns the key set of the map with namespace handling disabled by default.
 ```apex
 Set<String> result = instance.keySet();
 ```
-
-### keySet
 
 ```apex
 global override Set<String> keySet(Boolean implyNamespace)

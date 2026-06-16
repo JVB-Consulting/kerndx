@@ -8,7 +8,13 @@ module.exports = {
         ...jestConfig.moduleNameMapper,
         '^lightning/flowSupport$': '<rootDir>/force-app/test/jest-mocks/lightning/flowSupport.js',
         '^lightning/modal$': '<rootDir>/force-app/test/jest-mocks/lightning/modal.js',
-        '^c/componentBuilder$': '<rootDir>/force-app/test/jest-mocks/c/componentBuilder.js'
+        '^c/componentBuilder$': '<rootDir>/force-app/test/jest-mocks/c/componentBuilder.js',
+        // The sfdx-lwc-jest jsdom environment resolves `cheerio` to its browser ESM
+        // build (bare `export`), which jest cannot load. Pin to the CommonJS *slim*
+        // build: it provides the full DOM API (load/find/contents/text) the doc
+        // converter uses, without cheerio's `undici`/fetch dependency (which needs
+        // web globals jsdom omits). Tests that `jest.mock('cheerio')` still override this.
+        '^cheerio$': '<rootDir>/node_modules/cheerio/dist/commonjs/slim.js'
     },
     modulePathIgnorePatterns: ['<rootDir>/.localdevserver', '<rootDir>/tmp/'],
     testPathIgnorePatterns: ['/node_modules/', '/coverage/', '/release-testing/e2e/specs/', '<rootDir>/tmp/', '/__tests__/fixtures/'],

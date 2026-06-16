@@ -40,7 +40,7 @@ Boolean success = result.isSuccess;
 
 | Field | Description |
 |-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [errors](#errors) | List of errors encountered during the service call. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [errors](#errors) | List of errors encountered during the service call. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isMocked](#ismocked) | Indicates if the service call response was mocked. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [parseError](#parseerror) | Indicates the response was successfully received from the remote endpoint but parseResponse() failed (typically a JSON deserialization error or unexpected payload shape). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [requestBody](#requestbody) | The request body sent. |

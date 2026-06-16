@@ -91,8 +91,6 @@ catch(UTIL_CircuitBreaker.OpenException e)
 }
 ```
 
-### execute
-
 ```apex
 global abstract Object execute(UTIL_CircuitBreaker.Provider action)
 ```

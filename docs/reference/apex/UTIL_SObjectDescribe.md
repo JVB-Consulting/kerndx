@@ -35,11 +35,11 @@ String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 
 | Method | Description |
 |--------|-------------|
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [extractValidObjectFieldNames](#extractvalidobjectfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> fieldNames) | Filters a set of field names, returning only those that are valid for the given object. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [extractValidObjectFieldNames](#extractvalidobjectfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> fieldNames) | Filters a set of field names, returning only those that are valid for the given object. |
 | global static void [flushCache](#flushcache)() | Clears the cache of global describe and SObject describe instances to free heap space. |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getAllFieldNames](#getallfieldnames)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Returns all queryable field names for an object by SObjectType (includes record type fields). |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getAllFieldNames](#getallfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns all queryable field names for an object by API name (includes record type fields). |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getAllFieldNames](#getallfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) includeRecordType) | Returns all queryable field names for an object, optionally including record type fields. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getAllFieldNames](#getallfieldnames)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Returns all queryable field names for an object by SObjectType (includes record type fields). |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getAllFieldNames](#getallfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns all queryable field names for an object by API name (includes record type fields). |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getAllFieldNames](#getallfieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) includeRecordType) | Returns all queryable field names for an object, optionally including record type fields. |
 | global static [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) [getCachedFieldDescribe](#getcachedfielddescribe)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Static accessor for field describes that enables context-agnostic lookups. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getCachedFieldName](#getcachedfieldname)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Static convenience method to get a field's API name directly from an SObjectField token. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getDefaultPicklistValue](#getdefaultpicklistvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe) | Retrieves the default picklist value for a given field describe. |
@@ -58,25 +58,25 @@ String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 | global [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) [getFieldDescribe](#getfielddescribe)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Retrieves a cached DescribeFieldResult for the given field name. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getFieldName](#getfieldname)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Retrieves the API name for the given SObjectField token. |
 | global [UTIL_SObjectDescribe.FieldsMap](UTIL_SObjectDescribe.FieldsMap.md) [getFields](#getfields)() | Retrieves a wrapped map of fields with namespace handling for the described object. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getFieldSetsMap](#getfieldsetsmap)() | Retrieves a map of field set names to FieldSet objects for the described object. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getFieldsMap](#getfieldsmap)() | Retrieves a map of field API names to SObjectField instances. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm)> [getFieldSetsMap](#getfieldsetsmap)() | Retrieves a map of field set names to FieldSet objects for the described object. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFieldsMap](#getfieldsmap)() | Retrieves a map of field API names to SObjectField instances. |
 | global static [UTIL_SObjectDescribe.GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) [getGlobalDescribe](#getglobaldescribe)() | Retrieves a wrapped map of global SObjectType names to SObjectType instances with namespace handling. |
 | global [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) [getNameField](#getnamefield)() | Retrieves the name field of the SObject (where isNameField() is true). |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getNestableFieldNames](#getnestablefieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Walks the object tree and returns all fields for related objects (one level deep). |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getNestableFieldNames](#getnestablefieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) levels) | Walks the object tree and returns all fields for related objects up to the specified depth. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getObjectFieldMap](#getobjectfieldmap)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Returns the field map for an object by SObjectType. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getObjectFieldMap](#getobjectfieldmap)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns the field map for an object by API name. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getObjectFieldReferenceMap](#getobjectfieldreferencemap)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns a map of reference (lookup/master-detail) fields keyed by relationship name. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getNestableFieldNames](#getnestablefieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Walks the object tree and returns all fields for related objects (one level deep). |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getNestableFieldNames](#getnestablefieldnames)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) levels) | Walks the object tree and returns all fields for related objects up to the specified depth. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getObjectFieldMap](#getobjectfieldmap)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Returns the field map for an object by SObjectType. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getObjectFieldMap](#getobjectfieldmap)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns the field map for an object by API name. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getObjectFieldReferenceMap](#getobjectfieldreferencemap)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectName) | Returns a map of reference (lookup/master-detail) fields keyed by relationship name. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getObjectNameFromId](#getobjectnamefromid)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) objectId) | Returns the API name of an object based on its ID. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getObjectNameFromType](#getobjectnamefromtype)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Will get the API name for the SObject given a specific type. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getPicklistEntries](#getpicklistentries)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField) | Returns a list of picklist entries for a given SObject field reference. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getPicklistEntriesMap](#getpicklistentriesmap)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField) | Returns a map of picklist label-to-value pairs for a given SObject field reference. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getPicklistEntriesMap](#getpicklistentriesmap)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) useLabelAsKey) | Returns a map of picklist entries with configurable key for a given SObject field reference. |
-| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getPicklistValues](#getpicklistvalues)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordTypeId) | Returns all picklist values for a given object and record type combination as a list of DTO_PickList objects, including dependent picklist relationships. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[PicklistEntry](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_PicklistEntry.htm)> [getPicklistEntries](#getpicklistentries)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField) | Returns a list of picklist entries for a given SObject field reference. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getPicklistEntriesMap](#getpicklistentriesmap)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField) | Returns a map of picklist label-to-value pairs for a given SObject field reference. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getPicklistEntriesMap](#getpicklistentriesmap)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) pickField, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) useLabelAsKey) | Returns a map of picklist entries with configurable key for a given SObject field reference. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_PickList](DTO_PickList.md)> [getPicklistValues](#getpicklistvalues)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordTypeId) | Returns all picklist values for a given object and record type combination as a list of DTO_PickList objects, including dependent picklist relationships. |
 | global static ConnectApi.PicklistValuesCollection [getPicklistValuesByRecordType](#getpicklistvaluesbyrecordtype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordTypeId) | Returns all picklist values for a given object and record type combination, including dependent picklist relationships. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) [getRawGlobalDescribe](#getrawglobaldescribe)() | Retrieves a cached map of global SObjectType names to SObjectType instances. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [getRawGlobalDescribe](#getrawglobaldescribe)() | Retrieves a cached map of global SObjectType names to SObjectType instances. |
 | global static [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [getRecordTypeByDeveloperName](#getrecordtypebydevelopername)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeName) | Retrieves the Id of a record type for an SObject by its developer name. |
-| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) [getSObjectFieldNames](#getsobjectfieldnames)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Converts a set of SObjectField tokens to their API name strings. |
+| global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getSObjectFieldNames](#getsobjectfieldnames)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Converts a set of SObjectField tokens to their API name strings. |
 | global [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [getSObjectType](#getsobjecttype)() | Returns the SObjectType this instance is based on, useful for retrieving metadata about the specific object. |
 | global static [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [getSObjectTypeById](#getsobjecttypebyid)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) objectId) | Returns the SObjectType token for a given record ID. |
 | global static [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [getSObjectTypeByName](#getsobjecttypebyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName) | Returns the SObjectType token for a given object API name. |
@@ -158,8 +158,6 @@ Returns all queryable field names for an object by SObjectType (includes record 
 Set<String> fieldNames = UTIL_SObjectDescribe.getAllFieldNames(Account.SObjectType);
 ```
 
-### getAllFieldNames
-
 ```apex
 global static Set<String> getAllFieldNames(String objectName)
 ```
@@ -179,8 +177,6 @@ Returns all queryable field names for an object by API name (includes record typ
 ```apex
 Set<String> fieldNames = UTIL_SObjectDescribe.getAllFieldNames('Account');
 ```
-
-### getAllFieldNames
 
 ```apex
 global static Set<String> getAllFieldNames(String objectName, Boolean includeRecordType)
@@ -275,8 +271,6 @@ Retrieves the default picklist value for a given field describe.
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c.getDescribe());
 ```
 
-### getDefaultPicklistValue
-
 ```apex
 global static String getDefaultPicklistValue(DescribeFieldResult fieldDescribe, Boolean returnFirstEntryIfNoDefault)
 ```
@@ -298,8 +292,6 @@ Retrieves the default picklist value for a given field describe.
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c.getDescribe(), true);
 ```
 
-### getDefaultPicklistValue
-
 ```apex
 global static String getDefaultPicklistValue(SObjectField objectField)
 ```
@@ -319,8 +311,6 @@ Retrieves the default picklist value for a given SObject field.
 ```apex
 String picklistValue = UTIL_SObjectDescribe.getDefaultPicklistValue(Foobar__c.Picklist__c);
 ```
-
-### getDefaultPicklistValue
 
 ```apex
 global static String getDefaultPicklistValue(SObjectField objectField, Boolean returnFirstEntryIfNoDefault)
@@ -385,8 +375,6 @@ DescribeSObjectResult result = describe.getDescribe();
 System.debug(result.getLabel()); // Outputs: Account
 ```
 
-### getDescribe
-
 ```apex
 global static UTIL_SObjectDescribe getDescribe(DescribeSObjectResult describeResult)
 ```
@@ -408,8 +396,6 @@ DescribeSObjectResult result = Account.SObjectType.getDescribe();
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(result);
 System.debug(describe.getSObjectType()); // Outputs: Account
 ```
-
-### getDescribe
 
 ```apex
 global static UTIL_SObjectDescribe getDescribe(SObject instance)
@@ -433,8 +419,6 @@ UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(acc);
 System.debug(describe.getNameField().getDescribe().name); // Outputs: Name
 ```
 
-### getDescribe
-
 ```apex
 global static UTIL_SObjectDescribe getDescribe(SObjectType objectType)
 ```
@@ -455,8 +439,6 @@ Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject typ
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(Account.SObjectType);
 System.debug(describe.getDescribe().name); // Outputs: Account
 ```
-
-### getDescribe
 
 ```apex
 global static UTIL_SObjectDescribe getDescribe(String sObjectName)
@@ -502,8 +484,6 @@ UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 SObjectField field = describe.getField('LastName');
 System.debug(field.getDescribe().getLabel()); // Outputs: Last Name
 ```
-
-### getField
 
 ```apex
 global SObjectField getField(String fieldName, Boolean implyNamespace)
@@ -554,8 +534,6 @@ UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 DescribeFieldResult fieldDescribe = describe.getFieldDescribe(Account.Name);
 System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
 ```
-
-### getFieldDescribe
 
 ```apex
 global DescribeFieldResult getFieldDescribe(String fieldName)
@@ -728,8 +706,6 @@ Walks the object tree and returns all fields for related objects (one level deep
 Set<String> fields = UTIL_SObjectDescribe.getNestableFieldNames('Contact');
 ```
 
-### getNestableFieldNames
-
 ```apex
 global static Set<String> getNestableFieldNames(String objectName, Integer levels)
 ```
@@ -772,8 +748,6 @@ Returns the field map for an object by SObjectType.
 ```apex
 Map<String, SObjectField> fields = UTIL_SObjectDescribe.getObjectFieldMap(Account.SObjectType);
 ```
-
-### getObjectFieldMap
 
 ```apex
 global static Map<String, SObjectField> getObjectFieldMap(String objectName)
@@ -906,8 +880,6 @@ Returns a map of picklist label-to-value pairs for a given SObject field referen
 ```apex
 Map<String, String> valueByLabel = UTIL_SObjectDescribe.getPicklistEntriesMap(Account.Industry);
 ```
-
-### getPicklistEntriesMap
 
 ```apex
 global static Map<String, String> getPicklistEntriesMap(SObjectField pickField, Boolean useLabelAsKey)

@@ -24,8 +24,8 @@ Indicates the type of trigger bypass being applied.
 
 | Value | Description |
 |----------|-------------|
-| global [CLASS_NAME](#class_name) | Bypass a specific trigger action class by class name. |
-| global [OBJECT_NAME](#object_name) | Bypass all triggers for a specific SObject by object API name. |
+| global  [CLASS_NAME](#class_name) | Bypass a specific trigger action class by class name. |
+| global  [OBJECT_NAME](#object_name) | Bypass all triggers for a specific SObject by object API name. |
 
 ---
 

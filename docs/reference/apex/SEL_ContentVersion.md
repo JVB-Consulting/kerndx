@@ -39,12 +39,12 @@ ContentVersion version = (ContentVersion)new SEL_ContentVersion().findById(versi
 
 | Method | Description |
 |--------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findByFirstPublishLocationId](#findbyfirstpublishlocationid)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) firstPublishLocationId) | Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findByFirstPublishLocationId](#findbyfirstpublishlocationid)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> firstPublishLocationIds) | Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId values. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [findLatestByContentDocumentId](#findlatestbycontentdocumentid)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> contentDocumentIds) | Retrieves the latest ContentVersion records for the specified ContentDocument IDs. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getAll](#getall)() | Retrieves all ContentVersion records in the system. |
-| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [getFields](#getfields)() | Returns the default fields for ContentVersion queries. |
-| global [SEL_ContentVersion](#sel_contentversion)() | Constructs a new SEL_ContentVersion selector instance. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [findByFirstPublishLocationId](#findbyfirstpublishlocationid)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) firstPublishLocationId) | Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [findByFirstPublishLocationId](#findbyfirstpublishlocationid)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> firstPublishLocationIds) | Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId values. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [findLatestByContentDocumentId](#findlatestbycontentdocumentid)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> contentDocumentIds) | Retrieves the latest ContentVersion records for the specified ContentDocument IDs. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [getAll](#getall)() | Retrieves all ContentVersion records in the system. |
+| global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the default fields for ContentVersion queries. |
+| global  [SEL_ContentVersion](#sel_contentversion)() | Constructs a new SEL_ContentVersion selector instance. |
 
 ---
 
@@ -87,8 +87,6 @@ Retrieves the latest ContentVersion records linked to the specified FirstPublish
 ```apex
 List<ContentVersion> result = instance.findByFirstPublishLocationId(recordId);
 ```
-
-### findByFirstPublishLocationId
 
 ```apex
 global List<ContentVersion> findByFirstPublishLocationId(Set<Id> firstPublishLocationIds)

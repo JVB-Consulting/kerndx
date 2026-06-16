@@ -35,7 +35,7 @@ Groups validation rules for a specific object and trigger context. Binds to a Tr
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [TriggerSetting__c](#triggersetting__c) | Links this validation rule group to a specific object via TriggerSetting. |
 | global [TriggerSetting__mdt](../metadata/TriggerSetting__mdt.md) [TriggerSetting__r](#triggersetting__r) | Links this validation rule group to a specific object via TriggerSetting. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggerTiming__c](#triggertiming__c) | Semicolon-separated list of when rules in this group should run. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) [ValidationRules__r](#validationrules__r) | Reciprocal relationship for ValidationRule__mdt.ValidationRuleGroup__c. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRule__mdt](../metadata/ValidationRule__mdt.md)> [ValidationRules__r](#validationrules__r) | Reciprocal relationship for ValidationRule__mdt.ValidationRuleGroup__c. |
 
 ---
 
