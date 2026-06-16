@@ -1,6 +1,7 @@
 ---
 title: "ApiCredential__mdt"
 type: sobject
+pageClass: reference
 description: "Links outbound API handlers to their Salesforce Named Credential for endpoint resolution and authentication."
 category: metadata
 ---

@@ -1,3 +1,7 @@
+---
+navOrder: 34
+---
+
 # Fast Start - Inbound APIs
 
 **Framework:** KernDX | **Total time:** ~30 minutes

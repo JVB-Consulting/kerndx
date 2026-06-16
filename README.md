@@ -54,11 +54,11 @@ And like a kernel, it's not all-or-nothing. Switch on the parts that fit your si
 
 ```mermaid
 flowchart TD
-    A[Subscriber Org<br/>Triggers · LWC · REST · Scheduled Jobs] --> B[Kern entry frameworks<br/>TRG_Dispatcher · API_Inbound · Apex Controllers · Schedulable]
-    B --> C[Selectors<br/>SEL_*  ·  QRY_Builder]
-    B --> D[DML_Builder]
-    B --> E[UTIL_AsyncChain]
-    C --> F[LOG_Builder<br/>Audit · Masking · Correlation]
+    A["Subscriber Org<br/>triggers · LWC · REST · jobs"] --> B["Kern entry frameworks"]
+    B --> C["Selectors<br/>SEL_* · QRY_Builder"]
+    B --> D["DML_Builder"]
+    B --> E["UTIL_AsyncChain"]
+    C --> F["LOG_Builder<br/>audit · masking · correlation"]
     D --> F
     E --> F
 ```

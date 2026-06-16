@@ -1,6 +1,7 @@
 ---
 title: "LOG_Builder.LogScope"
 type: class
+pageClass: reference
 description: "A logging scope that buffers log entries until closed. On creation, suspends immediate log publishing. On close, flushes all buffered logs and resumes publishing. Provides a simpler alternative to man"
 since: "1.0"
 category: apex
@@ -41,6 +42,8 @@ scope.close();
 
 ### close
 
+<div class="apex-member">
+
 ```apex
 global void close()
 ```
@@ -48,5 +51,5 @@ global void close()
 Flushes all buffered logs and resumes publishing. Safe to call multiple times;
 subsequent calls after the first are no-ops.
 
-**Since:** 1.0
+</div>
 

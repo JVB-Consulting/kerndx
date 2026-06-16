@@ -1,6 +1,7 @@
 ---
 title: "PROC_UpdateFields.DTO_Parameters"
 type: class
+pageClass: reference
 description: "DTO for parameters to query and update records."
 since: "1.0"
 category: apex

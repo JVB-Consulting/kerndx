@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.ContactContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Contact object. Provides typed access to Contact records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank"
 since: "1.0"
 category: apex

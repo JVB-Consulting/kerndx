@@ -1,6 +1,7 @@
 ---
 title: "MaskingRule__mdt"
 type: sobject
+pageClass: reference
 description: "Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. Each rule has a pattern (regex, JSON keys, literal string, or DTO field paths), a replacement value"
 category: metadata
 ---

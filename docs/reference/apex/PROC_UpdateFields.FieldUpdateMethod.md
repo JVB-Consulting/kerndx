@@ -1,6 +1,7 @@
 ---
 title: "PROC_UpdateFields.FieldUpdateMethod"
 type: class
+pageClass: reference
 description: "Enum defining methods for updating SObject fields."
 since: "1.0"
 category: apex

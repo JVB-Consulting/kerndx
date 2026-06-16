@@ -1,3 +1,7 @@
+---
+navOrder: 10
+---
+
 # KernDX — Strategic Overview
 
 > A self-assessment of the KernDX Salesforce framework, its design philosophy, and how it compares to alternatives in the Salesforce framework ecosystem — authored by the KernDX

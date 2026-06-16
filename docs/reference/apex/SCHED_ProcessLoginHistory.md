@@ -1,6 +1,7 @@
 ---
 title: "SCHED_ProcessLoginHistory"
 type: class
+pageClass: reference
 description: "Scheduled job that runs daily to process login history data. Launches PROC_LoginFrequencyAggregator via the adaptive async framework using Batch Apex. Batch is required because finish() updates Schedu"
 author: "Jason Van Beukering"
 group: "Schedulables"
@@ -43,6 +44,8 @@ System.schedule('Daily Login History', '0 0 2 * * ?', new SCHED_ProcessLoginHist
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global void execute(SchedulableContext context)
 ```
@@ -51,15 +54,17 @@ Executes the scheduled Apex job to process login history data. Reads the waterma
 from ScheduleSetting__c, builds the LoginHistory query, and dispatches processing via the
 adaptive async framework.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm)) - Contains the job id
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm) | Contains the job id |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 System.schedule('Daily Login History Processing', '0 0 2 * * ?', new SCHED_ProcessLoginHistory());
 ```
+
+</div>
 

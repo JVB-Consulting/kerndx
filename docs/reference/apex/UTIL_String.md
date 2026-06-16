@@ -1,6 +1,7 @@
 ---
 title: "UTIL_String"
 type: class
+pageClass: reference
 description: "Various string manipulation utilities"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -57,6 +58,8 @@ String replaced = UTIL_String.replace('Hello World', 'World', 'Apex');
 
 ### abbreviate
 
+<div class="apex-member">
+
 ```apex
 global static String abbreviate(String input, Integer maxWidth)
 ```
@@ -77,20 +80,22 @@ Specifically:
 - In no case will it return a String of length greater than
 `maxWidth`.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to check, may be null
-- `maxWidth` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - maximum length of result String, must be at least 4
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to check, may be null |
+| `maxWidth` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | maximum length of result String, must be at least 4 |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - abbreviated String, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — abbreviated String, `null` if null String input
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if the width is too small
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the width is too small |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.abbreviate(null, 4);        // returns null
@@ -101,6 +106,10 @@ UTIL_String.abbreviate('abcdefg', 8);   // returns 'abcdefg'
 UTIL_String.abbreviate('abcdefg', 4);   // returns 'a...'
 UTIL_String.abbreviate('abcdefg', 3);   // throws IllegalArgumentException
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String abbreviate(String input, Integer offset, Integer maxWidth)
@@ -116,21 +125,23 @@ ellipses, but it will appear somewhere in the result.
 
 In no case will it return a String of length greater than maxWidth
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to check, may be null
-- `offset` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - left edge of source String
-- `maxWidth` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - maximum length of result String, must be at least 4
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to check, may be null |
+| `offset` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | left edge of source String |
+| `maxWidth` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | maximum length of result String, must be at least 4 |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - abbreviated String, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — abbreviated String, `null` if null String input
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if the width is too small
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the width is too small |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.abbreviate(null, 0, 4);                 // returns null
@@ -148,6 +159,10 @@ UTIL_String.abbreviate('abcdefghij', 0, 3);         // throws IllegalArgumentExc
 UTIL_String.abbreviate('abcdefghij', 5, 6);         // throws IllegalArgumentException
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static String abbreviate(String input, SObjectField field)
 ```
@@ -155,22 +170,26 @@ global static String abbreviate(String input, SObjectField field)
 Abbreviates a String to fit within the maximum length of the specified SObjectField.
 Automatically derives the field length from the field's describe metadata.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to abbreviate, may be null
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - the SObjectField whose length determines the maximum width
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to abbreviate, may be null |
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | the SObjectField whose length determines the maximum width |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - abbreviated String fitting within the field length, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — abbreviated String fitting within the field length, `null` if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String shortened = UTIL_String.abbreviateToField(longMessage, LogEntry__c.Message__c);
 ```
 
+</div>
+
 ### join
+
+<div class="apex-member">
 
 ```apex
 global static String join(List<Object> objectArray, String separator)
@@ -183,16 +202,16 @@ No delimiter is added before or after the list.
 Null objects or empty strings within the array are represented by
 empty strings.
 
-**Parameters:**
+**Parameters**
 
-- `objectArray` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - the array of values to join together, may be null
-- `separator` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - the separator character to use
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectArray` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | the array of values to join together, may be null |
+| `separator` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | the separator character to use |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - the joined String, `null` if null array input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the joined String, `null` if null array input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.join(null, ';');                              // returns null
@@ -202,6 +221,10 @@ UTIL_String.join(new List<Object>{'a', 'b', 'c'}, ';');   // returns 'a;b;c'
 UTIL_String.join(new List<Object>{'a', 'b', 'c'}, null);  // returns 'abc'
 UTIL_String.join(new List<Object>{null, '', 'a'}, ';');   // returns ';a'
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String join(Set<String> stringSet, String separator)
@@ -213,22 +236,26 @@ a single String containing the provided elements.
 No delimiter is added before or after the list.
 A `null` separator is the same as an empty String ("").
 
-**Parameters:**
+**Parameters**
 
-- `stringSet` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - the Iterator of values to join together, may be null
-- `separator` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the separator character to use, null treated as ""
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stringSet` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | the Iterator of values to join together, may be null |
+| `separator` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the separator character to use, null treated as "" |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - the joined String, `null` if null iterator input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the joined String, `null` if null iterator input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = UTIL_String.join(new Set<String>{'a', 'b'}, ',');
 ```
 
+</div>
+
 ### maskString
+
+<div class="apex-member">
 
 ```apex
 global static String maskString(String sensitiveString)
@@ -236,19 +263,23 @@ global static String maskString(String sensitiveString)
 
 Will mask the given string
 
-**Parameters:**
+**Parameters**
 
-- `sensitiveString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The string to mask
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sensitiveString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to mask |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A Masked string
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A Masked string
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = UTIL_String.maskString('value');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String maskString(String sensitiveString, Decimal percentageOfStringToBeMasked)
@@ -256,20 +287,24 @@ global static String maskString(String sensitiveString, Decimal percentageOfStri
 
 Will mask the given string
 
-**Parameters:**
+**Parameters**
 
-- `sensitiveString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The string to mask
-- `percentageOfStringToBeMasked` ([Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm)) - The percentage of string to be masked
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sensitiveString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to mask |
+| `percentageOfStringToBeMasked` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The percentage of string to be masked |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A Masked string
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A Masked string
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = UTIL_String.maskString('value', 99.99);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static String maskString(String sensitiveString, String maskCharacter, Integer minimumStringLength, Decimal percentageOfStringToBeMasked)
@@ -277,24 +312,28 @@ global static String maskString(String sensitiveString, String maskCharacter, In
 
 Masks a string
 
-**Parameters:**
+**Parameters**
 
-- `sensitiveString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The string to mask
-- `maskCharacter` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The character to be used for masking
-- `minimumStringLength` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The minimum length of the input string which is to be masked
-- `percentageOfStringToBeMasked` ([Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm)) - The percentage of string to be masked
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sensitiveString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to mask |
+| `maskCharacter` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The character to be used for masking |
+| `minimumStringLength` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The minimum length of the input string which is to be masked |
+| `percentageOfStringToBeMasked` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The percentage of string to be masked |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A Masked string
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A Masked string
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = UTIL_String.maskString('value', 'value', 10, 99.99);
 ```
 
+</div>
+
 ### remove
+
+<div class="apex-member">
 
 ```apex
 global static String remove(String input, String remove)
@@ -302,16 +341,16 @@ global static String remove(String input, String remove)
 
 Removes all occurrences of a substring from within the source string.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the source String to search, may be null
-- `remove` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to search for and remove, may be null
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the source String to search, may be null |
+| `remove` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to search for and remove, may be null |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - the substring with the string removed if found, null if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the substring with the string removed if found, null if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.remove(null, 'ue');       // returns null
@@ -322,7 +361,11 @@ UTIL_String.remove('queued', 'ue');   // returns 'qd'
 UTIL_String.remove('queued', 'zz');   // returns 'queued'
 ```
 
+</div>
+
 ### replace
+
+<div class="apex-member">
 
 ```apex
 global static String replace(String text, String searchString, String replacement)
@@ -332,17 +375,17 @@ Replaces all occurrences of a String within another String.
 
 A `null` reference passed to this method is a no-op.
 
-**Parameters:**
+**Parameters**
 
-- `text` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - text to search and replace in, may be null
-- `searchString` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to search for, may be null
-- `replacement` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to replace it with, may be null
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `text` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | text to search and replace in, may be null |
+| `searchString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to search for, may be null |
+| `replacement` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to replace it with, may be null |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - the text with any replacements processed, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the text with any replacements processed, `null` if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.replace(null, 'a', 'z');    // returns null
@@ -355,7 +398,11 @@ UTIL_String.replace('aba', 'a', '');    // returns 'b'
 UTIL_String.replace('aba', 'a', 'z');   // returns 'zbz'
 ```
 
+</div>
+
 ### split
+
+<div class="apex-member">
 
 ```apex
 global static List<String> split(String input)
@@ -371,15 +418,15 @@ For more control over the split use the StrTokenizer class.
 
 A `null` input String returns `null`.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to parse, may be null
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to parse, may be null |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - an array of parsed Strings, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — an array of parsed Strings, `null` if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.split(null);          // returns null
@@ -388,6 +435,10 @@ UTIL_String.split('abc def');     // returns new List<String>{'abc', 'def'}
 UTIL_String.split('abc  def');    // returns new List<String>{'abc', 'def'}
 UTIL_String.split(' abc ');       // returns new List<String>{'abc'}
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<String> split(String input, String separatorChars)
@@ -403,17 +454,16 @@ For more control over the split use the StrTokenizer class.
 A `null` input String returns `null`.
 A `null` separatorChars splits on whitespace.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to parse, may be null
-- `separatorChars` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the characters used as the delimiters,
- null splits on whitespace
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to parse, may be null |
+| `separatorChars` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the characters used as the delimiters, null splits on whitespace |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - an array of parsed Strings, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — an array of parsed Strings, `null` if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.split(null, ' ');           // returns null
@@ -423,6 +473,10 @@ UTIL_String.split('abc def', ' ');      // returns new List<String>{'abc', 'def'
 UTIL_String.split('abc  def', ' ');     // returns new List<String>{'abc', 'def'}
 UTIL_String.split('ab:cd:ef', ':');     // returns new List<String>{'ab', 'cd', 'ef'}
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<String> split(String input, String separatorChars, Integer max)
@@ -441,19 +495,17 @@ If more than `max` delimited substrings are found, the last
 returned string includes all characters after the first `max - 1`
 returned strings (including separator characters).
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to parse, may be null
-- `separatorChars` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the characters used as the delimiters,
- null splits on whitespace
-- `max` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - the maximum number of elements to include in the
- array. A zero or negative value implies no limit
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to parse, may be null |
+| `separatorChars` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the characters used as the delimiters, null splits on whitespace |
+| `max` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | the maximum number of elements to include in the array. A zero or negative value implies no limit |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - an array of parsed Strings, `null` if null String input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — an array of parsed Strings, `null` if null String input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.split(null, ':', 0);           // returns null
@@ -464,7 +516,11 @@ UTIL_String.split('ab:cd:ef', ':', 0);     // returns new List<String>{'ab', 'cd
 UTIL_String.split('ab:cd:ef', ':', 2);     // returns new List<String>{'ab', 'cd:ef'}
 ```
 
+</div>
+
 ### splitByWholeSeparator
+
+<div class="apex-member">
 
 ```apex
 global static List<String> splitByWholeSeparator(String input, String separator)
@@ -478,17 +534,16 @@ Adjacent separators are treated as one separator.
 A `null` input String returns `null`.
 A `null` separator splits on whitespace.
 
-**Parameters:**
+**Parameters**
 
-- `input` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - the String to parse, may be null
-- `separator` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - String containing the String to be used as a delimiter,
- null splits on whitespace
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `input` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the String to parse, may be null |
+| `separator` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | String containing the String to be used as a delimiter, null splits on whitespace |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - an array of parsed Strings, `null` if null String was input
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — an array of parsed Strings, `null` if null String was input
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_String.splitByWholeSeparator(null, '-!-');           // returns null
@@ -498,4 +553,6 @@ UTIL_String.splitByWholeSeparator('ab   de fg', null);    // returns new List<St
 UTIL_String.splitByWholeSeparator('ab:cd:ef', ':');       // returns new List<String>{'ab', 'cd', 'ef'}
 UTIL_String.splitByWholeSeparator('ab-!-cd-!-ef', '-!-'); // returns new List<String>{'ab', 'cd', 'ef'}
 ```
+
+</div>
 

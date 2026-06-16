@@ -1,6 +1,7 @@
 ---
 title: "UTIL_List"
 type: class
+pageClass: reference
 description: "Various list utilities for manipulating lists of objects and SObjects. This class provides methods for converting, transforming, sorting, and partitioning lists, as well as utility methods for checkin"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -44,21 +45,23 @@ List<List<SObject>> batches = UTIL_List.partition(records, 200);
 
 ### isEmpty
 
+<div class="apex-member">
+
 ```apex
 global static Boolean isEmpty(List<Object> items)
 ```
 
 Checks if an object array is empty or null.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The array to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The array to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the array is null or empty, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the array is null or empty, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> emptyList = new List<Object>();
@@ -66,7 +69,11 @@ Boolean isEmpty = UTIL_List.isEmpty(emptyList);
 System.debug(isEmpty); // Outputs: true
 ```
 
+</div>
+
 ### isNotEmpty
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isNotEmpty(List<Object> items)
@@ -74,15 +81,15 @@ global static Boolean isNotEmpty(List<Object> items)
 
 Checks if an object array is not empty.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The array to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The array to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the array is not null and not empty, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the array is not null and not empty, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> numbers = new List<Object>{1, 2};
@@ -90,7 +97,11 @@ Boolean isNotEmpty = UTIL_List.isNotEmpty(numbers);
 System.debug(isNotEmpty); // Outputs: true
 ```
 
+</div>
+
 ### partition
+
+<div class="apex-member">
 
 ```apex
 global static List<List<Object>> partition(List<Object> objects, Integer partitionSize)
@@ -98,18 +109,20 @@ global static List<List<Object>> partition(List<Object> objects, Integer partiti
 
 Partitions a list into smaller lists of the specified size.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of objects
-- `partitionSize` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The maximum size of each sub-list
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of objects |
+| `partitionSize` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The maximum size of each sub-list |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - A list of sub-lists, each no larger than partitionSize
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — A list of sub-lists, each no larger than partitionSize
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<List<Object>> batches = UTIL_List.partition(records, 200);
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.UnitOfTime"
 type: class
+pageClass: reference
 description: "Units of time for SOQL date literals."
 since: "1.0"
 category: apex

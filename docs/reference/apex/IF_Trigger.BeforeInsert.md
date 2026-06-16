@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.BeforeInsert"
 type: class
+pageClass: reference
 description: "Handler contract for the before-insert trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the before-insert trigger event.
 
 ### beforeInsert
 
+<div class="apex-member">
+
 ```apex
 global abstract void beforeInsert(List<SObject> newRecords)
 ```
@@ -41,13 +44,13 @@ global abstract void beforeInsert(List<SObject> newRecords)
 Called before records are committed to the database, allowing
 field defaulting, validation, or in-memory enrichment of the incoming batch.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects about to be inserted.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects about to be inserted. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_SetAccountDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
@@ -61,4 +64,6 @@ public class TRG_SetAccountDefaults extends TRG_Base implements IF_Trigger.Befor
     }
 }
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "LOG_Builder.LogEntry"
 type: class
+pageClass: reference
 description: "Fluent builder for constructing rich log entries with context. Provides a chainable API for setting log level, location, record association, and contextual metadata before emitting the log."
 since: "1.0"
 category: apex
@@ -59,21 +60,27 @@ LOG_Builder.build()
 
 ### at
 
+<div class="apex-member">
+
 ```apex
 global LOG_Builder.LogEntry at(String classMethod)
 ```
 
 Sets the originating class and method for the log entry.
 
-**Parameters:**
+**Parameters**
 
-- `classMethod` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class and method in format 'ClassName.methodName'
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `classMethod` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class and method in format 'ClassName.methodName' |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### debug
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry debug(List<String> messages)
@@ -81,13 +88,17 @@ global LOG_Builder.LogEntry debug(List<String> messages)
 
 Sets the log level to DEBUG with the given batch of messages.
 
-**Parameters:**
+**Parameters**
 
-- `messages` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The debug messages to log
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The debug messages to log |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry debug(String message)
@@ -95,15 +106,19 @@ global LOG_Builder.LogEntry debug(String message)
 
 Sets the log level to DEBUG with the given message.
 
-**Parameters:**
+**Parameters**
 
-- `message` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The debug message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The debug message |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### emit
+
+<div class="apex-member">
 
 ```apex
 global void emit()
@@ -113,9 +128,11 @@ Emits the log entry with all configured properties.
 Any per-entry context is temporarily set as global context for the duration of the log call,
 then cleaned up to prevent leaking into subsequent logs.
 
-**Since:** 1.0
+</div>
 
 ### emitAt
+
+<div class="apex-member">
 
 ```apex
 global void emitAt(String classMethod)
@@ -124,19 +141,23 @@ global void emitAt(String classMethod)
 Convenience terminal that sets the class/method and emits in one call.
 Equivalent to `.at(classMethod).emit()`.
 
-**Parameters:**
+**Parameters**
 
-- `classMethod` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class and method in format 'ClassName.methodName'
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `classMethod` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class and method in format 'ClassName.methodName' |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 LOG_Builder.build().error(caughtException).emitAt('PaymentService.charge');
 ```
 
+</div>
+
 ### error
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry error(Exception error)
@@ -144,13 +165,17 @@ global LOG_Builder.LogEntry error(Exception error)
 
 Sets the log level to ERROR with the given exception.
 
-**Parameters:**
+**Parameters**
 
-- `error` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception to log
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `error` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception to log |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry error(List<String> messages)
@@ -158,13 +183,17 @@ global LOG_Builder.LogEntry error(List<String> messages)
 
 Sets the log level to ERROR with the given batch of messages.
 
-**Parameters:**
+**Parameters**
 
-- `messages` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The error messages to log
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The error messages to log |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry error(String message)
@@ -172,15 +201,19 @@ global LOG_Builder.LogEntry error(String message)
 
 Sets the log level to ERROR with the given message.
 
-**Parameters:**
+**Parameters**
 
-- `message` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The error message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The error message |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### forRecord
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry forRecord(Id recordId)
@@ -188,13 +221,17 @@ global LOG_Builder.LogEntry forRecord(Id recordId)
 
 Associates a record ID with the log entry.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The related record ID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The related record ID |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry forRecord(String recordId)
@@ -202,15 +239,19 @@ global LOG_Builder.LogEntry forRecord(String recordId)
 
 Associates a record ID (as String) with the log entry.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - String representation of the related record ID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | String representation of the related record ID |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### info
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry info(List<String> messages)
@@ -218,13 +259,17 @@ global LOG_Builder.LogEntry info(List<String> messages)
 
 Sets the log level to INFO with the given batch of messages.
 
-**Parameters:**
+**Parameters**
 
-- `messages` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The informational messages to log
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The informational messages to log |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry info(String message)
@@ -232,15 +277,19 @@ global LOG_Builder.LogEntry info(String message)
 
 Sets the log level to INFO with the given message.
 
-**Parameters:**
+**Parameters**
 
-- `message` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The informational message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The informational message |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### warn
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry warn(List<String> messages)
@@ -248,13 +297,17 @@ global LOG_Builder.LogEntry warn(List<String> messages)
 
 Sets the log level to WARN with the given batch of messages.
 
-**Parameters:**
+**Parameters**
 
-- `messages` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The warning messages to log
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `messages` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The warning messages to log |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry warn(String message)
@@ -262,15 +315,19 @@ global LOG_Builder.LogEntry warn(String message)
 
 Sets the log level to WARN with the given message.
 
-**Parameters:**
+**Parameters**
 
-- `message` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The warning message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The warning message |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### withContext
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry withContext(String key, Object value)
@@ -285,16 +342,20 @@ or the payload is double-encoded. Pass the value object directly and let the eng
 decide the wire form. Prefer `LOG_Engine.CONTEXT_*` constants for `key` over string
 literals so cross-framework log entries pivot on the same key namespace.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The context key (use a LOG_Engine.CONTEXT_* constant where one exists).
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The context value (any type; auto-serialised when complex).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The context key (use a LOG_Engine.CONTEXT_* constant where one exists). |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The context value (any type; auto-serialised when complex). |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 
 ### withFingerprint
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry withFingerprint(String key)
@@ -309,21 +370,25 @@ with the reserved 'bypass:' prefix are SHA-256 hashed. When a key is hashed, the
 key is recorded in this entry's context (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`) so the
 opaque stored fingerprint stays reconcilable with what you supplied.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The stable grouping key.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The stable grouping key. |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 LOG_Builder.build().warn('Retry failed').withFingerprint('order-sync-retry').emitAt('OrderSync.run');
 ```
 
+</div>
+
 ### withSummary
+
+<div class="apex-member">
 
 ```apex
 global LOG_Builder.LogEntry withSummary(String shortMessage)
@@ -331,11 +396,13 @@ global LOG_Builder.LogEntry withSummary(String shortMessage)
 
 Sets a brief summary message for the log entry.
 
-**Parameters:**
+**Parameters**
 
-- `shortMessage` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The summary message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `shortMessage` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The summary message |
 
-**Returns:** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) - This LogEntry for chaining
+**Returns** [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) — This LogEntry for chaining
 
-**Since:** 1.0
+</div>
 

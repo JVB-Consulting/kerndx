@@ -1,6 +1,7 @@
 ---
 title: "SEL_Base"
 type: class
+pageClass: reference
 description: "Abstract base class for all selectors. Provides lazy-loaded field management and IF_Queryable implementation. Subclasses define their SObjectType and core fields; the base class handles query builder "
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -150,25 +151,31 @@ Example:
 
 ### SEL_Base
 
+<div class="apex-member">
+
 ```apex
 global SEL_Base(SObjectType objectType)
 ```
 
 Constructs a selector for the given SObjectType.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType this selector queries
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType this selector queries |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_Account.SEL_Base instance = new SEL_Account.SEL_Base(Account.SObjectType);
 ```
 
+</div>
+
 ### count
+
+<div class="apex-member">
 
 ```apex
 global Integer count()
@@ -176,17 +183,19 @@ global Integer count()
 
 Returns the count of all records matching the default query.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - Number of matching records
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Number of matching records
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer result = instance.count();
 ```
 
+</div>
+
 ### exists
+
+<div class="apex-member">
 
 ```apex
 global Boolean exists()
@@ -194,17 +203,19 @@ global Boolean exists()
 
 Returns true if any records match the default query.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if at least one record matches
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if at least one record matches
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.exists();
 ```
 
+</div>
+
 ### findByField
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findByField(SObjectField field, List<Object> values)
@@ -212,20 +223,24 @@ global List<SObject> findByField(SObjectField field, List<Object> values)
 
 Finds records matching multiple values on a field.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField to filter on
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The values to match
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField to filter on |
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The values to match |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records, or empty list if no values provided
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records, or empty list if no values provided
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> result = instance.findByField(Account.Name, new List<Object>{'a', 'b'});
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findByField(SObjectField field, Object value)
@@ -233,20 +248,24 @@ global List<SObject> findByField(SObjectField field, Object value)
 
 Finds records matching a single field value.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField to filter on
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The value to match
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField to filter on |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to match |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> result = instance.findByField(Account.Name, 'value');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findByField(SObjectField field, Set<Object> values)
@@ -254,22 +273,26 @@ global List<SObject> findByField(SObjectField field, Set<Object> values)
 
 Finds records matching multiple values on a field.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField to filter on
-- `values` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The values to match
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField to filter on |
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The values to match |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records, or empty list if no values provided
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records, or empty list if no values provided
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> result = instance.findByField(Account.Name, new Set<Object>{'value'});
 ```
 
+</div>
+
 ### findByFields
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findByFields(Map<SObjectField, Object> fieldValues)
@@ -277,15 +300,15 @@ global List<SObject> findByFields(Map<SObjectField, Object> fieldValues)
 
 Finds records matching multiple field-value pairs combined with AND logic.
 
-**Parameters:**
+**Parameters**
 
-- `fieldValues` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of SObjectField tokens to their expected values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldValues` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of SObjectField tokens to their expected values |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records, or empty list if fieldValues is null or empty
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records, or empty list if fieldValues is null or empty
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> records = new SEL_Foobar().findByFields
@@ -298,7 +321,11 @@ List<SObject> records = new SEL_Foobar().findByFields
 );
 ```
 
+</div>
+
 ### findById
+
+<div class="apex-member">
 
 ```apex
 global SObject findById(Id recordId)
@@ -306,19 +333,23 @@ global SObject findById(Id recordId)
 
 Finds a single record by its Id.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the record to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the record to retrieve |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The matching record or null if not found
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The matching record or null if not found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject result = instance.findById(recordId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findById(Set<Id> recordIds)
@@ -326,21 +357,25 @@ global List<SObject> findById(Set<Id> recordIds)
 
 Finds multiple records by their Ids.
 
-**Parameters:**
+**Parameters**
 
-- `recordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The set of Ids to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The set of Ids to retrieve |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records, or empty list if no Ids provided
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records, or empty list if no Ids provided
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> result = instance.findById(recordIds);
 ```
 
+</div>
+
 ### findByIdOrThrow
+
+<div class="apex-member">
 
 ```apex
 global SObject findByIdOrThrow(Id recordId)
@@ -348,23 +383,29 @@ global SObject findByIdOrThrow(Id recordId)
 
 Finds a single record by its Id, throwing NotFoundException if not found.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the record to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the record to retrieve |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The matching record
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The matching record
 
-**Throws:**
+**Throws**
 
-- [UTIL_Exceptions.NotFoundException](UTIL_Exceptions.NotFoundException.md) - If no record exists with the given Id
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.NotFoundException](UTIL_Exceptions.NotFoundException.md) | If no record exists with the given Id |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c record = (Foobar__c)new SEL_Foobar().findByIdOrThrow(recordId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findByIdOrThrow(Set<Id> recordIds)
@@ -372,25 +413,31 @@ global List<SObject> findByIdOrThrow(Set<Id> recordIds)
 
 Finds multiple records by their Ids, throwing NotFoundException if any Id is missing.
 
-**Parameters:**
+**Parameters**
 
-- `recordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The set of Ids to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The set of Ids to retrieve |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of matching records
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of matching records
 
-**Throws:**
+**Throws**
 
-- [UTIL_Exceptions.NotFoundException](UTIL_Exceptions.NotFoundException.md) - If any of the requested Ids were not found
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.NotFoundException](UTIL_Exceptions.NotFoundException.md) | If any of the requested Ids were not found |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Foobar__c> records = new SEL_Foobar().findByIdOrThrow(recordIds);
 ```
 
+</div>
+
 ### findFirstByField
+
+<div class="apex-member">
 
 ```apex
 global SObject findFirstByField(SObjectField field, Object value)
@@ -398,22 +445,26 @@ global SObject findFirstByField(SObjectField field, Object value)
 
 Finds the first record matching a single field value, or null if not found.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField to filter on
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The value to match
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField to filter on |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to match |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The first matching record or null
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The first matching record or null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject result = instance.findFirstByField(Account.Name, 'value');
 ```
 
+</div>
+
 ### findFirstByFields
+
+<div class="apex-member">
 
 ```apex
 global SObject findFirstByFields(Map<SObjectField, Object> fieldValues)
@@ -422,15 +473,15 @@ global SObject findFirstByFields(Map<SObjectField, Object> fieldValues)
 Finds the first record matching multiple field-value pairs combined with AND logic,
 or null if not found.
 
-**Parameters:**
+**Parameters**
 
-- `fieldValues` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of SObjectField tokens to their expected values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldValues` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of SObjectField tokens to their expected values |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The first matching record or null
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The first matching record or null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject record = new SEL_Foobar().findFirstByFields
@@ -443,7 +494,11 @@ SObject record = new SEL_Foobar().findFirstByFields
 );
 ```
 
+</div>
+
 ### getFieldPaths
+
+<div class="apex-member">
 
 ```apex
 global virtual List<String> getFieldPaths()
@@ -453,17 +508,19 @@ Returns core field paths as strings, supporting relationship traversal
 syntax (e.g., 'Owner.Name', 'Contact.Email'). Override to include relationship
 fields in the default query. Returns an empty list by default.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - List of field path strings
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — List of field path strings
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<String> result = instance.getFieldPaths();
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global virtual List<SObjectField> getFields()
@@ -472,17 +529,19 @@ global virtual List<SObjectField> getFields()
 Returns the core SObjectField tokens always included in queries from this selector.
 Override to define the default field set. Returns an empty list by default.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of core SObjectFields
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of core SObjectFields
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
 
+</div>
+
 ### getFirst
+
+<div class="apex-member">
 
 ```apex
 global SObject getFirst()
@@ -490,17 +549,19 @@ global SObject getFirst()
 
 Executes the default query and returns the first record, or null.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - First matching record or null
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — First matching record or null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject result = instance.getFirst();
 ```
 
+</div>
+
 ### getRandomItem
+
+<div class="apex-member">
 
 ```apex
 global virtual SObject getRandomItem()
@@ -508,17 +569,19 @@ global virtual SObject getRandomItem()
 
 Returns a random record matching the default query, or null if none exist.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A random matching record or null
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A random matching record or null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject result = instance.getRandomItem();
 ```
 
+</div>
+
 ### systemModeRequired
+
+<div class="apex-member">
 
 ```apex
 global virtual Boolean systemModeRequired()
@@ -532,11 +595,9 @@ so they continue working when the running user lacks FLS/CRUD on those objects b
 Subscriber-reachable selectors should leave this at the default (`false`) so they inherit
 the flag-driven default — secure-by-default when the flag is enabled.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` when this selector's queries must run in SYSTEM_MODE.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` when this selector's queries must run in SYSTEM_MODE.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public inherited sharing class SEL_Cases extends SEL_Base
@@ -552,7 +613,11 @@ public inherited sharing class SEL_Cases extends SEL_Base
 }
 ```
 
+</div>
+
 ### toList
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> toList()
@@ -560,17 +625,19 @@ global List<SObject> toList()
 
 Executes the default query and returns all matching records.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of all records with default fields
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of all records with default fields
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> result = instance.toList();
 ```
 
+</div>
+
 ### toQueryLocator
+
+<div class="apex-member">
 
 ```apex
 global Database.QueryLocator toQueryLocator()
@@ -578,11 +645,9 @@ global Database.QueryLocator toQueryLocator()
 
 Returns a QueryLocator for the default query. Suitable for batch processing.
 
-**Returns:** [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) - QueryLocator for the default query
+**Returns** [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) — QueryLocator for the default query
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class BatchProcessAccounts implements Database.Batchable
@@ -593,4 +658,6 @@ global class BatchProcessAccounts implements Database.Batchable
     }
 }
 ```
+
+</div>
 

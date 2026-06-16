@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerLog"
 type: class
+pageClass: reference
 description: "Logs an event within a Flow with correlation support. Use this to log messages, warnings, or errors during Flow execution."
 author: "Jason Van Beukering"
 group: "Logging"
@@ -45,21 +46,25 @@ Logs an event within a Flow with correlation support. Use this to log messages, 
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Logging' description='Logs a message within a Flow with correlation support.' label='Log Flow Event') global static void execute(List<FLOW_LoggerLog.DTO_Request> inputs)
 ```
 
 Logs an event within a Flow.
 
-**Parameters:**
+**Parameters**
 
-- `inputs` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of input parameters
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `inputs` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of input parameters |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_LoggerLog.execute(new List<DTO_Request>());
 ```
+
+</div>
 

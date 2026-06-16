@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.Provider"
 type: class
+pageClass: reference
 description: "Interface for code that needs circuit breaker protection (with return value) Implement this interface when your action needs to return data. Use ProtectedAction if no return value is needed."
 since: "1.0"
 category: apex
@@ -54,11 +55,15 @@ DTO_CustomerResponse customer = (DTO_CustomerResponse)breaker.execute(new GetCus
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global abstract Object execute()
 ```
 
 The code to execute with circuit breaker protection
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The result of the operation (caller must cast to appropriate type)
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The result of the operation (caller must cast to appropriate type)
+
+</div>
 

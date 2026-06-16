@@ -1,6 +1,7 @@
 ---
 title: "UTIL_JsonPath.MissingKeyException"
 type: class
+pageClass: reference
 description: "Custom exception thrown when a JSON path key cannot be resolved."
 group: "Utilities"
 since: "1.0"

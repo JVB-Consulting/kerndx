@@ -1,6 +1,7 @@
 ---
 title: "API_Outbound"
 type: class
+pageClass: reference
 description: "Base class for all outbound web service calls. Extends API_Base to provide functionality for making HTTP callouts, handling responses, managing retries, and token replacements."
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -199,15 +200,15 @@ Example:
 
 ### configure
 
+<div class="apex-member">
+
 ```apex
 global override virtual void configure()
 ```
 
 Initializes global variables; override in descendant classes if needed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void configure()
@@ -219,7 +220,11 @@ global override void configure()
 }
 ```
 
+</div>
+
 ### createRequest
+
+<div class="apex-member">
 
 ```apex
 global virtual HttpRequest createRequest(String requestBody)
@@ -227,15 +232,15 @@ global virtual HttpRequest createRequest(String requestBody)
 
 Constructs the `HttpRequest` object used to make the outbound API call. It sets the headers, request body, and endpoint URL.
 
-**Parameters:**
+**Parameters**
 
-- `requestBody` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The body content of the request.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requestBody` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The body content of the request. |
 
-**Returns:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) - The fully configured request object.
+**Returns** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) — The fully configured request object.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override HttpRequest createRequest(String requestBody)
@@ -246,7 +251,11 @@ global override HttpRequest createRequest(String requestBody)
 }
 ```
 
+</div>
+
 ### createRetryStrategy
+
+<div class="apex-member">
 
 ```apex
 global virtual UTIL_Retry.Strategy createRetryStrategy()
@@ -255,11 +264,9 @@ global virtual UTIL_Retry.Strategy createRetryStrategy()
 Creates the retry strategy for failed service calls.
 Override this method in subclasses to provide custom retry strategies.
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - Configured instance
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — Configured instance
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class API_PaymentGateway extends API_Outbound
@@ -273,7 +280,11 @@ global class API_PaymentGateway extends API_Outbound
 }
 ```
 
+</div>
+
 ### getAuthorisationToken
+
+<div class="apex-member">
 
 ```apex
 global virtual String getAuthorisationToken()
@@ -281,11 +292,9 @@ global virtual String getAuthorisationToken()
 
 Returns the authorization token required for outbound API requests.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The authorization token to be used in the `Authorization` HTTP header.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The authorization token to be used in the `Authorization` HTTP header.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getAuthorisationToken()
@@ -294,7 +303,11 @@ global override String getAuthorisationToken()
 }
 ```
 
+</div>
+
 ### getBody
+
+<div class="apex-member">
 
 ```apex
 global virtual override String getBody()
@@ -303,11 +316,9 @@ global virtual override String getBody()
 Generates the request body using the type of the requestPayload.
 Applies token replacements to the request body before sending.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The serialized request body.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The serialized request body.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getBody()
@@ -316,9 +327,13 @@ global override String getBody()
 }
 ```
 
-**See Also:** [DTO_Base](DTO_Base.md)
+**See Also** [DTO_Base](DTO_Base.md)
+
+</div>
 
 ### getEncoding
+
+<div class="apex-member">
 
 ```apex
 global override virtual String getEncoding()
@@ -326,11 +341,9 @@ global override virtual String getEncoding()
 
 Retrieves the HTTP encoding.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The HTTP encoding, defaults to JSON.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The HTTP encoding, defaults to JSON.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getEncoding()
@@ -339,7 +352,11 @@ global override String getEncoding()
 }
 ```
 
+</div>
+
 ### getHttpMethod
+
+<div class="apex-member">
 
 ```apex
 global override virtual API_Base.HttpMethod getHttpMethod()
@@ -347,11 +364,9 @@ global override virtual API_Base.HttpMethod getHttpMethod()
 
 Retrieves the HTTP method used for making the outbound request.
 
-**Returns:** [API_Base.HttpMethod](API_Base.HttpMethod.md) - The HTTP method to be used. Defaults to POST if not provided by the superclass.
+**Returns** [API_Base.HttpMethod](API_Base.HttpMethod.md) — The HTTP method to be used. Defaults to POST if not provided by the superclass.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override HttpMethod getHttpMethod()
@@ -360,7 +375,11 @@ global override HttpMethod getHttpMethod()
 }
 ```
 
+</div>
+
 ### getQueryParameters
+
+<div class="apex-member">
 
 ```apex
 global virtual String getQueryParameters()
@@ -368,11 +387,9 @@ global virtual String getQueryParameters()
 
 Retrieves relevant query parameters.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of query parameters.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of query parameters.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getQueryParameters()
@@ -381,7 +398,11 @@ global override String getQueryParameters()
 }
 ```
 
+</div>
+
 ### getRequestReplacementTokens
+
+<div class="apex-member">
 
 ```apex
 global virtual void getRequestReplacementTokens(List<String> searchTokens, List<String> replaceTokens)
@@ -390,14 +411,14 @@ global virtual void getRequestReplacementTokens(List<String> searchTokens, List<
 Specifies token replacements for the request body before serialization.
 Override to replace reserved words or tokens in the request body before sending.
 
-**Parameters:**
+**Parameters**
 
-- `searchTokens` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of search tokens to look for in the request body.
-- `replaceTokens` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The list of replacement tokens to use if matching search tokens are found.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchTokens` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of search tokens to look for in the request body. |
+| `replaceTokens` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The list of replacement tokens to use if matching search tokens are found. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void getRequestReplacementTokens(List<String> searchTokens, List<String> replaceTokens)
@@ -407,7 +428,11 @@ global override void getRequestReplacementTokens(List<String> searchTokens, List
 }
 ```
 
+</div>
+
 ### getRequiredInputs
+
+<div class="apex-member">
 
 ```apex
 global virtual Set<String> getRequiredInputs()
@@ -415,11 +440,9 @@ global virtual Set<String> getRequiredInputs()
 
 Indicates required service inputs.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of required service input names.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of required service input names.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Set<String> getRequiredInputs()
@@ -430,7 +453,11 @@ global override Set<String> getRequiredInputs()
 }
 ```
 
+</div>
+
 ### getResponseBody
+
+<div class="apex-member">
 
 ```apex
 global virtual String getResponseBody()
@@ -439,11 +466,9 @@ global virtual String getResponseBody()
 Retrieves the current response body; override to manipulate response body first.
 Automatically wraps array responses and applies token replacements.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The response that will be parsed.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The response that will be parsed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getResponseBody()
@@ -454,7 +479,11 @@ global override String getResponseBody()
 }
 ```
 
+</div>
+
 ### getResponseReplacementTokens
+
+<div class="apex-member">
 
 ```apex
 global virtual void getResponseReplacementTokens(List<String> searchTokens, List<String> replaceTokens)
@@ -463,14 +492,14 @@ global virtual void getResponseReplacementTokens(List<String> searchTokens, List
 Specifies token replacements for the response body before deserialization.
 Override to replace reserved words or tokens in the response before processing.
 
-**Parameters:**
+**Parameters**
 
-- `searchTokens` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of search tokens to look for in the response body.
-- `replaceTokens` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The list of replacement tokens to use if matching search tokens are found.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchTokens` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of search tokens to look for in the response body. |
+| `replaceTokens` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The list of replacement tokens to use if matching search tokens are found. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void getResponseReplacementTokens(List<String> searchTokens, List<String> replaceTokens)
@@ -480,7 +509,11 @@ global override void getResponseReplacementTokens(List<String> searchTokens, Lis
 }
 ```
 
+</div>
+
 ### getTimeout
+
+<div class="apex-member">
 
 ```apex
 global virtual Integer getTimeout()
@@ -488,11 +521,9 @@ global virtual Integer getTimeout()
 
 Retrieves the HTTP Service Timeout.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - The timeout value in milliseconds, defaults to 120000.
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The timeout value in milliseconds, defaults to 120000.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Integer getTimeout()
@@ -501,7 +532,11 @@ global override Integer getTimeout()
 }
 ```
 
+</div>
+
 ### getWebServiceEndPoint
+
+<div class="apex-member">
 
 ```apex
 global virtual String getWebServiceEndPoint()
@@ -509,11 +544,9 @@ global virtual String getWebServiceEndPoint()
 
 Constructs and returns the full URL endpoint for the web service, resolving Named Credentials and appending the API path.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The full URL endpoint for the web service.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The full URL endpoint for the web service.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override String getWebServiceEndPoint()
@@ -522,7 +555,11 @@ global override String getWebServiceEndPoint()
 }
 ```
 
+</div>
+
 ### hasArrayResponse
+
+<div class="apex-member">
 
 ```apex
 global virtual Boolean hasArrayResponse()
@@ -531,11 +568,9 @@ global virtual Boolean hasArrayResponse()
 Checks if the JSON response is in the form of an array without a key.
 Salesforce DTO classes cannot parse arrays directly, so this method helps handle responses that are arrays.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Boolean indicating if the response is an array.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean indicating if the response is an array.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Boolean hasArrayResponse()
@@ -544,7 +579,11 @@ global override Boolean hasArrayResponse()
 }
 ```
 
+</div>
+
 ### isDisabled
+
+<div class="apex-member">
 
 ```apex
 global override Boolean isDisabled()
@@ -552,11 +591,9 @@ global override Boolean isDisabled()
 
 Checks whether the API has been disabled for the current user by verifying custom settings or feature switches.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the API is disabled, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the API is disabled, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override Boolean isDisabled()
@@ -565,7 +602,11 @@ global override Boolean isDisabled()
 }
 ```
 
+</div>
+
 ### parseResponse
+
+<div class="apex-member">
 
 ```apex
 global virtual void parseResponse()
@@ -573,9 +614,7 @@ global virtual void parseResponse()
 
 Called if request is successful; override to consume response.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void parseResponse()
@@ -586,7 +625,11 @@ global override void parseResponse()
 }
 ```
 
+</div>
+
 ### prepareRequest
+
+<div class="apex-member">
 
 ```apex
 global virtual void prepareRequest()
@@ -594,9 +637,7 @@ global virtual void prepareRequest()
 
 Prepares the outbound request by querying Salesforce data and populating the request DTO.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void prepareRequest()
@@ -606,7 +647,11 @@ global override void prepareRequest()
 }
 ```
 
+</div>
+
 ### setHeaders
+
+<div class="apex-member">
 
 ```apex
 global virtual void setHeaders()
@@ -615,9 +660,7 @@ global virtual void setHeaders()
 Sets the HTTP headers for the request. Includes Accept header for JSON responses.
 Override in child classes to add additional service-specific headers.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void setHeaders()
@@ -626,6 +669,8 @@ global override void setHeaders()
     request.setHeader('Custom-Header', 'CustomValue');
 }
 ```
+
+</div>
 
 ---
 

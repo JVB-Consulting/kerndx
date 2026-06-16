@@ -1,6 +1,7 @@
 ---
 title: "IF_Schedulable"
 type: class
+pageClass: reference
 description: "An interface for a Schedulable class that can declare the parameters it supports and receive validated parameter values at scheduling time. Enables dynamic form rendering in the scheduledJobEditor LWC"
 author: "Jason Van Beukering"
 group: "Schedulables"
@@ -58,6 +59,8 @@ global class SCHED_MyJob extends SCHED_Base
 
 ### getParameterDefinitions
 
+<div class="apex-member">
+
 ```apex
 global abstract List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
 ```
@@ -66,11 +69,13 @@ Returns the parameter definitions supported by this scheduled class.
 Used by the scheduledJobEditor LWC to render structured parameter forms
 and by the trigger framework for required parameter validation.
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - List of parameter definitions, or an empty list if no parameters are supported.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — List of parameter definitions, or an empty list if no parameters are supported.
 
-**Since:** 1.0
+</div>
 
 ### setParameterValues
+
+<div class="apex-member">
 
 ```apex
 global abstract void setParameterValues(DTO_NameValues parameterValues)
@@ -79,9 +84,11 @@ global abstract void setParameterValues(DTO_NameValues parameterValues)
 Receives the validated parameter values at scheduling time.
 Called by the trigger framework after required parameter validation succeeds.
 
-**Parameters:**
+**Parameters**
 
-- `parameterValues` ([DTO_NameValues](DTO_NameValues.md)) - The name-value pairs containing the resolved parameter values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameterValues` | [DTO_NameValues](DTO_NameValues.md) | The name-value pairs containing the resolved parameter values. |
 
-**Since:** 1.0
+</div>
 

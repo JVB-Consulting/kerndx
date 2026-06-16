@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger"
 type: class
+pageClass: reference
 description: "Contracts for metadata-driven trigger action handlers. Each nested interface corresponds to a Salesforce trigger event and defines the callback signature that handler classes must implement. Handlers "
 author: "Jason Van Beukering"
 group: "Triggers"

@@ -75,3 +75,338 @@
 		overflow-wrap : anywhere;
 	}
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Reference readability, brand, and mobile-first tables.
+   Everything below is additive; the overflow band-aids above still apply.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Brand: KernDX bronze ─────────────────────────────────────────────────────
+   Drive links, nav accents, active states, and buttons off one brand color via
+   the VitePress design tokens, so light/dark stay in sync automatically. */
+:root
+{
+	--vp-c-brand-1    : #8a623c;
+	--vp-c-brand-2    : #76512f;
+	--vp-c-brand-3    : #9c7148;
+	--vp-c-brand-soft : rgba(138, 98, 60, 0.14);
+}
+
+.dark
+{
+	--vp-c-brand-1    : #d6a875;
+	--vp-c-brand-2    : #c6925c;
+	--vp-c-brand-3    : #b67f48;
+	--vp-c-brand-soft : rgba(214, 168, 117, 0.16);
+}
+
+/* ── Readable links in both schemes ───────────────────────────────────────────
+   Pin doc links to the brand color and override :visited so reference type links
+   never fall back to the browser's purple in dark mode (the bug the user spotted).
+   Applies to the Parameters-table / Returns type links and all prose links. */
+.vp-doc a,
+.vp-doc a:visited
+{
+	color : var(--vp-c-brand-1);
+}
+
+/* ── Sidebar version selector (top of sidebar, mirrors the prototype) ─────────── */
+.version-switcher
+{
+	display       : flex;
+	align-items   : center;
+	gap           : 0.5rem;
+	padding       : 0.75rem 0 0.85rem;
+	margin-bottom : 0.25rem;
+	border-bottom : 1px solid var(--vp-c-divider);
+}
+
+.version-switcher__caption
+{
+	font-size      : 0.7rem;
+	font-weight    : 600;
+	letter-spacing : 0.04em;
+	text-transform : uppercase;
+	color          : var(--vp-c-text-3);
+}
+
+.version-switcher__chip
+{
+	display     : inline-flex;
+	align-items : center;
+	gap         : 0.4rem;
+}
+
+.version-switcher__select
+{
+	appearance        : none;
+	-webkit-appearance: none;
+	background        : var(--vp-c-bg-soft);
+	border            : 1px solid var(--vp-c-divider);
+	border-radius     : 6px;
+	color             : var(--vp-c-text-1);
+	font-size         : 0.82rem;
+	font-weight       : 600;
+	padding           : 0.2rem 1.4rem 0.2rem 0.55rem;
+	cursor            : pointer;
+	/* chevron affordance */
+	background-image    : linear-gradient(45deg, transparent 50%, var(--vp-c-text-3) 50%), linear-gradient(135deg, var(--vp-c-text-3) 50%, transparent 50%);
+	background-position : calc(100% - 12px) 55%, calc(100% - 8px) 55%;
+	background-size     : 4px 4px, 4px 4px;
+	background-repeat   : no-repeat;
+}
+
+.version-switcher__badge
+{
+	font-size      : 0.6rem;
+	font-weight    : 700;
+	letter-spacing : 0.05em;
+	color          : var(--vp-c-brand-1);
+	background     : var(--vp-c-brand-soft);
+	border-radius  : 4px;
+	padding        : 0.1rem 0.35rem;
+}
+
+/* ── Reference breadcrumb (above H1 on reference pages) ───────────────────────── */
+.ref-breadcrumb
+{
+	display     : flex;
+	flex-wrap   : wrap;
+	align-items : center;
+	gap         : 0.4rem;
+	margin      : 0 0 0.5rem;
+	font-size   : 0.82rem;
+	color       : var(--vp-c-text-2);
+	min-width   : 0;
+}
+
+/* The final crumb is a long, unbreakable inner-class name (e.g.
+   UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest); let it wrap/break so a
+   reference page never overflows the viewport on a phone. */
+.ref-breadcrumb__link,
+.ref-breadcrumb__current
+{
+	min-width     : 0;
+	overflow-wrap : anywhere;
+}
+
+.ref-breadcrumb__link
+{
+	color           : var(--vp-c-text-2);
+	text-decoration : none;
+}
+
+.ref-breadcrumb__link:hover
+{
+	color : var(--vp-c-brand-1);
+}
+
+.ref-breadcrumb__current
+{
+	color       : var(--vp-c-text-1);
+	font-weight : 600;
+}
+
+.ref-breadcrumb__sep
+{
+	color : var(--vp-c-text-3);
+}
+
+/* On phones the breadcrumb gets a slightly larger tap target and clears the H1. */
+@media (max-width: 640px)
+{
+	.ref-breadcrumb
+	{
+		gap         : 0.55rem;
+		margin-top  : 0.25rem;
+		line-height : 1.8;
+	}
+}
+
+/* ── Reference method cards (scoped to pageClass: reference) ───────────────────
+   Each method overload is emitted as one <div class="apex-member"> wrapping pure
+   markdown (signature fence, description, Parameters table, Returns line, Example).
+   The wrapper groups the overload into a titled card: a bronze left-accent, the
+   signature fence reading as the header, the details as the indented body. */
+.reference .apex-member
+{
+	border        : 1px solid var(--vp-c-divider);
+	border-left   : 3px solid var(--vp-c-brand-1);
+	border-radius : 8px;
+	background    : var(--vp-c-bg-soft);
+	padding       : 1.25rem 1.5rem 0.5rem;
+	margin        : 1.5rem 0;
+}
+
+/* The signature fence is the card's first child — it reads as the header bar. */
+.reference .apex-member > div[class*='language-']:first-child
+{
+	margin-top : 0;
+}
+
+/* Field labels emitted as label-only paragraphs (**Parameters**, **Throws**,
+   **Example**) become muted small-caps subheads so the card body has clear
+   sections without heavy bold runs. */
+.reference .apex-member > p > strong:only-child
+{
+	display        : block;
+	margin-top     : 1rem;
+	margin-bottom  : 0.25rem;
+	font-size      : 0.72rem;
+	font-weight    : 600;
+	letter-spacing : 0.05em;
+	text-transform : uppercase;
+	color          : var(--vp-c-text-2);
+}
+
+/* The Returns line (**Returns** <type> — <prose>) keeps its bold label inline but
+   tints it as the brand accent so "what this returns" stands out. */
+.reference .apex-member > p > strong:first-child:not(:only-child)
+{
+	color : var(--vp-c-brand-1);
+}
+
+/* Parameter / Throws tables: muted uppercase header, emphasized name column,
+   tinted monospace type-link column — the scannability win. */
+.reference .apex-member table
+{
+	font-size : 0.92rem;
+	margin    : 0.25rem 0 0.75rem;
+}
+
+.reference .apex-member th
+{
+	font-size      : 0.7rem;
+	font-weight    : 600;
+	letter-spacing : 0.04em;
+	text-transform : uppercase;
+	color          : var(--vp-c-text-2);
+}
+
+.reference .apex-member td:first-child code
+{
+	color       : var(--vp-c-brand-1);
+	font-weight : 600;
+}
+
+/* Overload-count badge — set by the theme's tagOverloadCounts() on method headings
+   that group more than one overload (e.g. getDescribe's 4 forms). A muted cue only;
+   never written into the committed markdown. */
+.reference .vp-doc h3[data-overloads]::after
+{
+	content        : attr(data-overloads) ' overloads';
+	margin-left    : 0.6rem;
+	font-size      : 0.65rem;
+	font-weight    : 600;
+	letter-spacing : 0.03em;
+	text-transform : uppercase;
+	color          : var(--vp-c-text-3);
+	background     : var(--vp-c-bg-soft);
+	border         : 1px solid var(--vp-c-divider);
+	border-radius  : 10px;
+	padding        : 0.1rem 0.5rem;
+	vertical-align : middle;
+}
+
+/* ── Mobile: tables → labeled stacked cards (site-wide headline fix) ───────────
+   Replaces "tables just scroll sideways" with a stacked-card layout: each row is a
+   bordered card and each cell is prefixed by its column header (from the
+   data-label set by responsive-tables.mjs). No horizontal scroll, no crushed
+   columns. Source-ordered after the 640px band-aids above, so these supersede the
+   old width:100% / cell-wrap table rules while the code-wrap rules still apply. */
+@media (max-width: 640px)
+{
+	.vp-doc table
+	{
+		display : block;
+		width   : 100%;
+		border  : 0;
+	}
+
+	/* Visually hide the header row (its text is repeated per-cell via data-label)
+	   while keeping it for assistive tech. */
+	.vp-doc thead
+	{
+		position : absolute;
+		width    : 1px;
+		height   : 1px;
+		overflow : hidden;
+		clip     : rect(0 0 0 0);
+		white-space : nowrap;
+	}
+
+	.vp-doc tbody,
+	.vp-doc tr,
+	.vp-doc td
+	{
+		display : block;
+		width   : 100%;
+	}
+
+	.vp-doc tr
+	{
+		border        : 1px solid var(--vp-c-divider);
+		border-radius : 8px;
+		background    : var(--vp-c-bg-soft);
+		margin        : 0 0 0.75rem;
+		padding       : 0.25rem 0.85rem;
+	}
+
+	/* Block cell with the label pinned in a left gutter (NOT a flex container). A flex
+	   td turns every inline child — each <a> type-link and text run of a multi-element
+	   signature — into its own shrunk flex item, collapsing the value into a stack of
+	   1-character-wide columns. Keeping the td in normal block flow lets the value wrap
+	   as inline text, while the absolutely-positioned ::before preserves the compact
+	   label-left look. */
+	.vp-doc td
+	{
+		display  : block;
+		position : relative;
+		border   : 0;
+		padding  : 0.4rem 0 0.4rem 38%;
+	}
+
+	.vp-doc td[data-label]::before
+	{
+		content        : attr(data-label);
+		position       : absolute;
+		left           : 0;
+		top            : 0.4rem;
+		width          : calc(38% - 0.75rem);
+		font-size      : 0.68rem;
+		font-weight    : 600;
+		letter-spacing : 0.04em;
+		text-transform : uppercase;
+		color          : var(--vp-c-text-3);
+	}
+
+	/* Reference parameter cards stay compact: smaller label gutter, italic
+	   description so a parameter reads as "name (Type)" then a quiet note. */
+	.reference .apex-member td[data-label='Description']
+	{
+		font-style : italic;
+		color      : var(--vp-c-text-2);
+	}
+
+	/* Method / Property / enum-Value summary tables carry a full multi-element
+	   signature in the first column. Give it the entire card width with the label
+	   stacked above, so the signature wraps as readable code instead of being squeezed
+	   into the ~60% value gutter. Detail tables (Parameter/Exception, all inside
+	   .apex-member) keep the compact label-left layout above. */
+	.reference .vp-doc td[data-label='Method'],
+	.reference .vp-doc td[data-label='Property'],
+	.reference .vp-doc td[data-label='Value']
+	{
+		padding-left : 0;
+	}
+
+	.reference .vp-doc td[data-label='Method']::before,
+	.reference .vp-doc td[data-label='Property']::before,
+	.reference .vp-doc td[data-label='Value']::before
+	{
+		position      : static;
+		display       : block;
+		width         : auto;
+		margin-bottom : 0.15rem;
+	}
+}

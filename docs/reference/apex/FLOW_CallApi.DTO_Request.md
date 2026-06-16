@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CallApi.DTO_Request"
 type: class
+pageClass: reference
 description: "Data Transfer Object representing the web service call request."
 since: "1.0"
 category: apex

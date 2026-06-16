@@ -1,6 +1,7 @@
 ---
 title: "API_CallCurrentOrg"
 type: class
+pageClass: reference
 description: "Base API class for all handlers that call the current Org standard APIs. Uses session-ID-based authentication and resolves the org base URL dynamically via URL.getOrgDomainURL(). Subscribers must add "
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -53,15 +54,15 @@ global class API_OrgMetadata extends API_CallCurrentOrg
 
 ### configure
 
+<div class="apex-member">
+
 ```apex
 global virtual override void configure()
 ```
 
 Initialises the handler and sets the base URL to the current org domain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global override void configure()
@@ -71,7 +72,11 @@ global override void configure()
 }
 ```
 
+</div>
+
 ### getAuthorisationToken
+
+<div class="apex-member">
 
 ```apex
 global virtual override String getAuthorisationToken()
@@ -79,11 +84,9 @@ global virtual override String getAuthorisationToken()
 
 Will return the current session Id as authorisation token.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Authorisation Header value
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Authorisation Header value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 global class API_OrgMetadata extends API_CallCurrentOrg
@@ -93,7 +96,11 @@ global class API_OrgMetadata extends API_CallCurrentOrg
 }
 ```
 
+</div>
+
 ### getWebServiceEndPoint
+
+<div class="apex-member">
 
 ```apex
 global virtual override String getWebServiceEndPoint()
@@ -102,14 +109,14 @@ global virtual override String getWebServiceEndPoint()
 Constructs the full endpoint URL by combining the current org domain
 URL with the endpoint path from ApiSetting__mdt configuration.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The full URL endpoint for the web service
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The full URL endpoint for the web service
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // With EndpointPath__c = '/services/data/v{0}/sobjects/StreamingChannel/{1}/push'
 // Returns: 'https://myorg.my.salesforce.com/services/data/v{0}/sobjects/StreamingChannel/{1}/push'
 ```
+
+</div>
 

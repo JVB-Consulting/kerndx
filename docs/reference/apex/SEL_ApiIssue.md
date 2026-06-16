@@ -1,6 +1,7 @@
 ---
 title: "SEL_ApiIssue"
 type: class
+pageClass: reference
 description: "Selector for the ApiIssue__c SObject. Provides query methods for retrieving and filtering failed API calls, including deduplication via request parameter hash and status-based filtering."
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -50,21 +51,25 @@ ApiIssue__c issue = (ApiIssue__c)new SEL_ApiIssue().findById(issueId);
 
 ### SEL_ApiIssue
 
+<div class="apex-member">
+
 ```apex
 global SEL_ApiIssue()
 ```
 
 Constructs an ApiIssue selector.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_ApiIssue instance = new SEL_ApiIssue();
 ```
 
+</div>
+
 ### findByFailedApiCall
+
+<div class="apex-member">
 
 ```apex
 global List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, String hashParameter)
@@ -72,17 +77,21 @@ global List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, St
 
 Finds failed API call records matching the triggering object, service name, and request hash.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the triggering record
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the web service
-- `hashParameter` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The request parameters hash to match
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the triggering record |
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the web service |
+| `hashParameter` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The request parameters hash to match |
 
-**Returns:** [ApiIssue__c](../objects/ApiIssue__c.md) - List of matching failed ApiIssue__c records
+**Returns** [ApiIssue__c](../objects/ApiIssue__c.md) — List of matching failed ApiIssue__c records
 
-**Since:** 1.0
+</div>
 
 ### getAll
+
+<div class="apex-member">
 
 ```apex
 global List<ApiIssue__c> getAll()
@@ -91,17 +100,19 @@ global List<ApiIssue__c> getAll()
 Retrieves all ApiIssue__c records. Only executes in test context
 to prevent full-table scans in production.
 
-**Returns:** [ApiIssue__c](../objects/ApiIssue__c.md) - List of all ApiIssue__c records in test context, empty list in production
+**Returns** [ApiIssue__c](../objects/ApiIssue__c.md) — List of all ApiIssue__c records in test context, empty list in production
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiIssue__c> result = instance.getAll();
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -109,13 +120,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for ApiIssue__c queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of ApiIssue__c SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of ApiIssue__c SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

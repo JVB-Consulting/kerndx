@@ -1,6 +1,7 @@
 ---
 title: "TRG_Foobar"
 type: trigger
+pageClass: reference
 description: "Example trigger demonstrating the Trigger Action framework"
 author: "Jason Van Beukering"
 date: "2019, February 2026"

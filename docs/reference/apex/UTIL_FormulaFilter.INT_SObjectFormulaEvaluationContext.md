@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext"
 type: class
+pageClass: reference
 description: "Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. Implementing classes supply the necessary context for evaluating formulas using SObjects."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Interface for providing context data to dynamic formula evaluations using Salesf
 
 ### setContext
 
+<div class="apex-member">
+
 ```apex
 global abstract void setContext(SObject oldRecord, SObject newRecord)
 ```
@@ -41,10 +44,12 @@ global abstract void setContext(SObject oldRecord, SObject newRecord)
 Sets the context for formula evaluation by providing the current and previous states of the SObject record being processed.
 This method is invoked during trigger execution to supply the formula with relevant data for evaluation.
 
-**Parameters:**
+**Parameters**
 
-- `oldRecord` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The state of the record before the DML operation.
-- `newRecord` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The state of the record after the DML operation.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecord` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The state of the record before the DML operation. |
+| `newRecord` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The state of the record after the DML operation. |
 
-**Since:** 1.0
+</div>
 

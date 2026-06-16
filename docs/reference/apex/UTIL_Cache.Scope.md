@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Cache.Scope"
 type: class
+pageClass: reference
 description: "Cache type enumeration"
 since: "1.0"
 category: apex

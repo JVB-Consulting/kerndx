@@ -1,6 +1,7 @@
 ---
 title: "FLOW_GetPicklistValues"
 type: class
+pageClass: reference
 description: "Invocable method to get all the picklist values for a particular object for a given record type. Delegates to UTIL_SObjectDescribe for ConnectApi retrieval and transformation. Caches responses in org "
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -54,6 +55,8 @@ List<DTO_PickList> pickLists = responses[0].pickLists;
 
 ### getPickListValues
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Utilities' description='Returns the available picklist values for a specified object and record type. Use to dynamically populate choice lists or validate picklist selections in a Flow.' label='Get PickList Values') global static List<FLOW_GetPicklistValues.DTO_Response> getPickListValues(List<FLOW_GetPicklistValues.DTO_Request> dtoRequests)
 ```
@@ -61,19 +64,21 @@ List<DTO_PickList> pickLists = responses[0].pickLists;
 Retrieves the picklist values for an SObject and record type combination.
 Checks the org cache for stored values first and only calls ConnectApi if the values are not cached.
 
-**Parameters:**
+**Parameters**
 
-- `dtoRequests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of requests indicating for which object and record type combination to retrieve picklist values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoRequests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of requests indicating for which object and record type combination to retrieve picklist values |
 
-**Returns:** [FLOW_GetPicklistValues.DTO_Response](FLOW_GetPicklistValues.DTO_Response.md) - A list of responses (only will ever contain 1 item)
+**Returns** [FLOW_GetPicklistValues.DTO_Response](FLOW_GetPicklistValues.DTO_Response.md) — A list of responses (only will ever contain 1 item)
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If more than one request provided, an exception will be thrown
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If more than one request provided, an exception will be thrown |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_Request> dtoRequests = new List<DTO_Request>();
@@ -83,4 +88,6 @@ request.recordTypeApiName = 'Customer_Contact';
 dtoRequests.add(request);
 List<DTO_Response> responses = FLOW_GetPicklistValues.getPickListValues(dtoRequests);
 ```
+
+</div>
 

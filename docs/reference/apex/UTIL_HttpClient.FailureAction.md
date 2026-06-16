@@ -1,6 +1,7 @@
 ---
 title: "UTIL_HttpClient.FailureAction"
 type: class
+pageClass: reference
 description: "Defines the action to take when an HTTP call fails."
 since: "1.0"
 category: apex

@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.AfterDelete"
 type: class
+pageClass: reference
 description: "Handler contract for the after-delete trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the after-delete trigger event.
 
 ### afterDelete
 
+<div class="apex-member">
+
 ```apex
 global abstract void afterDelete(List<SObject> oldRecords)
 ```
@@ -41,13 +44,13 @@ global abstract void afterDelete(List<SObject> oldRecords)
 Called after records have been deleted, enabling cleanup of
 orphaned child records, external system notifications, or aggregate recalculation.
 
-**Parameters:**
+**Parameters**
 
-- `oldRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects that were deleted.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects that were deleted. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_CleanupOrphanedFiles extends TRG_Base implements IF_Trigger.AfterDelete
@@ -59,4 +62,6 @@ public class TRG_CleanupOrphanedFiles extends TRG_Base implements IF_Trigger.Aft
     }
 }
 ```
+
+</div>
 

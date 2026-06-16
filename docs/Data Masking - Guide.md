@@ -1,3 +1,7 @@
+---
+navOrder: 64
+---
+
 # Data Masking - Guide
 
 **Framework:** KernDX

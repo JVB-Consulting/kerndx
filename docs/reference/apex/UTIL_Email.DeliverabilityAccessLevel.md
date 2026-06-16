@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Email.DeliverabilityAccessLevel"
 type: class
+pageClass: reference
 description: "Enum representing the three possible email deliverability settings in a Salesforce org."
 since: "1.0"
 category: apex

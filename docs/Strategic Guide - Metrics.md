@@ -1,3 +1,7 @@
+---
+navOrder: 34
+---
+
 # Strategic Guide — Metrics
 
 > Canonical framework statistics for KernDX. All other documents should link here rather than hardcoding numbers. Update this file when the codebase changes.

@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Exceptions.MaskingBlockedException"
 type: class
+pageClass: reference
 description: "Thrown when a masking rule configured with FailureAction__c = BlockDml fails. Propagates out of UTIL_FrameworkMasker.RecordMasker.apply and (via the trigger dispatcher pre-step) the surrounding DML so"
 group: "Data Masking"
 since: "1.0"

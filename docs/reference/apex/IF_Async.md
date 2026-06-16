@@ -1,6 +1,7 @@
 ---
 title: "IF_Async"
 type: class
+pageClass: reference
 description: "A container for shared global interfaces used by the asynchronous framework."
 author: "Jason Van Beukering"
 group: "Async Processing"

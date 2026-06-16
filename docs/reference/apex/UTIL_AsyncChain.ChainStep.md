@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsyncChain.ChainStep"
 type: class
+pageClass: reference
 description: "Abstract base class for individual steps in an async chain. Each step runs in its own Queueable transaction, providing governor limit isolation."
 since: "1.0"
 category: apex
@@ -56,6 +57,8 @@ public class LoadDataStep extends UTIL_AsyncChain.ChainStep
 
 ### work
 
+<div class="apex-member">
+
 ```apex
 global abstract UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
 ```
@@ -73,15 +76,15 @@ row only — the inner chain has its own row, totally disconnected. Either add t
 steps to the parent chain via `.then(...)` or enqueue a separate Queueable from outside
 the chain (e.g. from `onComplete`'s handler step) that targets a fresh chain.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md)) - Shared chain context for reading/writing state between steps.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared chain context for reading/writing state between steps. |
 
-**Returns:** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) - StepResult indicating success or failure.
+**Returns** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) — StepResult indicating success or failure.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
@@ -91,6 +94,8 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
     return UTIL_AsyncChain.succeeded('Done');
 }
 ```
+
+</div>
 
 ---
 

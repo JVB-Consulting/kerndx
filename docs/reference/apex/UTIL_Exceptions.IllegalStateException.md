@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Exceptions.IllegalStateException"
 type: class
+pageClass: reference
 description: "Thrown when an operation is attempted on an object whose internal state does not support that operation. Use this to enforce lifecycle constraints such as calling methods out of order or re-entering a"
 group: "Utilities"
 since: "1.0"

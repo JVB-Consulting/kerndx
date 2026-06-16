@@ -1,6 +1,7 @@
 ---
 title: "API_Base.WebserviceStatus"
 type: class
+pageClass: reference
 description: "Enum representing the status of a web service call."
 since: "1.0"
 category: apex

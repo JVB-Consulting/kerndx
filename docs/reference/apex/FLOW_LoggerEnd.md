@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerEnd"
 type: class
+pageClass: reference
 description: "Ends a logging correlation for a Flow. Use this at the end of a Flow to log completion status."
 author: "Jason Van Beukering"
 group: "Logging"
@@ -45,21 +46,25 @@ Ends a logging correlation for a Flow. Use this at the end of a Flow to log comp
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Logging' description='Ends logging correlation for a Flow and logs completion status.' label='End Flow Correlation') global static void execute(List<FLOW_LoggerEnd.DTO_Request> inputs)
 ```
 
 Ends a correlation context for Flow logging.
 
-**Parameters:**
+**Parameters**
 
-- `inputs` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of input parameters
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `inputs` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of input parameters |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_LoggerEnd.execute(new List<DTO_Request>());
 ```
+
+</div>
 

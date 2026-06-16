@@ -111,6 +111,28 @@ try
 	const homeText = await page.locator('.vp-doc').innerText();
 	assert(!homeText.includes('Private Development Repo'), 'home is the public README, not the internal dev one');
 
+	// 8. Mobile: a method-summary signature stays readable. The stacked-card layout must
+	//    NOT blockify each inline type-link into its own ~1-char-wide column (a flex
+	//    container turns every <a>/text node of a multi-element cell into a shrunk flex
+	//    item). Regression guard for the Methods-overview table at ≤640px.
+	await page.setViewportSize({width: 390, height: 1200});
+	await page.goto(`${BASE}/reference/apex/util-sobjectdescribe`, {waitUntil: 'networkidle'});
+	const sig = await page.evaluate(() =>
+	{
+		const tables = [...document.querySelectorAll('.vp-doc table')];
+		const methodTable = tables.find(t => (t.querySelector('thead th')?.textContent || '').trim() === 'Method');
+		if(!methodTable)
+		{
+			return {error: 'no Method summary table on reference page'};
+		}
+		const cell = methodTable.querySelector('tbody tr td');
+		const links = [...cell.querySelectorAll('a')];
+		const maxW = links.reduce((m, a) => Math.max(m, Math.round(a.getBoundingClientRect().width)), 0);
+		return {linkCount: links.length, maxW};
+	});
+	assert(!sig.error, `Methods summary table present on reference page (${sig.error || 'ok'})`);
+	assert(sig.maxW >= 40, `method signature wraps as text, not per-character columns at 390px (widest type-link ${sig.maxW}px across ${sig.linkCount} links)`);
+
 	console.log('render smoke-test PASSED');
 }
 finally

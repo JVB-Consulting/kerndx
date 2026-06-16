@@ -1,6 +1,7 @@
 ---
 title: "IF_Async.Finishable"
 type: class
+pageClass: reference
 description: "Optional interface for defining finalizer logic that runs after all data is processed. Implement this for cleanup or notification actions."
 since: "1.0"
 category: apex
@@ -32,15 +33,19 @@ Optional interface for defining finalizer logic that runs after all data is proc
 
 ### finish
 
+<div class="apex-member">
+
 ```apex
 global abstract void finish(Database.BatchableContext context)
 ```
 
 Called once after all chunks are processed, for cleanup or notifications.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([Database.BatchableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_database_batchablecontext.htm)) - The BatchableContext providing job details, such as the job ID.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [Database.BatchableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_database_batchablecontext.htm) | The BatchableContext providing job details, such as the job ID. |
 
-**Since:** 1.0
+</div>
 

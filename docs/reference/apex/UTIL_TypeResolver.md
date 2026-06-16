@@ -1,6 +1,7 @@
 ---
 title: "UTIL_TypeResolver"
 type: class
+pageClass: reference
 description: "Utility class containing type resolution components for resolving Apex class types."
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -54,20 +55,22 @@ Type handlerType = resolver.resolveType('TRG_SetFoobarDefaults');
 
 ### getClassResolver
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_TypeResolver.INT_ClassTypeResolver getClassResolver()
 ```
 
 Retrieves the configured resolver chain with the package resolver as the first link.
 
-**Returns:** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) - The configured resolver chain.
+**Returns** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) — The configured resolver chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
 Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
 ```
+
+</div>
 

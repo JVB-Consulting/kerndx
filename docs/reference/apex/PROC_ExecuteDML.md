@@ -1,6 +1,7 @@
 ---
 title: "PROC_ExecuteDML"
 type: class
+pageClass: reference
 description: "Processor for generic DML operations using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports INSERT, UPDATE, D"
 author: "Jason Van Beukering"
 group: "Bulk DML"
@@ -53,6 +54,8 @@ UTIL_AsynchronousJobLauncher.process(
 
 ### PROC_ExecuteDML
 
+<div class="apex-member">
+
 ```apex
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation)
 ```
@@ -60,17 +63,21 @@ global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation)
 Constructs a DML processor with the specified operation and default all-or-nothing behavior.
 Access mode inherits the flag-driven default.
 
-**Parameters:**
+**Parameters**
 
-- `operation` ([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md)) - The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `operation` | [DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) | The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_INSERT);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing)
@@ -79,18 +86,22 @@ global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNot
 Constructs a DML processor with the specified operation and transaction behavior.
 Access mode inherits the flag-driven default.
 
-**Parameters:**
+**Parameters**
 
-- `operation` ([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md)) - The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
-- `allOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If true, the entire transaction rolls back on any failure; if false, allows partial success.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `operation` | [DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) | The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE). |
+| `allOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, the entire transaction rolls back on any failure; if false, allows partial success. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_UPDATE, false);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing, AccessLevel accessLevel)
@@ -102,21 +113,25 @@ framework utilities that own their lifecycle pass `AccessLevel.SYSTEM_MODE`, and
 `DML_Builder.async()` path passes the caller's chosen `AccessLevel` so subscriber `.withUserMode()`
 opt-ins survive the sync-to-async boundary.
 
-**Parameters:**
+**Parameters**
 
-- `operation` ([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md)) - The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
-- `allOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If true, the entire transaction rolls back on any failure; if false, allows partial success.
-- `accessLevel` ([AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm)) - Explicit AccessLevel for the DML commit, or null to inherit the flag-driven default.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `operation` | [DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) | The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE). |
+| `allOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, the entire transaction rolls back on any failure; if false, allows partial success. |
+| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | Explicit AccessLevel for the DML commit, or null to inherit the flag-driven default. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_DELETE, true, AccessLevel.SYSTEM_MODE);
 ```
 
+</div>
+
 ### execute
+
+<div class="apex-member">
 
 ```apex
 global void execute(List<Object> items)
@@ -124,17 +139,19 @@ global void execute(List<Object> items)
 
 Executes the configured DML operation on the provided list of records.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObject records to process.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObject records to process. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = new List<Account>();
 accounts.add(new Account(Name = 'Test'));
 new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_INSERT).execute(accounts);
 ```
+
+</div>
 

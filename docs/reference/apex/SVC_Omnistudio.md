@@ -1,6 +1,7 @@
 ---
 title: "SVC_Omnistudio"
 type: class
+pageClass: reference
 description: "SVC_Omnistudio is a factory class that implements the Callable interface and is designed to instantiate and execute operations on specific classes based on a provided class name. It is mainly used wit"
 author: "Jason Van Beukering"
 group: "Omnistudio"
@@ -63,6 +64,8 @@ public class MyOmniAction implements SVC_Omnistudio.OmniCallable
 
 ### call
 
+<div class="apex-member">
+
 ```apex
 global Object call(String className, Map<String, Object> parameterMap)
 ```
@@ -72,23 +75,26 @@ and executes a method within the instantiated class to perform the requested ope
 takes a `parameterMap` containing arguments necessary for the operation and manages the
 interaction through the `Parameters` DTO.
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the class to instantiate; this class must implement Callable.
-- `parameterMap` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map of arguments to be used by the specified class for executing its logic.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the class to instantiate; this class must implement Callable. |
+| `parameterMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map of arguments to be used by the specified class for executing its logic. |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - Returns `true` if the operation is successful.
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — Returns `true` if the operation is successful.
 
-**Throws:**
+**Throws**
 
-- [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - This method may throw an exception if the specified class cannot be instantiated
-or if an error occurs during method execution. The exception will be logged.
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | This method may throw an exception if the specified class cannot be instantiated or if an error occurs during method execution. The exception will be logged. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object result = instance.call('SVC_Omnistudio', new Map<String, Object>{'key' => 'value'});
 ```
+
+</div>
 

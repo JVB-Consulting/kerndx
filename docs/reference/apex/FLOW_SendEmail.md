@@ -1,6 +1,7 @@
 ---
 title: "FLOW_SendEmail"
 type: class
+pageClass: reference
 description: "Provides an invocable entry point for sending emails via Salesforce Flow with advanced capabilities. Supports: Hybrid execution (Direct Apex or delegating to a secondary Flow). Custom Merge Fields (re"
 author: "Jason Van Beukering"
 group: "Email"
@@ -54,21 +55,23 @@ List<FLOW_SendEmail.DTO_Response> responses = FLOW_SendEmail.sendEmail(new List<
 
 ### sendEmail
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Email' description='Sends an email using a template by delegating to an internal Flow. Optionally logs an activity, using either standard email limits or the Workflow Engine.' label='Send Email (Flow-Delegated) and Log Activity') global static List<FLOW_SendEmail.DTO_Response> sendEmail(List<FLOW_SendEmail.DTO_Request> dtoEmails)
 ```
 
 Invocable method to process email requests.
 
-**Parameters:**
+**Parameters**
 
-- `dtoEmails` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of DTO_Request objects configured in the Flow.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoEmails` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of DTO_Request objects configured in the Flow. |
 
-**Returns:** [FLOW_SendEmail.DTO_Response](FLOW_SendEmail.DTO_Response.md) - A list of `DTO_Response` objects indicating success or failure for each request.
+**Returns** [FLOW_SendEmail.DTO_Response](FLOW_SendEmail.DTO_Response.md) — A list of `DTO_Response` objects indicating success or failure for each request.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_SendEmail.DTO_Request emailRequest = new FLOW_SendEmail.DTO_Request();
@@ -83,4 +86,6 @@ if(responses[0].success)
 	LOG_Builder.build().info('Email sent successfully').emitAt('MyFlow.sendEmail');
 }
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "MaskingTarget__mdt"
 type: sobject
+pageClass: reference
 description: "Applies a Masking Rule to a specific field on a specific object. Each record says \"use this rule on this field\". Pick the object first, then the Field picklist filters to fields on that object. Crea"
 category: metadata
 ---

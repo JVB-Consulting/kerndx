@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerStart"
 type: class
+pageClass: reference
 description: "Starts a logging correlation for a Flow. Use this at the beginning of a Flow to generate a correlation ID that links all subsequent log entries."
 author: "Jason Van Beukering"
 group: "Logging"
@@ -46,17 +47,21 @@ Starts a logging correlation for a Flow. Use this at the beginning of a Flow to 
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Logging' description='Starts logging correlation for a Flow. Returns a correlation ID to pass to other logging actions.' label='Start Flow Correlation') global static List<FLOW_LoggerStart.DTO_Response> execute(List<FLOW_LoggerStart.DTO_Request> dtoRequests)
 ```
 
 Starts a correlation context for Flow logging.
 
-**Parameters:**
+**Parameters**
 
-- `dtoRequests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of input parameters
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoRequests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of input parameters |
 
-**Returns:** [FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md) - List of outputs containing correlation IDs
+**Returns** [FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md) — List of outputs containing correlation IDs
 
-**Since:** 1.0
+</div>
 

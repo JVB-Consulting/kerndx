@@ -1,3 +1,7 @@
+---
+navOrder: 62
+---
+
 # Resilience - Guide
 
 **Framework:** KernDX

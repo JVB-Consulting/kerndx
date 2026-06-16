@@ -1,6 +1,7 @@
 ---
 title: "API_MockTestHelper"
 type: class
+pageClass: reference
 description: "Test helper for API mock verification. Provides assertion methods that delegate to API_MockFactory verification API with descriptive error messages."
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -49,20 +50,26 @@ API_MockTestHelper.assertServiceCalledTimes('API_SendEmail', 1);
 
 ### assertLastRequestContains
 
+<div class="apex-member">
+
 ```apex
 global static void assertLastRequestContains(String serviceName, String expectedContent)
 ```
 
 Asserts that the last request body contains the expected text.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
-- `expectedContent` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Text expected in the last request body
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
+| `expectedContent` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Text expected in the last request body |
 
-**Since:** 1.0
+</div>
 
 ### assertServiceCalled
+
+<div class="apex-member">
 
 ```apex
 global static void assertServiceCalled(String serviceName)
@@ -70,13 +77,17 @@ global static void assertServiceCalled(String serviceName)
 
 Asserts that a service was called at least once.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
 
-**Since:** 1.0
+</div>
 
 ### assertServiceCalledTimes
+
+<div class="apex-member">
 
 ```apex
 global static void assertServiceCalledTimes(String serviceName, Integer expectedCount)
@@ -84,14 +95,18 @@ global static void assertServiceCalledTimes(String serviceName, Integer expected
 
 Asserts that a service was called exactly the specified number of times.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
-- `expectedCount` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The expected number of invocations
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
+| `expectedCount` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The expected number of invocations |
 
-**Since:** 1.0
+</div>
 
 ### assertServiceNeverCalled
+
+<div class="apex-member">
 
 ```apex
 global static void assertServiceNeverCalled(String serviceName)
@@ -99,9 +114,11 @@ global static void assertServiceNeverCalled(String serviceName)
 
 Asserts that a service was never called.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
 
-**Since:** 1.0
+</div>
 

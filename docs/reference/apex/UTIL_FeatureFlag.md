@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FeatureFlag"
 type: class
+pageClass: reference
 description: "Provides static methods to check if a feature is enabled. It reads Custom Metadata records to determine if a feature should be active for the current user or for a specific user (user context evaluati"
 author: "Jason Van Beukering"
 group: "Feature Flags"
@@ -62,21 +63,23 @@ if(UTIL_FeatureFlag.isEnabled('Block_Large_Export', reportEvent.UserId))
 
 ### isEnabled
 
+<div class="apex-member">
+
 ```apex
 global static Boolean isEnabled(String flagName)
 ```
 
 Checks if a feature is enabled for the RUNNING user by evaluating its associated strategies.
 
-**Parameters:**
+**Parameters**
 
-- `flagName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName (API Name) of the Feature Flag custom metadata record.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flagName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName (API Name) of the Feature Flag custom metadata record. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the feature is enabled, `false` otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the feature is enabled, `false` otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String featureFlagApiName = 'My_Feature_Flag';
@@ -89,6 +92,10 @@ else
     MY_OldLogic_CLASS.doSomething();
 }
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isEnabled(String flagName, Id userId)
@@ -114,16 +121,16 @@ Custom strategies implementing INT_UserAwareFeatureFlagStrategy will receive
 the userId parameter. Strategies implementing only INT_FeatureFlagStrategy
 will fall back to running user evaluation (backward compatible).
 
-**Parameters:**
+**Parameters**
 
-- `flagName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName (API Name) of the Feature Flag custom metadata record
-- `userId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Salesforce User ID to evaluate the flag for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flagName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName (API Name) of the Feature Flag custom metadata record |
+| `userId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Salesforce User ID to evaluate the flag for |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the feature is enabled for the specified user, `false` otherwise
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the feature is enabled for the specified user, `false` otherwise
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // TxnSecurity.EventCondition usage
@@ -142,6 +149,10 @@ global class MySecurityPolicy implements TxnSecurity.EventCondition
 }
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static Boolean isEnabled(String flagName, String username)
 ```
@@ -154,16 +165,16 @@ the user first, then evaluates the flag.
 
 Returns false if the username does not match any user in the org.
 
-**Parameters:**
+**Parameters**
 
-- `flagName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName (API Name) of the Feature Flag custom metadata record
-- `username` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The username (typically email format) to look up and evaluate
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flagName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName (API Name) of the Feature Flag custom metadata record |
+| `username` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The username (typically email format) to look up and evaluate |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the user exists and the feature is enabled for them, `false` otherwise
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the user exists and the feature is enabled for them, `false` otherwise
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Check flag by username (e.g., from external system)
@@ -173,4 +184,6 @@ if(enabled)
     System.debug('Feature is enabled for this user');
 }
 ```
+
+</div>
 

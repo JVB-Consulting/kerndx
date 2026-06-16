@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Retry.Strategy"
 type: class
+pageClass: reference
 description: "Interface defining the retry strategy logic. Implement this interface to create custom retry strategies."
 since: "1.0"
 category: apex
@@ -38,19 +39,23 @@ Interface defining the retry strategy logic. Implement this interface to create 
 
 ### calculateBackoff
 
+<div class="apex-member">
+
 ```apex
 global abstract Integer calculateBackoff(UTIL_Retry.Context context)
 ```
 
 Calculates the backoff period in seconds for the next retry
 
-**Parameters:**
+**Parameters**
 
-- `context` ([UTIL_Retry.Context](UTIL_Retry.Context.md)) - The retry context containing retry count and configuration
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [UTIL_Retry.Context](UTIL_Retry.Context.md) | The retry context containing retry count and configuration |
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - The backoff period in seconds
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The backoff period in seconds
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential();
@@ -59,7 +64,11 @@ Integer backoffSeconds = strategy.calculateBackoff(ctx);
 Datetime nextRetry = Datetime.now().addSeconds(backoffSeconds);
 ```
 
+</div>
+
 ### shouldRetry
+
+<div class="apex-member">
 
 ```apex
 global abstract Boolean shouldRetry(UTIL_Retry.Context context)
@@ -67,13 +76,15 @@ global abstract Boolean shouldRetry(UTIL_Retry.Context context)
 
 Determines if a retry should be attempted
 
-**Parameters:**
+**Parameters**
 
-- `context` ([UTIL_Retry.Context](UTIL_Retry.Context.md)) - The retry context containing retry count and configuration
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [UTIL_Retry.Context](UTIL_Retry.Context.md) | The retry context containing retry count and configuration |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if a retry should be attempted, false otherwise
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if a retry should be attempted, false otherwise
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential();
@@ -84,7 +95,11 @@ if(strategy.shouldRetry(ctx))
 }
 ```
 
+</div>
+
 ### withBaseBackoff
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_Retry.Strategy withBaseBackoff(Integer seconds)
@@ -92,20 +107,26 @@ global abstract UTIL_Retry.Strategy withBaseBackoff(Integer seconds)
 
 Sets the base backoff period in seconds (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `seconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The base backoff period
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `seconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The base backoff period |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - This strategy for method chaining
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — This strategy for method chaining
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.linear()
     .withBaseBackoff(15);
 ```
 
+</div>
+
 ### withExponentialMultiplier
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_Retry.Strategy withExponentialMultiplier(Decimal multiplier)
@@ -113,20 +134,26 @@ global abstract UTIL_Retry.Strategy withExponentialMultiplier(Decimal multiplier
 
 Sets the exponential multiplier for exponential backoff (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `multiplier` ([Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm)) - The exponential multiplier (must be >= 1.0, default: 2.0)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `multiplier` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The exponential multiplier (must be >= 1.0, default: 2.0) |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - This strategy for method chaining
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — This strategy for method chaining
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
     .withExponentialMultiplier(3.0); // Faster backoff growth
 ```
 
+</div>
+
 ### withJitter
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_Retry.Strategy withJitter(Boolean enabled)
@@ -134,20 +161,26 @@ global abstract UTIL_Retry.Strategy withJitter(Boolean enabled)
 
 Enables or disables random jitter (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `enabled` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to enable jitter (adds up to 25% randomness)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `enabled` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to enable jitter (adds up to 25% randomness) |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - This strategy for method chaining
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — This strategy for method chaining
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
     .withJitter(true);
 ```
 
+</div>
+
 ### withMaximumBackoff
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_Retry.Strategy withMaximumBackoff(Integer seconds)
@@ -155,20 +188,26 @@ global abstract UTIL_Retry.Strategy withMaximumBackoff(Integer seconds)
 
 Sets the maximum backoff cap in seconds (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `seconds` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Maximum backoff cap in seconds
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `seconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Maximum backoff cap in seconds |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - This strategy for method chaining
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — This strategy for method chaining
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
     .withMaximumBackoff(600); // Cap at 10 minutes
 ```
 
+</div>
+
 ### withMaxRetries
+
+<div class="apex-member">
 
 ```apex
 global abstract UTIL_Retry.Strategy withMaxRetries(Integer max)
@@ -176,16 +215,20 @@ global abstract UTIL_Retry.Strategy withMaxRetries(Integer max)
 
 Sets the maximum retry attempts (fluent API)
 
-**Parameters:**
+**Parameters**
 
-- `max` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum retry attempts
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `max` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum retry attempts |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - This strategy for method chaining
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — This strategy for method chaining
 
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
     .withMaxRetries(5);
 ```
+
+</div>
 

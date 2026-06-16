@@ -1,6 +1,7 @@
 ---
 title: "SEL_ContentVersion"
 type: class
+pageClass: reference
 description: "Selector for the ContentVersion object. Provides query methods for retrieving content versions by publishing location, content document, and workspace folders."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -52,21 +53,25 @@ ContentVersion version = (ContentVersion)new SEL_ContentVersion().findById(versi
 
 ### SEL_ContentVersion
 
+<div class="apex-member">
+
 ```apex
 global SEL_ContentVersion()
 ```
 
 Constructs a new SEL_ContentVersion selector instance.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_ContentVersion instance = new SEL_ContentVersion();
 ```
 
+</div>
+
 ### findByFirstPublishLocationId
+
+<div class="apex-member">
 
 ```apex
 global List<ContentVersion> findByFirstPublishLocationId(Id firstPublishLocationId)
@@ -74,19 +79,23 @@ global List<ContentVersion> findByFirstPublishLocationId(Id firstPublishLocation
 
 Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId.
 
-**Parameters:**
+**Parameters**
 
-- `firstPublishLocationId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The ID of the location where the content version was first published.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `firstPublishLocationId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The ID of the location where the content version was first published. |
 
-**Returns:** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) - List of the latest ContentVersion records associated with the specified location.
+**Returns** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) — List of the latest ContentVersion records associated with the specified location.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ContentVersion> result = instance.findByFirstPublishLocationId(recordId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global List<ContentVersion> findByFirstPublishLocationId(Set<Id> firstPublishLocationIds)
@@ -94,21 +103,25 @@ global List<ContentVersion> findByFirstPublishLocationId(Set<Id> firstPublishLoc
 
 Retrieves the latest ContentVersion records linked to the specified FirstPublishLocationId values.
 
-**Parameters:**
+**Parameters**
 
-- `firstPublishLocationIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of IDs for the locations where the content versions were first published.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `firstPublishLocationIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of IDs for the locations where the content versions were first published. |
 
-**Returns:** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) - List of ContentVersion records found for the specified locations.
+**Returns** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) — List of ContentVersion records found for the specified locations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ContentVersion> result = instance.findByFirstPublishLocationId(recordIds);
 ```
 
+</div>
+
 ### findLatestByContentDocumentId
+
+<div class="apex-member">
 
 ```apex
 global List<ContentVersion> findLatestByContentDocumentId(Set<Id> contentDocumentIds)
@@ -116,21 +129,25 @@ global List<ContentVersion> findLatestByContentDocumentId(Set<Id> contentDocumen
 
 Retrieves the latest ContentVersion records for the specified ContentDocument IDs.
 
-**Parameters:**
+**Parameters**
 
-- `contentDocumentIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of Content Document IDs for which to retrieve the latest content versions.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `contentDocumentIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of Content Document IDs for which to retrieve the latest content versions. |
 
-**Returns:** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) - A list of the latest ContentVersion records corresponding to each provided ContentDocument ID.
+**Returns** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) — A list of the latest ContentVersion records corresponding to each provided ContentDocument ID.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ContentVersion> result = instance.findLatestByContentDocumentId(recordIds);
 ```
 
+</div>
+
 ### getAll
+
+<div class="apex-member">
 
 ```apex
 global List<ContentVersion> getAll()
@@ -139,17 +156,19 @@ global List<ContentVersion> getAll()
 Retrieves all ContentVersion records in the system.
 This method only returns data when called during a test context.
 
-**Returns:** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) - A list of all ContentVersion records if in a test context; otherwise, returns an empty list.
+**Returns** [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) — A list of all ContentVersion records if in a test context; otherwise, returns an empty list.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ContentVersion> allVersions = new SEL_ContentVersion().getAll();
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -157,13 +176,13 @@ global override List<SObjectField> getFields()
 
 Returns the default fields for ContentVersion queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of SObjectField tokens to include in queries.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of SObjectField tokens to include in queries.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

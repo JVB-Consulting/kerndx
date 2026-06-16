@@ -1,6 +1,7 @@
 ---
 title: "DTO_PicklistValue"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) representing a single picklist value. This object includes details about the picklist value's display label, API name, and any dependency constraints if the picklist is a "
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"

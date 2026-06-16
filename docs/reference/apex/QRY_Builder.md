@@ -1,6 +1,7 @@
 ---
 title: "QRY_Builder"
 type: class
+pageClass: reference
 description: "Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, paginatio"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
@@ -82,21 +83,25 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
 
 ### clearMocks
 
+<div class="apex-member">
+
 ```apex
 global static void clearMocks()
 ```
 
 Clears all registered mocks and mock context classes for all SObjectTypes.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.clearMocks();
 ```
 
+</div>
+
 ### registerMockContextClass
+
+<div class="apex-member">
 
 ```apex
 global static void registerMockContextClass(SObjectType sObjectType, String contextClassName)
@@ -109,14 +114,14 @@ using the specified context class, returning only matching mock records.
 Standard objects (Account, Contact, etc.) and Foobar__c are auto-detected and do not require
 explicit registration. Use this method for custom objects that need mock filtering.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType to register the context for
-- `contextClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The fully qualified class name of the FormulaEval context
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType to register the context for |
+| `contextClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The fully qualified class name of the FormulaEval context |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.registerMockContextClass(Invoice__c.SObjectType, 'InvoiceFormulaContext');
@@ -124,7 +129,11 @@ QRY_Builder.setMock(Invoice__c.SObjectType, mockInvoices);
 // Queries against Invoice__c now filter mocks using InvoiceFormulaContext
 ```
 
+</div>
+
 ### selectFrom
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Builder.Builder selectFrom(SObjectType sObjectType)
@@ -132,15 +141,15 @@ global static QRY_Builder.Builder selectFrom(SObjectType sObjectType)
 
 Entry point for inline queries. Creates a new Builder instance for the specified SObject type.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObject type to query
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to query |
 
-**Returns:** [QRY_Builder.Builder](QRY_Builder.Builder.md) - Builder for fluent chaining
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for fluent chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
@@ -149,7 +158,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .toList();
 ```
 
+</div>
+
 ### setMock
+
+<div class="apex-member">
 
 ```apex
 global static void setMock(SObjectType sObjectType, List<SObject> mocks)
@@ -166,18 +179,20 @@ a context class via registerMockContextClass() to enable filtering.
 When filtering is not possible (no context class, unsupported condition operators, or
 relationship field traversals), all mocks are returned with only LIMIT and pagination applied.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType to mock
-- `mocks` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of mock records to return for queries
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType to mock |
+| `mocks` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of mock records to return for queries |
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if mocks contain records of a different type than sObjectType
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if mocks contain records of a different type than sObjectType |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Account> mockAccounts = (List<Account>)TST_Builder.of(Account.SObjectType)
@@ -188,7 +203,11 @@ List<Account> mockAccounts = (List<Account>)TST_Builder.of(Account.SObjectType)
 QRY_Builder.setMock(Account.SObjectType, mockAccounts);
 ```
 
+</div>
+
 ### setMockException
+
+<div class="apex-member">
 
 ```apex
 global static void setMockException(SObjectType sObjectType, Exception exceptionToThrow)
@@ -199,16 +218,18 @@ for the specified SObjectType. Used for negative-path test coverage when a calle
 needs to exercise a catch block around a SOQL call. Cleared by TST_Mock.clear()
 and TST_Mock.clear(SObjectType).
 
-**Parameters:**
+**Parameters**
 
-- `sObjectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType for which queries should throw.
-- `exceptionToThrow` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception instance to throw.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType for which queries should throw. |
+| `exceptionToThrow` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception instance to throw. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Builder.setMockException(Account.SObjectType, new QueryException('Simulated SOQL failure'));
 ```
+
+</div>
 

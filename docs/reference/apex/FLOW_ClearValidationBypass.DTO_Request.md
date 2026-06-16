@@ -1,6 +1,7 @@
 ---
 title: "FLOW_ClearValidationBypass.DTO_Request"
 type: class
+pageClass: reference
 description: "Request DTO for the Clear Validation Bypass invocable action. Specifies which bypass to clear by name or clears all bypasses."
 since: "1.0"
 category: apex

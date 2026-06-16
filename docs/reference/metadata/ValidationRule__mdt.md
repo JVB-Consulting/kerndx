@@ -1,6 +1,7 @@
 ---
 title: "ValidationRule__mdt"
 type: sobject
+pageClass: reference
 description: "Defines an individual validation rule with a formula-based condition, error message, and configuration options. Rules are grouped by ValidationRuleGroup__mdt and evaluated during trigger execution."
 category: metadata
 ---

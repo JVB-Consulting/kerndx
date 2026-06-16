@@ -1,6 +1,7 @@
 ---
 title: "TriggerAction__mdt"
 type: sobject
+pageClass: reference
 description: "Registers a single trigger action: one Apex class bound to one trigger event (e.g. Before Insert) on one object. Controls execution order, entry criteria, recursion, bypass, and performance logging. E"
 category: metadata
 ---

@@ -1,6 +1,7 @@
 ---
 title: "ApiSetting__mdt"
 type: sobject
+pageClass: reference
 description: "Configures outbound web service handlers with endpoint paths, retry behavior, circuit breaker settings, and failure logging options."
 category: metadata
 ---

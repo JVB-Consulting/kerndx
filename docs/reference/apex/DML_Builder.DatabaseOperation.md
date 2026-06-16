@@ -1,6 +1,7 @@
 ---
 title: "DML_Builder.DatabaseOperation"
 type: class
+pageClass: reference
 description: "Enum to specify the type of DML operation for external use."
 since: "1.0"
 category: apex

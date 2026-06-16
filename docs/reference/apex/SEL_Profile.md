@@ -1,6 +1,7 @@
 ---
 title: "SEL_Profile"
 type: class
+pageClass: reference
 description: "Selector for the Profile SObject. Provides default field configuration, query methods, and commonly used profile name constants."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -49,21 +50,25 @@ Profile profile = (Profile)new SEL_Profile().findById(profileId);
 
 ### SEL_Profile
 
+<div class="apex-member">
+
 ```apex
 global SEL_Profile()
 ```
 
 Constructs a Profile selector with the Profile SObjectType.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_Profile instance = new SEL_Profile();
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global Profile findByName(String profileName)
@@ -72,21 +77,25 @@ global Profile findByName(String profileName)
 Finds a Profile record by name. Results are cached within the transaction
 to avoid repeated SOQL queries for the same profile.
 
-**Parameters:**
+**Parameters**
 
-- `profileName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the profile to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the profile to retrieve |
 
-**Returns:** [Profile](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_profile.htm) - The matching Profile record, or null if not found
+**Returns** [Profile](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_profile.htm) — The matching Profile record, or null if not found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Profile adminProfile = new SEL_Profile().findByName('System Administrator');
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -94,13 +103,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for Profile queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of Profile SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of Profile SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

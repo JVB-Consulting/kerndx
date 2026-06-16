@@ -1,6 +1,7 @@
 ---
 title: "SEL_EmailTemplate"
 type: class
+pageClass: reference
 description: "Selector for the EmailTemplate SObject. Provides default field configuration and query methods for EmailTemplate records."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -48,21 +49,25 @@ EmailTemplate template = (EmailTemplate)new SEL_EmailTemplate().findById(templat
 
 ### SEL_EmailTemplate
 
+<div class="apex-member">
+
 ```apex
 global SEL_EmailTemplate()
 ```
 
 Constructs an EmailTemplate selector with the EmailTemplate SObjectType.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_EmailTemplate instance = new SEL_EmailTemplate();
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global List<EmailTemplate> findByName(Set<String> uniqueNames)
@@ -70,22 +75,26 @@ global List<EmailTemplate> findByName(Set<String> uniqueNames)
 
 Retrieves a list of EmailTemplate records by their DeveloperName field values.
 
-**Parameters:**
+**Parameters**
 
-- `uniqueNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - A set of DeveloperName values for the EmailTemplate records to retrieve
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `uniqueNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | A set of DeveloperName values for the EmailTemplate records to retrieve |
 
-**Returns:** [EmailTemplate](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_emailtemplate.htm) - A list of EmailTemplate records that match the specified DeveloperName values
+**Returns** [EmailTemplate](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_emailtemplate.htm) — A list of EmailTemplate records that match the specified DeveloperName values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> templateNames = new Set<String>{'WelcomeTemplate', 'ReminderTemplate'};
 List<EmailTemplate> templates = new SEL_EmailTemplate().findByName(templateNames);
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -93,13 +102,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for EmailTemplate queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of EmailTemplate SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of EmailTemplate SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

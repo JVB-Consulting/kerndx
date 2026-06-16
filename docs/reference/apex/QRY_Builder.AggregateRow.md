@@ -1,6 +1,7 @@
 ---
 title: "QRY_Builder.AggregateRow"
 type: class
+pageClass: reference
 description: "Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object."
 since: "1.0"
 category: apex
@@ -49,27 +50,33 @@ String industry = row.getString('Industry');
 
 ### get
 
+<div class="apex-member">
+
 ```apex
 global Object get(String alias)
 ```
 
 Gets a raw Object value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The raw value
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The raw value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object value = row.get('expr0');
 ```
 
+</div>
+
 ### getDate
+
+<div class="apex-member">
 
 ```apex
 global Date getDate(String alias)
@@ -77,21 +84,25 @@ global Date getDate(String alias)
 
 Gets a Date value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Date](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_date.htm) - The Date value
+**Returns** [Date](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_date.htm) — The Date value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Date earliest = row.getDate('expr0');
 ```
 
+</div>
+
 ### getDecimal
+
+<div class="apex-member">
 
 ```apex
 global Decimal getDecimal(String alias)
@@ -99,21 +110,25 @@ global Decimal getDecimal(String alias)
 
 Gets a Decimal value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) - The Decimal value
+**Returns** [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) — The Decimal value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Decimal total = row.getDecimal('expr0');
 ```
 
+</div>
+
 ### getId
+
+<div class="apex-member">
 
 ```apex
 global Id getId(String alias)
@@ -121,21 +136,25 @@ global Id getId(String alias)
 
 Gets an Id value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The Id value
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The Id value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id accountId = row.getId('AccountId');
 ```
 
+</div>
+
 ### getInteger
+
+<div class="apex-member">
 
 ```apex
 global Integer getInteger(String alias)
@@ -143,21 +162,25 @@ global Integer getInteger(String alias)
 
 Gets an Integer value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - The Integer value
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The Integer value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer count = row.getInteger('expr0');
 ```
 
+</div>
+
 ### getLong
+
+<div class="apex-member">
 
 ```apex
 global Long getLong(String alias)
@@ -165,21 +188,25 @@ global Long getLong(String alias)
 
 Gets a Long value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) - The Long value
+**Returns** [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) — The Long value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Long total = row.getLong('expr0');
 ```
 
+</div>
+
 ### getString
+
+<div class="apex-member">
 
 ```apex
 global String getString(String alias)
@@ -187,17 +214,19 @@ global String getString(String alias)
 
 Gets a String value by alias.
 
-**Parameters:**
+**Parameters**
 
-- `alias` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The aggregate alias or field name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The aggregate alias or field name |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The String value
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The String value
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String industry = row.getString('Industry');
 ```
+
+</div>
 

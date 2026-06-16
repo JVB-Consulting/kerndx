@@ -1,6 +1,7 @@
 ---
 title: "ClassTypeResolver__mdt"
 type: sobject
+pageClass: reference
 description: "Registers a subscriber-org class that resolves Apex class names to Types at runtime. Required when subscriber classes used by the framework (e.g., trigger handlers, web services, DTOs) are not declare"
 category: metadata
 ---

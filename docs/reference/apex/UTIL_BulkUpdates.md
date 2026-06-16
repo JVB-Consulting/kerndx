@@ -1,6 +1,7 @@
 ---
 title: "UTIL_BulkUpdates"
 type: class
+pageClass: reference
 description: "Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownershi"
 author: "Jason Van Beukering"
 group: "Bulk DML"
@@ -56,6 +57,8 @@ UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Chatter Free User'}, 365);
 
 ### deactivateUsers
 
+<div class="apex-member">
+
 ```apex
 global static void deactivateUsers(Set<String> profileNames, Integer minimumDaysInactive)
 ```
@@ -63,19 +66,23 @@ global static void deactivateUsers(Set<String> profileNames, Integer minimumDays
 Deactivates users based on their profile names and the number of days since their last login or creation.
 Uses the maximum batch size for processing.
 
-**Parameters:**
+**Parameters**
 
-- `profileNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The profile names of the users to deactivate.
-- `minimumDaysInactive` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The minimum number of days since their last login or creation.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The profile names of the users to deactivate. |
+| `minimumDaysInactive` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The minimum number of days since their last login or creation. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> profiles = new Set<String>{'Sales Rep', 'Support Rep'};
 UTIL_BulkUpdates.deactivateUsers(profiles, 365);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void deactivateUsers(Set<String> profileNames, Integer minimumDaysInactive, Boolean isAllOrNothing)
@@ -83,20 +90,24 @@ global static void deactivateUsers(Set<String> profileNames, Integer minimumDays
 
 Deactivates users based on their profile names and last login or creation date, with transaction control.
 
-**Parameters:**
+**Parameters**
 
-- `profileNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The profile names of the users to deactivate.
-- `minimumDaysInactive` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The minimum number of days since their last login or creation.
-- `isAllOrNothing` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Whether to abort the operation if any record fails.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The profile names of the users to deactivate. |
+| `minimumDaysInactive` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The minimum number of days since their last login or creation. |
+| `isAllOrNothing` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Whether to abort the operation if any record fails. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> profiles = new Set<String>{'Support Rep'};
 UTIL_BulkUpdates.deactivateUsers(profiles, 180, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void deactivateUsers(Set<String> profileNames, Integer minimumDaysInactive, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -104,23 +115,27 @@ global static void deactivateUsers(Set<String> profileNames, Integer minimumDays
 
 Deactivates users based on their profile names and last login or creation date, with custom batch size and transaction control.
 
-**Parameters:**
+**Parameters**
 
-- `profileNames` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The profile names of the users to deactivate.
-- `minimumDaysInactive` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The minimum number of days since their last login or creation.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
-- `isAllOrNothing` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Whether to abort the operation if any record fails.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileNames` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The profile names of the users to deactivate. |
+| `minimumDaysInactive` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The minimum number of days since their last login or creation. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Whether to abort the operation if any record fails. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> profiles = new Set<String>{'Sales Rep'};
 UTIL_BulkUpdates.deactivateUsers(profiles, 90, 200, false);
 ```
 
+</div>
+
 ### invalidateEmailFields
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(SObjectField emailFieldToInvalidate)
@@ -129,18 +144,22 @@ global static void invalidateEmailFields(SObjectField emailFieldToInvalidate)
 Invalidates all valid email addresses for the specified email field.
 Uses the maximum batch size for efficient processing.
 
-**Parameters:**
+**Parameters**
 
-- `emailFieldToInvalidate` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The email field to query and invalidate in records.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `emailFieldToInvalidate` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The email field to query and invalidate in records. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObjectField emailField = Account.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, Integer recordsPerBatch)
@@ -148,19 +167,23 @@ global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, In
 
 Invalidates all valid email addresses for the specified email field, with a custom batch size.
 
-**Parameters:**
+**Parameters**
 
-- `emailFieldToInvalidate` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The email field to query and invalidate.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `emailFieldToInvalidate` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The email field to query and invalidate. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObjectField emailField = Contact.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField, 200);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -169,20 +192,24 @@ global static void invalidateEmailFields(SObjectField emailFieldToInvalidate, In
 Invalidates all valid email addresses for the specified email field, with batch size and transaction control.
 If isAllOrNothing is true, the entire transaction is rolled back if any record fails.
 
-**Parameters:**
+**Parameters**
 
-- `emailFieldToInvalidate` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The email field to query and invalidate.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
-- `isAllOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to abort the transaction on failure (true = abort on any failure).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `emailFieldToInvalidate` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The email field to query and invalidate. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to abort the transaction on failure (true = abort on any failure). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObjectField emailField = Lead.Email;
 UTIL_BulkUpdates.invalidateEmailFields(emailField, 100, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName)
@@ -191,18 +218,22 @@ global static void invalidateEmailFields(String sObjectName, String fieldApiName
 Invalidates all valid email addresses for the specified field in a Salesforce object.
 Uses the maximum batch size for processing.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Account').
-- `fieldApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field (e.g., 'Email') to check and invalidate.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Account'). |
+| `fieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field (e.g., 'Email') to check and invalidate. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.invalidateEmailFields('Account', 'Email');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName, Boolean isAllOrNothing)
@@ -210,19 +241,23 @@ global static void invalidateEmailFields(String sObjectName, String fieldApiName
 
 Invalidates all valid email addresses for the specified field in a Salesforce object, with transaction control.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Opportunity').
-- `fieldApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field (e.g., 'Email') to check and invalidate.
-- `isAllOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to abort the transaction on failure.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Opportunity'). |
+| `fieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field (e.g., 'Email') to check and invalidate. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to abort the transaction on failure. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.invalidateEmailFields('Opportunity', 'Email', true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void invalidateEmailFields(String sObjectName, String fieldApiName, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -230,22 +265,26 @@ global static void invalidateEmailFields(String sObjectName, String fieldApiName
 
 Invalidates all valid email addresses for the specified field in a Salesforce object, with custom batch size and transaction control.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Case').
-- `fieldApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field (e.g., 'Email') to check and invalidate.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
-- `isAllOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to abort the transaction on failure.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Case'). |
+| `fieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field (e.g., 'Email') to check and invalidate. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to abort the transaction on failure. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.invalidateEmailFields('Case', 'Email', 500, false);
 ```
 
+</div>
+
 ### updateField
+
+<div class="apex-member">
 
 ```apex
 global static void updateField(String sObjectName, String fieldApiName, Object fieldValue, QRY_Condition.Evaluable searchConditions, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -254,18 +293,18 @@ global static void updateField(String sObjectName, String fieldApiName, Object f
 Updates a specific field on records in a Salesforce object based on the given search conditions.
 Processes updates in batches with control over partial transaction behavior.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Opportunity').
-- `fieldApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to update.
-- `fieldValue` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The new value to set for the field.
-- `searchConditions` ([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md)) - The conditions used to find the records to update.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
-- `isAllOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to abort the transaction on failure.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Opportunity'). |
+| `fieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to update. |
+| `fieldValue` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The new value to set for the field. |
+| `searchConditions` | [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) | The conditions used to find the records to update. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to abort the transaction on failure. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.Evaluable condition = new QRY_Condition.AndCondition()
@@ -273,7 +312,11 @@ QRY_Condition.Evaluable condition = new QRY_Condition.AndCondition()
 UTIL_BulkUpdates.updateField('Opportunity', 'OwnerId', '005D0000001ABCD', condition, 100, false);
 ```
 
+</div>
+
 ### updateOwner
+
+<div class="apex-member">
 
 ```apex
 global static void updateOwner(String sObjectName, String existingOwnerProfileName, String newOwnerUsername)
@@ -282,19 +325,23 @@ global static void updateOwner(String sObjectName, String existingOwnerProfileNa
 Updates the ownership of records based on the existing owner profile name and new owner username.
 Uses the maximum batch size for processing.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Opportunity').
-- `existingOwnerProfileName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The profile name of the current record owners.
-- `newOwnerUsername` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The username of the new owner to assign to the records.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Opportunity'). |
+| `existingOwnerProfileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The profile name of the current record owners. |
+| `newOwnerUsername` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The username of the new owner to assign to the records. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.updateOwner('Opportunity', 'Sales Rep', 'john.doe@example.com');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static void updateOwner(String sObjectName, String existingOwnerProfileName, String newOwnerUsername, Integer recordsPerBatch, Boolean isAllOrNothing)
@@ -302,19 +349,21 @@ global static void updateOwner(String sObjectName, String existingOwnerProfileNa
 
 Updates the ownership of records based on the current owner profile, new owner username, batch size, and transaction control.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the Salesforce object (e.g., 'Account').
-- `existingOwnerProfileName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The profile name of the current record owners.
-- `newOwnerUsername` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The username of the new owner to assign to the records.
-- `recordsPerBatch` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to process in each batch.
-- `isAllOrNothing` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to abort the transaction on failure.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the Salesforce object (e.g., 'Account'). |
+| `existingOwnerProfileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The profile name of the current record owners. |
+| `newOwnerUsername` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The username of the new owner to assign to the records. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to abort the transaction on failure. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_BulkUpdates.updateOwner('Account', 'Support Rep', 'jane.smith@example.com', 200, true);
 ```
+
+</div>
 

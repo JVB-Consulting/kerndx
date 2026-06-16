@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Exceptions.NotFoundException"
 type: class
+pageClass: reference
 description: "Thrown when a lookup for a specific record or resource yields no results. Commonly raised by selector findByIdOrThrow methods and resource-loading utilities to distinguish \"not found\" from other fai"
 group: "Utilities"
 since: "1.0"

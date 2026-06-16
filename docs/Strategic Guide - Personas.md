@@ -1,3 +1,7 @@
+---
+navOrder: 30
+---
+
 # Strategic Guide — Personas
 
 Supplementary to the [Strategic Guide](Strategic%20Guide%20-%20Overview.md). Consolidates decision factors by stakeholder role. Each persona points at the relevant deep-dive —

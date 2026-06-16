@@ -1,6 +1,7 @@
 ---
 title: "QRY_Function"
 type: class
+pageClass: reference
 description: "Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder's SELECT, GROUP BY and ORDER BY clauses. One static factory per function; the retu"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
@@ -65,27 +66,33 @@ for(QRY_Builder.AggregateRow row : rows)
 
 ### calendarMonth
 
+<div class="apex-member">
+
 ```apex
 global static QRY_Function calendarMonth(SObjectField field)
 ```
 
 Wraps a date/datetime field in CALENDAR_MONTH (1–12 in the calendar year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying CALENDAR_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying CALENDAR_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.calendarMonth(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### calendarQuarter
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function calendarQuarter(SObjectField field)
@@ -93,21 +100,25 @@ global static QRY_Function calendarQuarter(SObjectField field)
 
 Wraps a date/datetime field in CALENDAR_QUARTER (1–4 in the calendar year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying CALENDAR_QUARTER(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying CALENDAR_QUARTER(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.calendarQuarter(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### calendarYear
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function calendarYear(SObjectField field)
@@ -115,21 +126,25 @@ global static QRY_Function calendarYear(SObjectField field)
 
 Wraps a date/datetime field in CALENDAR_YEAR (the four-digit calendar year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying CALENDAR_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying CALENDAR_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.calendarYear(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### dayInMonth
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function dayInMonth(SObjectField field)
@@ -137,21 +152,25 @@ global static QRY_Function dayInMonth(SObjectField field)
 
 Wraps a date/datetime field in DAY_IN_MONTH (1–31).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying DAY_IN_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DAY_IN_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.dayInMonth(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### dayInWeek
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function dayInWeek(SObjectField field)
@@ -159,21 +178,25 @@ global static QRY_Function dayInWeek(SObjectField field)
 
 Wraps a date/datetime field in DAY_IN_WEEK (1 for Sunday through 7 for Saturday).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying DAY_IN_WEEK(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DAY_IN_WEEK(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.dayInWeek(Opportunity.CreatedDate))
 ```
 
+</div>
+
 ### dayInYear
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function dayInYear(SObjectField field)
@@ -181,21 +204,25 @@ global static QRY_Function dayInYear(SObjectField field)
 
 Wraps a date/datetime field in DAY_IN_YEAR (1–366).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying DAY_IN_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DAY_IN_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.dayInYear(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### dayOnly
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function dayOnly(SObjectField field)
@@ -205,22 +232,26 @@ Wraps a datetime field in DAY_ONLY, returning the date with the time component
 dropped. Read back with `AggregateRow.getDate(alias)`, not `getInteger` — DAY_ONLY yields a
 Date, unlike the other date functions which yield an Integer date part.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The datetime field to truncate to a date.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The datetime field to truncate to a date. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying DAY_ONLY(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DAY_ONLY(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .addField(QRY_Function.dayOnly(Opportunity.CreatedDate), 'createdOn')
 // ... row.getDate('createdOn')
 ```
 
+</div>
+
 ### fiscalMonth
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function fiscalMonth(SObjectField field)
@@ -228,21 +259,25 @@ global static QRY_Function fiscalMonth(SObjectField field)
 
 Wraps a date/datetime field in FISCAL_MONTH (1–12 within the org's fiscal year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying FISCAL_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying FISCAL_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.fiscalMonth(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### fiscalQuarter
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function fiscalQuarter(SObjectField field)
@@ -250,21 +285,25 @@ global static QRY_Function fiscalQuarter(SObjectField field)
 
 Wraps a date/datetime field in FISCAL_QUARTER (1–4 within the org's fiscal year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying FISCAL_QUARTER(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying FISCAL_QUARTER(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.fiscalQuarter(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### fiscalYear
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function fiscalYear(SObjectField field)
@@ -272,21 +311,25 @@ global static QRY_Function fiscalYear(SObjectField field)
 
 Wraps a date/datetime field in FISCAL_YEAR (the org's fiscal year).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying FISCAL_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying FISCAL_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.fiscalYear(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### hourInDay
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function hourInDay(SObjectField field)
@@ -294,21 +337,25 @@ global static QRY_Function hourInDay(SObjectField field)
 
 Wraps a datetime field in HOUR_IN_DAY (0–23, in the running user's time zone).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying HOUR_IN_DAY(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying HOUR_IN_DAY(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.hourInDay(Opportunity.CreatedDate))
 ```
 
+</div>
+
 ### weekInMonth
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function weekInMonth(SObjectField field)
@@ -316,21 +363,25 @@ global static QRY_Function weekInMonth(SObjectField field)
 
 Wraps a date/datetime field in WEEK_IN_MONTH (1–6).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying WEEK_IN_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying WEEK_IN_MONTH(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.weekInMonth(Opportunity.CloseDate))
 ```
 
+</div>
+
 ### weekInYear
+
+<div class="apex-member">
 
 ```apex
 global static QRY_Function weekInYear(SObjectField field)
@@ -338,17 +389,19 @@ global static QRY_Function weekInYear(SObjectField field)
 
 Wraps a date/datetime field in WEEK_IN_YEAR (1–53).
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The date or datetime field to bucket.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The date or datetime field to bucket. |
 
-**Returns:** [QRY_Function](QRY_Function.md) - A QRY_Function carrying WEEK_IN_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying WEEK_IN_YEAR(field) for use in SELECT, GROUP BY or ORDER BY.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 .groupBy(QRY_Function.weekInYear(Opportunity.CloseDate))
 ```
+
+</div>
 

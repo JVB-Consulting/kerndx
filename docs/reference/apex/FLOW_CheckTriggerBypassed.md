@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CheckTriggerBypassed"
 type: class
+pageClass: reference
 description: "This class is used to check whether certain triggers or actions are bypassed in the system. The class provides a method that can be invoked from a flow or Apex to determine if an object-level, Apex tr"
 author: "Jason Van Beukering"
 group: "Triggers"
@@ -51,6 +52,8 @@ Boolean isBypassed = results[0];
 
 ### isBypassed
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Trigger Actions' description='Returns if the bypass for an Object or Apex trigger action class is set to true.' label='Is Bypassed') global static List<Boolean> isBypassed(List<FLOW_CheckTriggerBypassed.DTO_Request> dtoRequests)
 ```
@@ -61,19 +64,21 @@ Each request contains the name of the object or Apex class to be checked, and th
 (either for a class name or object name). This object is passed into the isBypassed method to specify
 the bypass type and target.
 
-**Parameters:**
+**Parameters**
 
-- `dtoRequests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of Action Names and Types
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoRequests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of Action Names and Types |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - If the action has been bypassed
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — If the action has been bypassed
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - Will throw exception if more than one request is provided or the bypass type is invalid
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | Will throw exception if more than one request is provided or the bypass type is invalid |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<DTO_Request> requests = new List<DTO_Request>();
@@ -83,4 +88,6 @@ request.bypassType = 'OBJECT_NAME';
 requests.add(request);
 List<Boolean> isBypassedResult = FLOW_CheckTriggerBypassed.isBypassed(requests);
 ```
+
+</div>
 

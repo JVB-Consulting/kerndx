@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.CampaignContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Campaign object. Provides typed access to Campaign records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is bla"
 since: "1.0"
 category: apex

@@ -1,6 +1,7 @@
 ---
 title: "SEL_Group"
 type: class
+pageClass: reference
 description: "Selector for Salesforce Group objects. Provides query methods for group lookup and recursive group membership resolution including role-based groups, role hierarchies, and nested group membership."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -51,21 +52,25 @@ List<User> members = new SEL_Group().findAllUsers(new Set<Id>{groupId});
 
 ### SEL_Group
 
+<div class="apex-member">
+
 ```apex
 global SEL_Group()
 ```
 
 Constructs a new SEL_Group selector instance.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_Group instance = new SEL_Group();
 ```
 
+</div>
+
 ### findAllUsers
+
+<div class="apex-member">
 
 ```apex
 global List<User> findAllUsers(Set<Id> parentGroupIds)
@@ -83,22 +88,26 @@ This method handles complex group structures by:
 
 - Avoiding infinite loops through iterative processing
 
-**Parameters:**
+**Parameters**
 
-- `parentGroupIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of Group IDs to analyze for user membership.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parentGroupIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of Group IDs to analyze for user membership. |
 
-**Returns:** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) - List of User records that are members of the specified groups (directly or indirectly).
+**Returns** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) — List of User records that are members of the specified groups (directly or indirectly).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> groupIds = new Set<Id>{ '00G3X000001AbcD' };
 List<User> allUsers = new SEL_Group().findAllUsers(groupIds);
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global Group findByName(String groupName)
@@ -106,21 +115,25 @@ global Group findByName(String groupName)
 
 Finds a Group by its Name field.
 
-**Parameters:**
+**Parameters**
 
-- `groupName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Name to search for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `groupName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Name to search for. |
 
-**Returns:** [Group](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_group.htm) - The found Group, or null if not found.
+**Returns** [Group](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_group.htm) — The found Group, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Group result = instance.findByName('myName');
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -128,17 +141,19 @@ global override List<SObjectField> getFields()
 
 Returns the default fields for Group queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of SObjectField tokens to include in queries.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of SObjectField tokens to include in queries.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
 
+</div>
+
 ### userIsInGroup
+
+<div class="apex-member">
 
 ```apex
 global Boolean userIsInGroup(Id userId, String groupName)
@@ -146,18 +161,20 @@ global Boolean userIsInGroup(Id userId, String groupName)
 
 Checks whether a user is a member of a named group.
 
-**Parameters:**
+**Parameters**
 
-- `userId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The User Id to check.
-- `groupName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Name of the group to check membership in.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `userId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The User Id to check. |
+| `groupName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Name of the group to check membership in. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the user is a member of the group.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the user is a member of the group.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.userIsInGroup(recordId, 'myName');
 ```
+
+</div>
 

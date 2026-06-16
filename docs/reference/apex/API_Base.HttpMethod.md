@@ -1,6 +1,7 @@
 ---
 title: "API_Base.HttpMethod"
 type: class
+pageClass: reference
 description: "HTTP method verbs for web service calls."
 since: "1.0"
 category: apex

@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CallApi"
 type: class
+pageClass: reference
 description: "Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightning Flow or Process Builder. Receives a list of requests, sends them to their respec"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -52,21 +53,23 @@ List<FLOW_CallApi.DTO_Response> responses = FLOW_CallApi.invokeApiCallSynchronou
 
 ### invokeApiCallSynchronously
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Api Callouts' description='Makes a real-time HTTP callout to an external system using a configured API handler. Use when a Flow needs to send or retrieve data from an external service and wait for the response.' label='Invoke Callout Synchronously' callout=true) global static List<FLOW_CallApi.DTO_Response> invokeApiCallSynchronously(List<FLOW_CallApi.DTO_Request> requestDataTransferObjects)
 ```
 
 Invokes web service calls synchronously using a list of DTO_Request objects.
 
-**Parameters:**
+**Parameters**
 
-- `requestDataTransferObjects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of web service requests to execute.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `requestDataTransferObjects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of web service requests to execute. |
 
-**Returns:** [FLOW_CallApi.DTO_Response](FLOW_CallApi.DTO_Response.md) - List The results of the calls.
+**Returns** [FLOW_CallApi.DTO_Response](FLOW_CallApi.DTO_Response.md) — List The results of the calls.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<FLOW_CallApi.DTO_Request> requests = new List<FLOW_CallApi.DTO_Request>();
@@ -76,4 +79,6 @@ request.inputs = 'customerId=5678';
 requests.add(request);
 List<FLOW_CallApi.DTO_Response> responses = FLOW_CallApi.invokeApiCallSynchronously(requests);
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "ApiCall__c"
 type: sobject
+pageClass: reference
 description: "Tracks API calls (inbound and outbound) through their full lifecycle. Each record represents a single API call with its request, response, status, and performance metrics."
 category: objects
 ---

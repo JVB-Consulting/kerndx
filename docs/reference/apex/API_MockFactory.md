@@ -1,6 +1,7 @@
 ---
 title: "API_MockFactory"
 type: class
+pageClass: reference
 description: "Central factory for mock response management. Provides test isolation via scoped registries and supports both memory-based (unit tests) and metadata-based (runtime) mocking. Features: Memory mocks for"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -58,15 +59,19 @@ API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 
 ### clearMocks
 
+<div class="apex-member">
+
 ```apex
 global static void clearMocks()
 ```
 
 Clears all registered memory mocks and invocation history.
 
-**Since:** 1.0
+</div>
 
 ### forService
+
+<div class="apex-member">
 
 ```apex
 global static API_MockFactory.MockBuilder forService(String serviceClassName)
@@ -74,15 +79,15 @@ global static API_MockFactory.MockBuilder forService(String serviceClassName)
 
 Creates a fluent builder for registering a mock response.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The fully qualified service class name
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The fully qualified service class name |
 
-**Returns:** [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) - A new MockBuilder for chaining
+**Returns** [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) — A new MockBuilder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.forService('API_SendEmail')
@@ -91,7 +96,11 @@ API_MockFactory.forService('API_SendEmail')
     .register();
 ```
 
+</div>
+
 ### lastRequestContains
+
+<div class="apex-member">
 
 ```apex
 global static Boolean lastRequestContains(String serviceClassName, String expectedContent)
@@ -99,16 +108,20 @@ global static Boolean lastRequestContains(String serviceClassName, String expect
 
 Verifies that the last invocation contained specific text in the request body.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name
-- `expectedContent` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Text that should be present in the request body
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name |
+| `expectedContent` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Text that should be present in the request body |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the last request body contains the expected content
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the last request body contains the expected content
 
-**Since:** 1.0
+</div>
 
 ### registerErrorMock
+
+<div class="apex-member">
 
 ```apex
 global static void registerErrorMock(String serviceClassName)
@@ -116,19 +129,23 @@ global static void registerErrorMock(String serviceClassName)
 
 Registers an error mock (500 Internal Server Error) for the given service.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to register an error mock for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to register an error mock for |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 ```
 
+</div>
+
 ### registerParseFailMock
+
+<div class="apex-member">
 
 ```apex
 global static void registerParseFailMock(String serviceClassName)
@@ -136,19 +153,23 @@ global static void registerParseFailMock(String serviceClassName)
 
 Registers a parse-fail mock (200 OK with unparseable body) for the given service.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to register a parse-fail mock for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to register a parse-fail mock for |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 API_MockFactory.registerParseFailMock(API_SendEmail.class.getName());
 ```
 
+</div>
+
 ### wasCalled
+
+<div class="apex-member">
 
 ```apex
 global static Boolean wasCalled(String serviceClassName)
@@ -156,15 +177,19 @@ global static Boolean wasCalled(String serviceClassName)
 
 Verifies that a mock was called at least once.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the mock was invoked at least once
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the mock was invoked at least once
 
-**Since:** 1.0
+</div>
 
 ### wasNeverCalled
+
+<div class="apex-member">
 
 ```apex
 global static Boolean wasNeverCalled(String serviceClassName)
@@ -172,11 +197,13 @@ global static Boolean wasNeverCalled(String serviceClassName)
 
 Verifies that a mock was never called.
 
-**Parameters:**
+**Parameters**
 
-- `serviceClassName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The service class name to verify
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The service class name to verify |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the mock was never invoked
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the mock was never invoked
 
-**Since:** 1.0
+</div>
 

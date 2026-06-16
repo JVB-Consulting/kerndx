@@ -1,3 +1,7 @@
+---
+navOrder: 60
+---
+
 # Fast Start - Custom Validations
 
 **Framework:** KernDX | **Total time:** ~25 minutes

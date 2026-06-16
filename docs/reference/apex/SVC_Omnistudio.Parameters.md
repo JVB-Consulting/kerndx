@@ -1,6 +1,7 @@
 ---
 title: "SVC_Omnistudio.Parameters"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing them into distinct input, output, and option maps. This global inherited sharing class is designed "
 since: "1.0"
 category: apex
@@ -91,27 +92,33 @@ Example:
 
 ### getInputVariable
 
+<div class="apex-member">
+
 ```apex
 global Object getInputVariable(String key)
 ```
 
 Retrieves the value of an input variable from the input map.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the input variable to retrieve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the input variable to retrieve. |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - Returns the value associated with the specified key, or null if the key is not found.
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — Returns the value associated with the specified key, or null if the key is not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object result = instance.getInputVariable('value');
 ```
 
+</div>
+
 ### getOptionVariable
+
+<div class="apex-member">
 
 ```apex
 global Object getOptionVariable(String key)
@@ -119,21 +126,25 @@ global Object getOptionVariable(String key)
 
 Retrieves the value of an option variable from the options map.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the option variable to retrieve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the option variable to retrieve. |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - Returns the value associated with the specified key, or null if the key is not found.
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — Returns the value associated with the specified key, or null if the key is not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object result = instance.getOptionVariable('value');
 ```
 
+</div>
+
 ### setOutputVariable
+
+<div class="apex-member">
 
 ```apex
 global void setOutputVariable(String key, Object value)
@@ -142,16 +153,18 @@ global void setOutputVariable(String key, Object value)
 Sets the value of an output variable in the output map. This method is used to store
 the results of operations for retrieval after method execution.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the output variable to set.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The value to assign to the specified key in the output map.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the output variable to set. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to assign to the specified key in the output map. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.setOutputVariable('value', 'value');
 ```
+
+</div>
 

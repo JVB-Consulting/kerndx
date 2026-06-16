@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.PostActionContext"
 type: class
+pageClass: reference
 description: "Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. Carries the set of SObject types whose triggers participated in the transaction so the post-action c"
 since: "1.1"
 category: apex
@@ -72,6 +73,8 @@ Since:
 
 ### PostActionContext
 
+<div class="apex-member">
+
 ```apex
 global PostActionContext(Set<SObjectType> touched)
 ```
@@ -81,9 +84,11 @@ SObject types. A null argument is normalised to an empty Set so subscribers can
 safely call `.contains(...)` without null-checking. Intended for framework and
 unit-test construction; subscribers receive instances via `PostAction.execute`.
 
-**Parameters:**
+**Parameters**
 
-- `touched` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - The set of SObject types whose triggers participated, or null.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `touched` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The set of SObject types whose triggers participated, or null. |
 
-**Since:** 1.1
+</div>
 

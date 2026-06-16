@@ -1,6 +1,7 @@
 ---
 title: "UTIL_ValidationRule.ValidationError"
 type: class
+pageClass: reference
 description: "Represents a single validation error or warning."
 since: "1.0"
 category: apex
@@ -45,26 +46,30 @@ Represents a single validation error or warning.
 
 ### ValidationError
 
+<div class="apex-member">
+
 ```apex
 global ValidationError(String ruleName, String message, String fieldName, String severity)
 ```
 
 Constructs a new ValidationError.
 
-**Parameters:**
+**Parameters**
 
-- `ruleName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The rule DeveloperName
-- `message` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The error message
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The field API name (may be null)
-- `severity` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The severity level
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `ruleName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The rule DeveloperName |
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The error message |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field API name (may be null) |
+| `severity` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The severity level |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.ValidationError instance = new UTIL_ValidationRule.ValidationError('myName', 'An error occurred', 'myName', 'Error');
 ```
+
+</div>
 
 ---
 

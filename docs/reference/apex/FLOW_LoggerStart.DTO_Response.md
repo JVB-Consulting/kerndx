@@ -1,6 +1,7 @@
 ---
 title: "FLOW_LoggerStart.DTO_Response"
 type: class
+pageClass: reference
 description: "Output containing the generated correlation ID."
 since: "1.0"
 category: apex

@@ -1,6 +1,7 @@
 ---
 title: "SEL_Foobar"
 type: class
+pageClass: reference
 description: "Selector for the Foobar__c SObject. Provides query methods and field/metadata constants for the framework's test data object."
 author: "Jason Van Beukering"
 group: "Selectors"

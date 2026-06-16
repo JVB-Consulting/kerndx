@@ -1,6 +1,7 @@
 ---
 title: "SCHED_Base"
 type: class
+pageClass: reference
 description: "Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definitio"
 author: "Jason Van Beukering"
 group: "Schedulables"
@@ -66,21 +67,27 @@ global class SCHED_MyJob extends SCHED_Base
 
 ### getBooleanParameter
 
+<div class="apex-member">
+
 ```apex
 global Boolean getBooleanParameter(String name)
 ```
 
 Returns a FLAG (boolean) parameter value.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - The boolean value, defaulting to false if not set.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — The boolean value, defaulting to false if not set.
 
-**Since:** 1.0
+</div>
 
 ### getNumericParameter
+
+<div class="apex-member">
 
 ```apex
 global Integer getNumericParameter(String name)
@@ -88,15 +95,19 @@ global Integer getNumericParameter(String name)
 
 Returns a NUMERIC parameter value.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name. |
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - The integer value, or null if not set or not numeric.
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The integer value, or null if not set or not numeric.
 
-**Since:** 1.0
+</div>
 
 ### getParameterDefinitions
+
+<div class="apex-member">
 
 ```apex
 global virtual List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
@@ -106,11 +117,9 @@ Returns the parameter definitions supported by this scheduled job.
 Override in subclasses to declare parameters for dynamic form rendering.
 Returns an empty list by default.
 
-**Returns:** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) - List of parameter definitions.
+**Returns** [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) — List of parameter definitions.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public override List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
@@ -123,7 +132,11 @@ public override List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
 }
 ```
 
+</div>
+
 ### getTextParameter
+
+<div class="apex-member">
 
 ```apex
 global String getTextParameter(String name)
@@ -131,15 +144,19 @@ global String getTextParameter(String name)
 
 Returns a TEXT parameter value.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The string value, or null if not set.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The string value, or null if not set.
 
-**Since:** 1.0
+</div>
 
 ### setParameterValues
+
+<div class="apex-member">
 
 ```apex
 global void setParameterValues(DTO_NameValues parameterValues)
@@ -148,9 +165,11 @@ global void setParameterValues(DTO_NameValues parameterValues)
 Stores the provided parameter values. The property setter automatically
 resolves raw values into typed parameters.
 
-**Parameters:**
+**Parameters**
 
-- `parameterValues` ([DTO_NameValues](DTO_NameValues.md)) - The name-value pairs containing the resolved parameter values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameterValues` | [DTO_NameValues](DTO_NameValues.md) | The name-value pairs containing the resolved parameter values. |
 
-**Since:** 1.0
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.Metrics"
 type: class
+pageClass: reference
 description: "Public class containing circuit breaker metrics"
 since: "1.0"
 category: apex

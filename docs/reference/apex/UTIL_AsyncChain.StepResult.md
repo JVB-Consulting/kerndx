@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsyncChain.StepResult"
 type: class
+pageClass: reference
 description: "Immutable result object returned by each ChainStep to indicate success or failure. Use the static factory methods to create instances."
 since: "1.0"
 category: apex

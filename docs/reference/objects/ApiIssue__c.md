@@ -1,6 +1,7 @@
 ---
 title: "ApiIssue__c"
 type: sobject
+pageClass: reference
 description: "Tracks API integration issues for troubleshooting, manual resolution, and automatic retry of failed service calls. Each record captures the error details, request parameters, and links to the originat"
 category: objects
 ---

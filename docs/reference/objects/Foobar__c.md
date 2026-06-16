@@ -1,6 +1,7 @@
 ---
 title: "Foobar__c"
 type: sobject
+pageClass: reference
 description: "Test object for managed package unit tests. Used to demonstrate and validate library functions. Do not use outside test contexts."
 category: objects
 ---

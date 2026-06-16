@@ -1,3 +1,7 @@
+---
+navOrder: 14
+---
+
 # Strategic Guide — Adoption
 
 > Decision support for engineering managers evaluating KernDX adoption: enterprise-delivery realities, TCO modelling, AI tooling alignment, decision matrices, coexistence patterns,

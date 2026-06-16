@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.OpportunityContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Opportunity object. Provides typed access to Opportunity records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c "
 since: "1.0"
 category: apex
