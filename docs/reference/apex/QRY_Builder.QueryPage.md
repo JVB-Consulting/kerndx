@@ -1,6 +1,7 @@
 ---
 title: "QRY_Builder.QueryPage"
 type: class
+pageClass: reference
 description: "Result container for paged queries, providing records and pagination metadata."
 since: "1.0"
 category: apex

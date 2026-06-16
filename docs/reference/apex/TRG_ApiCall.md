@@ -1,6 +1,7 @@
 ---
 title: "TRG_ApiCall"
 type: trigger
+pageClass: reference
 description: "Trigger on ApiCall__c. Fires the configured trigger actions for content-document cleanup on delete and for data masking before insert and update."
 author: "Jason Van Beukering"
 date: "November 2023, February 2026, April 2026"

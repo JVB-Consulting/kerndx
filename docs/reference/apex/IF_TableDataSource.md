@@ -1,6 +1,7 @@
 ---
 title: "IF_TableDataSource"
 type: class
+pageClass: reference
 description: "Generic Interface for Table data sources"
 author: "Jason Van Beukering"
 group: "Controllers"
@@ -49,17 +50,21 @@ public class AccountTableSource implements IF_TableDataSource
 
 ### fetch
 
+<div class="apex-member">
+
 ```apex
 global abstract DTO_BaseTable fetch(Map<String, Object> searchParameters)
 ```
 
 Table datasource function to be implemented
 
-**Parameters:**
+**Parameters**
 
-- `searchParameters` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of fetch parameters - individual implementations can expect differing parameters.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchParameters` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of fetch parameters - individual implementations can expect differing parameters. |
 
-**Returns:** [DTO_BaseTable](DTO_BaseTable.md) - Table Response object. Individual implementations must all use the standard response structure.
+**Returns** [DTO_BaseTable](DTO_BaseTable.md) — Table Response object. Individual implementations must all use the standard response structure.
 
-**Since:** 1.0
+</div>
 

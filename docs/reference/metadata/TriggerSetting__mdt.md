@@ -1,6 +1,7 @@
 ---
 title: "TriggerSetting__mdt"
 type: sobject
+pageClass: reference
 description: "Parent configuration for all trigger actions on a single object. Links to an EntityDefinition to identify the SObject, and provides object-level bypass, permission gating, and performance logging cont"
 category: metadata
 ---

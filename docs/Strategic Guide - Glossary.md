@@ -1,3 +1,7 @@
+---
+navOrder: 60
+---
+
 # Strategic Guide — Glossary
 
 Supplementary to the [Strategic Guide](Strategic%20Guide%20-%20Overview.md).

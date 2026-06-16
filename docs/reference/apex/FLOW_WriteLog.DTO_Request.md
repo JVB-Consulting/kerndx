@@ -1,6 +1,7 @@
 ---
 title: "FLOW_WriteLog.DTO_Request"
 type: class
+pageClass: reference
 description: "Data Transfer Object (DTO) for log requests, specifying log level, message details, and context."
 since: "1.0"
 category: apex

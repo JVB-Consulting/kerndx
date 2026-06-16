@@ -1,6 +1,7 @@
 ---
 title: "TST_Mock.MockBuilder"
 type: class
+pageClass: reference
 description: "Fluent builder wrapper that delegates to TST_Builder.Builder for record construction and auto-registers built records with TST_Mock."
 since: "1.0"
 category: apex
@@ -52,6 +53,8 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 
 ### build
 
+<div class="apex-member">
+
 ```apex
 global SObject build()
 ```
@@ -59,17 +62,19 @@ global SObject build()
 Builds a single mock record with a mock ID and registers it with TST_Mock
 for query interception.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The built mock SObject record.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The built mock SObject record.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType).build();
 ```
 
+</div>
+
 ### buildList
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> buildList()
@@ -78,11 +83,9 @@ global List<SObject> buildList()
 Builds a list of mock records with mock IDs and registers them with TST_Mock
 for query interception.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The list of built mock SObject records.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The list of built mock SObject records.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
@@ -90,7 +93,11 @@ List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
     .buildList();
 ```
 
+</div>
+
 ### withChildren
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count)
@@ -98,16 +105,16 @@ global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count)
 
 Adds child records to the parent mock without field overrides.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records.
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records. |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account mock = (Account)TST_Mock.of(Account.SObjectType)
@@ -115,23 +122,27 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count, Map<SObjectField, Object> overrides)
 ```
 
 Adds child records to the parent mock using SObjectField token overrides.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records.
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create.
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Field overrides for child records using SObjectField tokens.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records. |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create. |
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Field overrides for child records using SObjectField tokens. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account mock = (Account)TST_Mock.of(Account.SObjectType)
@@ -141,23 +152,27 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withChildren(SObjectType childType, Integer count, Map<String, Object> overrides)
 ```
 
 Adds child records to the parent mock using String field name overrides.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records.
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create.
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Field overrides for child records using String field names.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records. |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create. |
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Field overrides for child records using String field names. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account mock = (Account)TST_Mock.of(Account.SObjectType)
@@ -167,6 +182,10 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withChildren(String relationshipName, TST_Builder.Builder childBuilder)
 ```
@@ -175,16 +194,16 @@ Adds child records using a pre-configured TST_Builder.Builder with
 an explicit relationship name. Use when multiple relationships exist between
 the same parent and child types.
 
-**Parameters:**
+**Parameters**
 
-- `relationshipName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The child relationship name (e.g., 'Contacts').
-- `childBuilder` ([TST_Builder.Builder](TST_Builder.Builder.md)) - A pre-configured Builder instance for the child records.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `relationshipName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The child relationship name (e.g., 'Contacts'). |
+| `childBuilder` | [TST_Builder.Builder](TST_Builder.Builder.md) | A pre-configured Builder instance for the child records. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
@@ -194,6 +213,10 @@ Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withChildren(TST_Builder.Builder childBuilder)
 ```
@@ -201,15 +224,15 @@ global TST_Mock.MockBuilder withChildren(TST_Builder.Builder childBuilder)
 Adds child records using a pre-configured TST_Builder.Builder with
 auto-detected relationship name.
 
-**Parameters:**
+**Parameters**
 
-- `childBuilder` ([TST_Builder.Builder](TST_Builder.Builder.md)) - A pre-configured Builder instance for the child records.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childBuilder` | [TST_Builder.Builder](TST_Builder.Builder.md) | A pre-configured Builder instance for the child records. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account mock = (Account)TST_Mock.of(Account.SObjectType)
@@ -221,7 +244,11 @@ Account mock = (Account)TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withCount
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withCount(Integer count)
@@ -229,15 +256,15 @@ global TST_Mock.MockBuilder withCount(Integer count)
 
 Sets the number of mock records to build.
 
-**Parameters:**
+**Parameters**
 
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to create.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to create. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
@@ -245,7 +272,11 @@ List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
     .buildList();
 ```
 
+</div>
+
 ### withCycle
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withCycle(SObjectField field, List<Object> values)
@@ -254,16 +285,16 @@ global TST_Mock.MockBuilder withCycle(SObjectField field, List<Object> values)
 Assigns a list of values that cycle across mock records built by `buildList()`.
 When more records are built than values provided, the values repeat from the beginning.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field to cycle.
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of values to cycle through. Must not be null or empty.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field to cycle. |
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of values to cycle through. Must not be null or empty. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
@@ -272,6 +303,10 @@ List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
     .buildList();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withCycle(String fieldName, List<Object> values)
 ```
@@ -279,16 +314,16 @@ global TST_Mock.MockBuilder withCycle(String fieldName, List<Object> values)
 Assigns a list of values that cycle across mock records built by `buildList()`.
 When more records are built than values provided, the values repeat from the beginning.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to cycle.
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of values to cycle through. Must not be null or empty.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to cycle. |
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of values to cycle through. Must not be null or empty. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
@@ -297,7 +332,11 @@ List<SObject> mocks = TST_Mock.of(Foobar__c.SObjectType)
     .buildList();
 ```
 
+</div>
+
 ### withDefaultedField
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withDefaultedField(SObjectField field)
@@ -305,15 +344,15 @@ global TST_Mock.MockBuilder withDefaultedField(SObjectField field)
 
 Specifies a single field to populate with a default value using an SObjectField token.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
@@ -321,21 +360,25 @@ TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withDefaultedField(String fieldName)
 ```
 
 Specifies a single field to populate with a default value using a String name.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Foobar__c.SObjectType)
@@ -343,7 +386,11 @@ TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withDefaultedFields
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withDefaultedFields(List<Object> fields)
@@ -351,15 +398,15 @@ global TST_Mock.MockBuilder withDefaultedFields(List<Object> fields)
 
 Specifies fields to populate with default values, even if not required.
 
-**Parameters:**
+**Parameters**
 
-- `fields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of fields (SObjectField tokens or String API names).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of fields (SObjectField tokens or String API names). |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
@@ -367,7 +414,11 @@ TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withOptionalField
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOptionalField(SObjectField field)
@@ -375,15 +426,15 @@ global TST_Mock.MockBuilder withOptionalField(SObjectField field)
 
 Specifies a field to treat as optional using an SObjectField token.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field to mark as optional.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field to mark as optional. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
@@ -391,21 +442,25 @@ TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Mock.MockBuilder withOptionalField(String fieldName)
 ```
 
 Specifies a field to treat as optional using a String name.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to mark as optional.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to mark as optional. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
@@ -413,7 +468,11 @@ TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withOptionalFields
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOptionalFields(List<Object> fields)
@@ -421,15 +480,15 @@ global TST_Mock.MockBuilder withOptionalFields(List<Object> fields)
 
 Specifies fields to treat as optional, preventing auto-population.
 
-**Parameters:**
+**Parameters**
 
-- `fields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of fields (SObjectField tokens or String API names).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of fields (SObjectField tokens or String API names). |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
@@ -437,7 +496,11 @@ TST_Mock.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withOverride
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOverride(SObjectField field, Object value)
@@ -445,22 +508,26 @@ global TST_Mock.MockBuilder withOverride(SObjectField field, Object value)
 
 Sets a single field value override for the mock records.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObject field to override.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The value to set.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObject field to override. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to set. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Foobar__c.SObjectType)
     .withOverride(Foobar__c.Name, 'Test')
     .build();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOverride(String fieldName, Object value)
@@ -469,16 +536,16 @@ global TST_Mock.MockBuilder withOverride(String fieldName, Object value)
 Sets a single field value override using a String field name. Supports
 relationship traversal paths like 'Account.Name'.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The value to set.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to set. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Foobar__c.SObjectType)
@@ -486,7 +553,11 @@ TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withOverrides
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOverrides(Map<SObjectField, Object> fieldOverrides)
@@ -494,21 +565,25 @@ global TST_Mock.MockBuilder withOverrides(Map<SObjectField, Object> fieldOverrid
 
 Sets field value overrides for the mock records.
 
-**Parameters:**
+**Parameters**
 
-- `fieldOverrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of SObjectField to override values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldOverrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of SObjectField to override values. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Foobar__c.SObjectType)
     .withOverrides(new Map<SObjectField, Object>{ Foobar__c.Name => 'Test' })
     .build();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withOverrides(Map<String, Object> overrides)
@@ -517,15 +592,15 @@ global TST_Mock.MockBuilder withOverrides(Map<String, Object> overrides)
 Sets field value overrides using String field names. Supports relationship
 traversal paths like 'Account.Name'.
 
-**Parameters:**
+**Parameters**
 
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of field API names to override values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of field API names to override values. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Foobar__c.SObjectType)
@@ -533,7 +608,11 @@ TST_Mock.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withRecordType
+
+<div class="apex-member">
 
 ```apex
 global TST_Mock.MockBuilder withRecordType(String recordTypeDeveloperName)
@@ -541,19 +620,21 @@ global TST_Mock.MockBuilder withRecordType(String recordTypeDeveloperName)
 
 Sets the Record Type for the mock records using the Record Type's DeveloperName.
 
-**Parameters:**
+**Parameters**
 
-- `recordTypeDeveloperName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName of the Record Type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordTypeDeveloperName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName of the Record Type. |
 
-**Returns:** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) - This MockBuilder instance for method chaining.
+**Returns** [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) — This MockBuilder instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_Mock.of(Account.SObjectType)
     .withRecordType('Enterprise_Account')
     .build();
 ```
+
+</div>
 

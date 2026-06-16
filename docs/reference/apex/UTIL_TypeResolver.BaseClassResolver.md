@@ -1,6 +1,7 @@
 ---
 title: "UTIL_TypeResolver.BaseClassResolver"
 type: class
+pageClass: reference
 description: "Abstract base class for implementing custom type resolvers, typically registered via custom metadata."
 since: "1.0"
 category: apex
@@ -44,26 +45,30 @@ Abstract base class for implementing custom type resolvers, typically registered
 
 ### resolveType
 
+<div class="apex-member">
+
 ```apex
 global abstract Type resolveType(String typeName)
 ```
 
 Resolves a Type object from a class name.
 
-**Parameters:**
+**Parameters**
 
-- `typeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the class to resolve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `typeName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the class to resolve. |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The resolved Type object, or null if not found.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The resolved Type object, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 BaseClassResolver resolver = new PackageClassResolver();
 Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
 ```
+
+</div>
 
 ---
 

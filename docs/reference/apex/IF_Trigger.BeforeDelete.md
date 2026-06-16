@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.BeforeDelete"
 type: class
+pageClass: reference
 description: "Handler contract for the before-delete trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the before-delete trigger event.
 
 ### beforeDelete
 
+<div class="apex-member">
+
 ```apex
 global abstract void beforeDelete(List<SObject> oldRecords)
 ```
@@ -41,13 +44,13 @@ global abstract void beforeDelete(List<SObject> oldRecords)
 Called before records are removed from the database, enabling
 deletion guards, referential integrity checks, or pre-delete archival logic.
 
-**Parameters:**
+**Parameters**
 
-- `oldRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects about to be deleted.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `oldRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects about to be deleted. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_PreventProtectedDelete extends TRG_Base implements IF_Trigger.BeforeDelete
@@ -64,4 +67,6 @@ public class TRG_PreventProtectedDelete extends TRG_Base implements IF_Trigger.B
     }
 }
 ```
+
+</div>
 

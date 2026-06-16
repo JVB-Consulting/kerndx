@@ -1,6 +1,7 @@
 ---
 title: "LoginFrequency__c"
 type: sobject
+pageClass: reference
 description: "Tracks monthly login activity per user, including total login count and number of unique days logged in. Used for login adoption reporting."
 category: objects
 ---

@@ -1,3 +1,7 @@
+---
+navOrder: 16
+---
+
 # KernDX — Choosing a Framework
 
 > A capability-by-capability guide to choosing between KernDX and the established Salesforce Apex frameworks — [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common), [`taf`](https://github.com/mitchspano/apex-trigger-actions-framework), [`rflib`](https://github.com/j-fischer/rflib), [`nebula-logger`](https://github.com/jongpie/NebulaLogger), [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library),

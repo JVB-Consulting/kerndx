@@ -1,6 +1,7 @@
 ---
 title: "PostTriggerAction__mdt"
 type: sobject
+pageClass: reference
 description: "Registers a single post-trigger action: one Apex class that runs once at the end of a trigger transaction, after all trigger actions on every object have completed. Use for cross-object work that cann"
 category: metadata
 ---

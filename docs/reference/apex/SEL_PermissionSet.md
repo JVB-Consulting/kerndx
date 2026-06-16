@@ -1,6 +1,7 @@
 ---
 title: "SEL_PermissionSet"
 type: class
+pageClass: reference
 description: "Selector for the PermissionSet SObject. Provides default field configuration and query methods for PermissionSet records, including namespace-aware lookup."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -48,21 +49,25 @@ PermissionSet permissionSet = (PermissionSet)new SEL_PermissionSet().findById(pe
 
 ### SEL_PermissionSet
 
+<div class="apex-member">
+
 ```apex
 global SEL_PermissionSet()
 ```
 
 Constructs a PermissionSet selector with the PermissionSet SObjectType.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_PermissionSet instance = new SEL_PermissionSet();
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global PermissionSet findByName(String name)
@@ -71,21 +76,25 @@ global PermissionSet findByName(String name)
 Retrieves a PermissionSet record by name, searching both subscriber org (NamespacePrefix = null)
 and managed package namespace. Subscriber org version takes precedence.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the PermissionSet to retrieve (without namespace prefix)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the PermissionSet to retrieve (without namespace prefix) |
 
-**Returns:** [PermissionSet](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionset.htm) - The matching PermissionSet, or null if not found
+**Returns** [PermissionSet](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionset.htm) — The matching PermissionSet, or null if not found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PermissionSet result = new SEL_PermissionSet().findByName('ReadOnly');
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -93,13 +102,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for PermissionSet queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of PermissionSet SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of PermissionSet SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

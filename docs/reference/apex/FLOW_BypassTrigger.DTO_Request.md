@@ -1,6 +1,7 @@
 ---
 title: "FLOW_BypassTrigger.DTO_Request"
 type: class
+pageClass: reference
 description: "Request DTO for the Trigger Bypass invocable action."
 since: "1.0"
 category: apex

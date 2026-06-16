@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy"
 type: class
+pageClass: reference
 description: "Extended interface for custom strategies that support user context evaluation. Implement this interface instead of INT_FeatureFlagStrategy when your custom strategy needs to evaluate for a specific us"
 since: "1.0"
 category: apex
@@ -52,19 +53,23 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_UserAwareFeature
 
 ### isEnabledForUser
 
+<div class="apex-member">
+
 ```apex
 global abstract Boolean isEnabledForUser(FeatureFlag__mdt flag, FeatureFlagStrategy__mdt strategyToEvaluate, Id userId)
 ```
 
 Evaluates the strategy for a specific user.
 
-**Parameters:**
+**Parameters**
 
-- `flag` ([FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md)) - The parent Feature Flag custom metadata record
-- `strategyToEvaluate` ([FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md)) - The specific strategy record being evaluated
-- `userId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The user to evaluate the strategy for (may differ from running user)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flag` | [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) | The parent Feature Flag custom metadata record |
+| `strategyToEvaluate` | [FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md) | The specific strategy record being evaluated |
+| `userId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The user to evaluate the strategy for (may differ from running user) |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the feature is enabled for the specified user by this strategy
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the feature is enabled for the specified user by this strategy
 
-**Since:** 1.0
+</div>
 

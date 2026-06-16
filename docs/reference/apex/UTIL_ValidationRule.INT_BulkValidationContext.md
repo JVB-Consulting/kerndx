@@ -1,6 +1,7 @@
 ---
 title: "UTIL_ValidationRule.INT_BulkValidationContext"
 type: class
+pageClass: reference
 description: "Optional interface for bulk-optimized validation contexts. Implement this in addition to INT_SObjectFormulaEvaluationContext when your context class needs to query related data. The preLoad() method i"
 since: "1.0"
 category: apex
@@ -62,6 +63,8 @@ global class VAL_AccountWithContactsContext
 
 ### preLoad
 
+<div class="apex-member">
+
 ```apex
 global abstract void preLoad(List<SObject> newRecords, List<SObject> oldRecords)
 ```
@@ -69,10 +72,12 @@ global abstract void preLoad(List<SObject> newRecords, List<SObject> oldRecords)
 Called once per batch before the record loop.
 Use this to perform bulk queries and cache results.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of new records (Trigger.new)
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of old records (Trigger.old), may be null for insert
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of new records (Trigger.new) |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of old records (Trigger.old), may be null for insert |
 
-**Since:** 1.0
+</div>
 

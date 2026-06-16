@@ -1,6 +1,7 @@
 ---
 title: "DML_Builder"
 type: class
+pageClass: reference
 description: "Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a t"
 author: "Jason Van Beukering"
 group: "DML"
@@ -82,17 +83,17 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 ### allowPartial
 
+<div class="apex-member">
+
 ```apex
 global DML_Builder allowPartial()
 ```
 
 Enables partial success mode. Failed records do not cause the entire transaction to fail.
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -101,7 +102,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### async
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder.DML_AsyncBuilder async()
@@ -110,11 +115,9 @@ global DML_Builder.DML_AsyncBuilder async()
 Switches to asynchronous execution mode. Returns a DML_AsyncBuilder that delegates to
 PROC_ExecuteDML and UTIL_AsynchronousJobLauncher for adaptive async processing.
 
-**Returns:** [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) - A DML_AsyncBuilder for configuring and executing async DML.
+**Returns** [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) — A DML_AsyncBuilder for configuring and executing async DML.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -124,7 +127,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### bypassSharing
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder bypassSharing()
@@ -132,11 +139,9 @@ global DML_Builder bypassSharing()
 
 Bypasses sharing rules for DML operations.
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -145,7 +150,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### doDelete
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder doDelete(List<SObject> records)
@@ -153,15 +162,15 @@ global DML_Builder doDelete(List<SObject> records)
 
 Registers multiple records for deletion.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to delete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to delete. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -169,21 +178,25 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doDelete(SObject record)
 ```
 
 Registers a single record for deletion.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to delete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to delete. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -191,7 +204,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### doInsert
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder doInsert(List<SObject> records)
@@ -199,15 +216,15 @@ global DML_Builder doInsert(List<SObject> records)
 
 Registers multiple records for insertion.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to insert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to insert. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -215,21 +232,25 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doInsert(SObject record)
 ```
 
 Registers a single record for insertion.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to insert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to insert. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -237,23 +258,27 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doInsert(SObject child, SObjectField relationshipField, SObject parent)
 ```
 
 Registers a child record for insertion with a relationship to a parent record.
 
-**Parameters:**
+**Parameters**
 
-- `child` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The child SObject to insert.
-- `relationshipField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The field linking the child to the parent.
-- `parent` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The parent SObject.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `child` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The child SObject to insert. |
+| `relationshipField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field linking the child to the parent. |
+| `parent` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The parent SObject. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -262,7 +287,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### doUndelete
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder doUndelete(List<SObject> records)
@@ -270,15 +299,15 @@ global DML_Builder doUndelete(List<SObject> records)
 
 Registers multiple records for undelete.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to undelete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to undelete. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -286,21 +315,25 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doUndelete(SObject record)
 ```
 
 Registers a single record for undelete.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to undelete.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to undelete. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -308,7 +341,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### doUpdate
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder doUpdate(List<SObject> records)
@@ -316,15 +353,15 @@ global DML_Builder doUpdate(List<SObject> records)
 
 Registers multiple records for update.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to update. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -332,21 +369,25 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doUpdate(SObject record)
 ```
 
 Registers a single record for update.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to update. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -354,7 +395,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### doUpsert
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder doUpsert(List<SObject> records)
@@ -362,15 +407,15 @@ global DML_Builder doUpsert(List<SObject> records)
 
 Registers multiple records for upsert.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to upsert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to upsert. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -378,22 +423,26 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doUpsert(List<SObject> records, SObjectField externalIdField)
 ```
 
 Registers multiple records for upsert with a specific external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects to upsert.
-- `externalIdField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The external ID field for matching.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects to upsert. |
+| `externalIdField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The external ID field for matching. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -401,21 +450,25 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doUpsert(SObject record)
 ```
 
 Registers a single record for upsert.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to upsert.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to upsert. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -423,22 +476,26 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global DML_Builder doUpsert(SObject record, SObjectField externalIdField)
 ```
 
 Registers a single record for upsert with a specific external ID field.
 
-**Parameters:**
+**Parameters**
 
-- `record` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to upsert.
-- `externalIdField` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The external ID field for matching.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to upsert. |
+| `externalIdField` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The external ID field for matching. |
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -446,7 +503,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### execute
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder.TransactionResult execute()
@@ -454,11 +515,9 @@ global DML_Builder.TransactionResult execute()
 
 Commits all registered DML operations via DML_Transaction and returns the result.
 
-**Returns:** [DML_Builder.TransactionResult](DML_Builder.TransactionResult.md) - A TransactionResult containing the outcome of all DML operations.
+**Returns** [DML_Builder.TransactionResult](DML_Builder.TransactionResult.md) — A TransactionResult containing the outcome of all DML operations.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.TransactionResult result = DML_Builder.newTransaction()
@@ -467,7 +526,11 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### newTransaction
+
+<div class="apex-member">
 
 ```apex
 global static DML_Builder newTransaction()
@@ -475,11 +538,9 @@ global static DML_Builder newTransaction()
 
 Creates a new DML_Builder instance representing a DML transaction.
 
-**Returns:** [DML_Builder](DML_Builder.md) - A new DML_Builder instance.
+**Returns** [DML_Builder](DML_Builder.md) — A new DML_Builder instance.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -487,7 +548,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### suppressExceptions
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder suppressExceptions()
@@ -496,11 +561,9 @@ global DML_Builder suppressExceptions()
 Suppresses DmlException re-throw in all-or-nothing mode. Errors are logged
 via LOG_Builder instead of propagating to the caller.
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -509,7 +572,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### suppressLogging
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder suppressLogging()
@@ -517,11 +584,9 @@ global DML_Builder suppressLogging()
 
 Suppresses LOG_Builder error logging for DML failures.
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -531,7 +596,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### withSystemMode
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder withSystemMode()
@@ -541,11 +610,9 @@ Forces `AccessLevel.SYSTEM_MODE` on every DML operation in this transaction.
 Use when the framework writes objects the running user has no FLS/CRUD on by design
 (logs, orchestration records, framework-owned sObjects).
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -554,7 +621,11 @@ DML_Builder.newTransaction()
     .execute();
 ```
 
+</div>
+
 ### withUserMode
+
+<div class="apex-member">
 
 ```apex
 global DML_Builder withUserMode()
@@ -564,11 +635,9 @@ Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
 regardless of the `UserModeDml_Enabled` feature flag. Use when a subscriber-facing flow
 must enforce CRUD/FLS even in orgs where the flag has been disabled as a kill-switch.
 
-**Returns:** [DML_Builder](DML_Builder.md) - This builder instance for fluent chaining.
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DML_Builder.newTransaction()
@@ -576,4 +645,6 @@ DML_Builder.newTransaction()
     .withUserMode()
     .execute();
 ```
+
+</div>
 

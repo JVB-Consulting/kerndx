@@ -1,6 +1,7 @@
 ---
 title: "UTIL_SObjectDescribe.FieldListBuilder"
 type: class
+pageClass: reference
 description: "Builds a comma-separated field list from SObjectField tokens and optional FieldSet definitions."
 since: "1.0"
 category: apex
@@ -33,23 +34,29 @@ Builds a comma-separated field list from SObjectField tokens and optional FieldS
 
 ### FieldListBuilder
 
+<div class="apex-member">
+
 ```apex
 global FieldListBuilder(List<SObjectField> objectFields)
 ```
 
 Initializes a FieldListBuilder with a list of SObjectField tokens.
 
-**Parameters:**
+**Parameters**
 
-- `objectFields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of SObject fields to initialize the builder.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectFields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of SObject fields to initialize the builder. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe.FieldListBuilder builder = new UTIL_SObjectDescribe.FieldListBuilder(new List<SObjectField>{Account.Name});
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global FieldListBuilder(List<SObjectField> objectFields, List<FieldSet> fieldSets)
@@ -57,16 +64,18 @@ global FieldListBuilder(List<SObjectField> objectFields, List<FieldSet> fieldSet
 
 Initializes a FieldListBuilder with fields and optional FieldSets.
 
-**Parameters:**
+**Parameters**
 
-- `objectFields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of SObject fields.
-- `fieldSets` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - A list of FieldSets for concatenation.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectFields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of SObject fields. |
+| `fieldSets` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | A list of FieldSets for concatenation. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe.FieldListBuilder builder = new UTIL_SObjectDescribe.FieldListBuilder(new List<SObjectField>{Account.Name}, new List<FieldSet>());
 ```
+
+</div>
 

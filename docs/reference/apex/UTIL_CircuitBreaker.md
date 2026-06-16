@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker"
 type: class
+pageClass: reference
 description: "Factory for creating circuit breaker instances to prevent cascading failures and provide fast failure when external services are unavailable. The circuit breaker has three states: CLOSED (normal opera"
 author: "Jason Van Beukering"
 group: "Resilience"
@@ -101,6 +102,8 @@ if(!breaker.allowRequest())
 
 ### monitor
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_CircuitBreaker.Breaker monitor(String circuitId)
 ```
@@ -117,15 +120,15 @@ Default configuration:
 
 - Half-open max attempts: 3
 
-**Parameters:**
+**Parameters**
 
-- `circuitId` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Unique identifier for this circuit (typically service class name)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `circuitId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Unique identifier for this circuit (typically service class name) |
 
-**Returns:** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) - A new circuit breaker instance with defaults
+**Returns** [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) — A new circuit breaker instance with defaults
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Use defaults
@@ -135,4 +138,6 @@ UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('API_SendGridE
     .withFailureThreshold(10)
     .withTimeout(120);
 ```
+
+</div>
 

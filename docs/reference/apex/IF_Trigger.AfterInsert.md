@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.AfterInsert"
 type: class
+pageClass: reference
 description: "Handler contract for the after-insert trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the after-insert trigger event.
 
 ### afterInsert
 
+<div class="apex-member">
+
 ```apex
 global abstract void afterInsert(List<SObject> newRecords)
 ```
@@ -41,13 +44,13 @@ global abstract void afterInsert(List<SObject> newRecords)
 Called after records have been inserted and assigned IDs, enabling
 cross-object updates, platform event publishing, or asynchronous follow-up work.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects that were inserted (with IDs populated).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects that were inserted (with IDs populated). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_PublishAccountEvent extends TRG_Base implements IF_Trigger.AfterInsert
@@ -61,4 +64,6 @@ public class TRG_PublishAccountEvent extends TRG_Base implements IF_Trigger.Afte
     }
 }
 ```
+
+</div>
 

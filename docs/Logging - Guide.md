@@ -1,3 +1,7 @@
+---
+navOrder: 18
+---
+
 # Logging - Guide
 
 **Framework:** KernDX

@@ -1,6 +1,7 @@
 ---
 title: "UTIL_ValidationRule"
 type: class
+pageClass: reference
 description: "Formula-driven declarative validation framework for advanced validation scenarios that standard Salesforce validation rules cannot handle. This framework enables: Cross-object validation requiring que"
 author: "Jason Van Beukering"
 group: "Validation"
@@ -105,6 +106,8 @@ UTIL_ValidationRule.applyErrors(Trigger.new, results);
 
 ### applyErrors
 
+<div class="apex-member">
+
 ```apex
 global static void applyErrors(List<SObject> records, List<UTIL_ValidationRule.ValidationResult> results)
 ```
@@ -130,20 +133,24 @@ Empirically: a record violating two page-level rules (e.g. `RequireAccountIndust
 `PhoneOrWebsiteRequired`) returns `getErrors().size() == 1` with only the second rule's
 message — but `ValidationResult.errors.size() == 2` reports both correctly.
 
-**Parameters:**
+**Parameters**
 
-- `records` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of records (Trigger.new)
-- `results` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The validation results
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of records (Trigger.new) |
+| `results` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The validation results |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.applyErrors(records, new List<ValidationResult>());
 ```
 
+</div>
+
 ### bypassGroup
+
+<div class="apex-member">
 
 ```apex
 global static void bypassGroup(String groupDeveloperName)
@@ -151,19 +158,23 @@ global static void bypassGroup(String groupDeveloperName)
 
 Bypasses all validation rules in the specified group.
 
-**Parameters:**
+**Parameters**
 
-- `groupDeveloperName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName of the ValidationRuleGroup__mdt to bypass
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `groupDeveloperName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName of the ValidationRuleGroup__mdt to bypass |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.bypassGroup('SalesCloud_Account_Validations');
 ```
 
+</div>
+
 ### bypassObject
+
+<div class="apex-member">
 
 ```apex
 global static void bypassObject(String objectApiName)
@@ -172,13 +183,13 @@ global static void bypassObject(String objectApiName)
 Bypasses all validation rules for the specified object.
 This is the highest level of bypass and takes precedence over group and rule bypasses.
 
-**Parameters:**
+**Parameters**
 
-- `objectApiName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the object to bypass (e.g., 'Account')
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object to bypass (e.g., 'Account') |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.bypassObject('Account');
@@ -192,7 +203,11 @@ finally
 }
 ```
 
+</div>
+
 ### bypassRule
+
+<div class="apex-member">
 
 ```apex
 global static void bypassRule(String ruleDeveloperName)
@@ -200,19 +215,23 @@ global static void bypassRule(String ruleDeveloperName)
 
 Bypasses a specific validation rule.
 
-**Parameters:**
+**Parameters**
 
-- `ruleDeveloperName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName of the ValidationRule__mdt to bypass
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `ruleDeveloperName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName of the ValidationRule__mdt to bypass |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.bypassRule('Account_Requires_Primary_Contact');
 ```
 
+</div>
+
 ### clearAllBypasses
+
+<div class="apex-member">
 
 ```apex
 global static void clearAllBypasses()
@@ -220,15 +239,17 @@ global static void clearAllBypasses()
 
 Clears all bypasses for the current transaction.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.clearAllBypasses();
 ```
 
+</div>
+
 ### clearBypass
+
+<div class="apex-member">
 
 ```apex
 global static void clearBypass(String identifier)
@@ -239,19 +260,23 @@ identifier was actually registered under, emits a `validation` `CLEAR` audit ent
 matching prefixed target (`object:`/`group:`/`rule:`) so the clear correlates to its originating
 bypass. An identifier that is not currently bypassed removes nothing and emits nothing.
 
-**Parameters:**
+**Parameters**
 
-- `identifier` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The object API name, group DeveloperName, or rule DeveloperName to clear
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `identifier` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The object API name, group DeveloperName, or rule DeveloperName to clear |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_ValidationRule.clearBypass('Account');
 ```
 
+</div>
+
 ### executeForTrigger
+
+<div class="apex-member">
 
 ```apex
 global static void executeForTrigger(List<SObject> newRecords, List<SObject> oldRecords, TriggerOperation operation)
@@ -260,22 +285,26 @@ global static void executeForTrigger(List<SObject> newRecords, List<SObject> old
 Executes validation rules for the current trigger context.
 This is the main entry point for trigger-based validation.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of new records (Trigger.new)
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of old records (Trigger.old), may be null for insert
-- `operation` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The trigger operation
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of new records (Trigger.new) |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of old records (Trigger.old), may be null for insert |
+| `operation` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The trigger operation |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // In a trigger action class
 UTIL_ValidationRule.executeForTrigger(newRecords, oldRecords, TriggerOperation.BEFORE_UPDATE);
 ```
 
+</div>
+
 ### isBypassed
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isBypassed(String identifier)
@@ -283,21 +312,25 @@ global static Boolean isBypassed(String identifier)
 
 Checks if a specific bypass is currently active.
 
-**Parameters:**
+**Parameters**
 
-- `identifier` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The object API name, group DeveloperName, or rule DeveloperName
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `identifier` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The object API name, group DeveloperName, or rule DeveloperName |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if bypassed
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if bypassed
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = UTIL_ValidationRule.isBypassed('value');
 ```
 
+</div>
+
 ### validate
+
+<div class="apex-member">
 
 ```apex
 global static List<UTIL_ValidationRule.ValidationResult> validate(List<SObject> newRecords, List<SObject> oldRecords, TriggerOperation operation)
@@ -305,19 +338,21 @@ global static List<UTIL_ValidationRule.ValidationResult> validate(List<SObject> 
 
 Validates a list of records against all applicable validation rules.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of new records to validate
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The list of old records (may be null for insert)
-- `operation` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The trigger operation determining which rules apply
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of new records to validate |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of old records (may be null for insert) |
+| `operation` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The trigger operation determining which rules apply |
 
-**Returns:** [UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md) - List of ValidationResult objects, one per record
+**Returns** [UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md) — List of ValidationResult objects, one per record
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ValidationResult> result = UTIL_ValidationRule.validate(records, records, TriggerOperation.BEFORE_INSERT);
 ```
+
+</div>
 

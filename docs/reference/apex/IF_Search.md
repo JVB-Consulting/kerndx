@@ -1,6 +1,7 @@
 ---
 title: "IF_Search"
 type: class
+pageClass: reference
 description: "Generic Interface for searches"
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -47,18 +48,22 @@ public class AccountSearch implements IF_Search
 
 ### search
 
+<div class="apex-member">
+
 ```apex
 global abstract Object search(Object searchTerm, Map<String, Object> searchParameters)
 ```
 
 Search function to be implemented
 
-**Parameters:**
+**Parameters**
 
-- `searchTerm` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - Search Term to be used for search/query
-- `searchParameters` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Map of search parameters - individual implementations can expect differing parameters.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchTerm` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Search Term to be used for search/query |
+| `searchParameters` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of search parameters - individual implementations can expect differing parameters. |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - Response object. Individual implementations can cast to different structures as needed.
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — Response object. Individual implementations can cast to different structures as needed.
 
-**Since:** 1.0
+</div>
 

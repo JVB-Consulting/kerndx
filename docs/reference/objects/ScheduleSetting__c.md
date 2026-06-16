@@ -1,6 +1,7 @@
 ---
 title: "ScheduleSetting__c"
 type: sobject
+pageClass: reference
 description: "Stores runtime state for scheduled jobs, such as the last successful execution time. Used by scheduled jobs for incremental processing."
 category: objects
 ---

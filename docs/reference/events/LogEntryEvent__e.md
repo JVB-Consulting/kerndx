@@ -1,6 +1,7 @@
 ---
 title: "LogEntryEvent__e"
 type: sobject
+pageClass: reference
 description: "High-volume platform event that transports log data asynchronously. Persisted to LogEntry__c records via trigger. Ensures zero DML impact on the calling transaction and survives rollbacks."
 category: events
 ---

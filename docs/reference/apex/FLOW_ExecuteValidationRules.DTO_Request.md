@@ -1,6 +1,7 @@
 ---
 title: "FLOW_ExecuteValidationRules.DTO_Request"
 type: class
+pageClass: reference
 description: "Request DTO for the Execute Validation Rules invocable action. Contains the records to validate and the trigger context for rule evaluation."
 since: "1.0"
 category: apex

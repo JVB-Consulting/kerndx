@@ -1,6 +1,7 @@
 ---
 title: "DTO_ChangeEventHeader"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as a strongly-typed input variable. The platform header type is not Flow-addressable directly; this DTO"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
@@ -64,12 +65,18 @@ DTO_ChangeEventHeader flowHeader = new DTO_ChangeEventHeader(platformHeader);
 
 ### DTO_ChangeEventHeader
 
+<div class="apex-member">
+
 ```apex
 global DTO_ChangeEventHeader()
 ```
 
 No-arg constructor required by some Flow runtime entry points that
 instantiate Apex-defined variable types before populating fields.
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global DTO_ChangeEventHeader(EventBus.ChangeEventHeader header)
@@ -80,9 +87,13 @@ Copy constructor — populates this DTO from a platform
 detached from the platform instance and safe to mutate without affecting the
 original.
 
-**Parameters:**
+**Parameters**
 
-- `header` ([EventBus.ChangeEventHeader](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_eventbus_ChangeEventHeader.htm)) - The platform header to copy from. Must not be null.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `header` | [EventBus.ChangeEventHeader](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_eventbus_ChangeEventHeader.htm) | The platform header to copy from. Must not be null. |
+
+</div>
 
 ---
 

@@ -1,6 +1,7 @@
 ---
 title: "DTO_BaseTable"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) class that structures webservice handler responses into a common table format, providing column and row handling for a unified data view. Supports functionality for dynami"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
@@ -105,6 +106,8 @@ Example:
 
 ### addColumn
 
+<div class="apex-member">
+
 ```apex
 global void addColumn(String label, String fieldName, String type)
 ```
@@ -112,21 +115,23 @@ global void addColumn(String label, String fieldName, String type)
 Adds a new column to the table with the specified label, field name, and type.
 The column will not be sortable by default. Useful for defining table structure for row data.
 
-**Parameters:**
+**Parameters**
 
-- `label` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The display text for the column header.
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The field name to map data from rows to this column.
-- `type` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The data type of the column (e.g., 'text', 'number'), see documentation for types here:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `label` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The display text for the column header. |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field name to map data from rows to this column. |
+| `type` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The data type of the column (e.g., 'text', 'number'), see documentation for types here: @link https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation |
 
-@link https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation
-
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.addColumn('My Label', 'myName', 'value');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global void addColumn(String label, String fieldName, String type, Boolean sortable)
@@ -135,24 +140,26 @@ global void addColumn(String label, String fieldName, String type, Boolean sorta
 Adds a new column to the table with specified label, field name, type, and sortable
 property. Supports column sorting where applicable and customizable table views.
 
-**Parameters:**
+**Parameters**
 
-- `label` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The display text for the column header.
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The field name to map data from rows to this column.
-- `type` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The data type of the column (e.g., 'text', 'number').
-- `sortable` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - A Boolean indicating if the column should support sorting.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `label` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The display text for the column header. |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field name to map data from rows to this column. |
+| `type` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The data type of the column (e.g., 'text', 'number'). |
+| `sortable` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | A Boolean indicating if the column should support sorting. @link https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation |
 
-@link https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation
-
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.addColumn('My Label', 'myName', 'value', true);
 ```
 
+</div>
+
 ### addRow
+
+<div class="apex-member">
 
 ```apex
 global void addRow(Object anObject)
@@ -161,17 +168,19 @@ global void addRow(Object anObject)
 Adds a new data row to the table. The data should be structured to match the
 columns defined in the table. Extending classes may override this method for custom row handling.
 
-**Parameters:**
+**Parameters**
 
-- `anObject` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The data object representing a row to be added to the table.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `anObject` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The data object representing a row to be added to the table. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.addRow('value');
 ```
+
+</div>
 
 ---
 

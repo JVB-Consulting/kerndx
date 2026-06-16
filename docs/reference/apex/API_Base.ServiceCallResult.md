@@ -1,6 +1,7 @@
 ---
 title: "API_Base.ServiceCallResult"
 type: class
+pageClass: reference
 description: "Tracks the request, response, and status of a web service call."
 since: "1.0"
 category: apex

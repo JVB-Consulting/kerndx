@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition"
 type: class
+pageClass: reference
 description: "Condition infrastructure for building complex SOQL WHERE clauses. Use these classes with QRY_Builder.addCondition() for compound conditions that cannot be expressed with the fluent API alone (e.g., gr"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"

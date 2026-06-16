@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Cache.OperationResult"
 type: class
+pageClass: reference
 description: "Result of a cache operation with detailed status information"
 since: "1.0"
 category: apex
@@ -44,25 +45,31 @@ Result of a cache operation with detailed status information
 
 ### OperationResult
 
+<div class="apex-member">
+
 ```apex
 global OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeUsed)
 ```
 
 Constructor for success result
 
-**Parameters:**
+**Parameters**
 
-- `success` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether operation succeeded
-- `status` ([UTIL_Cache.Status](UTIL_Cache.Status.md)) - Operation status
-- `cacheTypeUsed` ([UTIL_Cache.Scope](UTIL_Cache.Scope.md)) - Cache type used
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `success` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether operation succeeded |
+| `status` | [UTIL_Cache.Status](UTIL_Cache.Status.md) | Operation status |
+| `cacheTypeUsed` | [UTIL_Cache.Scope](UTIL_Cache.Scope.md) | Cache type used |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Cache.OperationResult instance = new UTIL_Cache.OperationResult(true, new Status(), new Scope());
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeAttempted, String errorMessage)
@@ -70,20 +77,22 @@ global OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Sco
 
 Constructor for failure result
 
-**Parameters:**
+**Parameters**
 
-- `success` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether operation succeeded
-- `status` ([UTIL_Cache.Status](UTIL_Cache.Status.md)) - Operation status
-- `cacheTypeAttempted` ([UTIL_Cache.Scope](UTIL_Cache.Scope.md)) - Cache type attempted
-- `errorMessage` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Error message
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `success` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether operation succeeded |
+| `status` | [UTIL_Cache.Status](UTIL_Cache.Status.md) | Operation status |
+| `cacheTypeAttempted` | [UTIL_Cache.Scope](UTIL_Cache.Scope.md) | Cache type attempted |
+| `errorMessage` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Error message |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Cache.OperationResult instance = new UTIL_Cache.OperationResult(true, new Status(), new Scope(), 'An error occurred');
 ```
+
+</div>
 
 ---
 

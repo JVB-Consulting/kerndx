@@ -1,6 +1,7 @@
 ---
 title: "TST_InvokeFlowMock.MockBuilder"
 type: class
+pageClass: reference
 description: "Fluent builder for registering a mock flow response."
 since: "1.0"
 category: apex
@@ -46,21 +47,27 @@ TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
 
 ### fail
 
+<div class="apex-member">
+
 ```apex
 global TST_InvokeFlowMock.MockBuilder fail(String errorMessage)
 ```
 
 Declares this mock simulates a flow failure.
 
-**Parameters:**
+**Parameters**
 
-- `errorMessage` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The error message returned by the mock
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `errorMessage` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The error message returned by the mock |
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - This builder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 
-**Since:** 1.0
+</div>
 
 ### register
+
+<div class="apex-member">
 
 ```apex
 global void register()
@@ -71,13 +78,17 @@ Registers this mock in the static registry. Terminal.
 Throws if a mock for the same flow is already registered. Tests that need
 to reconfigure a mock mid-method must call `TST_InvokeFlowMock.clear()` first.
 
-**Throws:**
+**Throws**
 
-- [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) - When a mock is already registered for this flow
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When a mock is already registered for this flow |
 
-**Since:** 1.0
+</div>
 
 ### succeed
+
+<div class="apex-member">
 
 ```apex
 global TST_InvokeFlowMock.MockBuilder succeed()
@@ -87,11 +98,13 @@ Declares this mock returns a successful flow result.
 
 Default state — call is optional but improves readability.
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - This builder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 
-**Since:** 1.0
+</div>
 
 ### throwOnStart
+
+<div class="apex-member">
 
 ```apex
 global TST_InvokeFlowMock.MockBuilder throwOnStart(Exception toThrow)
@@ -106,15 +119,15 @@ routing that depends on it) without deploying a deliberately-broken flow XML.
 Marks this mock as a failure (`success = false`); the supplied exception's
 `getMessage()` is what the trigger framework records and surfaces to subscribers.
 
-**Parameters:**
+**Parameters**
 
-- `toThrow` ([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)) - The exception the trigger framework will throw on the test author's behalf
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `toThrow` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception the trigger framework will throw on the test author's behalf |
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - This builder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
@@ -122,7 +135,11 @@ TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
     .register();
 ```
 
+</div>
+
 ### withOutputRecord
+
+<div class="apex-member">
 
 ```apex
 global TST_InvokeFlowMock.MockBuilder withOutputRecord(SObject outputRecord)
@@ -130,15 +147,19 @@ global TST_InvokeFlowMock.MockBuilder withOutputRecord(SObject outputRecord)
 
 Supplies the SObject the mocked flow's `record` output returns.
 
-**Parameters:**
+**Parameters**
 
-- `outputRecord` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject the flow's record output variable yields
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `outputRecord` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject the flow's record output variable yields |
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - This builder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 
-**Since:** 1.0
+</div>
 
 ### withOutputRecords
+
+<div class="apex-member">
 
 ```apex
 global TST_InvokeFlowMock.MockBuilder withOutputRecords(List<SObject> outputRecords)
@@ -149,11 +170,13 @@ registration needs to seed multiple output records (e.g. a flow that populates
 a `records` collection variable). For the default per-record dispatch path,
 use `withOutputRecord(SObject)` instead.
 
-**Parameters:**
+**Parameters**
 
-- `outputRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObjects the flow returns
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `outputRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObjects the flow returns |
 
-**Returns:** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) - This builder for chaining
+**Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 
-**Since:** 1.0
+</div>
 

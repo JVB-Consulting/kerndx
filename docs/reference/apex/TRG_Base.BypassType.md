@@ -1,6 +1,7 @@
 ---
 title: "TRG_Base.BypassType"
 type: class
+pageClass: reference
 description: "Indicates the type of trigger bypass being applied."
 since: "1.0"
 category: apex

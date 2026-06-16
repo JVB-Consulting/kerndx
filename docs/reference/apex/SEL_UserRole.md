@@ -1,6 +1,7 @@
 ---
 title: "SEL_UserRole"
 type: class
+pageClass: reference
 description: "Selector for the UserRole SObject. Provides query methods for retrieving user roles and traversing the role hierarchy."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -48,21 +49,25 @@ List<UserRole> childRoles = new SEL_UserRole().findAllChildRoles(new Set<Id>{par
 
 ### SEL_UserRole
 
+<div class="apex-member">
+
 ```apex
 global SEL_UserRole()
 ```
 
 Constructs a UserRole selector.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_UserRole instance = new SEL_UserRole();
 ```
 
+</div>
+
 ### findAllChildRoles
+
+<div class="apex-member">
 
 ```apex
 global List<UserRole> findAllChildRoles(Set<Id> parentRoleIds)
@@ -72,21 +77,25 @@ Recursively finds all child roles (direct and indirect descendants) for
 the given parent role Ids. Useful for determining the full role hierarchy beneath one
 or more starting roles.
 
-**Parameters:**
+**Parameters**
 
-- `parentRoleIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of starting parent UserRole Ids
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parentRoleIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of starting parent UserRole Ids |
 
-**Returns:** [UserRole](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_userrole.htm) - List of all descendant UserRole records (excluding the original parent roles)
+**Returns** [UserRole](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_userrole.htm) — List of all descendant UserRole records (excluding the original parent roles)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<UserRole> result = instance.findAllChildRoles(recordIds);
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -94,13 +103,13 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for UserRole queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of UserRole SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of UserRole SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

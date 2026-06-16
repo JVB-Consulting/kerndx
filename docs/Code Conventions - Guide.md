@@ -1,3 +1,7 @@
+---
+navOrder: 94
+---
+
 # KernDX Conventions
 
 Canonical, tool-agnostic code conventions for the KernDX framework. Applies to all contributors and any AI coding assistant working in this repository.
@@ -638,3 +642,45 @@ Custom resolver: extend `UTIL_TypeResolver.BaseClassResolver`, register via `Cla
 **Markdown:** TOC required (>3 sections), 180 char lines, link class refs to `reference/apex/ClassName.md`
 **Release notes:** `release-notes/` folder, only `global` artifacts, describe shipped implementation
 **Code examples:** Use framework patterns, add namespace prefix for subscriber org examples
+
+## Documentation information architecture
+
+The docs site (`docs-site/`) orders content by **"soonest × oftenest"** — *how soon a developer
+needs a page* × *how often they return to it*. This is the rule for deciding where a new page or
+section goes; it is not a one-off hand-tuned list.
+
+**Section tiers** (top-level sidebar + top-nav order, most-pertinent first):
+
+1. **First contact & daily-driver** — Getting Started, Fast Starts
+2. **Depth** — Guides
+3. **Lookup** — API Reference
+4. **Evaluation** — Strategic Guides
+5. **Record** — Release Notes
+
+A new top-level section slots in by answering the same two questions. Implemented in
+`docs-site/scripts/generate-nav.mjs` (`TOP_ORDER`).
+
+**Within-section order — `navOrder` frontmatter** (integer; ties break alphabetically). Bands let an
+author place a page deterministically by analogy instead of guessing:
+
+| Band | Meaning | Examples |
+|------|---------|----------|
+| `10–29` | core daily-driver | triggers, selectors/queries, DML, security, logging |
+| `30–59` | common | LWC, inbound/outbound APIs, async, feature flags |
+| `60–89` | situational | validations, resilience, data masking, test data |
+| `90+` | tooling / meta | code scanning, E2E testing |
+
+Set `navOrder` in a hand-written page's frontmatter; `generate-nav.mjs` consumes it (then the legacy
+`order`, then alpha). `docs-site/scripts/nav-order.test.mjs` **fails** a Fast Start that lacks a banded
+`navOrder` and **warns** for Guides. The API Reference is ordered separately, by prefix/domain folder
+(`APEX_PREFIX_DOMAIN` / `REFERENCE_SUBGROUP_ORDER` in `generate-nav.mjs`), mirroring the IDE tree.
+
+**F-shape page template** — every page leads, top to bottom, with: (1) a one-line *what + why*; (2) the
+single fastest path ("see it work"); (3) depth, subsections ordered most-frequent-need first. Reference
+pages lead with the `## Methods` summary (the per-page index) before the per-method detail.
+
+**Hand-written page presentation** — meta as badges (framework / time / level), key benefits in
+`::: tip` callouts above the relevant code, tinted/bolder decision-matrix table headers. Generated
+reference markdown stays clean: the only HTML is the per-overload `<div class="apex-member">` wrapper
+(inner content is pure markdown), so the committed `.md` still reads cleanly on GitHub and in editors —
+the card look and signature colors come from the theme (CSS + Shiki), not from HTML in the source.

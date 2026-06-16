@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CallApi.DTO_Response"
 type: class
+pageClass: reference
 description: "Data Transfer Object representing the web service response or errors."
 since: "1.0"
 category: apex

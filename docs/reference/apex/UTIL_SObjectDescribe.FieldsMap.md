@@ -1,6 +1,7 @@
 ---
 title: "UTIL_SObjectDescribe.FieldsMap"
 type: class
+pageClass: reference
 description: "A subclass of NamespacedAttributeMap for handling field maps returned by DescribeSObjectResult.fields.getMap()."
 since: "1.0"
 category: apex
@@ -39,25 +40,31 @@ A subclass of NamespacedAttributeMap for handling field maps returned by Describ
 
 ### containsKey
 
+<div class="apex-member">
+
 ```apex
 global override Boolean containsKey(String name)
 ```
 
 Checks if the map contains a key with namespace handling enabled by default.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The key to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The key to check. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the key exists, `false` otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the key exists, `false` otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.containsKey('myName');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global override Boolean containsKey(String name, Boolean implyNamespace)
@@ -65,22 +72,26 @@ global override Boolean containsKey(String name, Boolean implyNamespace)
 
 Checks if the map contains a key with optional namespace handling.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The key to check.
-- `implyNamespace` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to handle namespace prefixes.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The key to check. |
+| `implyNamespace` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to handle namespace prefixes. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the key exists, `false` otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the key exists, `false` otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.containsKey('myName', true);
 ```
 
+</div>
+
 ### get
+
+<div class="apex-member">
 
 ```apex
 global SObjectField get(String name)
@@ -88,15 +99,15 @@ global SObjectField get(String name)
 
 Retrieves an `SObjectField` by name with namespace handling enabled by default.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - The `SObjectField`, or null if not found.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — The `SObjectField`, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
@@ -104,22 +115,26 @@ SObjectField field = describe.getFields().get('Email');
 System.debug(field?.getDescribe().getLabel()); // Outputs: Email
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global SObjectField get(String name, Boolean implyNamespace)
 ```
 
 Retrieves an `SObjectField` by name with optional namespace handling.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
-- `implyNamespace` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to handle namespace prefixes.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
+| `implyNamespace` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to handle namespace prefixes. |
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - The `SObjectField`, or null if not found.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — The `SObjectField`, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
@@ -127,7 +142,11 @@ SObjectField field = describe.getFields().get('Account', false);
 System.debug(field?.getDescribe().name); // Outputs: AccountId
 ```
 
+</div>
+
 ### keySet
+
+<div class="apex-member">
 
 ```apex
 global override Set<String> keySet()
@@ -135,15 +154,17 @@ global override Set<String> keySet()
 
 Returns the key set of the map with namespace handling disabled by default.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of keys in the map.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of keys in the map.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> result = instance.keySet();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global override Set<String> keySet(Boolean implyNamespace)
@@ -151,21 +172,25 @@ global override Set<String> keySet(Boolean implyNamespace)
 
 Returns the key set of the map with optional namespace handling.
 
-**Parameters:**
+**Parameters**
 
-- `implyNamespace` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Whether to strip namespace prefixes from keys.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `implyNamespace` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether to strip namespace prefixes from keys. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of keys in the map.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of keys in the map.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> result = instance.keySet(true);
 ```
 
+</div>
+
 ### size
+
+<div class="apex-member">
 
 ```apex
 global override Integer size()
@@ -173,17 +198,19 @@ global override Integer size()
 
 Returns the number of entries in the map.
 
-**Returns:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) - The size of the map.
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The size of the map.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Integer result = instance.size();
 ```
 
+</div>
+
 ### values
+
+<div class="apex-member">
 
 ```apex
 global List<SObjectField> values()
@@ -191,15 +218,15 @@ global List<SObjectField> values()
 
 Returns the list of `SObjectField` values in the map.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - A list of `SObjectField` instances.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A list of `SObjectField` instances.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 List<SObjectField> fields = describe.getFields().values();
 System.debug(fields.size()); // Outputs: Number of fields on Account
 ```
+
+</div>
 

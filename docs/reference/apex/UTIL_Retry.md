@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Retry"
 type: class
+pageClass: reference
 description: "Factory for retry strategies with nested interface definitions. Provides a clean API for creating and configuring retry strategies with exponential or linear backoff. This factory pattern reduces name"
 author: "Jason Van Beukering"
 group: "Resilience"
@@ -87,6 +88,8 @@ public class RateLimitStrategy implements UTIL_Retry.Strategy
 
 ### dontRetryOnException
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_Retry.Strategy dontRetryOnException(UTIL_Retry.Strategy base, Set<Type> exceptionTypes)
 ```
@@ -103,16 +106,16 @@ authentication failures that won't recover via retry.
 Wrapping (rather than adding setters to the `Strategy` interface) keeps the contract
 for subscriber Strategy implementations unchanged.
 
-**Parameters:**
+**Parameters**
 
-- `base` ([UTIL_Retry.Strategy](UTIL_Retry.Strategy.md)) - The base retry strategy to wrap.
-- `exceptionTypes` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of exception types that should NEVER be retried.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `base` | [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) | The base retry strategy to wrap. |
+| `exceptionTypes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of exception types that should NEVER be retried. |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - A wrapped Strategy that suppresses retries when the caught exception matches any type in the denylist.
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — A wrapped Strategy that suppresses retries when the caught exception matches any type in the denylist.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.dontRetryOnException(
@@ -123,7 +126,11 @@ UTIL_Retry.Context context = UTIL_Retry.newContext(0).withCustomData(caughtExcep
 Boolean shouldRetry = strategy.shouldRetry(context);
 ```
 
+</div>
+
 ### exponential
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Retry.Strategy exponential()
@@ -132,11 +139,9 @@ global static UTIL_Retry.Strategy exponential()
 Returns a standard exponential backoff strategy.
 Defaults: max retries = 3, base backoff = 10s, jitter = false
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - Configured exponential backoff strategy
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — Configured exponential backoff strategy
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
@@ -144,7 +149,11 @@ UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
     .withJitter(true);
 ```
 
+</div>
+
 ### linear
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Retry.Strategy linear()
@@ -153,11 +162,9 @@ global static UTIL_Retry.Strategy linear()
 Returns a standard linear backoff strategy.
 Defaults: max retries = 3, base backoff = 10s
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - Configured linear backoff strategy
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — Configured linear backoff strategy
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.linear()
@@ -165,7 +172,11 @@ UTIL_Retry.Strategy strategy = UTIL_Retry.linear()
     .withBaseBackoff(15);
 ```
 
+</div>
+
 ### newContext
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Retry.Context newContext(Integer retryCount)
@@ -173,15 +184,15 @@ global static UTIL_Retry.Context newContext(Integer retryCount)
 
 Creates a new retry context with the specified retry count.
 
-**Parameters:**
+**Parameters**
 
-- `retryCount` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The current retry attempt number (0 = first attempt, 1 = first retry, etc.)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `retryCount` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The current retry attempt number (0 = first attempt, 1 = first retry, etc.) |
 
-**Returns:** [UTIL_Retry.Context](UTIL_Retry.Context.md) - New context instance
+**Returns** [UTIL_Retry.Context](UTIL_Retry.Context.md) — New context instance
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Context context = UTIL_Retry.newContext(1)
@@ -189,7 +200,11 @@ UTIL_Retry.Context context = UTIL_Retry.newContext(1)
     .withCustomData(apiCall);
 ```
 
+</div>
+
 ### retryOnlyOnException
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Retry.Strategy retryOnlyOnException(UTIL_Retry.Strategy base, Set<Type> exceptionTypes)
@@ -205,17 +220,16 @@ remote service might throw.
 Calls without a caught Exception in `Context.getCustomData()` always retry per the
 base strategy (the allowlist only applies when an exception is present).
 
-**Parameters:**
+**Parameters**
 
-- `base` ([UTIL_Retry.Strategy](UTIL_Retry.Strategy.md)) - The base retry strategy to wrap.
-- `exceptionTypes` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of exception types that ARE allowed to be retried. Empty or
-                      null disables the filter (delegates fully to base).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `base` | [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) | The base retry strategy to wrap. |
+| `exceptionTypes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of exception types that ARE allowed to be retried. Empty or null disables the filter (delegates fully to base). |
 
-**Returns:** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) - A wrapped Strategy that only retries when the caught exception matches an allowed type.
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — A wrapped Strategy that only retries when the caught exception matches an allowed type.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Retry.Strategy strategy = UTIL_Retry.retryOnlyOnException(
@@ -223,4 +237,6 @@ UTIL_Retry.Strategy strategy = UTIL_Retry.retryOnlyOnException(
         new Set<Type>{System.CalloutException.class}
 );
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "IF_Async.AsynchronousExecutionStrategy"
 type: class
+pageClass: reference
 description: "Enum defining different asynchronous execution strategies."
 since: "1.0"
 category: apex

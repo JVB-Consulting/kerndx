@@ -1,6 +1,7 @@
 ---
 title: "UTIL_System"
 type: class
+pageClass: reference
 description: "Namespace, type resolution, and platform utility methods. Provides runtime introspection for managed package namespace detection, class type resolution, API version retrieval, and session management."
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -53,6 +54,8 @@ Type validated = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults', IF_Tri
 
 ### findTypeForClassName
 
+<div class="apex-member">
+
 ```apex
 global static Type findTypeForClassName(String className)
 ```
@@ -60,19 +63,23 @@ global static Type findTypeForClassName(String className)
 Resolves a class name to a Type via the UTIL_TypeResolver chain without throwing
 an exception. Returns null when the class cannot be found or has compilation errors.
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name to resolve.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name to resolve. |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The resolved Type, or null if not found.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The resolved Type, or null if not found.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type classType = UTIL_System.findTypeForClassName('SCHED_DeactivateUsers');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Type findTypeForClassName(String className, Type expectedType)
@@ -82,22 +89,26 @@ Resolves a class name to a Type via the UTIL_TypeResolver chain and verifies it
 is assignable to the expected type. Returns null when the class cannot be found or does not
 implement the expected type.
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name to resolve.
-- `expectedType` ([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)) - The type the resolved class must be assignable to.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name to resolve. |
+| `expectedType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The type the resolved class must be assignable to. |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The resolved Type, or null if not found or not assignable.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The resolved Type, or null if not found or not assignable.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type classType = UTIL_System.findTypeForClassName('SCHED_DeactivateUsers', Schedulable.class);
 ```
 
+</div>
+
 ### getApiEnabledSessionId
+
+<div class="apex-member">
 
 ```apex
 global static String getApiEnabledSessionId()
@@ -106,17 +117,19 @@ global static String getApiEnabledSessionId()
 Will render a VF page to retrieve an API Enabled Session Id for current user
 To improve performance, session will be cached
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - API enabled Session Id
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — API enabled Session Id
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String sessionId = UTIL_System.getApiEnabledSessionId();
 ```
 
+</div>
+
 ### getClassNamespace
+
+<div class="apex-member">
 
 ```apex
 global static String getClassNamespace(String className)
@@ -124,22 +137,26 @@ global static String getClassNamespace(String className)
 
 Will extract the namespace out of a class name, expects the class to be a top level class
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the class
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the class |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Empty String or the namespace
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Empty String or the namespace
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String namespace = UTIL_System.getClassNamespace('kern.UTIL_System'); // 'kern'
 String empty = UTIL_System.getClassNamespace('MyClass'); // ''
 ```
 
+</div>
+
 ### getManagedPackageNamespace
+
+<div class="apex-member">
 
 ```apex
 global static String getManagedPackageNamespace()
@@ -148,17 +165,19 @@ global static String getManagedPackageNamespace()
 Will determine the namespace for the current execution context;
 ie. Is code currently running sitting in a package and the namespace of the package
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Empty String or the package namespace
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Empty String or the package namespace
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String namespace = UTIL_System.getManagedPackageNamespace(); // e.g. 'kern' or ''
 ```
 
+</div>
+
 ### getManagedPackageNamespacePrefix
+
+<div class="apex-member">
 
 ```apex
 global static String getManagedPackageNamespacePrefix(String delimiter)
@@ -168,15 +187,15 @@ Will determine the namespace for the current execution context;
 ie. Is code currently running sitting in a package and the namespace of the package
 and add the provided delimiter (if a namespace exists)
 
-**Parameters:**
+**Parameters**
 
-- `delimiter` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The delimiter for the item
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `delimiter` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The delimiter for the item |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Empty String or the namespace with prefix
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Empty String or the namespace with prefix
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Returns 'Sfdc_Surveys.' when namespace exists with '.' delimiter
@@ -186,7 +205,11 @@ String namespaceWithUnderscores = UTIL_System.getManagedPackageNamespacePrefix('
 // Returns '' when namespace does not exist
 ```
 
+</div>
+
 ### getNamespacePrefix
+
+<div class="apex-member">
 
 ```apex
 global static String getNamespacePrefix(String namespace, String delimiter)
@@ -196,22 +219,26 @@ Will calculate namespace prefix as follows:
 if the namespace exists - namespace + delimiter
 else Empty String
 
-**Parameters:**
+**Parameters**
 
-- `namespace` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The provided namespace
-- `delimiter` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The delimiter for the item
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `namespace` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The provided namespace |
+| `delimiter` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The delimiter for the item |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Empty String or the namespace with prefix
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Empty String or the namespace with prefix
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String prefix = UTIL_System.getNamespacePrefix('kern', '.'); // 'kern.'
 ```
 
+</div>
+
 ### getOrgApiVersion
+
+<div class="apex-member">
 
 ```apex
 global static String getOrgApiVersion()
@@ -219,17 +246,19 @@ global static String getOrgApiVersion()
 
 Will determine the current Salesforce Org Api Version
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - the version in the form of "59.0"
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the version in the form of "59.0"
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String version = UTIL_System.getOrgApiVersion(); // e.g. '65.0'
 ```
 
+</div>
+
 ### getRuntimeTypeName
+
+<div class="apex-member">
 
 ```apex
 global static String getRuntimeTypeName(Object anObject)
@@ -237,21 +266,25 @@ global static String getRuntimeTypeName(Object anObject)
 
 This method serves to retrieve the type name of the provided object
 
-**Parameters:**
+**Parameters**
 
-- `anObject` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The object to evaluate
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `anObject` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The object to evaluate |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Name of Class of the Object provided
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Name of Class of the Object provided
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String typeName = UTIL_System.getRuntimeTypeName((Object)'Hello'); // 'String'
 ```
 
+</div>
+
 ### getTypeForClassName
+
+<div class="apex-member">
 
 ```apex
 global static Type getTypeForClassName(String className)
@@ -259,23 +292,29 @@ global static Type getTypeForClassName(String className)
 
 Will return the Type for a given object class name
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name to find a type for (please ensure that you prefix namespace if required)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name to find a type for (please ensure that you prefix namespace if required) |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The type of the object
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The type of the object
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If no type if found for the given class name
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If no type if found for the given class name |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type classType = UTIL_System.getTypeForClassName('UTIL_System');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Type getTypeForClassName(String className, Type expectedType)
@@ -283,23 +322,27 @@ global static Type getTypeForClassName(String className, Type expectedType)
 
 Will return the Type for a given object class name
 
-**Parameters:**
+**Parameters**
 
-- `className` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The class name to find a type for (please ensure that you prefix namespace if required)
-- `expectedType` ([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)) - The expected type that the type for the class is assignable from
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `className` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name to find a type for (please ensure that you prefix namespace if required) |
+| `expectedType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The expected type that the type for the class is assignable from |
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The type of the object
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The type of the object
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - If no type if found for the given class name
-- [TypeException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if the type is not compatible with the expected type
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If no type if found for the given class name |
+| [TypeException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the type is not compatible with the expected type |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type classType = UTIL_System.getTypeForClassName('UTIL_System', Object.class);
 ```
+
+</div>
 

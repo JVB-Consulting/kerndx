@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CheckTriggerBypassed.DTO_Request"
 type: class
+pageClass: reference
 description: "A DTO indicating what action has been bypassed"
 since: "1.0"
 category: apex

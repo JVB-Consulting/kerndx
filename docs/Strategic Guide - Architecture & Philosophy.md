@@ -1,3 +1,7 @@
+---
+navOrder: 12
+---
+
 # Strategic Guide — Architecture & Philosophy
 
 > KernDX's design thesis, capabilities, Salesforce Well-Architected alignment, and open-source readiness.

@@ -1,6 +1,7 @@
 ---
 title: "PROC_UpdateFields"
 type: class
+pageClass: reference
 description: "Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports REPLACE, PREFIX, and "
 author: "Jason Van Beukering"
 group: "Bulk DML"
@@ -68,19 +69,21 @@ PROC_UpdateFields processor = new PROC_UpdateFields(params);
 
 ### PROC_UpdateFields
 
+<div class="apex-member">
+
 ```apex
 global PROC_UpdateFields(PROC_UpdateFields.DTO_Parameters parameters)
 ```
 
 Constructs a field update processor with the specified parameters.
 
-**Parameters:**
+**Parameters**
 
-- `parameters` ([PROC_UpdateFields.DTO_Parameters](PROC_UpdateFields.DTO_Parameters.md)) - The parameters defining which fields to update and how.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameters` | [PROC_UpdateFields.DTO_Parameters](PROC_UpdateFields.DTO_Parameters.md) | The parameters defining which fields to update and how. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_UpdateFields.DTO_Parameters params = new PROC_UpdateFields.DTO_Parameters();
@@ -88,7 +91,11 @@ params.objectName = 'Account';
 PROC_UpdateFields processor = new PROC_UpdateFields(params);
 ```
 
+</div>
+
 ### buildQueryable
+
+<div class="apex-member">
 
 ```apex
 global IF_Queryable buildQueryable()
@@ -96,11 +103,9 @@ global IF_Queryable buildQueryable()
 
 Builds a queryable for the configured object and fields.
 
-**Returns:** [IF_Queryable](IF_Queryable.md) - An IF_Queryable instance for retrieving records to update.
+**Returns** [IF_Queryable](IF_Queryable.md) — An IF_Queryable instance for retrieving records to update.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_UpdateFields.DTO_Parameters params = new PROC_UpdateFields.DTO_Parameters();
@@ -111,7 +116,11 @@ params.updateFields.add(field);
 IF_Queryable query = new PROC_UpdateFields(params).buildQueryable();
 ```
 
+</div>
+
 ### execute
+
+<div class="apex-member">
 
 ```apex
 global void execute(List<Object> items)
@@ -119,13 +128,13 @@ global void execute(List<Object> items)
 
 Executes the field update operation on the provided list of records.
 
-**Parameters:**
+**Parameters**
 
-- `items` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of SObject records to update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObject records to update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 PROC_UpdateFields.DTO_Parameters params = new PROC_UpdateFields.DTO_Parameters();
@@ -136,4 +145,6 @@ params.updateFields.add(field);
 List<Account> accounts = [SELECT Id, Name FROM Account LIMIT 100];
 new PROC_UpdateFields(params).execute(accounts);
 ```
+
+</div>
 

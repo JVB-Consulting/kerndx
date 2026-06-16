@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CallApiAsync"
 type: class
+pageClass: reference
 description: "Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed outside of immediate flows or triggers. Leverages the adaptive asynchronous processor to manage API req"
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -44,6 +45,8 @@ FLOW_CallApiAsync.invokeApiCallAsynchronously(apiCalls);
 
 ### invokeApiCallAsynchronously
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Api Callouts' description='Queues an HTTP callout asynchronously. Use when a Flow sends data to an external service and does not need to wait for the response.' label='Invoke Callout Asynchronously') global static void invokeApiCallAsynchronously(List<ApiCall__c> apiCalls)
 ```
@@ -53,13 +56,13 @@ Falls back to Batch job if Queueable limits are exceeded. The job size is read f
 `AsynchronousJobSetting__mdt.FLOW_CallApiAsync` (default: 20) to keep each execution within
 the 100-callout governor limit.
 
-**Parameters:**
+**Parameters**
 
-- `apiCalls` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of API calls containing details for API callouts.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `apiCalls` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of API calls containing details for API callouts. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> apiCalls = new List<ApiCall__c>();
@@ -67,4 +70,6 @@ ApiCall__c apiCall = TST_Factory.newOutboundApiCall('API_GetCustomerInfo', null,
 apiCalls.add(apiCall);
 FLOW_CallApiAsync.invokeApiCallAsynchronously(apiCalls);
 ```
+
+</div>
 

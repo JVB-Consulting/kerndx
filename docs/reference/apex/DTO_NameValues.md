@@ -1,6 +1,7 @@
 ---
 title: "DTO_NameValues"
 type: class
+pageClass: reference
 description: "Class for managing and transferring key-value pairs, represented as names and values, between classes. Provides functionalities to store, retrieve, and manipulate these name-value pairs."
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
@@ -117,19 +118,23 @@ Example:
 
 ### DTO_NameValues
 
+<div class="apex-member">
+
 ```apex
 global DTO_NameValues()
 ```
 
 Constructor that initializes an empty name-value map to store key-value pairs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValues instance = new DTO_NameValues();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global DTO_NameValues(Map<String, String> nameValues)
@@ -137,17 +142,21 @@ global DTO_NameValues(Map<String, String> nameValues)
 
 Constructor that populates name-value pairs from a provided map.
 
-**Parameters:**
+**Parameters**
 
-- `nameValues` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map of key-value pairs where both keys and values are strings.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `nameValues` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map of key-value pairs where both keys and values are strings. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValues instance = new DTO_NameValues(new Map<String, String>{'key' => 'value'});
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global DTO_NameValues(String separatedNameValues)
@@ -156,17 +165,21 @@ global DTO_NameValues(String separatedNameValues)
 Constructor that accepts a delimited string of name-value pairs, converting
 them into key-value entries within the map.
 
-**Parameters:**
+**Parameters**
 
-- `separatedNameValues` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - A string of name-value pairs separated by a comma, e.g., "paramName=paramValue,paramName2=paramValue2".
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `separatedNameValues` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A string of name-value pairs separated by a comma, e.g., "paramName=paramValue,paramName2=paramValue2". |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValues instance = new DTO_NameValues('value');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global DTO_NameValues(String separatedNameValues, String separator)
@@ -175,20 +188,24 @@ global DTO_NameValues(String separatedNameValues, String separator)
 Constructor that accepts a delimited string of name-value pairs, with a specified separator,
 and converts them into key-value entries within the map.
 
-**Parameters:**
+**Parameters**
 
-- `separatedNameValues` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - A string of name-value pairs, e.g., "paramName=paramValue|paramName2=paramValue2".
-- `separator` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The delimiter to separate each name-value pair. If null, defaults to a comma.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `separatedNameValues` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A string of name-value pairs, e.g., "paramName=paramValue\|paramName2=paramValue2". |
+| `separator` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The delimiter to separate each name-value pair. If null, defaults to a comma. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 DTO_NameValues instance = new DTO_NameValues('value', ',');
 ```
 
+</div>
+
 ### add
+
+<div class="apex-member">
 
 ```apex
 global void add(String name, String value)
@@ -196,20 +213,24 @@ global void add(String name, String value)
 
 Adds a new key-value pair to the map, or updates the value if the key already exists.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The key to add or update.
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The value to associate with the key.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The key to add or update. |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The value to associate with the key. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 instance.add('myName', 'value');
 ```
 
+</div>
+
 ### allExists
+
+<div class="apex-member">
 
 ```apex
 global Boolean allExists(Set<String> names)
@@ -217,19 +238,23 @@ global Boolean allExists(Set<String> names)
 
 Checks to see if all the parameter names provided exist in the list
 
-**Parameters:**
+**Parameters**
 
-- `names` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - A list of names on which to match (please note this is case sensitive)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `names` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | A list of names on which to match (please note this is case sensitive) |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if ALL the parameters exist
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if ALL the parameters exist
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.allExists(new Set<String>{'a', 'b'});
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global Boolean allExists(Set<String> namesToMatch, Boolean isNonBlank)
@@ -238,22 +263,26 @@ global Boolean allExists(Set<String> namesToMatch, Boolean isNonBlank)
 Determines if all keys in the provided set exist in the map, and optionally
 ensures that all have non-blank values.
 
-**Parameters:**
+**Parameters**
 
-- `namesToMatch` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - A set of keys to check for existence. Case-sensitive.
-- `isNonBlank` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - If true, requires that all specified keys have non-blank values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `namesToMatch` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | A set of keys to check for existence. Case-sensitive. |
+| `isNonBlank` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | If true, requires that all specified keys have non-blank values. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - true if all keys exist (and have non-blank values if specified).
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true if all keys exist (and have non-blank values if specified).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.allExists(new Set<String>{'a', 'b'}, true);
 ```
 
+</div>
+
 ### exists
+
+<div class="apex-member">
 
 ```apex
 global Boolean exists(String nameToMatch)
@@ -261,19 +290,23 @@ global Boolean exists(String nameToMatch)
 
 Returns true if the objects contains a value for the specified name
 
-**Parameters:**
+**Parameters**
 
-- `nameToMatch` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Name against which to find a key, note the compare is case-sensitive
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `nameToMatch` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Name against which to find a key, note the compare is case-sensitive |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - Null or the item found
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Null or the item found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.exists('value');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global Boolean exists(String nameToMatch, Boolean isNonBlank)
@@ -282,22 +315,26 @@ global Boolean exists(String nameToMatch, Boolean isNonBlank)
 Determines if a key exists in the map and, optionally, if it is non-blank.
 A non-blank value is neither null nor an empty string.
 
-**Parameters:**
+**Parameters**
 
-- `nameToMatch` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Name against which to find a key, note the compare is case-sensitive
-- `isNonBlank` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - Will return false if item exists and it's blank (either null or empty string)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `nameToMatch` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Name against which to find a key, note the compare is case-sensitive |
+| `isNonBlank` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Will return false if item exists and it's blank (either null or empty string) |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - true if the key exists (and has a non-blank value if specified).
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true if the key exists (and has a non-blank value if specified).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.exists('value', true);
 ```
 
+</div>
+
 ### get
+
+<div class="apex-member">
 
 ```apex
 global String get(String name)
@@ -306,21 +343,25 @@ global String get(String name)
 Retrieves the value associated with the specified key in the map.
 If the key does not exist, returns null.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The key for which to retrieve the value. Case-sensitive.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The key for which to retrieve the value. Case-sensitive. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The value associated with the specified key, or null if the key is absent.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The value associated with the specified key, or null if the key is absent.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = instance.get('myName');
 ```
 
+</div>
+
 ### getObjectType
+
+<div class="apex-member">
 
 ```apex
 global override Type getObjectType()
@@ -329,17 +370,19 @@ global override Type getObjectType()
 Returns the type of this DTO for deserialization purposes, useful for reconstructing
 the object from JSON.
 
-**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The type class of DTO_NameValues.
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The type class of DTO_NameValues.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Type result = instance.getObjectType();
 ```
 
+</div>
+
 ### isEmpty
+
+<div class="apex-member">
 
 ```apex
 global Boolean isEmpty()
@@ -348,17 +391,19 @@ global Boolean isEmpty()
 Checks if the DTO contains no key-value pairs.
 Returns true if the object has zero key-value pairs.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - true if there are no entries, false otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true if there are no entries, false otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Boolean result = instance.isEmpty();
 ```
 
+</div>
+
 ### serialize
+
+<div class="apex-member">
 
 ```apex
 global override String serialize()
@@ -366,17 +411,19 @@ global override String serialize()
 
 Serializes the map to a JSON string. If the map is empty, returns an empty JSON object `{}`.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A JSON string representation of the map.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A JSON string representation of the map.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = instance.serialize();
 ```
 
+</div>
+
 ### toParameterString
+
+<div class="apex-member">
 
 ```apex
 global String toParameterString()
@@ -384,13 +431,13 @@ global String toParameterString()
 
 Converts the name-value pairs in the map into a parameter string in the format `"name1=value1,name2=value2"`.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A string of comma-separated name-value pairs.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A string of comma-separated name-value pairs.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String result = instance.toParameterString();
 ```
+
+</div>
 

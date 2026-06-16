@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.DateLiteral"
 type: class
+pageClass: reference
 description: "Provides SOQL date literal values for use in QRY_Builder conditions. Implements Evaluable so date literals can be passed as condition values to FieldCondition and through the QRY_Builder fluent API. D"
 since: "1.0"
 category: apex
@@ -58,26 +59,32 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 ### last
 
+<div class="apex-member">
+
 ```apex
 global QRY_Condition.DateLiteral last(Integer numberOfUnits, QRY_Condition.UnitOfTime unit)
 ```
 
 Sets the date literal to LAST_N_*:n.
 
-**Parameters:**
+**Parameters**
 
-- `numberOfUnits` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of units
-- `unit` ([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md)) - The unit of time
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `numberOfUnits` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of units |
+| `unit` | [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) | The unit of time |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().last(4, QRY_Condition.UnitOfTime.QUARTER)
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral last(QRY_Condition.UnitOfTime unit)
@@ -85,21 +92,25 @@ global QRY_Condition.DateLiteral last(QRY_Condition.UnitOfTime unit)
 
 Sets the date literal to LAST_* for a given unit (e.g., LAST_QUARTER).
 
-**Parameters:**
+**Parameters**
 
-- `unit` ([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md)) - The unit of time
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `unit` | [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) | The unit of time |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().last(QRY_Condition.UnitOfTime.QUARTER)
 ```
 
+</div>
+
 ### last90Days
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral last90Days()
@@ -107,17 +118,19 @@ global QRY_Condition.DateLiteral last90Days()
 
 Sets the date literal to LAST_90_DAYS.
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().last90Days()
 ```
 
+</div>
+
 ### lastNDays
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral lastNDays(Integer numberOfDays)
@@ -125,21 +138,25 @@ global QRY_Condition.DateLiteral lastNDays(Integer numberOfDays)
 
 Sets the date literal to LAST_N_DAYS:n.
 
-**Parameters:**
+**Parameters**
 
-- `numberOfDays` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of days
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `numberOfDays` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of days |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().lastNDays(30)
 ```
 
+</div>
+
 ### next
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral next(Integer numberOfUnits, QRY_Condition.UnitOfTime unit)
@@ -147,20 +164,24 @@ global QRY_Condition.DateLiteral next(Integer numberOfUnits, QRY_Condition.UnitO
 
 Sets the date literal to NEXT_N_*:n.
 
-**Parameters:**
+**Parameters**
 
-- `numberOfUnits` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of units
-- `unit` ([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md)) - The unit of time
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `numberOfUnits` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of units |
+| `unit` | [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) | The unit of time |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().next(2, QRY_Condition.UnitOfTime.FISCAL_YEAR)
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral next(QRY_Condition.UnitOfTime unit)
@@ -168,21 +189,25 @@ global QRY_Condition.DateLiteral next(QRY_Condition.UnitOfTime unit)
 
 Sets the date literal to NEXT_* for a given unit (e.g., NEXT_QUARTER).
 
-**Parameters:**
+**Parameters**
 
-- `unit` ([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md)) - The unit of time
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `unit` | [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) | The unit of time |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().next(QRY_Condition.UnitOfTime.QUARTER)
 ```
 
+</div>
+
 ### next90Days
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral next90Days()
@@ -190,17 +215,19 @@ global QRY_Condition.DateLiteral next90Days()
 
 Sets the date literal to NEXT_90_DAYS.
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().next90Days()
 ```
 
+</div>
+
 ### nextNDays
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral nextNDays(Integer numberOfDays)
@@ -208,21 +235,25 @@ global QRY_Condition.DateLiteral nextNDays(Integer numberOfDays)
 
 Sets the date literal to NEXT_N_DAYS:n.
 
-**Parameters:**
+**Parameters**
 
-- `numberOfDays` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of days
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `numberOfDays` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of days |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().nextNDays(60)
 ```
 
+</div>
+
 ### thisUnit
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral thisUnit(QRY_Condition.UnitOfTime unit)
@@ -230,22 +261,26 @@ global QRY_Condition.DateLiteral thisUnit(QRY_Condition.UnitOfTime unit)
 
 Sets the date literal to a THIS_* value for the given unit.
 
-**Parameters:**
+**Parameters**
 
-- `unit` ([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md)) - The unit of time
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `unit` | [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) | The unit of time |
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().thisUnit(QRY_Condition.UnitOfTime.MONTH)
 new QRY_Condition.DateLiteral().thisUnit(QRY_Condition.UnitOfTime.DAY)  // returns TODAY
 ```
 
+</div>
+
 ### today
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral today()
@@ -253,17 +288,19 @@ global QRY_Condition.DateLiteral today()
 
 Sets the date literal to TODAY.
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().today()
 ```
 
+</div>
+
 ### tomorrow
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral tomorrow()
@@ -271,17 +308,19 @@ global QRY_Condition.DateLiteral tomorrow()
 
 Sets the date literal to TOMORROW.
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().tomorrow()
 ```
 
+</div>
+
 ### yesterday
+
+<div class="apex-member">
 
 ```apex
 global QRY_Condition.DateLiteral yesterday()
@@ -289,13 +328,13 @@ global QRY_Condition.DateLiteral yesterday()
 
 Sets the date literal to YESTERDAY.
 
-**Returns:** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) - The DateLiteral instance for method chaining.
+**Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new QRY_Condition.DateLiteral().yesterday()
 ```
+
+</div>
 

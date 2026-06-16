@@ -1,6 +1,7 @@
 ---
 title: "FLOW_CheckObjectPermissions"
 type: class
+pageClass: reference
 description: "Will check what the current user's object permissions are"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -51,21 +52,23 @@ Boolean canCreate = results[0].hasCreateAccess;
 
 ### checkPermissions
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Utilities' description='Checks whether the current user has read, create, edit, and delete access to a specified Salesforce object. Use to conditionally show or hide UI elements based on permissions.' label='Check Object Permissions') global static List<FLOW_CheckObjectPermissions.DTO_Response> checkPermissions(List<FLOW_CheckObjectPermissions.DTO_Request> dtoRequests)
 ```
 
 Method to check the running users' access to the object names provided
 
-**Parameters:**
+**Parameters**
 
-- `dtoRequests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - List of objects for whom to retrieve permissions
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoRequests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of objects for whom to retrieve permissions |
 
-**Returns:** [FLOW_CheckObjectPermissions.DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md) - List of items contain users objects permissions
+**Returns** [FLOW_CheckObjectPermissions.DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md) — List of items contain users objects permissions
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 FLOW_CheckObjectPermissions.DTO_Request request = new FLOW_CheckObjectPermissions.DTO_Request();
@@ -76,4 +79,6 @@ if(results[0].hasCreateAccess)
 	LOG_Builder.build().info('User can create Account records').emitAt('MyFlow.checkPermissions');
 }
 ```
+
+</div>
 

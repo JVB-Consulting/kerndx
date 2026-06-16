@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Cache.Status"
 type: class
+pageClass: reference
 description: "Operation status enumeration"
 since: "1.0"
 category: apex

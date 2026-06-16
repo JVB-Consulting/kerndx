@@ -1,3 +1,7 @@
+---
+navOrder: 10
+---
+
 # Fast Start - Trigger Actions
 
 **Framework:** KernDX | **Total time:** ~20 minutes

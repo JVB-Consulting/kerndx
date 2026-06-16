@@ -1,6 +1,7 @@
 ---
 title: "TST_Builder"
 type: class
+pageClass: reference
 description: "An advanced factory for creating and inserting SObject records for Apex tests. This class provides a flexible way to generate test data, automatically handling required fields and complex object relat"
 author: "Jason Van Beukering"
 group: "Testing"
@@ -119,21 +120,23 @@ Example:
 
 ### of
 
+<div class="apex-member">
+
 ```apex
 global static TST_Builder.Builder of(SObjectType objectType)
 ```
 
 Starts a new SObject build operation for the specified SObjectType.
 
-**Parameters:**
+**Parameters**
 
-- `objectType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the SObject to create.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the SObject to create. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - A new Builder instance to configure and execute the build.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — A new Builder instance to configure and execute the build.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build a single Account in memory with a specific name
@@ -143,21 +146,25 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static TST_Builder.Builder of(String sObjectName)
 ```
 
 Starts a new SObject build operation for the specified SObject API name.
 
-**Parameters:**
+**Parameters**
 
-- `sObjectName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the SObject to create.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the SObject to create. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - A new Builder instance to configure and execute the build.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — A new Builder instance to configure and execute the build.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build and insert a list of 5 Foobars
@@ -165,4 +172,6 @@ List<SObject> fooBars = TST_Builder.of('Foobar__c')
 	.withCount(5)
 	.buildList();
 ```
+
+</div>
 

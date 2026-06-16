@@ -1,3 +1,7 @@
+---
+navOrder: 64
+---
+
 # Fast Start - Data Masking
 
 **Framework:** KernDX | **Total time:** ~20 minutes

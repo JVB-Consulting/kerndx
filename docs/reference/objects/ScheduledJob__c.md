@@ -1,6 +1,7 @@
 ---
 title: "ScheduledJob__c"
 type: sobject
+pageClass: reference
 description: "Declarative scheduled job configuration. Each record defines a schedulable Apex class, cron expression, and activation status. The trigger framework automatically starts, stops, and monitors jobs base"
 category: objects
 ---

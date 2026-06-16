@@ -1,6 +1,7 @@
 ---
 title: "ApiRuntimeSwitch__c"
 type: sobject
+pageClass: reference
 description: "Hierarchical custom setting that provides runtime API kill switches at the org, profile, or user level. User-level overrides profile-level, which overrides org-level. For granular per-service control,"
 category: objects
 ---

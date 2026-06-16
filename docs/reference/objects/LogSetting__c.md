@@ -1,6 +1,7 @@
 ---
 title: "LogSetting__c"
 type: sobject
+pageClass: reference
 description: "Controls logging behaviour: log level threshold, class filtering, performance logging thresholds, and context data size limits. Hierarchy: Org > Profile > User."
 category: objects
 ---

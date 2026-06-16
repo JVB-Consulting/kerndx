@@ -1,6 +1,7 @@
 ---
 title: "SEL_OrgWideEmailAddress"
 type: class
+pageClass: reference
 description: "Selector for the OrgWideEmailAddress SObject. Provides query methods for retrieving organization-wide email addresses configured in Salesforce."
 author: "Jason Van Beukering"
 group: "Selectors"
@@ -49,21 +50,25 @@ OrgWideEmailAddress randomAddress = (OrgWideEmailAddress)new SEL_OrgWideEmailAdd
 
 ### SEL_OrgWideEmailAddress
 
+<div class="apex-member">
+
 ```apex
 global SEL_OrgWideEmailAddress()
 ```
 
 Constructs an OrgWideEmailAddress selector.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_OrgWideEmailAddress instance = new SEL_OrgWideEmailAddress();
 ```
 
+</div>
+
 ### findByName
+
+<div class="apex-member">
 
 ```apex
 global List<OrgWideEmailAddress> findByName(Set<String> addresses)
@@ -71,22 +76,26 @@ global List<OrgWideEmailAddress> findByName(Set<String> addresses)
 
 Retrieves OrgWideEmailAddress records matching the provided email addresses.
 
-**Parameters:**
+**Parameters**
 
-- `addresses` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - A set of email addresses to search for
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `addresses` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | A set of email addresses to search for |
 
-**Returns:** [OrgWideEmailAddress](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm) - List of matching OrgWideEmailAddress records
+**Returns** [OrgWideEmailAddress](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm) — List of matching OrgWideEmailAddress records
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<OrgWideEmailAddress> addresses = new SEL_OrgWideEmailAddress()
     .findByName(new Set<String>{'noreply@company.com'});
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -94,17 +103,19 @@ global override List<SObjectField> getFields()
 
 Returns the core fields for OrgWideEmailAddress queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of OrgWideEmailAddress SObjectField tokens
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of OrgWideEmailAddress SObjectField tokens
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
 
+</div>
+
 ### getRandomItem
+
+<div class="apex-member">
 
 ```apex
 global override SObject getRandomItem()
@@ -112,13 +123,13 @@ global override SObject getRandomItem()
 
 Retrieves a random OrgWideEmailAddress that is available to all profiles.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A random OrgWideEmailAddress available to all profiles, or null if none found
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A random OrgWideEmailAddress available to all profiles, or null if none found
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 OrgWideEmailAddress randomEmail = new SEL_OrgWideEmailAddress().getRandomItem();
 ```
+
+</div>
 

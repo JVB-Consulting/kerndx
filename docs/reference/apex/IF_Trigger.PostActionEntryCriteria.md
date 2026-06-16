@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.PostActionEntryCriteria"
 type: class
+pageClass: reference
 description: "Optional entry-criteria contract for a post-trigger action. Implementing classes are referenced from PostTriggerAction__mdt.EntryCriteriaContextClassName__c and consulted before the post-action's exec"
 since: "1.1"
 category: apex
@@ -32,6 +33,8 @@ Optional entry-criteria contract for a post-trigger action. Implementing classes
 
 ### shouldRun
 
+<div class="apex-member">
+
 ```apex
 global abstract Boolean shouldRun(IF_Trigger.PostActionContext context)
 ```
@@ -39,16 +42,15 @@ global abstract Boolean shouldRun(IF_Trigger.PostActionContext context)
 Called once per outermost dispatch before the gated post-action.
 Returning false skips the post-action; returning true proceeds to execution.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md)) - The post-action context for this dispatch. Carries the set of
-SObject types whose triggers participated in the transaction.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md) | The post-action context for this dispatch. Carries the set of SObject types whose triggers participated in the transaction. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the gated post-action should run; `false` to skip it.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the gated post-action should run; `false` to skip it.
 
-**Since:** 1.1
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_PostActionEntryBrandA implements IF_Trigger.PostActionEntryCriteria
@@ -60,4 +62,6 @@ public class TRG_PostActionEntryBrandA implements IF_Trigger.PostActionEntryCrit
     }
 }
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "IF_Trigger.AfterUpdate"
 type: class
+pageClass: reference
 description: "Handler contract for the after-update trigger event."
 since: "1.0"
 category: apex
@@ -34,6 +35,8 @@ Handler contract for the after-update trigger event.
 
 ### afterUpdate
 
+<div class="apex-member">
+
 ```apex
 global abstract void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 ```
@@ -41,14 +44,14 @@ global abstract void afterUpdate(List<SObject> newRecords, List<SObject> oldReco
 Called after records have been updated and committed, enabling
 cascading updates to related objects, notifications, or audit trail entries.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The batch of SObjects with their committed field values.
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The batch of SObjects with their values prior to the update.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The batch of SObjects with their committed field values. |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The batch of SObjects with their values prior to the update. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public class TRG_SyncAccountToExternal extends TRG_Base implements IF_Trigger.AfterUpdate
@@ -65,4 +68,6 @@ public class TRG_SyncAccountToExternal extends TRG_Base implements IF_Trigger.Af
     }
 }
 ```
+
+</div>
 

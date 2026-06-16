@@ -1,6 +1,7 @@
 ---
 title: "DTO_FlowValidationError"
 type: class
+pageClass: reference
 description: "Represents a single validation error or warning for Flow display. Contains details about the validation rule that failed, the error message, and metadata for field-level error presentation in Flow scr"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"

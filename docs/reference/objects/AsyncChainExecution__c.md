@@ -1,6 +1,7 @@
 ---
 title: "AsyncChainExecution__c"
 type: sobject
+pageClass: reference
 description: "Tracks async chain executions including state, step definitions, shared context, and progress. Each record represents one chain execution lifecycle."
 category: objects
 ---

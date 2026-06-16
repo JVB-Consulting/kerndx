@@ -1,6 +1,7 @@
 ---
 title: "TRG_ApiIssue"
 type: trigger
+pageClass: reference
 description: "Trigger on ApiIssue__c. Fires the configured trigger actions for data masking before insert and update so sensitive payload fragments captured in the diagnostic record are redacted before persistence,"
 author: "Jason Van Beukering"
 date: "April 2026, May 2026"

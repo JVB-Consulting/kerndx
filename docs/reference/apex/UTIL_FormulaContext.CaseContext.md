@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext.CaseContext"
 type: class
+pageClass: reference
 description: "Formula evaluation context for Case object. Provides typed access to Case records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can "
 since: "1.0"
 category: apex

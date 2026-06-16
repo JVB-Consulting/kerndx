@@ -1,6 +1,7 @@
 ---
 title: "QRY_Condition.AndCondition"
 type: class
+pageClass: reference
 description: "Represents a SOQL \"AND\" condition group."
 since: "1.0"
 category: apex
@@ -43,21 +44,25 @@ group.add(new QRY_Condition.FieldCondition('Type__c', QRY_Condition.Operator.EQU
 
 ### AndCondition
 
+<div class="apex-member">
+
 ```apex
 global AndCondition()
 ```
 
 Constructor for creating an AND condition group.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.AndCondition instance = new QRY_Condition.AndCondition();
 ```
 
+</div>
+
 ### add
+
+<div class="apex-member">
 
 ```apex
 global override QRY_Condition.Nestable add(QRY_Condition.Evaluable condition)
@@ -65,19 +70,21 @@ global override QRY_Condition.Nestable add(QRY_Condition.Evaluable condition)
 
 Adds a condition to this AND group.
 
-**Parameters:**
+**Parameters**
 
-- `condition` ([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md)) - The condition to add.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `condition` | [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) | The condition to add. |
 
-**Returns:** [QRY_Condition.Nestable](QRY_Condition.Nestable.md) - The current Nestable with the added condition.
+**Returns** [QRY_Condition.Nestable](QRY_Condition.Nestable.md) — The current Nestable with the added condition.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 QRY_Condition.AndCondition group = new QRY_Condition.AndCondition();
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
 group.add(new QRY_Condition.FieldCondition('Type__c', QRY_Condition.Operator.EQUALS, 'Customer'));
 ```
+
+</div>
 

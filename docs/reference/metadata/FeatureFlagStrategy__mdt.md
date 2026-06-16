@@ -1,6 +1,7 @@
 ---
 title: "FeatureFlagStrategy__mdt"
 type: sobject
+pageClass: reference
 description: "Defines a single evaluation rule for a parent Feature Flag. A Feature Flag can have multiple strategies, which are processed in the order specified by the 'Order' field. The first strategy to return '"
 category: metadata
 ---

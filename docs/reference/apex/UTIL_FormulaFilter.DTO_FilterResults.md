@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaFilter.DTO_FilterResults"
 type: class
+pageClass: reference
 description: "Inner class representing the result of the filter method."
 since: "1.0"
 category: apex

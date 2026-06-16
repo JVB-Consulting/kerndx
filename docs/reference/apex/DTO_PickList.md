@@ -1,6 +1,7 @@
 ---
 title: "DTO_PickList"
 type: class
+pageClass: reference
 description: "A Data Transfer Object (DTO) representing a single picklist and all associated values. This class is typically used to retrieve and manage picklist values dynamically, often for use in invocable actio"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"

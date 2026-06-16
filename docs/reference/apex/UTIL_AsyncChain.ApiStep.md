@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsyncChain.ApiStep"
 type: class
+pageClass: reference
 description: "Chain step adapter that executes any API_Outbound handler as part of an async chain. Wraps the full web service lifecycle (validation, callout, response parsing, DML, ApiCall__c persistence) via UTIL_"
 since: "1.0"
 category: apex
@@ -57,19 +58,21 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 
 ### ApiStep
 
+<div class="apex-member">
+
 ```apex
 global ApiStep(Type handlerType)
 ```
 
 Creates an ApiStep that wraps the specified API_Outbound handler.
 
-**Parameters:**
+**Parameters**
 
-- `handlerType` ([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)) - The API_Outbound subclass to execute (e.g., API_SendEmail.class).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `handlerType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The API_Outbound subclass to execute (e.g., API_SendEmail.class). |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
@@ -77,7 +80,11 @@ new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
     .triggeringRecordFrom('recordId')
 ```
 
+</div>
+
 ### credential
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ApiStep credential(String namedCredential)
@@ -85,22 +92,26 @@ global UTIL_AsyncChain.ApiStep credential(String namedCredential)
 
 Overrides the Named Credential used for this API call.
 
-**Parameters:**
+**Parameters**
 
-- `namedCredential` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The Named Credential developer name.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `namedCredential` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Named Credential developer name. |
 
-**Returns:** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) - This ApiStep for method chaining.
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
     .credential('AlternateGateway')
 ```
 
+</div>
+
 ### triggeringRecord
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ApiStep triggeringRecord(Id recordId)
@@ -108,22 +119,26 @@ global UTIL_AsyncChain.ApiStep triggeringRecord(Id recordId)
 
 Sets a static triggering record ID for this API call.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Salesforce record ID.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Salesforce record ID. |
 
-**Returns:** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) - This ApiStep for method chaining.
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
     .triggeringRecord(account.Id)
 ```
 
+</div>
+
 ### triggeringRecordFrom
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ApiStep triggeringRecordFrom(String contextKey)
@@ -131,22 +146,26 @@ global UTIL_AsyncChain.ApiStep triggeringRecordFrom(String contextKey)
 
 Sets the triggering record ID from a ChainContext key, resolved at execution-time.
 
-**Parameters:**
+**Parameters**
 
-- `contextKey` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The ChainContext key containing the record ID.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `contextKey` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The ChainContext key containing the record ID. |
 
-**Returns:** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) - This ApiStep for method chaining.
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
     .triggeringRecordFrom('orderId')
 ```
 
+</div>
+
 ### withParameter
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ApiStep withParameter(String name, String value)
@@ -154,16 +173,16 @@ global UTIL_AsyncChain.ApiStep withParameter(String name, String value)
 
 Adds a static parameter value to pass to the handler.
 
-**Parameters:**
+**Parameters**
 
-- `name` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter name (use the handler's PARAM_* constants).
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The parameter value.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter name (use the handler's PARAM_* constants). |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The parameter value. |
 
-**Returns:** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) - This ApiStep for method chaining.
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
@@ -171,7 +190,11 @@ new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
     .withParameter(API_ChargePayment.PARAM_CURRENCY, 'USD')
 ```
 
+</div>
+
 ### withParameterFrom
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ApiStep withParameterFrom(String parameterName, String contextKey)
@@ -180,23 +203,27 @@ global UTIL_AsyncChain.ApiStep withParameterFrom(String parameterName, String co
 Maps a handler parameter to a ChainContext key, resolved at execution-time.
 Use this when the parameter value is produced by a prior step in the chain.
 
-**Parameters:**
+**Parameters**
 
-- `parameterName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The handler parameter name.
-- `contextKey` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The ChainContext key to read the value from.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameterName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The handler parameter name. |
+| `contextKey` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The ChainContext key to read the value from. |
 
-**Returns:** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) - This ApiStep for method chaining.
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendConfirmation.class)
     .withParameterFrom('recipient', 'customerEmail')
 ```
 
+</div>
+
 ### work
+
+<div class="apex-member">
 
 ```apex
 global override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
@@ -206,11 +233,13 @@ Executes the API_Outbound handler via UTIL_HttpClient delegation mode.
 Reads configuration from the ChainContext, builds the request, invokes the handler,
 and writes results back to the context for downstream steps.
 
-**Parameters:**
+**Parameters**
 
-- `context` ([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md)) - Shared chain context for reading configuration and writing results.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | [UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared chain context for reading configuration and writing results. |
 
-**Returns:** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) - StepResult indicating success or failure of the API call.
+**Returns** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) — StepResult indicating success or failure of the API call.
 
-**Since:** 1.0
+</div>
 

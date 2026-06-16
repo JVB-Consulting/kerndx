@@ -1,3 +1,7 @@
+---
+navOrder: 92
+---
+
 # Fast Start - E2E Testing
 
 **Framework:** KernDX | **Total time:** ~20 minutes

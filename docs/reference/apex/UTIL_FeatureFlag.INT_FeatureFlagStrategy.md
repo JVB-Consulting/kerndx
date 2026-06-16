@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FeatureFlag.INT_FeatureFlagStrategy"
 type: class
+pageClass: reference
 description: "The global interface for all feature evaluation strategies. Implement this interface and reference your class from FeatureFlagStrategy__mdt.CustomHandler__c to replace any built-in strategy. This is t"
 since: "1.0"
 category: apex
@@ -49,22 +50,24 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_FeatureFlagStrat
 
 ### isEnabled
 
+<div class="apex-member">
+
 ```apex
 global abstract Boolean isEnabled(FeatureFlag__mdt flag, FeatureFlagStrategy__mdt strategyToEvaluate)
 ```
 
 Evaluates the strategy and determines if the feature should be enabled.
 
-**Parameters:**
+**Parameters**
 
-- `flag` ([FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md)) - The Feature Flag custom metadata record.
-- `strategyToEvaluate` ([FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md)) - The specific strategy record to evaluate.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flag` | [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) | The Feature Flag custom metadata record. |
+| `strategyToEvaluate` | [FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md) | The specific strategy record to evaluate. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - `true` if the feature is enabled by this strategy, `false` otherwise.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` if the feature is enabled by this strategy, `false` otherwise.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 public Boolean isEnabled(FeatureFlag__mdt flag, FeatureFlagStrategy__mdt strategyToEvaluate)
@@ -74,4 +77,6 @@ public Boolean isEnabled(FeatureFlag__mdt flag, FeatureFlagStrategy__mdt strateg
     return isTargetMet;
 }
 ```
+
+</div>
 

@@ -1,6 +1,7 @@
 ---
 title: "UTIL_Cache"
 type: class
+pageClass: reference
 description: "Factory for Platform Cache instances with nested interface pattern. Provides intelligent cache management with automatic fallback from Session to Org cache, bulk operations, and user-scoped keys.  Key"
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -107,6 +108,8 @@ Object cached = cache.get('configKey');
 
 ### auto
 
+<div class="apex-member">
+
 ```apex
 global static UTIL_Cache.Store auto()
 ```
@@ -124,11 +127,9 @@ canonical durability-required caller.
 For graceful degradation to per-transaction memory when Platform Cache is missing, use
 autoWithTransactionFallback() instead.
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - New cache instance
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — New cache instance
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Basic usage with default configuration:
 
@@ -138,7 +139,11 @@ cache.put('myKey', 'myValue');
 String value = (String)cache.get('myKey');
 ```
 
+</div>
+
 ### autoWithTransactionFallback
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Cache.Store autoWithTransactionFallback()
@@ -163,11 +168,9 @@ when the fallback fired) so callers can detect the degraded path.
 counters) MUST use auto() — not this factory — so the loud failure signal stays loud
 when Platform Cache is missing.
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - Store with Session → Org → Transaction fallback chain
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Store with Session → Org → Transaction fallback chain
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Cache.Store cache = UTIL_Cache.autoWithTransactionFallback();
@@ -179,7 +182,11 @@ if(result.cacheTypeUsed == UTIL_Cache.Scope.IN_TRANSACTION)
 }
 ```
 
+</div>
+
 ### getPlatformCacheName
+
+<div class="apex-member">
 
 ```apex
 global static String getPlatformCacheName()
@@ -187,17 +194,19 @@ global static String getPlatformCacheName()
 
 Returns the name of the platform cache partition used by the framework.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - Cache name prefixed with framework namespace (e.g. 'kern.Library')
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — Cache name prefixed with framework namespace (e.g. 'kern.Library')
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String cacheName = UTIL_Cache.getPlatformCacheName();
 ```
 
+</div>
+
 ### inTransaction
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Cache.Store inTransaction()
@@ -223,11 +232,9 @@ Storage is shared across every inTransaction()-returned Store within the same tr
 each Store instance has its own getLastOperationResult() so independent callers do not
 trample each other's diagnostic state.
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - Store backed by the per-transaction in-memory Map
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Store backed by the per-transaction in-memory Map
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_Cache.Store cache = UTIL_Cache.inTransaction();
@@ -235,7 +242,11 @@ cache.put('expensiveDescribe', myDescribeResult);
 Object cached = cache.get('expensiveDescribe');
 ```
 
+</div>
+
 ### isAllocated
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isAllocated()
@@ -248,11 +259,9 @@ Returns true if either scope can store and retrieve a value.
 This approach avoids the AUTO mode fallback issue where Session put reports success
 (partition exists) but silently drops data when 0 capacity is allocated.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if at least one cache scope (Org or Session) is functional
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if at least one cache scope (Org or Session) is functional
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(UTIL_Cache.isAllocated())
@@ -261,7 +270,11 @@ if(UTIL_Cache.isAllocated())
 }
 ```
 
+</div>
+
 ### isAvailable
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isAvailable()
@@ -269,11 +282,9 @@ global static Boolean isAvailable()
 
 Checks if Platform Cache is available (static utility)
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if any cache type is available
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if any cache type is available
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Check if Platform Cache is configured in the org:
 
@@ -289,21 +300,25 @@ else
 }
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static Boolean isAvailable(UTIL_Cache.Scope cacheType)
 ```
 
 Checks if a specific cache type is available (static utility)
 
-**Parameters:**
+**Parameters**
 
-- `cacheType` ([UTIL_Cache.Scope](UTIL_Cache.Scope.md)) - The cache type to check
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `cacheType` | [UTIL_Cache.Scope](UTIL_Cache.Scope.md) | The cache type to check |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the cache type is available
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the cache type is available
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Check if a specific cache type is available:
 
@@ -318,7 +333,11 @@ if(UTIL_Cache.isAvailable(UTIL_Cache.Scope.ORG))
 }
 ```
 
+</div>
+
 ### isOrgAllocated
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isOrgAllocated()
@@ -327,11 +346,9 @@ global static Boolean isOrgAllocated()
 Checks whether the Organisation cache scope has capacity allocated by performing
 a put/get round-trip probe.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if Organisation cache can store and retrieve data
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if Organisation cache can store and retrieve data
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(UTIL_Cache.isOrgAllocated())
@@ -340,7 +357,11 @@ if(UTIL_Cache.isOrgAllocated())
 }
 ```
 
+</div>
+
 ### isSessionAllocated
+
+<div class="apex-member">
 
 ```apex
 global static Boolean isSessionAllocated()
@@ -349,11 +370,9 @@ global static Boolean isSessionAllocated()
 Checks whether the Session cache scope has capacity allocated by performing
 a put/get round-trip probe.
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if Session cache can store and retrieve data
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if Session cache can store and retrieve data
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(UTIL_Cache.isSessionAllocated())
@@ -362,7 +381,11 @@ if(UTIL_Cache.isSessionAllocated())
 }
 ```
 
+</div>
+
 ### org
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Cache.Store org()
@@ -371,11 +394,9 @@ global static UTIL_Cache.Store org()
 Convenience factory for Org cache with default partition.
 "Easy Button" for the most common use case - persistent org-wide caching.
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - Org cache instance using framework default partition
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Org cache instance using framework default partition
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Quick access to Org cache for persistent data:
 
@@ -384,7 +405,11 @@ UTIL_Cache.Store cache = UTIL_Cache.org();
 cache.put('globalConfig', myConfigObject);
 ```
 
+</div>
+
 ### partition
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Cache.Store partition(String partitionName)
@@ -393,15 +418,15 @@ global static UTIL_Cache.Store partition(String partitionName)
 Convenience factory for custom partition (subscriber orgs).
 "Easy Button" for subscribers to use their local partitions.
 
-**Parameters:**
+**Parameters**
 
-- `partitionName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Fully qualified partition name (e.g., 'local.MyPartition')
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `partitionName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Fully qualified partition name (e.g., 'local.MyPartition') |
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - Cache instance configured for the specified partition
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Cache instance configured for the specified partition
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Subscriber org using custom partition:
 
@@ -410,7 +435,11 @@ UTIL_Cache.Store cache = UTIL_Cache.partition('local.MyPartition');
 cache.put('subscriberData', myData);
 ```
 
+</div>
+
 ### session
+
+<div class="apex-member">
 
 ```apex
 global static UTIL_Cache.Store session()
@@ -419,11 +448,9 @@ global static UTIL_Cache.Store session()
 Convenience factory for Session cache with default partition.
 "Easy Button" for session-scoped caching (max 8 hours).
 
-**Returns:** [UTIL_Cache.Store](UTIL_Cache.Store.md) - Session cache instance using framework default partition
+**Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Session cache instance using framework default partition
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 Quick access to Session cache for temporary user data:
 
@@ -431,4 +458,6 @@ Quick access to Session cache for temporary user data:
 UTIL_Cache.Store cache = UTIL_Cache.session();
 cache.put('userPreferences', prefsMap);
 ```
+
+</div>
 

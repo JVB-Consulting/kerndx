@@ -1,6 +1,7 @@
 ---
 title: "FLOW_SendEmail.DTO_Response"
 type: class
+pageClass: reference
 description: "Data Transfer Object (DTO) representing the outcome of an email request."
 since: "1.0"
 category: apex

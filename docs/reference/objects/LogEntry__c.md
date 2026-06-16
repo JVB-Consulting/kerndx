@@ -1,6 +1,7 @@
 ---
 title: "LogEntry__c"
 type: sobject
+pageClass: reference
 description: "Persistent log entries captured by the Kern logging framework. Each record represents a single logged event from Apex, Flows, or LWC, published asynchronously via LogEntryEvent__e."
 category: objects
 ---

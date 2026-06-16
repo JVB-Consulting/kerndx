@@ -1,6 +1,7 @@
 ---
 title: "TST_Builder.Builder"
 type: class
+pageClass: reference
 description: "A fluid builder for configuring and creating SObject records. Obtain an instance via TST_Builder.of(SObjectType)."
 since: "1.0"
 category: apex
@@ -54,6 +55,8 @@ A fluid builder for configuring and creating SObject records. Obtain an instance
 
 ### build
 
+<div class="apex-member">
+
 ```apex
 global SObject build()
 ```
@@ -61,11 +64,9 @@ global SObject build()
 Executes the build operation and creates a single SObject record.
 If `withCount()` was called, this method still only returns one record.
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - The created SObject record (inserted by default unless `withoutInsertion()` was called).
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The created SObject record (inserted by default unless `withoutInsertion()` was called).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build and insert a single Account
@@ -75,7 +76,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNotNull(account.Id);
 ```
 
+</div>
+
 ### buildList
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> buildList()
@@ -84,11 +89,9 @@ global List<SObject> buildList()
 Executes the build operation and creates a list of SObject records.
 The number of records is determined by the value passed to `withCount()` (defaults to 1).
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A list of the created SObject records (inserted by default unless `withoutInsertion()` was called).
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A list of the created SObject records (inserted by default unless `withoutInsertion()` was called).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build and insert 5 Contact records
@@ -100,7 +103,11 @@ Assert.areEqual(5, contacts.size());
 Assert.isNotNull(contacts[0].Id);
 ```
 
+</div>
+
 ### withChildren
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withChildren(SObjectType childType, Integer count)
@@ -110,16 +117,16 @@ Adds child records to the parent being built without field overrides.
 The simplest way to add child records - relationship name is auto-detected.
 All child fields will use framework defaults.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - Builder for method chaining
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — Builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -129,6 +136,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.areEqual(3, account.Contacts.size());
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Map<SObjectField, Object> overrides)
 ```
@@ -136,17 +147,17 @@ global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Ma
 Adds child records to the parent being built using SObjectField tokens.
 The child records will be assigned to the appropriate relationship field.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Field overrides for child records using SObjectField tokens
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create |
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Field overrides for child records using SObjectField tokens |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - Builder for method chaining
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — Builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -159,6 +170,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.areEqual(3, account.Contacts.size());
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Map<String, Object> overrides)
 ```
@@ -166,17 +181,17 @@ global TST_Builder.Builder withChildren(SObjectType childType, Integer count, Ma
 Adds child records to the parent being built using String field names.
 The child records will be assigned to the appropriate relationship field.
 
-**Parameters:**
+**Parameters**
 
-- `childType` ([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)) - The SObjectType of the child records
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Number of child records to create
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - Field overrides for child records using String field names
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType of the child records |
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of child records to create |
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Field overrides for child records using String field names |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - Builder for method chaining
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — Builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -187,6 +202,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withChildren(String relationshipName, TST_Builder.Builder childBuilder)
 ```
@@ -196,16 +215,16 @@ EDGE CASE ONLY: Use this variant when there are multiple relationships between t
 (e.g., self-referential with multiple lookup fields, or objects with multiple lookups to the same parent).
 For most cases, use withChildren(Builder) which auto-detects the relationship name.
 
-**Parameters:**
+**Parameters**
 
-- `relationshipName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The child relationship name (e.g., 'Contacts', 'Opportunities', 'PrimaryContacts__r')
-- `childBuilder` ([TST_Builder.Builder](TST_Builder.Builder.md)) - A pre-configured Builder instance for the child records
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `relationshipName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The child relationship name (e.g., 'Contacts', 'Opportunities', 'PrimaryContacts__r') |
+| `childBuilder` | [TST_Builder.Builder](TST_Builder.Builder.md) | A pre-configured Builder instance for the child records |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - Builder for method chaining
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — Builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Edge case: Foobar__c has TWO lookup fields to Contact (PrimaryContact__c, SecondaryContact__c)
@@ -219,6 +238,10 @@ Foobar__c foobar = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
     .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withChildren(TST_Builder.Builder childBuilder)
 ```
@@ -227,15 +250,15 @@ Adds child records using a pre-configured Builder instance with auto-detected re
 The relationship name is automatically determined from the child Builder's SObjectType.
 Allows for complex child record configuration using fluent Builder API.
 
-**Parameters:**
+**Parameters**
 
-- `childBuilder` ([TST_Builder.Builder](TST_Builder.Builder.md)) - A pre-configured Builder instance for the child records
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `childBuilder` | [TST_Builder.Builder](TST_Builder.Builder.md) | A pre-configured Builder instance for the child records |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - Builder for method chaining
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — Builder for method chaining
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -248,7 +271,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
     .build();
 ```
 
+</div>
+
 ### withCount
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withCount(Integer count)
@@ -256,15 +283,15 @@ global TST_Builder.Builder withCount(Integer count)
 
 Sets the number of SObject records to create when calling `buildList()`.
 
-**Parameters:**
+**Parameters**
 
-- `count` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The number of records to create.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to create. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build 10 Account records and insert them
@@ -274,7 +301,11 @@ List<Account> accounts = (List<Account>)TST_Builder.of(Account.SObjectType)
 Assert.areEqual(10, accounts.size());
 ```
 
+</div>
+
 ### withCycle
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withCycle(SObjectField field, List<Object> values)
@@ -283,16 +314,16 @@ global TST_Builder.Builder withCycle(SObjectField field, List<Object> values)
 Assigns a list of values that cycle across records built by `buildList()`.
 When more records are built than values provided, the values repeat from the beginning.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field to cycle.
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of values to cycle through. Must not be null or empty.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field to cycle. |
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of values to cycle through. Must not be null or empty. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType)
@@ -303,6 +334,10 @@ List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType)
 // Alpha, Beta, Gamma, Alpha, Beta, Gamma
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withCycle(String fieldName, List<Object> values)
 ```
@@ -310,16 +345,16 @@ global TST_Builder.Builder withCycle(String fieldName, List<Object> values)
 Assigns a list of values that cycle across records built by `buildList()`.
 When more records are built than values provided, the values repeat from the beginning.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to cycle.
-- `values` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of values to cycle through. Must not be null or empty.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to cycle. |
+| `values` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of values to cycle through. Must not be null or empty. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType)
@@ -330,7 +365,11 @@ List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType)
 // Alpha, Beta, Gamma, Alpha, Beta, Gamma
 ```
 
+</div>
+
 ### withDefaultedField
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withDefaultedField(SObjectField field)
@@ -339,15 +378,15 @@ global TST_Builder.Builder withDefaultedField(SObjectField field)
 Specifies an optional field to populate with a default value using an SObjectField token.
 This provides compile-time checking for field names.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with type-safe defaulted fields
@@ -358,6 +397,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withDefaultedField(String fieldName)
 ```
@@ -365,15 +408,15 @@ global TST_Builder.Builder withDefaultedField(String fieldName)
 Specifies an optional field to populate with a default value,
 even though it is not marked as required.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with Description field automatically populated
@@ -384,7 +427,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
 ### withDefaultedFields
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withDefaultedFields(List<Object> fields)
@@ -393,15 +440,15 @@ global TST_Builder.Builder withDefaultedFields(List<Object> fields)
 Specifies a list of optional fields to populate with default values,
 even though they are not marked as required.
 
-**Parameters:**
+**Parameters**
 
-- `fields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of fields (SObjectField tokens or String API names).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of fields (SObjectField tokens or String API names). |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with optional fields automatically populated
@@ -411,7 +458,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
 ### withOptionalField
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withOptionalField(SObjectField field)
@@ -421,15 +472,15 @@ Specifies a field to treat as optional using an SObjectField token,
 preventing the factory from auto-populating it as a required field.
 This provides compile-time checking for field names.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field to mark as optional.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field to mark as optional. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account without populating the Name field using type-safe field reference
@@ -440,6 +491,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNull(account.Name);
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withOptionalField(String fieldName)
 ```
@@ -447,15 +502,15 @@ global TST_Builder.Builder withOptionalField(String fieldName)
 Specifies a field to treat as optional,
 preventing the factory from auto-populating it as a required field.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field to mark as optional.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to mark as optional. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account without populating the Name field (normally required)
@@ -466,7 +521,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNull(account.Name);
 ```
 
+</div>
+
 ### withOptionalFields
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withOptionalFields(List<Object> fields)
@@ -475,15 +534,15 @@ global TST_Builder.Builder withOptionalFields(List<Object> fields)
 Specifies a list of fields to treat as optional,
 preventing the factory from auto-populating them as required fields.
 
-**Parameters:**
+**Parameters**
 
-- `fields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - A list of fields (SObjectField tokens or String API names).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of fields (SObjectField tokens or String API names). |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account without populating multiple normally-required fields
@@ -493,7 +552,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
 ### withoutInsertion
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withoutInsertion()
@@ -503,11 +566,9 @@ Configures the build to *not* insert the records into the database.
 By default, records are inserted. Use this when you need in-memory records for testing
 without DML operations.
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account in memory without inserting it
@@ -518,6 +579,10 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 Assert.isNull(account.Id);
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withoutInsertion(Boolean withMockIds)
 ```
@@ -526,17 +591,15 @@ Configures the build to *not* insert the records into the database,
 with an option to generate mock IDs for the entire object graph.
 Use this when you need in-memory records with IDs for query mocking.
 
-**Parameters:**
+**Parameters**
 
-- `withMockIds` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - If true, generates unique mock IDs for all records in the graph
-                   (parents and children). Foreign key fields on children are
-                   automatically set to reference their parent's mock ID.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `withMockIds` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, generates unique mock IDs for all records in the graph (parents and children). Foreign key fields on children are automatically set to reference their parent's mock ID. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build mock Account with Contacts - all with generated IDs
@@ -555,7 +618,11 @@ Assert.areEqual(mockAccount.Id, mockAccount.Contacts[0].AccountId, 'FK should re
 QRY_Builder.setMock(Account.SObjectType, new List<Account>{mockAccount});
 ```
 
+</div>
+
 ### withOverride
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withOverride(SObjectField field, Object value)
@@ -564,16 +631,16 @@ global TST_Builder.Builder withOverride(SObjectField field, Object value)
 Applies a specific field value override using an SObjectField token.
 This provides compile-time checking for field names.
 
-**Parameters:**
+**Parameters**
 
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The SObjectField token of the field.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The override value.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The SObjectField token of the field. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The override value. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with type-safe field overrides
@@ -584,22 +651,26 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withOverride(String fieldName, Object value)
 ```
 
 Applies a specific field value override.
 
-**Parameters:**
+**Parameters**
 
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The API name of the field.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The override value.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The override value. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with a single field override
@@ -610,7 +681,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
 ### withOverrides
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withOverrides(Map<SObjectField, Object> overrides)
@@ -619,15 +694,15 @@ global TST_Builder.Builder withOverrides(Map<SObjectField, Object> overrides)
 Applies a map of specific field values using SObjectField tokens, overriding defaults.
 This provides compile-time checking for field names.
 
-**Parameters:**
+**Parameters**
 
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map of SObjectField tokens to their override values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map of SObjectField tokens to their override values. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -640,21 +715,25 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 .build();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global TST_Builder.Builder withOverrides(Map<String, Object> overrides)
 ```
 
 Applies a map of specific field values, overriding defaults.
 
-**Parameters:**
+**Parameters**
 
-- `overrides` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map of field names to their override values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `overrides` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map of field names to their override values. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with multiple field overrides
@@ -669,7 +748,11 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.build();
 ```
 
+</div>
+
 ### withRecordType
+
+<div class="apex-member">
 
 ```apex
 global TST_Builder.Builder withRecordType(String recordTypeDeveloperName)
@@ -677,19 +760,21 @@ global TST_Builder.Builder withRecordType(String recordTypeDeveloperName)
 
 Sets the Record Type for the SObject(s) to be built, using the Record Type's DeveloperName.
 
-**Parameters:**
+**Parameters**
 
-- `recordTypeDeveloperName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The DeveloperName of the Record Type.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordTypeDeveloperName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The DeveloperName of the Record Type. |
 
-**Returns:** [TST_Builder.Builder](TST_Builder.Builder.md) - This Builder instance for further chaining.
+**Returns** [TST_Builder.Builder](TST_Builder.Builder.md) — This Builder instance for further chaining.
 
-**Throws:**
+**Throws**
 
-- [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) - if the Record Type DeveloperName is not found; ignores blank DeveloperName's
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the Record Type DeveloperName is not found; ignores blank DeveloperName's |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Build an Account with a specific record type
@@ -699,4 +784,6 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 	.withoutInsertion()
 	.build();
 ```
+
+</div>
 

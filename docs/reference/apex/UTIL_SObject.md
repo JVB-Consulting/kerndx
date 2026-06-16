@@ -1,6 +1,7 @@
 ---
 title: "UTIL_SObject"
 type: class
+pageClass: reference
 description: "SObject runtime operations — filtering, field extraction, list-to-map conversion, and dot-notation field value retrieval."
 author: "Jason Van Beukering"
 group: "Utilities"
@@ -75,25 +76,31 @@ List<SObject> changed = UTIL_SObject.getChangedRecords(newRecords, oldRecords, A
 
 ### extractIds
 
+<div class="apex-member">
+
 ```apex
 global static Set<Id> extractIds(List<SObject> objects)
 ```
 
 Extracts a unique set of Ids from a list of SObjects using the Id field.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids, could include a null
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids, could include a null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(accounts);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<Id> extractIds(List<SObject> objects, Boolean ignoreNulls)
@@ -101,20 +108,24 @@ global static Set<Id> extractIds(List<SObject> objects, Boolean ignoreNulls)
 
 Extracts a unique set of Ids from a list of SObjects using the Id field.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
-- `ignoreNulls` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - Set to true to exclude null Ids
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
+| `ignoreNulls` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | Set to true to exclude null Ids |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(accounts, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<Id> extractIds(List<SObject> objects, SObjectField objectField)
@@ -122,20 +133,24 @@ global static Set<Id> extractIds(List<SObject> objects, SObjectField objectField
 
 Extracts a unique set of Ids from a list of SObjects using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token containing the Id
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token containing the Id |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids, could include a null
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids, could include a null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(contacts, Contact.AccountId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<Id> extractIds(List<SObject> objects, SObjectField objectField, Boolean ignoreNulls)
@@ -143,21 +158,25 @@ global static Set<Id> extractIds(List<SObject> objects, SObjectField objectField
 
 Extracts a unique set of Ids from a list of SObjects using a typed field token with null filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token containing the Id
-- `ignoreNulls` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - Set to true to exclude null Ids
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token containing the Id |
+| `ignoreNulls` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | Set to true to exclude null Ids |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(contacts, Contact.AccountId, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<Id> extractIds(List<SObject> objects, String fieldName)
@@ -165,20 +184,24 @@ global static Set<Id> extractIds(List<SObject> objects, String fieldName)
 
 Extracts a unique set of Ids from a list of SObjects using a named field.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field containing the Id (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field containing the Id (supports dot-notation) |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids, could include a null
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids, could include a null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(contacts, 'AccountId');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<Id> extractIds(List<SObject> objects, String fieldName, Boolean ignoreNulls)
@@ -186,23 +209,27 @@ global static Set<Id> extractIds(List<SObject> objects, String fieldName, Boolea
 
 Extracts a unique set of Ids from a list of SObjects using a named field with null filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract Ids
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field containing the Id (supports dot-notation)
-- `ignoreNulls` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Set to true to exclude null Ids
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract Ids |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field containing the Id (supports dot-notation) |
+| `ignoreNulls` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Set to true to exclude null Ids |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Extracted Ids
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Extracted Ids
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = UTIL_SObject.extractIds(contacts, 'AccountId', true);
 ```
 
+</div>
+
 ### extractUniqueValues
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> extractUniqueValues(List<SObject> objects, SObjectField objectField)
@@ -210,20 +237,24 @@ global static Set<String> extractUniqueValues(List<SObject> objects, SObjectFiel
 
 Extracts a unique set of field values as strings from a list of SObjects using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token to extract
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token to extract |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of string values (includes blanks)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of string values (includes blanks)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> industries = UTIL_SObject.extractUniqueValues(accounts, Account.Industry);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> extractUniqueValues(List<SObject> objects, SObjectField objectField, Boolean ignoreBlankValues)
@@ -231,21 +262,25 @@ global static Set<String> extractUniqueValues(List<SObject> objects, SObjectFiel
 
 Extracts a unique set of field values as strings from a list of SObjects using a typed field token with blank filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token to extract
-- `ignoreBlankValues` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - Set to true to exclude blank values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token to extract |
+| `ignoreBlankValues` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | Set to true to exclude blank values |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of string values
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of string values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> industries = UTIL_SObject.extractUniqueValues(accounts, Account.Industry, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> extractUniqueValues(List<SObject> objects, String fieldName)
@@ -253,20 +288,24 @@ global static Set<String> extractUniqueValues(List<SObject> objects, String fiel
 
 Extracts a unique set of field values as strings from a list of SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field (supports dot-notation) |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of string values (includes blanks)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of string values (includes blanks)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> industries = UTIL_SObject.extractUniqueValues(accounts, 'Industry');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Set<String> extractUniqueValues(List<SObject> objects, String fieldName, Boolean ignoreBlankValues)
@@ -274,23 +313,27 @@ global static Set<String> extractUniqueValues(List<SObject> objects, String fiel
 
 Extracts a unique set of field values as strings from a list of SObjects with blank filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field (supports dot-notation)
-- `ignoreBlankValues` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Set to true to exclude blank values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field (supports dot-notation) |
+| `ignoreBlankValues` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Set to true to exclude blank values |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A set of string values
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A set of string values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<String> industries = UTIL_SObject.extractUniqueValues(accounts, 'Industry', true);
 ```
 
+</div>
+
 ### extractValues
+
+<div class="apex-member">
 
 ```apex
 global static List<String> extractValues(List<SObject> objects, SObjectField objectField)
@@ -298,20 +341,24 @@ global static List<String> extractValues(List<SObject> objects, SObjectField obj
 
 Extracts field values as strings from a list of SObjects using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token to extract
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token to extract |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of string values (includes blanks)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of string values (includes blanks)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<String> names = UTIL_SObject.extractValues(accounts, Account.Name);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<String> extractValues(List<SObject> objects, SObjectField objectField, Boolean ignoreBlankValues)
@@ -319,21 +366,25 @@ global static List<String> extractValues(List<SObject> objects, SObjectField obj
 
 Extracts field values as strings from a list of SObjects using a typed field token with blank filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `objectField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token to extract
-- `ignoreBlankValues` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - Set to true to exclude blank values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `objectField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token to extract |
+| `ignoreBlankValues` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | Set to true to exclude blank values |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of string values
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of string values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<String> names = UTIL_SObject.extractValues(accounts, Account.Name, true);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<String> extractValues(List<SObject> objects, String fieldName)
@@ -341,20 +392,24 @@ global static List<String> extractValues(List<SObject> objects, String fieldName
 
 Extracts field values as strings from a list of SObjects.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field (supports dot-notation) |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of string values (includes blanks)
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of string values (includes blanks)
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<String> names = UTIL_SObject.extractValues(accounts, 'Name');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<String> extractValues(List<SObject> objects, String fieldName, Boolean ignoreBlankValues)
@@ -362,23 +417,27 @@ global static List<String> extractValues(List<SObject> objects, String fieldName
 
 Extracts field values as strings from a list of SObjects with blank filtering.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects from which to extract values
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the field (supports dot-notation)
-- `ignoreBlankValues` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Set to true to exclude blank values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects from which to extract values |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the field (supports dot-notation) |
+| `ignoreBlankValues` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Set to true to exclude blank values |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - A list of string values
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of string values
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<String> names = UTIL_SObject.extractValues(accounts, 'Name', true);
 ```
 
+</div>
+
 ### findWhere
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> findWhere(List<SObject> objects, Map<String, Object> filter)
@@ -386,21 +445,25 @@ global static List<SObject> findWhere(List<SObject> objects, Map<String, Object>
 
 Filters a list of SObjects by multiple field-value matches.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to filter
-- `filter` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - A map of field API names and their expected values
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to filter |
+| `filter` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | A map of field API names and their expected values |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - Matching SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — Matching SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, Object> filter = new Map<String, Object>{ 'Industry' => 'Technology', 'Active__c' => true };
 List<SObject> matches = UTIL_SObject.findWhere(accounts, filter);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> findWhere(List<SObject> objects, String fieldName, Object value)
@@ -408,23 +471,27 @@ global static List<SObject> findWhere(List<SObject> objects, String fieldName, O
 
 Filters a list of SObjects by a single field-value match.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to filter
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field API name to match
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The value to match against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to filter |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field API name to match |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The value to match against |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - Matching SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — Matching SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> techAccounts = UTIL_SObject.findWhere(accounts, 'Industry', 'Technology');
 ```
 
+</div>
+
 ### findWhereIn
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> findWhereIn(List<SObject> objects, String fieldName, List<Object> values)
@@ -432,24 +499,28 @@ global static List<SObject> findWhereIn(List<SObject> objects, String fieldName,
 
 Filters a list of SObjects where a field value is in the provided list.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to filter
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field API name to match
-- `values` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The values to match against
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to filter |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field API name to match |
+| `values` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The values to match against |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - Matching SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — Matching SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<Object> targetIndustries = new List<Object>{ 'Technology', 'Finance' };
 List<SObject> filtered = UTIL_SObject.findWhereIn(accounts, 'Industry', targetIndustries);
 ```
 
+</div>
+
 ### getChangedRecords
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> getChangedRecords(List<SObject> newRecords, List<SObject> oldRecords, Set<SObjectField> fields)
@@ -458,17 +529,17 @@ global static List<SObject> getChangedRecords(List<SObject> newRecords, List<SOb
 Returns only the records where any of the specified fields have changed between the old and new
 versions. Compares each record in the new list against the corresponding record in the old list by index.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The new versions of the records (from Trigger.new).
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The old versions of the records (from Trigger.old).
-- `fields` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The set of fields to check for changes. A record is included if any field changed.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The new versions of the records (from Trigger.new). |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The old versions of the records (from Trigger.old). |
+| `fields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The set of fields to check for changes. A record is included if any field changed. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A list containing only the new records where at least one of the specified fields changed.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A list containing only the new records where at least one of the specified fields changed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> addressChanged = UTIL_SObject.getChangedRecords
@@ -478,6 +549,10 @@ List<SObject> addressChanged = UTIL_SObject.getChangedRecords
 );
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global static List<SObject> getChangedRecords(List<SObject> newRecords, List<SObject> oldRecords, SObjectField field)
 ```
@@ -485,23 +560,27 @@ global static List<SObject> getChangedRecords(List<SObject> newRecords, List<SOb
 Returns only the records where a specific field value has changed between the old and new
 versions. Compares each record in the new list against the corresponding record in the old list by index.
 
-**Parameters:**
+**Parameters**
 
-- `newRecords` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The new versions of the records (from Trigger.new).
-- `oldRecords` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The old versions of the records (from Trigger.old).
-- `field` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The field to check for changes.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The new versions of the records (from Trigger.new). |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The old versions of the records (from Trigger.old). |
+| `field` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The field to check for changes. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A list containing only the new records where the specified field value changed.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A list containing only the new records where the specified field value changed.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> statusChanged = UTIL_SObject.getChangedRecords(newRecords, oldRecords, Foobar__c.Status__c);
 ```
 
+</div>
+
 ### getFieldValue
+
+<div class="apex-member">
 
 ```apex
 global static Object getFieldValue(SObject anObject, String fieldName)
@@ -509,23 +588,27 @@ global static Object getFieldValue(SObject anObject, String fieldName)
 
 Retrieves the value for a field on an SObject using dot-notation for related objects.
 
-**Parameters:**
+**Parameters**
 
-- `anObject` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject (can include related object data)
-- `fieldName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - A single field name or dot-notation path (e.g. 'Contact.Name')
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `anObject` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject (can include related object data) |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A single field name or dot-notation path (e.g. 'Contact.Name') |
 
-**Returns:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) - The value of the field
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — The value of the field
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Object name = UTIL_SObject.getFieldValue(account, 'Name');
 Object contactName = UTIL_SObject.getFieldValue(myCase, 'Contact.Name');
 ```
 
+</div>
+
 ### groupByKey
+
+<div class="apex-member">
 
 ```apex
 global static Map<Id, List<SObject>> groupByKey(List<SObject> objectList, SObjectField keyField)
@@ -533,20 +616,24 @@ global static Map<Id, List<SObject>> groupByKey(List<SObject> objectList, SObjec
 
 Converts a list of SObjects into a grouped map by an Id field using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to group
-- `keyField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token for the key
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to group |
+| `keyField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token for the key |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of Id to list of SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of Id to list of SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<Id, List<SObject>> contactsByAccount = UTIL_SObject.groupByKey(contacts, Contact.AccountId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<Id, List<SObject>> groupByKey(List<SObject> objectList, String keyFieldName)
@@ -554,22 +641,26 @@ global static Map<Id, List<SObject>> groupByKey(List<SObject> objectList, String
 
 Converts a list of SObjects into a grouped map by an Id field.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to group
-- `keyFieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the Id field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to group |
+| `keyFieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the Id field (supports dot-notation) |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of Id to list of SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of Id to list of SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<Id, List<SObject>> contactsByAccount = UTIL_SObject.groupByKey(contacts, 'AccountId');
 ```
 
+</div>
+
 ### groupByStringKey
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, List<SObject>> groupByStringKey(List<SObject> objectList, SObjectField keyField)
@@ -577,20 +668,24 @@ global static Map<String, List<SObject>> groupByStringKey(List<SObject> objectLi
 
 Converts a list of SObjects into a grouped map by a String field using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to group
-- `keyField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token for the key
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to group |
+| `keyField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token for the key |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of String to list of SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of String to list of SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, List<SObject>> accountsByIndustry = UTIL_SObject.groupByStringKey(accounts, Account.Industry);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, List<SObject>> groupByStringKey(List<SObject> objectList, String keyFieldName)
@@ -598,22 +693,26 @@ global static Map<String, List<SObject>> groupByStringKey(List<SObject> objectLi
 
 Converts a list of SObjects into a grouped map by a String field.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to group
-- `keyFieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the String field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to group |
+| `keyFieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the String field (supports dot-notation) |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of String to list of SObjects
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of String to list of SObjects
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, List<SObject>> accountsByIndustry = UTIL_SObject.groupByStringKey(accounts, 'Industry');
 ```
 
+</div>
+
 ### hasFieldChanged
+
+<div class="apex-member">
 
 ```apex
 global static Boolean hasFieldChanged(SObject newRecord, SObject oldRecord, SObjectField field)
@@ -621,17 +720,17 @@ global static Boolean hasFieldChanged(SObject newRecord, SObject oldRecord, SObj
 
 Checks whether a specific field value has changed between the old and new versions of a record.
 
-**Parameters:**
+**Parameters**
 
-- `newRecord` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The new version of the record (from Trigger.new).
-- `oldRecord` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The old version of the record (from Trigger.oldMap).
-- `field` ([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)) - The field to check for changes.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `newRecord` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The new version of the record (from Trigger.new). |
+| `oldRecord` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The old version of the record (from Trigger.oldMap). |
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to check for changes. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if the field value differs between the old and new records.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the field value differs between the old and new records.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 if(UTIL_SObject.hasFieldChanged(newRecord, oldRecord, Foobar__c.Status__c))
@@ -640,7 +739,11 @@ if(UTIL_SObject.hasFieldChanged(newRecord, oldRecord, Foobar__c.Status__c))
 }
 ```
 
+</div>
+
 ### indexById
+
+<div class="apex-member">
 
 ```apex
 global static Map<Id, SObject> indexById(List<SObject> objectList, SObjectField keyField)
@@ -648,20 +751,24 @@ global static Map<Id, SObject> indexById(List<SObject> objectList, SObjectField 
 
 Converts a list of SObjects into a single-value map by an Id field using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to map
-- `keyField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token for the key
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to map |
+| `keyField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token for the key |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of Id to SObject
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of Id to SObject
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<Id, SObject> accountById = UTIL_SObject.indexById(accounts, Account.Id);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<Id, SObject> indexById(List<SObject> objectList, String keyFieldName)
@@ -669,22 +776,26 @@ global static Map<Id, SObject> indexById(List<SObject> objectList, String keyFie
 
 Converts a list of SObjects into a single-value map by an Id field.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to map
-- `keyFieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the Id field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to map |
+| `keyFieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the Id field (supports dot-notation) |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of Id to SObject
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of Id to SObject
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<Id, SObject> accountById = UTIL_SObject.indexById(accounts, 'Id');
 ```
 
+</div>
+
 ### indexByStringKey
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObject> indexByStringKey(List<SObject> objectList, SObjectField keyField)
@@ -692,20 +803,24 @@ global static Map<String, SObject> indexByStringKey(List<SObject> objectList, SO
 
 Converts a list of SObjects into a single-value map by a String field using a typed field token.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to map
-- `keyField` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field token for the key
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to map |
+| `keyField` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field token for the key |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of String to SObject
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of String to SObject
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObject> accountByName = UTIL_SObject.indexByStringKey(accounts, Account.Name);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static Map<String, SObject> indexByStringKey(List<SObject> objectList, String keyFieldName)
@@ -713,22 +828,26 @@ global static Map<String, SObject> indexByStringKey(List<SObject> objectList, St
 
 Converts a list of SObjects into a single-value map by a String field.
 
-**Parameters:**
+**Parameters**
 
-- `objectList` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to map
-- `keyFieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The API name of the String field (supports dot-notation)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectList` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to map |
+| `keyFieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The API name of the String field (supports dot-notation) |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - A map of String to SObject
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — A map of String to SObject
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, SObject> accountByName = UTIL_SObject.indexByStringKey(accounts, 'Name');
 ```
 
+</div>
+
 ### matches
+
+<div class="apex-member">
 
 ```apex
 global static Boolean matches(SObject obj, Map<String, Object> filterMap)
@@ -736,16 +855,16 @@ global static Boolean matches(SObject obj, Map<String, Object> filterMap)
 
 Checks if an SObject matches the field-value pairs in the provided filter map.
 
-**Parameters:**
+**Parameters**
 
-- `obj` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The SObject to check.
-- `filterMap` ([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)) - A map containing field API names and their expected values.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `obj` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The SObject to check. |
+| `filterMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | A map containing field API names and their expected values. |
 
-**Returns:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) - True if all fields in the filter map match the corresponding SObject fields.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if all fields in the filter map match the corresponding SObject fields.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SObject account = new Account(Name = 'Test Account', Industry = 'Technology');
@@ -753,7 +872,11 @@ Map<String, Object> filterMap = new Map<String, Object>{'Name' => 'Test Account'
 Boolean doesMatch = UTIL_SObject.matches(account, filterMap); // True
 ```
 
+</div>
+
 ### omitWhere
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> omitWhere(List<SObject> objects, Map<String, Object> filter)
@@ -761,21 +884,25 @@ global static List<SObject> omitWhere(List<SObject> objects, Map<String, Object>
 
 Removes items from a list where the fields match the filter map.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to filter
-- `filter` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - A map of fields and values that cause exclusion
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to filter |
+| `filter` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | A map of fields and values that cause exclusion |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - SObjects not matching the exclusion criteria
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — SObjects not matching the exclusion criteria
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<String, Object> filter = new Map<String, Object>{ 'Status' => 'Closed', 'IsDeleted' => true };
 List<SObject> activeRecords = UTIL_SObject.omitWhere(allRecords, filter);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<SObject> omitWhere(List<SObject> objects, String fieldName, Object value)
@@ -783,23 +910,27 @@ global static List<SObject> omitWhere(List<SObject> objects, String fieldName, O
 
 Removes items from a list where the field matches a single value.
 
-**Parameters:**
+**Parameters**
 
-- `objects` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The SObjects to filter
-- `fieldName` ([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)) - The field API name to match for exclusion
-- `value` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The value that causes exclusion
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objects` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The SObjects to filter |
+| `fieldName` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The field API name to match for exclusion |
+| `value` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The value that causes exclusion |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - SObjects not matching the exclusion criteria
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — SObjects not matching the exclusion criteria
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObject> nonTech = UTIL_SObject.omitWhere(accounts, 'Industry', 'Technology');
 ```
 
+</div>
+
 ### validateId
+
+<div class="apex-member">
 
 ```apex
 global static Id validateId(String stringId)
@@ -807,17 +938,19 @@ global static Id validateId(String stringId)
 
 Will return an Id if the string is a valid Id else null
 
-**Parameters:**
+**Parameters**
 
-- `stringId` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - A string containing the ID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stringId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A string containing the ID |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Either a valid ID or null
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Either a valid ID or null
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Id result = UTIL_SObject.validateId('001000000000001');
 ```
+
+</div>
 

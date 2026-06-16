@@ -1,6 +1,7 @@
 ---
 title: "UTIL_CircuitBreaker.State"
 type: class
+pageClass: reference
 description: "Enum representing the circuit breaker state"
 since: "1.0"
 category: apex

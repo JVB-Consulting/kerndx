@@ -1,6 +1,7 @@
 ---
 title: "SEL_Hierarchy.Selector"
 type: class
+pageClass: reference
 description: "Selector class that provides hierarchy operations for a specific SObject type. Created via SEL_Hierarchy.forField(parentField) - caches field metadata for efficient reuse."
 since: "1.0"
 category: apex
@@ -40,6 +41,8 @@ Selector class that provides hierarchy operations for a specific SObject type. C
 
 ### calculateUltimateParents
 
+<div class="apex-member">
+
 ```apex
 global Map<Id, Id> calculateUltimateParents(Set<Id> changedRecordIds, Boolean includeDescendants)
 ```
@@ -47,23 +50,27 @@ global Map<Id, Id> calculateUltimateParents(Set<Id> changedRecordIds, Boolean in
 Calculates ultimate parent values for records without performing DML.
 Returns a map that can be used for updates or analysis.
 
-**Parameters:**
+**Parameters**
 
-- `changedRecordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Records whose parent has changed.
-- `includeDescendants` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - Whether to include all descendants in the result.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `changedRecordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Records whose parent has changed. |
+| `includeDescendants` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | Whether to include all descendants in the result. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Map of record Id to its ultimate parent Id.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Map of record Id to its ultimate parent Id.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Map<Id, Id> ultimateParents = SEL_Hierarchy.forField(Account.ParentId)
     .calculateUltimateParents(changedAccountIds, true);
 ```
 
+</div>
+
 ### findAllAncestors
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> findAllAncestors(Id recordId)
@@ -72,15 +79,15 @@ global List<SObject> findAllAncestors(Id recordId)
 Finds all ancestors (parents, grandparents, etc.) of a record.
 Returns ancestors ordered from immediate parent to ultimate parent (root).
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the record to find ancestors for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the record to find ancestors for. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of ancestor SObjects ordered from immediate parent to ultimate parent. Empty list if record has no parent.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of ancestor SObjects ordered from immediate parent to ultimate parent. Empty list if record has no parent.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Account hierarchy: GrandChild -> Child -> Parent -> GrandParent (no parent)
@@ -89,21 +96,25 @@ List<Account> ancestors = (List<Account>)SEL_Hierarchy.forField(Account.ParentId
 // Returns: [Child, Parent, GrandParent] - ordered from closest to furthest
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global Map<Id, List<SObject>> findAllAncestors(Set<Id> recordIds)
 ```
 
 Finds all ancestors for multiple records in a single bulkified operation.
 
-**Parameters:**
+**Parameters**
 
-- `recordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of record Ids to find ancestors for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of record Ids to find ancestors for. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - Map of record Id to its list of ancestors. Each list is ordered from immediate parent to ultimate parent.
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — Map of record Id to its list of ancestors. Each list is ordered from immediate parent to ultimate parent.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = new Set<Id>{acc1.Id, acc2.Id};
@@ -116,7 +127,11 @@ for(Id accountId : accountIds)
 }
 ```
 
+</div>
+
 ### findAllDescendants
+
+<div class="apex-member">
 
 ```apex
 global Set<Id> findAllDescendants(Id parentId)
@@ -124,20 +139,24 @@ global Set<Id> findAllDescendants(Id parentId)
 
 Finds all descendants (children, grandchildren, etc.) of a record.
 
-**Parameters:**
+**Parameters**
 
-- `parentId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the parent record.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parentId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the parent record. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Set of all descendant record Ids (does not include the parent).
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Set of all descendant record Ids (does not include the parent).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> allDescendants = SEL_Hierarchy.forField(Account.ParentId)
     .findAllDescendants(parentAccountId);
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global Set<Id> findAllDescendants(Set<Id> parentIds)
@@ -145,15 +164,15 @@ global Set<Id> findAllDescendants(Set<Id> parentIds)
 
 Finds all descendants for multiple parent records.
 
-**Parameters:**
+**Parameters**
 
-- `parentIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of parent record Ids.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parentIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of parent record Ids. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Set of all descendant record Ids (does not include the parent Ids).
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Set of all descendant record Ids (does not include the parent Ids).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> parentIds = new Set<Id>{parent1.Id, parent2.Id};
@@ -161,7 +180,11 @@ Set<Id> allDescendants = SEL_Hierarchy.forField(Account.ParentId)
     .findAllDescendants(parentIds);
 ```
 
+</div>
+
 ### findUltimateParent
+
+<div class="apex-member">
 
 ```apex
 global Id findUltimateParent(Id recordId)
@@ -170,15 +193,15 @@ global Id findUltimateParent(Id recordId)
 Finds the ultimate parent (root ancestor) for a record.
 Traverses up the hierarchy until a record with no parent is found.
 
-**Parameters:**
+**Parameters**
 
-- `recordId` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The Id of the record to find the ultimate parent for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The Id of the record to find the ultimate parent for. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - The Id of the ultimate parent, or the record's own Id if it has no parent.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The Id of the ultimate parent, or the record's own Id if it has no parent.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // Account hierarchy: GrandChild -> Child -> Parent -> GrandParent (no parent)
@@ -187,7 +210,11 @@ Id ultimateParent = SEL_Hierarchy.forField(Account.ParentId)
 // Returns: GrandParent's Id
 ```
 
+</div>
+
 ### findUltimateParents
+
+<div class="apex-member">
 
 ```apex
 global Map<Id, Id> findUltimateParents(Set<Id> recordIds)
@@ -196,15 +223,15 @@ global Map<Id, Id> findUltimateParents(Set<Id> recordIds)
 Finds ultimate parents for multiple records in a single bulkified operation.
 Optimizes SOQL by querying in batches and traversing multiple parent levels per query.
 
-**Parameters:**
+**Parameters**
 
-- `recordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Set of record Ids to find ultimate parents for.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Set of record Ids to find ultimate parents for. |
 
-**Returns:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) - Map of record Id to its ultimate parent Id. Records with no parent map to themselves.
+**Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — Map of record Id to its ultimate parent Id. Records with no parent map to themselves.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 Set<Id> accountIds = new Set<Id>{acc1.Id, acc2.Id, acc3.Id};
@@ -216,7 +243,11 @@ for(Id accountId : accountIds)
 }
 ```
 
+</div>
+
 ### propagateToDescendants
+
+<div class="apex-member">
 
 ```apex
 global List<SObject> propagateToDescendants(Set<Id> changedRecordIds, SObjectField ultimateParentField)
@@ -228,16 +259,16 @@ Typically used in trigger context when a record's parent changes.
 **Use Case:** When Account A's parent changes, all of A's children (and their children)
 need their UltimateParent__c field updated to point to A's new ultimate parent.
 
-**Parameters:**
+**Parameters**
 
-- `changedRecordIds` ([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)) - Records whose parent has changed.
-- `ultimateParentField` ([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)) - The field to store the ultimate parent reference.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `changedRecordIds` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | Records whose parent has changed. |
+| `ultimateParentField` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The field to store the ultimate parent reference. |
 
-**Returns:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) - List of updated records (not yet committed to database).
+**Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of updated records (not yet committed to database).
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // In a trigger action when parent changes:
@@ -246,7 +277,11 @@ List<SObject> updates = SEL_Hierarchy.forField(Account.ParentId)
 update updates;
 ```
 
+</div>
+
 ### withMaxDepth
+
+<div class="apex-member">
 
 ```apex
 global SEL_Hierarchy.Selector withMaxDepth(Integer depth)
@@ -255,18 +290,20 @@ global SEL_Hierarchy.Selector withMaxDepth(Integer depth)
 Sets the maximum hierarchy depth for this selector.
 Useful for limiting traversal in known shallow hierarchies or testing.
 
-**Parameters:**
+**Parameters**
 
-- `depth` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - Maximum levels to traverse.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `depth` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Maximum levels to traverse. |
 
-**Returns:** [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) - This selector for method chaining.
+**Returns** [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) — This selector for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_Hierarchy.Selector hierarchy = SEL_Hierarchy.forField(Account.ParentId)
     .withMaxDepth(10);
 ```
+
+</div>
 

@@ -1,3 +1,7 @@
+---
+navOrder: 10
+---
+
 # Triggers - Guide
 
 **Framework:** KernDX

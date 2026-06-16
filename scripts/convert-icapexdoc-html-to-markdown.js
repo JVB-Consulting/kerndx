@@ -1458,6 +1458,10 @@ function generateFrontMatter(metadata, formattedAuthor)
 	let md = '---\n';
 	md += `title: "${metadata.title}"\n`;
 	md += `type: ${metadata.docType}\n`;
+	// Scope the reference-only card / heading-accent styling: VitePress applies
+	// `frontmatter.pageClass` as a class on the doc container, so the theme CSS
+	// can target `.reference` without affecting hand-written pages.
+	md += 'pageClass: reference\n';
 	if(metadata.description)
 	{
 		const escapedDesc = metadata.description.replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 200);
@@ -1769,12 +1773,49 @@ function generateEnumValueDetails(enumConstantDetails)
 }
 
 /**
+ * Escape a raw value for safe inclusion in a single GitHub-flavored-markdown
+ * table cell: pipes become `\|`, and newlines / runs of whitespace collapse to
+ * a single space (a GFM table cell cannot contain raw line breaks).
+ * @param {*} value - Raw cell content
+ * @returns {string} Escaped, single-line cell content
+ */
+function escapeTableCell(value)
+{
+	return String(value === null || value === undefined ? '' : value)
+		.replace(/\r?\n/g, ' ')
+		.replace(/\s+/g, ' ')
+		.replace(/\|/g, '\\|')
+		.trim();
+}
+
+/**
+ * Wrap one member's body in the single minimal HTML element the reference theme
+ * keys its "titled card" styling off (`<div class="apex-member">`). This wrapper
+ * is the ONLY HTML emitted into the generated markdown — everything inside stays
+ * pure markdown (fence, tables, bold labels, links) so the committed `.md` is
+ * still clearly human-readable on GitHub and in editors.
+ * @param {string} inner - Pure-markdown body for one method/overload
+ * @returns {string} Inner markdown wrapped in the card element
+ */
+function wrapApexMember(inner)
+{
+	return '<div class="apex-member">\n\n' + inner + '</div>\n\n';
+}
+
+/**
  * Render a single method overload's body (signature block, description,
- * parameters, returns, throws, since, example, see-also). Overloads of the
- * same name share one `###` heading emitted by the caller; this returns only
- * the per-overload body beneath it.
+ * parameters table, returns line, throws table, example, see-also). Overloads of
+ * the same name share one `###` heading emitted by the caller; this returns only
+ * the per-overload body, wrapped in the `apex-member` card element.
+ *
+ * Output is pure markdown apart from the one card wrapper. Parameters/Throws are
+ * GFM tables (the biggest scannability win); Returns is a single labeled line
+ * (`**Returns** <type> — <prose>`); field labels drop their trailing colon so the
+ * theme can style them as subheads. Per-overload `since` is intentionally not
+ * emitted: with a single doc version every member is "since 1.0", so the
+ * class-level Since (rendered once near the page title) carries it.
  * @param {Object} m - Method detail object (id, signature, description, parameters, etc.)
- * @returns {string} Markdown for the overload body
+ * @returns {string} Markdown for the overload body (card-wrapped)
  */
 // noinspection FunctionWithMultipleLoopsJS - Iterates over parameters and exceptions
 function renderMethodOverload(m)
@@ -1788,67 +1829,69 @@ function renderMethodOverload(m)
 
 	if(m.parameters.length > 0)
 	{
-		md += '**Parameters:**\n\n';
+		md += '**Parameters**\n\n';
+		md += '| Parameter | Type | Description |\n';
+		md += '|-----------|------|-------------|\n';
 		m.parameters.forEach((param, idx) =>
 		{
 			const typeInfo = m.parameterTypes && m.parameterTypes[idx];
-			const typeLink = typeInfo && typeInfo.href ? `[${typeInfo.name}](${typeInfo.href})` : '';
-
-			if(param.name)
+			let typeCell = '';
+			if(typeInfo && typeInfo.href)
 			{
-				md += typeLink ? `- \`${param.name}\` (${typeLink}) - ${param.description}\n` : `- \`${param.name}\` - ${param.description}\n`;
+				typeCell = `[${escapeTableCell(typeInfo.name)}](${typeInfo.href})`;
 			}
-			else
+			else if(typeInfo && typeInfo.name)
 			{
-				md += `- ${param.description}\n`;
+				typeCell = escapeTableCell(typeInfo.name);
 			}
+			const nameCell = param.name ? `\`${escapeTableCell(param.name)}\`` : '';
+			md += `| ${nameCell} | ${typeCell} | ${escapeTableCell(param.description)} |\n`;
 		});
 		md += '\n';
 	}
 
+	// Returns → one labeled line; an em-dash separates the type link from the
+	// prose. No line for void (neither returns prose nor a linkable type).
 	if(m.returns || m.returnTypeWithLink)
 	{
 		if(m.returnTypeWithLink && m.returns)
 		{
-			md += `**Returns:** ${m.returnTypeWithLink} - ${m.returns}\n\n`;
+			md += `**Returns** ${m.returnTypeWithLink} — ${m.returns}\n\n`;
 		}
 		else if(m.returnTypeWithLink)
 		{
-			md += `**Returns:** ${m.returnTypeWithLink}\n\n`;
+			md += `**Returns** ${m.returnTypeWithLink}\n\n`;
 		}
 		else
 		{
-			md += `**Returns:** ${m.returns}\n\n`;
+			md += `**Returns** ${m.returns}\n\n`;
 		}
 	}
 
 	if(m.exceptions && m.exceptions.length > 0)
 	{
-		md += '**Throws:**\n\n';
+		md += '**Throws**\n\n';
+		md += '| Exception | Description |\n';
+		md += '|-----------|-------------|\n';
 		m.exceptions.forEach(exc =>
 		{
-			const typeStr = exc.typeLink ? `[${exc.type}](${exc.typeLink})` : (exc.type || 'Exception');
-			md += exc.description ? `- ${typeStr} - ${exc.description}\n` : `- ${typeStr}\n`;
+			const typeStr = exc.typeLink ? `[${escapeTableCell(exc.type)}](${exc.typeLink})` : escapeTableCell(exc.type || 'Exception');
+			md += `| ${typeStr} | ${escapeTableCell(exc.description)} |\n`;
 		});
 		md += '\n';
 	}
 
-	if(m.since)
-	{
-		md += `**Since:** ${m.since}\n\n`;
-	}
-
 	if(m.example)
 	{
-		md += '**Example:**\n\n' + m.example + '\n\n';
+		md += '**Example**\n\n' + m.example + '\n\n';
 	}
 
 	if(m.seeAlso.length > 0)
 	{
-		md += '**See Also:** ' + m.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+		md += '**See Also** ' + m.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
 	}
 
-	return md;
+	return wrapApexMember(md);
 }
 
 /**

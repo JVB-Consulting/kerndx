@@ -1,6 +1,7 @@
 ---
 title: "FLOW_WriteLog"
 type: class
+pageClass: reference
 description: "Provides an invocable method for logging messages at specified levels (DEBUG, INFO, WARN, ERROR) from Salesforce flows. Allows control over log levels and additional details such as short messages and"
 author: "Jason Van Beukering"
 group: "Logging"
@@ -55,6 +56,8 @@ FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request> {request});
 
 ### writeLog
 
+<div class="apex-member">
+
 ```apex
 @InvocableMethod(category='Logging' description='Writes provided messages to the Application Log, allows setting of LogLevel and other details' label='Write Detailed Log Messages') global static void writeLog(List<FLOW_WriteLog.DTO_Request> dtoRequests)
 ```
@@ -62,13 +65,13 @@ FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request> {request});
 Logs messages at specified levels with additional context, designed for use in Salesforce flows.
 Supports multiple messages with customizable log levels, short messages, record IDs, and class/method references for enhanced monitoring and troubleshooting.
 
-**Parameters:**
+**Parameters**
 
-- `dtoRequests` ([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)) - The list of log requests, each specifying the level, message, and optional details.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dtoRequests` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of log requests, each specifying the level, message, and optional details. |
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 // In a flow, create a DTO_Request variable and pass a list to the action.
@@ -80,4 +83,6 @@ dtoRequest.recordId = 'a0300000000Nqu7AAC';
 dtoRequest.shortMessage = 'Flow error';
 FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request>{dtoRequest}); // Logs the message with the specified level and details.
 ```
+
+</div>
 

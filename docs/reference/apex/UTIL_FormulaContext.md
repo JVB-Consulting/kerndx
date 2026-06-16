@@ -1,6 +1,7 @@
 ---
 title: "UTIL_FormulaContext"
 type: class
+pageClass: reference
 description: "Container for pre-built formula evaluation context classes for standard Salesforce objects.  This class provides typed context implementations for Salesforce's `FormulaEval` namespace, enabling dynami"
 author: "Jason Van Beukering"
 group: "Utilities"

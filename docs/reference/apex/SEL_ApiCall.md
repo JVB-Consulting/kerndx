@@ -1,6 +1,7 @@
 ---
 title: "SEL_ApiCall"
 type: class
+pageClass: reference
 description: "Selector for the ApiCall__c object. Provides query methods for service call management, status tracking, and assertion utilities for test verification."
 author: "Jason Van Beukering"
 group: "Web Services"
@@ -54,21 +55,25 @@ ApiCall__c existing = new SEL_ApiCall().findByIdempotencyKey('550e8400-e29b-41d4
 
 ### SEL_ApiCall
 
+<div class="apex-member">
+
 ```apex
 global SEL_ApiCall()
 ```
 
 Constructs a new SEL_ApiCall selector instance.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 SEL_ApiCall instance = new SEL_ApiCall();
 ```
 
+</div>
+
 ### assertServiceAborted
+
+<div class="apex-member">
 
 ```apex
 global static List<ApiCall__c> assertServiceAborted(String serviceName)
@@ -76,19 +81,23 @@ global static List<ApiCall__c> assertServiceAborted(String serviceName)
 
 Verifies that API calls for a specific service name have an aborted status.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the API class to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the API class to check. |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of ApiCall__c records with "Aborted" status for the specified service.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of ApiCall__c records with "Aborted" status for the specified service.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> aborted = SEL_ApiCall.assertServiceAborted('MyExternalService');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<ApiCall__c> assertServiceAborted(String serviceName, String errorPhrase)
@@ -97,22 +106,26 @@ global static List<ApiCall__c> assertServiceAborted(String serviceName, String e
 Verifies that API calls for a specific service name have an aborted status
 and optionally checks for a specific error phrase.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the API class to check.
-- `errorPhrase` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Optional phrase to look for in the Errors__c field (null to ignore).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the API class to check. |
+| `errorPhrase` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Optional phrase to look for in the Errors__c field (null to ignore). |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of matching aborted ApiCall__c records.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of matching aborted ApiCall__c records.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> aborted = SEL_ApiCall.assertServiceAborted('MyExternalService', 'Connection timeout');
 ```
 
+</div>
+
 ### assertServiceCompleted
+
+<div class="apex-member">
 
 ```apex
 global static List<ApiCall__c> assertServiceCompleted(String serviceName)
@@ -120,21 +133,25 @@ global static List<ApiCall__c> assertServiceCompleted(String serviceName)
 
 Verifies that API calls for a specific service name have a completed status.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the API class to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the API class to check. |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of ApiCall__c records with "Completed" status for the specified service.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of ApiCall__c records with "Completed" status for the specified service.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> result = SEL_ApiCall.assertServiceCompleted('SEL_ApiCall');
 ```
 
+</div>
+
 ### assertServiceFailed
+
+<div class="apex-member">
 
 ```apex
 global static List<ApiCall__c> assertServiceFailed(String serviceName)
@@ -142,19 +159,23 @@ global static List<ApiCall__c> assertServiceFailed(String serviceName)
 
 Verifies that API calls for a specific service name have a failed status.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the API class to check.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the API class to check. |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of ApiCall__c records with "Failed" status for the specified service.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of ApiCall__c records with "Failed" status for the specified service.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> result = SEL_ApiCall.assertServiceFailed('SEL_ApiCall');
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global static List<ApiCall__c> assertServiceFailed(String serviceName, String errorPhrase)
@@ -163,22 +184,26 @@ global static List<ApiCall__c> assertServiceFailed(String serviceName, String er
 Verifies that API calls for a specific service name have a failed status
 and optionally checks for a specific error phrase.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the API class to check.
-- `errorPhrase` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - Optional phrase to look for in the Errors__c field (null to ignore).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the API class to check. |
+| `errorPhrase` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Optional phrase to look for in the Errors__c field (null to ignore). |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of matching failed ApiCall__c records.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of matching failed ApiCall__c records.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> result = SEL_ApiCall.assertServiceFailed('SEL_ApiCall', 'value');
 ```
 
+</div>
+
 ### findByServiceName
+
+<div class="apex-member">
 
 ```apex
 global List<ApiCall__c> findByServiceName(String serviceName)
@@ -186,21 +211,25 @@ global List<ApiCall__c> findByServiceName(String serviceName)
 
 Retrieves ApiCall__c records by a specific service name.
 
-**Parameters:**
+**Parameters**
 
-- `serviceName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the service to filter on.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the service to filter on. |
 
-**Returns:** [ApiCall__c](../objects/ApiCall__c.md) - List of ApiCall__c records with the specified Service__c value.
+**Returns** [ApiCall__c](../objects/ApiCall__c.md) — List of ApiCall__c records with the specified Service__c value.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<ApiCall__c> apiCalls = new SEL_ApiCall().findByServiceName('MyExternalService');
 ```
 
+</div>
+
 ### getFields
+
+<div class="apex-member">
 
 ```apex
 global override List<SObjectField> getFields()
@@ -208,13 +237,13 @@ global override List<SObjectField> getFields()
 
 Returns the default fields for ApiCall__c queries.
 
-**Returns:** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) - List of SObjectField tokens to include in queries.
+**Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — List of SObjectField tokens to include in queries.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 List<SObjectField> result = instance.getFields();
 ```
+
+</div>
 

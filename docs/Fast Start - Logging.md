@@ -1,3 +1,7 @@
+---
+navOrder: 18
+---
+
 # Fast Start - Logging
 
 **Framework:** KernDX | **Total time:** ~30 minutes

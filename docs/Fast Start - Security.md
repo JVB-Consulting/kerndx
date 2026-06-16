@@ -1,3 +1,7 @@
+---
+navOrder: 16
+---
+
 # Fast Start - Security
 
 **Framework:** KernDX | **Total time:** ~30 minutes

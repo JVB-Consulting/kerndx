@@ -1,6 +1,7 @@
 ---
 title: "UTIL_AsyncChain.ChainBuilder"
 type: class
+pageClass: reference
 description: "Fluent builder for configuring and executing an async chain. Provides methods for adding steps, setting context, configuring error/completion handlers, and executing the chain."
 since: "1.0"
 category: apex
@@ -53,6 +54,8 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 
 ### execute
 
+<div class="apex-member">
+
 ```apex
 global String execute()
 ```
@@ -60,17 +63,19 @@ global String execute()
 Executes the chain with an auto-generated correlation ID.
 Persists the chain configuration and enqueues the first step.
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The ID of the AsyncChainExecution__c record tracking this chain.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String executionId = UTIL_AsyncChain.newChain('MyChain')
     .then(new MyStep())
     .execute();
 ```
+
+</div>
+
+<div class="apex-member">
 
 ```apex
 global String execute(String correlationId)
@@ -79,15 +84,15 @@ global String execute(String correlationId)
 Executes the chain with a caller-supplied correlation ID for log tracing.
 Persists the chain configuration and enqueues the first step.
 
-**Parameters:**
+**Parameters**
 
-- `correlationId` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The correlation ID to attach to all log entries for this chain.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `correlationId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The correlation ID to attach to all log entries for this chain. |
 
-**Returns:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) - The ID of the AsyncChainExecution__c record tracking this chain.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 String executionId = UTIL_AsyncChain.newChain('MyChain')
@@ -95,7 +100,11 @@ String executionId = UTIL_AsyncChain.newChain('MyChain')
     .execute('my-correlation-id');
 ```
 
+</div>
+
 ### onComplete
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder onComplete(IF_Chain.Step completionHandlerStep)
@@ -114,15 +123,15 @@ neither fires if the chain is aborted by the framework kill switch. Subscribers 
 inside the final step's `work()` body and use `continueOnError = true` on the step
 before it, so the final step runs regardless of upstream failures.
 
-**Parameters:**
+**Parameters**
 
-- `completionHandlerStep` ([IF_Chain.Step](IF_Chain.Step.md)) - The IF_Chain.Step to execute on successful completion.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `completionHandlerStep` | [IF_Chain.Step](IF_Chain.Step.md) | The IF_Chain.Step to execute on successful completion. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -132,7 +141,11 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
 ### onError
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder onError(IF_Chain.Step errorHandlerStep)
@@ -141,15 +154,15 @@ global UTIL_AsyncChain.ChainBuilder onError(IF_Chain.Step errorHandlerStep)
 Registers an error handler step that executes when any step fails
 (unless the failing step has continueOnError set to true).
 
-**Parameters:**
+**Parameters**
 
-- `errorHandlerStep` ([IF_Chain.Step](IF_Chain.Step.md)) - The IF_Chain.Step to execute on failure. Receives the chain context with the failure details.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `errorHandlerStep` | [IF_Chain.Step](IF_Chain.Step.md) | The IF_Chain.Step to execute on failure. Receives the chain context with the failure details. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -158,7 +171,11 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
 ### then
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder then(IF_Chain.Step step)
@@ -166,15 +183,15 @@ global UTIL_AsyncChain.ChainBuilder then(IF_Chain.Step step)
 
 Appends a step to the end of the chain.
 
-**Parameters:**
+**Parameters**
 
-- `step` ([IF_Chain.Step](IF_Chain.Step.md)) - The IF_Chain.Step implementation to add.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `step` | [IF_Chain.Step](IF_Chain.Step.md) | The IF_Chain.Step implementation to add. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -183,6 +200,10 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
+<div class="apex-member">
+
 ```apex
 global UTIL_AsyncChain.ChainBuilder then(IF_Chain.Step step, Boolean continueOnError)
 ```
@@ -190,16 +211,16 @@ global UTIL_AsyncChain.ChainBuilder then(IF_Chain.Step step, Boolean continueOnE
 Appends a step to the chain with explicit control over error continuation.
 Use this overload for IF_Chain.Step implementations that cannot extend ChainStep.
 
-**Parameters:**
+**Parameters**
 
-- `step` ([IF_Chain.Step](IF_Chain.Step.md)) - The IF_Chain.Step implementation to add.
-- `continueOnError` ([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)) - When true, the chain continues past this step's failure.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `step` | [IF_Chain.Step](IF_Chain.Step.md) | The IF_Chain.Step implementation to add. |
+| `continueOnError` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | When true, the chain continues past this step's failure. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -209,7 +230,11 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
 ### withAsyncOptions
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder withAsyncOptions(AsyncOptions options)
@@ -220,15 +245,15 @@ these options override the framework default (maximumQueueableStackDepth = steps
 In tests, pass options with an explicit maximumQueueableStackDepth matching the expected
 chain depth to enable chained Queueable execution within Test.startTest/stopTest.
 
-**Parameters:**
+**Parameters**
 
-- `options` ([AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm)) - The AsyncOptions to use for queueable enqueuing.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `options` | [AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm) | The AsyncOptions to use for queueable enqueuing. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 AsyncOptions options = new AsyncOptions();
@@ -239,7 +264,11 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
 ### withInitialContext
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder withInitialContext(String key, Object value)
@@ -248,16 +277,16 @@ global UTIL_AsyncChain.ChainBuilder withInitialContext(String key, Object value)
 Seeds the chain context with an initial key-value pair before execution begins.
 This is additive — each call adds one key-value pair to the initial context map.
 
-**Parameters:**
+**Parameters**
 
-- `key` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The context key.
-- `value` ([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)) - The context value.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The context key. |
+| `value` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The context value. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -267,7 +296,11 @@ UTIL_AsyncChain.newChain('MyChain')
     .execute();
 ```
 
+</div>
+
 ### withMaxContextSize
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder withMaxContextSize(Integer maximumSize)
@@ -276,15 +309,15 @@ global UTIL_AsyncChain.ChainBuilder withMaxContextSize(Integer maximumSize)
 Sets the maximum serialized context size in characters.
 Prevents context overflow from storing large object graphs. Default: 32768.
 
-**Parameters:**
+**Parameters**
 
-- `maximumSize` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum context size in characters.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maximumSize` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum context size in characters. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('LargeContextChain')
@@ -293,7 +326,11 @@ UTIL_AsyncChain.newChain('LargeContextChain')
     .execute();
 ```
 
+</div>
+
 ### withMaxSteps
+
+<div class="apex-member">
 
 ```apex
 global UTIL_AsyncChain.ChainBuilder withMaxSteps(Integer maximumSteps)
@@ -302,15 +339,15 @@ global UTIL_AsyncChain.ChainBuilder withMaxSteps(Integer maximumSteps)
 Sets the maximum number of steps the chain is allowed to execute.
 Prevents runaway chains from consuming unlimited resources. Default: 50.
 
-**Parameters:**
+**Parameters**
 
-- `maximumSteps` ([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)) - The maximum number of steps permitted.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maximumSteps` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The maximum number of steps permitted. |
 
-**Returns:** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) - This ChainBuilder for method chaining.
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
 
-**Since:** 1.0
-
-**Example:**
+**Example**
 
 ```apex
 UTIL_AsyncChain.newChain('ShortChain')
@@ -318,4 +355,6 @@ UTIL_AsyncChain.newChain('ShortChain')
     .then(new MyStep())
     .execute();
 ```
+
+</div>
 
