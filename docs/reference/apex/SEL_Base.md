@@ -104,11 +104,6 @@ global final List<String> fieldPaths
 Core field path strings for this selector, supporting relationship traversal
 syntax (e.g., 'Owner.Name'). Lazy-loaded from getCoreFieldPaths() on first access.
 
-Since:
-
-
-Example:
-
 ### fields
 
 ```apex
@@ -119,11 +114,6 @@ global final List<SObjectField> fields
 
 Core SObjectField tokens for this selector. Lazy-loaded from getCoreFields()
 on first access. Subscribers can inspect a selector's field configuration via this property.
-
-Since:
-
-
-Example:
 
 ### query
 
@@ -141,11 +131,6 @@ sObjects) run in SYSTEM_MODE without polluting the BypassEvent audit trail —
 a static systemModeRequired() design choice is not a runtime bypass. Selectors that
 leave systemModeRequired() at the default (false) inherit the UserModeQueries_Enabled
 flag-driven default.
-
-Since:
-
-
-Example:
 
 ---
 

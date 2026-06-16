@@ -64,11 +64,6 @@ global AsyncOptions asyncOptions
 AsyncOptions for configuring queueable behavior, especially useful for tests.
 When set, this will be passed to System.enqueueJob calls.
 
-Since:
-
-
-Example:
-
 ### batchJobSize
 
 ```apex
@@ -78,11 +73,6 @@ global Integer batchJobSize
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
 The number of records to process in each Batch Apex transaction.
-
-Since:
-
-
-Example:
 
 ### delayMinutes
 
@@ -95,11 +85,6 @@ global Integer delayMinutes
 The delay in minutes before processing starts.
 For delays greater than 10 minutes, the framework automatically chains queueables until the delay expires.
 
-Since:
-
-
-Example:
-
 ### executionStrategy
 
 ```apex
@@ -111,11 +96,6 @@ global IF_Async.AsynchronousExecutionStrategy executionStrategy
 The execution strategy for queueable processing.
 Default: AUTO (framework decides based on context and limits).
 
-Since:
-
-
-Example:
-
 ### itemsToProcess
 
 ```apex
@@ -125,11 +105,6 @@ global List<Object> itemsToProcess
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
 The list of objects to process. Null for query-based jobs.
-
-Since:
-
-
-Example:
 
 ### limitAtWhichToBatch
 
@@ -141,11 +116,6 @@ global Integer limitAtWhichToBatch
 
 The record count threshold at which the framework switches from Queueable to Batch Apex.
 
-Since:
-
-
-Example:
-
 ### queryable
 
 ```apex
@@ -156,11 +126,6 @@ global IF_Queryable queryable
 
 The queryable used for query-based jobs. Null for list-based jobs.
 
-Since:
-
-
-Example:
-
 ### queueableJobSize
 
 ```apex
@@ -170,11 +135,6 @@ global Integer queueableJobSize
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
 The number of records to process in each Queueable job transaction.
-
-Since:
-
-
-Example:
 
 ---
 

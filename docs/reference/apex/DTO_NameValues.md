@@ -79,11 +79,6 @@ global transient Set<String> names
 
 Returns all the names for registered name-value pairs
 
-Since:
-
-
-Example:
-
 ### size
 
 ```apex
@@ -94,11 +89,6 @@ global transient Integer size
 
 Returns the number of name-value pairs
 
-Since:
-
-
-Example:
-
 ### values
 
 ```apex
@@ -108,11 +98,6 @@ global transient List<String> values
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
 Returns all the values for registered name-value pairs
-
-Since:
-
-
-Example:
 
 ---
 

@@ -1062,7 +1062,11 @@ function extractPropertyDetails(cheerioApi, cleanName)
 		{
 			const clone = cheerioApi(div).clone();
 			seeAlso = extractSeeAlsoLinks(cheerioApi, clone, cleanName);
-			removeMetadataSections(clone, ['See Also:']);
+			// Strip the same metadata sections the field/enum/method extractors strip.
+			// Properties carry a `Since:` (single doc version → intentionally dropped) and
+			// may carry an `Example:`; without removing them here they leak into the
+			// description as orphan "Since:" / "Example:" labels in the rendered page.
+			removeMetadataSections(clone, ['See Also:', 'Example:', 'Since:']);
 
 			const text = clone.text().trim();
 			if(text && !description)

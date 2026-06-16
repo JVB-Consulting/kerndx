@@ -94,14 +94,6 @@ global RestRequest request
 Reference to the current inbound REST request. Provides access to the details of the incoming request,
 such as headers, parameters, and the request body.
 
-
-
-
-Since:
-
-
-Example:
-
 **See Also:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
 
 ### requestBody
@@ -115,11 +107,6 @@ global String requestBody
 Returns the request body from the current inbound HTTP request.
 If the request body is null or empty, it returns an empty string.
 
-Since:
-
-
-Example:
-
 ### requestPayload
 
 ```apex
@@ -131,11 +118,6 @@ global DTO_JsonBase requestPayload
 The DTO that will be populated from the inbound request body.
 Handles the request data in JSON format and ensures proper initialization and deserialization.
 
-Since:
-
-
-Example:
-
 ### response
 
 ```apex
@@ -146,14 +128,6 @@ global RestResponse response
 
 Reference to the current REST response object. Allows manipulation of the response that will be sent
 back to the client, including setting the response body and status code.
-
-
-
-
-Since:
-
-
-Example:
 
 **See Also:** [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm)
 
@@ -168,11 +142,6 @@ global String responseBody
 Manages the response body that will be sent to the client.
 Ensures that the value is stored as a Blob in the response object.
 
-Since:
-
-
-Example:
-
 ### responsePayload
 
 ```apex
@@ -183,11 +152,6 @@ global DTO_JsonBase responsePayload
 
 The DTO that will be serialized to populate the response body.
 Handles the response data in JSON format and ensures proper initialization and serialization.
-
-Since:
-
-
-Example:
 
 ---
 

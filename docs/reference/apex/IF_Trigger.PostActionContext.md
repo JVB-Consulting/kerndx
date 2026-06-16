@@ -67,8 +67,6 @@ a post-action that ran solely because of a bypassed-but-still-fired trigger coul
 see an empty context. Subscribers should null-check defensively even though the
 constructor guarantees a non-null Set.
 
-Since:
-
 ---
 
 ## Method Details

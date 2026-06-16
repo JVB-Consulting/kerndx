@@ -78,11 +78,6 @@ global static TST_Builder.DefaultFieldValueProvider autoDefaultFieldValueProvide
 A special marker value that signals the factory to generate a default value for a field,
 even if it's not required. Use this in field override maps to request automatic value generation.
 
-Since:
-
-
-Example:
-
 ### defaultValueProvider
 
 ```apex
@@ -95,11 +90,6 @@ Overrides the default value provider instance with a custom implementation.
 This allows developers to define custom logic for generating default field values.
 To customize, extend 'UTIL_SObjectBuilderDefaultProvider' and assign an instance here.
 
-Since:
-
-
-Example:
-
 ### optionalFields
 
 ```apex
@@ -110,11 +100,6 @@ global static List<Object> optionalFields
 
 A static list of fields to treat as optional for the current transaction's build operations.
 Fields added to this list will not be automatically populated with default values, even if they are required.
-
-Since:
-
-
-Example:
 
 ---
 

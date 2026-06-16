@@ -164,11 +164,6 @@ global SObjectType objectType
 
 The SObjectType being queried by this builder.
 
-Since:
-
-
-Example:
-
 ---
 
 ## Method Details
