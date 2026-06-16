@@ -100,11 +100,6 @@ global String baseUrl
 
 Returns the base URL of the web service. This resolves Named Credentials to handle secure credential management in Salesforce.
 
-Since:
-
-
-Example:
-
 ### defaultMockBody
 
 ```apex
@@ -117,11 +112,6 @@ Default mock response body for unit tests and mock mode.
 Set this in configure() to declare the handler's default mock response.
 When set, API_MockFactory.CalloutMock uses this as fallback when no factory mock is registered.
 
-Since:
-
-
-Example:
-
 ### request
 
 ```apex
@@ -132,14 +122,6 @@ Example:
 
 The request object used by the API handler to make an outbound call.
 The HttpRequest object is initialized lazily when it's first accessed.
-
-
-
-
-Since:
-
-
-Example:
 
 **See Also:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm)
 
@@ -154,11 +136,6 @@ global DTO_Base requestPayload
 The DTO that should be serialized for the request body in outbound service calls.
 This object contains the data that will be sent to the external service as part of the HTTP request.
 
-Since:
-
-
-Example:
-
 ### response
 
 ```apex
@@ -169,14 +146,6 @@ Example:
 
 The response object containing the results of the HTTP callout.
 This object is populated after the HTTP call is executed.
-
-
-
-
-Since:
-
-
-Example:
 
 **See Also:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)
 
@@ -190,11 +159,6 @@ Example:
 
 The DTO that will deserialize the response body of the external web service call.
 This object will be populated with the response data after the HTTP call completes.
-
-Since:
-
-
-Example:
 
 ---
 

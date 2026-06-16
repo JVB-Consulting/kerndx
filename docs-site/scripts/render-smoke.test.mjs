@@ -133,6 +133,18 @@ try
 	assert(!sig.error, `Methods summary table present on reference page (${sig.error || 'ok'})`);
 	assert(sig.maxW >= 40, `method signature wraps as text, not per-character columns at 390px (widest type-link ${sig.maxW}px across ${sig.linkCount} links)`);
 
+	// 9. Reference property/field details must not render orphan metadata labels. A class
+	//    property carries a `Since:` (single doc version → intentionally dropped) and may carry
+	//    an empty `Example:`; if the extractor fails to strip them they leak into the description
+	//    as bare "Since:" / "Example:" lines. SEL_Base has several documented properties, so it
+	//    exercises the Property Details path. (A real example renders as bold "Example", no colon.)
+	await page.setViewportSize({width: 1280, height: 800});
+	await page.goto(`${BASE}/reference/apex/sel-base`, {waitUntil: 'networkidle'});
+	const refText = await page.locator('.vp-doc').innerText();
+	assert(refText.includes('Property Details'), 'SEL_Base reference page has a Property Details section');
+	const orphanLabels = refText.split('\n').map(l => l.trim()).filter(l => l === 'Since:' || l === 'Example:');
+	assert(orphanLabels.length === 0, `reference property details have no orphan Since:/Example: labels (found ${orphanLabels.length})`);
+
 	console.log('render smoke-test PASSED');
 }
 finally

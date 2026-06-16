@@ -53,8 +53,6 @@ global Object data
 
 Optional payload data returned by the step.
 
-Since:
-
 ### error
 
 ```apex
@@ -64,8 +62,6 @@ global Exception error
 **Type:** [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm)
 
 The exception that caused the step to fail, if applicable.
-
-Since:
 
 ### message
 
@@ -77,8 +73,6 @@ global String message
 
 Optional human-readable message describing the outcome.
 
-Since:
-
 ### success
 
 ```apex
@@ -88,6 +82,4 @@ global Boolean success
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Whether the step completed successfully.
-
-Since:
 

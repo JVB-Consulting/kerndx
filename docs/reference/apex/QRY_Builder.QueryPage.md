@@ -56,11 +56,6 @@ global Boolean hasMorePages
 
 True if there are more pages after the current page.
 
-Since:
-
-
-Example:
-
 ### hasPriorPages
 
 ```apex
@@ -71,11 +66,6 @@ global Boolean hasPriorPages
 
 True if there are pages before the current page.
 
-Since:
-
-
-Example:
-
 ### totalPages
 
 ```apex
@@ -85,11 +75,6 @@ global Integer totalPages
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
 Total number of pages available.
-
-Since:
-
-
-Example:
 
 ---
 

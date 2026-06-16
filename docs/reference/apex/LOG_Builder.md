@@ -136,11 +136,6 @@ global static String correlationId
 
 The current correlation ID for log grouping across related operations.
 
-Since:
-
-
-Example:
-
 ### ignoreTestMode
 
 ```apex
@@ -152,11 +147,6 @@ global static Boolean ignoreTestMode
 Controls whether logging events are published during test execution.
 When set to true, enables logging in test mode for debugging test-specific issues.
 Defaults to false to avoid unnecessary logging overhead during unit tests.
-
-Since:
-
-
-Example:
 
 ---
 

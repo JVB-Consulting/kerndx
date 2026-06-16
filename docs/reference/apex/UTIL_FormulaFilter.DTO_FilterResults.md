@@ -46,11 +46,6 @@ global List<SObject> newRecords
 
 The filtered list of old SObjects.
 
-Since:
-
-
-Example:
-
 ### oldRecords
 
 ```apex
@@ -60,9 +55,4 @@ global List<SObject> oldRecords
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
 The filtered list of new SObjects.
-
-Since:
-
-
-Example:
 

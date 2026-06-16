@@ -59,11 +59,6 @@ global List<UTIL_ValidationRule.ValidationError> errors
 
 List of validation errors/warnings for this record.
 
-Since:
-
-
-Example:
-
 ### isValid
 
 ```apex
@@ -73,11 +68,6 @@ global Boolean isValid
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 True if the record passed all validation rules.
-
-Since:
-
-
-Example:
 
 ---
 

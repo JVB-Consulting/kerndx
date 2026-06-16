@@ -81,11 +81,6 @@ Retrieves the list of columns defined in the table. Each column can have a label
 field name, data type, and sortable setting. Enables access to the column
 definitions for display and sorting purposes.
 
-Since:
-
-
-Example:
-
 ### rows
 
 ```apex
@@ -96,11 +91,6 @@ Example:
 
 Retrieves all rows added to the table. Each row contains data matching the
 fields and types specified in the column definitions.
-
-Since:
-
-
-Example:
 
 ---
 

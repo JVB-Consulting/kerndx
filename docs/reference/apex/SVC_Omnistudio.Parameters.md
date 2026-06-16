@@ -53,11 +53,6 @@ global Map<String, Object> inputMap
 
 Provides access to all input variables provided in the parameter map.
 
-Since:
-
-
-Example:
-
 ### optionMap
 
 ```apex
@@ -68,11 +63,6 @@ global Map<String, Object> optionMap
 
 Provides access to various option parameters that control the behavior of the call operation.
 
-Since:
-
-
-Example:
-
 ### outputMap
 
 ```apex
@@ -82,11 +72,6 @@ global Map<String, Object> outputMap
 **Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
 
 Provides access to the output map where results of the operation can be stored.
-
-Since:
-
-
-Example:
 
 ---
 

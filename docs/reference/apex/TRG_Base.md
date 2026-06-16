@@ -96,14 +96,6 @@ public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_T
 
 The current operation type being processed by the trigger action.
 
-
-
-
-Since:
-
-
-Example:
-
 ### sObjectName
 
 ```apex
@@ -113,11 +105,6 @@ Example:
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the SObject being processed by the trigger action.
-
-Since:
-
-
-Example:
 
 ### triggerNew
 
@@ -129,14 +116,6 @@ Example:
 
 The list of "new" SObjects in the trigger context.
 
-
-
-
-Since:
-
-
-Example:
-
 ### triggerOld
 
 ```apex
@@ -147,14 +126,6 @@ Example:
 
 The list of "old" SObjects in the trigger context.
 
-
-
-
-Since:
-
-
-Example:
-
 ### triggerOldMap
 
 ```apex
@@ -164,14 +135,6 @@ Example:
 **Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
 
 Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts.
-
-
-
-
-Since:
-
-
-Example:
 
 ---
 

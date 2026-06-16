@@ -89,11 +89,6 @@ global ApiCall__c apiCall
 
 The ApiCall__c object that initiated the service call.
 
-Since:
-
-
-Example:
-
 ### correlationId
 
 ```apex
@@ -103,11 +98,6 @@ global String correlationId
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The unique correlation ID for this handler instance.
-
-Since:
-
-
-Example:
 
 ### errorText
 
@@ -119,11 +109,6 @@ global String errorText
 
 Returns errors encountered during the request or the error payload if no error is logged.
 
-Since:
-
-
-Example:
-
 ### inputs
 
 ```apex
@@ -133,11 +118,6 @@ global DTO_NameValues inputs
 **Type:** [DTO_NameValues](DTO_NameValues.md)
 
 DTO containing parameters passed to the API.
-
-Since:
-
-
-Example:
 
 ### result
 
@@ -149,11 +129,6 @@ global API_Base.ServiceCallResult result
 
 Tracks the request, response, and status of a web service call.
 
-Since:
-
-
-Example:
-
 ### setting
 
 ```apex
@@ -163,11 +138,6 @@ global ApiSetting__mdt setting
 **Type:** [ApiSetting__mdt](../metadata/ApiSetting__mdt.md)
 
 API settings metadata for this service, lazy-loaded from ApiSetting__mdt.
-
-Since:
-
-
-Example:
 
 ---
 

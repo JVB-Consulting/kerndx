@@ -68,8 +68,6 @@ global Boolean hasFailed
 
 Indicates if the service call failed.
 
-Since:
-
 ### isAborted
 
 ```apex
@@ -79,8 +77,6 @@ global Boolean isAborted
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
 Indicates if the service call was aborted.
-
-Since:
 
 ### isSuccess
 
@@ -92,8 +88,6 @@ global Boolean isSuccess
 
 Indicates if the service call completed successfully.
 
-Since:
-
 ### statusText
 
 ```apex
@@ -103,8 +97,6 @@ global String statusText
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 Text representation of the service status.
-
-Since:
 
 ---
 
