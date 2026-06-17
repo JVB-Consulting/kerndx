@@ -415,6 +415,10 @@ private static void shouldHandleQueryFailureGracefully()
 }
 ```
 
+> **`SEL_Accounts` is the selector you build in the [Selectors Fast Start](Fast%20Start%20-%20Selectors.md)** —
+> it isn't part of the package. If you haven't created it, swap in a selector you already have, or query inline
+> with `kern.QRY_Builder.selectFrom(Account.SObjectType)...` so this snippet is self-contained.
+
 Three overloads are available; pick the shortest that names the failure:
 
 ```apex

@@ -75,10 +75,11 @@ kern__ApiCall__c stored = [SELECT kern__Request__c FROM kern__ApiCall__c WHERE I
 System.debug(stored.kern__Request__c);
 ```
 
-The debug log shows the **stored** value — already redacted:
+The debug log shows the **stored** value — already redacted (the framework re-serializes the JSON, so the
+keys come back in a different order; only the redacted values matter):
 
 ```text
-{"card":"[CARD_REDACTED]","password":"***SECRET***"}
+{"password":"***SECRET***","card":"[CARD_REDACTED]"}
 ```
 
 The card number was caught by the `MaskPaymentCard` rule (a Luhn-checked match), the secret under the `password`
@@ -180,9 +181,28 @@ downstream trigger and the saved row see only the masked text.
 
 #### The metadata, by hand
 
-If you would rather author the metadata yourself, here is the masking target — a `kern__MaskingTarget__mdt` record
-wiring the SSN rule to `Contact`. Because the type is the **packaged** `kern__MaskingTarget__mdt`, its field names
-carry the `kern__` prefix and the packaged rule is referenced as `kern__MaskSsn`:
+If you would rather author the metadata yourself, the by-hand path needs **two** records the Advisor would
+otherwise bundle for you: the **Trigger Setting** that turns masking on for the object (Gate 2), and the
+**masking target** that wires a rule to the field (Gate 3).
+
+First, the Trigger Setting — `customMetadata/kern__TriggerSetting.Contact.md-meta.xml`, with **Apply Masking** on:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- customMetadata/kern__TriggerSetting.Contact.md-meta.xml -->
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Contact</label>
+    <protected>false</protected>
+    <values><field>kern__ApplyMasking__c</field><value xsi:type="xsd:boolean">true</value></values>
+    <values><field>kern__BypassExecution__c</field><value xsi:type="xsd:boolean">false</value></values>
+    <values><field>kern__SObjectType__c</field><value xsi:type="xsd:string">Contact</value></values>
+</CustomMetadata>
+```
+
+Then the masking target — a `kern__MaskingTarget__mdt` record wiring the SSN rule to `Contact`. Because the type
+is the **packaged** `kern__MaskingTarget__mdt`, its field names carry the `kern__` prefix and the packaged rule is
+referenced as `kern__MaskSsn`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -219,12 +239,18 @@ reference for you — getting the namespaced field path right by hand is the fid
 with:
 
 ```bash
-sf project deploy start -m "CustomMetadata:kern__MaskingTarget.Mask_Contact_Ssn" -o YourOrgAlias
+sf project deploy start \
+  -m "CustomMetadata:kern__TriggerSetting.Contact" \
+  -m "CustomMetadata:kern__MaskingTarget.Mask_Contact_Ssn" -o YourOrgAlias
 ```
 
-> The target points at a rule that must be **active**. `MaskSsn` ships as a dormant template, so activate it first —
-> the Advisor export does this for you, or set `kern__IsActive__c = true` on the rule under
-> **Setup → Custom Metadata Types → Masking Rule** (its `kern__IsActive__c` is subscriber-editable).
+> **Activating the packaged `MaskSsn` rule.** The target points at a rule that must be **active**, and `MaskSsn`
+> ships as a dormant template. Because it is a *packaged* record, you **cannot** activate it with `sf project deploy`
+> — Salesforce rejects modifying a managed Custom Metadata record (`Cannot modify managed object …`). Activate it one
+> of two ways: let the **Data Masking Advisor** export do it for you, or flip it by hand in **Setup → Custom Metadata
+> Types → Masking Rule → MaskSsn → Edit**, check **Active**, **Save** (`kern__IsActive__c` is subscriber-editable from
+> the UI). For an all-CLI workflow, author your *own* masking rule and point the target at that instead —
+> subscriber-owned Custom Metadata deploys cleanly, unlike the packaged template.
 
 ---
 

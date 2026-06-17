@@ -20,8 +20,9 @@ navOrder: 18
 progress, errors, and completion — with all entries correlated under a single ID.
 
 **Success looks like:** Log entries visible in **App Launcher > Kern > Log Entries**, showing correlated
-info/debug/error messages linked to specific Account records. Your test class shows 2/2 pass with 100%
-coverage.
+info/debug/error messages linked to specific Account records. Your test class shows 2/2 passing. (The two
+tests cover the happy path; the defensive per-record error handler isn't exercised, so `SVC_OrderProcessor`
+lands at ~82% coverage — add a test that forces a failure inside the loop to take it to 100%.)
 
 **In one line:** `kern.LOG_Builder.build().info('Payment processed').forRecord(accountId).emitAt('SVC.charge');`
 — persisted via platform event, survives rollbacks.

@@ -58,22 +58,45 @@ CI/CD.
 
 ### The sample violation class
 
-The `FastStart_Scanner_DEMO.cls` class ships with the KernDX subscriber test artifacts. It is a deliberately violating Apex class -- not a test class, and not meant to be deployed
-to production. It exists solely so you can point the scanner at something and see real violations without writing any code.
+Create a small, deliberately-violating class in your project so the scanner has something to flag —
+`force-app/main/default/classes/ScannerDemo.cls`. It is not a class to keep; delete it once you've seen
+the scanner work:
 
-The class has two violations baked in:
+```apex
+public with sharing class ScannerDemo
+{
+	public List<Account> getAccounts()
+	{
+		Account[] accounts = [SELECT Id, Name FROM Account LIMIT 10];
+		System.debug(accounts);
+		return accounts;
+	}
+}
+```
 
-| Line        | Violation                              | Rule                |
-|-------------|----------------------------------------|---------------------|
-| Method body | Inline SOQL `[SELECT Id FROM Account]` | `KernNoInlineSOQL`  |
-| Method body | `System.debug(accounts)`               | `KernNoSystemDebug` |
+It has two violations baked in:
+
+| Line                     | Violation        | Rule                |
+|--------------------------|------------------|---------------------|
+| `[SELECT Id, Name ...]`  | Inline SOQL      | `KernNoInlineSOQL`  |
+| `System.debug(accounts)` | `System.debug()` | `KernNoSystemDebug` |
 
 ### Run the scanner
+
+SF Code Analyzer v5 reads custom rulesets from a config file. Create `code-analyzer.yml` in your project
+root, pointing at the ruleset that shipped in your KernDX pipeline bundle:
+
+```yaml
+engines:
+  pmd:
+    custom_rulesets:
+      - scanner/kerndx-pmd-ruleset.xml
+```
 
 Run SF Code Analyzer against the demo class using the KernDX ruleset:
 
 ```bash
-sf code-analyzer run --rule-selector pmd:KernDXFrameworkCompliance --target release-testing/subscriber/classes/FastStart_Scanner_DEMO.cls --config-file code-analyzer.yml --view detail
+sf code-analyzer run --rule-selector pmd:KernDXFrameworkCompliance --target force-app/main/default/classes/ScannerDemo.cls --config-file code-analyzer.yml --view detail
 ```
 
 **Expected output** (violations including at minimum):
@@ -148,16 +171,27 @@ Violations now appear inline in the IntelliJ editor. The combined file uses PMD 
 
 ### Step 4: ESLint for LWC
 
-The ESLint plugin is already configured in `force-app/main/default/lwc/eslint.config.mjs`. Run it with:
+The ESLint plugin is configured in `force-app/main/default/lwc/eslint.config.mjs`. Three rules are
+**active by default** — `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-jest-theatre`, and
+`kerndx/no-mutating-shared-fixture`. Three "use the framework API" rules ship **commented out**, so they
+don't fire before you've adopted the component model — `kerndx/use-component-builder`,
+`kerndx/no-console-log`, and `kerndx/enforce-component-naming`. Enable them when you're ready by
+uncommenting their block in `eslint.config.mjs`:
+
+```text
+'kerndx/use-component-builder': 'error',
+'kerndx/no-console-log': 'error',
+'kerndx/enforce-component-naming': 'error'
+```
+
+Run the linter with:
 
 ```bash
 npm run lint
 ```
 
-This checks all LWC JavaScript files for six rules: `ComponentBuilder` usage, `console.log` blocking, component folder naming, assertion-less Jest tests, shared-fixture mutation,
-and unjustified coverage-exempt comments. See the [ESLint rule reference](#eslint-rule-reference) below for the full list.
-
-**Verify it works** -- create a test LWC with `extends LightningElement` instead of `extends ComponentBuilder(...)`:
+**Verify it works** -- with the `use-component-builder` rule enabled (above), create a test LWC with
+`extends LightningElement` instead of `extends ComponentBuilder(...)`:
 
 ```javascript
 import {LightningElement} from 'lwc';
@@ -168,7 +202,7 @@ export default class TestViolation extends LightningElement {}
 Run `npm run lint` -- you'll see:
 
 ```text
-error  LWC components must extend ComponentBuilder instead of LightningElement  kerndx/use-component-builder
+error  LWC components must extend ComponentBuilder(...) instead of LightningElement. Import {ComponentBuilder} from c/componentBuilder  kerndx/use-component-builder
 ```
 
 ---
@@ -177,24 +211,26 @@ error  LWC components must extend ComponentBuilder instead of LightningElement  
 
 ### Priority tiers
 
-The 24 KernDX PMD rules are organized into three priority tiers for phased adoption:
+The 25 KernDX PMD rules are organized into three priority tiers for phased adoption:
 
 | Tier          | Priority | Count | Approach                                                             |
 |---------------|----------|-------|----------------------------------------------------------------------|
-| Blockers      | 1        | 2     | Fix immediately -- these bypass core framework patterns              |
-| Should Fix    | 3        | 12    | Fix in current sprint -- makes code harder to maintain if left       |
+| Blockers      | 1        | 4     | Fix immediately -- these bypass core framework patterns              |
+| Should Fix    | 3        | 11    | Fix in current sprint -- makes code harder to maintain if left       |
 | Informational | 5        | 10    | Fix opportunistically -- best practice, no immediate action required |
 
 **Recommended adoption path:** Start with Priority 1 (triggers and SOQL). Once clean, enable Priority 3. Add Priority 5 when the team is comfortable with the framework.
 
 ### PMD rule reference
 
-All 24 KernDX PMD rules:
+All 25 KernDX PMD rules:
 
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body                                                                  | `new TRG_Dispatcher().run()`                                                                    | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                     | Selector or [`QRY_Builder`](reference/apex/QRY_Builder.md)                                      | 1        |
+| `KernNoCoverageTheatre`            | Test methods with no assertions                                                        | Real `Assert.*` calls that exercise the behaviour                                               | 1        |
+| `KernCoverageExemptRequiresReason` | `@CoverageExempt` without a justification comment                                      | Add an inline `// Coverage-exempt because …` explanation                                        | 1        |
 | `KernNoDirectDML`                  | `insert`/`update`/`delete`/`upsert`, `Database.*` DML                                  | [`DML_Builder`](reference/apex/DML_Builder.md)                                                  | 3        |
 | `KernNoSystemDebug`                | `System.debug()`                                                                       | [`LOG_Builder`](reference/apex/LOG_Builder.md)                                                  | 3        |
 | `KernNoRawHttp`                    | `new HttpRequest()`, `new Http()`                                                      | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md)                                          | 3        |
@@ -206,7 +242,6 @@ All 24 KernDX PMD rules:
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                    | `UTIL_Email`                                                                                    | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                  | `REST_*` + `API_Dispatcher`                                                                     | 3        |
 | `KernNoInlineDmlInTests`           | `insert`/`update`/`delete` inside `@IsTest` methods                                    | [`TST_Builder`](reference/apex/TST_Builder.md) / [`DML_Builder`](reference/apex/DML_Builder.md) | 3        |
-| `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = false; try { ... } catch (...) { exceptionThrown = true; }` | `Assert.fail(...)` + `Assert.isInstanceOfType(...)`                                             | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                     | `Assert.*`                                                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                     | [`TST_Builder`](reference/apex/TST_Builder.md)                                                  | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                       | `UTIL_Cache`                                                                                    | 5        |
@@ -215,8 +250,8 @@ All 24 KernDX PMD rules:
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                  | `UTIL_AsynchronousJobLauncher`                                                                  | 5        |
 | `KernNoRawCrypto`                  | `Crypto.*`                                                                             | `UTIL_Crypto`                                                                                   | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                  | `UTIL_FeatureFlag.isEnabled()`                                                                  | 5        |
-| `KernNoCoverageTheatre`            | Test methods with no assertions                                                        | Real `Assert.*` calls that exercise the behaviour                                               | 5        |
-| `KernCoverageExemptRequiresReason` | `@CoverageExempt` without a justification comment                                      | Add an inline `// Coverage-exempt because …` explanation                                        | 5        |
+| `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = false; try { ... } catch (...) { exceptionThrown = true; }` | `Assert.fail(...)` + `Assert.isInstanceOfType(...)`                                             | 5        |
+| `KernSecurityBypassCallSite`       | Unacknowledged framework security-bypass call sites                                    | Confirm it's intentional + acknowledge with `@SuppressWarnings('PMD.KernSecurityBypassCallSite')` or `// NOPMD` + reason | 5        |
 
 ### ESLint rule reference
 
@@ -322,7 +357,7 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`   | 24 PMD rules enforcing KernDX framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
+| `kerndx-pmd-ruleset.xml`   | 25 PMD rules enforcing KernDX framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
 | `eslint-plugin-kerndx`     | 6 ESLint rules enforcing LWC + test conventions (ComponentBuilder, console.log, naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention) |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |
 | Priority tiers (1/3/5)     | Phased adoption -- start with blockers, expand to should-fix, then informational                                                                                                    |

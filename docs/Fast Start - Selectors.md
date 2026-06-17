@@ -231,7 +231,7 @@ Test from anonymous Apex. First, make sure you have at least one Account record:
 ```apex
 // Insert a test record if needed (DML_Builder, not inline `insert`)
 kern.DML_Builder.newTransaction()
-	.doInsert(new Account(Name = 'Acme Corp', Industry = 'Technology', Phone = '555-0100', Website = 'https://example.com'))
+	.doInsert(new Account(Name = 'Acme Corp', Industry = 'Technology', AnnualRevenue = 500000, Phone = '555-0100', Website = 'https://example.com'))
 	.execute();
 
 // Use inherited findById — returns SObject, cast to Account. Grab any Account via QRY_Builder.
@@ -259,7 +259,8 @@ for(kern.QRY_Builder.AggregateRow row : rows)
 > `Account.Industry` to read the variable's field instead of the SObjectField token. Use `result`, `found`,
 > or another name.
 
-**Expected output:**
+**Expected output** (in a fresh org — the `findById` row and the counts reflect the single Account you just
+inserted; if your org already holds Technology Accounts, those lines will differ):
 
 ```text
 findById: Acme Corp — Technology
@@ -414,11 +415,11 @@ For one-off relationship fields in a specific query method, add a new method to 
 
 ```apex
 // Add this method to SEL_Accounts.cls
-public List<Account> findByRatingWithOwner(String rating)
+public List<Account> findByTypeWithOwner(String accountType)
 {
 	return query
 		.addFields(new List<String>{ 'Owner.Name', 'Owner.Email' })
-		.condition(Account.Rating).equals(rating)
+		.condition(Account.Type).equals(accountType)
 		.toList();
 }
 ```
@@ -579,21 +580,21 @@ grouped logic — like `WHERE Industry = 'Tech' AND (Status = 'Active' OR Status
 
 ```apex
 // Build an OR group
-kern.QRY_Condition.OrCondition statusGroup = new kern.QRY_Condition.OrCondition();
-statusGroup.add(new kern.QRY_Condition.FieldCondition(
-	Account.Rating, kern.QRY_Condition.Operator.EQUALS, 'Hot'
+kern.QRY_Condition.OrCondition typeGroup = new kern.QRY_Condition.OrCondition();
+typeGroup.add(new kern.QRY_Condition.FieldCondition(
+	Account.Type, kern.QRY_Condition.Operator.EQUALS, 'Customer - Direct'
 ));
-statusGroup.add(new kern.QRY_Condition.FieldCondition(
-	Account.Rating, kern.QRY_Condition.Operator.EQUALS, 'Warm'
+typeGroup.add(new kern.QRY_Condition.FieldCondition(
+	Account.Type, kern.QRY_Condition.Operator.EQUALS, 'Customer - Channel'
 ));
 
 // Pass the group into the query
 List<Account> results = kern.QRY_Builder.selectFrom(Account.SObjectType)
-	.fields(new List<SObjectField>{ Account.Name, Account.Rating })
+	.fields(new List<SObjectField>{ Account.Name, Account.Type })
 	.condition(Account.Industry).equals('Technology')
-	.addCondition(statusGroup)
+	.addCondition(typeGroup)
 	.toList();
-// WHERE Industry = 'Technology' AND (Rating = 'Hot' OR Rating = 'Warm')
+// WHERE Industry = 'Technology' AND (Type = 'Customer - Direct' OR Type = 'Customer - Channel')
 ```
 
 ### Date Literals
@@ -692,7 +693,7 @@ After completing this guide, you understand the **selector pattern** in KernDX:
 **Key patterns:**
 
 - **One class per object** -- all queries for an object go through its `SEL_*` class
-- **`inherited sharing`** -- default sharing mode for selectors
+- **`with sharing`** -- the default this guide uses for subscriber selectors (framework-internal selectors use `inherited sharing`)
 - **`SObjectField` tokens** -- compile-time field validation, no hardcoded strings
 - **`query` property** -- always use inside selectors (not `QRY_Builder.selectFrom()`)
 - **Cast results** -- `findById()` returns `SObject`, cast to your specific type
