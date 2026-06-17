@@ -30,10 +30,6 @@ Request DTO for the Clear Validation Bypass invocable action. Specifies which by
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [clearAll](#clearall) | When true, clears all active bypasses. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The name of the bypassed object, group, or rule to clear. |
 
----
-
-## Field Details
-
 ### clearAll
 
 ```apex

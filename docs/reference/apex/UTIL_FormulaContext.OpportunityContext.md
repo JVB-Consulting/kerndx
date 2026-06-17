@@ -51,10 +51,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Opportunity](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_opportunity.htm) [newRecord](#newrecord) | Opportunity record state AFTER DML (null on delete). |
 | global [Opportunity](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_opportunity.htm) [oldRecord](#oldrecord) | Opportunity record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

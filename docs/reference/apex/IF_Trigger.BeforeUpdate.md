@@ -31,10 +31,6 @@ Handler contract for the before-update trigger event.
 |--------|-------------|
 | global abstract void [beforeUpdate](#beforeupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Called before modified records are saved, enabling field-level validation, change detection, or in-memory transformations using old and new state. |
 
----
-
-## Method Details
-
 ### beforeUpdate
 
 <div class="apex-member">

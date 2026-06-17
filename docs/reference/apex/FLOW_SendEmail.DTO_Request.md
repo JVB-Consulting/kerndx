@@ -36,10 +36,6 @@ Data Transfer Object (DTO) representing the input parameters for a single email 
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [useStandardLogActivity](#usestandardlogactivity) | Controls the mechanism used for Activity Logging. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [whatId](#whatid) | The ID of the record that the email is related to (e.g., Opportunity, Case). |
 
----
-
-## Field Details
-
 ### fileIds
 
 ```apex

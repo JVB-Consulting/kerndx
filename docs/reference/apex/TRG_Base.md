@@ -48,17 +48,6 @@ public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_T
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [BypassType](TRG_Base.BypassType.md) | Indicates the type of trigger bypass being applied. |
-| global [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) [context](#context) | The current operation type being processed by the trigger action. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [sObjectName](#sobjectname) | The API name of the SObject being processed by the trigger action. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerNew](#triggernew) | The list of "new" SObjects in the trigger context. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOld](#triggerold) | The list of "old" SObjects in the trigger context. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOldMap](#triggeroldmap) | Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts. |
-
 ## Methods
 
 | Method | Description |
@@ -81,64 +70,6 @@ public with sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_T
 | global static [TRG_Base.BypassType](TRG_Base.BypassType.md) [resolveBypassType](#resolvebypasstype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) bypassTypeString) | Parses a bypass type string into the corresponding BypassType enum value. |
 | global void [run](#run)() | Executes the relevant trigger action based on the implemented interface and trigger context. |
 | global static void [setBypassReason](#setbypassreason)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) reason) | Sets an optional transaction-scoped reason string that is attached to every subsequent bypass audit log entry. |
-
----
-
-## Property Details
-
-### context
-
-```apex
-@TestVisible global TriggerOperation context
-```
-
-**Type:** [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm)
-
-The current operation type being processed by the trigger action.
-
-### sObjectName
-
-```apex
-@TestVisible global String sObjectName
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-The API name of the SObject being processed by the trigger action.
-
-### triggerNew
-
-```apex
-@TestVisible global List<SObject> triggerNew
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-The list of "new" SObjects in the trigger context.
-
-### triggerOld
-
-```apex
-@TestVisible global List<SObject> triggerOld
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-The list of "old" SObjects in the trigger context.
-
-### triggerOldMap
-
-```apex
-@TestVisible global Map<Id, SObject> triggerOldMap
-```
-
-**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
-
-Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts.
-
----
-
-## Method Details
 
 ### bypass
 
@@ -610,4 +541,72 @@ TRG_Base.bypass(Contact.SObjectType);
 ```
 
 </div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) [context](#context) | The current operation type being processed by the trigger action. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [sObjectName](#sobjectname) | The API name of the SObject being processed by the trigger action. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerNew](#triggernew) | The list of "new" SObjects in the trigger context. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOld](#triggerold) | The list of "old" SObjects in the trigger context. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [triggerOldMap](#triggeroldmap) | Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts. |
+
+### context
+
+```apex
+@TestVisible global TriggerOperation context
+```
+
+**Type:** [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm)
+
+The current operation type being processed by the trigger action.
+
+### sObjectName
+
+```apex
+@TestVisible global String sObjectName
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+The API name of the SObject being processed by the trigger action.
+
+### triggerNew
+
+```apex
+@TestVisible global List<SObject> triggerNew
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+The list of "new" SObjects in the trigger context.
+
+### triggerOld
+
+```apex
+@TestVisible global List<SObject> triggerOld
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+The list of "old" SObjects in the trigger context.
+
+### triggerOldMap
+
+```apex
+@TestVisible global Map<Id, SObject> triggerOldMap
+```
+
+**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
+
+Map of "old" SObjects keyed by Id, for efficient field change detection in update contexts.
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [BypassType](TRG_Base.BypassType.md) | Indicates the type of trigger bypass being applied. |
+
+---
 

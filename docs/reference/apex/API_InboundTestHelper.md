@@ -52,10 +52,6 @@ API_Base handler = API_InboundTestHelper.assertCallSuccessful(API_UpdateInvoice.
 | global static void [setupRestContext](#setuprestcontext)([DTO_Base](DTO_Base.md) dtoRequest) | Sets up the RestContext objects of "request" and "response" for testing purposes. |
 | global static void [setupRestContext](#setuprestcontext)([DTO_Base](DTO_Base.md) dtoRequest, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Sets up the RestContext with a serialized DTO body and custom headers. |
 
----
-
-## Method Details
-
 ### assertCallAborted
 
 <div class="apex-member">

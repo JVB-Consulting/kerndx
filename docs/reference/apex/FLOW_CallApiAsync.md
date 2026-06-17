@@ -41,10 +41,6 @@ FLOW_CallApiAsync.invokeApiCallAsynchronously(apiCalls);
 |--------|-------------|
 | global static void [invokeApiCallAsynchronously](#invokeapicallasynchronously)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> apiCalls) | Invokes web service calls asynchronously by enqueuing Queueable jobs for each set of API calls. |
 
----
-
-## Method Details
-
 ### invokeApiCallAsynchronously
 
 <div class="apex-member">

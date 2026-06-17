@@ -89,13 +89,6 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The current correlation ID for log grouping across related operations. |
-| global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ignoreTestMode](#ignoretestmode) | Controls whether logging events are published during test execution. |
-
 ## Methods
 
 | Method | Description |
@@ -114,43 +107,6 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 | global static void [setParentTransactionId](#setparenttransactionid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parentTransactionId) | Sets parent transaction ID for hierarchy tracking. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [startCorrelation](#startcorrelation)() | Starts a new correlation context for multi-transaction tracing. |
 | global static void [suspendSaving](#suspendsaving)() | Suspends log publishing. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [LogEntry](LOG_Builder.LogEntry.md) | Fluent builder for constructing rich log entries with context. |
-| [LogScope](LOG_Builder.LogScope.md) | A logging scope that buffers log entries until closed. |
-
----
-
-## Property Details
-
-### correlationId
-
-```apex
-global static String correlationId
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-The current correlation ID for log grouping across related operations.
-
-### ignoreTestMode
-
-```apex
-global static Boolean ignoreTestMode
-```
-
-**Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
-
-Controls whether logging events are published during test execution.
-When set to true, enables logging in test mode for debugging test-specific issues.
-Defaults to false to avoid unnecessary logging overhead during unit tests.
-
----
-
-## Method Details
 
 ### build
 
@@ -492,4 +448,42 @@ finally
 ```
 
 </div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The current correlation ID for log grouping across related operations. |
+| global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ignoreTestMode](#ignoretestmode) | Controls whether logging events are published during test execution. |
+
+### correlationId
+
+```apex
+global static String correlationId
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+The current correlation ID for log grouping across related operations.
+
+### ignoreTestMode
+
+```apex
+global static Boolean ignoreTestMode
+```
+
+**Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
+
+Controls whether logging events are published during test execution.
+When set to true, enables logging in test mode for debugging test-specific issues.
+Defaults to false to avoid unnecessary logging overhead during unit tests.
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [LogEntry](LOG_Builder.LogEntry.md) | Fluent builder for constructing rich log entries with context. |
+| [LogScope](LOG_Builder.LogScope.md) | A logging scope that buffers log entries until closed. |
+
+---
 

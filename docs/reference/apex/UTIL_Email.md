@@ -34,12 +34,6 @@ UTIL_Email.DeliverabilityAccessLevel level = UTIL_Email.getEmailDeliverabilityAc
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [DeliverabilityAccessLevel](UTIL_Email.DeliverabilityAccessLevel.md) | Enum representing the three possible email deliverability settings in a Salesforce org. |
-
 ## Methods
 
 | Method | Description |
@@ -48,10 +42,6 @@ UTIL_Email.DeliverabilityAccessLevel level = UTIL_Email.getEmailDeliverabilityAc
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isNotValidEmailAddress](#isnotvalidemailaddress)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) address) | Convenience inverse of isValidEmailAddress(String). |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isValidEmailAddress](#isvalidemailaddress)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) address) | Checks whether the supplied address matches the default email pattern. |
 | global static void [sendEmail](#sendemail)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> toAddresses, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) subject, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) body, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isHtml, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Messaging.EmailFileAttachment](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_email_outbound_attachment.htm)> fileAttachments) | Internal send method that assembles and dispatches a SingleEmailMessage. |
-
----
-
-## Method Details
 
 ### getEmailDeliverabilityAccessLevel
 
@@ -130,4 +120,12 @@ Internal send method that assembles and dispatches a SingleEmailMessage.
 | `fileAttachments` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Optional file attachments. |
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DeliverabilityAccessLevel](UTIL_Email.DeliverabilityAccessLevel.md) | Enum representing the three possible email deliverability settings in a Salesforce org. |
+
+---
 

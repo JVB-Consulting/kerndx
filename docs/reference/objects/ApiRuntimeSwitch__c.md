@@ -30,10 +30,6 @@ Hierarchical custom setting that provides runtime API kill switches at the org, 
 |-------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [DisableAllApis__c](#disableallapis__c) | When enabled, every API call (inbound and outbound) is disabled for the applicable user, profile, or org. |
 
----
-
-## Field Details
-
 ### DisableAllApis__c
 
 ```apex

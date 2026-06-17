@@ -33,10 +33,6 @@ Input parameters for logging a Flow event.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | DEBUG, INFO, WARN, or ERROR (default: INFO) |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Log message |
 
----
-
-## Field Details
-
 ### additionalContext
 
 ```apex

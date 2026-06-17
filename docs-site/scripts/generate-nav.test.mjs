@@ -115,6 +115,32 @@ test('API Reference apex ordering within a domain: classes then interfaces then 
   ])
 })
 
+test('apex inner classes nest under their parent class, shown by their short name', () => {
+  const sidebar = generateSidebar([
+    page('reference/apex/UTIL_SObjectDescribe.md', 'reference/apex/util-sobjectdescribe', { type: 'class', title: 'UTIL_SObjectDescribe' }),
+    page('reference/apex/UTIL_SObjectDescribe.FieldListBuilder.md', 'reference/apex/util-sobjectdescribe-fieldlistbuilder', { type: 'class', title: 'UTIL_SObjectDescribe.FieldListBuilder' }),
+    page('reference/apex/UTIL_Plain.md', 'reference/apex/util-plain', { type: 'class', title: 'UTIL_Plain' })
+  ])
+  const utils = sidebar.find(s => s.text === 'API Reference').items.find(s => s.text === 'Utilities')
+  // The inner class is not a flat sibling of its parent.
+  assert.ok(!utils.items.map(i => i.link).includes('/reference/apex/util-sobjectdescribe-fieldlistbuilder'))
+  // The parent is an expandable item with the inner class nested under it, by its short name.
+  const parent = utils.items.find(i => i.link === '/reference/apex/util-sobjectdescribe')
+  assert.ok(Array.isArray(parent.items), 'parent class has nested items')
+  assert.deepEqual(parent.items, [{ text: 'FieldListBuilder', link: '/reference/apex/util-sobjectdescribe-fieldlistbuilder' }])
+  // A class with no inner classes stays a plain link.
+  const plain = utils.items.find(i => i.link === '/reference/apex/util-plain')
+  assert.ok(plain && !plain.items, 'plain class is a leaf link')
+})
+
+test('an inner class whose parent class is undocumented stays a top-level sibling', () => {
+  const sidebar = generateSidebar([
+    page('reference/apex/UTIL_Orphan.Inner.md', 'reference/apex/util-orphan-inner', { type: 'class', title: 'UTIL_Orphan.Inner' })
+  ])
+  const utils = sidebar.find(s => s.text === 'API Reference').items.find(s => s.text === 'Utilities')
+  assert.ok(utils.items.some(i => i.link === '/reference/apex/util-orphan-inner' && !i.items))
+})
+
 test('reference landing pages surface as top-level API Reference links, above the domain folders', () => {
   const sidebar = generateSidebar([
     page('reference/apex/UTIL_ZClass.md', 'reference/apex/util-zclass', { type: 'class' }),

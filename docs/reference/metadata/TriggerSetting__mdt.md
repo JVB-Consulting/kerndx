@@ -43,10 +43,6 @@ Parent configuration for all trigger actions on a single object. Links to an Ent
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[TriggerAction__mdt](../metadata/TriggerAction__mdt.md)> [TriggerActions__r](#triggeractions__r) | Reciprocal relationship for TriggerAction__mdt.TriggerSetting__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md)> [ValidationRuleGroups__r](#validationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.TriggerSetting__c. |
 
----
-
-## Field Details
-
 ### ApplyMasking__c
 
 ```apex

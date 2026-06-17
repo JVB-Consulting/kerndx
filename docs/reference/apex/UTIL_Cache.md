@@ -73,14 +73,6 @@ Object cached = cache.get('configKey');
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [Scope](UTIL_Cache.Scope.md) | Cache type enumeration |
-| global enum [Status](UTIL_Cache.Status.md) | Operation status enumeration |
-| global interface [Store](UTIL_Cache.Store.md) | Interface for Platform Cache operations |
-
 ## Methods
 
 | Method | Description |
@@ -97,16 +89,6 @@ Object cached = cache.get('configKey');
 | global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [org](#org)() | Convenience factory for Org cache with default partition. |
 | global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [partition](#partition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) partitionName) | Convenience factory for custom partition (subscriber orgs). |
 | global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [session](#session)() | Convenience factory for Session cache with default partition. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [OperationResult](UTIL_Cache.OperationResult.md) | Result of a cache operation with detailed status information |
-
----
-
-## Method Details
 
 ### auto
 
@@ -462,4 +444,15 @@ cache.put('userPreferences', prefsMap);
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [OperationResult](UTIL_Cache.OperationResult.md) | Result of a cache operation with detailed status information |
+| [Scope](UTIL_Cache.Scope.md) | Cache type enumeration |
+| [Status](UTIL_Cache.Status.md) | Operation status enumeration |
+| [Store](UTIL_Cache.Store.md) | Interface for Platform Cache operations |
+
+---
 

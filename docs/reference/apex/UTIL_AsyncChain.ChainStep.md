@@ -41,21 +41,11 @@ public class LoadDataStep extends UTIL_AsyncChain.ChainStep
 
 ---
 
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [stepName](#stepname) | Optional step name for identification in logs and status. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global abstract [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Execute the step's business logic. |
-
----
-
-## Method Details
 
 ### work
 
@@ -99,9 +89,11 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [stepName](#stepname) | Optional step name for identification in logs and status. |
 
 ### stepName
 

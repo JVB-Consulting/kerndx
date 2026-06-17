@@ -70,10 +70,6 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withRetry](#withretry)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) backoffSeconds) | Enables synchronous retry with a linear backoff. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withTriggeringRecord](#withtriggeringrecord)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Links this callout to a triggering business record. |
 
----
-
-## Method Details
-
 ### asMap
 
 <div class="apex-member">

@@ -56,16 +56,6 @@ UTIL_Limits.cpuTime().remaining();
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soslQueries](#soslqueries)() | Returns a LimitCheck for SOSL queries. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toDebugString](#todebugstring)() | Returns a human-readable summary of all governor limits in the format "Label: used of maximum". |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [LimitCheck](UTIL_Limits.LimitCheck.md) | Fluent limit inspector scoped to a single governor limit type. |
-
----
-
-## Method Details
-
 ### aggregateQueries
 
 <div class="apex-member">
@@ -315,4 +305,12 @@ String limitsDebug = UTIL_Limits.toDebugString();
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [LimitCheck](UTIL_Limits.LimitCheck.md) | Fluent limit inspector scoped to a single governor limit type. |
+
+---
 

@@ -43,29 +43,6 @@ List<UserRole> childRoles = new SEL_UserRole().findAllChildRoles(new Set<Id>{par
 |--------|-------------|
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UserRole](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_userrole.htm)> [findAllChildRoles](#findallchildroles)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> parentRoleIds) | Recursively finds all child roles (direct and indirect descendants) for the given parent role Ids. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for UserRole queries. |
-| global  [SEL_UserRole](#sel_userrole)() | Constructs a UserRole selector. |
-
----
-
-## Method Details
-
-### SEL_UserRole
-
-<div class="apex-member">
-
-```apex
-global SEL_UserRole()
-```
-
-Constructs a UserRole selector.
-
-**Example**
-
-```apex
-SEL_UserRole instance = new SEL_UserRole();
-```
-
-</div>
 
 ### findAllChildRoles
 
@@ -111,6 +88,30 @@ Returns the core fields for UserRole queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_UserRole](#constructors)() | Constructs a UserRole selector. |
+
+### SEL_UserRole()
+
+<div class="apex-member">
+
+```apex
+global SEL_UserRole()
+```
+
+Constructs a UserRole selector.
+
+**Example**
+
+```apex
+SEL_UserRole instance = new SEL_UserRole();
 ```
 
 </div>

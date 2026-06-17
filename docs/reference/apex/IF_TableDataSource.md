@@ -46,10 +46,6 @@ public class AccountTableSource implements IF_TableDataSource
 |--------|-------------|
 | global abstract [DTO_BaseTable](DTO_BaseTable.md) [fetch](#fetch)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> searchParameters) | Table datasource function to be implemented |
 
----
-
-## Method Details
-
 ### fetch
 
 <div class="apex-member">

@@ -50,10 +50,6 @@ breaker.execute(new SendEmailAction('user@example.com'));
 |--------|-------------|
 | global abstract void [execute](#execute)() | The code to execute with circuit breaker protection |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

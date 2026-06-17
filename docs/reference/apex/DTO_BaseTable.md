@@ -37,20 +37,6 @@ table.addRow(new Map<String, Object>{'name' => 'Acme Corp', 'revenue' => 50000})
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [columns](#columns) | Retrieves the list of columns defined in the table. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [rows](#rows) | Retrieves all rows added to the table. |
-
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [tableColumns](#tablecolumns) | List of table columns within this table |
-| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [tableRows](#tablerows) | List of table rows within this table |
-
 ## Methods
 
 | Method | Description |
@@ -58,43 +44,6 @@ table.addRow(new Map<String, Object>{'name' => 'Acme Corp', 'revenue' => 50000})
 | global void [addColumn](#addcolumn)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) label, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) type) | Adds a new column to the table with the specified label, field name, and type. |
 | global void [addColumn](#addcolumn)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) label, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) type, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortable) | Adds a new column to the table with specified label, field name, type, and sortable property. |
 | global void [addRow](#addrow)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) anObject) | Adds a new data row to the table. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Column](DTO_BaseTable.DTO_Column.md) | Represents a column in the DTO_BaseTable, containing properties for label, field name, type, and sorting ability. |
-
----
-
-## Property Details
-
-### columns
-
-```apex
-@AuraEnabled global List<DTO_BaseTable.DTO_Column> columns
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-Retrieves the list of columns defined in the table. Each column can have a label,
-field name, data type, and sortable setting. Enables access to the column
-definitions for display and sorting purposes.
-
-### rows
-
-```apex
-@AuraEnabled global List<Object> rows
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-Retrieves all rows added to the table. Each row contains data matching the
-fields and types specified in the column definitions.
-
----
-
-## Method Details
 
 ### addColumn
 
@@ -174,9 +123,42 @@ instance.addRow('value');
 
 </div>
 
----
+## Properties
 
-## Field Details
+| Property | Description |
+|----------|-------------|
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [columns](#columns) | Retrieves the list of columns defined in the table. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [rows](#rows) | Retrieves all rows added to the table. |
+
+### columns
+
+```apex
+@AuraEnabled global List<DTO_BaseTable.DTO_Column> columns
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+Retrieves the list of columns defined in the table. Each column can have a label,
+field name, data type, and sortable setting. Enables access to the column
+definitions for display and sorting purposes.
+
+### rows
+
+```apex
+@AuraEnabled global List<Object> rows
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+Retrieves all rows added to the table. Each row contains data matching the
+fields and types specified in the column definitions.
+
+## Fields
+
+| Field | Description |
+|-------|-------------|
+| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md)> [tableColumns](#tablecolumns) | List of table columns within this table |
+| global transient [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [tableRows](#tablerows) | List of table rows within this table |
 
 ### tableColumns
 
@@ -215,4 +197,12 @@ table.addRow(new Map<String, Object>{'name' => 'Acme Corp', 'revenue' => 50000})
 table.addRow(new Map<String, Object>{'name' => 'Global Inc', 'revenue' => 75000});
 List<Object> rows = table.tableRows;
 ```
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Column](DTO_BaseTable.DTO_Column.md) | Represents a column in the DTO_BaseTable, containing properties for label, field name, type, and sorting ability. |
+
+---
 

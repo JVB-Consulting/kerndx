@@ -86,18 +86,6 @@ String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isPersonAccountEnabled](#ispersonaccountenabled)() | Determines whether Person Accounts are enabled by checking for the isPersonAccount field on Account. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRecordTypeAvailable](#isrecordtypeavailable)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeName) | Reports whether a record type, identified by its developer name, is available to the running user for the given SObject. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [FieldListBuilder](UTIL_SObjectDescribe.FieldListBuilder.md) | Builds a comma-separated field list from SObjectField tokens and optional FieldSet definitions. |
-| [FieldsMap](UTIL_SObjectDescribe.FieldsMap.md) | A subclass of NamespacedAttributeMap for handling field maps returned by DescribeSObjectResult.fields.getMap(). |
-| [GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) | A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe. |
-
----
-
-## Method Details
-
 ### extractValidObjectFieldNames
 
 <div class="apex-member">
@@ -1300,4 +1288,14 @@ if(UTIL_SObjectDescribe.isRecordTypeAvailable(Account.SObjectType, 'Customer'))
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [FieldListBuilder](UTIL_SObjectDescribe.FieldListBuilder.md) | Builds a comma-separated field list from SObjectField tokens and optional FieldSet definitions. |
+| [FieldsMap](UTIL_SObjectDescribe.FieldsMap.md) | A subclass of NamespacedAttributeMap for handling field maps returned by DescribeSObjectResult.fields.getMap(). |
+| [GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) | A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe. |
+
+---
 

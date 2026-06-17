@@ -35,10 +35,6 @@ Interface defining the retry context. Contains information about the current ret
 | global abstract [UTIL_Retry.Context](UTIL_Retry.Context.md) [withCustomData](#withcustomdata)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) data) | Sets custom data for use with custom retry strategies (fluent API) |
 | global abstract [UTIL_Retry.Context](UTIL_Retry.Context.md) [withLastAttemptTime](#withlastattempttime)([Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) dt) | Sets the last attempt time (fluent API) |
 
----
-
-## Method Details
-
 ### getBaseBackoff
 
 <div class="apex-member">

@@ -44,10 +44,6 @@ Defines a rule for masking sensitive data in a field — what to look for and wh
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ReplacesFingerprint__c](#replacesfingerprint__c) | SHA-256 fingerprint of the superseded rule's original shipped behaviour values. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ShippedFingerprint__c](#shippedfingerprint__c) | SHA-256 fingerprint of this rule's own shipped behaviour values. |
 
----
-
-## Field Details
-
 ### ApplicableFieldTypes__c
 
 ```apex

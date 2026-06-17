@@ -37,10 +37,6 @@ Tracks monthly login activity per user, including total login count and number o
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [User__c](#user__c) | The user whose login activity is tracked by this record. |
 | global [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [User__r](#user__r) | The user whose login activity is tracked by this record. |
 
----
-
-## Field Details
-
 ### CompositeKey__c
 
 ```apex

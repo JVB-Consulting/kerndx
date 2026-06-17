@@ -137,11 +137,13 @@ try
 	//    property carries a `Since:` (single doc version → intentionally dropped) and may carry
 	//    an empty `Example:`; if the extractor fails to strip them they leak into the description
 	//    as bare "Since:" / "Example:" lines. SEL_Base has several documented properties, so it
-	//    exercises the Property Details path. (A real example renders as bold "Example", no colon.)
+	//    exercises the property-detail path. (A real example renders as bold "Example", no colon.)
+	//    The per-property detail cards now render inline under the merged `## Properties` section
+	//    (each with a `Type:` line); the separate `## Property Details` heading was folded in.
 	await page.setViewportSize({width: 1280, height: 800});
 	await page.goto(`${BASE}/reference/apex/sel-base`, {waitUntil: 'networkidle'});
 	const refText = await page.locator('.vp-doc').innerText();
-	assert(refText.includes('Property Details'), 'SEL_Base reference page has a Property Details section');
+	assert(refText.includes('Properties') && refText.includes('Type:'), 'SEL_Base reference page renders property details under the merged Properties section');
 	const orphanLabels = refText.split('\n').map(l => l.trim()).filter(l => l === 'Since:' || l === 'Example:');
 	assert(orphanLabels.length === 0, `reference property details have no orphan Since:/Example: labels (found ${orphanLabels.length})`);
 

@@ -29,15 +29,15 @@ API_Base.HttpMethod method = API_Base.HttpMethod.POST;
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [DELETION](#deletion) | HTTP DELETE method for removing resources (named DELETION to avoid reserved word). |
-| global  [GET](#get) | HTTP GET method for retrieving resources. |
-| global  [PATCH](#patch) | HTTP PATCH method for partial updates. |
-| global  [POST](#post) | HTTP POST method for creating resources. |
-| global  [PUT](#put) | HTTP PUT method for updating resources. |
+| Class | Description |
+|-------|-------------|
+| [DELETION](#deletion) | HTTP DELETE method for removing resources (named DELETION to avoid reserved word). |
+| [GET](#get) | HTTP GET method for retrieving resources. |
+| [PATCH](#patch) | HTTP PATCH method for partial updates. |
+| [POST](#post) | HTTP POST method for creating resources. |
+| [PUT](#put) | HTTP PUT method for updating resources. |
 
 ---
 

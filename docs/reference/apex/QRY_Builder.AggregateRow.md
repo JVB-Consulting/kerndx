@@ -46,10 +46,6 @@ String industry = row.getString('Industry');
 | global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [getLong](#getlong)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a Long value by alias. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getString](#getstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a String value by alias. |
 
----
-
-## Method Details
-
 ### get
 
 <div class="apex-member">

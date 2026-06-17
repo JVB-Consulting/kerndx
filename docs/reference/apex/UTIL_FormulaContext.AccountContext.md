@@ -70,10 +70,6 @@ for(Account account : accounts)
 | global [Account](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_account.htm) [newRecord](#newrecord) | The Account record state AFTER the DML operation. |
 | global [Account](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_account.htm) [oldRecord](#oldrecord) | The Account record state BEFORE the DML operation. |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

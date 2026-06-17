@@ -23,14 +23,6 @@ A Data Transfer Object (DTO) used to wrap the original parameters provided by Om
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [inputMap](#inputmap) | Provides access to all input variables provided in the parameter map. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [optionMap](#optionmap) | Provides access to various option parameters that control the behavior of the call operation. |
-| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [outputMap](#outputmap) | Provides access to the output map where results of the operation can be stored. |
-
 ## Methods
 
 | Method | Description |
@@ -38,44 +30,6 @@ A Data Transfer Object (DTO) used to wrap the original parameters provided by Om
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getInputVariable](#getinputvariable)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Retrieves the value of an input variable from the input map. |
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getOptionVariable](#getoptionvariable)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Retrieves the value of an option variable from the options map. |
 | global void [setOutputVariable](#setoutputvariable)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Sets the value of an output variable in the output map. |
-
----
-
-## Property Details
-
-### inputMap
-
-```apex
-global Map<String, Object> inputMap
-```
-
-**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
-
-Provides access to all input variables provided in the parameter map.
-
-### optionMap
-
-```apex
-global Map<String, Object> optionMap
-```
-
-**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
-
-Provides access to various option parameters that control the behavior of the call operation.
-
-### outputMap
-
-```apex
-global Map<String, Object> outputMap
-```
-
-**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
-
-Provides access to the output map where results of the operation can be stored.
-
----
-
-## Method Details
 
 ### getInputVariable
 
@@ -154,4 +108,42 @@ instance.setOutputVariable('value', 'value');
 ```
 
 </div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [inputMap](#inputmap) | Provides access to all input variables provided in the parameter map. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [optionMap](#optionmap) | Provides access to various option parameters that control the behavior of the call operation. |
+| global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [outputMap](#outputmap) | Provides access to the output map where results of the operation can be stored. |
+
+### inputMap
+
+```apex
+global Map<String, Object> inputMap
+```
+
+**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
+
+Provides access to all input variables provided in the parameter map.
+
+### optionMap
+
+```apex
+global Map<String, Object> optionMap
+```
+
+**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
+
+Provides access to various option parameters that control the behavior of the call operation.
+
+### outputMap
+
+```apex
+global Map<String, Object> outputMap
+```
+
+**Type:** [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)
+
+Provides access to the output map where results of the operation can be stored.
 

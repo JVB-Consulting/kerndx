@@ -47,29 +47,6 @@ ContentVersion version = (ContentVersion)new SEL_ContentVersion().findById(versi
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [findLatestByContentDocumentId](#findlatestbycontentdocumentid)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> contentDocumentIds) | Retrieves the latest ContentVersion records for the specified ContentDocument IDs. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm)> [getAll](#getall)() | Retrieves all ContentVersion records in the system. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the default fields for ContentVersion queries. |
-| global  [SEL_ContentVersion](#sel_contentversion)() | Constructs a new SEL_ContentVersion selector instance. |
-
----
-
-## Method Details
-
-### SEL_ContentVersion
-
-<div class="apex-member">
-
-```apex
-global SEL_ContentVersion()
-```
-
-Constructs a new SEL_ContentVersion selector instance.
-
-**Example**
-
-```apex
-SEL_ContentVersion instance = new SEL_ContentVersion();
-```
-
-</div>
 
 ### findByFirstPublishLocationId
 
@@ -184,6 +161,30 @@ Returns the default fields for ContentVersion queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_ContentVersion](#constructors)() | Constructs a new SEL_ContentVersion selector instance. |
+
+### SEL_ContentVersion()
+
+<div class="apex-member">
+
+```apex
+global SEL_ContentVersion()
+```
+
+Constructs a new SEL_ContentVersion selector instance.
+
+**Example**
+
+```apex
+SEL_ContentVersion instance = new SEL_ContentVersion();
 ```
 
 </div>

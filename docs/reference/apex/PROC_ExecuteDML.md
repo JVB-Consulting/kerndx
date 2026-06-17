@@ -46,15 +46,42 @@ UTIL_AsynchronousJobLauncher.process(
 | Method | Description |
 |--------|-------------|
 | global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the configured DML operation on the provided list of records. |
-| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation) | Constructs a DML processor with the specified operation and default all-or-nothing behavior. |
-| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing) | Constructs a DML processor with the specified operation and transaction behavior. |
-| global  [PROC_ExecuteDML](#proc_executedml)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing, [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Constructs a DML processor with an explicit AccessLevel. |
 
----
+### execute
 
-## Method Details
+<div class="apex-member">
 
-### PROC_ExecuteDML
+```apex
+global void execute(List<Object> items)
+```
+
+Executes the configured DML operation on the provided list of records.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObject records to process. |
+
+**Example**
+
+```apex
+List<Account> accounts = new List<Account>();
+accounts.add(new Account(Name = 'Test'));
+new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_INSERT).execute(accounts);
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [PROC_ExecuteDML](#constructors)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation) | Constructs a DML processor with the specified operation and default all-or-nothing behavior. |
+| global [PROC_ExecuteDML](#constructors)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing) | Constructs a DML processor with the specified operation and transaction behavior. |
+| global [PROC_ExecuteDML](#constructors)([DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) operation, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allOrNothing, [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Constructs a DML processor with an explicit AccessLevel. |
+
+### PROC_ExecuteDML(DML_Builder.DatabaseOperation operation)
 
 <div class="apex-member">
 
@@ -78,6 +105,8 @@ PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DM
 ```
 
 </div>
+
+### PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing)
 
 <div class="apex-member">
 
@@ -103,6 +132,8 @@ PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DM
 
 </div>
 
+### PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing, AccessLevel accessLevel)
+
 <div class="apex-member">
 
 ```apex
@@ -127,32 +158,6 @@ opt-ins survive the sync-to-async boundary.
 
 ```apex
 PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_DELETE, true, AccessLevel.SYSTEM_MODE);
-```
-
-</div>
-
-### execute
-
-<div class="apex-member">
-
-```apex
-global void execute(List<Object> items)
-```
-
-Executes the configured DML operation on the provided list of records.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `items` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of SObject records to process. |
-
-**Example**
-
-```apex
-List<Account> accounts = new List<Account>();
-accounts.add(new Account(Name = 'Test'));
-new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_INSERT).execute(accounts);
 ```
 
 </div>

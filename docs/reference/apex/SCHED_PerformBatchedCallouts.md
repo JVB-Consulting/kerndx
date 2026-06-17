@@ -40,10 +40,6 @@ System.schedule('Process Batched Callouts', '0 0 0 * * ?', new SCHED_PerformBatc
 |--------|-------------|
 | global void [execute](#execute)([SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm) context) | Executes the scheduled job, retrieving a list of API calls that are batched and ready for outbound processing, updating their status to indicate they are queued, and committing the updated records to the database. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

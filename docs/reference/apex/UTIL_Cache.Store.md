@@ -42,10 +42,6 @@ Interface for Platform Cache operations
 | global abstract [UTIL_Cache.Store](UTIL_Cache.Store.md) [withScope](#withscope)([UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheType) | Sets the cache type preference (fluent API) |
 | global abstract [UTIL_Cache.Store](UTIL_Cache.Store.md) [withUserScope](#withuserscope)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) userScoped) | Enables or disables user-scoped keys (fluent API) |
 
----
-
-## Method Details
-
 ### contains
 
 <div class="apex-member">

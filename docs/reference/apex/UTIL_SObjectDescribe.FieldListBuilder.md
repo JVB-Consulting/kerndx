@@ -23,18 +23,14 @@ Builds a comma-separated field list from SObjectField tokens and optional FieldS
 
 ---
 
-## Methods
+## Constructors
 
-| Method | Description |
-|--------|-------------|
-| global  [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Initializes a FieldListBuilder with a list of SObjectField tokens. |
-| global  [FieldListBuilder](#fieldlistbuilder)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm)> fieldSets) | Initializes a FieldListBuilder with fields and optional FieldSets. |
+| Constructor | Description |
+|-------------|-------------|
+| global [FieldListBuilder](#constructors)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Initializes a FieldListBuilder with a list of SObjectField tokens. |
+| global [FieldListBuilder](#constructors)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm)> fieldSets) | Initializes a FieldListBuilder with fields and optional FieldSets. |
 
----
-
-## Method Details
-
-### FieldListBuilder
+### FieldListBuilder(List<SObjectField> objectFields)
 
 <div class="apex-member">
 
@@ -57,6 +53,8 @@ UTIL_SObjectDescribe.FieldListBuilder builder = new UTIL_SObjectDescribe.FieldLi
 ```
 
 </div>
+
+### FieldListBuilder(List<SObjectField> objectFields, List<FieldSet> fieldSets)
 
 <div class="apex-member">
 

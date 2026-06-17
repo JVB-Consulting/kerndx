@@ -49,10 +49,6 @@ public class DTO_Invoice extends DTO_JsonBase
 | global virtual [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [getObjectType](#getobjecttype)() | Retrieves the type of the current DTO, used when deserializing JSON data back into an instance of the specific class. |
 | global override virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serialize](#serialize)() | Serializes the current DTO instance into a JSON string, omitting null values to create a compact JSON representation. |
 
----
-
-## Method Details
-
 ### deserialize
 
 <div class="apex-member">

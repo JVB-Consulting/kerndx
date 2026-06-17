@@ -30,10 +30,6 @@ Async DML execution wrapper. Groups registered operations by type and delegates 
 | global void [execute](#execute)() | Enqueues the registered DML operations for asynchronous execution. |
 | global [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) [withBatchSize](#withbatchsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) batchSize) | Sets the batch size for async processing. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

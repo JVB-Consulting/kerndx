@@ -56,14 +56,6 @@ global List<Account> findByIndustry(String industry)
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global final [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [fieldPaths](#fieldpaths) | Core field path strings for this selector, supporting relationship traversal syntax (e.g., 'Owner.Name'). |
-| global final [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [fields](#fields) | Core SObjectField tokens for this selector. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [query](#query) | Returns a new query builder pre-configured with this selector's SObjectType and all field sources. |
-
 ## Methods
 
 | Method | Description |
@@ -84,81 +76,9 @@ global List<Account> findByIndustry(String industry)
 | global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core SObjectField tokens always included in queries from this selector. |
 | global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getFirst](#getfirst)() | Executes the default query and returns the first record, or null. |
 | global virtual [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getRandomItem](#getrandomitem)() | Returns a random record matching the default query, or null if none exist. |
-| global  [SEL_Base](#sel_base)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Constructs a selector for the given SObjectType. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [systemModeRequired](#systemmoderequired)() | Declares whether this selector's queries must run in AccessLevel.SYSTEM_MODE regardless of the UserModeQueries_Enabled feature flag. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [toList](#tolist)() | Executes the default query and returns all matching records. |
 | global [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) [toQueryLocator](#toquerylocator)() | Returns a QueryLocator for the default query. |
-
----
-
-## Property Details
-
-### fieldPaths
-
-```apex
-global final List<String> fieldPaths
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-Core field path strings for this selector, supporting relationship traversal
-syntax (e.g., 'Owner.Name'). Lazy-loaded from getCoreFieldPaths() on first access.
-
-### fields
-
-```apex
-global final List<SObjectField> fields
-```
-
-**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
-
-Core SObjectField tokens for this selector. Lazy-loaded from getCoreFields()
-on first access. Subscribers can inspect a selector's field configuration via this property.
-
-### query
-
-```apex
-global QRY_Builder.Builder query
-```
-
-**Type:** [QRY_Builder.Builder](QRY_Builder.Builder.md)
-
-Returns a new query builder pre-configured with this selector's SObjectType
-and all field sources. Each access creates a fresh builder instance to prevent state
-leaking between queries. When systemModeRequired() returns true, the builder has
-systemModeInternal() applied so framework-internal reads (CMDT, framework-owned
-sObjects) run in SYSTEM_MODE without polluting the BypassEvent audit trail —
-a static systemModeRequired() design choice is not a runtime bypass. Selectors that
-leave systemModeRequired() at the default (false) inherit the UserModeQueries_Enabled
-flag-driven default.
-
----
-
-## Method Details
-
-### SEL_Base
-
-<div class="apex-member">
-
-```apex
-global SEL_Base(SObjectType objectType)
-```
-
-Constructs a selector for the given SObjectType.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType this selector queries |
-
-**Example**
-
-```apex
-SEL_Account.SEL_Base instance = new SEL_Account.SEL_Base(Account.SObjectType);
-```
-
-</div>
 
 ### count
 
@@ -647,4 +567,81 @@ global class BatchProcessAccounts implements Database.Batchable
 ```
 
 </div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_Base](#constructors)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Constructs a selector for the given SObjectType. |
+
+### SEL_Base(SObjectType objectType)
+
+<div class="apex-member">
+
+```apex
+global SEL_Base(SObjectType objectType)
+```
+
+Constructs a selector for the given SObjectType.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObjectType this selector queries |
+
+**Example**
+
+```apex
+SEL_Account.SEL_Base instance = new SEL_Account.SEL_Base(Account.SObjectType);
+```
+
+</div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global final [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [fieldPaths](#fieldpaths) | Core field path strings for this selector, supporting relationship traversal syntax (e.g., 'Owner.Name'). |
+| global final [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [fields](#fields) | Core SObjectField tokens for this selector. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [query](#query) | Returns a new query builder pre-configured with this selector's SObjectType and all field sources. |
+
+### fieldPaths
+
+```apex
+global final List<String> fieldPaths
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+Core field path strings for this selector, supporting relationship traversal
+syntax (e.g., 'Owner.Name'). Lazy-loaded from getCoreFieldPaths() on first access.
+
+### fields
+
+```apex
+global final List<SObjectField> fields
+```
+
+**Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
+
+Core SObjectField tokens for this selector. Lazy-loaded from getCoreFields()
+on first access. Subscribers can inspect a selector's field configuration via this property.
+
+### query
+
+```apex
+global QRY_Builder.Builder query
+```
+
+**Type:** [QRY_Builder.Builder](QRY_Builder.Builder.md)
+
+Returns a new query builder pre-configured with this selector's SObjectType
+and all field sources. Each access creates a fresh builder instance to prevent state
+leaking between queries. When systemModeRequired() returns true, the builder has
+systemModeInternal() applied so framework-internal reads (CMDT, framework-owned
+sObjects) run in SYSTEM_MODE without polluting the BypassEvent audit trail —
+a static systemModeRequired() design choice is not a runtime bypass. Selectors that
+leave systemModeRequired() at the default (false) inherit the UserModeQueries_Enabled
+flag-driven default.
 

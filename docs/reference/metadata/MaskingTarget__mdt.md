@@ -37,10 +37,6 @@ Applies a Masking Rule to a specific field on a specific object. Each record say
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [SObjectType__c](#sobjecttype__c) | The object that contains the field to mask. |
 | global [EntityDefinition](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_entitydefinition.htm) [SObjectType__r](#sobjecttype__r) | The object that contains the field to mask. |
 
----
-
-## Field Details
-
 ### CallerClass__c
 
 ```apex

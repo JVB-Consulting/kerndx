@@ -31,10 +31,6 @@ Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvid
 |--------|-------------|
 | global virtual [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md)> [getDefaultMapOfValues](#getdefaultmapofvalues)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> mapOfValuesOverride) | Gets the default map of values for a given SObjectType. |
 
----
-
-## Method Details
-
 ### getDefaultMapOfValues
 
 <div class="apex-member">

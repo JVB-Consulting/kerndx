@@ -50,16 +50,6 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 | global static void [throwsException](#throwsexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionToThrow) | Registers an Exception to be thrown the next time the framework queries the specified SObjectType. |
 | global static void [throwsException](#throwsexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Convenience overload that throws a QueryException with the given message. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [MockBuilder](TST_Mock.MockBuilder.md) | Fluent builder wrapper that delegates to TST_Builder.Builder for record construction and auto-registers built records with TST_Mock. |
-
----
-
-## Method Details
-
 ### clear
 
 <div class="apex-member">
@@ -300,4 +290,12 @@ TST_Mock.throwsException(Account.SObjectType, 'Simulated SOQL failure');
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [MockBuilder](TST_Mock.MockBuilder.md) | Fluent builder wrapper that delegates to TST_Builder.Builder for record construction and auto-registers built records with TST_Mock. |
+
+---
 

@@ -83,12 +83,12 @@ public with sharing class MyClass
 **Line wrap (>180 chars):** paren on new line, args indented:
 
 ```apex
-TriggerAction__mdt action = TST_Factory.newTriggerActionForContext
+List<Account> accounts = (List<Account>)kern.QRY_Builder.selectFrom
 (
-	TRIGGER_ACTION,
-	TRIGGER_SETTING,
-	TriggerOperation.BEFORE_INSERT
-);
+	Account.SObjectType
+)
+	.fields(new List<SObjectField>{ Account.Name, Account.Description })
+	.toList();
 ```
 
 **JavaScript (LWC):** Tabs, single quotes, semicolons, Allman bracing, camelCase, JSDoc required on LWC component classes (`@description`, `@author`, `@date`) and methods with
@@ -481,28 +481,16 @@ resolver are framework-internal — `public`, not `global` — and drive the dec
 @IsTest(SeeAllData=false IsParallel=true)
 private class TRG_SetAccountDefaults_TEST
 {
-	/** @description The trigger setting developer name. */
-	private static final String TRIGGER_SETTING = 'Account';
-	/** @description The trigger action class name. */
-	private static final String TRIGGER_ACTION = TRG_SetAccountDefaults.class.getName();
-
 	@IsTest
 	private static void shouldSetDefaultWhenDescriptionBlank()
 	{
-		kern.TST_Factory.newTriggerActionForContext(
-			TRIGGER_ACTION,
-			kern.TST_Factory.newTriggerSetting(TRIGGER_SETTING),
-			TriggerOperation.BEFORE_INSERT
-		);
+		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
+			.withoutInsertion()
+			.build();
 
-		Account record = (Account)kern.TST_Builder.of(Account.SObjectType).build();
+		new TRG_SetAccountDefaults().beforeInsert(new List<SObject>{ record });
 
-		Account result = (Account)kern.QRY_Builder.selectFrom(Account.SObjectType)
-			.fields(new List<SObjectField>{ Account.Description })
-			.condition(Account.Id).equals(record.Id)
-			.getFirst();
-
-		Assert.isNotNull(result.Description, 'Default should be set');
+		Assert.isNotNull(record.Description, 'Default should be set');
 	}
 }
 ```
@@ -779,9 +767,8 @@ public with sharing class FLOW_CreateAccount
 }
 ```
 
-**Rules:** `public with sharing` on class + DTOs | guard `requests.size() == 1` with a platform-native `IllegalArgumentException` (the framework's `TRG_Base.validateSingleRequest`
-is `public` and not subscriber-callable) | `@InvocableVariable` with Label/Description/Required | `@InvocableMethod` with Category/Label/Description | `kern.DML_Builder` for DML |
-Method takes `List<DTO_Request>`, returns `void` or `List<DTO_Response>`
+**Rules:** `public with sharing` on class + DTOs | guard `requests.size() == 1` with a platform-native `IllegalArgumentException` | `@InvocableVariable` with Label/Description/Required |
+`@InvocableMethod` with Category/Label/Description | `kern.DML_Builder` for DML | Method takes `List<DTO_Request>`, returns `void` or `List<DTO_Response>`
 
 ### Flow Test Pattern
 
@@ -897,8 +884,11 @@ catch(QueryException error)
 
 ### TST_Factory
 
-`kern.TST_Factory.newTriggerSetting(objectApiName)` | `.newTriggerAction(className, setting)` | `.newTriggerActionForContext(className, setting, TriggerOperation)` |
-`.newValidationRule(name, formula, msg)` | `.newValidationRuleGroup(setting)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)`
+`kern.TST_Factory.newFeatureFlag(flagName)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)` | `.newUser(profileName)`
+
+For trigger-action tests, invoke the handler directly on in-memory records built with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()` (see the Trigger Test Pattern
+above). For custom-validation tests, deploy the rule as Custom Metadata, then assert with `kern.UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)` /
+`.assertRulePasses(record, ruleName)`.
 
 ### Exception Testing
 

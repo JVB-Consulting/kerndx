@@ -17,8 +17,8 @@
  *
  * @example
  * ```apex
- * TriggerSetting__mdt setting = TST_Factory.newTriggerSetting('Foobar__c');
- * TST_Factory.newTriggerActionForContext('TRG_SetFoobarDefaults', setting, TriggerOperation.BEFORE_INSERT);
+ * User testUser = TST_Factory.newUser('Standard User');
+ * insert testUser;
  * ```
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength,PMD.AvoidGlobalModifier')

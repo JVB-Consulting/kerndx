@@ -49,10 +49,6 @@ Registers a single trigger action: one Apex class bound to one trigger event (e.
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [TriggerSetting__c](#triggersetting__c) | Links this action to its parent Trigger Setting, which identifies the SObject the trigger fires on. |
 | global [TriggerSetting__mdt](../metadata/TriggerSetting__mdt.md) [TriggerSetting__r](#triggersetting__r) | Links this action to its parent Trigger Setting, which identifies the SObject the trigger fires on. |
 
----
-
-## Field Details
-
 ### AllowNonSelfInitiated__c
 
 ```apex

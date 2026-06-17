@@ -41,10 +41,6 @@ Interface for circuit breaker operations. This interface defines the contract fo
 | global abstract [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) [withSuccessThreshold](#withsuccessthreshold)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) threshold) | Sets the success threshold for HALF_OPEN state (fluent API) |
 | global abstract [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) [withTimeout](#withtimeout)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) seconds) | Sets the timeout period in seconds (fluent API) |
 
----
-
-## Method Details
-
 ### allowRequest
 
 <div class="apex-member">

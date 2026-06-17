@@ -33,10 +33,6 @@ Response DTO for the Execute Validation Rules invocable action. Contains the val
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasWarnings](#haswarnings) | True if any warnings occurred. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_FlowValidationError](DTO_FlowValidationError.md)> [warnings](#warnings) | List of validation warnings. |
 
----
-
-## Field Details
-
 ### errorMessage
 
 ```apex

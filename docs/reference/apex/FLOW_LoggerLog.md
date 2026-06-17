@@ -36,16 +36,6 @@ Logs an event within a Flow with correlation support. Use this to log messages, 
 |--------|-------------|
 | global static void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerLog.DTO_Request](FLOW_LoggerLog.DTO_Request.md)> inputs) | Logs an event within a Flow. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_LoggerLog.DTO_Request.md) | Input parameters for logging a Flow event. |
-
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
@@ -69,4 +59,12 @@ FLOW_LoggerLog.execute(new List<DTO_Request>());
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_LoggerLog.DTO_Request.md) | Input parameters for logging a Flow event. |
+
+---
 

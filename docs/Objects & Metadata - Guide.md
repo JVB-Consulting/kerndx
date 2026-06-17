@@ -1547,9 +1547,10 @@ if(isAdvancedReportingEnabled)
 
 ## Testing
 
-Custom objects and metadata types are tested indirectly through the framework classes that consume them. The KernDX
-framework provides `TST_Factory` methods for creating test metadata records in memory without DML, enabling
-isolated and parallel-safe tests.
+Custom objects and metadata types are tested indirectly through the framework classes that consume them. Test
+metadata-driven behavior by exercising the framework end-to-end through `kern.TST_Builder` — build (and insert) a
+record, then assert the configured effect. For feature-flag state, seed an active flag with the global
+`kern.TST_Factory.newFeatureFlag(...)` helper. This keeps tests isolated and parallel-safe.
 
 **Testing trigger action metadata:**
 
@@ -1557,14 +1558,14 @@ isolated and parallel-safe tests.
 @IsTest
 private static void shouldExecuteTriggerAction()
 {
-	TriggerSetting__mdt setting = TST_Factory.newTriggerSetting('Foobar__c');
-	TriggerAction__mdt action = TST_Factory.newTriggerActionForContext(
-		'TRG_SetFoobarDefaults', setting, TriggerOperation.BEFORE_INSERT
-	);
+	// Build an in-memory record and invoke the trigger-action handler directly.
+	Foobar__c record = (Foobar__c)kern.TST_Builder.of(Foobar__c.SObjectType)
+		.withoutInsertion()
+		.build();
 
-	Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+	new TRG_SetFoobarDefaults().beforeInsert(new List<Foobar__c>{ record });
 
-	Assert.isNotNull(record.Id, 'Record should be inserted with trigger action applied');
+	Assert.isNotNull(record.Name, 'Default should be set');
 }
 ```
 
@@ -1587,8 +1588,10 @@ private static void shouldRespectFeatureFlag()
 ```
 
 Custom metadata records (`TriggerSetting__mdt`, `TriggerAction__mdt`, `FeatureFlag__mdt`, etc.) cannot be
-inserted via DML in tests. The framework's `TST_Factory` methods create in-memory representations that the
-framework consumes during test execution.
+inserted via DML in tests. Drive the configured behavior through `kern.TST_Builder` end-to-end (build/insert a
+record and assert the effect) rather than asserting on metadata directly. For feature-flag state, seed an active
+flag with the global `kern.TST_Factory.newFeatureFlag(...)` helper; to test the off path, simply leave the flag
+unseeded (an unseeded flag is treated as off).
 
 ---
 
@@ -1599,7 +1602,7 @@ framework consumes during test execution.
 | Hardcoding `DeveloperName` strings to reference metadata records      | Breaks silently when records are renamed; no compile-time safety        | Use class name constants (e.g., `ClassName.class.getName()`) or `@TestVisible` constants                                    |
 | Using Custom Settings where Custom Metadata Types would suffice       | Custom Settings require DML in tests and cannot be deployed across orgs | Use Custom Metadata Types (`__mdt`) for static configuration; reserve Custom Settings for hierarchy or user-specific values |
 | Leaving `Description__c` fields empty on metadata records             | Makes configuration opaque to administrators and future developers      | Always populate `Description__c` with a brief explanation of the record's purpose                                           |
-| Creating org-specific test data that assumes specific metadata exists | Tests break in different orgs or after metadata changes                 | Use `TST_Factory` to create metadata records in tests; never rely on pre-existing org data                                  |
+| Creating org-specific test data that assumes specific metadata exists | Tests break in different orgs or after metadata changes                 | Exercise the framework through `kern.TST_Builder` and assert the effect; seed flag state with the global `kern.TST_Factory.newFeatureFlag(...)`; keep tests self-contained and never rely on pre-existing org data |
 | Querying metadata with inline SOQL                                    | Violates framework patterns and bypasses selector caching               | Use `SEL_*` selectors or `QRY_Builder` for all metadata queries                                                             |
 
 ---
@@ -1621,8 +1624,9 @@ framework consumes during test execution.
   fallback.
 - **Review `LogEntry__c` retention** regularly. Configure `SCHED_PurgeRecords` via `ScheduledJob__c` to prevent
   storage growth from log accumulation.
-- **Test with `@IsTest(SeeAllData=false)`** to ensure tests do not depend on org-specific metadata records. Use
-  `TST_Factory` to create test-specific metadata in memory.
+- **Test with `@IsTest(SeeAllData=false)`** to ensure tests do not depend on org-specific metadata records. Drive
+  metadata-configured behavior through `kern.TST_Builder` and assert the outcome; seed feature-flag state with the
+  global `kern.TST_Factory.newFeatureFlag(...)` helper.
 
 ---
 

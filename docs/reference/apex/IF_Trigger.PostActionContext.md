@@ -33,45 +33,13 @@ if(context.touchedSObjectTypes.contains(Account.SObjectType))
 
 ---
 
-## Properties
+## Constructors
 
-| Property | Description |
-|----------|-------------|
-| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [touchedSObjectTypes](#touchedsobjecttypes) | The SObject types whose triggers participated in the transaction. |
+| Constructor | Description |
+|-------------|-------------|
+| global [PostActionContext](#constructors)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> touched) | Constructs a post-action context with the supplied set of touched SObject types. |
 
-## Methods
-
-| Method | Description |
-|--------|-------------|
-| global  [PostActionContext](#postactioncontext)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> touched) | Constructs a post-action context with the supplied set of touched SObject types. |
-
----
-
-## Property Details
-
-### touchedSObjectTypes
-
-```apex
-global Set<SObjectType> touchedSObjectTypes
-```
-
-**Type:** [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)
-
-The SObject types whose triggers participated in the transaction.
-The framework stores a defensive copy on construction and the setter is private,
-so the framework's own source set cannot be mutated through this reference;
-subscribers must still treat the returned Set as read-only — a single context
-instance is shared across every post-action in the dispatch, so mutating it has
-no defined effect and could affect other post-actions. An empty set is possible —
-a post-action that ran solely because of a bypassed-but-still-fired trigger could
-see an empty context. Subscribers should null-check defensively even though the
-constructor guarantees a non-null Set.
-
----
-
-## Method Details
-
-### PostActionContext
+### PostActionContext(Set<SObjectType> touched)
 
 <div class="apex-member">
 
@@ -91,4 +59,28 @@ unit-test construction; subscribers receive instances via `PostAction.execute`.
 | `touched` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The set of SObject types whose triggers participated, or null. |
 
 </div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [touchedSObjectTypes](#touchedsobjecttypes) | The SObject types whose triggers participated in the transaction. |
+
+### touchedSObjectTypes
+
+```apex
+global Set<SObjectType> touchedSObjectTypes
+```
+
+**Type:** [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)
+
+The SObject types whose triggers participated in the transaction.
+The framework stores a defensive copy on construction and the setter is private,
+so the framework's own source set cannot be mutated through this reference;
+subscribers must still treat the returned Set as read-only — a single context
+instance is shared across every post-action in the dispatch, so mutating it has
+no defined effect and could affect other post-actions. An empty set is possible —
+a post-action that ran solely because of a bypassed-but-still-fired trigger could
+see an empty context. Subscribers should null-check defensively even though the
+constructor guarantees a non-null Set.
 

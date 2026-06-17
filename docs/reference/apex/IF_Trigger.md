@@ -43,23 +43,18 @@ public class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [AfterDelete](IF_Trigger.AfterDelete.md) | Handler contract for the after-delete trigger event. |
-| global interface [AfterInsert](IF_Trigger.AfterInsert.md) | Handler contract for the after-insert trigger event. |
-| global interface [AfterUndelete](IF_Trigger.AfterUndelete.md) | Handler contract for the after-undelete trigger event. |
-| global interface [AfterUpdate](IF_Trigger.AfterUpdate.md) | Handler contract for the after-update trigger event. |
-| global interface [BeforeDelete](IF_Trigger.BeforeDelete.md) | Handler contract for the before-delete trigger event. |
-| global interface [BeforeInsert](IF_Trigger.BeforeInsert.md) | Handler contract for the before-insert trigger event. |
-| global interface [BeforeUpdate](IF_Trigger.BeforeUpdate.md) | Handler contract for the before-update trigger event. |
-| global interface [PostAction](IF_Trigger.PostAction.md) | Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. |
-| global interface [PostActionEntryCriteria](IF_Trigger.PostActionEntryCriteria.md) | Optional entry-criteria contract for a post-trigger action. |
-
 ## Inner Classes
 
 | Class | Description |
 |-------|-------------|
+| [AfterDelete](IF_Trigger.AfterDelete.md) | Handler contract for the after-delete trigger event. |
+| [AfterInsert](IF_Trigger.AfterInsert.md) | Handler contract for the after-insert trigger event. |
+| [AfterUndelete](IF_Trigger.AfterUndelete.md) | Handler contract for the after-undelete trigger event. |
+| [AfterUpdate](IF_Trigger.AfterUpdate.md) | Handler contract for the after-update trigger event. |
+| [BeforeDelete](IF_Trigger.BeforeDelete.md) | Handler contract for the before-delete trigger event. |
+| [BeforeInsert](IF_Trigger.BeforeInsert.md) | Handler contract for the before-insert trigger event. |
+| [BeforeUpdate](IF_Trigger.BeforeUpdate.md) | Handler contract for the before-update trigger event. |
+| [PostAction](IF_Trigger.PostAction.md) | Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. |
 | [PostActionContext](IF_Trigger.PostActionContext.md) | Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. |
+| [PostActionEntryCriteria](IF_Trigger.PostActionEntryCriteria.md) | Optional entry-criteria contract for a post-trigger action. |
 

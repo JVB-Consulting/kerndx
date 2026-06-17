@@ -30,10 +30,6 @@ Data Transfer Object (DTO) representing the outcome of an email request.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errors](#errors) | Detailed error message if success is false. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | true if the email was successfully handed off to the delivery mechanism; false otherwise. |
 
----
-
-## Field Details
-
 ### errors
 
 ```apex

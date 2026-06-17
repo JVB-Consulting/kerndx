@@ -46,16 +46,6 @@ FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request> {request});
 |--------|-------------|
 | global static void [writeLog](#writelog)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_WriteLog.DTO_Request](FLOW_WriteLog.DTO_Request.md)> dtoRequests) | Logs messages at specified levels with additional context, designed for use in Salesforce flows. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_WriteLog.DTO_Request.md) | Data Transfer Object (DTO) for log requests, specifying log level, message details, and context. |
-
----
-
-## Method Details
-
 ### writeLog
 
 <div class="apex-member">
@@ -87,4 +77,12 @@ FLOW_WriteLog.writeLog(new List<FLOW_WriteLog.DTO_Request>{dtoRequest}); // Logs
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_WriteLog.DTO_Request.md) | Data Transfer Object (DTO) for log requests, specifying log level, message details, and context. |
+
+---
 

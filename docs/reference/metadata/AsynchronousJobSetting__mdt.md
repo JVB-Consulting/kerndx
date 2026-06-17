@@ -30,10 +30,6 @@ Declarative configuration for asynchronous job classes. The DeveloperName of eac
 |-------|-------------|
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [BatchSize__c](#batchsize__c) | The number of records to process per execution of the asynchronous job class. |
 
----
-
-## Field Details
-
 ### BatchSize__c
 
 ```apex

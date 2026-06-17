@@ -41,10 +41,6 @@ Tracks async chain executions including state, step definitions, shared context,
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StepLog__c](#steplog__c) | Serialized JSON array logging each step's class name, configuration, execution result, and duration. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TotalSteps__c](#totalsteps__c) | Total number of steps defined in the chain. |
 
----
-
-## Field Details
-
 ### ChainName__c
 
 ```apex

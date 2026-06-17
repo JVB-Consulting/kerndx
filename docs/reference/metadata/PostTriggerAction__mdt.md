@@ -43,10 +43,6 @@ Registers a single post-trigger action: one Apex class that runs once at the end
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [TriggerSetting__c](#triggersetting__c) | Optional. |
 | global [TriggerSetting__mdt](../metadata/TriggerSetting__mdt.md) [TriggerSetting__r](#triggersetting__r) | Optional. |
 
----
-
-## Field Details
-
 ### ApexClassName__c
 
 ```apex

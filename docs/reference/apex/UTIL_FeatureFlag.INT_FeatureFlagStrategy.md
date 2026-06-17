@@ -46,10 +46,6 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_FeatureFlagStrat
 |--------|-------------|
 | global abstract [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabled](#isenabled)([FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) flag, [FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md) strategyToEvaluate) | Evaluates the strategy and determines if the feature should be enabled. |
 
----
-
-## Method Details
-
 ### isEnabled
 
 <div class="apex-member">

@@ -50,10 +50,6 @@ global class API_OrgMetadata extends API_CallCurrentOrg
 | global virtual override [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getAuthorisationToken](#getauthorisationtoken)() | Will return the current session Id as authorisation token. |
 | global virtual override [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getWebServiceEndPoint](#getwebserviceendpoint)() | Constructs the full endpoint URL by combining the current org domain URL with the endpoint path from ApiSetting__mdt configuration. |
 
----
-
-## Method Details
-
 ### configure
 
 <div class="apex-member">

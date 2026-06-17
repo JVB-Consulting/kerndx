@@ -62,29 +62,6 @@ List<User> roleUsers = new SEL_User().findByRoleId(roleIds);
 | global virtual override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getFieldPaths](#getfieldpaths)() | Returns relationship field paths for User queries. |
 | global virtual override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core SObjectField tokens for User queries. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isCurrentUserSystemAdmin](#iscurrentusersystemadmin)() | Checks if the current user has the System Administrator profile. |
-| global  [SEL_User](#sel_user)() | Constructs a User selector with the User SObjectType. |
-
----
-
-## Method Details
-
-### SEL_User
-
-<div class="apex-member">
-
-```apex
-global SEL_User()
-```
-
-Constructs a User selector with the User SObjectType.
-
-**Example**
-
-```apex
-SEL_User instance = new SEL_User();
-```
-
-</div>
 
 ### findActiveByProfileAndPermissionSetName
 
@@ -563,6 +540,30 @@ if(new SEL_User().isCurrentUserSystemAdmin())
 {
     // Current user is a System Administrator
 }
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_User](#constructors)() | Constructs a User selector with the User SObjectType. |
+
+### SEL_User()
+
+<div class="apex-member">
+
+```apex
+global SEL_User()
+```
+
+Constructs a User selector with the User SObjectType.
+
+**Example**
+
+```apex
+SEL_User instance = new SEL_User();
 ```
 
 </div>

@@ -49,10 +49,6 @@ error.severity = 'Error';
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ruleName](#rulename) | The DeveloperName of the ValidationRule__mdt record that generated this error. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [severity](#severity) | The severity level of this validation result. |
 
----
-
-## Field Details
-
 ### fieldName
 
 ```apex

@@ -23,16 +23,16 @@ A Permission that a User might have on a SObjectType.
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [CREATE](#create) | User can create new object (of a given type). |
-| global  [DEL](#del) | User can delete an existing object (of a given type). |
-| global  [EDIT](#edit) | User can edit an existing object (of a given type). |
-| global  [MODIFY_ALL](#modify_all) | User can edit all existing objects (of a given type). |
-| global  [READ](#read) | User can view/read an existing object (of a given type). |
-| global  [VIEW_ALL](#view_all) | User can view/read all existing objects (of a given type). |
+| Class | Description |
+|-------|-------------|
+| [CREATE](#create) | User can create new object (of a given type). |
+| [DEL](#del) | User can delete an existing object (of a given type). |
+| [EDIT](#edit) | User can edit an existing object (of a given type). |
+| [MODIFY_ALL](#modify_all) | User can edit all existing objects (of a given type). |
+| [READ](#read) | User can view/read an existing object (of a given type). |
+| [VIEW_ALL](#view_all) | User can view/read all existing objects (of a given type). |
 
 ---
 

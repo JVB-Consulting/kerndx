@@ -46,43 +46,12 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 
 | Method | Description |
 |--------|-------------|
-| global  [ApiStep](#apistep)([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) handlerType) | Creates an ApiStep that wraps the specified API_Outbound handler. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [credential](#credential)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) namedCredential) | Overrides the Named Credential used for this API call. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [triggeringRecord](#triggeringrecord)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Sets a static triggering record ID for this API call. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [triggeringRecordFrom](#triggeringrecordfrom)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextKey) | Sets the triggering record ID from a ChainContext key, resolved at execution-time. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withParameter](#withparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a static parameter value to pass to the handler. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withParameterFrom](#withparameterfrom)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextKey) | Maps a handler parameter to a ChainContext key, resolved at execution-time. |
 | global override [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Executes the API_Outbound handler via UTIL_HttpClient delegation mode. |
-
----
-
-## Method Details
-
-### ApiStep
-
-<div class="apex-member">
-
-```apex
-global ApiStep(Type handlerType)
-```
-
-Creates an ApiStep that wraps the specified API_Outbound handler.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `handlerType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The API_Outbound subclass to execute (e.g., API_SendEmail.class). |
-
-**Example**
-
-```apex
-new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
-    .withParameter(API_SendEmail.PARAM_RECIPIENT, 'test@example.com')
-    .triggeringRecordFrom('recordId')
-```
-
-</div>
 
 ### credential
 
@@ -242,6 +211,38 @@ and writes results back to the context for downstream steps.
 | `context` | [UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared chain context for reading configuration and writing results. |
 
 **Returns** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) — StepResult indicating success or failure of the API call.
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [ApiStep](#constructors)([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) handlerType) | Creates an ApiStep that wraps the specified API_Outbound handler. |
+
+### ApiStep(Type handlerType)
+
+<div class="apex-member">
+
+```apex
+global ApiStep(Type handlerType)
+```
+
+Creates an ApiStep that wraps the specified API_Outbound handler.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `handlerType` | [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) | The API_Outbound subclass to execute (e.g., API_SendEmail.class). |
+
+**Example**
+
+```apex
+new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
+    .withParameter(API_SendEmail.PARAM_RECIPIENT, 'test@example.com')
+    .triggeringRecordFrom('recordId')
+```
 
 </div>
 

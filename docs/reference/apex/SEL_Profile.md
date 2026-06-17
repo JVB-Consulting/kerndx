@@ -44,29 +44,6 @@ Profile profile = (Profile)new SEL_Profile().findById(profileId);
 |--------|-------------|
 | global [Profile](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_profile.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName) | Finds a Profile record by name. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for Profile queries. |
-| global  [SEL_Profile](#sel_profile)() | Constructs a Profile selector with the Profile SObjectType. |
-
----
-
-## Method Details
-
-### SEL_Profile
-
-<div class="apex-member">
-
-```apex
-global SEL_Profile()
-```
-
-Constructs a Profile selector with the Profile SObjectType.
-
-**Example**
-
-```apex
-SEL_Profile instance = new SEL_Profile();
-```
-
-</div>
 
 ### findByName
 
@@ -111,6 +88,30 @@ Returns the core fields for Profile queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_Profile](#constructors)() | Constructs a Profile selector with the Profile SObjectType. |
+
+### SEL_Profile()
+
+<div class="apex-member">
+
+```apex
+global SEL_Profile()
+```
+
+Constructs a Profile selector with the Profile SObjectType.
+
+**Example**
+
+```apex
+SEL_Profile instance = new SEL_Profile();
 ```
 
 </div>

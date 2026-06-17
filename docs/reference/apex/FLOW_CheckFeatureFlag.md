@@ -41,10 +41,6 @@ Boolean isEnabled = results[0];
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)> [isEnabled](#isenabled)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> flagNames) | Returns if the specified feature flag is enabled for the current user. |
 
----
-
-## Method Details
-
 ### isEnabled
 
 <div class="apex-member">

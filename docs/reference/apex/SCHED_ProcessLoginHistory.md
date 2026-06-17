@@ -40,10 +40,6 @@ System.schedule('Daily Login History', '0 0 2 * * ?', new SCHED_ProcessLoginHist
 |--------|-------------|
 | global void [execute](#execute)([SchedulableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulablecontext.htm) context) | Executes the scheduled Apex job to process login history data. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
