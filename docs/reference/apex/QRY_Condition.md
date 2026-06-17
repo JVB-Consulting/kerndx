@@ -51,22 +51,17 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global virtual interface [Evaluable](QRY_Condition.Evaluable.md) | Interface for condition classes. |
-| global interface [Nestable](QRY_Condition.Nestable.md) | Interface for condition containers that support adding nested conditions. |
-| global enum [Operator](QRY_Condition.Operator.md) | SOQL comparison operators used to build query conditions. |
-| global enum [UnitOfTime](QRY_Condition.UnitOfTime.md) | Units of time for SOQL date literals. |
-
 ## Inner Classes
 
 | Class | Description |
 |-------|-------------|
 | [AndCondition](QRY_Condition.AndCondition.md) | Represents a SOQL "AND" condition group. |
 | [DateLiteral](QRY_Condition.DateLiteral.md) | Provides SOQL date literal values for use in QRY_Builder conditions. |
+| [Evaluable](QRY_Condition.Evaluable.md) | Interface for condition classes. |
 | [FieldCondition](QRY_Condition.FieldCondition.md) | Represents a condition in a SOQL WHERE clause based on a specific field, operator, and value. |
+| [Nestable](QRY_Condition.Nestable.md) | Interface for condition containers that support adding nested conditions. |
+| [Operator](QRY_Condition.Operator.md) | SOQL comparison operators used to build query conditions. |
 | [OrCondition](QRY_Condition.OrCondition.md) | Represents a SOQL "OR" condition group. |
 | [SoqlOptions](QRY_Condition.SoqlOptions.md) | Options for SOQL generation. |
+| [UnitOfTime](QRY_Condition.UnitOfTime.md) | Units of time for SOQL date literals. |
 

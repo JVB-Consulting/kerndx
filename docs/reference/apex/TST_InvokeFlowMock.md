@@ -50,16 +50,6 @@ Assert.isTrue(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'), 'Flow should 
 | global static [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getLastInputRecord](#getlastinputrecord)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns the record SObject the mocked flow received on its most recent invocation, or null when the flow has not been invoked. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [wasInvoked](#wasinvoked)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flowName) | Returns whether a mocked flow was invoked at least once. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [MockBuilder](TST_InvokeFlowMock.MockBuilder.md) | Fluent builder for registering a mock flow response. |
-
----
-
-## Method Details
-
 ### assertInvoked
 
 <div class="apex-member">
@@ -284,4 +274,12 @@ if(TST_InvokeFlowMock.wasInvoked('Foobar_SetDefaults'))
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [MockBuilder](TST_InvokeFlowMock.MockBuilder.md) | Fluent builder for registering a mock flow response. |
+
+---
 

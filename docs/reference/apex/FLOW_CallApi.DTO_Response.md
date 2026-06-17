@@ -32,10 +32,6 @@ Data Transfer Object representing the web service response or errors.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [responseBody](#responsebody) | The JSON payload containing the response body or failure message. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | Whether the API callout completed successfully. |
 
----
-
-## Field Details
-
 ### apiCallId
 
 ```apex

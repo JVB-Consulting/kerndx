@@ -29,10 +29,6 @@ DTO containing the name of the object for which to object permissions
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [objectApiName](#objectapiname) | The API name of the object for which to check permissions. |
 
----
-
-## Field Details
-
 ### objectApiName
 
 ```apex

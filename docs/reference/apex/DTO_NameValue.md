@@ -34,25 +34,14 @@ pair.value = 'Hello World';
 
 ---
 
-## Fields
+## Constructors
 
-| Field | Description |
-|-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The name of the data field or placeholder, used as a key in invocable methods. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [value](#value) | The value associated with the field name, used for substitution or configuration. |
+| Constructor | Description |
+|-------------|-------------|
+| global [DTO_NameValue](#constructors)() | Default no-argument constructor for flow and invocable compatibility. |
+| global [DTO_NameValue](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Constructs a new name-value pair with the specified key and value. |
 
-## Methods
-
-| Method | Description |
-|--------|-------------|
-| global  [DTO_NameValue](#dto_namevalue)() | Default no-argument constructor for flow and invocable compatibility. |
-| global  [DTO_NameValue](#dto_namevalue)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Constructs a new name-value pair with the specified key and value. |
-
----
-
-## Method Details
-
-### DTO_NameValue
+### DTO_NameValue()
 
 <div class="apex-member">
 
@@ -71,6 +60,8 @@ pair.value = 'Hello World';
 ```
 
 </div>
+
+### DTO_NameValue(String name, String value)
 
 <div class="apex-member">
 
@@ -95,9 +86,12 @@ DTO_NameValue pair = new DTO_NameValue('MergeField', 'Hello World');
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The name of the data field or placeholder, used as a key in invocable methods. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [value](#value) | The value associated with the field name, used for substitution or configuration. |
 
 ### name
 

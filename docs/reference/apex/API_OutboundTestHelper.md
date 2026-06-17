@@ -51,10 +51,6 @@ API_OutboundTestHelper.assertCallSuccessful(SERVICE_NAME, record.Id, parameters)
 | global static [API_Base](API_Base.md) [assertCallSuccessful](#assertcallsuccessful)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName) | Tests the successful execution of a web service call, passing a single parameter. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[API_Base](API_Base.md)> [assertParseFailed](#assertparsefailed)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> apiCalls) | Tests that a web service call fails to parse the response. |
 
----
-
-## Method Details
-
 ### assertCallAborted
 
 <div class="apex-member">

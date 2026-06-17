@@ -67,16 +67,6 @@ update updates;
 |--------|-------------|
 | global static [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) [forField](#forfield)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) parentField) | Creates a Selector for hierarchy operations using the specified parent field. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [Selector](SEL_Hierarchy.Selector.md) | Selector class that provides hierarchy operations for a specific SObject type. |
-
----
-
-## Method Details
-
 ### forField
 
 <div class="apex-member">
@@ -108,4 +98,12 @@ Set<Id> descendants = accountHierarchy.findAllDescendants(root);
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [Selector](SEL_Hierarchy.Selector.md) | Selector class that provides hierarchy operations for a specific SObject type. |
+
+---
 

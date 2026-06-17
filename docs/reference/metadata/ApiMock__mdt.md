@@ -40,10 +40,6 @@ Configures mock response scenarios for API services. Supports dynamic response i
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ResponseHeaders__c](#responseheaders__c) | JSON object of response headers to include in the mock response. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [StatusCode__c](#statuscode__c) | The HTTP status code to return in the mock response. |
 
----
-
-## Field Details
-
 ### ApiSetting__c
 
 ```apex

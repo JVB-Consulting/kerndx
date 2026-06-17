@@ -38,10 +38,6 @@ scope.close();
 |--------|-------------|
 | global void [close](#close)() | Flushes all buffered logs and resumes publishing. |
 
----
-
-## Method Details
-
 ### close
 
 <div class="apex-member">

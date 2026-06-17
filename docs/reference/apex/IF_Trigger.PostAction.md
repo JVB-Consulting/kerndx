@@ -29,10 +29,6 @@ Handler contract for a post-trigger action — an Apex class that runs exactly o
 |--------|-------------|
 | global abstract void [execute](#execute)([IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md) context) | Called once per outermost dispatch with the context of touched SObject types. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

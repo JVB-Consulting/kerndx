@@ -29,10 +29,6 @@ Output containing the generated correlation ID.
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | Generated correlation ID to pass to subsequent actions |
 
----
-
-## Field Details
-
 ### correlationId
 
 ```apex

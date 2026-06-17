@@ -53,10 +53,6 @@ UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Chatter Free User'}, 365);
 | global static void [updateOwner](#updateowner)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) existingOwnerProfileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) newOwnerUsername) | Updates the ownership of records based on the existing owner profile name and new owner username. |
 | global static void [updateOwner](#updateowner)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) existingOwnerProfileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) newOwnerUsername, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordsPerBatch, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Updates the ownership of records based on the current owner profile, new owner username, batch size, and transaction control. |
 
----
-
-## Method Details
-
 ### deactivateUsers
 
 <div class="apex-member">

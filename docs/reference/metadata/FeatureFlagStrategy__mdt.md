@@ -37,10 +37,6 @@ Defines a single evaluation rule for a parent Feature Flag. A Feature Flag can h
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Target__c](#target__c) | The identifier, name, or path of the item to evaluate. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Type__c](#type__c) | The type of evaluation strategy to execute. |
 
----
-
-## Field Details
-
 ### CustomHandler__c
 
 ```apex

@@ -51,10 +51,6 @@ A fluid builder for configuring and creating SObject records. Obtain an instance
 | global [TST_Builder.Builder](TST_Builder.Builder.md) [withOverrides](#withoverrides)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Applies a map of specific field values, overriding defaults. |
 | global [TST_Builder.Builder](TST_Builder.Builder.md) [withRecordType](#withrecordtype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeDeveloperName) | Sets the Record Type for the SObject(s) to be built, using the Record Type's DeveloperName. |
 
----
-
-## Method Details
-
 ### build
 
 <div class="apex-member">

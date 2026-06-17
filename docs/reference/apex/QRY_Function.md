@@ -62,10 +62,6 @@ for(QRY_Builder.AggregateRow row : rows)
 | global static [QRY_Function](QRY_Function.md) [weekInMonth](#weekinmonth)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in WEEK_IN_MONTH (1–6). |
 | global static [QRY_Function](QRY_Function.md) [weekInYear](#weekinyear)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in WEEK_IN_YEAR (1–53). |
 
----
-
-## Method Details
-
 ### calendarMonth
 
 <div class="apex-member">

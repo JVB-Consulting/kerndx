@@ -49,22 +49,10 @@ global with sharing class API_Echo
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm) [request](#request) | Reference to the current inbound REST request. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [requestBody](#requestbody) | Returns the request body from the current inbound HTTP request. |
-| global [DTO_JsonBase](DTO_JsonBase.md) [requestPayload](#requestpayload) | The DTO that will be populated from the inbound request body. |
-| global [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm) [response](#response) | Reference to the current REST response object. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [responseBody](#responsebody) | Manages the response body that will be sent to the client. |
-| global [DTO_JsonBase](DTO_JsonBase.md) [responsePayload](#responsepayload) | The DTO that will be serialized to populate the response body. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
-| global  [API_Inbound](#api_inbound)() | Constructor. |
 | global override virtual void [configure](#configure)() | Initializes class variables and sets up request details including headers and URL parameters. |
 | global override virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getEncoding](#getencoding)() | Retrieves the HTTP character encoding for the request. |
 | global override [API_Base.HttpMethod](API_Base.HttpMethod.md) [getHttpMethod](#gethttpmethod)() | Retrieves the HTTP method of the current inbound request. |
@@ -78,103 +66,6 @@ global with sharing class API_Echo
 | global virtual void [updateCallResult](#updatecallresult)() | Updates the results of the call, such as status and response body. |
 | global virtual void [updateResponseDTO](#updateresponsedto)() | Updates the response DTO with relevant information before the response is sent. |
 | global virtual void [writeResponse](#writeresponse)() | Writes the response to the client based on the call result. |
-
----
-
-## Property Details
-
-### request
-
-```apex
-global RestRequest request
-```
-
-**Type:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
-
-Reference to the current inbound REST request. Provides access to the details of the incoming request,
-such as headers, parameters, and the request body.
-
-**See Also:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
-
-### requestBody
-
-```apex
-global String requestBody
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-Returns the request body from the current inbound HTTP request.
-If the request body is null or empty, it returns an empty string.
-
-### requestPayload
-
-```apex
-global DTO_JsonBase requestPayload
-```
-
-**Type:** [DTO_JsonBase](DTO_JsonBase.md)
-
-The DTO that will be populated from the inbound request body.
-Handles the request data in JSON format and ensures proper initialization and deserialization.
-
-### response
-
-```apex
-global RestResponse response
-```
-
-**Type:** [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm)
-
-Reference to the current REST response object. Allows manipulation of the response that will be sent
-back to the client, including setting the response body and status code.
-
-**See Also:** [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm)
-
-### responseBody
-
-```apex
-global String responseBody
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-Manages the response body that will be sent to the client.
-Ensures that the value is stored as a Blob in the response object.
-
-### responsePayload
-
-```apex
-global DTO_JsonBase responsePayload
-```
-
-**Type:** [DTO_JsonBase](DTO_JsonBase.md)
-
-The DTO that will be serialized to populate the response body.
-Handles the response data in JSON format and ensures proper initialization and serialization.
-
----
-
-## Method Details
-
-### API_Inbound
-
-<div class="apex-member">
-
-```apex
-global API_Inbound()
-```
-
-Constructor. Initializes the object and parses the inbound request body.
-
-**Example**
-
-```apex
-// Called automatically when the REST endpoint is invoked
-private class MyHandler extends API_Inbound { }
-```
-
-</div>
 
 ### configure
 
@@ -473,4 +364,110 @@ global override void writeResponse()
 ```
 
 </div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [API_Inbound](#constructors)() | Constructor. |
+
+### API_Inbound()
+
+<div class="apex-member">
+
+```apex
+global API_Inbound()
+```
+
+Constructor. Initializes the object and parses the inbound request body.
+
+**Example**
+
+```apex
+// Called automatically when the REST endpoint is invoked
+private class MyHandler extends API_Inbound { }
+```
+
+</div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm) [request](#request) | Reference to the current inbound REST request. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [requestBody](#requestbody) | Returns the request body from the current inbound HTTP request. |
+| global [DTO_JsonBase](DTO_JsonBase.md) [requestPayload](#requestpayload) | The DTO that will be populated from the inbound request body. |
+| global [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm) [response](#response) | Reference to the current REST response object. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [responseBody](#responsebody) | Manages the response body that will be sent to the client. |
+| global [DTO_JsonBase](DTO_JsonBase.md) [responsePayload](#responsepayload) | The DTO that will be serialized to populate the response body. |
+
+### request
+
+```apex
+global RestRequest request
+```
+
+**Type:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
+
+Reference to the current inbound REST request. Provides access to the details of the incoming request,
+such as headers, parameters, and the request body.
+
+**See Also:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
+
+### requestBody
+
+```apex
+global String requestBody
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+Returns the request body from the current inbound HTTP request.
+If the request body is null or empty, it returns an empty string.
+
+### requestPayload
+
+```apex
+global DTO_JsonBase requestPayload
+```
+
+**Type:** [DTO_JsonBase](DTO_JsonBase.md)
+
+The DTO that will be populated from the inbound request body.
+Handles the request data in JSON format and ensures proper initialization and deserialization.
+
+### response
+
+```apex
+global RestResponse response
+```
+
+**Type:** [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm)
+
+Reference to the current REST response object. Allows manipulation of the response that will be sent
+back to the client, including setting the response body and status code.
+
+**See Also:** [RestResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restresponse.htm)
+
+### responseBody
+
+```apex
+global String responseBody
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+Manages the response body that will be sent to the client.
+Ensures that the value is stored as a Blob in the response object.
+
+### responsePayload
+
+```apex
+global DTO_JsonBase responsePayload
+```
+
+**Type:** [DTO_JsonBase](DTO_JsonBase.md)
+
+The DTO that will be serialized to populate the response body.
+Handles the response data in JSON format and ensures proper initialization and serialization.
 

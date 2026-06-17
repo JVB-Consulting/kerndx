@@ -38,11 +38,11 @@ public class MyProcessor implements IF_Async.Processable
 
 ---
 
-## Properties
+## Inner Classes
 
-| Property | Description |
-|----------|-------------|
-| global enum [AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) | Enum defining different asynchronous execution strategies. |
-| global interface [Finishable](IF_Async.Finishable.md) | Optional interface for defining finalizer logic that runs after all data is processed. |
-| global interface [Processable](IF_Async.Processable.md) | Interface for defining the core processing logic to be executed by an asynchronous job. |
+| Class | Description |
+|-------|-------------|
+| [AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) | Enum defining different asynchronous execution strategies. |
+| [Finishable](IF_Async.Finishable.md) | Optional interface for defining finalizer logic that runs after all data is processed. |
+| [Processable](IF_Async.Processable.md) | Interface for defining the core processing logic to be executed by an asynchronous job. |
 

@@ -45,29 +45,6 @@ ApiIssue__c issue = (ApiIssue__c)new SEL_ApiIssue().findById(issueId);
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [findByFailedApiCall](#findbyfailedapicall)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) hashParameter) | Finds failed API call records matching the triggering object, service name, and request hash. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [getAll](#getall)() | Retrieves all ApiIssue__c records. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for ApiIssue__c queries. |
-| global  [SEL_ApiIssue](#sel_apiissue)() | Constructs an ApiIssue selector. |
-
----
-
-## Method Details
-
-### SEL_ApiIssue
-
-<div class="apex-member">
-
-```apex
-global SEL_ApiIssue()
-```
-
-Constructs an ApiIssue selector.
-
-**Example**
-
-```apex
-SEL_ApiIssue instance = new SEL_ApiIssue();
-```
-
-</div>
 
 ### findByFailedApiCall
 
@@ -128,6 +105,30 @@ Returns the core fields for ApiIssue__c queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_ApiIssue](#constructors)() | Constructs an ApiIssue selector. |
+
+### SEL_ApiIssue()
+
+<div class="apex-member">
+
+```apex
+global SEL_ApiIssue()
+```
+
+Constructs an ApiIssue selector.
+
+**Example**
+
+```apex
+SEL_ApiIssue instance = new SEL_ApiIssue();
 ```
 
 </div>

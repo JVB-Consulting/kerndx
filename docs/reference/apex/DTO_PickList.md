@@ -44,10 +44,6 @@ picklist.values = new List<DTO_PicklistValue>();
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [picklistName](#picklistname) | The API name of the picklist field. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_PicklistValue](DTO_PicklistValue.md)> [values](#values) | A list of all available values for this picklist. |
 
----
-
-## Field Details
-
 ### defaultValue
 
 ```apex

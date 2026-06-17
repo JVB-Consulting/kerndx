@@ -52,10 +52,6 @@ Configures outbound web service handlers with endpoint paths, retry behavior, ci
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [RetryBackoffSeconds__c](#retrybackoffseconds__c) | The number of seconds to wait between retry attempts when using linear backoff strategy. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [RetryIssues__c](#retryissues__c) | When enabled, allows automatic retry of API issues via batch processing. |
 
----
-
-## Field Details
-
 ### ApiCredential__c
 
 ```apex

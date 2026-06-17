@@ -51,10 +51,6 @@ Test object for managed package unit tests. Used to demonstrate and validate lib
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TextAreaRich__c](#textarearich__c) | Test Rich Text Area field for unit tests. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [URL__c](#url__c) | Test URL field for unit tests. |
 
----
-
-## Field Details
-
 ### Checkbox__c
 
 ```apex

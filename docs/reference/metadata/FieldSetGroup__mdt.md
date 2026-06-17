@@ -31,10 +31,6 @@ Groups multiple field sets for an object into a single configuration record. Use
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [DefaultActiveSections__c](#defaultactivesections__c) | Comma-separated list of section names (matching field set labels) that should be expanded by default when the UI loads. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FieldSetApiNames__c](#fieldsetapinames__c) | Comma-separated list of field set API names to include in this group. |
 
----
-
-## Field Details
-
 ### DefaultActiveSections__c
 
 ```apex

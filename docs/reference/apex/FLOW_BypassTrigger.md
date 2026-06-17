@@ -44,16 +44,6 @@ FLOW_BypassTrigger.execute(new List<FLOW_BypassTrigger.DTO_Request> {request});
 |--------|-------------|
 | global static void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_BypassTrigger.DTO_Request](FLOW_BypassTrigger.DTO_Request.md)> requests) | Manages trigger bypasses based on the requested action. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_BypassTrigger.DTO_Request.md) | Request DTO for the Trigger Bypass invocable action. |
-
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
@@ -88,4 +78,12 @@ FLOW_BypassTrigger.execute(new List<FLOW_BypassTrigger.DTO_Request>{request});
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_BypassTrigger.DTO_Request.md) | Request DTO for the Trigger Bypass invocable action. |
+
+---
 

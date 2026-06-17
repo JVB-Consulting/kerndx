@@ -43,10 +43,6 @@ TST_InvokeFlowMock.forFlow('Foobar_SetDefaults')
 | global [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) [withOutputRecord](#withoutputrecord)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) outputRecord) | Supplies the SObject the mocked flow's record output returns. |
 | global [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) [withOutputRecords](#withoutputrecords)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> outputRecords) | Supplies the list of SObjects the mocked flow returns when the registration needs to seed multiple output records (e.g. |
 
----
-
-## Method Details
-
 ### fail
 
 <div class="apex-member">

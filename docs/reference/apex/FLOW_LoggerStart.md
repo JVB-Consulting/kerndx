@@ -36,17 +36,6 @@ Starts a logging correlation for a Flow. Use this at the beginning of a Flow to 
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerStart.DTO_Request](FLOW_LoggerStart.DTO_Request.md)> dtoRequests) | Starts a correlation context for Flow logging. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_LoggerStart.DTO_Request.md) | Input parameters for starting Flow correlation. |
-| [DTO_Response](FLOW_LoggerStart.DTO_Response.md) | Output containing the generated correlation ID. |
-
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
@@ -66,4 +55,13 @@ Starts a correlation context for Flow logging.
 **Returns** [FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md) — List of outputs containing correlation IDs
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_LoggerStart.DTO_Request.md) | Input parameters for starting Flow correlation. |
+| [DTO_Response](FLOW_LoggerStart.DTO_Response.md) | Output containing the generated correlation ID. |
+
+---
 

@@ -30,10 +30,6 @@ Request DTO for the Bypass Validation invocable action. Specifies which validati
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [bypassType](#bypasstype) | The type of bypass to apply. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The name of the object, group, or rule to bypass. |
 
----
-
-## Field Details
-
 ### bypassType
 
 ```apex

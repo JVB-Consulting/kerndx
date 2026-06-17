@@ -44,10 +44,6 @@ API_Base handler = API_Dispatcher.execute(apiCall);
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[API_Base](API_Base.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> apiCalls) | Processes a list of API callout requests by executing multiple web service handlers. |
 | global static [API_Base](API_Base.md) [processInboundService](#processinboundservice)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Processes a single inbound web service request by executing the specified handler. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

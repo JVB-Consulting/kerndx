@@ -38,16 +38,6 @@ Flow invocable action to bypass validation rules for the current transaction. Us
 |--------|-------------|
 | global static void [bypass](#bypass)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_BypassValidation.DTO_Request](FLOW_BypassValidation.DTO_Request.md)> requests) | Sets a validation bypass for the current transaction. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_BypassValidation.DTO_Request.md) | Request DTO for the Bypass Validation invocable action. |
-
----
-
-## Method Details
-
 ### bypass
 
 <div class="apex-member">
@@ -81,4 +71,12 @@ FLOW_BypassValidation.bypass(new List<FLOW_BypassValidation.DTO_Request>{request
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_BypassValidation.DTO_Request.md) | Request DTO for the Bypass Validation invocable action. |
+
+---
 

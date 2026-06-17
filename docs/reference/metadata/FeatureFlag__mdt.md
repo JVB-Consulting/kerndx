@@ -46,10 +46,6 @@ This object is the master record for a single feature flag. It acts as the paren
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRule__mdt](../metadata/ValidationRule__mdt.md)> [RequiredValidationRules__r](#requiredvalidationrules__r) | Reciprocal relationship for ValidationRule__mdt.RequiredFeatureFlag__c. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResultOnNoMatch__c](#resultonnomatch__c) | The fallback result to use if strategies exist, but none of them return true. |
 
----
-
-## Field Details
-
 ### BypassApiSettings__r
 
 ```apex

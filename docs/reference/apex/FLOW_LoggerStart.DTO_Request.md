@@ -31,10 +31,6 @@ Input parameters for starting Flow correlation.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowName](#flowname) | Name of the Flow for logging |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [recordId](#recordid) | Optional record ID for context |
 
----
-
-## Field Details
-
 ### additionalContext
 
 ```apex

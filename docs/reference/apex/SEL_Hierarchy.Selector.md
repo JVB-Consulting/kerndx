@@ -37,10 +37,6 @@ Selector class that provides hierarchy operations for a specific SObject type. C
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [propagateToDescendants](#propagatetodescendants)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> changedRecordIds, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) ultimateParentField) | Updates all descendants of changed records with the new ultimate parent reference. |
 | global [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) [withMaxDepth](#withmaxdepth)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) depth) | Sets the maximum hierarchy depth for this selector. |
 
----
-
-## Method Details
-
 ### calculateUltimateParents
 
 <div class="apex-member">

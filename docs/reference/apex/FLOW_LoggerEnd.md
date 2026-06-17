@@ -36,16 +36,6 @@ Ends a logging correlation for a Flow. Use this at the end of a Flow to log comp
 |--------|-------------|
 | global static void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_LoggerEnd.DTO_Request](FLOW_LoggerEnd.DTO_Request.md)> inputs) | Ends a correlation context for Flow logging. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_LoggerEnd.DTO_Request.md) | Input parameters for ending Flow correlation. |
-
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
@@ -69,4 +59,12 @@ FLOW_LoggerEnd.execute(new List<DTO_Request>());
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_LoggerEnd.DTO_Request.md) | Input parameters for ending Flow correlation. |
+
+---
 

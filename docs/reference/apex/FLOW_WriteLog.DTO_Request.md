@@ -34,10 +34,6 @@ Data Transfer Object (DTO) for log requests, specifying log level, message detai
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [recordId](#recordid) | An optional record ID associated with the log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [shortMessage](#shortmessage) | An optional short summary of the message. |
 
----
-
-## Field Details
-
 ### classMethod
 
 ```apex

@@ -33,10 +33,6 @@ Interface for condition containers that support adding nested conditions. Extend
 |--------|-------------|
 | global abstract [QRY_Condition.Nestable](QRY_Condition.Nestable.md) [add](#add)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a condition to this group. |
 
----
-
-## Method Details
-
 ### add
 
 <div class="apex-member">

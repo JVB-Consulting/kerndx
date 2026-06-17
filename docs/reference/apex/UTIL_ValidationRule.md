@@ -75,12 +75,6 @@ finally
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for bulk-optimized validation contexts. |
-
 ## Methods
 
 | Method | Description |
@@ -94,17 +88,6 @@ finally
 | global static void [executeForTrigger](#executefortrigger)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords, [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) operation) | Executes validation rules for the current trigger context. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isBypassed](#isbypassed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) identifier) | Checks if a specific bypass is currently active. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md)> [validate](#validate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords, [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) operation) | Validates a list of records against all applicable validation rules. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [ValidationError](UTIL_ValidationRule.ValidationError.md) | Represents a single validation error or warning. |
-| [ValidationResult](UTIL_ValidationRule.ValidationResult.md) | Result of validating a single record. |
-
----
-
-## Method Details
 
 ### applyErrors
 
@@ -357,4 +340,14 @@ List<ValidationResult> result = UTIL_ValidationRule.validate(records, records, T
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for bulk-optimized validation contexts. |
+| [ValidationError](UTIL_ValidationRule.ValidationError.md) | Represents a single validation error or warning. |
+| [ValidationResult](UTIL_ValidationRule.ValidationResult.md) | Result of validating a single record. |
+
+---
 

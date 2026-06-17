@@ -46,10 +46,6 @@ API_MockTestHelper.assertServiceCalledTimes('API_SendEmail', 1);
 | global static void [assertServiceCalledTimes](#assertservicecalledtimes)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) expectedCount) | Asserts that a service was called exactly the specified number of times. |
 | global static void [assertServiceNeverCalled](#assertservicenevercalled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Asserts that a service was never called. |
 
----
-
-## Method Details
-
 ### assertLastRequestContains
 
 <div class="apex-member">

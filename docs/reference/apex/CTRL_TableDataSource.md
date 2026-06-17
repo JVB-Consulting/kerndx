@@ -43,10 +43,6 @@ DTO_BaseTable result = CTRL_TableDataSource.fetch(
 |--------|-------------|
 | global static [DTO_BaseTable](DTO_BaseTable.md) [fetch](#fetch)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) controllerName, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> searchParameters) | Dynamically creates an instance of a specified table data source controller and retrieves data based on the provided search parameters. |
 
----
-
-## Method Details
-
 ### fetch
 
 <div class="apex-member">

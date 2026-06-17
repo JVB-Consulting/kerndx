@@ -38,17 +38,6 @@ Flow invocable action to execute validation rules against records. Use this in R
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ExecuteValidationRules.DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md)> [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ExecuteValidationRules.DTO_Request](FLOW_ExecuteValidationRules.DTO_Request.md)> requests) | Executes validation rules against the provided records. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_ExecuteValidationRules.DTO_Request.md) | Request DTO for the Execute Validation Rules invocable action. |
-| [DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md) | Response DTO for the Execute Validation Rules invocable action. |
-
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">
@@ -83,4 +72,13 @@ if(responses[0].hasErrors)
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_ExecuteValidationRules.DTO_Request.md) | Request DTO for the Execute Validation Rules invocable action. |
+| [DTO_Response](FLOW_ExecuteValidationRules.DTO_Response.md) | Response DTO for the Execute Validation Rules invocable action. |
+
+---
 

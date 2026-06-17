@@ -46,10 +46,6 @@ Assert.areEqual('{"message":"Hello, Echo!"}', response.getBody());
 |--------|-------------|
 | global static void [echo](#echo)() | Handles the POST method for the echo service (inbound). |
 
----
-
-## Method Details
-
 ### echo
 
 <div class="apex-member">

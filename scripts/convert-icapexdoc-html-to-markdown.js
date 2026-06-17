@@ -952,6 +952,51 @@ function extractSignature(cheerioApi, cleanName = '')
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Decide which member bucket a Summary-table row belongs to, from its icon alt-text and
+ * (as a fallback) its signature. Nested type declarations — class, enum, or interface — are
+ * grouped with the inner classes: IcApexDoc tags a nested `global enum Scope` with alt="Enum"
+ * (and a nested interface with alt="Interface"), neither of which had a member-kind branch, so
+ * they fell through to `properties` and rendered as bogus, never-nesting "Properties" entries.
+ * Real properties/fields/methods always carry their own alt ("Property"/"Field"/"Method"), so
+ * the nested-type branch never steals them.
+ * @param {string} iconAlt - The Summary row's icon alt text (e.g. "Property", "Enum")
+ * @param {string} fullSignature - The member's full signature (used for the paren fallback)
+ * @returns {'constructors'|'properties'|'methods'|'fields'|'innerClasses'} bucket key
+ */
+function categorizeMember(iconAlt, fullSignature)
+{
+	const icon = (iconAlt || '').toLowerCase();
+	if(icon.includes('constructor'))
+	{
+		return 'constructors';
+	}
+	if(icon.includes('property'))
+	{
+		return 'properties';
+	}
+	if(icon.includes('method'))
+	{
+		return 'methods';
+	}
+	if(icon.includes('field'))
+	{
+		return 'fields';
+	}
+	// Nested type declarations (class / enum / interface) → inner classes. Checked after the
+	// member kinds above (whose alts can't contain these substrings) but before the paren/else
+	// fall-through that would otherwise sweep a no-arg nested enum into `properties`.
+	if(icon.includes('class') || icon.includes('enum') || icon.includes('interface'))
+	{
+		return 'innerClasses';
+	}
+	if((fullSignature || '').includes('('))
+	{
+		return 'methods';
+	}
+	return 'properties';
+}
+
+/**
  * Build the members summary section with proper type links
  * @param {CheerioAPI} cheerioApi - Cheerio API
  * @param {string} cleanName - Clean name
@@ -963,9 +1008,10 @@ function buildMembersSummary(cheerioApi, cleanName)
 	const summaryTable = cheerioApi('#Summary table');
 	if(!summaryTable.length)
 	{
-		return {properties: [], methods: [], fields: [], innerClasses: []};
+		return {constructors: [], properties: [], methods: [], fields: [], innerClasses: []};
 	}
 
+	const constructors = [];
 	const properties = [];
 	const methods = [];
 	const fields = [];
@@ -1006,35 +1052,13 @@ function buildMembersSummary(cheerioApi, cleanName)
 
 		const member = {name: methodName, fullSignature, typeInfo, description: descText, href};
 
-		// Categorize member based on icon
-		const iconLower = iconAlt.toLowerCase();
-		if(iconLower.includes('property'))
-		{
-			properties.push(member);
-		}
-		else if(iconLower.includes('method'))
-		{
-			methods.push(member);
-		}
-		else if(iconLower.includes('field'))
-		{
-			fields.push(member);
-		}
-		else if(iconLower.includes('class'))
-		{
-			innerClasses.push(member);
-		}
-		else if(fullSignature.includes('('))
-		{
-			methods.push(member);
-		}
-		else
-		{
-			properties.push(member);
-		}
+		// Categorize the member from its icon alt-text (see categorizeMember): constructors,
+		// methods, properties, fields, or — for nested type declarations — inner classes.
+		const buckets = {constructors, properties, methods, fields, innerClasses};
+		buckets[categorizeMember(iconAlt, fullSignature)].push(member);
 	});
 
-	return {properties, methods, fields, innerClasses};
+	return {constructors, properties, methods, fields, innerClasses};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1257,17 +1281,40 @@ function extractSObjectFieldDetails(cheerioApi, cleanName)
  * @param {string} cleanName - Clean name
  * @returns {Array} Method details
  */
-// noinspection FunctionTooLongJS,OverlyComplexFunctionJS,JSValidateJSDoc
 function extractMethodDetails(cheerioApi, cleanName)
+{
+	return extractCallableDetails(cheerioApi, cleanName, '#members_methods .member');
+}
+
+/**
+ * Extract detailed constructor information
+ * @param {CheerioAPI} cheerioApi - Cheerio API
+ * @param {string} cleanName - Clean name
+ * @returns {Array} Constructor details
+ */
+function extractConstructorDetails(cheerioApi, cleanName)
+{
+	return extractCallableDetails(cheerioApi, cleanName, '#members_constructors .member');
+}
+
+/**
+ * Extract details for a callable section (constructors or methods). icapexdoc emits
+ * constructors in their own `#members_constructors` section and methods in
+ * `#members_methods`, but both use an identical `.member` shape (signature +
+ * parameters / returns / throws / since / example / see-also). Scoping by selector
+ * lets each render under its own page section (Constructor Details vs Method Details)
+ * instead of constructors leaking into the methods list.
+ * @param {CheerioAPI} cheerioApi - Cheerio API
+ * @param {string} cleanName - Clean name
+ * @param {string} selector - Member selector for the callable section
+ * @returns {Array} Callable details
+ */
+// noinspection FunctionTooLongJS,OverlyComplexFunctionJS,JSValidateJSDoc
+function extractCallableDetails(cheerioApi, cleanName, selector)
 {
 	const details = [];
 
-	// icapexdoc emits constructors in a separate `#members_constructors`
-	// section. Without this selector, constructor summary rows in the methods
-	// table (emitted by buildMembersSummary) link to anchors like #Builder
-	// that never get a corresponding `### Builder` detail section, producing
-	// dead links the anchor-resolution check catches.
-	cheerioApi('#members_constructors .member, #members_methods .member').each((i, member) =>
+	cheerioApi(selector).each((i, member) =>
 	{
 		const id = cheerioApi(member).attr('id') || '';
 		const sigDiv = cheerioApi(member).find('.signature');
@@ -1602,6 +1649,51 @@ function generateMembersSummary(options)
 	const {membersSummary, metadata, signatureInfo, enumConstantDetails, propertyDetails, fieldDetails, sobjectFieldDetails} = options;
 	let md = '';
 
+	// Section order is call-first (DECIDED with Jason): Methods → Constructors → Properties/Values →
+	// Fields/Constants → Inner Classes. Calling a method is the most common reason to open a class
+	// page, so Methods lead; the right-rail outline mirrors this page order. Inner classes are
+	// cross-page links, so they sit last.
+
+	// Methods Summary
+	if(membersSummary.methods.length > 0)
+	{
+		md += '## Methods\n\n';
+		md += '| Method | Description |\n';
+		md += '|--------|-------------|\n';
+		membersSummary.methods.forEach(m =>
+		{
+			const methodNameLink = m.href ? `[${m.name}](${m.href})` : m.name;
+			const paramsStart = m.fullSignature.indexOf('(');
+			const paramsWithTypes = paramsStart >= 0 ? m.fullSignature.substring(paramsStart) : '';
+			const returnPart = m.typeInfo.full || m.typeInfo.type || '';
+			const fullMethod = returnPart ? `${returnPart} ${methodNameLink}${paramsWithTypes}` : `${methodNameLink}${paramsWithTypes}`;
+			md += `| ${fullMethod} | ${m.description} |\n`;
+		});
+		md += '\n';
+	}
+
+	// Constructors Summary — after Methods. No return-type column: a constructor's linked name +
+	// parameter list is the whole signature.
+	if(membersSummary.constructors && membersSummary.constructors.length > 0)
+	{
+		md += '## Constructors\n\n';
+		md += '| Constructor | Description |\n';
+		md += '|-------------|-------------|\n';
+		membersSummary.constructors.forEach(c =>
+		{
+			// Merged layout: the constructor signature cards live in this same `## Constructors`
+			// section, so the row links to the section. (The right-rail outline still offers a
+			// jump to each individual constructor via its signature heading.)
+			const nameLink = `[${c.name}](#constructors)`;
+			const paramsStart = c.fullSignature.indexOf('(');
+			const paramsWithTypes = paramsStart >= 0 ? c.fullSignature.substring(paramsStart) : '';
+			const typePart = (c.typeInfo.full || c.typeInfo.type || '').trim();
+			const fullConstructor = typePart ? `${typePart} ${nameLink}${paramsWithTypes}` : `${nameLink}${paramsWithTypes}`;
+			md += `| ${fullConstructor} | ${c.description} |\n`;
+		});
+		md += '\n';
+	}
+
 	// Properties/Values Summary
 	if(membersSummary.properties.length > 0)
 	{
@@ -1661,24 +1753,6 @@ function generateMembersSummary(options)
 			const typePart = f.typeInfo.full || f.typeInfo.type || '';
 			const fullField = typePart ? `${typePart} ${nameLink}` : nameLink;
 			md += `| ${fullField} | ${f.description} |\n`;
-		});
-		md += '\n';
-	}
-
-	// Methods Summary
-	if(membersSummary.methods.length > 0)
-	{
-		md += '## Methods\n\n';
-		md += '| Method | Description |\n';
-		md += '|--------|-------------|\n';
-		membersSummary.methods.forEach(m =>
-		{
-			const methodNameLink = m.href ? `[${m.name}](${m.href})` : m.name;
-			const paramsStart = m.fullSignature.indexOf('(');
-			const paramsWithTypes = paramsStart >= 0 ? m.fullSignature.substring(paramsStart) : '';
-			const returnPart = m.typeInfo.full || m.typeInfo.type || '';
-			const fullMethod = returnPart ? `${returnPart} ${methodNameLink}${paramsWithTypes}` : `${methodNameLink}${paramsWithTypes}`;
-			md += `| ${fullMethod} | ${m.description} |\n`;
 		});
 		md += '\n';
 	}
@@ -1939,6 +2013,53 @@ function generateMethodDetails(methodDetails)
 	return md;
 }
 
+// Apex access/sharing/scope modifiers that can lead a constructor signature. Stripped so a
+// constructor heading reads as a clean call signature — `DTO_NameValue(String name, String
+// value)` rather than `global DTO_NameValue(...)`.
+const LEADING_MODIFIERS = /^(?:global|public|private|protected|webservice|override|virtual|abstract|static|final|with sharing|without sharing|inherited sharing)\s+/i;
+
+/**
+ * Reduce a full constructor signature to its call form (drop leading modifiers).
+ * @param {string} signature - e.g. 'global DTO_NameValue(String name, String value)'
+ * @returns {string} e.g. 'DTO_NameValue(String name, String value)'
+ */
+function constructorHeadingLabel(signature)
+{
+	let label = (signature || '').trim();
+	while(LEADING_MODIFIERS.test(label))
+	{
+		label = label.replace(LEADING_MODIFIERS, '');
+	}
+	return label;
+}
+
+/**
+ * Generate the constructor details section. Each constructor gets a heading that is its
+ * call signature (`DTO_NameValue(String name, String value)`) — distinct from the class
+ * name so it reads as a constructor rather than a method, and unique per overload so it
+ * surfaces individually in the right-rail outline. The Constructors summary links to the
+ * section (`#constructors`); the per-constructor jumps come from these signature headings.
+ * @param {Array<Object>} constructorDetails - Array of constructor detail objects
+ * @returns {string} Markdown string with the constructor details section
+ */
+// noinspection FunctionWithMultipleLoopsJS - Iterates over constructors and their parameters/exceptions
+function generateConstructorDetails(constructorDetails)
+{
+	if(constructorDetails.length === 0)
+	{
+		return '';
+	}
+
+	let md = '---\n\n## Constructor Details\n\n';
+	constructorDetails.forEach(c =>
+	{
+		md += `### ${constructorHeadingLabel(c.signature)}\n\n`;
+		md += renderMethodOverload(c);
+	});
+
+	return md;
+}
+
 /**
  * Generate field/constant details section
  * @param {Array} fieldDetails - Field details
@@ -2064,6 +2185,82 @@ function generateSObjectFieldDetails(sobjectFieldDetails)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Section Merge
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Each "## X Details" section folds up into its "## X" summary section.
+const DETAIL_TO_SUMMARY = {
+	'Constructor Details': ['Constructors'],
+	'Property Details': ['Properties'],
+	'Value Details': ['Values'],
+	'Method Details': ['Methods'],
+	'Field Details': ['Fields', 'Constants']
+};
+
+/**
+ * Fold each "## X Details" section into its "## X" summary section, so the page reads as one
+ * section per member type (the summary table followed by the member detail blocks) instead of
+ * a summary block and a separate details block. This collapses the duplicate Constructors /
+ * Constructor Details, Methods / Method Details, … pairs that the right-rail outline would
+ * otherwise list twice. Sections whose title is not a known summary/detail (class-narrative
+ * headings like "## Usage Patterns") are left byte-for-byte in place; a detail section with no
+ * matching summary is left untouched (defensive).
+ * @param {string} md - The fully assembled page markdown
+ * @returns {string} Markdown with detail sections merged into their summaries
+ */
+function mergeDetailSectionsIntoSummaries(md)
+{
+	// Split at H2 boundaries; parts[0] is the preamble (frontmatter, H1, class card, and any
+	// narrative that precedes the first `## ` section).
+	const parts = md.split(/^(?=## )/m);
+	const preamble = parts[0];
+	const sections = parts.slice(1).map(raw =>
+	{
+		const nl = raw.indexOf('\n');
+		return {title: raw.slice(3, nl).trim(), body: raw.slice(nl + 1), removed: false};
+	});
+
+	const summaryByTitle = new Map();
+	sections.forEach(s =>
+	{
+		if(!summaryByTitle.has(s.title))
+		{
+			summaryByTitle.set(s.title, s);
+		}
+	});
+
+	sections.forEach(detail =>
+	{
+		const targets = DETAIL_TO_SUMMARY[detail.title];
+		if(!targets)
+		{
+			return;
+		}
+		const summary = targets.map(t => summaryByTitle.get(t)).find(Boolean);
+		if(!summary)
+		{
+			return;   // no summary present — leave the detail section where it is
+		}
+		// Drop the trailing `---` rule the detail block was separated by, and the detail's own
+		// leading rule/whitespace, then append the member blocks beneath the summary table.
+		const summaryBody = summary.body.replace(/\n*(?:---[ \t]*)?\n*$/, '');
+		const detailBody = detail.body.replace(/^\s*(?:---[ \t]*\n+)?/, '').replace(/\n*(?:---[ \t]*)?\n*$/, '');
+		summary.body = `${summaryBody}\n\n${detailBody}\n\n`;
+		detail.removed = true;
+	});
+
+	let out = preamble;
+	sections.forEach(s =>
+	{
+		if(!s.removed)
+		{
+			out += `## ${s.title}\n${s.body}`;
+		}
+	});
+	return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Conversion Function
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2103,6 +2300,7 @@ function convertFile(filePath)
 	const propertyDetails = extractPropertyDetails($, metadata.cleanName);
 	const fieldDetails = extractFieldDetails($, metadata.cleanName);
 	const enumConstantDetails = extractEnumConstantDetails($, metadata.cleanName);
+	const constructorDetails = extractConstructorDetails($, metadata.cleanName);
 	const methodDetails = extractMethodDetails($, metadata.cleanName);
 	const sobjectFieldDetails = extractSObjectFieldDetails($, metadata.cleanName);
 
@@ -2179,11 +2377,18 @@ function convertFile(filePath)
 	let md = generateFrontMatter(metadata, formattedAuthor);
 	md += generateHeader(metadata, signatureInfo);
 	md += generateMembersSummary({membersSummary, metadata, signatureInfo, enumConstantDetails, propertyDetails, fieldDetails, sobjectFieldDetails});
+	md += generateConstructorDetails(constructorDetails);
 	md += generatePropertyDetails(propertyDetails);
 	md += generateEnumValueDetails(enumConstantDetails);
 	md += generateMethodDetails(methodDetails);
 	md += generateFieldDetails(fieldDetails, membersSummary);
 	md += generateSObjectFieldDetails(sobjectFieldDetails);
+
+	// Fold each "## X Details" block up into its "## X" summary so the page — and its
+	// right-rail outline — reads as one entry per member type (Constructors / Properties /
+	// Methods / Fields), each expanding to its members, instead of a summary section and a
+	// separate details section.
+	md = mergeDetailSectionsIntoSummaries(md);
 
 	// Write file
 	const categoryDir = path.join(CONFIG.outputDir, metadata.category);
@@ -2798,8 +3003,10 @@ module.exports = {
 	extractSignature, // Main extraction functions
 	extractMetadata,
 	buildMembersSummary,
+	categorizeMember,
 	extractPropertyDetails,
 	extractEnumConstantDetails,
+	extractConstructorDetails,
 	extractMethodDetails,
 	extractFieldDetails,
 	extractSObjectFieldDetails,
@@ -2810,6 +3017,9 @@ module.exports = {
 	generateMembersSummary,
 	generatePropertyDetailsMd: generatePropertyDetails,
 	generateEnumValueDetailsMd: generateEnumValueDetails,
+	generateConstructorDetailsMd: generateConstructorDetails,
+	constructorHeadingLabel,
+	mergeDetailSectionsIntoSummaries,
 	generateMethodDetailsMd: generateMethodDetails,
 	generateFieldDetailsMd: generateFieldDetails,
 	generateSObjectFieldDetailsMd: generateSObjectFieldDetails, // Main functions

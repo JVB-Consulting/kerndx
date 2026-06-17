@@ -36,12 +36,6 @@ List<Account> accounts = query.toList();
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [objectType](#objecttype) | The SObjectType being queried by this builder. |
-
 ## Methods
 
 | Method | Description |
@@ -74,8 +68,6 @@ List<Account> accounts = query.toList();
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies an AVG aggregate function. |
-| global  [Builder](#builder)() | Default constructor. |
-| global  [Builder](#builder)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Constructor that sets the SObject type. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules using a without sharing proxy class. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Starts a WHERE condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts a WHERE condition on a field using its API name. |
@@ -149,64 +141,6 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSharing](#withsharing)() | Enforces sharing rules using a with sharing proxy class. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSystemMode](#withsystemmode)() | Forces SYSTEM_MODE execution regardless of the UserModeQueries_Enabled feature flag. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withUserMode](#withusermode)() | Runs the query in USER_MODE. |
-
----
-
-## Property Details
-
-### objectType
-
-```apex
-global SObjectType objectType
-```
-
-**Type:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)
-
-The SObjectType being queried by this builder.
-
----
-
-## Method Details
-
-### Builder
-
-<div class="apex-member">
-
-```apex
-global Builder()
-```
-
-Default constructor.
-
-**Example**
-
-```apex
-QRY_Builder.Builder query = new QRY_Builder.Builder();
-```
-
-</div>
-
-<div class="apex-member">
-
-```apex
-global Builder(SObjectType sObjectType)
-```
-
-Constructor that sets the SObject type.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject to query |
-
-**Example**
-
-```apex
-QRY_Builder.Builder query = new QRY_Builder.Builder(Account.SObjectType);
-```
-
-</div>
 
 ### addCondition
 
@@ -2892,4 +2826,69 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 ```
 
 </div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [Builder](#constructors)() | Default constructor. |
+| global [Builder](#constructors)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Constructor that sets the SObject type. |
+
+### Builder()
+
+<div class="apex-member">
+
+```apex
+global Builder()
+```
+
+Default constructor.
+
+**Example**
+
+```apex
+QRY_Builder.Builder query = new QRY_Builder.Builder();
+```
+
+</div>
+
+### Builder(SObjectType sObjectType)
+
+<div class="apex-member">
+
+```apex
+global Builder(SObjectType sObjectType)
+```
+
+Constructor that sets the SObject type.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject to query |
+
+**Example**
+
+```apex
+QRY_Builder.Builder query = new QRY_Builder.Builder(Account.SObjectType);
+```
+
+</div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [objectType](#objecttype) | The SObjectType being queried by this builder. |
+
+### objectType
+
+```apex
+global SObjectType objectType
+```
+
+**Type:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)
+
+The SObjectType being queried by this builder.
 

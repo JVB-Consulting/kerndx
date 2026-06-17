@@ -32,10 +32,6 @@ Interface for resolving Type objects from class names and chaining resolvers. Cu
 | global abstract [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [resolveType](#resolvetype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) typeName) | Resolves a Type object from a class name. |
 | global abstract [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) [setNext](#setnext)([UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) nextTypeResolver) | Sets the next resolver in the chain. |
 
----
-
-## Method Details
-
 ### resolveType
 
 <div class="apex-member">

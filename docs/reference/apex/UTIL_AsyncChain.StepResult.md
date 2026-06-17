@@ -39,10 +39,6 @@ UTIL_AsyncChain.StepResult failure = UTIL_AsyncChain.failed('Missing required fi
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Optional human-readable message describing the outcome. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | Whether the step completed successfully. |
 
----
-
-## Property Details
-
 ### data
 
 ```apex

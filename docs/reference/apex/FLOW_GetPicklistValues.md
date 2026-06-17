@@ -44,17 +44,6 @@ List<DTO_PickList> pickLists = responses[0].pickLists;
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_GetPicklistValues.DTO_Response](FLOW_GetPicklistValues.DTO_Response.md)> [getPickListValues](#getpicklistvalues)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_GetPicklistValues.DTO_Request](FLOW_GetPicklistValues.DTO_Request.md)> dtoRequests) | Retrieves the picklist values for an SObject and record type combination. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_GetPicklistValues.DTO_Request.md) | Request DTO containing the information required to retrieve picklist values. |
-| [DTO_Response](FLOW_GetPicklistValues.DTO_Response.md) | Provides the outcome of the picklist values retrieval. |
-
----
-
-## Method Details
-
 ### getPickListValues
 
 <div class="apex-member">
@@ -92,4 +81,13 @@ List<DTO_Response> responses = FLOW_GetPicklistValues.getPickListValues(dtoReque
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_GetPicklistValues.DTO_Request.md) | Request DTO containing the information required to retrieve picklist values. |
+| [DTO_Response](FLOW_GetPicklistValues.DTO_Response.md) | Provides the outcome of the picklist values retrieval. |
+
+---
 

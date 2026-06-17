@@ -51,10 +51,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Task](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_task.htm) [newRecord](#newrecord) | Task record state AFTER DML (null on delete). |
 | global [Task](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_task.htm) [oldRecord](#oldrecord) | Task record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

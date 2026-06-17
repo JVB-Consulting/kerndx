@@ -41,17 +41,6 @@ Boolean canCreate = results[0].hasCreateAccess;
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckObjectPermissions.DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md)> [checkPermissions](#checkpermissions)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_CheckObjectPermissions.DTO_Request](FLOW_CheckObjectPermissions.DTO_Request.md)> dtoRequests) | Method to check the running users' access to the object names provided |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_CheckObjectPermissions.DTO_Request.md) | DTO containing the name of the object for which to object permissions |
-| [DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md) | DTO containing the permissions per object provided in request. |
-
----
-
-## Method Details
-
 ### checkPermissions
 
 <div class="apex-member">
@@ -83,4 +72,13 @@ if(results[0].hasCreateAccess)
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_CheckObjectPermissions.DTO_Request.md) | DTO containing the name of the object for which to object permissions |
+| [DTO_Response](FLOW_CheckObjectPermissions.DTO_Response.md) | DTO containing the permissions per object provided in request. |
+
+---
 

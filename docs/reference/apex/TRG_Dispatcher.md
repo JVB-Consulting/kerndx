@@ -41,10 +41,6 @@ trigger TRG_Foobar on Foobar__c (before insert, before update)
 |--------|-------------|
 | global void [run](#run)() | Entry point for trigger execution. |
 
----
-
-## Method Details
-
 ### run
 
 <div class="apex-member">

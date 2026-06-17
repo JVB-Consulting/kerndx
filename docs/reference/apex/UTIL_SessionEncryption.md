@@ -60,10 +60,6 @@ USE THIS CLASS ONLY FOR:
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [encrypt](#encrypt)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) plainTextValue) | Encrypts a string using the current user's encryption key and appends an HMAC. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isAvailable](#isavailable)() | Safely checks if the Crypto utility is available for use (Cache is online). |
 
----
-
-## Method Details
-
 ### decrypt
 
 <div class="apex-member">

@@ -47,10 +47,6 @@ List<SObject> articles = QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectT
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [below](#below)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> categoryNames) | Filters to categories below any of the specified categories in the hierarchy. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [below](#below)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) categoryName) | Filters to categories below the specified category in the hierarchy. |
 
----
-
-## Method Details
-
 ### above
 
 <div class="apex-member">

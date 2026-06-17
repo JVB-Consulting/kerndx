@@ -31,10 +31,6 @@ Handler contract for the before-insert trigger event.
 |--------|-------------|
 | global abstract void [beforeInsert](#beforeinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Called before records are committed to the database, allowing field defaulting, validation, or in-memory enrichment of the incoming batch. |
 
----
-
-## Method Details
-
 ### beforeInsert
 
 <div class="apex-member">

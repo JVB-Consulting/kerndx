@@ -45,10 +45,6 @@ Controls logging behaviour: log level threshold, class filtering, performance lo
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TriggerPerformanceThresholdMs__c](#triggerperformancethresholdms__c) | Minimum duration in milliseconds before a trigger action handler is logged as a performance entry. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [ValidationPerformanceThresholdMs__c](#validationperformancethresholdms__c) | Minimum duration in milliseconds before a validation rule processing cycle is logged as a performance entry. |
 
----
-
-## Field Details
-
 ### ClassFilter__c
 
 ```apex

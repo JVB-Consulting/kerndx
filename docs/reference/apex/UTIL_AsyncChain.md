@@ -48,20 +48,6 @@ UTIL_AsyncChain.newChain('DataMigration')
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [succeeded](#succeeded)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a successful step result with a descriptive message. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [succeeded](#succeeded)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) data) | Creates a successful step result with a message and data payload. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [ApiStep](UTIL_AsyncChain.ApiStep.md) | Chain step adapter that executes any API_Outbound handler as part of an async chain. |
-| [ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) | Fluent builder for configuring and executing an async chain. |
-| [ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared state container passed between chain steps. |
-| [ChainStep](UTIL_AsyncChain.ChainStep.md) | Abstract base class for individual steps in an async chain. |
-| [StepResult](UTIL_AsyncChain.StepResult.md) | Immutable result object returned by each ChainStep to indicate success or failure. |
-
----
-
-## Method Details
-
 ### failed
 
 <div class="apex-member">
@@ -237,4 +223,16 @@ return UTIL_AsyncChain.succeeded('Processed records', processedIds);
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [ApiStep](UTIL_AsyncChain.ApiStep.md) | Chain step adapter that executes any API_Outbound handler as part of an async chain. |
+| [ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) | Fluent builder for configuring and executing an async chain. |
+| [ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared state container passed between chain steps. |
+| [ChainStep](UTIL_AsyncChain.ChainStep.md) | Abstract base class for individual steps in an async chain. |
+| [StepResult](UTIL_AsyncChain.StepResult.md) | Immutable result object returned by each ChainStep to indicate success or failure. |
+
+---
 

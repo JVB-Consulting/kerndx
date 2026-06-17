@@ -29,10 +29,6 @@ Optional entry-criteria contract for a post-trigger action. Implementing classes
 |--------|-------------|
 | global abstract [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [shouldRun](#shouldrun)([IF_Trigger.PostActionContext](IF_Trigger.PostActionContext.md) context) | Called once per outermost dispatch before the gated post-action. |
 
----
-
-## Method Details
-
 ### shouldRun
 
 <div class="apex-member">

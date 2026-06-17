@@ -31,10 +31,6 @@ Request DTO for the Execute Validation Rules invocable action. Contains the reco
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [records](#records) | The new/current records to validate. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [triggerContext](#triggercontext) | The trigger operation context that determines which validation rules to execute. |
 
----
-
-## Field Details
-
 ### oldRecords
 
 ```apex

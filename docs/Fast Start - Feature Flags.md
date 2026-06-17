@@ -366,11 +366,9 @@ private class FastStart_FeatureFlag_DEMO_TEST
 > Custom Metadata records are visible in all tests — `kern.TST_Factory.newFeatureFlag()` is the correct way
 > to activate flags in test context.
 
-> **`TST_Factory.newFeatureFlag` overloads:** Only the single-argument overload
-> (`kern.TST_Factory.newFeatureFlag(String flagName)`) is `global` and callable from `@IsTest` classes.
-> Two additional overloads exist (`newFeatureFlag(String, Boolean)` and `newFeatureFlag(String, Boolean, Boolean)`)
-> but they are `@TestVisible private` — they are callable from `@IsTest` classes and cannot be called from
-> anonymous Apex.
+> **Seeding flags in tests:** `kern.TST_Factory.newFeatureFlag('YourFlag')` seeds an active flag for the test
+> in memory — no CMDT record is created in the org. To test the disabled path, simply don't seed the flag: an
+> unseeded flag is treated as off.
 
 ### Step 4: Deploy and run tests
 

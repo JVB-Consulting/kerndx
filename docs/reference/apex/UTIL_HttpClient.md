@@ -35,12 +35,6 @@ HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [FailureAction](UTIL_HttpClient.FailureAction.md) | Defines the action to take when an HTTP call fails. |
-
 ## Methods
 
 | Method | Description |
@@ -51,16 +45,6 @@ HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
 | global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [post](#post)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a POST request for the specified credential and path. |
 | global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a PUT request for the specified credential and path. |
 | global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [useHandler](#usehandler)([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) handlerType) | Creates a delegation mode request for the specified subscriber handler. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [RequestBuilder](UTIL_HttpClient.RequestBuilder.md) | Fluent builder for configuring and executing HTTP requests through API_Dispatcher. |
-
----
-
-## Method Details
 
 ### del
 
@@ -237,4 +221,13 @@ API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [FailureAction](UTIL_HttpClient.FailureAction.md) | Defines the action to take when an HTTP call fails. |
+| [RequestBuilder](UTIL_HttpClient.RequestBuilder.md) | Fluent builder for configuring and executing HTTP requests through API_Dispatcher. |
+
+---
 

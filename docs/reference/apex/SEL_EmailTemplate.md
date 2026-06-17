@@ -43,29 +43,6 @@ EmailTemplate template = (EmailTemplate)new SEL_EmailTemplate().findById(templat
 |--------|-------------|
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[EmailTemplate](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_emailtemplate.htm)> [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> uniqueNames) | Retrieves a list of EmailTemplate records by their DeveloperName field values. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for EmailTemplate queries. |
-| global  [SEL_EmailTemplate](#sel_emailtemplate)() | Constructs an EmailTemplate selector with the EmailTemplate SObjectType. |
-
----
-
-## Method Details
-
-### SEL_EmailTemplate
-
-<div class="apex-member">
-
-```apex
-global SEL_EmailTemplate()
-```
-
-Constructs an EmailTemplate selector with the EmailTemplate SObjectType.
-
-**Example**
-
-```apex
-SEL_EmailTemplate instance = new SEL_EmailTemplate();
-```
-
-</div>
 
 ### findByName
 
@@ -110,6 +87,30 @@ Returns the core fields for EmailTemplate queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_EmailTemplate](#constructors)() | Constructs an EmailTemplate selector with the EmailTemplate SObjectType. |
+
+### SEL_EmailTemplate()
+
+<div class="apex-member">
+
+```apex
+global SEL_EmailTemplate()
+```
+
+Constructs an EmailTemplate selector with the EmailTemplate SObjectType.
+
+**Example**
+
+```apex
+SEL_EmailTemplate instance = new SEL_EmailTemplate();
 ```
 
 </div>

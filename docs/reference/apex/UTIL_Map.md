@@ -41,16 +41,6 @@ String delimited = UTIL_Map.toDelimitedString(params, ',');
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [flattenValues](#flattenvalues)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)>> stringMap) | Collapses a String-keyed map of SObject lists into a single flat list containing every record. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toDelimitedString](#todelimitedstring)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> valuesByNameMap, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Serialises a map of name-value pairs into a single delimited string of the form name=value[separator]name=value. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [CaseInsensitiveMap](UTIL_Map.CaseInsensitiveMap.md) | A Map implementation that performs case-insensitive key lookups. |
-
----
-
-## Method Details
-
 ### flattenValues
 
 <div class="apex-member">
@@ -130,4 +120,12 @@ String result = UTIL_Map.toDelimitedString(params, ',');
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [CaseInsensitiveMap](UTIL_Map.CaseInsensitiveMap.md) | A Map implementation that performs case-insensitive key lookups. |
+
+---
 

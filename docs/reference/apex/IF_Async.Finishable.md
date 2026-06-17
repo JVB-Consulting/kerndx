@@ -29,10 +29,6 @@ Optional interface for defining finalizer logic that runs after all data is proc
 |--------|-------------|
 | global abstract void [finish](#finish)([Database.BatchableContext](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_database_batchablecontext.htm) context) | Called once after all chunks are processed, for cleanup or notifications. |
 
----
-
-## Method Details
-
 ### finish
 
 <div class="apex-member">

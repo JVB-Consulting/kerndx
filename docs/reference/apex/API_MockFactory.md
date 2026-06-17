@@ -48,17 +48,6 @@ API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [wasCalled](#wascalled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceClassName) | Verifies that a mock was called at least once. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [wasNeverCalled](#wasnevercalled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceClassName) | Verifies that a mock was never called. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [MockBuilder](API_MockFactory.MockBuilder.md) | Fluent builder for constructing and registering mock responses. |
-| [MockResponse](API_MockFactory.MockResponse.md) | Represents a mock HTTP response with fault simulation options. |
-
----
-
-## Method Details
-
 ### clearMocks
 
 <div class="apex-member">
@@ -208,4 +197,13 @@ Verifies that a mock was never called.
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the mock was never invoked
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [MockBuilder](API_MockFactory.MockBuilder.md) | Fluent builder for constructing and registering mock responses. |
+| [MockResponse](API_MockFactory.MockResponse.md) | Represents a mock HTTP response with fault simulation options. |
+
+---
 

@@ -23,13 +23,13 @@ Enum defining methods for updating SObject fields.
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [PREFIX](#prefix) | Prepends the provided value to the current field value. |
-| global  [REPLACE](#replace) | Replaces the field value with the provided value. |
-| global  [SUFFIX](#suffix) | Appends the provided value to the current field value. |
+| Class | Description |
+|-------|-------------|
+| [PREFIX](#prefix) | Prepends the provided value to the current field value. |
+| [REPLACE](#replace) | Replaces the field value with the provided value. |
+| [SUFFIX](#suffix) | Appends the provided value to the current field value. |
 
 ---
 

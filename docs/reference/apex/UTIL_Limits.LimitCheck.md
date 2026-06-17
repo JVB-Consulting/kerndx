@@ -23,12 +23,6 @@ Fluent limit inspector scoped to a single governor limit type. Provides methods 
 
 ---
 
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global final [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [label](#label) | The human-readable label for this limit type (e.g. |
-
 ## Methods
 
 | Method | Description |
@@ -39,10 +33,6 @@ Fluent limit inspector scoped to a single governor limit type. Provides methods 
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [percentUsed](#percentused)() | Returns the percentage of the limit consumed as a value between 0.0 and 1.0. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [remaining](#remaining)() | Returns the number of limit units remaining before the governor limit is hit. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [used](#used)() | Returns the number of limit units consumed in this transaction. |
-
----
-
-## Method Details
 
 ### isExhausted
 
@@ -135,9 +125,11 @@ Returns the number of limit units consumed in this transaction.
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global final [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [label](#label) | The human-readable label for this limit type (e.g. |
 
 ### label
 

@@ -52,10 +52,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Case](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_case.htm) [newRecord](#newrecord) | Case record state AFTER DML (null on delete). |
 | global [Case](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_case.htm) [oldRecord](#oldrecord) | Case record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

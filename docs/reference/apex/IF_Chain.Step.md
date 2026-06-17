@@ -31,10 +31,6 @@ Interface for defining the business logic of a single chain step. Each step rece
 |--------|-------------|
 | global abstract [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Executes the step's business logic within the chain. |
 
----
-
-## Method Details
-
 ### work
 
 <div class="apex-member">

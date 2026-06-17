@@ -33,27 +33,11 @@ Type handlerType = resolver.resolveType('TRG_SetFoobarDefaults');
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) | Interface for resolving Type objects from class names and chaining resolvers. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global static [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) [getClassResolver](#getclassresolver)() | Retrieves the configured resolver chain with the package resolver as the first link. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [BaseClassResolver](UTIL_TypeResolver.BaseClassResolver.md) | Abstract base class for implementing custom type resolvers, typically registered via custom metadata. |
-
----
-
-## Method Details
 
 ### getClassResolver
 
@@ -75,4 +59,13 @@ Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivat
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [BaseClassResolver](UTIL_TypeResolver.BaseClassResolver.md) | Abstract base class for implementing custom type resolvers, typically registered via custom metadata. |
+| [INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) | Interface for resolving Type objects from class names and chaining resolvers. |
+
+---
 

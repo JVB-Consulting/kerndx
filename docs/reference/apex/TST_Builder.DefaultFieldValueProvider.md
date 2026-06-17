@@ -29,10 +29,6 @@ Base class for field-level default value providers. @note Using a virtual class 
 |--------|-------------|
 | global virtual [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getValue](#getvalue)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Gets the wrapped value for a given record index. |
 
----
-
-## Method Details
-
 ### getValue
 
 <div class="apex-member">

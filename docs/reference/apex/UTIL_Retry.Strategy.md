@@ -35,10 +35,6 @@ Interface defining the retry strategy logic. Implement this interface to create 
 | global abstract [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [withMaximumBackoff](#withmaximumbackoff)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) seconds) | Sets the maximum backoff cap in seconds (fluent API) |
 | global abstract [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [withMaxRetries](#withmaxretries)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) max) | Sets the maximum retry attempts (fluent API) |
 
----
-
-## Method Details
-
 ### calculateBackoff
 
 <div class="apex-member">

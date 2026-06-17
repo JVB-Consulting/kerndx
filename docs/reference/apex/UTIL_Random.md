@@ -63,10 +63,6 @@ Id mockAccountId = UTIL_Random.randomId(Account.SObjectType);
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [randomPhoneNumber](#randomphonenumber)() | Produces a random international phone number in the format '+[countryCode] ([areaCode]) [part1]-[part2]'. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [randomUUID](#randomuuid)() | Produces a universally unique identifier in the standard 8-4-4-4-12 hexadecimal format. |
 
----
-
-## Method Details
-
 ### nextBoolean
 
 <div class="apex-member">

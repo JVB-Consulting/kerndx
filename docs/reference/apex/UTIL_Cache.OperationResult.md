@@ -23,29 +23,14 @@ Result of a cache operation with detailed status information
 
 ---
 
-## Fields
+## Constructors
 
-| Field | Description |
-|-------|-------------|
-| global [UTIL_Cache.Scope](UTIL_Cache.Scope.md) [cacheTypeUsed](#cachetypeused) | Cache type used (SESSION, ORG, or null if unavailable) |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | Error message if operation failed |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [keysFound](#keysfound) | Number of keys found (for read operations) |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [keysRequested](#keysrequested) | Number of keys requested (for bulk operations) |
-| global [UTIL_Cache.Status](UTIL_Cache.Status.md) [status](#status) | Detailed status of the operation |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | Whether the operation succeeded (true for SUCCESS statuses and CACHE_MISS) |
+| Constructor | Description |
+|-------------|-------------|
+| global [OperationResult](#constructors)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Constructor for success result |
+| global [OperationResult](#constructors)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeAttempted, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Constructor for failure result |
 
-## Methods
-
-| Method | Description |
-|--------|-------------|
-| global  [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Constructor for success result |
-| global  [OperationResult](#operationresult)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeAttempted, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Constructor for failure result |
-
----
-
-## Method Details
-
-### OperationResult
+### OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeUsed)
 
 <div class="apex-member">
 
@@ -70,6 +55,8 @@ UTIL_Cache.OperationResult instance = new UTIL_Cache.OperationResult(true, new S
 ```
 
 </div>
+
+### OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeAttempted, String errorMessage)
 
 <div class="apex-member">
 
@@ -96,9 +83,16 @@ UTIL_Cache.OperationResult instance = new UTIL_Cache.OperationResult(true, new S
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [UTIL_Cache.Scope](UTIL_Cache.Scope.md) [cacheTypeUsed](#cachetypeused) | Cache type used (SESSION, ORG, or null if unavailable) |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | Error message if operation failed |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [keysFound](#keysfound) | Number of keys found (for read operations) |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [keysRequested](#keysrequested) | Number of keys requested (for bulk operations) |
+| global [UTIL_Cache.Status](UTIL_Cache.Status.md) [status](#status) | Detailed status of the operation |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | Whether the operation succeeded (true for SUCCESS statuses and CACHE_MISS) |
 
 ### cacheTypeUsed
 

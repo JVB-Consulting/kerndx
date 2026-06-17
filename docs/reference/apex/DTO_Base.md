@@ -46,10 +46,6 @@ dto.populate(recordId, new DTO_NameValues());
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serialize](#serialize)() | Serializes the current DTO object to a JSON string. |
 | global virtual void [transform](#transform)([DTO_Base](DTO_Base.md) dtoBase) | Transforms the current DTO using another DTO as input. |
 
----
-
-## Method Details
-
 ### deserialize
 
 <div class="apex-member">

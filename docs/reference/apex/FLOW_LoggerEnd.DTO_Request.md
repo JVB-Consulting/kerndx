@@ -32,10 +32,6 @@ Input parameters for ending Flow correlation.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowName](#flowname) | Name of the Flow for logging |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [success](#success) | Whether the Flow completed successfully |
 
----
-
-## Field Details
-
 ### correlationId
 
 ```apex

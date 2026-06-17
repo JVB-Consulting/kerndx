@@ -56,10 +56,6 @@ private static void shouldPassWhenEmailProvided()
 | global static [UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md) [validate](#validate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Validates a record and returns the full result for advanced assertions. |
 | global static [UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md) [validate](#validate)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) oldRecord, [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) operation) | Validates a record and returns the full result for advanced assertions with operation context. |
 
----
-
-## Method Details
-
 ### assertRuleFails
 
 <div class="apex-member">
