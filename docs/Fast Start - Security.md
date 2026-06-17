@@ -484,6 +484,7 @@ public with sharing class SEL_MyInternalSetting extends kern.SEL_Base
 {
 	public SEL_MyInternalSetting()
 	{
+		// MyInternalSetting__mdt is a stand-in — replace it with your own object or custom metadata type.
 		super(MyInternalSetting__mdt.SObjectType);
 	}
 

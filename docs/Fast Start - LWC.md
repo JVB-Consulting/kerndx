@@ -224,6 +224,32 @@ public with sharing class CTRL_AccountCard
 > **Why `kern.QRY_Builder`?** It enforces field-level security on the query and keeps your controller free of
 > inline SOQL. See [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md) for the full query pattern.
 
+Add a test for the controller — the framework's coverage gate expects every Apex class covered. Create
+`force-app/main/default/classes/CTRL_AccountCard_TEST.cls`:
+
+```apex
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@IsTest(SeeAllData=false IsParallel=true)
+private class CTRL_AccountCard_TEST
+{
+	@IsTest
+	private static void shouldLoadAccountById()
+	{
+		Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
+			.withOverride(Account.Name, 'Acme')
+			.withOverride(Account.Industry, 'Technology')
+			.build();
+
+		Test.startTest();
+		Account result = CTRL_AccountCard.getAccount(account.Id);
+		Test.stopTest();
+
+		Assert.areEqual('Acme', result.Name, 'Should load the requested Account');
+		Assert.areEqual('Technology', result.Industry, 'Should populate Industry');
+	}
+}
+```
+
 ### Step 2: Create the component
 
 Create a folder `force-app/main/default/lwc/accountCard/` with these files.
@@ -295,6 +321,23 @@ export default class AccountCard extends ComponentBuilder('notification', 'contr
 </LightningComponentBundle>
 ```
 
+`accountCard.js` imports a Custom Label, so create it as deployable metadata too — otherwise the bundle
+deploy in Step 3 fails with *Invalid reference c.AccountCard_LoadFailed of type label*. Add
+`force-app/main/default/labels/CustomLabels.labels-meta.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>AccountCard_LoadFailed</fullName>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Account card load failure message</shortDescription>
+        <value>Could not load the account.</value>
+    </labels>
+</CustomLabels>
+```
+
 **What this code does:**
 
 - `extends ComponentBuilder('notification', 'controller')` — gives the component toast helpers AND
@@ -306,14 +349,18 @@ export default class AccountCard extends ComponentBuilder('notification', 'contr
 - `this.consoleError(error, 'accountCard.connectedCallback')` — logs the error through the framework
 
 > **All displayed text comes from Custom Labels.** `LOAD_FAILED` is imported with
-> `import LOAD_FAILED from '@salesforce/label/c.AccountCard_LoadFailed';`. Create the label under
-> **Setup > Custom Labels** (name `AccountCard_LoadFailed`, value e.g. *"Could not load the account."*).
-> Subscribers can then translate or override it without editing your code.
+> `import LOAD_FAILED from '@salesforce/label/c.AccountCard_LoadFailed';`, so the `AccountCard_LoadFailed`
+> label must exist **before** the bundle deploys — you created it as deployable metadata above (or add it
+> under **Setup > Custom Labels**). Subscribers can then translate or override it without editing your code.
 
 ### Step 3: Deploy and drop it on a page
 
+Deploy the label first — the component's `@salesforce/label` import is resolved at deploy time, so the
+bundle won't compile until the label exists in the org:
+
 ```bash
-sf project deploy start -o YourOrgAlias -m "ApexClass:CTRL_AccountCard" --ignore-conflicts
+sf project deploy start -o YourOrgAlias -m "CustomLabel:AccountCard_LoadFailed" --ignore-conflicts
+sf project deploy start -o YourOrgAlias -m "ApexClass:CTRL_AccountCard" -m "ApexClass:CTRL_AccountCard_TEST" --ignore-conflicts
 sf project deploy start -o YourOrgAlias -m "LightningComponentBundle:accountCard" --ignore-conflicts
 ```
 
@@ -406,9 +453,18 @@ describe('c-account-card', () =>
 
 ### Step 5: Run the test
 
+If this is your first LWC test in the project, install the Jest runner once — it's standard Salesforce
+LWC tooling, not part of the managed package:
+
+```bash
+npm install --save-dev @salesforce/sfdx-lwc-jest
+```
+
+Then run the test (Node 22):
+
 ```bash
 . /opt/homebrew/opt/nvm/nvm.sh && nvm use 22
-npm run test:unit -- --testPathPattern=accountCard
+npx sfdx-lwc-jest -- --testPathPattern=accountCard
 ```
 
 **Expected output:**

@@ -26,7 +26,7 @@ creates a Salesforce record, and returns a structured response.
 **Success looks like:** You POST JSON to your endpoint, see a response with the new record ID, and the call
 is logged in the Kern app's **API Calls** tab -- with 100% test coverage.
 
-**In one line:** `kern.API_Dispatcher.processInboundService(API_ContactForm.class.getName());` -- one line in the
+**In one line:** `kern.API_Dispatcher.processInboundService(API_ContactFormSubmit.class.getName());` -- one line in the
 REST resource, all logic lives in the handler class.
 
 ---
@@ -584,13 +584,10 @@ sf api request rest -o YourOrgAlias --method POST \
   'services/apexrest/v1/contact-form'
 ```
 
-**Expected output** (flag is disabled):
+**Expected output** (flag is disabled — the framework returns the error messages as a bare JSON array):
 
 ```json
-{
-  "isSuccess": false,
-  "errorMessages": ["Required condition \"EnableContactFormApi\" is not met"]
-}
+["Required condition \"EnableContactFormApi\" is not met"]
 ```
 
 Enable the flag (set `IsEnabledByDefault = true` or create a strategy) and the API starts accepting

@@ -366,16 +366,19 @@ Description: New account - pending review
 
 ## Tier 2: Test It (~3 minutes)
 
-> **Setting up trigger action metadata for tests:**
->
-> - From a subscriber `@IsTest` class: `kern.TST_Factory.newTriggerActionForContext(handlerClass, kern.TST_Factory.newTriggerSetting('Account'), TriggerOperation.BEFORE_INSERT)` works.
-> - From anonymous Apex or production setup scripts: those factory methods are `@TestVisible private` and not callable. Deploy CMDT records via XML instead (as shown in Tier 1).
+> **Testing a trigger action in a subscriber org:** invoke the handler directly. Build an in-memory
+> record with `kern.TST_Builder` (using `.withoutInsertion()` so no DML runs), call your handler's
+> method, and assert on the record. This needs no framework metadata setup and fully covers your
+> handler's logic. Direct invocation is the supported subscriber pattern.
 
 Create `TRG_AccountSetDefaults_TEST.cls`:
 
 ```apex
 /**
  * @description Tests for TRG_AccountSetDefaults.
+ *
+ * Invokes the handler directly (unit-style) -- the supported pattern for testing a trigger
+ * action in a subscriber org. This exercises the handler logic with no framework metadata setup.
  *
  * @see TRG_AccountSetDefaults
  *
@@ -389,31 +392,21 @@ Create `TRG_AccountSetDefaults_TEST.cls`:
 @IsTest(SeeAllData=false IsParallel=true)
 private class TRG_AccountSetDefaults_TEST
 {
-	/** @description Handler class name used to activate the trigger action in tests. */
-	private static final String HANDLER_CLASS = TRG_AccountSetDefaults.class.getName();
-
 	/** @description Tests that Description defaults when blank. */
 	@IsTest
 	private static void shouldStampDefaultDescriptionWhenBlank()
 	{
-		kern.UTIL_ValidationRule.bypassObject('Account');
-
-		kern.TST_Factory.newTriggerActionForContext
-		(
-			HANDLER_CLASS,
-			kern.TST_Factory.newTriggerSetting('Account'),
-			TriggerOperation.BEFORE_INSERT
-		);
-
 		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
 			.withOverride(Account.Description, null)
+			.withoutInsertion()
 			.build();
 
-		Account result = [SELECT Description FROM Account WHERE Id = :record.Id];
+		new TRG_AccountSetDefaults().beforeInsert(new List<SObject>{ record });
+
 		Assert.areEqual
 		(
 			TRG_AccountSetDefaults.DEFAULT_DESCRIPTION,
-			result.Description,
+			record.Description,
 			'Description should be stamped when blank'
 		);
 	}
@@ -422,21 +415,14 @@ private class TRG_AccountSetDefaults_TEST
 	@IsTest
 	private static void shouldPreserveDescriptionWhenAlreadySet()
 	{
-		kern.UTIL_ValidationRule.bypassObject('Account');
-
-		kern.TST_Factory.newTriggerActionForContext
-		(
-			HANDLER_CLASS,
-			kern.TST_Factory.newTriggerSetting('Account'),
-			TriggerOperation.BEFORE_INSERT
-		);
-
 		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
 			.withOverride(Account.Description, 'Custom description')
+			.withoutInsertion()
 			.build();
 
-		Account result = [SELECT Description FROM Account WHERE Id = :record.Id];
-		Assert.areEqual('Custom description', result.Description, 'Existing Description should be preserved');
+		new TRG_AccountSetDefaults().beforeInsert(new List<SObject>{ record });
+
+		Assert.areEqual('Custom description', record.Description, 'Existing Description should be preserved');
 	}
 }
 ```
@@ -454,15 +440,11 @@ sf apex run test -o YourOrgAlias -t TRG_AccountSetDefaults_TEST --code-coverage 
 > explicitly declares no org data access. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
 > suppresses a static analysis rule about `System.runAs()` -- fine for quick starts.
 
-> **Why `kern.UTIL_ValidationRule.bypassObject('Account')` at the start of each test?**
-> The subscriber org ships with Account validation rules. Bypassing them isolates the trigger action
-> under test from unrelated validation failures.
-
-> **Why `kern.TST_Factory.newTriggerActionForContext` instead of relying on deployed metadata?**
-> This in-memory activation is scoped to the test transaction only and prevents deployed CMDT records
-> from interfering. It works from any subscriber `@IsTest` class. For anonymous Apex or production
-> setup scripts, deploy the CMDT records as XML (Tier 1 Step 3) instead -- those factory methods are
-> `@TestVisible private` and not callable outside `@IsTest` context.
+> **Why invoke the handler directly?** `beforeInsert` is a plain method that takes the trigger records,
+> so calling it with an in-memory `kern.TST_Builder` record (built `.withoutInsertion()`, so no DML and
+> no validation rules fire) exercises the logic directly and gives 100% coverage with no setup. Direct
+> invocation is the supported subscriber path. (To verify the full metadata wiring end-to-end, deploy the
+> CMDT from Tier 1 and assert against an inserted record from an integration test or the Verify step above.)
 
 ### Testing Flow Actions with TST_InvokeFlowMock
 
@@ -655,7 +637,7 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 | Governor limit: SOQL in loop                                          | Querying inside the record loop                | Collect IDs first, query once outside the loop                                                 |
 | Not bulk-safe                                                         | Processing only `newRecords[0]`                | Always loop over all records in the list                                                       |
 | Sharing not declared                                                  | Missing sharing keyword on class               | Add `inherited sharing` (default) or `with sharing`                                            |
-| `kern.TST_Factory.newTriggerActionForContext` fails in anonymous Apex | Method is `@TestVisible private`               | Call it only from `@IsTest` classes; use deployed CMDT XML for anonymous Apex setup            |
+| Unsure how to test a trigger action handler | Trying to drive the handler through framework metadata setup | Invoke your handler directly in the test — build a record with `kern.TST_Builder` (`.withoutInsertion()`), call the method, assert (see Tier 2) |
 
 ---
 
@@ -678,8 +660,8 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 - **Audit-logged bypass** -- every bypass call emits a WARN `LogEntry__c` with category `BypassEvent`
 - **`global`** -- required for subscriber classes (or `public` with Type Resolver)
 - **Bulk-safe** -- always loop over all records, no SOQL inside loops
-- **Test setup** -- `kern.TST_Factory.newTriggerActionForContext` works from `@IsTest` classes only;
-  deploy CMDT XML for any other context
+- **Test setup** -- invoke your handler directly with a `kern.TST_Builder` record (built
+  `.withoutInsertion()`); no framework metadata setup needed
 
 ---
 

@@ -22,8 +22,8 @@ navOrder: 60
 **What you'll build:** Account validation rules that enforce required fields and conditional logic —
 all configured through Custom Metadata, with a test class proving every rule works.
 
-**Success looks like:** Two test methods pass at 100% coverage, and you can query live CMDT records
-to see exactly what's configured.
+**Success looks like:** Two test methods pass — proving your rule fires when the record is invalid and
+is satisfied when it's valid — and you can query your CMDT records to see exactly what's configured.
 
 **In one line:** `kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'MyRule');` — test any
 metadata-configured rule without DML or triggers.
@@ -35,12 +35,10 @@ metadata-configured rule without DML or triggers.
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~3 minutes)](#tier-1-see-it-work-3-minutes)
-2. [Tier 2: Build Your Own (~15-17 minutes)](#tier-2-build-your-own-15-17-minutes)
-    - [Step 1: Deploy the DEMO class and test](#step-1-deploy-the-demo-class-and-test)
-    - [Step 2: Deploy the CMDT fixtures](#step-2-deploy-the-cmdt-fixtures)
-    - [Step 3: Run the tests](#step-3-run-the-tests)
-    - [What the test class demonstrates](#what-the-test-class-demonstrates)
+1. [Tier 1: See It Work (~5 minutes)](#tier-1-see-it-work-5-minutes)
+2. [Tier 2: Test Your Rules (~10 minutes)](#tier-2-test-your-rules-10-minutes)
+    - [Step 1: Write the test](#step-1-write-the-test)
+    - [Step 2: Deploy and run](#step-2-deploy-and-run)
     - [Key patterns](#key-patterns)
 3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
     - [Trigger integration](#trigger-integration)
@@ -57,7 +55,7 @@ metadata-configured rule without DML or triggers.
 
 ---
 
-## Tier 1: See It Work (~3 minutes)
+## Tier 1: See It Work (~5 minutes)
 
 Custom validations are metadata-driven — you define rules as CMDT records, not Apex code. Three
 record types form a parent-child hierarchy:
@@ -65,18 +63,80 @@ record types form a parent-child hierarchy:
 ```text
 TriggerSetting__mdt (Account)
  └── ValidationRuleGroup__mdt (AccountValidation)
-      └── ValidationRule__mdt (PhoneOrWebsiteRequired)
+      └── ValidationRule__mdt (DescriptionRequired)
 ```
 
-The subscriber test org ships with these records already deployed. Query them now to see what's
-configured:
+You author these records yourself — a fresh org ships with no Account rules. Create the three below and
+deploy them. Each Custom Metadata record requires a **Description** — the deploy is rejected without one.
+
+`customMetadata/kern__TriggerSetting.Account.md-meta.xml` (skip if you already created it for triggers):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Account</label>
+    <protected>false</protected>
+    <values><field>kern__BypassExecution__c</field><value xsi:type="xsd:boolean">false</value></values>
+    <values><field>kern__SObjectType__c</field><value xsi:type="xsd:string">Account</value></values>
+</CustomMetadata>
+```
+
+`customMetadata/kern__ValidationRuleGroup.AccountValidation.md-meta.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Account Validation</label>
+    <protected>false</protected>
+    <values><field>kern__Description__c</field><value xsi:type="xsd:string">Validation rules for Account records.</value></values>
+    <values><field>kern__ExecutionStrategy__c</field><value xsi:type="xsd:string">Accumulate</value></values>
+    <values><field>kern__TriggerOperations__c</field><value xsi:type="xsd:string">Insert;Update</value></values>
+    <values><field>kern__TriggerSetting__c</field><value xsi:type="xsd:string">Account</value></values>
+    <values><field>kern__TriggerTiming__c</field><value xsi:type="xsd:string">Before</value></values>
+</CustomMetadata>
+```
+
+`customMetadata/kern__ValidationRule.DescriptionRequired.md-meta.xml` — formula
+`ISBLANK(newRecord.Description)`, active by default (`kern__BypassExecution__c` defaults to `false`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Description Required</label>
+    <protected>false</protected>
+    <values><field>kern__Description__c</field><value xsi:type="xsd:string">Account Description must be populated.</value></values>
+    <values><field>kern__ErrorDisplayField__c</field><value xsi:type="xsd:string">Description</value></values>
+    <values><field>kern__ErrorMessage__c</field><value xsi:type="xsd:string">Description is required</value></values>
+    <values><field>kern__RuleFormula__c</field><value xsi:type="xsd:string">ISBLANK(newRecord.Description)</value></values>
+    <values><field>kern__Severity__c</field><value xsi:type="xsd:string">Error</value></values>
+    <values><field>kern__ValidationRuleGroup__c</field><value xsi:type="xsd:string">AccountValidation</value></values>
+</CustomMetadata>
+```
+
+```bash
+sf project deploy start -o YourOrgAlias \
+  -m "CustomMetadata:kern__TriggerSetting.Account" \
+  -m "CustomMetadata:kern__ValidationRuleGroup.AccountValidation" \
+  -m "CustomMetadata:kern__ValidationRule.DescriptionRequired" \
+  --ignore-conflicts
+```
+
+> **Prefer the UI?** Create each under **Setup > Custom Metadata Types > [type] > Manage Records > New**.
+> The relationship fields (Trigger Setting on the group, Validation Rule Group on the rule) are lookups
+> to the parent records.
+
+Query them to see what's configured. The parent links are MetadataRelationship fields, so filter on the
+parent's `DeveloperName` via the `__r` relationship — **not** a string literal on the `__c` field:
 
 ```apex
 List<kern__ValidationRuleGroup__mdt> groups =
 [
     SELECT DeveloperName, kern__TriggerOperations__c, kern__ExecutionStrategy__c
     FROM kern__ValidationRuleGroup__mdt
-    WHERE kern__TriggerSetting__c = 'Account'
+    WHERE kern__TriggerSetting__r.DeveloperName = 'Account'
     LIMIT 10
 ];
 for(kern__ValidationRuleGroup__mdt grp : groups)
@@ -88,7 +148,7 @@ List<kern__ValidationRule__mdt> rules =
 [
     SELECT DeveloperName, kern__RuleFormula__c, kern__ErrorMessage__c, kern__Severity__c
     FROM kern__ValidationRule__mdt
-    WHERE kern__ValidationRuleGroup__c = 'AccountValidation'
+    WHERE kern__ValidationRuleGroup__r.DeveloperName = 'AccountValidation'
     LIMIT 10
 ];
 for(kern__ValidationRule__mdt rule : rules)
@@ -97,7 +157,7 @@ for(kern__ValidationRule__mdt rule : rules)
 }
 ```
 
-Now run a rule in-memory against a record — no DML, no trigger needed:
+Now run the rule in-memory against a record — no DML, no trigger needed:
 
 ```apex
 Account invalidAccount = new Account(Name = 'Test Corp');
@@ -113,13 +173,13 @@ for(kern.UTIL_ValidationRule.ValidationError error : result.errors)
 
 ```text
 Valid: false
-Error: Either Phone or Website is required (field: null)
+Error: Description is required (field: Description)
 ```
 
-Fix the record and validate again:
+Populate the field and validate again:
 
 ```apex
-Account validAccount = new Account(Name = 'Test Corp', Phone = '1234567890');
+Account validAccount = new Account(Name = 'Test Corp', Description = 'A real description');
 kern.UTIL_ValidationRule.ValidationResult result = kern.UTIL_ValidationTestHelper.validate(validAccount);
 System.debug('Valid: ' + result.isValid + ' — Errors: ' + result.errors.size());
 ```
@@ -131,108 +191,102 @@ Valid: true — Errors: 0
 ```
 
 > **Formula logic is inverted:** formula returns `true` = validation **fails** (record is invalid).
-> `ISBLANK(newRecord.Phone)` returns `true` when Phone is blank — the rule fires. When Phone is
-> populated the formula returns `false` — the rule is satisfied.
+> `ISBLANK(newRecord.Description)` returns `true` when Description is blank — the rule fires. When
+> Description is populated the formula returns `false` — the rule is satisfied.
 
 ---
 
-## Tier 2: Build Your Own (~15-17 minutes)
+## Tier 2: Test Your Rules (~10 minutes)
 
-> **No local project?** Create classes directly in Developer Console (Gear Icon > Developer Console >
-> File > New > Apex Class) and run tests from there (Test > New Run). Paste the code, save, and skip
-> the `sf project deploy start` and `sf apex run test` commands.
+> **No local project?** Create the class directly in Developer Console (Gear Icon > Developer Console >
+> File > New > Apex Class) and run it from there (Test > New Run). Paste the code, save, and skip the
+> `sf project deploy start` and `sf apex run test` commands.
 
-### Step 1: Deploy the DEMO class and test
+Validation rules are metadata, so there is no Apex of your own to cover — but you still want a test that
+proves each rule fires when it should and is satisfied when the record is valid.
+`kern.UTIL_ValidationTestHelper` evaluates a single deployed rule in-memory, with no DML and no trigger.
+Both helpers are `global`, so they are callable from a subscriber `@IsTest` class.
 
-The subscriber release-testing folder ships with `FastStart_Validation_DEMO.cls` and
-`FastStart_Validation_DEMO_TEST.cls`. Deploy them:
+### Step 1: Write the test
 
-```bash
-sf project deploy start -o YourOrgAlias \
-  -m "ApexClass:FastStart_Validation_DEMO" \
-  -m "ApexClass:FastStart_Validation_DEMO_TEST" \
-  --ignore-conflicts
+Create `AccountValidation_TEST.cls`:
+
+```apex
+/**
+ * @description Tests the DescriptionRequired validation rule.
+ *
+ * @author your.name@company.com
+ *
+ * @group Custom Validations
+ *
+ * @date February 2026
+ */
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@IsTest(SeeAllData=false IsParallel=true)
+private class AccountValidation_TEST
+{
+    /** @description The rule fires when Description is blank. */
+    @IsTest
+    private static void shouldFailWhenDescriptionBlank()
+    {
+        Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
+            .withOverride(Account.Description, null)
+            .withoutInsertion()
+            .build();
+
+        kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'DescriptionRequired');
+    }
+
+    /** @description The rule is satisfied when Description is populated. */
+    @IsTest
+    private static void shouldPassWhenDescriptionPresent()
+    {
+        Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
+            .withOverride(Account.Description, 'A valid description')
+            .withoutInsertion()
+            .build();
+
+        kern.UTIL_ValidationTestHelper.assertRulePasses(record, 'DescriptionRequired');
+    }
+}
 ```
 
-> **Prefer the UI?** In Developer Console, create two new Apex Classes with the names above and
-> paste the source from `release-testing/subscriber/classes/`.
-
-### Step 2: Deploy the CMDT fixtures
-
-Two metadata records ship with the subscriber release-testing folder:
-
-- `kern__ValidationRuleGroup.FastStart_AccountRules` — groups the Fast Start demo rules for Account
-- `kern__ValidationRule.FastStart_RequiresDescription` — formula `ISBLANK(newRecord.Description)`,
-  error message "Description is required"
-
-Both are deployed with `IsActive = false` so they do not fire on live DML in the subscriber org.
-The test class activates them in-memory via `kern.TST_Factory.newValidationRule()`.
+### Step 2: Deploy and run
 
 ```bash
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__ValidationRuleGroup.FastStart_AccountRules" \
-  -m "CustomMetadata:kern__ValidationRule.FastStart_RequiresDescription" \
-  --ignore-conflicts
-```
-
-### Step 3: Run the tests
-
-```bash
-sf apex run test -o YourOrgAlias -t FastStart_Validation_DEMO_TEST \
-  --code-coverage --synchronous --result-format human
+sf project deploy start -o YourOrgAlias -m "ApexClass:AccountValidation_TEST" --ignore-conflicts
+sf apex run test -o YourOrgAlias -t AccountValidation_TEST --synchronous --result-format human
 ```
 
 **Expected output:**
 
 ```text
-=== Test Results
-Tests Ran        2
-Passing          2
-Failing          0
-=== Code Coverage
-FastStart_Validation_DEMO  100%
+Outcome      Passed
+Tests Ran    2
+Pass Rate    100%
+Fail Rate    0%
 ```
 
-### What the test class demonstrates
+> **`assertRuleFails` / `assertRulePasses` evaluate the *deployed* rule by DeveloperName.** The rule must
+> be deployed and active (`kern__BypassExecution__c = false`, as in Tier 1); they evaluate the formula
+> directly and need no physical trigger. `kern.TST_Builder.of(...).withoutInsertion()` builds an in-memory
+> record (with a fake Id) so nothing is written to the database.
 
-> **Trap:** `kern.TST_Factory.newValidationRule()` is `@TestVisible private` — it works inside
-> `@IsTest` context only. It cannot be called from anonymous Apex (Developer Console Execute
-> Anonymous). For anonymous-Apex demos, query deployed CMDT records using inline SOQL as shown
-> in Tier 1.
-
-The full source is in `release-testing/subscriber/classes/FastStart_Validation_DEMO_TEST.cls`.
-The core pattern for the failing case:
-
-```apex
-@IsTest
-private static void shouldFailWhenDescriptionBlank()
-{
-    // Bypass all existing Account validation groups so org fixtures don't interfere.
-    // bypassObject takes a String — NOT an SObjectType.
-    kern.UTIL_ValidationRule.bypassObject('Account');
-
-    // Activate the FastStart rule in-memory — @IsTest context only, NOT anon Apex.
-    kern.TST_Factory.newValidationRule(
-        'FastStart_RequiresDescription',
-        'ISBLANK(newRecord.Description)',
-        'Description is required'
-    );
-
-    Account record = (Account)kern.TST_Builder.of(Account.SObjectType).withoutInsertion().build();
-    kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'FastStart_RequiresDescription');
-}
-```
+> **Test against your deployed rule.** Deploy the rule as CMDT (Tier 1), then assert against it with
+> `kern.UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses` — both are `global` and callable
+> from your `@IsTest` class. They evaluate your deployed rule directly, so no in-memory rule registration
+> is needed. This is the supported subscriber pattern.
 
 ### Key patterns
 
-| Pattern                                                 | Why                                                                                             |
-|---------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| `bypassObject('Account')` (String param)                | Bypasses ALL active Account validation groups — prevents existing org fixtures from interfering |
-| `TST_Factory.newValidationRule(name, formula, message)` | Registers a rule in-memory for the current test only — no CMDT deploy needed                    |
-| `assertRuleFails(record, ruleName)`                     | Evaluates one rule in-memory — no DML, no trigger                                               |
-| `withoutInsertion()`                                    | Builds an in-memory record with a fake Id — no database write                                   |
-| Formula returns `true` = fails                          | `ISBLANK(newRecord.Description)` fires when Description is blank                                |
-| `ISPICKVAL()` for picklists                             | `ISPICKVAL(newRecord.Industry, "Technology")` — use this, not `=`, for picklist values          |
+| Pattern                                          | Why                                                                          |
+|--------------------------------------------------|------------------------------------------------------------------------------|
+| `validate(record)`                               | Evaluates ALL active rules for the object in-memory — returns a `ValidationResult` |
+| `assertRuleFails(record, ruleName)`              | Asserts one deployed, active rule fires — no DML, no trigger                  |
+| `assertRulePasses(record, ruleName)`             | Asserts one deployed, active rule is satisfied                               |
+| `withoutInsertion()`                             | Builds an in-memory record with a fake Id — no database write               |
+| Formula returns `true` = fails                   | `ISBLANK(newRecord.Description)` fires when Description is blank             |
+| `ISPICKVAL()` for picklists                      | `ISPICKVAL(newRecord.Industry, "Technology")` — use this, not `=`, for picklist values |
 
 ---
 
@@ -261,6 +315,10 @@ Create the trigger action record (XML for source-controlled projects):
     xmlns:xsd="http://www.w3.org/2001/XMLSchema">
     <label>Account Validations - Before Insert</label>
     <protected>false</protected>
+    <values>
+        <field>kern__Description__c</field>
+        <value xsi:type="xsd:string">Runs the Account validation rule group on save.</value>
+    </values>
     <values>
         <field>kern__ApexClassName__c</field>
         <value xsi:type="xsd:string">TRG_ExecuteValidationRules</value>
@@ -376,7 +434,7 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 | Error not on the right field             | Wrong `ErrorDisplayField__c`              | Use the field API name only (e.g., `Description` not `Account.Description`) |
 | Rules don't fire via trigger             | Missing `TriggerAction__mdt`              | Create action pointing to `TRG_ExecuteValidationRules`                      |
 | Multiple rules — only first fires        | `ExecutionStrategy__c` set to `Fail Fast` | Change to `Accumulate`                                                      |
-| `newValidationRule` fails from anon Apex | `@TestVisible private` trap               | Only callable from `@IsTest` context — use inline SOQL in anon Apex instead |
+| Need to register a validation rule from a test | Subscriber tests assert against deployed rules, not in-memory-registered ones | Deploy your rule as CMDT (Tier 1) and assert with `assertRuleFails` / `assertRulePasses` |
 
 ---
 
@@ -390,7 +448,7 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 | `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)`  | Asserts one rule fires — no DML                             |
 | `UTIL_ValidationTestHelper.assertRulePasses(record, ruleName)` | Asserts one rule is satisfied                               |
 | `UTIL_ValidationRule.bypassObject('Account')`                  | Bypasses all Account rules — String param                   |
-| `TST_Factory.newValidationRule(name, formula, message)`        | Registers a rule in-memory — `@IsTest` only                 |
+| `TST_Builder.of(type).withoutInsertion()`                      | Builds an in-memory record (fake Id) for in-memory rule evaluation |
 | `TRG_ExecuteValidationRules`                                   | Built-in trigger action that enforces rules on save         |
 
 **Key patterns:**
@@ -399,8 +457,8 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 - Use `ISPICKVAL()` for picklist comparisons, not `=`
 - Tests use `UTIL_ValidationTestHelper` — no DML needed, no trigger needed
 - `bypassObject` takes a **String** (`'Account'`), not an `SObjectType`
-- Deploy validation metadata as XML for version control; use `IsActive = false` to avoid
-  cross-demo interference
+- Deploy validation metadata as XML for version control; set `kern__BypassExecution__c = true` on a
+  group or rule to deactivate it without removing it
 
 ---
 

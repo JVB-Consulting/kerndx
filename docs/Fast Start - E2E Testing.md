@@ -22,7 +22,7 @@ navOrder: 92
 **What you'll build:** A subscriber Apex service, its `_TEST` class with 100% coverage, and a working
 deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
 
-**Success looks like:** `3 passed (0 failures)` from the Apex test runner and — optionally — a green
+**Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and — optionally — a green
 Playwright run against the same org.
 
 ---
@@ -101,10 +101,13 @@ Test Summary
 Outcome              Passed
 Tests Ran            3
 Pass Rate            100%
-Org Wide Coverage    100%
 ```
 
-If you see `3 passed`, the subscriber test cycle works end-to-end.
+> **Org-wide coverage won't be 100%.** With KernDX installed, org-wide coverage is dominated by the
+> framework's own classes, so `--result-format human` reports a lower number. What matters here is the
+> `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO` itself.
+
+If you see `Pass Rate 100%`, the subscriber test cycle works end-to-end.
 
 ---
 
@@ -287,15 +290,16 @@ The minimum to run the existing E2E suite against your org:
 ```bash
 npm ci
 npx playwright install chromium
-sf config set target-org=$SF_SUBSCRIBER_ORG_ALIAS
+export SF_SUBSCRIBER_ORG_ALIAS=<your-org-alias>
 npm run test:e2e
 ```
 
-The suite expects the org alias declared as the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js`. If your org has a different alias, either rename it with
-`sf alias set <ORG_ALIAS-value>=<your-alias>` or fork the helper and edit the `ORG_ALIAS` constant.
+The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Export it
+to point the suite at your org — the helpers call `sf -o $SF_SUBSCRIBER_ORG_ALIAS` directly, so it's the
+one place the alias needs to change.
 
-**What runs:** 8 spec files (41 checks) covering app navigation, record pages, log entry verification,
-API call visibility, LWC component rendering, async chains, and chain monitor.
+**What runs:** 9 spec files covering app navigation, record pages, log entry verification,
+API call visibility, LWC component rendering, async chains, chain monitor, and the masking advisor.
 
 **To write your own spec**, add a file under `release-testing/e2e/specs/` following this pattern:
 

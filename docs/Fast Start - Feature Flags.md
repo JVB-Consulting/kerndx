@@ -291,14 +291,15 @@ Decimal amount = demo.processWithNewPricing(100.00);
 System.debug('Amount: ' + amount);
 ```
 
-**Expected output** (with flag not created or inactive):
+**Expected output** (with flag not created or inactive — Apex `Decimal` preserves scale, so the value
+carries four decimal places):
 
 ```text
-Amount: 105.0
+Amount: 105.0000
 ```
 
 > **See it in the org:** Create the `FastStart_NewPricing` flag in Setup (as in Tier 1) with Is Active = checked
-> and Is Enabled By Default = checked, then re-run — you'll get `103.0`. Deactivate or delete it and you're
+> and Is Enabled By Default = checked, then re-run — you'll get `103.0000`. Deactivate or delete it and you're
 > back to `105.0`.
 
 ### Step 3: Write the test class
@@ -975,15 +976,19 @@ System.debug('User locale: ' + UserInfo.getLocale());
 System.debug('NewPricingEngine enabled: ' + kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine'));
 ```
 
-**Expected output** (for en_US locale):
+**Expected output** (for an en_US user **with the `NewPricingEngine` permission unassigned**):
 
 ```text
 User locale: en_US
 NewPricingEngine enabled: false
 ```
 
-The strategy targets `de_DE` (German locale), so it won't match an `en_US` user. If you change
-your locale to German (Setup > Personal Information > Locale), the flag would return `true`.
+The region strategy targets `de_DE` (German locale), so it won't match an `en_US` user. **One catch:** if
+you still have the `NewPricingEngine` Custom Permission assigned from the earlier *Verify the strategy*
+step, the Order-1 Custom Permission strategy matches first and the flag returns `true`. Remove that
+assignment (**Setup > Permission Sets > New Pricing Engine > Manage Assignments > Del**) to let the region
+strategy decide. If you change your locale to German (Setup > Personal Information > Locale), the flag
+returns `true`.
 
 ### Package-bundled API control flags
 
