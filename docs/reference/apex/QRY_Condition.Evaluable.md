@@ -38,10 +38,6 @@ interface value = instance.Evaluable;
 | global abstract [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toSoql](#tosoql)() | Converts the condition to a SOQL query string. |
 | global abstract [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toSoql](#tosoql)([QRY_Condition.SoqlOptions](QRY_Condition.SoqlOptions.md) options) | Converts the condition to a SOQL query string using specific options. |
 
----
-
-## Method Details
-
 ### toSoql
 
 <div class="apex-member">

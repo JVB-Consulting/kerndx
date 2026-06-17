@@ -51,10 +51,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Event](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_event.htm) [newRecord](#newrecord) | Event record state AFTER DML (null on delete). |
 | global [Event](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_event.htm) [oldRecord](#oldrecord) | Event record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

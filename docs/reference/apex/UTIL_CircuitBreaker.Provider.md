@@ -51,10 +51,6 @@ DTO_CustomerResponse customer = (DTO_CustomerResponse)breaker.execute(new GetCus
 |--------|-------------|
 | global abstract [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [execute](#execute)() | The code to execute with circuit breaker protection |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

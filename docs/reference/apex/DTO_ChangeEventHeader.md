@@ -37,35 +37,14 @@ DTO_ChangeEventHeader flowHeader = new DTO_ChangeEventHeader(platformHeader);
 
 ---
 
-## Fields
+## Constructors
 
-| Field | Description |
-|-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [changedFields](#changedfields) | The list of fields whose scalar values changed in this commit. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [changeOrigin](#changeorigin) | The origin of the change — typically user/<userId> for user-initiated changes or a system identifier for platform-initiated changes. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [changeType](#changetype) | The kind of change — CREATE, UPDATE, DELETE, UNDELETE, or GAP_* for replay-gap notifications. |
-| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [commitNumber](#commitnumber) | A monotonically increasing commit-ordering number used by the platform for replay sequencing. |
-| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [commitTimestamp](#committimestamp) | The commit time as Unix epoch milliseconds. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [commitUser](#commituser) | The ID of the user (or System) that committed the change. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [diffFields](#difffields) | The list of fields whose values differ from the prior commit (large / complex types only — most scalar field changes appear in changedFields). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [entityName](#entityname) | The fully qualified API name of the source entity (e.g. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [nulledFields](#nulledfields) | The list of fields whose values were nulled by this change. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [recordIds](#recordids) | The list of source record IDs affected by this change event. |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [sequenceNumber](#sequencenumber) | The ordinal position of this change within the transaction, starting at 1. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [transactionKey](#transactionkey) | A platform-assigned identifier that groups all change events from the same atomic transaction. |
+| Constructor | Description |
+|-------------|-------------|
+| global [DTO_ChangeEventHeader](#constructors)() | No-arg constructor required by some Flow runtime entry points that instantiate Apex-defined variable types before populating fields. |
+| global [DTO_ChangeEventHeader](#constructors)([EventBus.ChangeEventHeader](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_eventbus_ChangeEventHeader.htm) header) | Copy constructor — populates this DTO from a platform EventBus.ChangeEventHeader. |
 
-## Methods
-
-| Method | Description |
-|--------|-------------|
-| global  [DTO_ChangeEventHeader](#dto_changeeventheader)() | No-arg constructor required by some Flow runtime entry points that instantiate Apex-defined variable types before populating fields. |
-| global  [DTO_ChangeEventHeader](#dto_changeeventheader)([EventBus.ChangeEventHeader](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_eventbus_ChangeEventHeader.htm) header) | Copy constructor — populates this DTO from a platform EventBus.ChangeEventHeader. |
-
----
-
-## Method Details
-
-### DTO_ChangeEventHeader
+### DTO_ChangeEventHeader()
 
 <div class="apex-member">
 
@@ -77,6 +56,8 @@ No-arg constructor required by some Flow runtime entry points that
 instantiate Apex-defined variable types before populating fields.
 
 </div>
+
+### DTO_ChangeEventHeader(EventBus.ChangeEventHeader header)
 
 <div class="apex-member">
 
@@ -97,9 +78,22 @@ original.
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [changedFields](#changedfields) | The list of fields whose scalar values changed in this commit. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [changeOrigin](#changeorigin) | The origin of the change — typically user/<userId> for user-initiated changes or a system identifier for platform-initiated changes. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [changeType](#changetype) | The kind of change — CREATE, UPDATE, DELETE, UNDELETE, or GAP_* for replay-gap notifications. |
+| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [commitNumber](#commitnumber) | A monotonically increasing commit-ordering number used by the platform for replay sequencing. |
+| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [commitTimestamp](#committimestamp) | The commit time as Unix epoch milliseconds. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [commitUser](#commituser) | The ID of the user (or System) that committed the change. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [diffFields](#difffields) | The list of fields whose values differ from the prior commit (large / complex types only — most scalar field changes appear in changedFields). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [entityName](#entityname) | The fully qualified API name of the source entity (e.g. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [nulledFields](#nulledfields) | The list of fields whose values were nulled by this change. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [recordIds](#recordids) | The list of source record IDs affected by this change event. |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [sequenceNumber](#sequencenumber) | The ordinal position of this change within the transaction, starting at 1. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [transactionKey](#transactionkey) | A platform-assigned identifier that groups all change events from the same atomic transaction. |
 
 ### changedFields
 

@@ -41,9 +41,9 @@ public class MyStep implements IF_Chain.Step
 
 ---
 
-## Properties
+## Inner Classes
 
-| Property | Description |
-|----------|-------------|
-| global interface [Step](IF_Chain.Step.md) | Interface for defining the business logic of a single chain step. |
+| Class | Description |
+|-------|-------------|
+| [Step](IF_Chain.Step.md) | Interface for defining the business logic of a single chain step. |
 

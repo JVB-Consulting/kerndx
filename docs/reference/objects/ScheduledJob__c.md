@@ -37,10 +37,6 @@ Declarative scheduled job configuration. Each record defines a schedulable Apex 
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [SchedulerName__c](#schedulername__c) | User-friendly name for this scheduled job, used in the Job Name formula and displayed in Scheduled Jobs setup. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Timezone__c](#timezone__c) | IANA TimeZoneSidKey (e.g., Africa/Johannesburg) of the user who authored the cron expression. |
 
----
-
-## Field Details
-
 ### ClassName__c
 
 ```apex

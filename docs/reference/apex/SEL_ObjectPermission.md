@@ -34,12 +34,6 @@ Set<Id> readers = SEL_ObjectPermission.hasReadAccess(userIds, Account.SObjectTyp
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) | A Permission that a User might have on a SObjectType. |
-
 ## Methods
 
 | Method | Description |
@@ -49,10 +43,6 @@ Set<Id> readers = SEL_ObjectPermission.hasReadAccess(userIds, Account.SObjectTyp
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasCreateAccess](#hascreateaccess)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a specified user has create access to a particular object type. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasReadAccess](#hasreadaccess)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Determines if a specified user has read access to a particular Salesforce object type. |
 | global static [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [hasReadAccess](#hasreadaccess)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> userIds, [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Checks if a set of specified users has read access to a given object type. |
-
----
-
-## Method Details
 
 ### hasAccess
 
@@ -186,4 +176,12 @@ Set<Id> result = SEL_ObjectPermission.hasReadAccess(recordIds, Account.SObjectTy
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) | A Permission that a User might have on a SObjectType. |
+
+---
 

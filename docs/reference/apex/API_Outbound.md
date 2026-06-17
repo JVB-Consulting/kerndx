@@ -45,23 +45,6 @@ public with sharing class API_SendEmail extends API_Outbound
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [baseUrl](#baseurl) | Returns the base URL of the web service. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [defaultMockBody](#defaultmockbody) | Default mock response body for unit tests and mock mode. |
-| global [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) [request](#request) | The request object used by the API handler to make an outbound call. |
-| global [DTO_Base](DTO_Base.md) [requestPayload](#requestpayload) | The DTO that should be serialized for the request body in outbound service calls. |
-| global [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) [response](#response) | The response object containing the results of the HTTP callout. |
-| global [DTO_Base](DTO_Base.md) [responsePayload](#responsepayload) | The DTO that will deserialize the response body of the external web service call. |
-
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [requiresTriggeringRecord](#requirestriggeringrecord) | Whether this service requires a triggering object ID. |
-
 ## Methods
 
 | Method | Description |
@@ -85,84 +68,6 @@ public with sharing class API_SendEmail extends API_Outbound
 | global virtual void [parseResponse](#parseresponse)() | Called if request is successful; override to consume response. |
 | global virtual void [prepareRequest](#preparerequest)() | Prepares the outbound request by querying Salesforce data and populating the request DTO. |
 | global virtual void [setHeaders](#setheaders)() | Sets the HTTP headers for the request. |
-
----
-
-## Property Details
-
-### baseUrl
-
-```apex
-global String baseUrl
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-Returns the base URL of the web service. This resolves Named Credentials to handle secure credential management in Salesforce.
-
-### defaultMockBody
-
-```apex
-global String defaultMockBody
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-Default mock response body for unit tests and mock mode.
-Set this in configure() to declare the handler's default mock response.
-When set, API_MockFactory.CalloutMock uses this as fallback when no factory mock is registered.
-
-### request
-
-```apex
-@TestVisible global HttpRequest request
-```
-
-**Type:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm)
-
-The request object used by the API handler to make an outbound call.
-The HttpRequest object is initialized lazily when it's first accessed.
-
-**See Also:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm)
-
-### requestPayload
-
-```apex
-global DTO_Base requestPayload
-```
-
-**Type:** [DTO_Base](DTO_Base.md)
-
-The DTO that should be serialized for the request body in outbound service calls.
-This object contains the data that will be sent to the external service as part of the HTTP request.
-
-### response
-
-```apex
-@TestVisible global HttpResponse response
-```
-
-**Type:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)
-
-The response object containing the results of the HTTP callout.
-This object is populated after the HTTP call is executed.
-
-**See Also:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)
-
-### responsePayload
-
-```apex
-@TestVisible global DTO_Base responsePayload
-```
-
-**Type:** [DTO_Base](DTO_Base.md)
-
-The DTO that will deserialize the response body of the external web service call.
-This object will be populated with the response data after the HTTP call completes.
-
----
-
-## Method Details
 
 ### configure
 
@@ -638,9 +543,92 @@ global override void setHeaders()
 
 </div>
 
----
+## Properties
 
-## Field Details
+| Property | Description |
+|----------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [baseUrl](#baseurl) | Returns the base URL of the web service. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [defaultMockBody](#defaultmockbody) | Default mock response body for unit tests and mock mode. |
+| global [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) [request](#request) | The request object used by the API handler to make an outbound call. |
+| global [DTO_Base](DTO_Base.md) [requestPayload](#requestpayload) | The DTO that should be serialized for the request body in outbound service calls. |
+| global [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) [response](#response) | The response object containing the results of the HTTP callout. |
+| global [DTO_Base](DTO_Base.md) [responsePayload](#responsepayload) | The DTO that will deserialize the response body of the external web service call. |
+
+### baseUrl
+
+```apex
+global String baseUrl
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+Returns the base URL of the web service. This resolves Named Credentials to handle secure credential management in Salesforce.
+
+### defaultMockBody
+
+```apex
+global String defaultMockBody
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+Default mock response body for unit tests and mock mode.
+Set this in configure() to declare the handler's default mock response.
+When set, API_MockFactory.CalloutMock uses this as fallback when no factory mock is registered.
+
+### request
+
+```apex
+@TestVisible global HttpRequest request
+```
+
+**Type:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm)
+
+The request object used by the API handler to make an outbound call.
+The HttpRequest object is initialized lazily when it's first accessed.
+
+**See Also:** [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm)
+
+### requestPayload
+
+```apex
+global DTO_Base requestPayload
+```
+
+**Type:** [DTO_Base](DTO_Base.md)
+
+The DTO that should be serialized for the request body in outbound service calls.
+This object contains the data that will be sent to the external service as part of the HTTP request.
+
+### response
+
+```apex
+@TestVisible global HttpResponse response
+```
+
+**Type:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)
+
+The response object containing the results of the HTTP callout.
+This object is populated after the HTTP call is executed.
+
+**See Also:** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm)
+
+### responsePayload
+
+```apex
+@TestVisible global DTO_Base responsePayload
+```
+
+**Type:** [DTO_Base](DTO_Base.md)
+
+The DTO that will deserialize the response body of the external web service call.
+This object will be populated with the response data after the HTTP call completes.
+
+## Fields
+
+| Field | Description |
+|-------|-------------|
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [requiresTriggeringRecord](#requirestriggeringrecord) | Whether this service requires a triggering object ID. |
 
 ### requiresTriggeringRecord
 

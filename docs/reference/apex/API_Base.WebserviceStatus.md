@@ -29,13 +29,13 @@ API_Base.WebserviceStatus status = API_Base.WebserviceStatus.COMPLETED;
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [ABORTED](#aborted) | The web service call was aborted before execution. |
-| global  [COMPLETED](#completed) | The web service call completed successfully. |
-| global  [FAILED](#failed) | The web service call failed with an error. |
+| Class | Description |
+|-------|-------------|
+| [ABORTED](#aborted) | The web service call was aborted before execution. |
+| [COMPLETED](#completed) | The web service call completed successfully. |
+| [FAILED](#failed) | The web service call failed with an error. |
 
 ---
 

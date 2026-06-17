@@ -33,10 +33,6 @@ Result object returned by execute() containing the outcome of all DML operations
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getSuccessCount](#getsuccesscount)() | Returns the count of successful DML operations across all operation types. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isSuccess](#issuccess)() | Returns true if all DML operations completed successfully. |
 
----
-
-## Method Details
-
 ### getErrors
 
 <div class="apex-member">

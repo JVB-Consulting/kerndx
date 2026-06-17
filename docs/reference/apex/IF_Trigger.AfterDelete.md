@@ -31,10 +31,6 @@ Handler contract for the after-delete trigger event.
 |--------|-------------|
 | global abstract void [afterDelete](#afterdelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Called after records have been deleted, enabling cleanup of orphaned child records, external system notifications, or aggregate recalculation. |
 
----
-
-## Method Details
-
 ### afterDelete
 
 <div class="apex-member">

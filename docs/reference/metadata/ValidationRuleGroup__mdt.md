@@ -42,10 +42,6 @@ Groups validation rules for a specific object and trigger context. Binds to a Tr
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggerTiming__c](#triggertiming__c) | Semicolon-separated list of when rules in this group should run. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRule__mdt](../metadata/ValidationRule__mdt.md)> [ValidationRules__r](#validationrules__r) | Reciprocal relationship for ValidationRule__mdt.ValidationRuleGroup__c. |
 
----
-
-## Field Details
-
 ### BypassExecution__c
 
 ```apex

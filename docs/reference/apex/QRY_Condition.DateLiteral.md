@@ -55,10 +55,6 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [tomorrow](#tomorrow)() | Sets the date literal to TOMORROW. |
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [yesterday](#yesterday)() | Sets the date literal to YESTERDAY. |
 
----
-
-## Method Details
-
 ### last
 
 <div class="apex-member">

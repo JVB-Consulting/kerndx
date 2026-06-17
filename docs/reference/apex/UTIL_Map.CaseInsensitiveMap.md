@@ -35,8 +35,6 @@ Account a = (Account) ciMap.get('ACME LTD');
 
 | Method | Description |
 |--------|-------------|
-| global  [CaseInsensitiveMap](#caseinsensitivemap)() | Constructs an empty CaseInsensitiveMap. |
-| global  [CaseInsensitiveMap](#caseinsensitivemap)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> sourceMap) | Constructs a new CaseInsensitiveMap pre-populated with entries from the provided standard map. |
 | global void [clear](#clear)() | Empties this map, discarding all stored entries. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [containsKey](#containskey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Checks whether this map holds an entry for the specified key, ignoring letter case. |
 | global [UTIL_Map.CaseInsensitiveMap](UTIL_Map.CaseInsensitiveMap.md) [copy](#copy)() | Produces a shallow copy of this CaseInsensitiveMap. |
@@ -49,51 +47,6 @@ Account a = (Account) ciMap.get('ACME LTD');
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the current number of key-value mappings stored in this map. |
 | global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [toMap](#tomap)() | Exports the contents of this map to a standard Map, restoring the original key casing. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [values](#values)() | Returns all values stored in this map as an ordered list. |
-
----
-
-## Method Details
-
-### CaseInsensitiveMap
-
-<div class="apex-member">
-
-```apex
-global CaseInsensitiveMap()
-```
-
-Constructs an empty CaseInsensitiveMap.
-
-**Example**
-
-```apex
-UTIL_Map.CaseInsensitiveMap instance = new UTIL_Map.CaseInsensitiveMap();
-```
-
-</div>
-
-<div class="apex-member">
-
-```apex
-global CaseInsensitiveMap(Map<String, Object> sourceMap)
-```
-
-Constructs a new CaseInsensitiveMap pre-populated with entries
-from the provided standard map.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `sourceMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | The map whose entries are to be placed into this map. |
-
-**Example**
-
-```apex
-UTIL_Map.CaseInsensitiveMap instance = new UTIL_Map.CaseInsensitiveMap(new Map<String, Object>{'key' => 'value'});
-```
-
-</div>
 
 ### clear
 
@@ -363,6 +316,56 @@ Returns all values stored in this map as an ordered list.
 
 ```apex
 List<Object> result = instance.values();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [CaseInsensitiveMap](#constructors)() | Constructs an empty CaseInsensitiveMap. |
+| global [CaseInsensitiveMap](#constructors)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> sourceMap) | Constructs a new CaseInsensitiveMap pre-populated with entries from the provided standard map. |
+
+### CaseInsensitiveMap()
+
+<div class="apex-member">
+
+```apex
+global CaseInsensitiveMap()
+```
+
+Constructs an empty CaseInsensitiveMap.
+
+**Example**
+
+```apex
+UTIL_Map.CaseInsensitiveMap instance = new UTIL_Map.CaseInsensitiveMap();
+```
+
+</div>
+
+### CaseInsensitiveMap(Map<String, Object> sourceMap)
+
+<div class="apex-member">
+
+```apex
+global CaseInsensitiveMap(Map<String, Object> sourceMap)
+```
+
+Constructs a new CaseInsensitiveMap pre-populated with entries
+from the provided standard map.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sourceMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | The map whose entries are to be placed into this map. |
+
+**Example**
+
+```apex
+UTIL_Map.CaseInsensitiveMap instance = new UTIL_Map.CaseInsensitiveMap(new Map<String, Object>{'key' => 'value'});
 ```
 
 </div>

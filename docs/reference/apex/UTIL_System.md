@@ -50,10 +50,6 @@ Type validated = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults', IF_Tri
 | global static [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [getTypeForClassName](#gettypeforclassname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className) | Will return the Type for a given object class name |
 | global static [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [getTypeForClassName](#gettypeforclassname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) expectedType) | Will return the Type for a given object class name |
 
----
-
-## Method Details
-
 ### findTypeForClassName
 
 <div class="apex-member">

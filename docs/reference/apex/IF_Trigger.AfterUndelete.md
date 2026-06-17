@@ -31,10 +31,6 @@ Handler contract for the after-undelete trigger event.
 |--------|-------------|
 | global abstract void [afterUndelete](#afterundelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Called after records have been restored from the Recycle Bin, enabling re-linking of relationships, reactivation of dependent processes, or synchronisation with external systems. |
 
----
-
-## Method Details
-
 ### afterUndelete
 
 <div class="apex-member">

@@ -32,10 +32,6 @@ Represents a mock HTTP response with fault simulation options.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The HTTP status text (e.g., "OK", "Internal Server Error"). |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [statusCode](#statuscode) | The HTTP status code. |
 
----
-
-## Field Details
-
 ### body
 
 ```apex

@@ -1156,10 +1156,11 @@ private static void shouldCompleteThreeStepChain()
 > `steps.size() + 1`. In tests, Salesforce defaults to a stack depth of 1, which prevents chained Queueables.
 > Pass `withAsyncOptions()` to override this for test execution.
 
-> **`ChainContext` is not directly instantiable.** The constructor is `@TestVisible private` to the kern namespace,
-> so subscriber tests cannot call `new UTIL_AsyncChain.ChainContext(...)`. Drive chains through
-> `newChain().then().execute()` inside `Test.startTest()`/`Test.stopTest()` and let the framework wire up the
-> context automatically.
+> **The framework creates and wires up the `ChainContext` for you.** You don't construct it — drive chains
+> through `newChain().then().execute()` inside `Test.startTest()`/`Test.stopTest()`, and the framework builds the
+> context and passes it to each step. To read or assert on the context, do so from inside your step's
+> `work(ChainContext context)` override (where it's handed to you), then assert the chain's outcome with
+> `UTIL_AsyncChain.getStatus(executionId)`.
 
 ---
 

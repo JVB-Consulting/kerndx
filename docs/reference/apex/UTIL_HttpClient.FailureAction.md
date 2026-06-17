@@ -31,12 +31,12 @@ UTIL_HttpClient.post('MyService', '/send')
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [LOG_FAILURE](#log_failure) | Log an ApiIssue__c record without retrying. |
-| global  [RETRY_THEN_LOG](#retry_then_log) | Retry the request, then log a failure record if all retries are exhausted. |
+| Class | Description |
+|-------|-------------|
+| [LOG_FAILURE](#log_failure) | Log an ApiIssue__c record without retrying. |
+| [RETRY_THEN_LOG](#retry_then_log) | Retry the request, then log a failure record if all retries are exhausted. |
 
 ---
 

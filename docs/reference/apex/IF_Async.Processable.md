@@ -31,10 +31,6 @@ Interface for defining the core processing logic to be executed by an asynchrono
 |--------|-------------|
 | global abstract void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the business logic on a list of items. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

@@ -35,54 +35,11 @@ UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newReco
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md) | Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global [UTIL_FormulaFilter.DTO_FilterResults](UTIL_FormulaFilter.DTO_FilterResults.md) [filter](#filter)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Filters the given lists of new and old SObjects based on the entry criteria formula. |
-| global  [UTIL_FormulaFilter](#util_formulafilter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) processName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextClassName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) formula) | Constructs a new instance with the formula details |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_FilterResults](UTIL_FormulaFilter.DTO_FilterResults.md) | Inner class representing the result of the filter method. |
-
----
-
-## Method Details
-
-### UTIL_FormulaFilter
-
-<div class="apex-member">
-
-```apex
-global UTIL_FormulaFilter(String processName, String contextClassName, String formula)
-```
-
-Constructs a new instance with the formula details
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `processName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the process calling the filter, will be used if an error is generated during process so logging will be specific |
-| `contextClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class that will provide the relevant variables, context to the formula. |
-| `formula` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The boolean formula to execute |
-
-**Example**
-
-```apex
-UTIL_FormulaFilter instance = new UTIL_FormulaFilter('value', 'value', 'RecordType.Name = \'Default\'');
-```
-
-</div>
 
 ### filter
 
@@ -121,4 +78,45 @@ DTO_FilterResults result = instance.filter(records, records);
 ```
 
 </div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [UTIL_FormulaFilter](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) processName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextClassName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) formula) | Constructs a new instance with the formula details |
+
+### UTIL_FormulaFilter(String processName, String contextClassName, String formula)
+
+<div class="apex-member">
+
+```apex
+global UTIL_FormulaFilter(String processName, String contextClassName, String formula)
+```
+
+Constructs a new instance with the formula details
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `processName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the process calling the filter, will be used if an error is generated during process so logging will be specific |
+| `contextClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class that will provide the relevant variables, context to the formula. |
+| `formula` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The boolean formula to execute |
+
+**Example**
+
+```apex
+UTIL_FormulaFilter instance = new UTIL_FormulaFilter('value', 'value', 'RecordType.Name = \'Default\'');
+```
+
+</div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_FilterResults](UTIL_FormulaFilter.DTO_FilterResults.md) | Inner class representing the result of the filter method. |
+| [INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md) | Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. |
+
+---
 

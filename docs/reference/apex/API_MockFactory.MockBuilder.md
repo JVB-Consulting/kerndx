@@ -45,10 +45,6 @@ API_MockFactory.forService('API_SendEmail')
 | global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withHeader](#withheader)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a single response header. |
 | global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withHeaders](#withheaders)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Adds multiple response headers. |
 
----
-
-## Method Details
-
 ### body
 
 <div class="apex-member">

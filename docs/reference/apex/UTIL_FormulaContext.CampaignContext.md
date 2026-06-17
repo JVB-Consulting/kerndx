@@ -51,10 +51,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Campaign](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_campaign.htm) [newRecord](#newrecord) | Campaign record state AFTER DML (null on delete). |
 | global [Campaign](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_campaign.htm) [oldRecord](#oldrecord) | Campaign record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

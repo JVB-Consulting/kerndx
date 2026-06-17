@@ -44,13 +44,6 @@ if(UTIL_FeatureFlag.isEnabled('Block_Large_Export', reportEvent.UserId))
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [INT_FeatureFlagStrategy](UTIL_FeatureFlag.INT_FeatureFlagStrategy.md) | The global interface for all feature evaluation strategies. |
-| global interface [INT_UserAwareFeatureFlagStrategy](UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy.md) | Extended interface for custom strategies that support user context evaluation. |
-
 ## Methods
 
 | Method | Description |
@@ -58,10 +51,6 @@ if(UTIL_FeatureFlag.isEnabled('Block_Large_Export', reportEvent.UserId))
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabled](#isenabled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flagName) | Checks if a feature is enabled for the RUNNING user by evaluating its associated strategies. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabled](#isenabled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flagName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId) | Checks if a feature is enabled for a SPECIFIC user. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabled](#isenabled)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flagName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) username) | Checks if a feature is enabled for a user identified by username. |
-
----
-
-## Method Details
 
 ### isEnabled
 
@@ -188,4 +177,13 @@ if(enabled)
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [INT_FeatureFlagStrategy](UTIL_FeatureFlag.INT_FeatureFlagStrategy.md) | The global interface for all feature evaluation strategies. |
+| [INT_UserAwareFeatureFlagStrategy](UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy.md) | Extended interface for custom strategies that support user context evaluation. |
+
+---
 

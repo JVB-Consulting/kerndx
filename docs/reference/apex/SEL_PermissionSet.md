@@ -43,29 +43,6 @@ PermissionSet permissionSet = (PermissionSet)new SEL_PermissionSet().findById(pe
 |--------|-------------|
 | global [PermissionSet](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_permissionset.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Retrieves a PermissionSet record by name, searching both subscriber org (NamespacePrefix = null) and managed package namespace. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for PermissionSet queries. |
-| global  [SEL_PermissionSet](#sel_permissionset)() | Constructs a PermissionSet selector with the PermissionSet SObjectType. |
-
----
-
-## Method Details
-
-### SEL_PermissionSet
-
-<div class="apex-member">
-
-```apex
-global SEL_PermissionSet()
-```
-
-Constructs a PermissionSet selector with the PermissionSet SObjectType.
-
-**Example**
-
-```apex
-SEL_PermissionSet instance = new SEL_PermissionSet();
-```
-
-</div>
 
 ### findByName
 
@@ -110,6 +87,30 @@ Returns the core fields for PermissionSet queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_PermissionSet](#constructors)() | Constructs a PermissionSet selector with the PermissionSet SObjectType. |
+
+### SEL_PermissionSet()
+
+<div class="apex-member">
+
+```apex
+global SEL_PermissionSet()
+```
+
+Constructs a PermissionSet selector with the PermissionSet SObjectType.
+
+**Example**
+
+```apex
+SEL_PermissionSet instance = new SEL_PermissionSet();
 ```
 
 </div>

@@ -44,16 +44,6 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(items, processor, 50);
 | global static [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [process](#process)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items, [IF_Async.Processable](IF_Async.Processable.md) processor, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) jobSize) | Starts an adaptive asynchronous job with a custom job size for batch or queueable processing. |
 | global static [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [process](#process)([UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) request, [IF_Async.Processable](IF_Async.Processable.md) processor) | Starts an adaptive asynchronous job with full configuration control via a request object. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) | Request object for initiating an asynchronous process. |
-
----
-
-## Method Details
-
 ### process
 
 <div class="apex-member">
@@ -152,4 +142,12 @@ System.debug('Advanced processing started with Job ID: ' + jobId);
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) | Request object for initiating an asynchronous process. |
+
+---
 

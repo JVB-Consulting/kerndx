@@ -30,10 +30,6 @@ Request DTO containing the information required to retrieve picklist values.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [objectApiName](#objectapiname) | The object API name for the SObject whose picklist values are being retrieved. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [recordTypeApiName](#recordtypeapiname) | The Record Type API name for which to retrieve specifically configured picklist values. |
 
----
-
-## Field Details
-
 ### objectApiName
 
 ```apex

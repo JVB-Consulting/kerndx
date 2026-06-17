@@ -55,10 +55,6 @@ String iso = UTIL_Date.toIso8601(Date.today());
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toIso8601](#toiso8601)([Date](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_date.htm) inputDate) | Serializes a Date into its ISO 8601 string representation (date portion only). |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toIso8601](#toiso8601)([Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) inputDatetime) | Serializes a Datetime into its ISO 8601 string representation, stripping surrounding quotes. |
 
----
-
-## Method Details
-
 ### addBusinessDays
 
 <div class="apex-member">

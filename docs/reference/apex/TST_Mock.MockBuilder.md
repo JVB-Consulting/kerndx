@@ -49,10 +49,6 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withOverrides](#withoverrides)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Sets field value overrides using String field names. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withRecordType](#withrecordtype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeDeveloperName) | Sets the Record Type for the mock records using the Record Type's DeveloperName. |
 
----
-
-## Method Details
-
 ### build
 
 <div class="apex-member">

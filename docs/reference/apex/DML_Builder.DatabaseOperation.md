@@ -23,15 +23,15 @@ Enum to specify the type of DML operation for external use.
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [DML_DELETE](#dml_delete) | Delete operation. |
-| global  [DML_INSERT](#dml_insert) | Insert operation. |
-| global  [DML_UNDELETE](#dml_undelete) | Undelete operation. |
-| global  [DML_UPDATE](#dml_update) | Update operation. |
-| global  [DML_UPSERT](#dml_upsert) | Upsert operation. |
+| Class | Description |
+|-------|-------------|
+| [DML_DELETE](#dml_delete) | Delete operation. |
+| [DML_INSERT](#dml_insert) | Insert operation. |
+| [DML_UNDELETE](#dml_undelete) | Undelete operation. |
+| [DML_UPDATE](#dml_update) | Update operation. |
+| [DML_UPSERT](#dml_upsert) | Upsert operation. |
 
 ---
 

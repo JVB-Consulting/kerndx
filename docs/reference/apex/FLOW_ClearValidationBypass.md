@@ -38,16 +38,6 @@ Flow invocable action to clear validation rule bypasses for the current transact
 |--------|-------------|
 | global static void [clearBypass](#clearbypass)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_ClearValidationBypass.DTO_Request](FLOW_ClearValidationBypass.DTO_Request.md)> requests) | Clears validation rule bypasses for the current transaction. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_ClearValidationBypass.DTO_Request.md) | Request DTO for the Clear Validation Bypass invocable action. |
-
----
-
-## Method Details
-
 ### clearBypass
 
 <div class="apex-member">
@@ -76,4 +66,12 @@ FLOW_ClearValidationBypass.clearBypass(new List<FLOW_ClearValidationBypass.DTO_R
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_ClearValidationBypass.DTO_Request.md) | Request DTO for the Clear Validation Bypass invocable action. |
+
+---
 

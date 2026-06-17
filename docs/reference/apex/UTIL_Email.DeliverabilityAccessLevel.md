@@ -23,13 +23,13 @@ Enum representing the three possible email deliverability settings in a Salesfor
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [ALL_EMAIL](#all_email) | All outbound email — user-initiated and Apex — is permitted. |
-| global  [NO_ACCESS](#no_access) | No outbound email is permitted. |
-| global  [SYSTEM_EMAIL_ONLY](#system_email_only) | Only system-generated email (e.g., password resets) is permitted. |
+| Class | Description |
+|-------|-------------|
+| [ALL_EMAIL](#all_email) | All outbound email — user-initiated and Apex — is permitted. |
+| [NO_ACCESS](#no_access) | No outbound email is permitted. |
+| [SYSTEM_EMAIL_ONLY](#system_email_only) | Only system-generated email (e.g., password resets) is permitted. |
 
 ---
 

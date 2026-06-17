@@ -31,10 +31,6 @@ Interface for providing context data to dynamic formula evaluations using Salesf
 |--------|-------------|
 | global abstract void [setContext](#setcontext)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) oldRecord, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) newRecord) | Sets the context for formula evaluation by providing the current and previous states of the SObject record being processed. |
 
----
-
-## Method Details
-
 ### setContext
 
 <div class="apex-member">

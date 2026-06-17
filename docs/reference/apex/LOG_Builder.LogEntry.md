@@ -56,10 +56,6 @@ LOG_Builder.build()
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withFingerprint](#withfingerprint)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Sets a grouping fingerprint for this entry, enabling flood control: the first occurrence persists as a full detail row, repeats roll up into daily counter rows. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withSummary](#withsummary)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) shortMessage) | Sets a brief summary message for the log entry. |
 
----
-
-## Method Details
-
 ### at
 
 <div class="apex-member">

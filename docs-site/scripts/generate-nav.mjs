@@ -116,6 +116,74 @@ function link(page)
 	return {text: page.frontmatter?.title || page.title, link: page.slug === '' ? '/' : `/${page.slug}`};
 }
 
+// The filename (no extension) of a reference page — e.g. 'UTIL_SObjectDescribe.FieldListBuilder'
+// for reference/apex/UTIL_SObjectDescribe.FieldListBuilder.md. Empty for non-reference pages.
+function refFileBase(page)
+{
+	const m = page.relPath.match(/^reference\/[^/]+\/(.+)\.md$/i);
+	return m ? m[1] : '';
+}
+
+// Within an apex domain folder, nest each inner class (an `Outer.Inner` page) under its
+// `Outer` parent so the sidebar mirrors the Apex class hierarchy instead of listing the
+// outer class and every inner class as flat alphabetical siblings (e.g. IF_Trigger's eight
+// inner interfaces, or each FLOW_ action's DTO_Request/DTO_Response pair). Inner classes are
+// shown by their short name under the parent. An inner class whose outer class has no page of
+// its own stays a top-level sibling. Non-apex domains (object/event/metadata names have no
+// dots) pass straight through. `ordered` is the already-sorted page list for the domain.
+function nestInnerClasses(ordered)
+{
+	const byFileBase = new Map();
+	for(const p of ordered)
+	{
+		const fb = refFileBase(p);
+		if(fb)
+		{
+			byFileBase.set(fb, p);
+		}
+	}
+
+	const isApexInner = p => /^reference\/apex\//i.test(p.relPath) && refFileBase(p).includes('.');
+	const outerOf = p => { const fb = refFileBase(p); return fb.slice(0, fb.indexOf('.')); };
+	const nestable = p => isApexInner(p) && byFileBase.has(outerOf(p));
+
+	const childrenByOuter = new Map();
+	for(const p of ordered)
+	{
+		if(nestable(p))
+		{
+			const key = outerOf(p);
+			if(!childrenByOuter.has(key))
+			{
+				childrenByOuter.set(key, []);
+			}
+			childrenByOuter.get(key).push(p);
+		}
+	}
+
+	const out = [];
+	for(const p of ordered)
+	{
+		if(nestable(p))
+		{
+			continue;   // rendered as a child of its outer class below
+		}
+		const kids = childrenByOuter.get(refFileBase(p));
+		if(kids && kids.length)
+		{
+			const prefixLen = refFileBase(p).length + 1;
+			out.push({
+				...link(p), collapsed: true, items: kids.map(k => ({text: refFileBase(k).slice(prefixLen), link: k.slug === '' ? '/' : `/${k.slug}`}))
+			});
+		}
+		else
+		{
+			out.push(link(p));
+		}
+	}
+	return out;
+}
+
 // A reference landing page (index.md). When one sits inside a domain folder
 // (object/event/metadata area landings), it sorts first so the overview leads.
 function isIndexPage(page)
@@ -225,7 +293,7 @@ export function generateSidebar(pages)
 				// alpha), so it is safe for every reference domain folder.
 				const ordered = bucket.subgroups.get(domain).slice().sort((a, b) =>
 					(isIndexPage(a) ? 0 : 1) - (isIndexPage(b) ? 0 : 1) || apexCompare(a, b));
-				items.push({text: domain, collapsed: true, items: ordered.map(link)});
+				items.push({text: domain, collapsed: true, items: nestInnerClasses(ordered)});
 			}
 		}
 		sidebar.push({text: name, collapsed: name === 'API Reference', items});

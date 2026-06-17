@@ -44,10 +44,6 @@ Tracks API integration issues for troubleshooting, manual resolution, and automa
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current status: Open (awaiting investigation or resolution) or Resolved (resolved by automatic retry batch job or manual retry via quick action). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordId__c](#triggeringrecordid__c) | The 18-character Salesforce record ID that initiated the original API call. |
 
----
-
-## Field Details
-
 ### ApiCall__c
 
 ```apex

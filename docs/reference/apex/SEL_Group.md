@@ -45,30 +45,7 @@ List<User> members = new SEL_Group().findAllUsers(new Set<Id>{groupId});
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [findAllUsers](#findallusers)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> parentGroupIds) | Recursively finds all users contained within the specified public groups, including users from embedded roles, role hierarchies, and nested groups. |
 | global [Group](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_group.htm) [findByName](#findbyname)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupName) | Finds a Group by its Name field. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the default fields for Group queries. |
-| global  [SEL_Group](#sel_group)() | Constructs a new SEL_Group selector instance. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [userIsInGroup](#userisingroup)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupName) | Checks whether a user is a member of a named group. |
-
----
-
-## Method Details
-
-### SEL_Group
-
-<div class="apex-member">
-
-```apex
-global SEL_Group()
-```
-
-Constructs a new SEL_Group selector instance.
-
-**Example**
-
-```apex
-SEL_Group instance = new SEL_Group();
-```
-
-</div>
 
 ### findAllUsers
 
@@ -176,6 +153,30 @@ Checks whether a user is a member of a named group.
 
 ```apex
 Boolean result = instance.userIsInGroup(recordId, 'myName');
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_Group](#constructors)() | Constructs a new SEL_Group selector instance. |
+
+### SEL_Group()
+
+<div class="apex-member">
+
+```apex
+global SEL_Group()
+```
+
+Constructs a new SEL_Group selector instance.
+
+**Example**
+
+```apex
+SEL_Group instance = new SEL_Group();
 ```
 
 </div>

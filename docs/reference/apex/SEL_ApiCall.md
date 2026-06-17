@@ -49,29 +49,6 @@ ApiCall__c existing = new SEL_ApiCall().findByIdempotencyKey('550e8400-e29b-41d4
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [assertServiceFailed](#assertservicefailed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorPhrase) | Verifies that API calls for a specific service name have a failed status and optionally checks for a specific error phrase. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiCall__c](../objects/ApiCall__c.md)> [findByServiceName](#findbyservicename)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Retrieves ApiCall__c records by a specific service name. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the default fields for ApiCall__c queries. |
-| global  [SEL_ApiCall](#sel_apicall)() | Constructs a new SEL_ApiCall selector instance. |
-
----
-
-## Method Details
-
-### SEL_ApiCall
-
-<div class="apex-member">
-
-```apex
-global SEL_ApiCall()
-```
-
-Constructs a new SEL_ApiCall selector instance.
-
-**Example**
-
-```apex
-SEL_ApiCall instance = new SEL_ApiCall();
-```
-
-</div>
 
 ### assertServiceAborted
 
@@ -245,6 +222,30 @@ Returns the default fields for ApiCall__c queries.
 
 ```apex
 List<SObjectField> result = instance.getFields();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_ApiCall](#constructors)() | Constructs a new SEL_ApiCall selector instance. |
+
+### SEL_ApiCall()
+
+<div class="apex-member">
+
+```apex
+global SEL_ApiCall()
+```
+
+Constructs a new SEL_ApiCall selector instance.
+
+**Example**
+
+```apex
+SEL_ApiCall instance = new SEL_ApiCall();
 ```
 
 </div>

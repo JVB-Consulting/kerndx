@@ -52,10 +52,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Foobar__c](../objects/Foobar__c.md) [newRecord](#newrecord) | Foobar__c record state AFTER DML (null on delete). |
 | global [Foobar__c](../objects/Foobar__c.md) [oldRecord](#oldrecord) | Foobar__c record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

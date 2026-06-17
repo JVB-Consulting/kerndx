@@ -53,12 +53,6 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [Scope](QRY_Builder.Scope.md) | Enumeration of valid SOQL scope values for use with the USING SCOPE clause. |
-
 ## Methods
 
 | Method | Description |
@@ -68,20 +62,6 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
 | global static [QRY_Builder.Builder](QRY_Builder.Builder.md) [selectFrom](#selectfrom)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Entry point for inline queries. |
 | global static void [setMock](#setmock)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> mocks) | Registers mock records for a specific SObjectType during test execution. |
 | global static void [setMockException](#setmockexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionToThrow) | Registers an exception to be thrown when QRY_Builder is invoked for the specified SObjectType. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [AggregateRow](QRY_Builder.AggregateRow.md) | Typed wrapper around AggregateResult for convenient value access. |
-| [Builder](QRY_Builder.Builder.md) | Extensible query builder class. |
-| [ConditionBuilder](QRY_Builder.ConditionBuilder.md) | Fluent builder for field-level conditions (WHERE and HAVING). |
-| [DataCategoryBuilder](QRY_Builder.DataCategoryBuilder.md) | Fluent builder for WITH DATA CATEGORY filters. |
-| [QueryPage](QRY_Builder.QueryPage.md) | Result container for paged queries, providing records and pagination metadata. |
-
----
-
-## Method Details
 
 ### clearMocks
 
@@ -234,4 +214,17 @@ QRY_Builder.setMockException(Account.SObjectType, new QueryException('Simulated 
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [AggregateRow](QRY_Builder.AggregateRow.md) | Typed wrapper around AggregateResult for convenient value access. |
+| [Builder](QRY_Builder.Builder.md) | Extensible query builder class. |
+| [ConditionBuilder](QRY_Builder.ConditionBuilder.md) | Fluent builder for field-level conditions (WHERE and HAVING). |
+| [DataCategoryBuilder](QRY_Builder.DataCategoryBuilder.md) | Fluent builder for WITH DATA CATEGORY filters. |
+| [QueryPage](QRY_Builder.QueryPage.md) | Result container for paged queries, providing records and pagination metadata. |
+| [Scope](QRY_Builder.Scope.md) | Enumeration of valid SOQL scope values for use with the USING SCOPE clause. |
+
+---
 

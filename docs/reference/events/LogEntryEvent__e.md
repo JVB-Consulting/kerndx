@@ -46,10 +46,6 @@ High-volume platform event that transports log data asynchronously. Persisted to
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TransactionId__c](#transactionid__c) | Salesforce Request ID for the transaction that produced this log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [UserId__c](#userid__c) | Salesforce User ID of the user whose execution context produced this log entry. |
 
----
-
-## Field Details
-
 ### ClassMethod__c
 
 ```apex

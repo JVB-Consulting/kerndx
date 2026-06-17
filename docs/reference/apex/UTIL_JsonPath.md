@@ -52,41 +52,6 @@ Boolean exists = json.exists('account.name');
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isArray](#isarray)() | Checks if the wrapped JSON data is an array (List). |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isObject](#isobject)() | Checks if the wrapped JSON data is an object (Map). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toStringPretty](#tostringpretty)() | Serializes the wrapped JSON data to a pretty-printed JSON string. |
-| global  [UTIL_JsonPath](#util_jsonpath)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) jsonData) | Constructs a UTIL_JsonPath instance from a serialized JSON string. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [MissingKeyException](UTIL_JsonPath.MissingKeyException.md) | Custom exception thrown when a JSON path key cannot be resolved. |
-
----
-
-## Method Details
-
-### UTIL_JsonPath
-
-<div class="apex-member">
-
-```apex
-global UTIL_JsonPath(String jsonData)
-```
-
-Constructs a UTIL_JsonPath instance from a serialized JSON string.
-
-**Parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `jsonData` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The JSON string to parse. |
-
-**Example**
-
-```apex
-UTIL_JsonPath instance = new UTIL_JsonPath('value');
-```
-
-</div>
 
 ### exists
 
@@ -432,4 +397,42 @@ String result = json.toStringPretty();
 ```
 
 </div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [UTIL_JsonPath](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) jsonData) | Constructs a UTIL_JsonPath instance from a serialized JSON string. |
+
+### UTIL_JsonPath(String jsonData)
+
+<div class="apex-member">
+
+```apex
+global UTIL_JsonPath(String jsonData)
+```
+
+Constructs a UTIL_JsonPath instance from a serialized JSON string.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `jsonData` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The JSON string to parse. |
+
+**Example**
+
+```apex
+UTIL_JsonPath instance = new UTIL_JsonPath('value');
+```
+
+</div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [MissingKeyException](UTIL_JsonPath.MissingKeyException.md) | Custom exception thrown when a JSON path key cannot be resolved. |
+
+---
 

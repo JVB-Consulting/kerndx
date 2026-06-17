@@ -23,23 +23,11 @@ DTO representing a field to update on an SObject.
 
 ---
 
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | API name of the field to update (e.g., 'Name'). |
-| global [PROC_UpdateFields.FieldUpdateMethod](PROC_UpdateFields.FieldUpdateMethod.md) [updateMethod](#updatemethod) | Method to use for updating the field (default: REPLACE). |
-| global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [value](#value) | Value to apply to the field. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global void [setObjectValue](#setobjectvalue)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) currentSObject) | Sets the field value on an SObject based on the specified update method. |
-
----
-
-## Method Details
 
 ### setObjectValue
 
@@ -65,9 +53,13 @@ instance.setObjectValue(record);
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | API name of the field to update (e.g., 'Name'). |
+| global [PROC_UpdateFields.FieldUpdateMethod](PROC_UpdateFields.FieldUpdateMethod.md) [updateMethod](#updatemethod) | Method to use for updating the field (default: REPLACE). |
+| global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [value](#value) | Value to apply to the field. |
 
 ### name
 

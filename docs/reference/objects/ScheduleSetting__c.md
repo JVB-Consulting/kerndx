@@ -30,10 +30,6 @@ Stores runtime state for scheduled jobs, such as the last successful execution t
 |-------|-------------|
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [LastSuccessfulRunTime__c](#lastsuccessfulruntime__c) | Holds the last successful run time of the schedule. |
 
----
-
-## Field Details
-
 ### LastSuccessfulRunTime__c
 
 ```apex

@@ -38,29 +38,6 @@ group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.E
 | Method | Description |
 |--------|-------------|
 | global override [QRY_Condition.Nestable](QRY_Condition.Nestable.md) [add](#add)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a condition to this OR group. |
-| global  [OrCondition](#orcondition)() | Constructor for creating an OR condition group. |
-
----
-
-## Method Details
-
-### OrCondition
-
-<div class="apex-member">
-
-```apex
-global OrCondition()
-```
-
-Constructor for creating an OR condition group.
-
-**Example**
-
-```apex
-QRY_Condition.OrCondition instance = new QRY_Condition.OrCondition();
-```
-
-</div>
 
 ### add
 
@@ -86,6 +63,30 @@ Adds a condition to this OR group.
 QRY_Condition.OrCondition group = new QRY_Condition.OrCondition();
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
 group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Pending'));
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [OrCondition](#constructors)() | Constructor for creating an OR condition group. |
+
+### OrCondition()
+
+<div class="apex-member">
+
+```apex
+global OrCondition()
+```
+
+Constructor for creating an OR condition group.
+
+**Example**
+
+```apex
+QRY_Condition.OrCondition instance = new QRY_Condition.OrCondition();
 ```
 
 </div>

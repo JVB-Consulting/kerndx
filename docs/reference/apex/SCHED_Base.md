@@ -63,10 +63,6 @@ global class SCHED_MyJob extends SCHED_Base
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getTextParameter](#gettextparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a TEXT parameter value. |
 | global void [setParameterValues](#setparametervalues)([DTO_NameValues](DTO_NameValues.md) parameterValues) | Stores the provided parameter values. |
 
----
-
-## Method Details
-
 ### getBooleanParameter
 
 <div class="apex-member">

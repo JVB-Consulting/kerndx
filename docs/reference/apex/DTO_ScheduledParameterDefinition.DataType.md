@@ -23,13 +23,13 @@ Enumeration of supported input data types for scheduled job parameters.
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [FLAG](#flag) | Boolean input. |
-| global  [NUMERIC](#numeric) | Whole number input. |
-| global  [TEXT](#text) | Free-text string input. |
+| Class | Description |
+|-------|-------------|
+| [FLAG](#flag) | Boolean input. |
+| [NUMERIC](#numeric) | Whole number input. |
+| [TEXT](#text) | Free-text string input. |
 
 ---
 

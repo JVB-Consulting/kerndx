@@ -23,13 +23,13 @@ Enum representing the circuit breaker state
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [CLOSED](#closed) | Normal operation - requests pass through |
-| global  [HALF_OPEN](#half_open) | Testing recovery - limited requests allowed to test if service recovered |
-| global  [OPEN](#open) | Circuit is open - requests fail fast without attempting call |
+| Class | Description |
+|-------|-------------|
+| [CLOSED](#closed) | Normal operation - requests pass through |
+| [HALF_OPEN](#half_open) | Testing recovery - limited requests allowed to test if service recovered |
+| [OPEN](#open) | Circuit is open - requests fail fast without attempting call |
 
 ---
 

@@ -34,10 +34,6 @@ Data Transfer Object representing the web service call request.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [inputs](#inputs) | A comma-delimited list of parameters in the format paramName=paramValue. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [recordId](#recordid) | The ID of the record triggering the callout. |
 
----
-
-## Field Details
-
 ### apiName
 
 ```apex

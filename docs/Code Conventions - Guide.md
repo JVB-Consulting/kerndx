@@ -101,12 +101,13 @@ if(condition)
 }
 
 // Line wrap (>180 chars): opening paren on new line, args indented
-TriggerAction__mdt action = TST_Factory.newTriggerActionForContext
-(
-	TEST_BEFORE_INSERT,
-	TRIGGER_SETTING,
-	TriggerOperation.BEFORE_INSERT
-);
+List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
+	.fields
+	(
+		new List<String>{ 'Name', 'Type' }
+	)
+	.condition(Account.Type).equals('Customer')
+	.toList();
 ```
 
 ## ApexDoc
@@ -155,25 +156,23 @@ naming: `ClassName_Event`.
 **Bypass:** Object: `TRG_Base.bypass(SObjectType)/.isBypassed()/.clearBypass()/.clearAllBypasses()` (also String overloads) | Action:
 `.bypassAction(name)/.isActionBypassed()/.clearActionBypass()/.clearAllActionBypasses()` | Flow: `FLOW_BypassTrigger` | Declarative: `TriggerSetting__mdt.BypassExecution__c`
 
-**Test pattern:** `TST_Factory` metadata → `TST_Builder.build()` insert (fires trigger) → `SEL_*`/`QRY_Builder` for assertions. No selector? Use
-`QRY_Builder.selectFrom(SObjectType).condition(field).equals(value).getFirst()`.
+**Test pattern:** Build the input record(s) in memory with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()`, invoke the handler directly (e.g.
+`new TRG_SetFoobarDefaults().beforeInsert(records)`), and assert on the in-memory records. To drive the full dispatcher instead, insert with `kern.TST_Builder.of(SObjectType).build()`
+(fires the trigger) and assert with `SEL_*`/`QRY_Builder`. No selector? Use `kern.QRY_Builder.selectFrom(SObjectType).condition(field).equals(value).getFirst()`.
 
 ```apex
 @IsTest(SeeAllData=false IsParallel=true)
 private class TRG_SetFoobarDefaults_TEST
 {
-	/** @description The trigger setting developer name. */
-	private static final String TRIGGER_SETTING = SEL_Foobar.OBJECT_NAME;
-	/** @description The trigger action class name. */
-	private static final String TRIGGER_ACTION = TRG_SetFoobarDefaults.class.getName();
-
 	@IsTest
 	private static void shouldSetDefaultWhenFieldBlank()
 	{
-		TST_Factory.newTriggerActionForContext(TRIGGER_ACTION, TST_Factory.newTriggerSetting(TRIGGER_SETTING), TriggerOperation.BEFORE_INSERT);
-		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-		Foobar__c result = (Foobar__c)new SEL_Foobar().findById(record.Id);
-		Assert.isNotNull(result.Name, 'Default should be set');
+		Foobar__c record = (Foobar__c)kern.TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+		List<SObject> records = new List<SObject>{ record };
+
+		new TRG_SetFoobarDefaults().beforeInsert(records);
+
+		Assert.isNotNull(record.Name, 'Default should be set');
 	}
 }
 ```
@@ -445,8 +444,13 @@ IDs)/`.build()`/`.buildList()`
 
 ### TST_Factory
 
-`newTriggerSetting(objectApiName)` | `newTriggerAction(className, setting)` | `newTriggerActionForContext(className, setting, TriggerOperation)` |
-`newValidationRule(name, formula, msg)` | `newValidationRuleGroup(setting)` | `newOutboundApiCall(service, recordId[, params])` | `newInboundApiCall(service)`
+`newFeatureFlag(flagName)` | `newOutboundApiCall(service, recordId[, params])` | `newInboundApiCall(service)` | `newUser(profileName[, companyName])`
+
+- **Feature-flag tests:** `kern.TST_Factory.newFeatureFlag('FlagName')` seeds an active flag. For the off path, simply don't seed it — an unseeded flag is treated as off.
+- **Trigger-action tests:** invoke the handler directly — build the input record in memory with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()`, call the handler
+  method (e.g. `new MyHandler().beforeInsert(records)`), and assert on the record (see the Trigger Framework test pattern above).
+- **Custom-validation tests:** deploy the rule as CMDT, then assert with the global `kern.UTIL_ValidationTestHelper.assertRuleFails(record, ruleDeveloperName)` /
+  `assertRulePasses(record, ruleDeveloperName)` (or inspect `kern.UTIL_ValidationTestHelper.validate(record)`).
 
 ### TST_Mock
 

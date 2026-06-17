@@ -55,10 +55,6 @@ global class SCHED_MyJob extends SCHED_Base
 | global abstract [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md)> [getParameterDefinitions](#getparameterdefinitions)() | Returns the parameter definitions supported by this scheduled class. |
 | global abstract void [setParameterValues](#setparametervalues)([DTO_NameValues](DTO_NameValues.md) parameterValues) | Receives the validated parameter values at scheduling time. |
 
----
-
-## Method Details
-
 ### getParameterDefinitions
 
 <div class="apex-member">

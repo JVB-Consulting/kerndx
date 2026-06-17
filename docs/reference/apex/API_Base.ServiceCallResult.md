@@ -39,25 +39,6 @@ Boolean success = result.isSuccess;
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isSuccess](#issuccess) | Indicates if the service call completed successfully. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [statusText](#statustext) | Text representation of the service status. |
 
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [errors](#errors) | List of errors encountered during the service call. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isMocked](#ismocked) | Indicates if the service call response was mocked. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [parseError](#parseerror) | Indicates the response was successfully received from the remote endpoint but parseResponse() failed (typically a JSON deserialization error or unexpected payload shape). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [requestBody](#requestbody) | The request body sent. |
-| global [DTO_NameValues](DTO_NameValues.md) [requestHeaders](#requestheaders) | Request headers as name-value pairs. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [responseBody](#responsebody) | The response body received. |
-| global [DTO_NameValues](DTO_NameValues.md) [responseHeaders](#responseheaders) | Response headers as name-value pairs. |
-| global [API_Base.WebserviceStatus](API_Base.WebserviceStatus.md) [status](#status) | The status of the web service call. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [statusCode](#statuscode) | The HTTP status code for the request. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [url](#url) | The URL of the endpoint accessed. |
-
----
-
-## Property Details
-
 ### hasFailed
 
 ```apex
@@ -98,9 +79,20 @@ global String statusText
 
 Text representation of the service status.
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [errors](#errors) | List of errors encountered during the service call. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isMocked](#ismocked) | Indicates if the service call response was mocked. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [parseError](#parseerror) | Indicates the response was successfully received from the remote endpoint but parseResponse() failed (typically a JSON deserialization error or unexpected payload shape). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [requestBody](#requestbody) | The request body sent. |
+| global [DTO_NameValues](DTO_NameValues.md) [requestHeaders](#requestheaders) | Request headers as name-value pairs. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [responseBody](#responsebody) | The response body received. |
+| global [DTO_NameValues](DTO_NameValues.md) [responseHeaders](#responseheaders) | Response headers as name-value pairs. |
+| global [API_Base.WebserviceStatus](API_Base.WebserviceStatus.md) [status](#status) | The status of the web service call. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [statusCode](#statuscode) | The HTTP status code for the request. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [url](#url) | The URL of the endpoint accessed. |
 
 ### errors
 

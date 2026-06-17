@@ -50,10 +50,6 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxContextSize](#withmaxcontextsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSize) | Sets the maximum serialized context size in characters. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxSteps](#withmaxsteps)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSteps) | Sets the maximum number of steps the chain is allowed to execute. |
 
----
-
-## Method Details
-
 ### execute
 
 <div class="apex-member">

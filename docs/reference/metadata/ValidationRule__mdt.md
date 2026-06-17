@@ -44,10 +44,6 @@ Defines an individual validation rule with a formula-based condition, error mess
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [ValidationRuleGroup__c](#validationrulegroup__c) | Links this rule to a validation rule group. |
 | global [ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md) [ValidationRuleGroup__r](#validationrulegroup__r) | Links this rule to a validation rule group. |
 
----
-
-## Field Details
-
 ### BypassExecution__c
 
 ```apex

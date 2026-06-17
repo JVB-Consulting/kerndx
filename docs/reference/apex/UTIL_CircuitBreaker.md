@@ -76,31 +76,11 @@ if(!breaker.allowRequest())
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [Breaker](UTIL_CircuitBreaker.Breaker.md) | Interface for circuit breaker operations. |
-| global interface [ProtectedAction](UTIL_CircuitBreaker.ProtectedAction.md) | Interface for code that needs circuit breaker protection (no return value) Implement this interface to use the simplified execute() method which handles allowRequest(), recordSuccess(), and recordFailure() automatically. |
-| global interface [Provider](UTIL_CircuitBreaker.Provider.md) | Interface for code that needs circuit breaker protection (with return value) Implement this interface when your action needs to return data. |
-| global enum [State](UTIL_CircuitBreaker.State.md) | Enum representing the circuit breaker state |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global static [UTIL_CircuitBreaker.Breaker](UTIL_CircuitBreaker.Breaker.md) [monitor](#monitor)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) circuitId) | Creates a new circuit breaker instance with default configuration Default configuration: Failure threshold: 5 failures Timeout: 60 seconds Success threshold: 2 successes Half-open max attempts: 3 |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [Metrics](UTIL_CircuitBreaker.Metrics.md) | Public class containing circuit breaker metrics |
-| [OpenException](UTIL_CircuitBreaker.OpenException.md) | Exception thrown when circuit breaker is OPEN and blocks a request |
-
----
-
-## Method Details
 
 ### monitor
 
@@ -142,4 +122,17 @@ UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('API_SendGridE
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [Breaker](UTIL_CircuitBreaker.Breaker.md) | Interface for circuit breaker operations. |
+| [Metrics](UTIL_CircuitBreaker.Metrics.md) | Public class containing circuit breaker metrics |
+| [OpenException](UTIL_CircuitBreaker.OpenException.md) | Exception thrown when circuit breaker is OPEN and blocks a request |
+| [ProtectedAction](UTIL_CircuitBreaker.ProtectedAction.md) | Interface for code that needs circuit breaker protection (no return value) Implement this interface to use the simplified execute() method which handles allowRequest(), recordSuccess(), and recordFailure() automatically. |
+| [Provider](UTIL_CircuitBreaker.Provider.md) | Interface for code that needs circuit breaker protection (with return value) Implement this interface when your action needs to return data. |
+| [State](UTIL_CircuitBreaker.State.md) | Enum representing the circuit breaker state |
+
+---
 

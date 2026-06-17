@@ -33,10 +33,6 @@ DTO for parameters to query and update records.
 | global [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) [searchConditions](#searchconditions) | Conditions to filter records for updating. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[PROC_UpdateFields.DTO_Field](PROC_UpdateFields.DTO_Field.md)> [updateFields](#updatefields) | List of field updates to apply to the SObjects. |
 
----
-
-## Field Details
-
 ### accessLevel
 
 ```apex

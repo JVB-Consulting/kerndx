@@ -29,21 +29,11 @@ Abstract base class for implementing custom type resolvers, typically registered
 
 ---
 
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) [nextResolver](#nextresolver) | Holds the reference to the next resolver in the chain. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global abstract [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [resolveType](#resolvetype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) typeName) | Resolves a Type object from a class name. |
-
----
-
-## Method Details
 
 ### resolveType
 
@@ -72,9 +62,11 @@ Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivat
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) [nextResolver](#nextresolver) | Holds the reference to the next resolver in the chain. |
 
 ### nextResolver
 

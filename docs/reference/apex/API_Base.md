@@ -43,19 +43,6 @@ public class API_MyService extends API_Outbound
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global [ApiCall__c](../objects/ApiCall__c.md) [apiCall](#apicall) | The ApiCall__c object that initiated the service call. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The unique correlation ID for this handler instance. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorText](#errortext) | Returns errors encountered during the request or the error payload if no error is logged. |
-| global enum [HttpMethod](API_Base.HttpMethod.md) | HTTP method verbs for web service calls. |
-| global [DTO_NameValues](DTO_NameValues.md) [inputs](#inputs) | DTO containing parameters passed to the API. |
-| global [API_Base.ServiceCallResult](API_Base.ServiceCallResult.md) [result](#result) | Tracks the request, response, and status of a web service call. |
-| global [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [setting](#setting) | API settings metadata for this service, lazy-loaded from ApiSetting__mdt. |
-| global enum [WebserviceStatus](API_Base.WebserviceStatus.md) | Enum representing the status of a web service call. |
-
 ## Methods
 
 | Method | Description |
@@ -68,80 +55,6 @@ public class API_MyService extends API_Outbound
 | global virtual void [handleError](#handleerror)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionThrown) | Handles errors encountered during the service call. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isDisabled](#isdisabled)() | Checks if the API is disabled for the current user. |
 | global virtual void [onSuccess](#onsuccess)() | Registers database changes after a successful call. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [ServiceCallResult](API_Base.ServiceCallResult.md) | Tracks the request, response, and status of a web service call. |
-
----
-
-## Property Details
-
-### apiCall
-
-```apex
-global ApiCall__c apiCall
-```
-
-**Type:** [ApiCall__c](../objects/ApiCall__c.md)
-
-The ApiCall__c object that initiated the service call.
-
-### correlationId
-
-```apex
-global String correlationId
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-The unique correlation ID for this handler instance.
-
-### errorText
-
-```apex
-global String errorText
-```
-
-**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
-
-Returns errors encountered during the request or the error payload if no error is logged.
-
-### inputs
-
-```apex
-global DTO_NameValues inputs
-```
-
-**Type:** [DTO_NameValues](DTO_NameValues.md)
-
-DTO containing parameters passed to the API.
-
-### result
-
-```apex
-global API_Base.ServiceCallResult result
-```
-
-**Type:** [API_Base.ServiceCallResult](API_Base.ServiceCallResult.md)
-
-Tracks the request, response, and status of a web service call.
-
-### setting
-
-```apex
-global ApiSetting__mdt setting
-```
-
-**Type:** [ApiSetting__mdt](../metadata/ApiSetting__mdt.md)
-
-API settings metadata for this service, lazy-loaded from ApiSetting__mdt.
-
----
-
-## Method Details
 
 ### configure
 
@@ -340,4 +253,85 @@ global override void onSuccess()
 ```
 
 </div>
+
+## Properties
+
+| Property | Description |
+|----------|-------------|
+| global [ApiCall__c](../objects/ApiCall__c.md) [apiCall](#apicall) | The ApiCall__c object that initiated the service call. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The unique correlation ID for this handler instance. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorText](#errortext) | Returns errors encountered during the request or the error payload if no error is logged. |
+| global [DTO_NameValues](DTO_NameValues.md) [inputs](#inputs) | DTO containing parameters passed to the API. |
+| global [API_Base.ServiceCallResult](API_Base.ServiceCallResult.md) [result](#result) | Tracks the request, response, and status of a web service call. |
+| global [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [setting](#setting) | API settings metadata for this service, lazy-loaded from ApiSetting__mdt. |
+
+### apiCall
+
+```apex
+global ApiCall__c apiCall
+```
+
+**Type:** [ApiCall__c](../objects/ApiCall__c.md)
+
+The ApiCall__c object that initiated the service call.
+
+### correlationId
+
+```apex
+global String correlationId
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+The unique correlation ID for this handler instance.
+
+### errorText
+
+```apex
+global String errorText
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+Returns errors encountered during the request or the error payload if no error is logged.
+
+### inputs
+
+```apex
+global DTO_NameValues inputs
+```
+
+**Type:** [DTO_NameValues](DTO_NameValues.md)
+
+DTO containing parameters passed to the API.
+
+### result
+
+```apex
+global API_Base.ServiceCallResult result
+```
+
+**Type:** [API_Base.ServiceCallResult](API_Base.ServiceCallResult.md)
+
+Tracks the request, response, and status of a web service call.
+
+### setting
+
+```apex
+global ApiSetting__mdt setting
+```
+
+**Type:** [ApiSetting__mdt](../metadata/ApiSetting__mdt.md)
+
+API settings metadata for this service, lazy-loaded from ApiSetting__mdt.
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [HttpMethod](API_Base.HttpMethod.md) | HTTP method verbs for web service calls. |
+| [ServiceCallResult](API_Base.ServiceCallResult.md) | Tracks the request, response, and status of a web service call. |
+| [WebserviceStatus](API_Base.WebserviceStatus.md) | Enum representing the status of a web service call. |
+
+---
 

@@ -39,12 +39,6 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [DatabaseOperation](DML_Builder.DatabaseOperation.md) | Enum to specify the type of DML operation for external use. |
-
 ## Methods
 
 | Method | Description |
@@ -71,17 +65,6 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 | global [DML_Builder](DML_Builder.md) [suppressLogging](#suppresslogging)() | Suppresses LOG_Builder error logging for DML failures. |
 | global [DML_Builder](DML_Builder.md) [withSystemMode](#withsystemmode)() | Forces AccessLevel.SYSTEM_MODE on every DML operation in this transaction. |
 | global [DML_Builder](DML_Builder.md) [withUserMode](#withusermode)() | Forces AccessLevel.USER_MODE on every DML operation in this transaction, regardless of the UserModeDml_Enabled feature flag. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Async DML execution wrapper. |
-| [TransactionResult](DML_Builder.TransactionResult.md) | Result object returned by execute() containing the outcome of all DML operations in the transaction. |
-
----
-
-## Method Details
 
 ### allowPartial
 
@@ -649,4 +632,14 @@ DML_Builder.newTransaction()
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DatabaseOperation](DML_Builder.DatabaseOperation.md) | Enum to specify the type of DML operation for external use. |
+| [DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Async DML execution wrapper. |
+| [TransactionResult](DML_Builder.TransactionResult.md) | Result object returned by execute() containing the outcome of all DML operations in the transaction. |
+
+---
 

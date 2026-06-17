@@ -67,13 +67,6 @@ public class RateLimitStrategy implements UTIL_Retry.Strategy
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [Context](UTIL_Retry.Context.md) | Interface defining the retry context. |
-| global interface [Strategy](UTIL_Retry.Strategy.md) | Interface defining the retry strategy logic. |
-
 ## Methods
 
 | Method | Description |
@@ -83,10 +76,6 @@ public class RateLimitStrategy implements UTIL_Retry.Strategy
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [linear](#linear)() | Returns a standard linear backoff strategy. |
 | global static [UTIL_Retry.Context](UTIL_Retry.Context.md) [newContext](#newcontext)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) retryCount) | Creates a new retry context with the specified retry count. |
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [retryOnlyOnException](#retryonlyonexception)([UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) base, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)> exceptionTypes) | Wraps an existing strategy with an exception-type allowlist. |
-
----
-
-## Method Details
 
 ### dontRetryOnException
 
@@ -241,4 +230,13 @@ UTIL_Retry.Strategy strategy = UTIL_Retry.retryOnlyOnException(
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [Context](UTIL_Retry.Context.md) | Interface defining the retry context. |
+| [Strategy](UTIL_Retry.Strategy.md) | Interface defining the retry strategy logic. |
+
+---
 

@@ -34,10 +34,6 @@ DTO containing the permissions per object provided in request.
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isValidObject](#isvalidobject) | Whether the provided object API name resolves to a valid SObject type. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [objectApiName](#objectapiname) | The API name of the object these permissions apply to. |
 
----
-
-## Field Details
-
 ### hasCreateAccess
 
 ```apex

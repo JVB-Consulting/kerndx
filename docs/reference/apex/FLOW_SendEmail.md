@@ -44,17 +44,6 @@ List<FLOW_SendEmail.DTO_Response> responses = FLOW_SendEmail.sendEmail(new List<
 |--------|-------------|
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_SendEmail.DTO_Response](FLOW_SendEmail.DTO_Response.md)> [sendEmail](#sendemail)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[FLOW_SendEmail.DTO_Request](FLOW_SendEmail.DTO_Request.md)> dtoEmails) | Invocable method to process email requests. |
 
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [DTO_Request](FLOW_SendEmail.DTO_Request.md) | Data Transfer Object (DTO) representing the input parameters for a single email request. |
-| [DTO_Response](FLOW_SendEmail.DTO_Response.md) | Data Transfer Object (DTO) representing the outcome of an email request. |
-
----
-
-## Method Details
-
 ### sendEmail
 
 <div class="apex-member">
@@ -90,4 +79,13 @@ if(responses[0].success)
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DTO_Request](FLOW_SendEmail.DTO_Request.md) | Data Transfer Object (DTO) representing the input parameters for a single email request. |
+| [DTO_Response](FLOW_SendEmail.DTO_Response.md) | Data Transfer Object (DTO) representing the outcome of an email request. |
+
+---
 

@@ -44,29 +44,6 @@ OrgWideEmailAddress randomAddress = (OrgWideEmailAddress)new SEL_OrgWideEmailAdd
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[OrgWideEmailAddress](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_orgwideemailaddress.htm)> [findByName](#findbyname)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> addresses) | Retrieves OrgWideEmailAddress records matching the provided email addresses. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for OrgWideEmailAddress queries. |
 | global override [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [getRandomItem](#getrandomitem)() | Retrieves a random OrgWideEmailAddress that is available to all profiles. |
-| global  [SEL_OrgWideEmailAddress](#sel_orgwideemailaddress)() | Constructs an OrgWideEmailAddress selector. |
-
----
-
-## Method Details
-
-### SEL_OrgWideEmailAddress
-
-<div class="apex-member">
-
-```apex
-global SEL_OrgWideEmailAddress()
-```
-
-Constructs an OrgWideEmailAddress selector.
-
-**Example**
-
-```apex
-SEL_OrgWideEmailAddress instance = new SEL_OrgWideEmailAddress();
-```
-
-</div>
 
 ### findByName
 
@@ -131,6 +108,30 @@ Retrieves a random OrgWideEmailAddress that is available to all profiles.
 
 ```apex
 OrgWideEmailAddress randomEmail = new SEL_OrgWideEmailAddress().getRandomItem();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [SEL_OrgWideEmailAddress](#constructors)() | Constructs an OrgWideEmailAddress selector. |
+
+### SEL_OrgWideEmailAddress()
+
+<div class="apex-member">
+
+```apex
+global SEL_OrgWideEmailAddress()
+```
+
+Constructs an OrgWideEmailAddress selector.
+
+**Example**
+
+```apex
+SEL_OrgWideEmailAddress instance = new SEL_OrgWideEmailAddress();
 ```
 
 </div>

@@ -45,7 +45,6 @@ aTransaction.commitWork();
 |--------|-------------|
 | global virtual void [commitWork](#commitwork)() | Commits all registered DML operations using inherited sharing. |
 | global virtual void [commitWork](#commitwork)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) enforceSharing) | Commits all registered DML operations with configurable sharing enforcement. |
-| global  [DML_Transaction](#dml_transaction)() | Initializes a new transaction with empty collections for managing DML operations. |
 | global void [doDelete](#dodelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for deletion. |
 | global void [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for deletion. |
 | global void [doInsert](#doinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for insertion. |
@@ -70,28 +69,6 @@ aTransaction.commitWork();
 | global void [setAccessLevel](#setaccesslevel)([AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Sets the AccessLevel that will be passed to every DML operation via the DML_SharingProxy three-arg methods. |
 | global void [setAllowPartial](#setallowpartial)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allow) | Sets whether partial success is allowed for DML operations. |
 | global void [setSuppressLogging](#setsuppresslogging)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) suppress) | Sets whether to suppress LOG_Builder error logging for partial DML results. |
-
----
-
-## Method Details
-
-### DML_Transaction
-
-<div class="apex-member">
-
-```apex
-global DML_Transaction()
-```
-
-Initializes a new transaction with empty collections for managing DML operations.
-
-**Example**
-
-```apex
-DML_Transaction dmlTransaction = new DML_Transaction();
-```
-
-</div>
 
 ### commitWork
 
@@ -750,6 +727,30 @@ dmlTransaction.setAllowPartial(true);
 dmlTransaction.setSuppressLogging(true);
 dmlTransaction.doInsert(records);
 dmlTransaction.commitWork();
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [DML_Transaction](#constructors)() | Initializes a new transaction with empty collections for managing DML operations. |
+
+### DML_Transaction()
+
+<div class="apex-member">
+
+```apex
+global DML_Transaction()
+```
+
+Initializes a new transaction with empty collections for managing DML operations.
+
+**Example**
+
+```apex
+DML_Transaction dmlTransaction = new DML_Transaction();
 ```
 
 </div>

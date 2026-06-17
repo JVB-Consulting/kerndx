@@ -306,7 +306,7 @@ For deeper coverage, continue reading the sections below.
 | [`UTIL_ValidationRule.ValidationError`](reference/apex/UTIL_ValidationRule.ValidationError.md)                     | Inner Class     | Error details with @AuraEnabled for LWC                     |
 | [`UTIL_ValidationRule.INT_BulkValidationContext`](reference/apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Interface       | Interface for bulk query optimization                       |
 | [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md)                                         | Apex Class      | Global test utility for subscriber orgs                     |
-| `SEL_ValidationRules`                                                                                              | Apex Class      | Selector with caching (package-internal, public not global) |
+| `SEL_ValidationRules`                                                                                              | Apex Class      | Internal selector with rule caching                         |
 | [`TRG_ExecuteValidationRules`](reference/apex/TRG_ExecuteValidationRules.md)                                       | Apex Class      | Pre-built trigger action                                    |
 | [`FLOW_ExecuteValidationRules`](reference/apex/FLOW_ExecuteValidationRules.md)                                     | Apex Class      | Flow invocable action                                       |
 | [`FLOW_BypassValidation`](reference/apex/FLOW_BypassValidation.md)                                                 | Apex Class      | Flow bypass action                                          |
@@ -785,9 +785,8 @@ UTIL_ValidationRule.applyErrors(accounts, results);
 
 The [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md) class provides assertion methods for testing validation rules without boilerplate setup:
 
-> **Cross-namespace surface.** `UTIL_ValidationTestHelper` is the only validation testing surface callable from
-> subscriber tests — `kern`-internal `@TestVisible private` factories are not visible across namespaces. Drive
-> every subscriber-side validation test through `UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses`,
+> **Subscriber testing surface.** `UTIL_ValidationTestHelper` is the supported way to test validation rules from
+> your tests. Drive every validation test through `UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses`,
 > or fall back to full DML inside `Test.startTest()` / `Test.stopTest()`.
 
 ```apex
@@ -1126,13 +1125,19 @@ List<LogEntry__c> validationLogs = QRY_Builder.selectFrom(LogEntry__c.SObjectTyp
    LOG_Builder.ignoreTestMode = true;
    ```
 
-2. **Check cached rules (development org only):**
+2. **Inspect validation results for a sample record:**
    ```apex
-   // Note: SEL_ValidationRules is package-internal (public, not global)
-   // This code only works in the development org, not in subscriber orgs
-   List<SEL_ValidationRules.ValidationRuleWithGroup> rules =
-   	SEL_ValidationRules.findByObjectAndOperation('Account', TriggerOperation.BEFORE_INSERT);
-   LOG_Builder.build().info('Found ' + rules.size() + ' rules').emitAt('SEL_ValidationRules');
+   // Runs in any org via the global test helper — drive a sample record
+   // through the validation engine and inspect the resulting errors.
+   Account sample = (Account)TST_Builder.of(Account.SObjectType)
+   	.withOverrides(new Map<SObjectField, Object>{ Account.Name => 'Test', Account.Type => 'Enterprise' })
+   	.withoutInsertion()
+   	.build();
+   UTIL_ValidationRule.ValidationResult result = UTIL_ValidationTestHelper.validate(sample);
+   for (UTIL_ValidationRule.ValidationError error : result.errors)
+   {
+   	LOG_Builder.build().info('Validation error: ' + error.message).emitAt('UTIL_ValidationTestHelper');
+   }
    ```
 
 3. **Test formula in isolation:**

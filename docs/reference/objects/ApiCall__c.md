@@ -58,10 +58,6 @@ Tracks API calls (inbound and outbound) through their full lifecycle. Each recor
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordUrl__c](#triggeringrecordurl__c) | Formula-generated hyperlink to the record that initiated this API call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [URL__c](#url__c) | The full endpoint URL to which the HTTP request was sent. |
 
----
-
-## Field Details
-
 ### ApiIssues__r
 
 ```apex

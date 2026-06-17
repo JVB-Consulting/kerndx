@@ -23,30 +23,13 @@ Represents a single validation error or warning.
 
 ---
 
-## Fields
+## Constructors
 
-| Field | Description |
-|-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [fieldName](#fieldname) | The field API name to display the error on (may be null for page-level). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [groupName](#groupname) | The validation rule group DeveloperName. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | The error message to display. |
-| global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [recordId](#recordid) | The record ID (available except in before insert). |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [recordIndex](#recordindex) | The record index in the trigger list (for before insert). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ruleName](#rulename) | The DeveloperName of the validation rule that failed. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [severity](#severity) | The severity ('Error' or 'Warning'). |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [shadowMode](#shadowmode) | True if this error is from a rule in shadow mode. |
+| Constructor | Description |
+|-------------|-------------|
+| global [ValidationError](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Constructs a new ValidationError. |
 
-## Methods
-
-| Method | Description |
-|--------|-------------|
-| global  [ValidationError](#validationerror)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Constructs a new ValidationError. |
-
----
-
-## Method Details
-
-### ValidationError
+### ValidationError(String ruleName, String message, String fieldName, String severity)
 
 <div class="apex-member">
 
@@ -73,9 +56,18 @@ UTIL_ValidationRule.ValidationError instance = new UTIL_ValidationRule.Validatio
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [fieldName](#fieldname) | The field API name to display the error on (may be null for page-level). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [groupName](#groupname) | The validation rule group DeveloperName. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | The error message to display. |
+| global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [recordId](#recordid) | The record ID (available except in before insert). |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [recordIndex](#recordindex) | The record index in the trigger list (for before insert). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ruleName](#rulename) | The DeveloperName of the validation rule that failed. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [severity](#severity) | The severity ('Error' or 'Warning'). |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [shadowMode](#shadowmode) | True if this error is from a rule in shadow mode. |
 
 ### fieldName
 

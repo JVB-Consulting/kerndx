@@ -31,10 +31,6 @@ Registers a subscriber-org class that resolves Apex class names to Types at runt
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ClassName__c](#classname__c) | The fully qualified name of the subscriber-org class that implements the framework's type resolver interface. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | The execution priority for this resolver relative to other resolvers. |
 
----
-
-## Field Details
-
 ### ClassName__c
 
 ```apex

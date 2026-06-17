@@ -67,10 +67,6 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition with strict empty set handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [startsWith](#startswith)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a LIKE condition with wildcard at end (starts with). |
 
----
-
-## Method Details
-
 ### contains
 
 <div class="apex-member">

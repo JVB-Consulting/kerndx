@@ -49,10 +49,6 @@ Persistent log entries captured by the Kern logging framework. Each record repre
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [UserId__c](#userid__c) | Salesforce User ID of the user whose execution context emitted this log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [UserLink__c](#userlink__c) | Formula-generated hyperlink to the user who produced this log entry. |
 
----
-
-## Field Details
-
 ### ClassMethod__c
 
 ```apex

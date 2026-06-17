@@ -36,10 +36,6 @@ A subclass of NamespacedAttributeMap for handling field maps returned by Describ
 | global override [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the number of entries in the map. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [values](#values)() | Returns the list of SObjectField values in the map. |
 
----
-
-## Method Details
-
 ### containsKey
 
 <div class="apex-member">

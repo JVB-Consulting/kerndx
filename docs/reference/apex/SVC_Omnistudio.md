@@ -42,27 +42,11 @@ public class MyOmniAction implements SVC_Omnistudio.OmniCallable
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global interface [OmniCallable](SVC_Omnistudio.OmniCallable.md) | A global inner interface that allows the SVC_Omnistudio class to instantiate a class and perform an operation within the Omnistudio framework. |
-
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [call](#call)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> parameterMap) | This global method dynamically instantiates a class based on the provided className and executes a method within the instantiated class to perform the requested operation. |
-
-## Inner Classes
-
-| Class | Description |
-|-------|-------------|
-| [Parameters](SVC_Omnistudio.Parameters.md) | A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing them into distinct input, output, and option maps. |
-
----
-
-## Method Details
 
 ### call
 
@@ -99,4 +83,13 @@ Object result = instance.call('SVC_Omnistudio', new Map<String, Object>{'key' =>
 ```
 
 </div>
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [OmniCallable](SVC_Omnistudio.OmniCallable.md) | A global inner interface that allows the SVC_Omnistudio class to instantiate a class and perform an operation within the Omnistudio framework. |
+| [Parameters](SVC_Omnistudio.Parameters.md) | A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing them into distinct input, output, and option maps. |
+
+---
 

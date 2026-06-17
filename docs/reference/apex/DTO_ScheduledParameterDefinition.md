@@ -38,23 +38,6 @@ DTO_ScheduledParameterDefinition.of('profileNames')
 
 ---
 
-## Properties
-
-| Property | Description |
-|----------|-------------|
-| global enum [DataType](DTO_ScheduledParameterDefinition.DataType.md) | Enumeration of supported input data types for scheduled job parameters. |
-
-## Fields
-
-| Field | Description |
-|-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [dataType](#datatype) | The input data type name determining which UI control to render. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [defaultValue](#defaultvalue) | The default value pre-populated when the parameter is not yet configured. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [description](#description) | Help text describing the parameter's purpose and expected format. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRequired](#isrequired) | Whether this parameter must be provided for the job to function. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [label](#label) | The user-facing display label for the parameter. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The API name of the parameter (key used in DTO_NameValues). |
-
 ## Methods
 
 | Method | Description |
@@ -66,10 +49,6 @@ DTO_ScheduledParameterDefinition.of('profileNames')
 | global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [required](#required)() | Marks this parameter as required. |
 | global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [withDefault](#withdefault)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) defaultValue) | Sets the default value for this parameter. |
 | global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [withDescription](#withdescription)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) description) | Sets the help text description for this parameter. |
-
----
-
-## Method Details
 
 ### asBoolean
 
@@ -241,9 +220,16 @@ DTO_ScheduledParameterDefinition.of('profileNames', 'Profile Names')
 
 </div>
 
----
+## Fields
 
-## Field Details
+| Field | Description |
+|-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [dataType](#datatype) | The input data type name determining which UI control to render. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [defaultValue](#defaultvalue) | The default value pre-populated when the parameter is not yet configured. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [description](#description) | Help text describing the parameter's purpose and expected format. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRequired](#isrequired) | Whether this parameter must be provided for the job to function. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [label](#label) | The user-facing display label for the parameter. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The API name of the parameter (key used in DTO_NameValues). |
 
 ### dataType
 
@@ -306,4 +292,12 @@ The user-facing display label for the parameter.
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The API name of the parameter (key used in DTO_NameValues).
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [DataType](DTO_ScheduledParameterDefinition.DataType.md) | Enumeration of supported input data types for scheduled job parameters. |
+
+---
 

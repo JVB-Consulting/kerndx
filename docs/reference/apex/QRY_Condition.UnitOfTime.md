@@ -23,17 +23,17 @@ Units of time for SOQL date literals.
 
 ---
 
-## Values
+## Inner Classes
 
-| Value | Description |
-|----------|-------------|
-| global  [DAY](#day) | Day unit (LAST_N_DAYS, NEXT_N_DAYS, etc.) |
-| global  [FISCAL_QUARTER](#fiscal_quarter) | Fiscal quarter unit (LAST_N_FISCAL_QUARTERS, etc.) |
-| global  [FISCAL_YEAR](#fiscal_year) | Fiscal year unit (LAST_N_FISCAL_YEARS, etc.) |
-| global  [MONTH](#month) | Month unit (THIS_MONTH, LAST_MONTH - not supported with N) |
-| global  [QUARTER](#quarter) | Quarter unit (LAST_N_QUARTERS, etc.) |
-| global  [WEEK](#week) | Week unit (THIS_WEEK, LAST_WEEK - not supported with N) |
-| global  [YEAR](#year) | Year unit (LAST_N_YEARS, etc.) |
+| Class | Description |
+|-------|-------------|
+| [DAY](#day) | Day unit (LAST_N_DAYS, NEXT_N_DAYS, etc.) |
+| [FISCAL_QUARTER](#fiscal_quarter) | Fiscal quarter unit (LAST_N_FISCAL_QUARTERS, etc.) |
+| [FISCAL_YEAR](#fiscal_year) | Fiscal year unit (LAST_N_FISCAL_YEARS, etc.) |
+| [MONTH](#month) | Month unit (THIS_MONTH, LAST_MONTH - not supported with N) |
+| [QUARTER](#quarter) | Quarter unit (LAST_N_QUARTERS, etc.) |
+| [WEEK](#week) | Week unit (THIS_WEEK, LAST_WEEK - not supported with N) |
+| [YEAR](#year) | Year unit (LAST_N_YEARS, etc.) |
 
 ---
 

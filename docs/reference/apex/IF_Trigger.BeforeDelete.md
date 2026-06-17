@@ -31,10 +31,6 @@ Handler contract for the before-delete trigger event.
 |--------|-------------|
 | global abstract void [beforeDelete](#beforedelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Called before records are removed from the database, enabling deletion guards, referential integrity checks, or pre-delete archival logic. |
 
----
-
-## Method Details
-
 ### beforeDelete
 
 <div class="apex-member">

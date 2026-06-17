@@ -51,10 +51,6 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | global [Contact](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contact.htm) [newRecord](#newrecord) | Contact record state AFTER DML (null on delete). |
 | global [Contact](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contact.htm) [oldRecord](#oldrecord) | Contact record state BEFORE DML (null on insert). |
 
----
-
-## Field Details
-
 ### newRecord
 
 ```apex

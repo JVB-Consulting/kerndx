@@ -29,10 +29,6 @@ A global inner interface that allows the SVC_Omnistudio class to instantiate a c
 |--------|-------------|
 | global abstract void [call](#call)([SVC_Omnistudio.Parameters](SVC_Omnistudio.Parameters.md) parameters) | Will execute an operation based on the parameters provided |
 
----
-
-## Method Details
-
 ### call
 
 <div class="apex-member">

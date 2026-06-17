@@ -25,8 +25,8 @@ Factory class for generating test data, permission set assignments, share record
 **Example**
 
 ```apex
-TriggerSetting__mdt setting = TST_Factory.newTriggerSetting('Foobar__c');
-TST_Factory.newTriggerActionForContext('TRG_SetFoobarDefaults', setting, TriggerOperation.BEFORE_INSERT);
+User testUser = TST_Factory.newUser('Standard User');
+insert testUser;
 ```
 
 </div>
@@ -56,10 +56,6 @@ TST_Factory.newTriggerActionForContext('TRG_SetFoobarDefaults', setting, Trigger
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUser](#newuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName) | Creates an uncommitted User record with a custom company name. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [newUsers](#newusers)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUsers) | Creates a list of uncommitted User records with the specified profile. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUserWithPermissionSet](#newuserwithpermissionset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) permissionSetName) | Creates and inserts a User with the specified profile + company name, then assigns the named permission set (or permission set group). |
-
----
-
-## Method Details
 
 ### createPermissionSetAssignments
 
