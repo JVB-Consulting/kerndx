@@ -340,6 +340,14 @@
 .kl-sticky span{ font-weight: 500; opacity: .85; font-size: .8rem; }
 .kl-sticky:hover{ background: var(--vp-c-brand-2); }
 
+/* Dark mode: the brand bronze is LIGHT there (#d6a875 — tuned for links/accents), so white
+   text on the filled-bronze surfaces (the Install buttons + the flow "Always" tag) washes out
+   to ~2.2 contrast. Use dark text on those surfaces in dark mode (~8:1 against the light
+   bronze). Light mode is untouched: white on the dark bronze (#8a623c) already passes. */
+.dark .kl-cta.primary,
+.dark .kl-sticky,
+.dark .kl-core-tag{ color: var(--vp-c-bg); }
+
 /* Mobile */
 @media (max-width: 760px){
 	.kl-hero h1{ font-size: 2rem; }
