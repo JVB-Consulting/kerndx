@@ -5,8 +5,9 @@
      code examples are NOT in this component: they're authored as ```apex fences in home.md
      and passed in via the #examples slot (so they get the site's shiki Apex highlighting +
      a Copy button). Positioning: KernDX is a LIBRARY OF FRAMEWORKS for Apex & LWC, not a single
-     framework. Metrics are the verified counts (109 global API classes, 189 production
-     classes, 63 LWC components, 3,748 tests, 100%/95% coverage). -->
+     framework. Metrics are the verified counts (95 global API classes, 189 production
+     classes, 63 LWC components, 3,742 tests, 100%/95% coverage). Keep these in lockstep
+     with docs/Strategic Guide - Metrics.md (the canonical source). -->
 <template>
 	<div class="kern-landing">
 
@@ -19,7 +20,7 @@
 					<span class="kl-badge" data-spec-id="badge-api">API 67.0</span>
 				</div>
 				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding — in one Apex &amp; LWC library.</h1>
-				<p class="kl-sub" data-spec-id="hero-subline">Trigger handling, secure queries and saves, logging that survives rollback, async, REST, feature flags, and data masking. One managed package, secure by default, public source on GitHub.</p>
+				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business — not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
 					<a class="kl-cta primary" href="/installation" data-spec-id="cta-install">Install KernDX →</a>
@@ -33,10 +34,10 @@
 		<section class="kl-strip-section">
 			<div class="kl-wrap">
 				<div class="kl-strip" data-spec-id="credibility-strip">
-					<div class="m" data-spec-id="strip-global"><b>109</b><span>global API classes</span></div>
+					<div class="m" data-spec-id="strip-global"><b>95</b><span>global API classes</span></div>
 					<div class="m" data-spec-id="strip-classes"><b>189</b><span>production classes</span></div>
 					<div class="m" data-spec-id="strip-lwc"><b>63</b><span>LWC components</span></div>
-					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · 3,748 tests</span></div>
+					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · 3,742 tests</span></div>
 				</div>
 			</div>
 		</section>
@@ -57,6 +58,42 @@
 				</div>
 			</div>
 		</section>
+
+		<!-- Why it exists (origin — grounded in the Architecture guide's design thesis) -->
+		<section class="kl-section">
+			<div class="kl-wrap">
+				<h2 class="kl-eyebrow" id="why-it-exists">Why it exists</h2>
+				<p class="kl-headline">An accelerator you own, not a product you rent.</p>
+				<div class="kl-origin" data-spec-id="origin-story">
+					<p>Most enterprise Salesforce orgs rebuild the same foundations — selectors, trigger handling, logging, web services, async, masking, FLS enforcement — over three to five years, taking on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and LWC, plus the onboarding docs, CI tooling, and enforced defaults — permissions on by default, audit-logged bypasses, a coverage gate run on every release — that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
+					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public — BSL 1.1 today, converting to Apache 2.0 on a fixed schedule — so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
+				</div>
+			</div>
+		</section>
+
+			<!-- What you get on day one — the whole stack in one install -->
+			<section class="kl-section">
+				<div class="kl-wrap">
+					<h2 class="kl-eyebrow" id="whats-in-the-box">What you get on day one</h2>
+					<p class="kl-headline">One install. The whole stack.</p>
+					<p class="kl-lead">Nothing to assemble — every layer ships in the one package, each one ready to switch on when you reach for it.</p>
+					<div class="kl-stack" data-spec-id="day-one">
+						<a href="/fast-start-trigger-actions#tier-1-build-it-5-minutes" data-spec-id="day-one-triggers">Trigger framework</a>
+						<a href="/fast-start-selectors#tier-1-see-it-work-2-minutes" data-spec-id="day-one-selectors">Selectors &amp; queries</a>
+						<a href="/fast-start-dml#tier-1-see-it-work-2-minutes" data-spec-id="day-one-dml">Secure DML &amp; transactions</a>
+						<a href="/fast-start-logging#tier-1-see-it-work-2-minutes" data-spec-id="day-one-logging">Rollback-safe logging</a>
+						<a href="/fast-start-async-processing#tier-1-see-it-work-2-minutes" data-spec-id="day-one-async">Async orchestration</a>
+						<a href="/fast-start-inbound-apis#tier-1-see-it-work-2-minutes" data-spec-id="day-one-inbound">Inbound REST</a>
+						<a href="/fast-start-outbound-apis#tier-1-see-it-work-2-minutes" data-spec-id="day-one-outbound">Outbound HTTP client</a>
+						<a href="/fast-start-feature-flags#tier-1-see-it-work-2-minutes" data-spec-id="day-one-flags">Feature flags</a>
+						<a href="/fast-start-custom-validations#tier-1-see-it-work-5-minutes" data-spec-id="day-one-validation">Validation framework</a>
+						<a href="/fast-start-data-masking#rule-modes" data-spec-id="day-one-masking">Data masking</a>
+						<a href="/fast-start-code-scanning#pmd-rule-reference" data-spec-id="day-one-pmd">PMD rulesets</a>
+						<a href="/fast-start-code-scanning#eslint-rule-reference" data-spec-id="day-one-eslint">ESLint plugin</a>
+						<a href="/ai-agent-instructions#coding-standards" data-spec-id="day-one-ai">AI coding standards</a>
+					</div>
+				</div>
+			</section>
 
 		<!-- The same task, with and without KernDX (examples come from home.md as ```apex fences) -->
 		<section class="kl-section">
@@ -85,6 +122,7 @@
 						</ol>
 					</div>
 					<p class="kl-files" data-spec-id="agentic-llms">AGENTS.md · /llms.txt · Code Conventions Guide · PMD + ESLint rules</p>
+					<p class="kl-foot-note" data-spec-id="agentic-enforcement">Those same standards ship as PMD rulesets and an ESLint plugin, so what the assistant follows is also enforced where you already work — inline in VS Code or IntelliJ / Illuminated Cloud, and gated on every pull request in CI.</p>
 					<a class="kl-cta primary" href="/ai-agent-instructions" data-spec-id="agentic-cta">Open the AI Agent Instructions →</a>
 				</div>
 			</div>
@@ -126,9 +164,15 @@
 					</div>
 					<div class="kl-flow-down"><span class="kl-kernid" data-spec-id="flow-kernid">KERN-2F3A·9C</span> threads everything below</div>
 					<div class="kl-core" data-spec-id="flow-core">
-						<span class="kl-core-tag">Always</span>
-						<span class="kl-core-name">Core transaction · QRY_Builder / SEL_Base · DML_Builder</span>
-						<span class="kl-core-note">🔒 reads &amp; writes enforce the user's field permissions · 📦 saved as one atomic unit</span>
+						<span class="kl-core-tag">Always runs</span>
+						<span class="kl-core-name">The KernDX core transaction</span>
+						<div class="kl-core-parts">
+							<span>🔒 Security &amp; FLS</span>
+							<span>Query · QRY_Builder / SEL_Base</span>
+							<span>DML · DML_Builder</span>
+							<span>📦 Atomic save</span>
+							<span>🧵 Correlation · KERN-ID</span>
+						</div>
 					</div>
 					<div class="kl-flow-down muted">only the layers your code actually uses</div>
 					<div class="kl-flow-row" data-spec-id="flow-snapins">
@@ -141,17 +185,6 @@
 					</div>
 				</div>
 				<p class="kl-flow-foot">Adopt one layer today — just the query library, say — and snap in the trigger framework or the async chain the day you need it. The KERN-ID makes whatever ran traceable as one request.</p>
-			</div>
-		</section>
-
-		<!-- Why it exists (origin — grounded in the Architecture guide's design thesis) -->
-		<section class="kl-section">
-			<div class="kl-wrap">
-				<h2 class="kl-eyebrow" id="why-it-exists">Why it exists</h2>
-				<p class="kl-headline">An accelerator you own, not a product you rent.</p>
-				<div class="kl-origin" data-spec-id="origin-story">
-					<p>Most enterprise Salesforce orgs rebuild the same foundations — selectors, trigger handling, logging, web services, async, masking, FLS enforcement — over three to five years, taking on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and LWC, plus the onboarding docs, CI tooling, and enforced defaults — permissions on by default, audit-logged bypasses, a coverage gate run on every release — that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
-				</div>
 			</div>
 		</section>
 
@@ -177,25 +210,25 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="adopt-at-your-pace">Adopt at your own pace</h2>
 				<p class="kl-headline">Not all-or-nothing.</p>
-				<p class="kl-lead">Turn on the parts that fit — just the query library today, the trigger framework when you need it — knowing the rest is there the day you do.</p>
+				<p class="kl-lead">No rip-and-replace, and nothing you take all at once — which is what makes it low-risk to bring into an existing program. A typical path in: the query library first, then secure DML, then the trigger framework, adding async, masking, and the AI standards whenever you reach for them. Each layer stands alone, so adoption stays incremental and reversible.</p>
 				<div class="kl-assess" data-spec-id="self-assessment">
-					<div class="kl-col yes" data-spec-id="assess-worth"><h4>Worth a look if…</h4>
-						<ul>
-							<li>more than one person works in the same org</li>
-							<li>you're seeing more AI-generated Apex</li>
-							<li>keeping the codebase consistent is getting expensive</li>
-							<li>onboarding a new contributor takes too long</li>
-							<li>you need security and audit guarantees you can show a reviewer</li>
-						</ul>
+						<div class="kl-col yes" data-spec-id="assess-worth"><h4>A fit if…</h4>
+							<ul>
+								<li>more than one developer works in the org</li>
+								<li>AI is writing more of your Apex</li>
+								<li>consistency is getting expensive</li>
+								<li>onboarding a contributor takes too long</li>
+								<li>you need security you can show a reviewer</li>
+							</ul>
+						</div>
+						<div class="kl-col maybe" data-spec-id="assess-more-than-you-need"><h4>Maybe more than you need if…</h4>
+							<ul>
+								<li>a throwaway or greenfield org with no Apex and no near-term plans</li>
+								<li>you already run a framework you're happy with</li>
+							</ul>
+						</div>
 					</div>
-					<div class="kl-col maybe" data-spec-id="assess-more-than-you-need"><h4>Maybe more than you need today if…</h4>
-						<ul>
-							<li>the org is a throwaway or greenfield with no Apex and no near-term plans</li>
-							<li>you already run an equivalent framework you're happy with</li>
-						</ul>
-					</div>
-				</div>
-				<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't — or would rather not — install a managed package? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. There's a way in for every org.</p>
+					<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't — or would rather not — install a managed package? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. There's a way in for every org.</p>
 			</div>
 		</section>
 
@@ -207,7 +240,7 @@
 				<div class="kl-paths" data-spec-id="install-paths">
 					<a class="kl-path" href="/installation" data-spec-id="path-install"><b>Install the package</b><span>Add <code>kern</code> at v1.1.0-11 to your org. Swap it in within days.</span></a>
 					<a class="kl-path" href="/installation" data-spec-id="path-repackage"><b>Repackage under your own name</b><span>Build KernDX into your own package, as your code.</span></a>
-					<a class="kl-path" href="/installation" data-spec-id="path-ci"><b>CI tooling only</b><span>The ESLint plugin, PMD rulesets, and workflow templates — no framework code.</span></a>
+					<a class="kl-path" href="/installation" data-spec-id="path-ci"><b>CI tooling only</b><span>PMD rulesets + ESLint plugin that flag violations inline in VS Code or IntelliJ / Illuminated Cloud and gate them in CI — no framework code.</span></a>
 				</div>
 			</div>
 		</section>
@@ -292,10 +325,19 @@
 .kl-core-name{ font-family: var(--vp-font-family-mono); font-weight: 700; font-size: .92rem; color: var(--vp-c-brand-1); }
 .kl-core-note{ font-size: .85rem; color: var(--vp-c-text-2); }
 .kl-flow-foot{ color: var(--vp-c-text-2); font-style: italic; margin: 20px 0 0; max-width: 66ch; }
+.kl-core-parts{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.kl-core-parts span{ font-size: .8rem; font-weight: 600; padding: .3rem .6rem; border-radius: 7px; background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1); }
+
+/* "What you get on day one" — capability chips */
+.kl-stack{ display: flex; flex-wrap: wrap; gap: 10px; }
+.kl-stack a{ display: inline-flex; align-items: center; gap: 7px; font-size: .9rem; font-weight: 600; padding: .45rem .85rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg-soft); color: var(--vp-c-text-1); text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
+.kl-stack a:hover{ background: var(--vp-c-brand-soft); border-color: var(--vp-c-brand-1); color: var(--vp-c-brand-1); }
+.kl-stack a::before{ content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--vp-c-brand-1); }
 
 /* Origin */
 .kl-origin{ border-left: 3px solid var(--vp-c-brand-1); padding-left: 18px; max-width: 70ch; }
 .kl-origin p{ margin: 0; color: var(--vp-c-text-1); font-size: 1.02rem; line-height: 1.65; }
+.kl-origin p + p{ margin-top: 16px; }
 
 /* What's different by default */
 .kl-bydefault{ border: 1px solid var(--vp-c-divider); border-radius: 12px; background: var(--vp-c-bg-soft); padding: 22px 26px; }
