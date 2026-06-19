@@ -106,10 +106,15 @@ try
 		assert(dead.length === 0, `all in-page anchors resolve on ${route} (dead: ${dead.join(', ')})`);
 	}
 
-	// 7. Home is the public README (subscriber-facing), not the internal maintainer one.
+	// 7. Home is the subscriber-facing KernDX landing tour (layout:page + the KernLanding
+	//    component), not the internal maintainer README. The component renders as
+	//    .kern-landing — outside the .vp-doc content wrapper a markdown page would use.
 	await page.goto(`${BASE}/`, {waitUntil: 'networkidle'});
-	const homeText = await page.locator('.vp-doc').innerText();
-	assert(!homeText.includes('Private Development Repo'), 'home is the public README, not the internal dev one');
+	// innerText reflects CSS text-transform (the section eyebrows are uppercased), so
+	// lowercase both sides before matching the landing's merged "Ideas worth taking" grid.
+	const homeText = (await page.locator('.kern-landing').innerText()).toLowerCase();
+	assert(homeText.includes('ideas worth taking'), 'home renders the KernDX landing tour');
+	assert(!homeText.includes('private development repo'), 'home is the public landing, not the internal dev README');
 
 	// 8. Mobile: a method-summary signature stays readable. The stacked-card layout must
 	//    NOT blockify each inline type-link into its own ~1-char-wide column (a flex

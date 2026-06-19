@@ -288,15 +288,26 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		pages.push({relPath: rel, slug, frontmatter: data, title: derivedTitle});
 	}
 
-	// Home (root README → src/index.md).
+	// Home (src/index.md). When the home declares a layout (the landing page uses
+	// `layout: page` with a <KernLanding/> component body), preserve its frontmatter and emit
+	// the body VERBATIM — escapeAngles / transformDetails / rewriteHomeLinks are markdown-prose
+	// transforms that would mangle component tags and intentional HTML. Otherwise (a plain
+	// README home) keep the legacy prose pipeline.
 	if(readme != null)
 	{
-		const {content: readmeBody} = parseFrontmatter(readme);
-		for(const u of unresolvedHomeLinks(readmeBody, slugMap))
+		const {data: homeData, content: homeBody} = parseFrontmatter(readme);
+		if(homeData.layout)
 		{
-			unresolved.push(`README.md → ${u}`);
+			register('', 'index.md', stringifyFrontmatter(homeData), homeBody);
 		}
-		register('', 'index.md', '', escapeAngles(transformDetails(rewriteHomeLinks(readmeBody, slugMap))));
+		else
+		{
+			for(const u of unresolvedHomeLinks(homeBody, slugMap))
+			{
+				unresolved.push(`README.md → ${u}`);
+			}
+			register('', 'index.md', '', escapeAngles(transformDetails(rewriteHomeLinks(homeBody, slugMap))));
+		}
 	}
 
 	// AGENTS.md → on-site /agents page.
@@ -358,24 +369,18 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 	return {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, currentSlugs};
 }
 
-// The site home is the SAME README subscribers see — the public README synthesized from the
-// mirror synthesizer with the current package version, NOT the internal maintainer README.md.
-// On the dev repo the synthesizer is present, so synthesize; on the published site it is
-// absent and README.md is already the public copy, so fall back to that.
-async function loadHomeReadme()
+// The docs-site home is the landing tour, authored as a real markdown file at
+// docs-site/home.md: a `layout: page` page whose body is the <KernLanding/> component
+// (registered in the theme) plus an #examples slot of <CodeCompare> blocks. The code
+// snippets are authored as ```apex fences inside that slot so VitePress renders them
+// through the site's own shiki Apex theme with a Copy button — the same machinery as
+// every other code block. Keeping `layout: page` (and NOT `sidebar: false`) restores the
+// left doc sidebar + the mobile hamburger so the tour is navigable. The page body is
+// emitted VERBATIM (see buildSitePlan's home branch) so the component tags survive. The
+// GitHub README is synthesized separately by the mirror synthesizer.
+async function buildDocsHome()
 {
-	try
-	{
-		const require = createRequire(import.meta.url);
-		const synthesize = require(path.join(REPO, 'scripts', 'README.synthesizer.local.js'));
-		const sfdx = JSON.parse(await readFile(path.join(REPO, 'sfdx-project.json'), 'utf8'));
-		const {version, subscriberPackageVersionId} = resolvePackageVersion(sfdx);
-		return synthesize({version, subscriberPackageVersionId});
-	}
-	catch
-	{
-		return readFile(path.join(REPO, 'README.md'), 'utf8').catch(() => null);
-	}
+	return readFile(path.join(ROOT, 'home.md'), 'utf8');
 }
 
 async function loadReleaseNotes()
@@ -462,7 +467,7 @@ async function main()
 	{
 		docInputs.push({relPath: rel, raw: await readFile(path.join(DOCS, rel), 'utf8')});
 	}
-	const readme = await loadHomeReadme();
+	const readme = await buildDocsHome();
 	const agents = await readFile(path.join(REPO, 'AGENTS.md'), 'utf8').catch(() => null);
 	const releaseNotes = await loadReleaseNotes();
 	const {locked, redirects} = await loadLock(path.join(ROOT, 'slugs.lock.json'), path.join(ROOT, 'redirects.json'));

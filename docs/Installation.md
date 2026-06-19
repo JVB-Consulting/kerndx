@@ -193,15 +193,14 @@ For teams that want full source ownership — repackage KernDX under your own na
 3. Import and rebrand the KernDX code with your namespace
 4. Package and release your own managed package
 
-**Two ways to start:**
+**Start by cloning the public source repo:**
 
-- **Clone the public source repo** — `git clone https://github.com/JVB-Consulting/kerndx my-company-framework` gives you a complete Salesforce DX project ready to swap (this is the
-  canonical entry point for Path 2).
-- **Or extract a `docs+source` distribution** — older subscribers may have received this as a tarball/zip; once extracted, the working tree is identical to a clone of the public
-  repo and the rest of this guide applies the same way.
+```bash
+git clone https://github.com/JVB-Consulting/kerndx my-company-framework
+```
 
-Either entry path lands you at the same starting point: a working tree containing `force-app/`, `bin/swap-namespace.js`, `sfdx-project.template.json`, and the rest of the project
-files. The instructions below assume that starting state.
+The clone is a complete Salesforce DX project ready to swap — a working tree containing `force-app/`, `bin/swap-namespace.js`, `sfdx-project.template.json`, and the rest of the
+project files. The instructions below assume that starting state.
 
 ---
 
@@ -215,7 +214,7 @@ Before starting, ensure you have:
 - **Two Salesforce Orgs:**
     - **Dev Hub Org**: Production org or Partner Business Org (to manage packages)
     - **Namespace Org**: Developer Edition org (to register your namespace)
-- A working tree of the KernDX project — either a clone of `JVB-Consulting/kerndx` or an extracted `docs+source` distribution (both produce the same starting state)
+- A working tree of the KernDX project — a clone of `JVB-Consulting/kerndx`
 
 ---
 
@@ -288,7 +287,7 @@ truth for the swap.
 
 ### Confirm your starting tree
 
-From the directory where you cloned the public repo (or extracted the `docs+source` distribution), confirm the project structure is in place:
+From the directory where you cloned the public repo, confirm the project structure is in place:
 
 ```bash
 ls bin/swap-namespace.js sfdx-project.template.json force-app/

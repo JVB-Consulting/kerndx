@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Namespace-swap script for KernDX docs+source bundles and
- *              release clones. Rewrites the working tree from the `kern`
- *              namespace to a subscriber-chosen namespace. Runs once per
- *              bundle/clone; refuses re-execution after the
+ * @description Namespace-swap script for KernDX release clones. Rewrites the
+ *              working tree from the `kern` namespace to a subscriber-chosen
+ *              namespace (Path 2 — repackage under your own namespace). Runs
+ *              once per clone; refuses re-execution after the
  *              .namespace-origin.json marker is written. See bin/README.md
  *              for usage.
  * @author Kern Framework
