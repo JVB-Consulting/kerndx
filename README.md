@@ -7,7 +7,11 @@
 
 📚 **[Browse the documentation site](https://docs.jvb-consulting.io/)** — the same Fast Starts, Strategic Guides, and Apex reference under `docs/`, rendered and searchable.
 
-Ship Apex and LWC features in a fraction of the time.
+**Every Salesforce framework your team keeps rebuilding — in one Apex & LWC library.**
+
+Spend your team on the features that move the business — not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.
+
+`95 global API classes` · `189 production classes` · `63 LWC components` · `3,742 tests` · `100% Apex / 95% LWC coverage`
 
 **Most Salesforce open-source gives you a library. KernDX gives you the library — plus the onboarding, CI, and guardrails around it.**
 
@@ -19,14 +23,25 @@ One managed package, but not all-or-nothing: switch on the parts that fit your s
 - **Guardrails built in** — reads and writes run FLS-safe by default, 100% Apex / 95% LWC coverage is enforced at every release, and bypasses are audit-logged with the reason the caller gave, so a security review can start from a query.
 - **Yours to keep** — source-available under BSL 1.1, no lock-in: run the managed package, repackage under your own namespace, or run the source yourself.
 
-### Came here looking for…
+## What it prevents
+
+What happens when…
+
+- the trigger framework you copied into fifteen orgs has drifted in all fifteen, and the bug only reproduces in the one you didn't touch?
+- a query runs in system mode, skips the user's field permissions, and the security reviewer asks you to prove it didn't — with no single place to look?
+- a clean deploy finishes before the test suite that's supposed to guard it does, so the suite stops being a gate and starts being a formality?
+- the AI assistant writes Apex that compiles, passes review, and ignores every naming and bypass rule your team agreed on last quarter?
+
+**KernDX makes each one hard to reach** — permissions on by default, one trigger path every org shares, every shortcut logged with the reason it was taken, and a standards file your AI assistant actually reads before it writes.
+
+## Came here looking for…
 
 Each has a Fast Start you can finish in under 30 minutes — jump to the one you came for:
 
 - **Trigger framework** — metadata-driven, audit-logged bypass, 4-level kill switch, recursion control. [Fast Start →](./docs/Fast%20Start%20-%20Trigger%20Actions.md)
 - **SOQL query builder** — FLS-enforced by default, audited bypass, fluent API, subclassable. [Fast Start →](./docs/Fast%20Start%20-%20Selectors.md)
 - **DML wrapper** — `USER_MODE` by default, transactional batching, async DML, dependency graph. [Fast Start →](./docs/Fast%20Start%20-%20DML.md)
-- **Outbound HTTP** — retry, circuit breaker, idempotency body-hash, dead-letter queue. [Fast Start →](./docs/Fast%20Start%20-%20Outbound%20APIs.md)
+- **Outbound HTTP** — retry, circuit breaker, correlation-ID idempotency, dead-letter queue. [Fast Start →](./docs/Fast%20Start%20-%20Outbound%20APIs.md)
 - **Inbound REST** — two-class routing pattern, DTO marshalling, body-hash 409 on replay. [Fast Start →](./docs/Fast%20Start%20-%20Inbound%20APIs.md)
 - **Logging** — platform-event transport, correlation IDs threaded across triggers, async, and HTTP. [Fast Start →](./docs/Fast%20Start%20-%20Logging.md)
 - **Async orchestration** — chained Queueables, shared state, finalizer recovery, Chain Monitor LWC. [Fast Start →](./docs/Fast%20Start%20-%20Async%20Processing.md)
@@ -43,6 +58,25 @@ Each has a Fast Start you can finish in under 30 minutes — jump to the one you
 KernDX is a **complete Salesforce framework and library suite** — one managed package that replaces a dozen separate libraries: SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
 
 This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.1.0-11` at this snapshot.
+
+## Built for AI-assisted development
+
+Your AI assistant gets the standards before it writes. KernDX ships its AI context as plain files in the public repo — nothing to install — so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework: the naming, the secure defaults, the audited-bypass rule, instead of inventing their own.
+
+- [`AGENTS.md`](./AGENTS.md) sits at the repo root — the tool-neutral on-ramp that Claude Code, Cursor, Codex, and Cline read first.
+- [AI Agent Instructions](./docs/AI%20Agent%20Instructions.md) is the complete code-generation reference — copy it into the rules file your tool auto-loads (`AGENTS.md`, `CLAUDE.md`, or `.cursorrules`), or reference it so a `git pull` keeps it current.
+- Those same standards ship as PMD rulesets and an ESLint plugin, so what the assistant follows is also enforced where you already work — inline in VS Code or IntelliJ / Illuminated Cloud, and gated on every pull request in CI.
+
+## Ideas worth taking
+
+Design decisions worth reading even if you never adopt KernDX — each links to the guide that explains the thinking:
+
+- **Why a "safe to retry" key isn't enough** — a retry carrying different data than the first try is rejected, not replayed, so a changed request can't silently overwrite the original. [Read the decision →](./docs/Fast%20Start%20-%20Inbound%20APIs.md#idempotency)
+- **Why a logging tool must avoid logging about itself** — when the thing recording events is itself event-driven, naive logging loops forever; KernDX detects that case and writes the record directly. [Read the decision →](./docs/Logging%20-%20Guide.md#logging-inside-platform-event--change-event-triggers)
+- **Why an empty filter should match nothing, not everything** — an empty "only include these" list returns nothing; an empty "exclude these" list, everything — so a filter bug can't quietly scan your whole table. [Read the decision →](./docs/Selectors%20-%20Guide.md#handle-null-and-empty-collections)
+- **Why hiding card numbers takes more than pattern-matching** — KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone. [Read the decision →](./docs/Data%20Masking%20-%20Guide.md#modes)
+- **Why the framework looks for your version of a class first** — it checks your project for a class before falling back to its own, so "write your own and it wins" becomes a built-in way to customize, with nothing to register. [Read the decision →](./docs/Code%20Conventions%20-%20Guide.md#type-resolution)
+- **Why feature flags decide like an access list** — each rule answers yes, no, or "not my call", and that third answer lets you stack "block these, then allow those" rules in order without them fighting. [Read the decision →](./docs/Feature%20Flags%20-%20Guide.md#evaluation-order)
 
 ## Why "KernDX"?
 
