@@ -1,5 +1,10 @@
 # KernDX - Developer Documentation
 
+> **Using an AI coding assistant?** Load [`docs/AI Agent Instructions.md`](AI%20Agent%20Instructions.md)
+> into it before generating KernDX code — that one file is the assistant's complete context for writing
+> selectors, triggers, callouts, LWC, and tests the KernDX way. It's already in this repo / release; see
+> its header for exactly how to wire it into your tool.
+
 ## Table of Contents
 
 <details>

@@ -1,12 +1,22 @@
 # KernDX Framework — AI Code Generation Context
 
-> Provide this file to any AI code assistant (Claude, Gemini, GPT, Cursor, Copilot, etc.) as project knowledge,
-> system prompt, or rules file. Namespace: `kern`. API version: 67.0.
+> **This is the KernDX AI rules file — load it into your AI assistant before writing KernDX code.**
 >
-> **Audience: subscribers writing code that uses KernDX in their own org.** If you're
-> instead working inside this repository (modifying the kern source itself or extending
-> the framework), [`AGENTS.md`](https://github.com/JVB-Consulting/kerndx/blob/main/AGENTS.md) at the repo root is the entry point for
-> that context.
+> **Where it lives:** `docs/AI Agent Instructions.md` — in the KernDX repo, the release/source download,
+> and the docs site. Nothing to generate or install; it is just this file.
+>
+> **How to use it:** an assistant that has merely *seen* this file once won't reliably apply it — put its
+> full contents where the assistant *always* reads them. Copy it into the agent rules file your tool
+> auto-loads at your project root (e.g. `AGENTS.md`, which Claude Code, Codex, Cursor and others read),
+> or paste it into your tool's system prompt / project-knowledge. Tip: if you track KernDX in git,
+> symlink or reference `docs/AI Agent Instructions.md` from that rules file so a `git pull` keeps it
+> current automatically.
+>
+> Namespace: `kern`. API version: 67.0.
+>
+> **Audience: subscribers writing code that uses KernDX in their own org.** If you're instead working
+> inside this repository (modifying the kern source itself or extending the framework),
+> [`AGENTS.md`](https://github.com/JVB-Consulting/kerndx/blob/main/AGENTS.md) at the repo root is the entry point.
 
 ## STOP — Before Generating Code
 
@@ -91,8 +101,41 @@ List<Account> accounts = (List<Account>)kern.QRY_Builder.selectFrom
 	.toList();
 ```
 
+**Never break the line between a `kern.`-qualified class and its first method call.** The Apex parser
+then reads `kern` as a variable and the class fails to compile with `Variable does not exist: kern`.
+Keep the class and its first call on one line; wrap on later calls in the chain:
+
+```apex
+// WRONG — line break after the namespaced class → "Variable does not exist: kern"
+IpResponse response = (IpResponse) kern.UTIL_HttpClient
+	.get('Echo', '/')
+	.deserialize(IpResponse.class);
+
+// RIGHT — the first call stays on the class's line; wrap afterwards
+IpResponse response = (IpResponse) kern.UTIL_HttpClient.get('Echo', '/')
+	.deserialize(IpResponse.class);
+```
+
 **JavaScript (LWC):** Tabs, single quotes, semicolons, Allman bracing, camelCase, JSDoc required on LWC component classes (`@description`, `@author`, `@date`) and methods with
 parameters (`@param {type} name`).
+
+### Source files come in pairs — every `.cls` needs its `.cls-meta.xml`
+
+Salesforce deploys an Apex class only when its `*-meta.xml` descriptor sits beside it. A `.cls`
+written without one is **silently skipped** — the deploy reports `No local changes to deploy` and the
+class never lands. Whenever you create a class file (`.cls`), also create its paired `.cls-meta.xml` descriptor:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <status>Active</status>
+</ApexClass>
+```
+
+This pairing applies to **every** metadata type, each with its own descriptor — Apex triggers use
+`*.trigger-meta.xml`, LWC use `*.js-meta.xml`, and so on. The exact shape differs by type, so when in
+doubt copy the `*-meta.xml` descriptor of an existing file of the same kind in the project.
 
 ### Naming Conventions
 
@@ -399,7 +442,39 @@ public with sharing class TRG_SetAccountDefaults extends kern.TRG_Base implement
 
 **Do NOT use `triggerNew` or omit the parameter.** Iterate the method parameter (e.g., `for(SObject record : newRecords)`).
 
-**TRG_Base properties:** `triggerOldMap` (lazy `Map<Id, SObject>`) — use `triggerOldMap.get(newRecord.Id)` in update handlers.
+**Update/delete handlers — pair old and new from the `oldRecords` parameter, NOT `triggerOldMap`.** The framework hands you the prior-state records as the `oldRecords` argument (the dispatcher calls `beforeUpdate(Trigger.new, Trigger.old)`). Pair them by Id with a map built from that parameter:
+
+```apex
+public with sharing class TRG_StampIndustryChange extends kern.TRG_Base implements kern.IF_Trigger.BeforeUpdate
+{
+	/** @description Stamp applied to Description when Industry changes. */
+	private static final String INDUSTRY_CHANGED_STAMP = 'Industry updated';
+
+	/**
+	 * @description Stamps Description when an Account's Industry changes.
+	 *
+	 * @param newRecords The Accounts with their proposed values.
+	 * @param oldRecords The same Accounts with their values prior to the update.
+	 */
+	public void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)
+	{
+		Map<Id, SObject> oldById = new Map<Id, SObject>(oldRecords);
+
+		for(SObject record : newRecords)
+		{
+			Account newAccount = (Account)record;
+			Account oldAccount = (Account)oldById.get(newAccount.Id);
+
+			if(oldAccount != null && newAccount.Industry != oldAccount.Industry)
+			{
+				newAccount.Description = INDUSTRY_CHANGED_STAMP;
+			}
+		}
+	}
+}
+```
+
+(Pairing by positional index — `newRecords[i]` vs `oldRecords[i]` — also works; the two lists are aligned.) The `triggerNew` / `triggerOld` / `triggerOldMap` accessors on `kern.TRG_Base` are convenience getters that read live `Trigger.*` context and are **null outside a running trigger** — an action that reads them cannot be unit-tested by direct handler invocation (the test pattern below), so pair from the method parameters instead.
 
 ### Custom Metadata Configuration (REQUIRED)
 
@@ -985,7 +1060,7 @@ Extend `kern.DTO_JsonBase` + `@JsonAccess(Serializable='always' Deserializable='
 
 `kern.UTIL_Exceptions` (IllegalState/Configuration/NotFoundException) | `kern.UTIL_Cache` | `kern.UTIL_CircuitBreaker` | `kern.UTIL_Retry` |
 `kern.UTIL_FeatureFlag.isEnabled(flagName)` | `kern.UTIL_TypeResolver` | `kern.UTIL_String` / `Date` / `Number` / `Set` / `List` / `Map` / `SObject` / `Email` / `Random` /
-`Security` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sobjectType)`, `.getField(name)` namespace-aware by default, `.getFieldDescribe(name)`
+`Security` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sObjectType)` **or `getDescribe(String objectApiName)`** — BOTH return a `kern.UTIL_SObjectDescribe` instance (the wrapper itself, NOT a native `Schema.DescribeSObjectResult`); the String overload returns null for an unknown/blank name, resolving an object API name to the wrapper WITHOUT raw `Schema.getGlobalDescribe()`. On the returned wrapper call `.getField(name)` (namespace-aware by default), `.getFieldDescribe(name)`
 returns cached `DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups;
 never use raw `Schema.getGlobalDescribe()` / `fields.getMap()` from package code — namespace handling is the trap that bites)
 
@@ -1125,6 +1200,10 @@ global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 | 12 | `[SELECT ...]` in test classes         | Use `kern.QRY_Builder` or `SEL_*` even in tests                             |
 | 13 | Missing `@SuppressWarnings` on tests   | `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` on test classes |
 | 14 | `import from 'c/componentBuilder'`     | `import from 'kern/componentBuilder'` — must use package namespace          |
+| 15 | Line break after `kern.Class` in a chain | Keep the first `.method()` on the class's line — a break compiles `kern` as a variable (`Variable does not exist: kern`) |
+| 16 | `.cls` written without its `.cls-meta.xml` | Always create the paired `*-meta.xml` — a lone `.cls` is silently skipped (`No local changes to deploy`) |
+| 17 | `triggerOldMap.get(id)` to pair old/new in an action | Build `new Map<Id, SObject>(oldRecords)` from the parameter — `triggerOldMap` is null outside live trigger context (`NullPointerException` in direct-invocation tests) |
+| 18 | `Schema.getGlobalDescribe().get(name)` to resolve an object | `kern.UTIL_SObjectDescribe d = kern.UTIL_SObjectDescribe.getDescribe(name)` — returns the wrapper (type `kern.UTIL_SObjectDescribe`, NOT `Schema.DescribeSObjectResult`), null for an unknown name; then `d.getField(name)` |
 
 ---
 

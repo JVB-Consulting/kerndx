@@ -1,6 +1,6 @@
 # bin/ — Namespace Swap Toolkit
 
-This directory contains the namespace-swap script bundled with `docs+source` distributions and shipped in the public release repo.
+This directory contains the namespace-swap script shipped in the public source repo. It powers Path 2 (repackage KernDX under your own namespace) for teams who clone the repo.
 
 ## Usage
 

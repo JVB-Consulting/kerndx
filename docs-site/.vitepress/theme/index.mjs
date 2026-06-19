@@ -4,6 +4,8 @@ import DefaultTheme from 'vitepress/theme';
 import './custom.css';
 import VersionSwitcher from './VersionSwitcher.vue';
 import Breadcrumb from './Breadcrumb.vue';
+import KernLanding from './components/KernLanding.vue';
+import CodeCompare from './components/CodeCompare.vue';
 
 // Reference-page render-layer enhancement: a method whose name heading is followed
 // by more than one `.apex-member` card has overloads. We tag the heading with the
@@ -49,8 +51,12 @@ export default {
 			'doc-before': () => h(Breadcrumb)
 		});
 	},
-	enhanceApp({router})
+	enhanceApp({app, router})
 	{
+		// Global components for the layout:page home tour (prepare.mjs emits <KernLanding />
+		// from home.md; the examples slot holds <CodeCompare> blocks wrapping ```apex fences).
+		app.component('KernLanding', KernLanding);
+		app.component('CodeCompare', CodeCompare);
 		if(typeof window === 'undefined')
 		{
 			return;
