@@ -322,7 +322,7 @@ adopted. Subscribers wanting single-purpose drop-in libraries can mix `taf` + `a
 ##### Integration-Heavy Projects
 
 **Recommendation:** Adopt KernDX as-is. Decisive features: KernDX ships the broadest Outbound surface of the Apex libraries surveyed, and scores at the same level as
-`apex-fluently-httpmock` on the mock-library piece. KernDX ships circuit breaker, retry with backoff, named-credential resolution, idempotency body-hash, and an `ApiStep`
+`apex-fluently-httpmock` on the mock-library piece. KernDX ships circuit breaker, retry with backoff, named-credential resolution, correlation-ID idempotency, and an `ApiStep`
 async-chain-to-outbound bridge wired through `UTIL_AsyncChain`. Subscribers using non-`API_Outbound` HTTP paths can mix `apex-fluently-httpmock` for the mock surface; subscribers
 already on KernDX get the same-level mock via `API_MockFactory`.
 
