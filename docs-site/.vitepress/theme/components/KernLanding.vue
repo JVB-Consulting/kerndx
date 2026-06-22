@@ -21,6 +21,7 @@
 				</div>
 				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding — in one Apex &amp; LWC library.</h1>
 				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business — not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.</p>
+				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't — security by default, with logging, performance, and traceability built in.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
 					<a class="kl-cta primary" href="/installation" data-spec-id="cta-install">Install KernDX →</a>
@@ -99,9 +100,13 @@
 		<section class="kl-section">
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="the-same-task">The same task, with and without KernDX</h2>
-				<p class="kl-headline">Looks like the same code. It isn't.</p>
-				<p class="kl-lead">Plain Apex on the left, KernDX on the right. The interesting part is what the right does that you can't see — and would have written by hand, eventually, after the bug. Open "why the right is better" under each.</p>
+				<p class="kl-headline">You write the line you expect. You get the depth you didn't.</p>
+				<p class="kl-lead">Plain Apex on the left, KernDX on the right. Under each KernDX snippet is a depth-ledger — <em>what you also got, without typing it</em>: the security, logging, performance, and correlation the framework added for free. Every item links to the guide section that proves it.</p>
 				<slot name="examples" />
+				<details class="kl-secmore" data-spec-id="examples-show-more">
+					<summary><span class="kl-secmore-c">Show 5 more examples</span><span class="kl-secmore-o">Show fewer examples</span></summary>
+					<div class="kl-secmore-body"><slot name="examplesMore" /></div>
+				</details>
 			</div>
 		</section>
 
@@ -280,7 +285,20 @@
 .kl-badge.brand{ background: var(--vp-c-brand-soft); border-color: transparent; color: var(--vp-c-brand-1); }
 .kl-hero h1{ font-size: 2.7rem; line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; max-width: 22ch; }
 .kl-sub{ font-size: 1.12rem; color: var(--vp-c-text-1); max-width: 62ch; margin: 0 0 12px; }
+.kl-depth{ font-size: 1.02rem; font-weight: 600; color: var(--vp-c-brand-1); max-width: 60ch; margin: 0 0 12px; }
 .kl-durability{ font-size: .98rem; color: var(--vp-c-text-2); max-width: 60ch; margin: 0 0 26px; }
+
+/* Section-level "Show 5 more examples" collapse (wraps the bottom-5 CodeCompare panels) */
+.kl-secmore{ margin: 8px 0 0; }
+.kl-secmore > summary{ list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px; box-sizing: border-box; width: 100%; font-size: .98rem; font-weight: 700; color: var(--vp-c-brand-1); border: 1px dashed var(--vp-c-divider); border-radius: 12px; padding: 14px 20px; user-select: none; transition: border-color .15s, background .15s; }
+.kl-secmore > summary::-webkit-details-marker{ display: none; }
+.kl-secmore > summary::before{ content: "▸"; }
+.kl-secmore[open] > summary::before{ content: "▾"; }
+.kl-secmore > summary:hover{ border-color: var(--vp-c-brand-1); background: var(--vp-c-brand-soft); }
+.kl-secmore > summary .kl-secmore-o{ display: none; }
+.kl-secmore[open] > summary .kl-secmore-c{ display: none; }
+.kl-secmore[open] > summary .kl-secmore-o{ display: inline; }
+.kl-secmore-body{ margin-top: 22px; }
 .kl-cta-row{ display: flex; flex-wrap: wrap; gap: 12px; }
 .kl-cta{ display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; font-size: .95rem; padding: .7rem 1.15rem; border-radius: 9px; border: 1px solid var(--vp-c-brand-1); text-decoration: none; transition: background .15s; }
 .kl-cta.primary{ background: var(--vp-c-brand-1); color: var(--vp-c-white); }
