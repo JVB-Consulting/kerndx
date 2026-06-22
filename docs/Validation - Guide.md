@@ -898,7 +898,7 @@ Shadow mode allows testing validation rules in production without blocking saves
 
 1. Set `ShadowMode__c = true` on the validation rule
 2. When the rule fails:
-    - Error is logged to `LogEntry__c` with `[SHADOW]` prefix
+    - Violation is logged to `LogEntry__c` as a `WARN`, with a `[SHADOW]` prefix on its `ShortMessage__c` field
     - Save is **NOT** blocked
     - Violation captured for monitoring
 
@@ -912,9 +912,9 @@ Shadow mode allows testing validation rules in production without blocking saves
 
 ```apex
 List<LogEntry__c> shadowViolations = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
-	.fields(new List<SObjectField>{LogEntry__c.Message__c, LogEntry__c.CreatedDate})
+	.fields(new List<SObjectField>{LogEntry__c.ShortMessage__c, LogEntry__c.CreatedDate})
 	.condition(LogEntry__c.LogLevel__c).equals('WARN')
-	.andCondition(LogEntry__c.Message__c).contains('[SHADOW]')
+	.andCondition(LogEntry__c.ShortMessage__c).contains('[SHADOW]')
 	.orderBy(LogEntry__c.CreatedDate).descending()
 	.withLimit(100)
 	.toList();
