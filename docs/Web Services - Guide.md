@@ -3072,8 +3072,8 @@ When idempotency is enabled and a caller sends an `Idempotency-Key` header, the 
 - **`IdempotencyKeyBodyHash__c`** — a SHA-256 hex digest of the request body, used to detect key reuse with a divergent body (see "Replay behaviour" below)
 - **`IsIdempotencyHit__c`** — `true` if the response was returned from a prior call's record without re-running the handler; `false` for first calls
 
-The body hash is computed once per call. Outbound calls leave the field blank (idempotency keys on outbound are subscriber-driven via `UTIL_HttpClient`'s `withCorrelationId()`, not
-framework-managed).
+The body hash is computed once per call. Outbound calls leave `IdempotencyKeyBodyHash__c` blank — on outbound, idempotency is driven by an explicit key the caller stamps via `UTIL_HttpClient`'s `withIdempotencyKey()` (stored on `IdempotencyKey__c`), not a
+framework-computed body hash.
 
 #### Replay behaviour
 

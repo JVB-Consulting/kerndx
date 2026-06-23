@@ -22,7 +22,7 @@ These five are the spine of almost every KernDX project. Learn them first.
 Reach for these as you build out UI, integrations, and background work.
 
 - [**LWC**](./Fast%20Start%20-%20LWC.md) — components built on `ComponentBuilder` and shared patterns instead of raw `LightningElement`.
-- [**Outbound APIs**](./Fast%20Start%20-%20Outbound%20APIs.md) — resilient callouts with retry, circuit breaker, correlation-ID idempotency, and a dead-letter queue.
+- [**Outbound APIs**](./Fast%20Start%20-%20Outbound%20APIs.md) — resilient callouts with retry, circuit breaker, idempotency keys, and a dead-letter queue.
 - [**Inbound APIs**](./Fast%20Start%20-%20Inbound%20APIs.md) — a two-class REST routing pattern with DTO marshalling and replay-safe `409`s.
 - [**Async Processing**](./Fast%20Start%20-%20Async%20Processing.md) — chained queueables and batches with correlation IDs threaded through the whole run.
 - [**Feature Flags**](./Fast%20Start%20-%20Feature%20Flags.md) — metadata-driven flags that gate behaviour per org or user, no deploy to flip.

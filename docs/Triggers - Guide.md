@@ -3177,6 +3177,54 @@ private class TRG_ValidateAccount_TEST
 }
 ```
 
+### Testing an Action Without DML
+
+Every action receives its records as a plain `List<SObject>`, so you can unit-test one in isolation — no `insert`, no dispatcher, and no `TriggerAction__mdt` deployment. Build the trigger records in memory, and if the action reads related data through a selector, register those rows with [`TST_Mock`](reference/apex/TST_Mock.md) so the query returns them without a database round-trip.
+
+```apex
+@IsTest(SeeAllData=false IsParallel=true)
+private class TRG_FlagHighValueAccount_TEST
+{
+	@IsTest
+	private static void beforeUpdate_givenRevenueJump_flagsAccount()
+	{
+		// 1. Trigger rows, in memory — valid mock Ids, no DML.
+		Account newRecord = (Account)TST_Mock.of(Account.SObjectType)
+			.withOverride(Account.Name, 'Acme')
+			.withOverride(Account.AnnualRevenue, 5000000)
+			.build();
+		Account oldRecord = (Account)TST_Builder.of(Account.SObjectType)
+			.withOverride(Account.Id, newRecord.Id)
+			.withOverride(Account.AnnualRevenue, 100000)
+			.withoutInsertion()
+			.build();
+
+		// 2. The action reads Contacts through a selector — mock that read, still no DML.
+		TST_Mock.register(Contact.SObjectType, new List<Contact>
+		{
+			(Contact)TST_Builder.of(Contact.SObjectType)
+				.withOverride(Contact.AccountId, newRecord.Id)
+				.withoutInsertion()
+				.build()
+		});
+
+		// 3. Invoke the action method directly and assert.
+		Test.startTest();
+		new TRG_FlagHighValueAccount().beforeUpdate(
+			new List<SObject>{ newRecord },
+			new List<SObject>{ oldRecord }
+		);
+		Test.stopTest();
+
+		Assert.isTrue(newRecord.Priority_Review__c, 'A large revenue jump should flag the account');
+
+		TST_Mock.clear();
+	}
+}
+```
+
+`TST_Mock.of(...).build()` creates a record with a valid mock Id and auto-registers it; `TST_Builder.of(...).withoutInsertion()` builds an in-memory record without touching the database (give it an Id with `withOverride(<Object>.Id, ...)` or `withoutInsertion(true)` when the code under test needs one). `TST_Mock.register(...)` then makes the action's selector queries return the records you supply. The test exercises one rule's logic with no DML and no setup beyond the records it cares about.
+
 ### Testing with Bypass
 
 ```apex
