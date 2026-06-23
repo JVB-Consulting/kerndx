@@ -419,3 +419,13 @@
 	.kl-sticky{ display: none; }
 }
 </style>
+
+<!-- Unscoped: the landing is layout:page, but the theme still reserves the doc-sidebar
+     gutter (.VPContent.has-sidebar → 272px left padding) and renders the sidebar. On the
+     landing we want full width — it reads as a product page and gives the side-by-side
+     code panes the room they need (no horizontal scroll). Scoped to the kl-landing-page
+     pageClass so every other page keeps its sidebar. -->
+<style>
+.kl-landing-page .VPSidebar{ display: none !important; }
+.kl-landing-page .VPContent.has-sidebar{ padding-left: 0 !important; }
+</style>
