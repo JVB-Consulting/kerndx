@@ -6,7 +6,7 @@ navOrder: 66
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A faster way to build the data your Apex tests need. You write one short expression and the framework fills in every required field, so you spell out only the values the test cares about. **Why it exists:** Hand-written test setup is slow, brittle when an admin adds a required field, and wastes governor limits on records you do not need. **Who should care:** Any developer writing Apex tests, and tech leads who want setup that survives schema changes. **When to use it:** Whenever a test needs records, saved, kept in memory, or returned from a query.
+**What this is:** A faster way to build the data your Apex tests need. You write one short expression and the framework fills in every required field, so you spell out only the values the test cares about. **Why it exists:** Hand-written test setup is slow, brittle when an admin adds a required field, and wastes governor limits on records you do not need. **Who should care:** Any developer writing Apex tests, and tech leads who want setup that survives schema changes. **When to use it:** Whenever a test needs records, saved, kept in memory, or returned from a query. For a single record with one or two fields, plain `new Account(...)` is still fine; reach for the builder once required fields, bulk data, or query mocking start adding boilerplate.
 
 **Before you start:**
 

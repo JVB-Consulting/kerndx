@@ -27,6 +27,11 @@ send and receive, and convert themselves to and from JSON), input validation, an
 **Success looks like:** Your API call appears in the Kern app's **API Calls** tab with full request/response
 logging, and your test class has 100% code coverage.
 
+**When the built-in is enough:** for a single, simple callout with no retries, no logging, and no shared
+shape, a plain `Http`/`HttpRequest` callout (or an External Service / Named Credential on its own) does the
+job. Use this when you want retries, request/response logging, validation, and tests in a consistent
+shape across many integrations.
+
 **In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();`
 That single call comes with automatic retries, a circuit breaker (after repeated failures the framework
 stops calling a failing system for a cool-off, then resumes), and logging already built in.
@@ -835,7 +840,7 @@ After completing this guide, you understand the **three ways** to make outbound 
 
 | Approach                       | When to Use                              | What You Get                                                                  |
 |--------------------------------|------------------------------------------|-------------------------------------------------------------------------------|
-| **`UTIL_HttpClient`** (Tier 1) | Quick calls, prototyping, anonymous Apex | Fluent one-liners with optional retry and circuit breaker                     |
+| **`UTIL_HttpClient`** (Tier 1) | Quick calls, prototyping, anonymous Apex | Short chained one-liners, with optional retry and circuit breaker             |
 | **`API_Outbound`** (Tier 2)    | Production integrations                  | Typed DTOs, input validation, mock testing, automatic logging to `ApiCall__c` |
 | **Orchestration** (Tier 3)     | Flow-driven or async processing          | Declarative triggers via `FLOW_CallApi`, queue-based retry with `ApiCall__c`  |
 
@@ -862,4 +867,4 @@ After completing this guide, you understand the **three ways** to make outbound 
 - [Building Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md)
 - [Feature Flag Gating](Fast%20Start%20-%20Feature%20Flags.md)
 - [Complete Web Services Guide](Web%20Services%20-%20Guide.md)
-- [Retry & Circuit Breaker](Web%20Services%20-%20Guide.md#advanced-features)
+- [Retry & Circuit Breaker](Web%20Services%20-%20Guide.md#what-else-can-it-do)

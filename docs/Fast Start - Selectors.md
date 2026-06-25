@@ -547,7 +547,7 @@ deliberate choice.
 
 In Salesforce terms, every `kern.QRY_Builder` query runs in USER_MODE: it respects the current user's
 read/write permissions and record sharing (CRUD = object create/read/update/delete permissions, FLS =
-field-level security, plus sharing), unless a caller explicitly opts out. The default is controlled by the
+field-level security, plus sharing), unless a caller explicitly opts out. The default behaviour is set by the
 `UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
 
 Run these from Execute Anonymous to compare:

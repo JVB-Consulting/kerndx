@@ -15,9 +15,31 @@ navOrder: 30
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Every Lightning Web Component (LWC) you build needs the same repetitive plumbing, toast notifications, Apex calls with error handling, navigation, and logging that survives a page reload. Re-writing that wiring in each component is slow and easy to get inconsistent. This part of KernDX gives you that plumbing once, as a base class you extend and a set of ready-to-use helper functions, plus drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all. Developers use it to build components faster and more consistently. Architects use it to keep separation of concerns clean. Business analysts use the pre-built components to assemble pages. Reach for it whenever you create a custom LWC, or when a standard Lightning base component already does the job and you just need to place it.
+Every Lightning Web Component (LWC) you build needs the same repetitive plumbing: toast notifications, Apex calls with error handling, navigation, and logging that survives a page reload. Re-writing that wiring in each component is slow and easy to get inconsistent.
+
+This part of KernDX gives you that plumbing once, as a base class you extend and a set of ready-to-use helper functions, plus drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all.
+
+Developers use it to build components faster and more consistently. Architects use it to keep separation of concerns clean. Business analysts use the pre-built components to assemble pages. Use it whenever you create a custom LWC, or when a standard Lightning base component already does the job and you just need to place it.
+
+## Mental model
+
+Think of `ComponentBuilder` as ordering a car with the options you want. You pick the features you need (toasts, Apex calls, navigation, messaging, Flow control), and you drive away in a component that already has them fitted, rather than bolting each one on by hand. The utility modules are the toolkit in the boot: small, separate tools you use when a job needs them.
+
+## Use this when
+
+- You are building a custom LWC and want toasts, Apex calls, navigation, or logging without re-wiring them each time. Extend `ComponentBuilder` and list the features you need.
+- You want client-side logs that are kept and searchable, and that line up with the matching Apex logs for one user action.
+- You need a common screen (a search lookup, a record form, a Flow footer, an event monitor) and would rather configure a finished component than build one.
+- You want every component in your org to share the same conventions, so the codebase stays consistent as it grows.
+
+## Don't use this when
+
+- A standard Lightning base component already does the job. If `lightning-record-form` or another built-in covers your screen, just place it; there is nothing to extend.
+- You only need to drop a single ready-made component on a page. Configure it through Lightning App Builder; no custom code is involved.
+
+For any other custom component, extend `ComponentBuilder` even with a single feature. The cost is small, and it keeps your components consistent.
 
 ---
 
@@ -27,13 +49,13 @@ Every Lightning Web Component (LWC) you build needs the same repetitive plumbing
 <summary>Expand</summary>
 
 1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
+2. [Quick Start](#quick-start)
+3. [What are the parts?](#what-are-the-parts)
     - [Component Categories](#component-categories)
-    - [Key Benefits](#key-benefits)
-    - [KernDX vs OOTB: LWC Patterns Comparison](#kerndx-vs-ootb-lwc-patterns-comparison)
-3. [Architecture](#architecture)
+    - [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
+    - [How does this compare to standard LWC development?](#how-does-this-compare-to-standard-lwc-development)
+4. [How does it work?](#how-does-it-work)
     - [Architecture Diagram](#architecture-diagram)
-4. [Quick Start](#quick-start)
 5. [Utility Modules](#utility-modules)
     - [utilityLogger - Client-Side Logging](#utilitylogger---client-side-logging)
         - [Log Level Constants](#log-level-constants)
@@ -68,7 +90,7 @@ Every Lightning Web Component (LWC) you build needs the same repetitive plumbing
         - [LDS Cache Staleness: Not for Client-Side Authorization](#lds-cache-staleness-not-for-client-side-authorization)
 6. [Base Component Architecture](#base-component-architecture)
     - [ComponentBuilder Pattern](#componentbuilder-pattern)
-    - [Available Modules](#available-modules)
+    - [What modules can I include?](#what-modules-can-i-include)
     - [How Modules Work](#how-modules-work)
         - [Module Architecture](#module-architecture)
         - [Module Files](#module-files)
@@ -106,8 +128,8 @@ Every Lightning Web Component (LWC) you build needs the same repetitive plumbing
     - [Test Patterns](#test-patterns)
         - [Testing Utility Modules](#testing-utility-modules)
         - [Testing Components](#testing-components)
-13. [Anti-Patterns](#anti-patterns)
-14. [Best Practices](#best-practices)
+13. [What to avoid](#what-to-avoid)
+14. [Recommended habits](#recommended-habits)
     - [Use ComponentBuilder for New Components](#use-componentbuilder-for-new-components)
     - [Use Utility Modules for Common Operations](#use-utility-modules-for-common-operations)
     - [Correlate Client and Server Logs](#correlate-client-and-server-logs)
@@ -163,7 +185,30 @@ Every Lightning Web Component (LWC) you build needs the same repetitive plumbing
 
 ---
 
-## Overview
+## Quick Start
+
+Here is the whole idea in one example. To build a custom component, extend `ComponentBuilder` and list the features you want:
+
+```javascript
+import {ComponentBuilder} from 'c/componentBuilder';
+
+export default class MyComponent extends ComponentBuilder('notification', 'controller')
+{
+	async handleSave()
+	{
+		const result = await this.callControllerMethod('saveRecord', {record: this.record});
+		this.showSuccessToast('Record saved successfully');
+	}
+}
+```
+
+That one line gives your component toast notifications and a clean way to call Apex. Need more? Add `'navigation'` for record-page navigation, or pass `'all'` to include every feature. The rule of thumb is simple: build every new component on `ComponentBuilder`, not on `LightningElement` directly, so they all share the same wiring.
+
+The sections below go deeper on each piece.
+
+---
+
+## What are the parts?
 
 The pieces of this part of KernDX are: helper functions for common operations (logging, string handling, arrays), a base class you extend to build your own components, and a library of pre-built components for common patterns.
 
@@ -229,19 +274,19 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 > **What you actually use:** `ComponentBuilder` is the one entry point you call. The `baseComponent`, `componentExtender`, and `module*` pieces shown in the diagram are the wiring behind it: KernDX assembles them for you. Always build a component with `extends ComponentBuilder('module1', 'module2')` and let the framework handle the rest.
 
-### Key Benefits
+### Why choose this over the built-in option?
 
-| Benefit                  | Description                                                                                                                                                                        |
-|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Consistent Patterns**  | All components follow the same coding standards and conventions                                                                                                                    |
-| **Pre-Built Utilities**  | Common operations (logging, string manipulation, arrays) ready to use                                                                                                              |
-| **Modular Architecture** | ComponentBuilder pattern enables selective functionality inclusion                                                                                                                 |
-| **Server Correlation**   | Client-side logging correlates with Apex logs via [`LOG_Builder`](reference/apex/LOG_Builder.md) for debugging                                                                     |
-| **Flow Integration**     | Multiple components designed for [Flow Screen](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html) use                                                         |
-| **Streaming Support**    | Complete [Platform Event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) monitoring and subscription management |
-| **100% Test Coverage**   | Every utility module is covered by [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testing.html) tests, so upgrades are less likely to break them                  |
+What you get, and why it helps:
 
-### KernDX vs OOTB: LWC Patterns Comparison
+- **Every component looks and behaves the same.** All components follow the same coding standards and conventions, so a developer moving between them faces no surprises.
+- **Common chores are already written.** Logging, string handling, and array work are ready to import, so you don't reinvent them per component.
+- **You include only the features you use.** The `ComponentBuilder` pattern lets you add exactly the capabilities a component needs and nothing more.
+- **Client and server logs read as one story.** Client-side logging lines up with your Apex logs through [`LOG_Builder`](reference/apex/LOG_Builder.md), which makes a single user action easy to trace end to end.
+- **Flow screens are quicker to assemble.** Several components are designed for [Flow Screen](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html) use, so you place them rather than build them.
+- **Watching real-time events takes no extra code.** [Platform Event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) monitoring and subscription management come built in.
+- **Upgrades are less likely to break your build.** Every utility module is covered by [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testing.html) tests at 100% coverage, so the layer you build on stays stable.
+
+### How does this compare to standard LWC development?
 
 | Feature                 | KernDX LWC Framework                          | Standard LWC Development                                                                                                                         |
 |-------------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -256,7 +301,7 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 ---
 
-## Architecture
+## How does it work?
 
 ### Architecture Diagram
 
@@ -319,29 +364,6 @@ This part of KernDX is organised into three groups, each solving a different nee
 
 All components use Allman bracing, tabs for indentation, single quotes, and follow the conventions defined in
 [`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 67.0.
-
----
-
-## Quick Start
-
-Here is the whole idea in one example. To build a custom component, extend `ComponentBuilder` and list the features you want:
-
-```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-
-export default class MyComponent extends ComponentBuilder('notification', 'controller')
-{
-	async handleSave()
-	{
-		const result = await this.callControllerMethod('saveRecord', {record: this.record});
-		this.showSuccessToast('Record saved successfully');
-	}
-}
-```
-
-That one line gives your component toast notifications and a clean way to call Apex. Need more? Add `'navigation'` for record-page navigation, or pass `'all'` to include every feature. The rule of thumb is simple: build every new component on `ComponentBuilder`, not on `LightningElement` directly, so they all share the same wiring.
-
-The sections below go deeper on each piece.
 
 ---
 
@@ -461,7 +483,7 @@ You don't have to send logs to the server yourself. The framework flushes them t
 - when the in-memory buffer fills up, and
 - when the page unloads (on a best-effort basis).
 
-On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The payoff: when you investigate a problem later, the client and server halves of the same action are already stitched together.
+On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The benefit: when you investigate a problem later, the client and server halves of the same action are already stitched together.
 
 ---
 
@@ -905,7 +927,7 @@ export default class FullFeaturedComponent extends ComponentBuilder('all')
 }
 ```
 
-### Available Modules
+### What modules can I include?
 
 | Module              | Functionality Included                                                                                                                                                                                    |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -972,7 +994,7 @@ Each module is a separate JavaScript file that exports an initialiser function:
 
 #### Why This Pattern?
 
-Why build it this way rather than one giant base class? Four reasons, each with a payoff for you:
+Why build it this way rather than one giant base class? Four reasons, each with a benefit for you:
 
 1. **You load only what you use.** Include just the features a component needs, so it carries no dead weight.
 2. **No deep inheritance chain to reason about.** Unlike traditional mixins, the methods are added straight onto the instance.
@@ -1604,9 +1626,9 @@ describe('c-my-component', () =>
 
 ---
 
-## Anti-Patterns
+## What to avoid
 
-These are common mistakes (an anti-pattern is a tempting but risky habit) and what to do instead.
+These are common mistakes (a tempting but risky habit, sometimes called an anti-pattern) and what to do instead.
 
 | Anti-Pattern                                                 | Why It's Wrong                                                             | Instead                                                                                              |
 |--------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
@@ -1618,7 +1640,7 @@ These are common mistakes (an anti-pattern is a tempting but risky habit) and wh
 
 ---
 
-## Best Practices
+## Recommended habits
 
 A short checklist of habits that keep your components consistent and easy to maintain. Each one is shown with a small before/after.
 
@@ -2107,6 +2129,9 @@ and Friday at 9:30 AM").
 
 All 63 LWC components in the KernDX framework with their category, exposure status, and test coverage.
 
+<details>
+<summary>Expand the full 63-component inventory</summary>
+
 #### Utility Modules (7 components)
 
 | Component          | Exposed | Jest Tests | Purpose                                     |
@@ -2212,6 +2237,8 @@ The console and dialogs behind the **Data Masking Advisor** (see [Security Guide
 | Component            | Exposed | Jest Tests | Purpose                                                 |
 |----------------------|:-------:|:----------:|---------------------------------------------------------|
 | `apiTestHarnessForm` |   Yes   |    Yes     | Interactive form for invoking inbound and outbound APIs |
+
+</details>
 
 ---
 

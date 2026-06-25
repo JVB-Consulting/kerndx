@@ -19,12 +19,34 @@ navOrder: 18
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Salesforce's built-in `System.debug()` writes to debug logs that expire and that you cannot search or chart. This framework instead saves every log as a real
-record you can report on, filter, and keep, so when something fails in production the evidence is still there next week. You log the same way from Apex, screen flows, and Lightning
-components, and the framework can stitch a single user action together even when it spans a button click, a trigger, a callout, and a background job. Developers use it to capture
-errors, architects use it to design traceability, and DevOps uses it to monitor live systems. Reach for it whenever you would otherwise reach for `System.debug()`.
+Salesforce's built-in `System.debug()` writes to debug logs that expire and that you cannot search or chart. So when something fails in production, the evidence is often gone by the time you go looking for it.
+
+This framework instead saves every log as a real record you can report on, filter, and keep, so the evidence is still there next week. You log the same way from Apex, screen flows, and Lightning components, and the framework can stitch a single user action together even when it spans a button click, a trigger, a callout, and a background job.
+
+Developers use it to capture errors, architects use it to design traceability, and DevOps teams use it to monitor live systems. Use it whenever you would otherwise reach for `System.debug()`.
+
+---
+
+## Mental model
+
+Think of it as a flight recorder for your code. Every action leaves a timestamped, kept record, and one tracking ID ties together everything that happened during a single user action, so after a problem you can replay exactly what occurred rather than guess.
+
+---
+
+## Use this when
+
+- You need the evidence of a production failure to still be there days later, not lost when the debug log rotates.
+- You want to report on, chart, or filter your logs as ordinary records.
+- One user action spans several places (a click, a trigger, a callout, a background job) and you want to see all of its logs together.
+- You log from more than one layer (Apex, Lightning components, Flows) and want them in one place with one tracking ID.
+
+## Don't use this when
+
+- A quick, throwaway trace during local development is all you need. Plain `System.debug()` is simpler, and these records cost a platform event each.
+- You only need Salesforce's own automatic error capture. If the built-in flow fault paths or unhandled-exception emails already tell you enough, start there and add this when you outgrow them.
+- You are tempted to log personal data or secrets to make debugging easier. Don't: see the [Anti-Patterns](#anti-patterns) below.
 
 ---
 
@@ -33,67 +55,70 @@ errors, architects use it to design traceability, and DevOps uses it to monitor 
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Architecture](#architecture)
-4. [Quick Start](#quick-start)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
     - [Apex - Log an Error](#apex---log-an-error)
     - [LWC - Log with Correlation](#lwc---log-with-correlation)
     - [Flow - Correlated Logging](#flow---correlated-logging)
-5. [Apex Logging (LOG_Builder)](#apex-logging-log_builder)
+6. [What is it, and where is it already wired in?](#what-is-it-and-where-is-it-already-wired-in)
+7. [How does it work?](#how-does-it-work)
+8. [Apex Logging (LOG_Builder)](#apex-logging-log_builder)
     - [Log Levels](#log-levels)
     - [Exception Logging](#exception-logging)
     - [DML Error Logging](#dml-error-logging)
     - [Batch Logging](#batch-logging)
     - [Log Grouping & Flood Control](#log-grouping--flood-control)
     - [Logging Inside Platform Event & Change Event Triggers](#logging-inside-platform-event--change-event-triggers)
-6. [Correlation Tracking](#correlation-tracking)
+9. [Correlation Tracking](#correlation-tracking)
     - [Starting Correlation](#starting-correlation)
     - [Async Context Propagation](#async-context-propagation)
     - [External Correlation](#external-correlation)
-7. [Structured Context](#structured-context)
+10. [Structured Context](#structured-context)
     - [Global Context](#global-context)
     - [Operation Context Stack](#operation-context-stack)
-8. [Performance Logging](#performance-logging)
+11. [Performance Logging](#performance-logging)
     - [What Gets Automatically Timed](#what-gets-automatically-timed)
     - [Custom Timing in Your Own Code](#custom-timing-in-your-own-code)
     - [Performance Configuration](#performance-configuration)
-9. [Log Buffering](#log-buffering)
-10. [LWC Client-Side Logging](#lwc-client-side-logging)
+12. [Log Buffering](#log-buffering)
+13. [LWC Client-Side Logging](#lwc-client-side-logging)
     - [LWC Setup](#lwc-setup)
     - [LWC Basic Usage](#lwc-basic-usage)
     - [LWC Correlation](#lwc-correlation)
     - [LWC Performance Timing](#lwc-performance-timing)
     - [Server Persistence](#server-persistence)
     - [Console Fallback](#console-fallback)
-11. [Flow Logging (FLOW_LoggerStart, FLOW_LoggerLog, FLOW_LoggerEnd)](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend)
+14. [Flow Logging (FLOW_LoggerStart, FLOW_LoggerLog, FLOW_LoggerEnd)](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend)
     - [Flow Simple Logging](#flow-simple-logging)
     - [Flow Bookend Pattern](#flow-bookend-pattern)
-12. [Testing](#testing)
-13. [Querying Log Entries](#querying-log-entries)
+15. [Testing](#testing)
+16. [Querying Log Entries](#querying-log-entries)
     - [Why](#why)
     - [Right vs wrong](#right-vs-wrong)
     - [Reports and dashboards](#reports-and-dashboards)
     - [Cleanup scripts](#cleanup-scripts)
     - [Sharing considerations](#sharing-considerations)
-14. [Configuration Reference](#configuration-reference)
+17. [How do I configure this?](#how-do-i-configure-this)
     - [LogSetting__c Fields](#logsetting__c-fields)
     - [TriggerSetting__mdt Fields (Trigger Performance)](#triggersetting__mdt-fields-trigger-performance)
     - [TriggerAction__mdt Fields (Action-Level Control)](#triggeraction__mdt-fields-action-level-control)
-15. [Anti-Patterns](#anti-patterns)
-16. [Best Practices](#best-practices)
+18. [Anti-Patterns](#anti-patterns)
+19. [Best Practices](#best-practices)
     - [Always Include Context](#always-include-context)
     - [Use Appropriate Log Levels](#use-appropriate-log-levels)
     - [Never Log Sensitive Data](#never-log-sensitive-data)
     - [Use Correlation for Async Operations](#use-correlation-for-async-operations)
     - [Clean Up Context](#clean-up-context)
     - [Enable Performance Logging for Critical Operations](#enable-performance-logging-for-critical-operations)
-17. [Troubleshooting](#troubleshooting)
+20. [Troubleshooting](#troubleshooting)
     - [Logs Not Appearing](#logs-not-appearing)
     - [Missing Correlation](#missing-correlation)
     - [Performance Logs Missing](#performance-logs-missing)
     - [Context Not Appearing](#context-not-appearing)
-18. [Related Documentation](#related-documentation)
+21. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -103,87 +128,14 @@ errors, architects use it to design traceability, and DevOps uses it to monitor 
 
 | I am a...     | I need to...                  | Go to...                                                                     |
 |---------------|-------------------------------|------------------------------------------------------------------------------|
-| **Architect** | Design observability patterns | [Architecture](#architecture)                                                |
+| **Architect** | Design observability patterns | [How does it work?](#how-does-it-work)                                        |
 | **Architect** | Plan correlation tracking     | [Correlation Tracking](#correlation-tracking)                                |
 | **Developer** | Log my first error            | [Quick Start](#quick-start)                                                  |
 | **Developer** | Add client-side logging       | [LWC Client-Side Logging](#lwc-client-side-logging)                          |
-| **Developer** | Test logging behavior         | [Testing](#testing)                                                          |
+| **Developer** | Test logging behaviour        | [Testing](#testing)                                                          |
 | **Developer** | Query persisted log entries   | [Querying Log Entries](#querying-log-entries)                                |
-| **Analyst**   | Configure log filtering       | [Configuration Reference](#configuration-reference)                          |
+| **Analyst**   | Configure log filtering       | [How do I configure this?](#how-do-i-configure-this)                         |
 | **Analyst**   | Integrate logging in Flows    | [Flow Logging](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend) |
-
----
-
-## Overview
-
-**How it works under the hood:** each log is published as a [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm)
-(`LogEntryEvent__e`), then saved to a queryable custom object (`LogEntry__c`) you can run reports and SOQL against.
-
-> **What it does and does not do:** This framework only records diagnostic and operational data to `LogEntry__c`. It does not enforce business rules, write to your business
-> objects, or change how your code runs. Its single job is to give you a kept, searchable record of what happened.
-
-**What you get:**
-
-| Feature                    | Description                                                          |
-|----------------------------|----------------------------------------------------------------------|
-| **Multi-Channel**          | Log the same way from Apex, LWC, and Flows                           |
-| **Correlation Tracking**   | Follow one user action across triggers, callouts, and background jobs by tagging every related log with one tracking ID |
-| **Context Stack**          | Capture nested operation context (query details, trigger info, etc.) |
-| **Performance Monitoring** | Time operations automatically, and log only the slow ones (you set the threshold) |
-| **Structured Context**     | Attach key-value metadata to log entries                             |
-| **Log Buffering**          | Hold logs and publish them in batches, so a bulk job uses fewer platform events |
-
-> **How big is it, and where is it already wired in?** The framework is 4 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), and it works the same way from Apex, LWC,
-> and Flow. You do not have to add logging everywhere yourself: it is already built into all 14 API outbound services, every trigger handler, and the async processing framework, so
-> those parts of the framework log for you.
-
----
-
-## Architecture
-
-```text
-+---------------------------------------------------------------------------+
-|                           Entry Points                                    |
-+--------------+--------------+--------------+---------------+--------------+
-|    LWC       |    Flow      |   Apex       |  Trigger      |  Webservice  |
-| utilityLogger| FLOW_Logger* | LOG_Builder  | TRG_*         |  API_*       |
-+------+-------+------+-------+------+-------+------+--------+------+-------+
-       |              |              |              |                |
-       +--------------+--------------+--------------+----------------+
-                                     |
-                                     v
-                      +------------------------------+
-                      |         LOG_Engine           |
-                      |  - Correlation ID tracking   |
-                      |  - Context stack management  |
-                      |  - Log event publishing      |
-                      +-------------+----------------+
-                                    |
-                                    v
-                      +------------------------------+
-                      |      LogEntryEvent__e          |
-                      |    (Platform Event)          |
-                      +-------------+----------------+
-                                    |
-                                    v
-                      +------------------------------+
-                      |   TRG_LogEntryEvent (Trigger)  |
-                      +-------------+----------------+
-                                    |
-                                    v
-                      +------------------------------+
-                      |        LogEntry__c             |
-                      |   (Persistent Storage)       |
-                      +------------------------------+
-```
-
-**What happens when you log something:** your code never waits for the log to be saved. It hands the entry off and carries on, and the record lands in `LogEntry__c` a moment later.
-The steps are:
-
-1. Code calls logging methods ([`LOG_Builder`](reference/apex/LOG_Builder.md), `utilityLogger`, [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md) / [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md) / [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
-2. `LOG_Engine` manages correlation IDs and context
-3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking, so your transaction is not slowed down)
-4. [`TRG_LogEntryEvent`](reference/apex/TRG_LogEntryEvent.md) trigger inserts records into `LogEntry__c`
 
 ---
 
@@ -234,6 +186,72 @@ Start Logger (flowName) → Log Message (correlationId, message) → End Logger 
 ```
 
 For deeper coverage, continue reading the sections below.
+
+---
+
+## What is it, and where is it already wired in?
+
+> **What it does and does not do:** This framework only records diagnostic and operational data to `LogEntry__c`. It does not enforce business rules, write to your business
+> objects, or change how your code runs. Its single job is to give you a kept, searchable record of what happened.
+
+The framework is 4 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), and it works the same way from Apex, LWC, and Flow. You do not have to add logging everywhere yourself: it is already built into all 14 API outbound services, every trigger handler, and the async processing framework, so those parts of the framework log for you.
+
+**What you get:**
+
+- **One way to log from everywhere.** Write logs the same way from Apex, Lightning components, and Flows, so you learn one approach and use it across every layer.
+- **See one user action end to end.** Correlation tracking tags every related log with one tracking ID, so you can follow a single action across triggers, callouts, and background jobs instead of piecing it together by hand.
+- **Know which operation produced each log.** The context stack captures nested operation detail (query details, trigger info, and the like) automatically, so a log tells you where it came from.
+- **Surface only the slow operations.** Performance monitoring times operations automatically and logs only the ones that cross a threshold you set, so fast work stays quiet.
+- **Attach the details that matter to each entry.** Structured context lets you add key-value metadata to a log, so a record carries the account, user, or anything else you need to filter on later.
+- **Spend fewer platform events on bulk jobs.** Log buffering holds logs and publishes them in batches, so a job that logs once per record does not exhaust your event allocations.
+
+---
+
+## How does it work?
+
+```text
++---------------------------------------------------------------------------+
+|                           Entry Points                                    |
++--------------+--------------+--------------+---------------+--------------+
+|    LWC       |    Flow      |   Apex       |  Trigger      |  Webservice  |
+| utilityLogger| FLOW_Logger* | LOG_Builder  | TRG_*         |  API_*       |
++------+-------+------+-------+------+-------+------+--------+------+-------+
+       |              |              |              |                |
+       +--------------+--------------+--------------+----------------+
+                                     |
+                                     v
+                      +------------------------------+
+                      |         LOG_Engine           |
+                      |  - Correlation ID tracking   |
+                      |  - Context stack management  |
+                      |  - Log event publishing      |
+                      +-------------+----------------+
+                                    |
+                                    v
+                      +------------------------------+
+                      |      LogEntryEvent__e          |
+                      |    (Platform Event)          |
+                      +-------------+----------------+
+                                    |
+                                    v
+                      +------------------------------+
+                      |   TRG_LogEntryEvent (Trigger)  |
+                      +-------------+----------------+
+                                    |
+                                    v
+                      +------------------------------+
+                      |        LogEntry__c             |
+                      |   (Persistent Storage)       |
+                      +------------------------------+
+```
+
+**What happens when you log something:** your code never waits for the log to be saved. It hands the entry off and carries on, and the record lands in `LogEntry__c` a moment later.
+The steps are:
+
+1. Code calls logging methods ([`LOG_Builder`](reference/apex/LOG_Builder.md), `utilityLogger`, [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md) / [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md) / [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
+2. `LOG_Engine` manages correlation IDs and context
+3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking, so your transaction is not slowed down)
+4. [`TRG_LogEntryEvent`](reference/apex/TRG_LogEntryEvent.md) trigger inserts records into `LogEntry__c`
 
 ---
 
@@ -351,7 +369,7 @@ The first occurrence is kept in full: that is the row whose **Fingerprint** star
 ### Logging Inside Platform Event & Change Event Triggers
 
 There is one place where logging needs special care, and the framework handles it for you so you do not have to think about it. Normally a log is published as a `LogEntryEvent__e`
-platform event and saved a moment later (see [Architecture](#architecture)). But if you log **while your code is running inside a platform event (`__e`) or Change Data Capture
+platform event and saved a moment later (see [How does it work?](#how-does-it-work)). But if you log **while your code is running inside a platform event (`__e`) or Change Data Capture
 (`*ChangeEvent`) trigger**, publishing a brand-new platform event from inside an event trigger can make the platform redeliver the original event. A "log on every delivery" pattern
 would then turn into an endless redelivery loop.
 
@@ -983,12 +1001,15 @@ the visibility gap for exactly those records.
 
 ---
 
-## Configuration Reference
+## How do I configure this?
 
 ### `LogSetting__c` Fields
 
 These settings control what gets logged and when, with no deployment needed. They are a hierarchical custom setting, which means you can set a value for the whole org and then
 override it for a profile or an individual user (Org, then Profile, then User). Configure them in Setup > Custom Settings > Log Setting.
+
+<details>
+<summary>All <code>LogSetting__c</code> fields</summary>
 
 | Field                                   | Type      | Default | Description                                                                                                       |
 |-----------------------------------------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
@@ -1006,6 +1027,8 @@ override it for a profile or an individual user (Org, then Profile, then User). 
 | `ValidationPerformanceThresholdMs__c`   | Number    | 100     | Threshold for validation timers (ms)                                                                              |
 | `EnableMaskerPerformanceLogging__c`     | Checkbox  | false   | Enable masker performance logging (off by default; opt in)                                                        |
 | `MaskerPerformanceThresholdMs__c`       | Number    | 100     | Threshold for masking on a trigger batch (ms)                                                                     |
+
+</details>
 
 ### `TriggerSetting__mdt` Fields (Trigger Performance)
 

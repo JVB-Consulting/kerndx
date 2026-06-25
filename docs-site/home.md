@@ -628,7 +628,7 @@ List<LogEntry__c> shadowViolations = kern.QRY_Builder.selectFrom(LogEntry__c.SOb
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
 <a class="kl-ledger-chip" href="/validation-guide#shadow-mode"><span class="kl-chip-t">Three documented outcomes</span><span class="kl-chip-d">Severity Error blocks the save, Warning logs it, Shadow logs it regardless of severity.</span></a>
-<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default, honoring the running user's LogEntry__c permissions.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default, honouring the running user's LogEntry__c permissions.</span></a>
 </div>
 
 </template>

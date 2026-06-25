@@ -6,7 +6,7 @@ navOrder: 90
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A set of ready-made code checks that flag risky patterns (inline SOQL, direct DML, leftover `System.debug()`, and others) right in your editor, before the code reaches a teammate's review. **Why it matters:** Catching these the moment you type them is faster and cheaper than catching them in review or production, and it keeps a whole team writing code the same way. **Who should follow this:** developers setting up their IDE, and tech leads or DevOps owners wiring the same checks into the build pipeline. **When to use it:** as soon as you start writing or maintaining code in a KernDX project.
+**What this is:** A set of ready-made code checks that flag risky patterns (inline SOQL, direct DML, leftover `System.debug()`, and others) right in your editor, before the code reaches a teammate's review. **Why it matters:** Catching these the moment you type them is faster and cheaper than catching them in review or production, and it keeps a whole team writing code the same way. **Who should follow this:** developers setting up their IDE, and tech leads or DevOps owners wiring the same checks into the build pipeline. **When to use it:** as soon as you start writing or maintaining code in a KernDX project. The generic PMD and ESLint rules SF Code Analyzer ships are still worth running; these KernDX rules add on top of them, enforcing the framework's own patterns that the generic rules can't know about.
 
 **Before you start:**
 
@@ -351,7 +351,7 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kerndx-pmd-ruleset.xml`   | 25 PMD rules enforcing KernDX framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
-| `eslint-plugin-kerndx`     | 6 ESLint rules enforcing LWC + test conventions (ComponentBuilder, console.log, naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention) |
+| `eslint-plugin-kerndx`     | 6 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, and no mutating a fixture shared across tests |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |
 | Priority tiers (1/3/5)     | A staged adoption order: start with blockers, expand to should-fix, then informational                                                                                              |
 | `@SuppressWarnings`        | Per-class or per-method opt-out with justification                                                                                                                                  |

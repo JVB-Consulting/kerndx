@@ -114,7 +114,7 @@ Have a specific task in mind? These short, focused guides walk you through one j
 
 | Name                                         | Description                                  | Key Reference                                                                          |
 |----------------------------------------------|----------------------------------------------|--------------------------------------------------------------------------------------|
-| [Security](Fast%20Start%20-%20Security.md)   | Secure-by-default USER_MODE queries and DML  | [QRY_Builder](reference/apex/QRY_Builder.md), [DML_Builder](reference/apex/DML_Builder.md) |
+| [Security](Fast%20Start%20-%20Security.md)   | Queries and DML that run with the user's own permissions and sharing by default (USER_MODE) | [QRY_Builder](reference/apex/QRY_Builder.md), [DML_Builder](reference/apex/DML_Builder.md) |
 | [Data Masking](Fast%20Start%20-%20Data%20Masking.md) | Redact cards, secrets, and PII on records before they save | [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md), [UTIL_FeatureFlag](reference/apex/UTIL_FeatureFlag.md) |
 
 ### User Interface
@@ -139,7 +139,7 @@ Have a specific task in mind? These short, focused guides walk you through one j
 
 ## Guides
 
-In-depth reference guides. Reach for these when you want the complete picture of a framework area: its capabilities, the patterns behind it, and the recommended way to use it.
+In-depth reference guides. Open one of these when you want the complete picture of a framework area: what it can do, the patterns behind it, and the recommended way to use it.
 
 ### Core Frameworks
 
@@ -160,7 +160,7 @@ In-depth reference guides. Reach for these when you want the complete picture of
 | Name                                                                  | Description                                                                        |
 |-----------------------------------------------------------------------|------------------------------------------------------------------------------------|
 | [Data Masking - Guide](Data%20Masking%20-%20Guide.md)                 | Write-time field redaction, masking rules and targets, the Data Masking Advisor    |
-| [DTOs - Guide](DTOs%20-%20Guide.md)                                   | JSON serialization, SObject transformation, populate/transform patterns, JsonPath  |
+| [DTOs - Guide](DTOs%20-%20Guide.md)                                   | JSON serialisation, SObject transformation, populate/transform patterns, JsonPath  |
 | [Security - Guide](Security%20-%20Guide.md)                           | CRUD/FLS enforcement, sharing control, encryption                                  |
 | [Objects & Metadata - Guide](Objects%20%26%20Metadata%20-%20Guide.md) | Custom objects, platform events, and custom metadata types included in the package |
 

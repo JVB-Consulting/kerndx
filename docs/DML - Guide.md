@@ -15,9 +15,85 @@ navOrder: 14
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-This guide covers KernDX's data layer: one consistent way to save records in Apex so every insert, update, and delete is safe, bulk-ready, and easy to test. It exists because four things routinely go wrong when you write data by hand: a multi-step save fails halfway and leaves orphaned records, a loop hits governor limits, code lets a user write data they should not, or test setup becomes a wall of boilerplate. You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default. Developers read it to perform DML; architects read it to standardise transaction and security patterns. Reach for it whenever code writes data.
+When you save records in Apex by hand, four things go wrong again and again. A multi-step save fails halfway and leaves orphaned records behind. A loop trips governor limits. Code lets a user write data they should never touch. And test setup grows into a wall of boilerplate.
+
+This guide covers KernDX's data layer: one consistent way to save records so every insert, update, and delete is safe, bulk-ready, and easy to test. You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default.
+
+Developers read this to perform DML. Architects read it to standardise transaction and security patterns across the codebase. Use it whenever code writes data.
+
+---
+
+## Mental model
+
+Think of it as a removals firm for your records. You hand over the boxes (the records you want to save) and say which ones are parents and which are children. The firm works out the right order to load the van, carries everything in one trip, and if anything breaks on the way it brings the whole load back so you're never left half moved-in. You also decide up front whether the movers are allowed into rooms the current user isn't cleared to enter.
+
+---
+
+## Use this when
+
+- **Several records must succeed or fail together.** A parent and its children, or a mix of inserts, updates, and deletes that should all commit or all roll back.
+- **You're saving in bulk.** One call handles large volumes without you writing loop-and-batch plumbing.
+- **The running user's permissions must be respected.** User-facing features, public sites, and communities where a user should only write what they're allowed to.
+- **You want one consistent way to write data** so every team member's code looks and behaves the same.
+
+## Don't use this when
+
+- **You're only setting a field on `Trigger.new` in a before-trigger.** Direct field assignment needs no DML at all; the framework adds nothing here.
+- **It's a throwaway anonymous Apex script or a data-loader job** where `DML_Builder` adds overhead without a real benefit. Raw `Database.*` is fine.
+
+---
+
+## Quick Start
+
+For everyday inserts, updates, and deletes, call `DML_Builder`. When several related records must save together as one unit, use `DML_Transaction`.
+
+> **Step-by-step walkthrough:** [Fast Start - DML](Fast%20Start%20-%20DML.md) covers implementation,
+> testing, and common pitfalls.
+
+**Simple bulk insert:**
+
+```apex
+List<Account> accounts = new List<Account>
+{
+	new Account(Name = 'Acme Corp'),
+	new Account(Name = 'Global Industries')
+};
+
+DML_Builder.newTransaction().doInsert(accounts).execute();
+```
+
+**Related objects in a single transaction:**
+
+```apex
+Account account = new Account(Name = 'Acme Corp');
+Contact contact = new Contact(FirstName = 'Jane', LastName = 'Doe');
+
+DML_Builder.newTransaction()
+	.doInsert(account)
+	.doInsert(contact, Contact.AccountId, account)
+	.execute();
+```
+
+For deeper coverage, continue reading the sections below.
+
+---
+
+## How to opt out
+
+You are never locked in. The framework is opt-in, and for every common case the standard methods don't cover by default, there's a documented way to step outside on the same builder. When you need to skip the framework entirely, raw `Database.*` is always available.
+
+| You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
+|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()`. Failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
+| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches, and the chosen access mode propagates. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
+| **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE. Either overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
+| **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
+| **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
+| **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified, because nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
+
+Use the framework for the 95% common case, and use one of these options (or raw `Database.*`) for the 5% edge case. Both paths are fully supported.
 
 ---
 
@@ -26,38 +102,42 @@ This guide covers KernDX's data layer: one consistent way to save records in Ape
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Architecture](#architecture)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [How to opt out](#how-to-opt-out)
+7. [Quick Navigation](#quick-navigation)
+8. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
+9. [How does it work?](#how-does-it-work)
     - [Architecture Diagram](#architecture-diagram)
     - [Layer 1: DML_Transaction](#layer-1-dml_transaction)
     - [Layer 2: DML_Builder](#layer-2-dml_builder)
     - [Layer 3: Sharing Proxy](#layer-3-sharing-proxy)
     - [Layer 4: FLOW_CheckObjectPermissions](#layer-4-flow_checkobjectpermissions)
-4. [Quick Start](#quick-start)
-5. [How to opt out](#how-to-opt-out)
-6. [Transactional DML Pattern (DML_Builder)](#transactional-dml-pattern-dml_builder)
+10. [Transactional DML Pattern (DML_Builder)](#transactional-dml-pattern-dml_builder)
     - [Basic Usage](#basic-usage)
     - [Managing Dependencies](#managing-dependencies)
     - [Registering Relationships](#registering-relationships)
     - [Upsert with External ID](#upsert-with-external-id)
     - [Mixed Operations](#mixed-operations)
-7. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
+11. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
     - [Insert Operations](#insert-operations)
     - [Update Operations](#update-operations)
     - [Delete Operations](#delete-operations)
     - [Upsert Operations](#upsert-operations)
     - [Undelete Operations](#undelete-operations)
-8. [Sharing Enforcement](#sharing-enforcement)
+12. [Sharing Enforcement](#sharing-enforcement)
     - [Context-Driven Sharing](#context-driven-sharing)
     - [Operation-Level Sharing](#operation-level-sharing)
     - [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)
     - [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)
-9. [Permission Checking (FLOW_CheckObjectPermissions)](#permission-checking-flow_checkobjectpermissions)
+13. [Permission Checking (FLOW_CheckObjectPermissions)](#permission-checking-flow_checkobjectpermissions)
     - [Object-Level Permissions](#object-level-permissions)
     - [Before DML Checks](#before-dml-checks)
     - [Field-Level Security](#field-level-security)
-10. [Test Data Factory](#test-data-factory)
+14. [Test Data Factory](#test-data-factory)
     - [TST_Builder](#tst_builder)
     - [Basic Usage](#basic-usage-1)
     - [Field Overrides](#field-overrides)
@@ -81,15 +161,15 @@ This guide covers KernDX's data layer: one consistent way to save records in Ape
         - [Custom Default Value Provider](#custom-default-value-provider)
         - [Custom Factory Provider](#custom-factory-provider)
     - [Complete Example](#complete-example)
-11. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
+15. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
     - [Bulk Field Updates](#bulk-field-updates)
     - [Purge Records (UTIL_PurgeRecords)](#purge-records-util_purgerecords)
     - [Deactivate Users](#deactivate-users)
     - [Batch Processing](#batch-processing)
-12. [Testing](#testing)
-13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-14. [Anti-Patterns](#anti-patterns)
-15. [Best Practices](#best-practices)
+16. [Testing](#testing)
+17. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+18. [Anti-Patterns](#anti-patterns)
+19. [Best Practices](#best-practices)
     - [Use Transactional DML for Complex Transactions](#use-transactional-dml-for-complex-transactions)
     - [Always Use DML_Builder for DML](#always-use-dml_builder-for-dml)
     - [Be Explicit About Sharing](#be-explicit-about-sharing)
@@ -97,14 +177,14 @@ This guide covers KernDX's data layer: one consistent way to save records in Ape
     - [Use TST_Builder in Tests](#use-tst_builder-in-tests)
     - [Handle DML Errors Properly](#handle-dml-errors-properly)
     - [Use Bulk Operations](#use-bulk-operations)
-    - [Leverage Batch Apex for Large Volumes](#leverage-batch-apex-for-large-volumes)
+    - [Use Batch Apex for Large Volumes](#use-batch-apex-for-large-volumes)
     - [Use UTIL_BulkUpdates for Common Bulk Operations](#use-util_bulkupdates-for-common-bulk-operations)
     - [Create Fresh Transactions](#create-fresh-transactions)
     - [Document DML Operations](#document-dml-operations)
     - [Use All-or-Nothing Appropriately](#use-all-or-nothing-appropriately)
     - [Reset Sharing After Operations](#reset-sharing-after-operations)
     - [Use Purge Utilities for Cleanup](#use-purge-utilities-for-cleanup)
-16. [Related Documentation](#related-documentation)
+20. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -114,7 +194,7 @@ This guide covers KernDX's data layer: one consistent way to save records in Ape
 
 | I am a...     | I need to...                   | Go to...                                                                |
 |---------------|--------------------------------|-------------------------------------------------------------------------|
-| **Architect** | Design transaction patterns    | [Architecture](#architecture)                                           |
+| **Architect** | Design transaction patterns    | [How does it work?](#how-does-it-work)                                   |
 | **Architect** | Understand sharing enforcement | [Sharing Enforcement](#sharing-enforcement)                             |
 | **Developer** | Perform DML operations         | [Quick Start](#quick-start)                                             |
 | **Developer** | Build test data                | [Test Data Factory](#test-data-factory)                                 |
@@ -124,11 +204,11 @@ This guide covers KernDX's data layer: one consistent way to save records in Ape
 
 ---
 
-## Overview
+## Why choose this over the built-in option?
 
-When you save records to Salesforce in Apex, four things routinely go wrong: a multi-step save fails halfway and leaves orphaned records behind, a loop hits governor limits, code accidentally lets a user write data they should not, or test setup becomes a wall of boilerplate. This framework gives you one consistent way to write records ([the DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) that insert, update, and delete data) that fixes all four.
+Salesforce already gives you raw [DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm), the `insert`, `update`, and `delete` statements that write data directly. For a one-off field tweak in a before-trigger they're all you need, and this guide says so plainly. The trouble starts the moment a save spans several records, runs in bulk, must respect a user's permissions, or has to be tested: with raw statements you reassemble that plumbing by hand every time, and any inconsistency becomes a bug.
 
-You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default. Developers use it for every insert, update, and delete; architects use it to standardise transaction and security patterns. Reach for it whenever code writes data; skip it for a single field tweak inside a before-trigger.
+This framework gives you one consistent way to write records that handles all four cases. You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default. Developers use it for every insert, update, and delete; architects use it to standardise transaction and security patterns across the codebase.
 
 The framework is made of four parts that build on each other:
 
@@ -150,10 +230,6 @@ A few helpers round out the toolkit:
 > **Responsibilities:** The DML framework manages database writes (insert, update, delete, upsert, undelete) with transactional integrity,
 > sharing control, and error handling. It does not query data (use selectors for that), and it does not contain business logic.
 
-> **When NOT to use this pattern:**
-> - Single-record field assignments in before-trigger actions where direct field mutation on `Trigger.new` suffices (no DML needed)
-> - Anonymous Apex scripts or data loader operations where the overhead of `DML_Builder` adds no value
-
 **What you get:**
 
 - **Safe multi-object saves.** Register related records and commit them together, so a half-finished save can't leave orphaned records behind.
@@ -165,7 +241,7 @@ A few helpers round out the toolkit:
 
 ---
 
-## Architecture
+## How does it work?
 
 ### Architecture Diagram
 
@@ -334,58 +410,6 @@ else
 	LOG_Builder.build().error('User does not have permission to create Account records').emitAt('MyClass.myMethod');
 }
 ```
-
----
-
-## Quick Start
-
-For everyday inserts, updates, and deletes, call `DML_Builder`. When several related records must save together as one unit, reach for `DML_Transaction`.
-
-> **Step-by-step walkthrough:** [Fast Start - DML](Fast%20Start%20-%20DML.md) covers implementation,
-> testing, and common pitfalls.
-
-**Simple bulk insert:**
-
-```apex
-List<Account> accounts = new List<Account>
-{
-	new Account(Name = 'Acme Corp'),
-	new Account(Name = 'Global Industries')
-};
-
-DML_Builder.newTransaction().doInsert(accounts).execute();
-```
-
-**Related objects in a single transaction:**
-
-```apex
-Account account = new Account(Name = 'Acme Corp');
-Contact contact = new Contact(FirstName = 'Jane', LastName = 'Doe');
-
-DML_Builder.newTransaction()
-	.doInsert(account)
-	.doInsert(contact, Contact.AccountId, account)
-	.execute();
-```
-
-For deeper coverage, continue reading the sections below.
-
----
-
-## How to opt out
-
-You are never locked in. The framework is opt-in, and for every common case the standard methods don't cover by default, there's a documented way to step outside on the same builder. When you need to skip the framework entirely, raw `Database.*` is always available.
-
-| You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
-|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()`. Failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
-| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches, and the chosen access mode propagates. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
-| **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE. Either overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
-| **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
-| **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
-| **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified, because nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
-
-Use the framework for the 95% common case, and reach for one of these options (or raw `Database.*`) for the 5% edge case. Both paths are fully supported.
 
 ---
 
@@ -2029,6 +2053,11 @@ private static void shouldProcessMockedRecords()
 
 ## Capability Matrix (for Analysts)
 
+What the data layer can control, and the exact method or record that controls it.
+
+<details>
+<summary>Full capability matrix</summary>
+
 | Capability                       | Control Point                     | Class/Method                                          | Notes                                                                               |
 |----------------------------------|-----------------------------------|-------------------------------------------------------|-------------------------------------------------------------------------------------|
 | Transactional DML                | Unit of Work pattern              | `DML_Builder.newTransaction()`                        | Commits all changes atomically                                                      |
@@ -2042,9 +2071,16 @@ private static void shouldProcessMockedRecords()
 | Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level                                                  |
 | Parent-child chaining            | Relationship linking              | `.doInsert(child, field, parent)`                     | Auto-sets lookup after parent insert                                                |
 
+</details>
+
 ---
 
 ## Anti-Patterns
+
+Common mistakes when writing data by hand, and what to do instead.
+
+<details>
+<summary>Full anti-pattern table</summary>
 
 | Anti-Pattern                                | Why It's Wrong                                                                 | Instead                                                                     |
 |---------------------------------------------|--------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
@@ -2053,6 +2089,8 @@ private static void shouldProcessMockedRecords()
 | DML inside a loop                           | Hits governor limits on bulk operations                                        | Collect records into a list, then perform a single bulk DML call            |
 | Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder` |
 | Performing DML in a selector or query class | Violates separation of concerns and makes the selector untestable in isolation | Keep DML in trigger actions, service classes, or controllers                |
+
+</details>
 
 ---
 
@@ -2167,7 +2205,7 @@ private static void testMethod()
 }
 ```
 
-**Reach for these builder features:**
+**Use these builder features:**
 
 - **Type-safe overrides.** Use `SObjectField` tokens instead of strings (for example `Account.Name`, not `'Name'`) so a typo is caught at compile time.
 - **Parent-child relationships.** Use `withChildren()` to build a parent and its children together.
@@ -2230,7 +2268,7 @@ for(Account account : accounts)
 }
 ```
 
-### **Leverage Batch Apex for Large Volumes**
+### **Use Batch Apex for Large Volumes**
 
 For operations on thousands of records, run them in [batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) so each chunk stays within platform limits.
 

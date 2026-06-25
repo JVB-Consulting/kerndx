@@ -8,6 +8,8 @@ navOrder: 38
 
 **What this is:** A way to switch features on and off in a live org by editing a configuration record, with no deployment and no code change. You can flip a feature for everyone, or target it by user, profile, permission, or group. **Why it exists:** Shipping a risky change behind a flag lets you turn it on for a few people first, watch how it behaves, and roll it back instantly if something goes wrong. **Who should follow this:** developers building features they want to release gradually, plus admins and tech leads who manage rollouts. **When to use it:** any time you want to release code one audience at a time, or keep a master off-switch ready for an incident.
 
+**When the built-in option is enough:** if you only need to gate behaviour on a single Custom Permission or a Custom Setting, plain Apex (`FeatureManagement.checkPermissionUsingId`, or reading the setting directly) does that without a framework. Use feature flags when you want one named switch you can re-target across permission, profile, group, and setting strategies, toggle without a deploy, and check the same way from Apex, Flow, and LWC.
+
 **Before you start:**
 
 - [ ] KernDX package installed in your org
@@ -192,7 +194,7 @@ System.debug(result);
 Using NEW pricing engine
 ```
 
-You just toggled behavior without deploying code.
+You just toggled behaviour without deploying code.
 
 ### Clean up
 
@@ -429,7 +431,7 @@ Custom Permission strategy to the `NewPricingEngine` flag you created in Tier 2.
 | Custom Permission           | `Edit_Confidential_Records`      | Permission-based feature rollout |
 | Permission Set Group        | `Sales_Team`                     | Team-based rollout               |
 | Profile                     | `System Administrator`           | Admin-only features              |
-| Public Group                | `Beta_Testers`                   | Opt-in beta programs             |
+| Public Group                | `Beta_Testers`                   | Opt-in beta programmes           |
 | Hierarchical Custom Setting | `MySettings__c.EnableFeature__c` | Org/profile/user hierarchy       |
 | Custom Metadata             | `Config__mdt.Setting.Field__c`   | Configuration-driven flags       |
 
@@ -759,7 +761,7 @@ Behind the scenes this calls `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheab
 result your Apex sees. One caution: because the result is cached on the client, it can be briefly out of date after you assign or
 remove a permission set that changes a flag for the running user. The cache refreshes on a page reload, but not when
 a `@wire` simply re-fires. So use this to shape the user experience (showing or hiding a panel or section), not to decide whether someone is
-allowed to do something. Treat real authorization in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for the full caveats.
+allowed to do something. Treat real authorisation in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for the full caveats.
 
 ### Custom strategy handler
 
@@ -1042,7 +1044,7 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 |-----------------------------------------------------|--------------------------------------------------------------------|
 | `kern.UTIL_FeatureFlag.isEnabled(flagName)`         | Checks if a feature is enabled for the running user                |
 | `kern.UTIL_FeatureFlag.isEnabled(flagName, userId)` | Checks if a feature is enabled for a specific user                 |
-| `FeatureFlag__mdt`                                  | Custom Metadata record defining the flag and its default behavior  |
+| `FeatureFlag__mdt`                                  | Custom Metadata record defining the flag and its default behaviour |
 | `FeatureFlagStrategy__mdt`                          | Child record defining targeting rules (permission, profile, group) |
 | `kern.TST_Factory.newFeatureFlag(flagName)`         | Registers an active in-memory flag in test context                 |
 | `FLOW_CheckFeatureFlag`                             | Invocable action for checking flags in Flows                       |

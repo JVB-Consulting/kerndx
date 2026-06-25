@@ -15,15 +15,50 @@ navOrder: 34
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Background work that is too big or too slow to run while a user waits (processing tens of thousands of records, calling
-external systems, or running on a nightly schedule) needs the right async tool, and choosing it as data volumes change
-is a recurring source of bugs. This framework lets you write your processing logic once and have it run at the right
-scale automatically, picking Queueable, Batch, or parallel execution based on how many records there are and how close
-you are to platform limits. Developers building background jobs, architects designing for governor-limit safety, and
-business analysts who configure and monitor scheduled jobs should read it. Use it for asynchronous record processing,
-multi-step workflows, and recurring scheduled jobs.
+Some background work is too big or too slow to run while a user waits: processing tens of thousands of records, calling
+external systems, or running on a nightly schedule. Salesforce gives you three separate tools for this, and choosing the
+right one (and switching between them as data volumes change) is a recurring source of bugs and governor-limit failures.
+
+This framework lets you write your processing logic once and have it run at the right scale automatically. It picks
+Queueable, Batch, or parallel execution for you, based on how many records there are and how close you are to platform
+limits.
+
+Read it if you build background jobs, design for governor-limit safety, or configure and monitor scheduled jobs. Use it
+for asynchronous record processing, multi-step workflows, and recurring scheduled jobs.
+
+---
+
+## Mental model
+
+Think of the framework as a freight dispatcher at a depot. You hand it the cargo (your records) and the job to do; it
+looks at how much there is and how much capacity is free right now, then chooses whether to send a few fast vans
+(parallel Queueables), a relay of vans passing the load along (chained Queueables), or one big lorry (Batch Apex). You
+describe the work once; the dispatcher decides how to move it.
+
+---
+
+## Use this when
+
+- The work is too large or slow to finish while a user waits, and you don't want to hand-pick Queueable versus Batch as
+  data volumes change.
+- You need a job to run on a recurring schedule, and you want admins to create or change those schedules as
+  configuration records rather than through a code deployment.
+- You have a multi-step workflow where each phase needs its own fresh set of governor limits (load, then transform, then
+  notify).
+- You want every async run traceable: the same tracking ID across triggers, queries, callouts, and jobs, plus a
+  searchable record of what happened.
+- Several developers work on background jobs and you want them all following one pattern instead of inventing their own.
+
+## Don't use this when
+
+- The operation is small and synchronous (under 100 records) and finishes well within governor limits. Plain Apex is
+  simpler.
+- A declarative Scheduled Flow already handles the recurring job without code. Use it; it is less to maintain.
+- You need a one-off batch or queueable you will never reuse, or you want full custom control over `start` / `execute` /
+  `finish`. The platform's own Batch and Queueable patterns are a better fit, and the framework never blocks you from
+  using them directly (see [How to opt out](#how-to-opt-out)).
 
 ---
 
@@ -32,30 +67,35 @@ multi-step workflows, and recurring scheduled jobs.
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Quick Start](#quick-start)
-4. [How to opt out](#how-to-opt-out)
-5. [KernDX vs OOTB: Async Framework Comparison](#kerndx-vs-ootb-async-framework-comparison)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Navigation](#quick-navigation)
+6. [Quick Start](#quick-start)
+7. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
+8. [What are the moving parts?](#what-are-the-moving-parts)
+9. [How to opt out](#how-to-opt-out)
+10. [KernDX vs OOTB: Async Framework Comparison](#kerndx-vs-ootb-async-framework-comparison)
     - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
     - [Pros & Cons Comparison](#pros--cons-comparison)
     - [When to Use KernDX Async Framework](#when-to-use-kerndx-async-framework)
     - [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)
     - [Example Comparison](#example-comparison)
-5. [Architecture](#architecture)
+11. [How does it work?](#how-does-it-work)
     - [System Architecture Diagram](#system-architecture-diagram)
     - [Execution Strategy Flow](#execution-strategy-flow)
     - [Execution Strategy Comparison](#execution-strategy-comparison)
-6. [Architecture Decision Guide](#architecture-decision-guide)
+12. [Architecture Decision Guide](#architecture-decision-guide)
     - [When to Use This Framework](#when-to-use-this-framework)
     - [Framework Selection Matrix (for Architects)](#framework-selection-matrix-for-architects)
-7. [Processor Interfaces](#processor-interfaces)
+13. [How do I write the processing logic?](#how-do-i-write-the-processing-logic)
     - [Interface Hierarchy](#interface-hierarchy)
     - [IF_Async.Processable (Required)](#if_asyncprocessable-required)
     - [IF_Async.Finishable (Optional)](#if_asyncfinishable-optional)
-8. [Async Chain Orchestration](#async-chain-orchestration)
+14. [Async Chain Orchestration](#async-chain-orchestration)
     - [When to Use Chains](#when-to-use-chains)
-    - [Architecture](#architecture-1)
+    - [Architecture](#architecture)
     - [Building Steps](#building-steps)
     - [Chain Builder API](#chain-builder-api)
     - [Context Sharing](#context-sharing)
@@ -72,7 +112,7 @@ multi-step workflows, and recurring scheduled jobs.
         - [Standalone vs. Chain Execution](#standalone-vs-chain-execution)
         - [Error Handling](#error-handling-1)
     - [Testing Chains](#testing-chains)
-9. [Scheduler Framework](#scheduler-framework)
+15. [Scheduler Framework](#scheduler-framework)
     - [Scheduler Architecture](#scheduler-architecture)
     - [Declarative Scheduling with ScheduledJob__c](#declarative-scheduling-with-scheduledjob__c)
         - [How It Works](#how-it-works)
@@ -82,29 +122,29 @@ multi-step workflows, and recurring scheduled jobs.
         - [Timezone Awareness](#timezone-awareness)
     - [Built-in Schedulers](#built-in-schedulers)
     - [Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers)
-10. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
+16. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
     - [Why Correlation Matters](#why-correlation-matters)
     - [Correlation Flow](#correlation-flow)
     - [Queueable Pattern with Correlation](#queueable-pattern-with-correlation)
     - [Batch Apex Pattern with Correlation](#batch-apex-pattern-with-correlation)
     - [Key Correlation Methods](#key-correlation-methods)
-11. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+17. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
     - [What Can Be Scheduled?](#what-can-be-scheduled)
     - [Configuration Reference: SCHED_PurgeRecords](#configuration-reference-sched_purgerecords)
     - [Configuration Reference: SCHED_DeactivateUsers](#configuration-reference-sched_deactivateusers)
-12. [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
+18. [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
     - [Monitoring Scheduled Jobs](#monitoring-scheduled-jobs)
     - [Monitoring Async Job Execution](#monitoring-async-job-execution)
     - [Monitoring Async Chain Failures](#monitoring-async-chain-failures)
-13. [Testing](#testing)
-14. [Common Pitfalls](#common-pitfalls)
-15. [Anti-Patterns](#anti-patterns)
-16. [Best Practices](#best-practices)
+19. [Testing](#testing)
+20. [Common Pitfalls](#common-pitfalls)
+21. [Anti-Patterns](#anti-patterns)
+22. [Best Practices](#best-practices)
     - [For Developers](#for-developers)
     - [For Architects](#for-architects)
     - [For Administrators](#for-administrators)
-17. [Related Documentation](#related-documentation)
-18. [Summary](#summary)
+23. [Related Documentation](#related-documentation)
+24. [Summary](#summary)
 
 </details>
 
@@ -118,71 +158,10 @@ multi-step workflows, and recurring scheduled jobs.
 | **Architect** | Compare with OOTB Batch/Queueable | [KernDX vs OOTB](#kerndx-vs-ootb-async-framework-comparison)               |
 | **Developer** | Process records asynchronously    | [Quick Start](#quick-start)                                                |
 | **Developer** | Create a scheduled job            | [Scheduler Framework](#scheduler-framework)                                |
-| **Developer** | Implement custom processing       | [Processor Interfaces](#processor-interfaces)                              |
+| **Developer** | Implement custom processing       | [Processing logic](#how-do-i-write-the-processing-logic)                   |
 | **Developer** | Build multi-step async workflows  | [Async Chain Orchestration](#async-chain-orchestration)                    |
 | **Analyst**   | Know what's available             | [Capability Matrix](#capability-matrix-for-analysts)                       |
 | **Analyst**   | Configure scheduled jobs          | [ScheduledJob Configuration](#declarative-scheduling-with-scheduledjob__c) |
-
----
-
-## Overview
-
-Some jobs are too big or too slow to run while a user waits: processing tens of thousands of records, calling external
-systems, or running on a nightly schedule. Salesforce offers three separate tools for this work, and choosing the right
-one (and switching between them as data volumes change) is a recurring source of bugs and governor-limit failures.
-"Governor limits" are the platform's per-transaction caps on how much work Apex can do at once.
-
-This framework lets you write your processing logic once and have it run at the right scale automatically. You implement
-one small class; the framework picks Queueable, Batch, or parallel execution based on how many records there are and how
-close you are to platform limits. The three Salesforce tools it sits on top of are
-[Queueable](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_queueing_jobs.htm),
-[Batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm), and
-[Scheduled Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm).
-
-**Who should read this guide:** developers building background jobs, architects designing for governor-limit safety, and
-business analysts who configure and monitor scheduled jobs. **When to use it:** for asynchronous record processing,
-multi-step workflows, and recurring scheduled jobs. Reach for the platform's native tools directly only for the small
-synchronous cases noted below.
-
-The framework is made up of six pieces that work together:
-
-1. **[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md)** is the entry point: one place to launch async jobs, with the right strategy chosen for you.
-2. **[`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)** is the interface where you put your processing logic.
-3. **`UTIL_AdaptiveAsynchronousProcessor`** is the engine that picks Queueable, Batch, or synchronous execution based on data volume. The framework drives it for you.
-4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** runs multi-step workflows that share data, track progress, and have error and completion handlers, including a built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge.
-5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** is the interface for configurable scheduled jobs that accept parameters, managed through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records.
-6. **`CTRL_ChainMonitor`** powers the real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`), with live updates,
-   a step timeline, and error detail panels.
-
-> **Responsibilities:** The Async framework launches and manages long-running or deferred work. It does not contain the
-> business logic itself: that belongs in your `Processable` implementation. It does not query data either; you pass
-> records or a `Builder` to the launcher.
-
-> **When NOT to use this pattern:**
-> - Small synchronous operations (under 100 records) that complete well within governor limits
-> - Simple scheduled jobs that a declarative Scheduled Flow can handle without code
-
-**What you get:**
-
-- **Automatic strategy selection.** The framework chooses Queueable or Batch based on volume, so you don't have to guess
-  upfront or rework the call when data grows.
-- **A simple entry point.** One method launches complex async work.
-- **Chain orchestration.** Run multi-step workflows that share data between steps, with built-in error and completion
-  handlers and a persistent record of progress.
-- **A web service bridge.** `ApiStep` wraps any `API_Outbound` handler as a chain step with no changes to that handler.
-- **Real-time monitoring.** The Chain Monitor UI shows live updates, a step-by-step timeline, and error detail panels.
-- **Configurable schedulers.** Change a job's parameters without touching code.
-- **Governor-limit awareness.** The framework works within the platform's per-transaction caps automatically.
-- **Consistent error handling.** Errors and logs follow the same pattern across every async strategy.
-- **Testability.** Built-in test support lets you control async behaviour in `@IsTest` code.
-
-> **Async Framework Scope:** Adaptive strategy selection (Queueable vs Batch), chain orchestration with shared context and `ApiStep` web service bridge, declarative scheduling via
-`ScheduledJob__c`, real-time Chain Monitor UI, and four pre-built schedulable reference implementations (`SCHED_DeactivateUsers`, `SCHED_PerformBatchedCallouts`,
-`SCHED_ProcessLoginHistory`, `SCHED_PurgeRecords`) extending the abstract `SCHED_Base`.
-
-> **Declarative scheduling:** Configure recurring jobs entirely through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
-> records. Set a class name and a cron expression, then activate. No code deployment is needed to schedule, reschedule, or
-> deactivate jobs.
 
 ---
 
@@ -214,6 +193,64 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(records, new MyProcessor());
 ```
 
 For deeper coverage, continue reading the sections below.
+
+---
+
+## Why choose this over the built-in option?
+
+The three Salesforce tools this framework sits on top of are
+[Queueable](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_queueing_jobs.htm),
+[Batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm), and
+[Scheduled Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm). The native
+tools are entirely usable on their own. ("Governor limits" are the platform's per-transaction caps on how much work Apex
+can do at once.) What the framework adds is this:
+
+- **It picks Queueable or Batch for you, by volume.** You don't guess the right tool upfront or rewrite the call when
+  data grows: the same code keeps working as volumes change.
+- **One entry point launches complex async work.** A single method call replaces hand-wiring each native mechanism.
+- **Multi-step workflows share data and survive limits.** Chains run phases in order, pass data between steps, carry
+  built-in error and completion handlers, and keep a durable record of progress.
+- **An existing outbound integration becomes a chain step unchanged.** `ApiStep` wraps any `API_Outbound` handler with no
+  edits to that handler.
+- **You can watch a run happen.** The Chain Monitor UI shows live updates, a step-by-step timeline, and error detail
+  panels.
+- **Admins change a job's parameters without touching code.** Configurable schedulers read their settings from a record.
+- **Errors and logs look the same everywhere.** One consistent pattern across every async strategy, instead of one per
+  mechanism.
+- **It stays inside the platform's per-transaction caps automatically.** Governor-limit awareness is built in, so you
+  don't track those limits by hand.
+- **Tests can control async behaviour.** Built-in test support lets you drive async work from `@IsTest` code.
+
+For the cases where the native tools are the better choice (a one-off job, full control over `start` / `execute` /
+`finish`, or avoiding even a thin layer), see the full comparison in
+[KernDX vs OOTB](#kerndx-vs-ootb-async-framework-comparison) and
+[How to opt out](#how-to-opt-out).
+
+---
+
+## What are the moving parts?
+
+The framework is made up of six pieces that work together:
+
+1. **[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md)** is the entry point: one place to launch async jobs, with the right strategy chosen for you.
+2. **[`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)** is the interface where you put your processing logic.
+3. **`UTIL_AdaptiveAsynchronousProcessor`** is the engine that picks Queueable, Batch, or synchronous execution based on data volume. The framework drives it for you.
+4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** runs multi-step workflows that share data, track progress, and have error and completion handlers, including a built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge.
+5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** is the interface for configurable scheduled jobs that accept parameters, managed through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records.
+6. **`CTRL_ChainMonitor`** powers the real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`), with live updates,
+   a step timeline, and error detail panels.
+
+> **Responsibilities:** The Async framework launches and manages long-running or deferred work. It does not contain the
+> business logic itself: that belongs in your `Processable` implementation. It does not query data either; you pass
+> records or a `Builder` to the launcher.
+
+> **Async Framework Scope:** Adaptive strategy selection (Queueable vs Batch), chain orchestration with shared context and `ApiStep` web service bridge, declarative scheduling via
+`ScheduledJob__c`, real-time Chain Monitor UI, and four pre-built schedulable reference implementations (`SCHED_DeactivateUsers`, `SCHED_PerformBatchedCallouts`,
+`SCHED_ProcessLoginHistory`, `SCHED_PurgeRecords`) extending the abstract `SCHED_Base`.
+
+> **Declarative scheduling:** Configure recurring jobs entirely through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
+> records. Set a class name and a cron expression, then activate. No code deployment is needed to schedule, reschedule, or
+> deactivate jobs.
 
 ---
 
@@ -274,6 +311,12 @@ public class MyQueueable implements Queueable {
 
 ### Pros & Cons Comparison
 
+The framework adds convenience and consistency; the native tools win on simplicity and raw control. The full
+feature-by-feature breakdown is below.
+
+<details>
+<summary>Full feature comparison</summary>
+
 | Feature                     | KernDX Async Framework                                                                 | Salesforce OOTB Batch/Queueable                    |
 |-----------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------|
 | **Auto Strategy Selection** | AUTO mode chooses optimal approach                                                     | Developer must decide upfront                      |
@@ -283,7 +326,7 @@ public class MyQueueable implements Queueable {
 | **Parallel Queueables**     | `PARALLEL_QUEUEABLES` strategy                                                         | Manual enqueue loop required                       |
 | **Chained Queueables**      | `CHAINABLE` with auto-chaining                                                         | Manual chaining in execute()                       |
 | **Error Events**            | Queueable crashes captured by a finalizer → durable `LogEntry__c`                                             | Native Batch fires `BatchApexErrorEvent`; Queueables surface nothing                  |
-| **Finalization**            | [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) works for both          | Only Batch has finish(), Queueable needs Finalizer |
+| **Finalisation**            | [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) works for both          | Only Batch has finish(), Queueable needs Finalizer |
 | **Log Correlation**         | [`LOG_Builder`](reference/apex/LOG_Builder.md) `serializeContext()`/`hydrateContext()` | Must implement manually                            |
 | **Query-Based Processing**  | Pass [`QRY_Builder.Builder`](reference/apex/QRY_Builder.md)                            | `Database.QueryLocator` in Batch                   |
 | **Callout Support**         | `Database.AllowsCallouts` included                                                     | Must add interface manually                        |
@@ -293,6 +336,8 @@ public class MyQueueable implements Queueable {
 | **Performance**             | A thin layer over the platform's own execution                                                             | Direct platform execution                          |
 | **Flexibility**             | Must use framework patterns                                                            | Full control over implementation                   |
 
+</details>
+
 ### When to Use KernDX Async Framework
 
 - **Variable data volumes.** The framework auto-selects Queueable vs Batch, so the same code keeps working as data grows.
@@ -300,9 +345,9 @@ public class MyQueueable implements Queueable {
 - **Declarative job management.** Admins manage schedules through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records, no code deployment.
 - **Log correlation required.** Trace async operations back to where they started via [`LOG_Builder`](reference/apex/LOG_Builder.md).
 - **Parallel queueable patterns.** The framework handles chunking and enqueuing for you.
-- **Consistent error handling.** You get the same standardized error events everywhere.
+- **Consistent error handling.** You get the same standardised error events everywhere.
 - **Multiple developers.** Everyone follows the same pattern instead of inventing their own.
-- **Long-running applications that need full lifecycle management** (launch, monitor, finalize, and reschedule in one place).
+- **Long-running applications that need full lifecycle management** (launch, monitor, finalise, and reschedule in one place).
 
 ### When to Use OOTB Batch/Queueable
 
@@ -424,7 +469,7 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 
 ---
 
-## Architecture
+## How does it work?
 
 ### System Architecture Diagram
 
@@ -619,7 +664,7 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 
 ---
 
-## Processor Interfaces
+## How do I write the processing logic?
 
 ### Interface Hierarchy
 
@@ -1292,6 +1337,11 @@ You manage scheduled jobs by editing records, and the framework handles the plat
 
 #### ScheduledJob__c Fields
 
+The full field reference for the scheduling record is below.
+
+<details>
+<summary>Every ScheduledJob__c field</summary>
+
 | Field               | Type                   | Description                                                                                                                        |
 |---------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | `SchedulerName__c`  | Text                   | Human-readable name for the job                                                                                                    |
@@ -1302,6 +1352,8 @@ You manage scheduled jobs by editing records, and the framework handles the plat
 | `Description__c`    | Long Text              | Documentation of job purpose                                                                                                       |
 | `Timezone__c`       | Text                   | IANA TimeZoneSidKey of the cron author (e.g., `Africa/Johannesburg`). Used for timezone-aware scheduling                           |
 | `ScheduledJobId__c` | Text                   | Auto-populated with CronTrigger ID                                                                                                 |
+
+</details>
 
 #### Example: Create a Purge Job via UI
 
@@ -1773,7 +1825,7 @@ private static void shouldExecuteScheduledJob()
 }
 ```
 
-**Testing finalization logic:**
+**Testing finalisation logic:**
 
 When your processor implements `Finishable`, `Test.stopTest()` runs the `finish()` method once all batches have
 completed. Assert on what `finish()` produced: status records created, emails sent through a mock, and so on.

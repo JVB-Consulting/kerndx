@@ -102,7 +102,7 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="the-same-task">The same task, with and without KernDX</h2>
 				<p class="kl-headline">You write the line you expect. You get the depth you didn't.</p>
-				<p class="kl-lead">Plain Apex on the left, KernDX on the right. Under each KernDX snippet is a depth-ledger, <em>what you also got, without typing it</em>: the security, logging, performance, and correlation the framework added for free. Every item links to the guide section that proves it.</p>
+				<p class="kl-lead">Plain Apex on the left, KernDX on the right. Under each KernDX snippet is a list of <em>what you also got, without typing it</em>: the security, logging, performance, and correlation the framework added for free. Every item links to the guide section that proves it.</p>
 				<slot name="examples" />
 				<details class="kl-secmore" data-spec-id="examples-show-more">
 					<summary><span class="kl-secmore-c">Show 5 more examples</span><span class="kl-secmore-o">Show fewer examples</span></summary>
@@ -145,7 +145,7 @@
 					<a class="kl-card" href="/logging-guide#logging-inside-platform-event-change-event-triggers" data-spec-id="steal-self-trigger-log"><h4>Why a logging tool must avoid logging about itself</h4><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" href="/selectors-guide#handle-null-and-empty-collections" data-spec-id="steal-empty-filter"><h4>Why an empty filter should match nothing, not everything</h4><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h4>Why hiding card numbers takes more than pattern-matching</h4><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h4>Why the framework looks for your version of a class first</h4><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customize behavior, with nothing to register.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h4>Why the framework looks for your version of a class first</h4><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customise behaviour, with nothing to register.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h4>Why feature flags decide like an access list</h4><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
 				</div>
 			</div>

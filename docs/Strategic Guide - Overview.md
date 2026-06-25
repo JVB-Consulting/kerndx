@@ -6,7 +6,7 @@ navOrder: 10
 
 A self-assessment of the KernDX Salesforce framework, its design philosophy, and how it compares to alternatives in the Salesforce framework ecosystem, authored by the KernDX team. Where another framework covers an area more thoroughly than KernDX, this guide names that framework and explains the trade-off.
 
-**In one paragraph.** KernDX is a Salesforce managed-package framework, a single installable package that gives your org ready-made, tested building blocks for the work almost every serious org needs: trigger handling, database queries and writes, web-service integrations, background jobs, validation, logging, data masking, and security checks. **Why it exists:** most teams build these themselves over three to five years; KernDX ships them up front so you skip the rebuild. **Who should read this:** executives sizing up the framework, architects and tech leads choosing one, developers who will use it day to day, delivery managers weighing cost and risk, and ISVs building managed packages. **When to reach for it:** when you want broad, consistent coverage of these areas in one package, and you want to know honestly where a specialist library still goes deeper. **Where to start:** read this overview, then follow the reading path for your role in the [Who should read what](#who-should-read-what) table at the end.
+**In one paragraph.** KernDX is a Salesforce managed-package framework, a single installable package that gives your org ready-made, tested building blocks for the work almost every serious org needs: trigger handling, database queries and writes, web-service integrations, background jobs, validation, logging, data masking, and security checks. **Why it exists:** most teams build these themselves over three to five years; KernDX ships them up front so you skip the rebuild. **Who should read this:** executives sizing up the framework, architects and tech leads choosing one, developers who will use it day to day, delivery managers weighing cost and risk, and ISVs building managed packages. **When to use it:** when you want broad, consistent coverage of these areas in one package, and you want to know honestly where a specialist library still goes deeper. **Where to start:** read this overview, then follow the reading path for your role in the [Who should read what](#who-should-read-what) table at the end.
 
 KernDX is one architectural approach in a maturing Salesforce framework ecosystem. It is a managed-package alternative built for enterprise delivery, managed-package development, and integration-heavy environments. It is not intended to replace open-source frameworks in every case. This guide compares KernDX against the alternative Salesforce frameworks the team has surveyed, and it acknowledges that different team constraints lead to different best choices.
 
@@ -58,7 +58,7 @@ by querying the audit log, instead of hunting through the codebase. More on the 
 | **API version** | 67.0 |
 | **Build status** | v1.0 packaged (first validated build; testing-hardened against 100% per-file Apex coverage, 95% LWC, and an extensive subscriber e2e harness) |
 | **Licensing fees** | Zero |
-| **License** | Source publicly available under BSL 1.1 (relicenses to Apache 2.0 after a four-year change date) |
+| **Licence** | Source publicly available under BSL 1.1 (relicenses to Apache 2.0 after a four-year change date) |
 
 - First validated build packaged; subsequent releases tracked in the Metrics doc (linked below)
 - Single contributor at the snapshot date
@@ -179,7 +179,7 @@ either all at once or one piece at a time.
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Package Type**          | Managed Package (2GP)                                                                                                                                                                                                                                                                                      |
 | **API Version**           | 67.0 (`sourceApiVersion` per `sfdx-project.json`)                                                                                                                                                                                                                                                          |
-| **License**               | Business Source License 1.1: source-available, four-year clock to Apache 2.0                                                                                                                                                                                                                              |
+| **Licence**               | Business Source License 1.1: source-available, four-year clock to Apache 2.0                                                                                                                                                                                                                              |
 | **Status**                | v1.0 packaged: first validated build shipped, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); publicly released under BSL 1.1 and promoted for production install, with no named external production deployments yet |
 | **Coverage gate**         | 100% Apex per-file + 95% LWC statements + 95% LWC branches enforced by `scripts/evaluate-coverage.js` at every release build                                                                                                                                                                               |
 | **Latest packaged build** | See [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier                                                                                                                                                                                   |
@@ -194,7 +194,7 @@ exit paths, not just source-on-GitHub. Consulting engagements include direct sou
 
 #### Key findings
 
-The findings below summarize how KernDX compares against the alternative Salesforce frameworks this guide surveyed. Where another library covers an area more thoroughly, that library
+The findings below summarise how KernDX compares against the alternative Salesforce frameworks this guide surveyed. Where another library covers an area more thoroughly, that library
 is named together with the specific feature that makes the difference.
 
 **1. KernDX ships a complete, ready-to-use implementation of every core Salesforce capability.** Each core capability a Salesforce org needs is shipped, documented, and usable from
@@ -235,12 +235,17 @@ features* are what make the difference in the comparison:
 one area" are two different things, and this guide keeps them apart so each competitor gets the credit it's actually due. The table below summarises the three areas where a
 specialist goes deeper; the per-piece tie that sits inside an otherwise broadly-covered area is detailed beneath it.
 
+<details>
+<summary>Full table: where a specialist goes deeper, and where one ties KernDX (4 rows, with the whole-area vs single-piece distinction)</summary>
+
 | Area | What KernDX ships | Where a specialist goes deeper | Whole-area vs single-piece |
 |---|---|---|---|
 | **Logging & Diagnostics** | One delivery path via `LogEntryEvent__e`, 4 log levels | `nebula-logger`: several ways to record a log (event bus + queueable + REST + synchronous), seven log levels, a large surface, and a retention purge. Run it alongside KernDX; the two coexist. | Whole area: `nebula-logger` ships a broader implementation than KernDX. |
 | **Domain Patterns** | KernDX deliberately ships light on Domain-layer scaffolding | `fflib` (Application factory): `fflib_Application` with its UnitOfWorkFactory / ServiceFactory / SelectorFactory / DomainFactory inner classes. `at4dx`: cross-package field and process injection. Adopt `fflib` (plus `at4dx`) alongside KernDX. | Whole area: `fflib` + `at4dx` ship a broader implementation than KernDX. |
 | **Testing — Mockito-style mocking** | `TST_Mock`: DML-free query interception, a structurally different thing; no Mockito-style equivalent | `fflib-mocks`: 98 argument-matcher factories in `fflib_Match`, and verification modes `times/atLeast/atMost/between/never` via `fflib_VerificationMode`. Add it alongside KernDX `TST_Builder`. | Single piece inside Testing (an area KernDX otherwise covers broadly). |
 | **Outbound — HTTP-callout mock library** | `API_MockFactory`, plus a broader Outbound surface than the standalone library | `apex-fluently-httpmock`: 4 ways to resolve a mock (exact match + closest-prefix + a sequential queue + a StaticResource body source), and coverage of 7 HTTP verbs. KernDX matches this. | Single piece inside Outbound (an area KernDX otherwise covers broadly). KernDX ties; it does not fall behind. |
+
+</details>
 
 The first two rows are areas where another library ships a broader implementation than KernDX. The last two are single-purpose libraries that tie KernDX on one piece inside an area KernDX otherwise covers broadly: on the Testing piece KernDX has no Mockito-style equivalent, while on the Outbound piece KernDX matches `apex-fluently-httpmock` and ships a broader Outbound surface than the standalone library.
 
@@ -273,7 +278,7 @@ library:
 **6. A note on `fflib`'s activity.** At the snapshot date `fflib` has 1 tagged release, 16 commits in the last 12 months, and roughly 2884 days since its last release. It remains the
 canonical implementation of the Application factory pattern. If you already run `fflib` and need that pattern, keep it; if you have no Domain-layer requirement, you don't need it.
 
-> **Exit strategy.** KernDX transfers at $0 in license cost. The source is publicly available under BSL 1.1, so you own access to the framework from day one. Three documented ways out: keep using the managed package (zero effort), deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. See [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy) for the full analysis.
+> **Exit strategy.** KernDX transfers at $0 in licence cost. The source is publicly available under BSL 1.1, so you own access to the framework from day one. Three documented ways out: keep using the managed package (zero effort), deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. See [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy) for the full analysis.
 
 #### How the frameworks we compared break down
 

@@ -10,7 +10,7 @@ navOrder: 16
 permissions, so you never hand-write a security check. **Why it matters:** Forgetting one of those checks
 is how data quietly leaks to someone who should not see it. KernDX makes the safe behaviour the default, so
 the gap can't happen by accident. **Who should follow this:** developers writing Apex that touches data, plus
-the architects and tech leads who set security standards for a team. **When to reach for it:** any time your
+the architects and tech leads who set security standards for a team. **When to use it:** any time your
 code queries or saves records, which is nearly always.
 
 In plain terms: object create/read/update/delete permissions (CRUD) and field-level security (FLS) are
@@ -394,7 +394,7 @@ sf apex run test -o YourOrgAlias -t SVC_ContactDirectory_TEST --code-coverage --
 
 > **About the annotations:** This class uses `@IsTest(IsParallel=false)` because `buildMinimumAccessUser()`
 > inserts a `User`, and Salesforce blocks DML on setup objects like `User` inside *parallel* test runs. Most
-> test classes should prefer `@IsTest(IsParallel=true)` for faster runs. Reach for `IsParallel=false` only
+> test classes should prefer `@IsTest(IsParallel=true)` for faster runs. Use `IsParallel=false` only
 > when a test does setup-object DML, as this one does. `SeeAllData` defaults to `false`, so we omit it. The
 > `System.runAs()` block in the third test is the right habit for security code: it verifies the framework
 > enforces the *running user's* permissions, which is the entire point of USER_MODE. (The

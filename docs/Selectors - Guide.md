@@ -15,20 +15,47 @@ navOrder: 12
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce's query language) across dozens of classes, where the same field list gets copied, typos slip through, and it is easy to accidentally show a user records they should not see. This framework gives you one consistent, type-checked way to query data, so a query reads cleanly, runs the right security checks by default, and lives in one place you can reuse. You write queries by chaining short method calls instead of building strings by hand. Developers use it for everyday queries; architects use it to standardise data access and security; analysts can read this guide to understand what sharing and access rules the queries enforce. Reach for it whenever your code reads records; skip it for a one-off throwaway query where inline SOQL is simpler.
+Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce's query language) across dozens of classes. The same field list gets copied from place to place, typos slip through, and it is easy to accidentally show a user records they should not see.
+
+This framework gives you one consistent, type-checked way to query data. A query reads cleanly, runs the right security checks by default, and lives in one place you can reuse. You write queries by chaining short method calls instead of building strings by hand.
+
+Developers use it for everyday queries; architects use it to standardise data access and security; analysts can read this guide to understand what sharing and access rules the queries enforce. Use it whenever your code reads records, and skip it for a one-off throwaway query where inline SOQL is simpler.
+
+## Mental model
+
+Think of a selector as a recipe card for one object. The card lists the fields you usually want and the named queries you run again and again, so anyone reading from that object follows the same recipe instead of writing it from scratch each time. Under the card sits a query engine that does the actual cooking: you tell it what you want with short chained calls, and it builds and runs the SOQL for you.
+
+## Use this when
+
+- Your code reads the same object from more than one place, and you want every query to share one field list and one set of named methods.
+- You want field references checked when you compile, so a renamed or deleted field is caught early instead of failing at runtime.
+- You need clear, per-query control over who sees what (the org's sharing rules), or you want field-level security and object permissions enforced automatically.
+- You query large datasets and want paging past the 2,000-record OFFSET ceiling, cursors for millions of rows, or built-in result caching, without writing that plumbing yourself.
+- You want to feed a query fake results in a test, so business logic can be tested without touching the database.
+
+## Don't use this when
+
+- It is a one-off inline query in an admin script or anonymous Apex, and plain `[SELECT … FROM …]` is simpler and disposable. Say so and just write the SOQL.
+- The logic is tiny and throwaway, where a selector class adds no value.
+- A test reads better with inline SOQL against records you just inserted and will not reuse.
+- A Lightning component should use Salesforce's native client-side caching (`@wire(getRecord)` and friends) instead of an Apex query. The framework's own components do exactly that.
 
 ## Table of Contents
 
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Quick Start](#quick-start)
-4. [How to opt out](#how-to-opt-out)
-5. [Architecture](#architecture)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Navigation](#quick-navigation)
+6. [Quick Start](#quick-start)
+7. [What is it, and what do you get?](#what-is-it-and-what-do-you-get)
+8. [How to opt out](#how-to-opt-out)
+9. [How does it work?](#how-does-it-work)
     - [KernDX vs OOTB: Selector Framework Comparison](#kerndx-vs-ootb-selector-framework-comparison)
         - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
         - [Pros & Cons Comparison](#pros--cons-comparison)
@@ -38,30 +65,30 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
     - [Layer 1: QRY_Builder (Recommended Default for Your Org)](#layer-1-qry_builder-recommended-default-for-your-org)
     - [Layer 2: SEL_Base](#layer-2-sel_base)
     - [Layer 3: QRY_Condition](#layer-3-qry_condition)
-5. [Basic Queries](#basic-queries)
+10. [Basic Queries](#basic-queries)
     - [findById](#findbyid)
     - [findByField](#findbyfield)
-6. [Advanced Queries](#advanced-queries)
+11. [Advanced Queries](#advanced-queries)
     - [Complex WHERE Conditions](#complex-where-conditions)
     - [ORDER BY and LIMIT](#order-by-and-limit)
     - [Pagination](#pagination)
-7. [Query Builder](#query-builder)
+12. [Query Builder](#query-builder)
     - [SELECT and FROM](#select-and-from)
     - [WHERE Conditions](#where-conditions)
     - [Aggregate Functions](#aggregate-functions)
     - [GROUP BY](#group-by)
-8. [Sharing Enforcement](#sharing-enforcement)
+13. [Sharing Enforcement](#sharing-enforcement)
     - [Enforcing Sharing](#enforcing-sharing)
     - [Bypassing Sharing](#bypassing-sharing)
     - [USER_MODE Security](#user_mode-security)
     - [Strip Inaccessible Fields](#strip-inaccessible-fields)
-9. [Complex Examples](#complex-examples)
+14. [Complex Examples](#complex-examples)
     - [Parent-to-Child Subqueries](#parent-to-child-subqueries)
     - [Semi-Join Subqueries](#semi-join-subqueries)
     - [Aggregate Queries](#aggregate-queries)
     - [QueryLocator for Batch Apex](#querylocator-for-batch-apex)
-10. [Custom Selector Classes](#custom-selector-classes)
-11. [QRY_Builder Examples](#qry_builder-examples)
+15. [Custom Selector Classes](#custom-selector-classes)
+16. [QRY_Builder Examples](#qry_builder-examples)
     - [Basic Queries](#basic-queries-1)
         - [Simple Field Selection](#simple-field-selection)
         - [Query with Single Condition](#query-with-single-condition)
@@ -93,7 +120,7 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
     - [SOQL Functions in Queries](#soql-functions-in-queries)
         - [Date Functions in GROUP BY](#date-functions-in-group-by)
         - [toLabel (Picklist Translation)](#tolabel-picklist-translation)
-        - [FORMAT (Localized Formatting)](#format-localized-formatting)
+        - [FORMAT (Localised Formatting)](#format-localised-formatting)
     - [Result Transformation](#result-transformation)
         - [Converting to Map](#converting-to-map)
         - [Extracting Id Sets](#extracting-id-sets)
@@ -124,7 +151,7 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
         - [Extending Builder](#extending-builder)
     - [Combining Multiple Patterns](#combining-multiple-patterns)
         - [Complex Real-World Example](#complex-real-world-example)
-12. [Testing](#testing)
+17. [Testing](#testing)
     - [Basic Query Mocking](#basic-query-mocking)
     - [Creating Mock Records](#creating-mock-records)
     - [Multiple Query Mocking](#multiple-query-mocking)
@@ -133,9 +160,9 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
         - [AggregateResult Mocking Not Supported](#aggregateresult-mocking-not-supported)
         - [Query Conditions Not Evaluated](#query-conditions-not-evaluated)
         - [Mock Scope](#mock-scope)
-13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-14. [Anti-Patterns](#anti-patterns)
-15. [Best Practices](#best-practices)
+18. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+19. [Anti-Patterns](#anti-patterns)
+20. [Best Practices](#best-practices)
     - [Always Use Selector Classes](#always-use-selector-classes)
     - [Use query Property Inside Selectors, QRY_Builder for One-Off](#use-query-property-inside-selectors-qry_builder-for-one-off)
     - [Create Custom Selector Classes for Each SObject](#create-custom-selector-classes-for-each-sobject)
@@ -148,8 +175,8 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
     - [Document Query Methods](#document-query-methods)
     - [Handle Null and Empty Collections](#handle-null-and-empty-collections)
     - [Use Pagination for Large Result Sets](#use-pagination-for-large-result-sets)
-    - [Leverage Subqueries for Efficiency](#leverage-subqueries-for-efficiency)
-16. [Related Documentation](#related-documentation)
+    - [Use Subqueries for Efficiency](#use-subqueries-for-efficiency)
+21. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -159,51 +186,14 @@ Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce
 
 | I am a...     | I need to...                   | Go to...                                                        |
 |---------------|--------------------------------|-----------------------------------------------------------------|
-| **Architect** | Understand query architecture  | [Architecture](#architecture)                                   |
-| **Architect** | Compare with OOTB SOQL         | [KernDX vs OOTB](#kerndx-vs-ootb-selector-framework-comparison) |
+| **Architect** | Understand how it works        | [How does it work?](#how-does-it-work)                          |
+| **Architect** | Compare with the built-in SOQL | [KernDX vs OOTB](#kerndx-vs-ootb-selector-framework-comparison) |
 | **Developer** | Query records                  | [Quick Start](#quick-start)                                     |
 | **Developer** | Build complex queries          | [QRY_Builder Examples](#qry_builder-examples)                   |
 | **Developer** | Create custom selectors        | [Custom Selector Classes](#custom-selector-classes)             |
 | **Analyst**   | Understand sharing enforcement | [Capability Matrix](#capability-matrix-for-analysts)            |
 
 ---
-
-## Overview
-
-**How it works under the hood:** queries flow through three small layers (a query engine, an optional reusable selector class per object, and low-level condition builders), all of which finally call Salesforce's standard `Database.query()`.
-
-**Managed Package Context:**
-
-These classes ship as part of a managed package, so when you call them from your org you prefix them with the package namespace (for example, [`SEL_Base`](reference/apex/SEL_Base.md)). You also get the full source and can build and manage the package yourself.
-
-The framework has three layers, each with a clear job:
-
-1. **[QRY_Builder](reference/apex/QRY_Builder.md)** is the query engine. You configure a query with short chained calls, then one call runs it and returns the result. It handles caching, paging through large result sets, and reshaping results.
-2. **[SEL_Base](reference/apex/SEL_Base.md)** is the production pattern. You extend it once per object to make a reusable "selector" that already knows that object's default fields and ready-made query methods.
-3. **[QRY_Condition](reference/apex/QRY_Condition.md)** holds the low-level building blocks for filter conditions and operators, used by the two layers above.
-
-**For production code, create selectors.** Extend [`SEL_Base`](reference/apex/SEL_Base.md) (for example, `SEL_Accounts` or `SEL_Contacts`). You get a default field set, inherited `findById()` and `findByField()` methods, and a place to add your own query methods that use the `query` property. The payoff: every query for that object lives in one class, so a field change or a new filter is made once.
-
-**For one-off queries** (anonymous Apex, scripts, or an object that has no selector yet), use [`QRY_Builder`](reference/apex/QRY_Builder.md) directly. Selectors run on QRY_Builder internally through the `query` property, so it is the engine, not a competing choice.
-
-> **Selector Framework Scope:** the framework ships 44 ready-made `SEL_*` classes (most extend `SEL_Base`), plus the `QRY_Builder` query engine with caching, paging, semi-joins (filtering one query by another query's results), aggregates, and 5 security modes.
-
-> **Responsibilities:** Selectors only read data. They never save, update, or delete records, and they hold no business logic. All data changes belong in trigger actions, service classes, or the DML framework, which keeps selectors simple and easy to test.
-
-> **When NOT to use this pattern:**
-> - One-off admin scripts or anonymous Apex where inline SOQL is simpler and disposable
-> - Tiny throwaway logic where a selector class adds no value
-> - Tests where inline SOQL against inserted records reads better and is not reused
-
-**What you get:**
-
-- **Fewer typos.** You reference a field by its type-checked token (`Account.Name`) instead of a string, so a misspelled or deleted field is caught when you compile, not at runtime.
-- **Clear control over who sees what.** You decide, per query, whether to enforce or bypass the org's sharing rules (which records each user is allowed to see).
-- **Easy testing.** You can feed a query fake results in a test, so business logic can be tested without touching the database.
-- **One place to change.** All of an object's query logic sits in its selector class, so edits happen once.
-- **Safe by default.** Queries run with the current user's read permissions and record sharing enforced, and values are passed safely so a query can't be tampered with through injected text.
-- **Consistency.** Every query follows the same shape across your codebase.
-- **Performance.** Passing values as bind variables lets Salesforce reuse its query plans.
 
 ## Quick Start
 
@@ -234,6 +224,43 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
+## What is it, and what do you get?
+
+**How it works under the hood:** queries flow through three small layers (a query engine, an optional reusable selector class per object, and low-level condition builders), all of which finally call Salesforce's standard `Database.query()`.
+
+**Managed Package Context:**
+
+These classes ship as part of a managed package, so when you call them from your org you prefix them with the package namespace (for example, [`SEL_Base`](reference/apex/SEL_Base.md)). You also get the full source and can build and manage the package yourself.
+
+The framework has three layers, each with a clear job:
+
+1. **[QRY_Builder](reference/apex/QRY_Builder.md)** is the query engine. You configure a query with short chained calls, then one call runs it and returns the result. It handles caching, paging through large result sets, and reshaping results.
+2. **[SEL_Base](reference/apex/SEL_Base.md)** is the production pattern. You extend it once per object to make a reusable "selector" that already knows that object's default fields and ready-made query methods.
+3. **[QRY_Condition](reference/apex/QRY_Condition.md)** holds the low-level building blocks for filter conditions and operators, used by the two layers above.
+
+**For production code, create selectors.** Extend [`SEL_Base`](reference/apex/SEL_Base.md) (for example, `SEL_Accounts` or `SEL_Contacts`). You get a default field set, inherited `findById()` and `findByField()` methods, and a place to add your own query methods that use the `query` property. The benefit: every query for that object lives in one class, so a field change or a new filter is made once.
+
+**For one-off queries** (anonymous Apex, scripts, or an object that has no selector yet), use [`QRY_Builder`](reference/apex/QRY_Builder.md) directly. Selectors run on QRY_Builder internally through the `query` property, so it is the engine, not a competing choice.
+
+> **Selector Framework Scope:** the framework ships 44 ready-made `SEL_*` classes (most extend `SEL_Base`), plus the `QRY_Builder` query engine with caching, paging, semi-joins (filtering one query by another query's results), aggregates, and 5 security modes.
+
+> **Responsibilities:** Selectors only read data. They never save, update, or delete records, and they hold no business logic. All data changes belong in trigger actions, service classes, or the DML framework, which keeps selectors simple and easy to test.
+
+> **When NOT to use this pattern:**
+> - One-off admin scripts or anonymous Apex where inline SOQL is simpler and disposable
+> - Tiny throwaway logic where a selector class adds no value
+> - Tests where inline SOQL against inserted records reads better and is not reused
+
+**What you get:**
+
+- **Fewer typos.** You reference a field by its type-checked token (`Account.Name`) instead of a string, so a misspelled or deleted field is caught when you compile, not at runtime.
+- **Clear control over who sees what.** You decide, per query, whether to enforce or bypass the org's sharing rules (which records each user is allowed to see).
+- **Easy testing.** You can feed a query fake results in a test, so business logic can be tested without touching the database.
+- **One place to change.** All of an object's query logic sits in its selector class, so edits happen once.
+- **Safe by default.** Queries run with the current user's read permissions and record sharing enforced, and values are passed safely so a query can't be tampered with through injected text.
+- **Consistency.** Every query follows the same shape across your codebase.
+- **Performance.** Passing values as bind variables lets Salesforce reuse its query plans.
+
 ## How to opt out
 
 The selector framework is opt-in, so you are never forced through it. Use `QRY_Builder` as your everyday default, and reach for a reusable `SEL_Base` selector for the roughly 5% of queries that you call from more than one place. When the framework does not fit, plain SOQL still works, and the framework's own Lightning components query through Salesforce's standard client-side caching directly.
@@ -251,7 +278,7 @@ The selector layer is there to save you time, not to block you. Reach for it whe
 
 ---
 
-## Architecture
+## How does it work?
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -304,10 +331,13 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 
 #### Pros & Cons Comparison
 
+<details>
+<summary>Full feature-by-feature comparison</summary>
+
 | Feature                       | KernDX Selector Framework                                                                               | Salesforce OOTB Inline SOQL                                                                           |
 |-------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | **Field Type Safety**         | ✅ `SObjectField` references prevent field name typos                                                    | ✅ Compile-time field checking (both use `SObjectField`)                                               |
-| **Centralized Queries**       | ✅ selector classes consolidate all queries for an object                                                | ⚠️ Queries typically scattered across codebase                                                        |
+| **Centralised Queries**       | ✅ selector classes consolidate all queries for an object                                                | ⚠️ Queries typically scattered across codebase                                                        |
 | **Sharing Control**           | ✅ Explicit `withSharing()` / `bypassSharing()` methods                                                  | ✅ `with sharing` / `without sharing` / `inherited sharing` keywords + `WITH USER_MODE` clause |
 | **Dynamic Queries**           | ✅ [`QRY_Builder`](reference/apex/QRY_Builder.md) fluent API, type-safe                                  | ⚠️ Requires `Database.query()` with string concatenation                                              |
 | **SOQL Injection Protection** | ✅ Bind variables where possible, automatic escaping as fallback                                         | ⚠️ Manual escaping required for dynamic queries                                                       |
@@ -323,6 +353,8 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 | **Performance**               | ⚠️ Framework overhead (minimal, optional caching)                                                       | ✅ Direct database access, no overhead                                                                 |
 | **Learning Curve**            | ⚠️ Must learn selector patterns and framework APIs                                                      | ✅ Standard SOQL/Apex knowledge                                                                        |
 
+</details>
+
 #### When to Use KernDX Selector Framework
 
 - ✅ **Applications** with complex data access patterns
@@ -333,7 +365,7 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 - ✅ **Type safety** to prevent field name errors
 - ✅ **Dynamic queries** built at runtime
 - ✅ **Explicit sharing control** requirements
-- ✅ **Centralized query logic** for maintainability
+- ✅ **Centralised query logic** for maintainability
 - ✅ **Multiple developers** to ensure consistency
 
 #### When to Use OOTB Inline SOQL
@@ -380,7 +412,7 @@ query += 'AnnualRevenue > ' + minRevenue;
 List<Account> accounts = Database.query(query);
 ```
 
-**KernDX Selector Framework (Centralized, Type-Safe):**
+**KernDX Selector Framework (Centralised, Type-Safe):**
 
 ```apex
 // SEL_Accounts.cls - Single source of truth
@@ -438,7 +470,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 **Key Advantages Demonstrated:**
 
 1. **Type Safety**: `Account.Industry` vs `"Industry"` string
-2. **Centralization**: Single selector class vs scattered queries
+2. **Centralisation**: Single selector class vs scattered queries
 3. **Reusability**: Call method from anywhere
 4. **Refactoring**: IDE updates `SObjectField` references automatically
 5. **No SOQL Injection**: Framework uses bind variables where possible, with literal escaping as fallback
@@ -1199,7 +1231,7 @@ public with sharing class BATCH_ProcessAccounts implements Database.Batchable<SO
 
 ## Custom Selector Classes
 
-Create custom selector classes for each SObject by extending [SEL_Base](reference/apex/SEL_Base.md) to centralize and standardize queries.
+Create custom selector classes for each SObject by extending [SEL_Base](reference/apex/SEL_Base.md) to centralise and standardise queries.
 
 **Pattern:**
 
@@ -1497,7 +1529,7 @@ public static List<Account> findAccountsForContacts(List<Contact> contacts)
 
 **Empty list handling:**
 
-| Method                          | Empty/Null Behavior               |
+| Method                          | Empty/Null Behaviour              |
 |---------------------------------|-----------------------------------|
 | `isIn(List<SObject>)`           | Returns no results (safe)         |
 | `isInStrict(List<SObject>)`     | Throws `IllegalArgumentException` |
@@ -1887,7 +1919,7 @@ List<SObject> records = QRY_Builder.selectFrom(Opportunity.SObjectType)
 	.toList();
 ```
 
-#### FORMAT (Localized Formatting)
+#### FORMAT (Localised Formatting)
 
 ```apex
 List<SObject> records = QRY_Builder.selectFrom(Account.SObjectType)
@@ -2758,7 +2790,7 @@ public List<Account> findCustomers()
 
 ### **Create Custom Selector Classes for Each SObject**
 
-Centralize all queries for an SObject in a dedicated selector class extending [SEL_Base](reference/apex/SEL_Base.md):
+Centralise all queries for an SObject in a dedicated selector class extending [SEL_Base](reference/apex/SEL_Base.md):
 
 - `SEL_Contacts` for Contact queries
 - `SEL_Accounts` for Account queries
@@ -2960,7 +2992,7 @@ Integer deletedSinceCursorCreated = result.deletedRecords;
 Database.PaginationCursor cursor = result.cursor;
 ```
 
-### **Leverage Subqueries for Efficiency**
+### **Use Subqueries for Efficiency**
 
 Use parent-to-child subqueries to reduce query count:
 

@@ -14,9 +14,13 @@ navOrder: 66
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-When your code moves data between two places (Apex to a Lightning component, Apex to an outside system, or a screen flow to Apex), you need a tidy package to carry it. A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. This guide shows you how to build and use DTOs in KernDX, so that the shape of the data you send is clear, type-checked by the compiler, and easy to test. Developers reach for DTOs when building APIs, sending structured data to the front end, or passing parameters into flows. Architects use them to keep your internal database structure separate from the formats outside systems see. Read this when you are designing or consuming a data contract.
+When your code moves data between two places (Apex to a Lightning component, Apex to an outside system, or a screen flow to Apex), you need a tidy package to carry it. Without a deliberate shape, that data ends up as loose maps and untyped JSON that the compiler cannot check and tests cannot pin down.
+
+A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. This guide shows you how to build and use DTOs in KernDX, so that the shape of the data you send is clear, type-checked by the compiler, and easy to test.
+
+Developers use DTOs when building APIs, sending structured data to the front end, or passing parameters into flows. Architects use them to keep your internal database structure separate from the formats outside systems see. Read this when you are designing or consuming a data contract.
 
 ---
 
@@ -26,19 +30,20 @@ When your code moves data between two places (Apex to a Lightning component, Ape
 <summary>Expand</summary>
 
 1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-    - [Key Benefits](#key-benefits)
-    - [DTO Framework Components](#dto-framework-components)
-3. [Architecture](#architecture)
-    - [DTO Class Hierarchy](#dto-class-hierarchy)
+2. [Mental model](#mental-model)
+3. [Use this when / Don't use this when](#use-this-when--dont-use-this-when)
+    - [Use DTOs when](#use-dtos-when)
+    - [Don't use DTOs when](#dont-use-dtos-when)
 4. [Quick Start](#quick-start)
-5. [When to Use DTOs](#when-to-use-dtos)
-    - [Use DTOs When:](#use-dtos-when)
-    - [Don't Use DTOs When:](#dont-use-dtos-when)
-6. [Working with Base DTO Classes](#working-with-base-dto-classes)
+5. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
+    - [What you gain](#what-you-gain)
+    - [What are the moving parts?](#what-are-the-moving-parts)
+6. [How does it work?](#how-does-it-work)
+    - [DTO Class Hierarchy](#dto-class-hierarchy)
+7. [Working with Base DTO Classes](#working-with-base-dto-classes)
     - [DTO_Base - Foundation](#dto_base---foundation)
     - [DTO_JsonBase - JSON Handling](#dto_jsonbase---json-handling)
-7. [Built-in DTO Classes](#built-in-dto-classes)
+8. [Built-in DTO Classes](#built-in-dto-classes)
     - [DTO_NameValue](#dto_namevalue)
     - [DTO_NameValues](#dto_namevalues)
         - [DTO_NameValues Properties](#dto_namevalues-properties)
@@ -48,24 +53,24 @@ When your code moves data between two places (Apex to a Lightning component, Ape
         - [LWC Usage](#lwc-usage)
     - [DTO_PickList](#dto_picklist)
     - [DTO_ChangeEventHeader](#dto_changeeventheader)
-8. [Creating Custom DTO Classes](#creating-custom-dto-classes)
+9. [Creating Custom DTO Classes](#creating-custom-dto-classes)
     - [Creating JSON DTOs](#creating-json-dtos)
     - [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org)
         - [Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)](#type-resolution-option-3-custom-type-resolver-recommended)
     - [Implementing populate() Methods](#implementing-populate-methods)
     - [Implementing transform() Methods](#implementing-transform-methods)
-9. [Advanced DTO Patterns](#advanced-dto-patterns)
+10. [What else can it do?](#what-else-can-it-do)
     - [JsonPath for Reflective Access](#jsonpath-for-reflective-access)
     - [Sorting DTOs with FieldComparator](#sorting-dtos-with-fieldcomparator)
     - [DTO Collections and Equality](#dto-collections-and-equality)
-10. [Integration Patterns](#integration-patterns)
+11. [How do I connect it to my code?](#how-do-i-connect-it-to-my-code)
     - [DTOs in REST APIs](#dtos-in-rest-apis)
     - [DTOs in LWC Components](#dtos-in-lwc-components)
         - [Passing Complex DTOs as @AuraEnabled Parameters](#passing-complex-dtos-as-auraenabled-parameters)
     - [DTOs in Flow Invocables](#dtos-in-flow-invocables)
-11. [Testing](#testing)
-12. [Anti-Patterns](#anti-patterns)
-13. [Best Practices](#best-practices)
+12. [Testing](#testing)
+13. [Anti-Patterns](#anti-patterns)
+14. [Best Practices](#best-practices)
     - [Use Appropriate DTO Type](#use-appropriate-dto-type)
     - [Implement getObjectType() for Private Classes (OR Use Type Resolver)](#implement-getobjecttype-for-private-classes-or-use-type-resolver)
     - [Use @AuraEnabled for LWC](#use-auraenabled-for-lwc)
@@ -75,15 +80,15 @@ When your code moves data between two places (Apex to a Lightning component, Ape
     - [Document Complex DTOs](#document-complex-dtos)
     - [Validate DTO Data](#validate-dto-data)
     - [Keep DTOs Focused](#keep-dtos-focused)
-14. [Troubleshooting](#troubleshooting)
+15. [Troubleshooting](#troubleshooting)
     - [Issue: "Type cannot be deserialized as it is not globally visible" or "System.JSONException: Type cannot be constructed"](#issue-type-cannot-be-deserialized-as-it-is-not-globally-visible-or-systemjsonexception-type-cannot-be-constructed)
     - [Issue: "Unable to deserialize to specified type"](#issue-unable-to-deserialize-to-specified-type)
     - [Issue: "Null pointer exception when accessing DTO fields"](#issue-null-pointer-exception-when-accessing-dto-fields)
     - [Issue: "DTO fields not visible in LWC"](#issue-dto-fields-not-visible-in-lwc)
-15. [Reference](#reference)
+16. [Reference](#reference)
     - [DTO Framework Classes](#dto-framework-classes)
     - [Key Methods](#key-methods)
-16. [Related Documentation](#related-documentation)
+17. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -91,114 +96,30 @@ When your code moves data between two places (Apex to a Lightning component, Ape
 
 ## Quick Navigation
 
-| I am a...     | I need to...                | Go to...                                                    |
-|---------------|-----------------------------|-------------------------------------------------------------|
-| **Architect** | Understand DTO architecture | [Architecture](#architecture)                               |
-| **Architect** | Choose integration patterns | [Integration Patterns](#integration-patterns)               |
-| **Developer** | Create my first DTO         | [Quick Start](#quick-start)                                 |
-| **Developer** | Build custom DTO classes    | [Creating Custom DTO Classes](#creating-custom-dto-classes) |
-| **Developer** | Implement advanced patterns | [Advanced DTO Patterns](#advanced-dto-patterns)             |
-| **Analyst**   | Know when to use DTOs       | [When to Use DTOs](#when-to-use-dtos)                       |
+| I am a...     | I need to...                | Go to...                                                            |
+|---------------|-----------------------------|--------------------------------------------------------------------|
+| **Architect** | Understand how DTOs work    | [How does it work?](#how-does-it-work)                             |
+| **Architect** | Choose integration patterns | [How do I connect it to my code?](#how-do-i-connect-it-to-my-code) |
+| **Developer** | Create my first DTO         | [Quick Start](#quick-start)                                        |
+| **Developer** | Build custom DTO classes    | [Creating Custom DTO Classes](#creating-custom-dto-classes)        |
+| **Developer** | Implement advanced patterns | [What else can it do?](#what-else-can-it-do)                       |
+| **Analyst**   | Know when to use DTOs       | [Use this when / Don't use this when](#use-this-when--dont-use-this-when) |
 
 ---
 
-## Overview
+## Mental model
 
-**Data Transfer Objects (DTOs)** are lightweight objects designed to transfer data between different layers of your application. DTOs provide a structured, type-safe way to
-serialize and deserialize data for:
-
-- **Web Service Integration** - REST request and response payloads
-- **Lightning Web Components** - Structured data from Apex to LWC
-- **Flow Integration** - Complex data structures in invocable methods
-- **Data Transformation** - Converting between SObjects and external formats
-- **Testing** - Creating consistent test data structures
-
-> **DTO Framework Scope:** a set of base classes plus built-in DTOs (JSON, name-value, datatable, picklist, and CDC change-event header), supporting JSON serialization, SObject transformation, JsonPath
-> navigation, and sorted DTO collections.
-
-> **Responsibilities:** DTOs transport data between layers (Apex to LWC, Apex to external APIs, Flow to Apex). They do not contain business
-> logic, perform DML, or query data. Population logic in `populate()` should be limited to mapping fields from selectors and parameters.
-
-### Key Benefits
-
-- **Separation of Concerns** - Decouple external data formats from internal SObject structure
-- **Type Safety** - Strongly-typed data structures prevent runtime errors
-- **Versioning** - Maintain API contracts without changing SObjects
-- **Flexibility** - Transform data between different representations
-- **Testability** - Easy to mock and verify in unit tests
-
-### DTO Framework Components
-
-The KernDX framework provides:
-
-1. **Base Classes** - [`DTO_Base`](reference/apex/DTO_Base.md), [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md)
-2. **Specialized DTOs** - [`DTO_NameValues`](reference/apex/DTO_NameValues.md), [`DTO_BaseTable`](reference/apex/DTO_BaseTable.md), [`DTO_PickList`](reference/apex/DTO_PickList.md)
-3. **Utility Integration** - JsonPath, comparators, serialization helpers
+Think of a DTO as a shipping container for your data. You pack exactly the items you want to send (the fields), the container has a standard shape both ends understand, and it converts to a flat manifest (JSON) for the journey and back into labelled items on arrival. The contents inside your warehouse (your SObjects) can be arranged however you like; the container is what crosses the boundary.
 
 ---
 
-## Architecture
+## Use this when / Don't use this when
 
-You want every DTO to behave the same way: serialize to JSON, parse back, compare for equality, and load itself from a record, without you re-writing that plumbing each time. KernDX gets you this by having all DTOs inherit from one shared base class. So you write only the fields and logic that are specific to your data, and the common behaviour comes for free.
+Before the mechanics, decide whether a DTO is the right tool. Reach for one when data crosses a boundary; stay with plain Salesforce objects when it does not.
 
-The framework sits between your business logic and the things that consume your data (REST APIs, Lightning components, and flows). That position keeps your internal Salesforce object structure separate from the data formats outside systems expect, so a change to one does not force a change to the other.
+### Use DTOs when
 
-The key building blocks are:
-
-- **`DTO_Base`**: the abstract foundation. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
-- **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output, JsonPath integration for reading fields by path, and `FieldComparator` sorting.
-- **Built-in DTOs** ready to use: `DTO_NameValues` (key-value parameters), `DTO_BaseTable` (Lightning datatable), `DTO_PickList` (picklist metadata), and `DTO_ChangeEventHeader` (the change-event header from Change Data Capture).
-
-### DTO Class Hierarchy
-
-```text
-DTO_Base (Abstract base class)
-+-- DTO_JsonBase (JSON serialization)
-    +-- DTO_NameValues (Key-value collections)
-    +-- DTO_BaseTable (Lightning datatable structure)
-    +-- [Your custom JSON DTOs]
-
-Standalone DTOs (no inheritance):
-+-- DTO_NameValue (Single name-value pair)
-+-- DTO_PickList (Picklist metadata)
-+-- DTO_PicklistValue (Single picklist value)
-```
-
----
-
-## Quick Start
-
-Most of the time you want a JSON DTO for an API integration or a Lightning component response. Here is the shortest path from nothing to a working DTO:
-
-```apex
-@JsonAccess(Serializable='always' Deserializable='always')
-public class DTO_OrderSummary extends DTO_JsonBase
-{
-	@AuraEnabled public String orderId;
-	@AuraEnabled public Decimal totalAmount;
-}
-
-// Create and serialize
-DTO_OrderSummary summary = new DTO_OrderSummary();
-summary.orderId = 'ORD-001';
-summary.totalAmount = 250.00;
-String json = summary.serialize();
-
-// Deserialize from JSON
-DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
-```
-
-> **When KernDX is installed as a managed package:** Always include `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
-
-For deeper coverage, continue reading the sections below.
-
----
-
-## When to Use DTOs
-
-### Use DTOs When:
-
-**Building REST APIs** - Standardize request/response formats
+**Building REST APIs** - Standardise request/response formats
 
 ```apex
 // Inbound API with DTO
@@ -243,7 +164,9 @@ public static List<Results> processData(List<Requests> requests)
 }
 ```
 
-### Don't Use DTOs When:
+### Don't use DTOs when
+
+If the data never leaves Apex, a DTO adds a layer with no benefit. Use the platform's own types instead.
 
 **Working Within Apex** - Use SObjects directly
 
@@ -276,6 +199,105 @@ DML_Builder.newTransaction().doInsert(convertToSObject(dtoAccount)).execute();
 
 // GOOD: Direct SObject DML
 DML_Builder.newTransaction().doInsert(account).execute();
+```
+
+---
+
+## Quick Start
+
+Most of the time you want a JSON DTO for an API integration or a Lightning component response. Here is the shortest path from nothing to a working DTO:
+
+```apex
+@JsonAccess(Serializable='always' Deserializable='always')
+public class DTO_OrderSummary extends DTO_JsonBase
+{
+	@AuraEnabled public String orderId;
+	@AuraEnabled public Decimal totalAmount;
+}
+
+// Create and serialize
+DTO_OrderSummary summary = new DTO_OrderSummary();
+summary.orderId = 'ORD-001';
+summary.totalAmount = 250.00;
+String json = summary.serialize();
+
+// Deserialize from JSON
+DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
+```
+
+> **When KernDX is installed as a managed package:** Always include `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
+
+For deeper coverage, continue reading the sections below.
+
+---
+
+## Why choose this over the built-in option?
+
+Apex already gives you `JSON.serialize()` and `Map<String, Object>` for moving data around, and for a quick one-off they are fine. DTOs earn their place once the shape of the data becomes a contract that the front end, an external system, or a flow depends on. Here is what you get for the small amount of structure they add.
+
+- **Keep external formats separate from your database.** The shape an outside system sees is decoupled from your internal SObject structure, so you can reshape one without breaking the other.
+- **Catch shape mistakes at compile time.** Strongly-typed fields mean a wrong field name or type is a compile error, not a runtime surprise from an untyped map.
+- **Change an API without touching SObjects.** You can keep an API contract stable while your objects evolve underneath it.
+- **Reshape data between representations.** Convert between an internal format and the one an external API expects in one place.
+- **Test data shapes easily.** DTOs are simple to mock and verify in unit tests, so you can pin down the exact payload your code produces.
+
+> **DTO Framework Scope:** a set of base classes plus built-in DTOs (JSON, name-value, datatable, picklist, and CDC change-event header), supporting JSON serialization, SObject transformation, JsonPath
+> navigation, and sorted DTO collections.
+
+> **Responsibilities:** DTOs transport data between layers (Apex to LWC, Apex to external APIs, Flow to Apex). They do not contain business
+> logic, perform DML, or query data. Population logic in `populate()` should be limited to mapping fields from selectors and parameters.
+
+DTOs cover the common ways data leaves Apex:
+
+- **Web Service Integration** - REST request and response payloads
+- **Lightning Web Components** - Structured data from Apex to LWC
+- **Flow Integration** - Complex data structures in invocable methods
+- **Data Transformation** - Converting between SObjects and external formats
+- **Testing** - Creating consistent test data structures
+
+### What you gain
+
+- **Separation of Concerns** - Decouple external data formats from internal SObject structure
+- **Type Safety** - Strongly-typed data structures prevent runtime errors
+- **Versioning** - Maintain API contracts without changing SObjects
+- **Flexibility** - Transform data between different representations
+- **Testability** - Easy to mock and verify in unit tests
+
+### What are the moving parts?
+
+The KernDX framework provides:
+
+1. **Base Classes** - [`DTO_Base`](reference/apex/DTO_Base.md), [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md)
+2. **Specialized DTOs** - [`DTO_NameValues`](reference/apex/DTO_NameValues.md), [`DTO_BaseTable`](reference/apex/DTO_BaseTable.md), [`DTO_PickList`](reference/apex/DTO_PickList.md)
+3. **Utility Integration** - JsonPath, comparators, serialization helpers
+
+---
+
+## How does it work?
+
+You want every DTO to behave the same way: serialize to JSON, parse back, compare for equality, and load itself from a record, without you re-writing that plumbing each time. KernDX gets you this by having all DTOs inherit from one shared base class. So you write only the fields and logic that are specific to your data, and the common behaviour comes for free.
+
+The framework sits between your business logic and the things that consume your data (REST APIs, Lightning components, and flows). That position keeps your internal Salesforce object structure separate from the data formats outside systems expect, so a change to one does not force a change to the other.
+
+The key building blocks are:
+
+- **`DTO_Base`**: the abstract foundation. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
+- **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output, JsonPath integration for reading fields by path, and `FieldComparator` sorting.
+- **Built-in DTOs** ready to use: `DTO_NameValues` (key-value parameters), `DTO_BaseTable` (Lightning datatable), `DTO_PickList` (picklist metadata), and `DTO_ChangeEventHeader` (the change-event header from Change Data Capture).
+
+### DTO Class Hierarchy
+
+```text
+DTO_Base (Abstract base class)
++-- DTO_JsonBase (JSON serialization)
+    +-- DTO_NameValues (Key-value collections)
+    +-- DTO_BaseTable (Lightning datatable structure)
+    +-- [Your custom JSON DTOs]
+
+Standalone DTOs (no inheritance):
++-- DTO_NameValue (Single name-value pair)
++-- DTO_PickList (Picklist metadata)
++-- DTO_PicklistValue (Single picklist value)
 ```
 
 ---
@@ -626,6 +648,9 @@ public class DTO_AccountRow
 
 #### Lightning Datatable Column Types
 
+<details>
+<summary>Every supported column type</summary>
+
 | Type          | Description        | Example             |
 |---------------|--------------------|---------------------|
 | `text`        | Plain text         | Account Name        |
@@ -641,6 +666,8 @@ public class DTO_AccountRow
 | `button`      | Button             | -                   |
 | `button-icon` | Icon button        | -                   |
 | `action`      | Row actions        | -                   |
+
+</details>
 
 #### LWC Usage
 
@@ -754,6 +781,9 @@ public class Request
 
 **Structure:** every field is `@AuraEnabled`, so it is readable from Flow and LWC.
 
+<details>
+<summary>Every field on the change-event header</summary>
+
 | Field             | Type           | Description                                                         |
 |-------------------|----------------|---------------------------------------------------------------------|
 | `entityName`      | `String`       | API name of the changed entity (for example `Account`)              |
@@ -768,6 +798,8 @@ public class Request
 | `nulledFields`    | `List<String>` | Fields the change explicitly set to null                            |
 | `diffFields`      | `List<String>` | Large text fields delivered as diffs rather than full values        |
 | `changedFields`   | `List<String>` | Fields whose values changed                                         |
+
+</details>
 
 **Usage:** the framework populates this DTO automatically for change-event-triggered flows (it has a copy constructor from `EventBus.ChangeEventHeader`), so you do not need to write any bridging Apex. See the [Triggers - Guide](Triggers%20-%20Guide.md) Change Data Capture section for the end-to-end setup, and [`reference/apex/DTO_ChangeEventHeader.md`](reference/apex/DTO_ChangeEventHeader.md) for the complete member list.
 
@@ -1294,7 +1326,7 @@ externalDto.transform(internalDto);
 
 ---
 
-## Advanced DTO Patterns
+## What else can it do?
 
 ### JsonPath for Reflective Access
 
@@ -1433,7 +1465,7 @@ public static void demonstrateCollections()
 
 ---
 
-## Integration Patterns
+## How do I connect it to my code?
 
 ### DTOs in REST APIs
 
@@ -2000,7 +2032,7 @@ protected override Type getObjectType()
 
 ### Issue: "Null pointer exception when accessing DTO fields"
 
-**Cause:** Collection not initialized.
+**Cause:** Collection not initialised.
 
 **Solution:**
 

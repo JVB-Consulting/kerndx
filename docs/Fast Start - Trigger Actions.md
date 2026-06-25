@@ -6,7 +6,7 @@ navOrder: 10
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A way to put trigger logic into small, focused Apex classes (one per behaviour) and wire them to an object through configuration records, so you can add, reorder, or switch a behaviour off without editing or redeploying the trigger. **Why it exists:** Hand-written triggers tend to grow into one large file that is hard to read, test, or change safely; this keeps each behaviour separate and independently testable. **Who should follow it:** developers and admins adding automation to an object. **When to use it:** any time you'd otherwise write or extend a trigger.
+**What this is:** A way to put trigger logic into small, focused Apex classes (one per behaviour) and wire them to an object through configuration records, so you can add, reorder, or switch a behaviour off without editing or redeploying the trigger. **Why it exists:** Hand-written triggers tend to grow into one large file that is hard to read, test, or change safely; this keeps each behaviour separate and independently testable. **Who should follow it:** developers and admins adding automation to an object. **When to use it:** any time you'd otherwise write or extend a trigger. If a single Flow or a simple validation rule already covers what you need, use that first; this pattern earns its keep once an object has real Apex logic, several behaviours, or an order you need to control.
 
 **Before you start:**
 

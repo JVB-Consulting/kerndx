@@ -41,7 +41,7 @@ If your team is asking *"why KernDX instead of the framework we already know?"*,
 
 Two honest notes up front, stated once:
 
-- **Licensing.** KernDX is licensed under BSL 1.1. The source is public, so you can read, modify, and deploy it. BSL is not an OSI-approved license until it converts to Apache
+- **Licensing.** KernDX is licensed under BSL 1.1. The source is public, so you can read, modify, and deploy it. BSL is not an OSI-approved licence until it converts to Apache
   2.0 four years after release. Teams with a strict "OSI-approved at install time" procurement rule should weigh that, and organisations with a formal open-source-governance
   process should validate BSL alignment with their procurement requirements.
 - **Maintainer model.** KernDX is currently maintained by a single primary developer, with an issues-only contribution model. One maintainer carrying most of the work is common across the Apex
@@ -54,7 +54,18 @@ Every comparison is a present-tense fact about each framework's published source
 current source if a detail is load-bearing for your decision. Where this guide says no alternative does something, that is scoped to the frameworks compared here, not a claim about
 the entire Apex ecosystem.
 
-This guide compares frameworks on the dimensions that drive a real production decision: **what each does by default for security, how much it covers, how much wiring you have to do yourself, how extensible it is, its testing tooling, what it lets you see in production, how sustainably it is maintained, and its licensing.** **Comparison baseline:** each framework's published source as of May 2026.
+This guide compares frameworks on the dimensions that drive a real production decision:
+
+- **what each does by default for security**
+- **how much it covers**
+- **how much wiring you have to do yourself**
+- **how extensible it is**
+- **its testing tooling**
+- **what it lets you see in production**
+- **how sustainably it is maintained**
+- **its licensing**
+
+**Comparison baseline:** each framework's published source as of May 2026.
 
 ---
 
@@ -104,18 +115,18 @@ Got a specific need? This is the fast lookup. The "Consider an alternative when�
 
 | Capability                     | KernDX gives you                                                                                                                                                                                                                                                                                                                 | Consider an alternative when                                                                                                                    |
 |--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Trigger framework**          | Metadata-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, execution observability, Change Data Capture dispatch (with the change header available to Flow and Apex actions), and post-trigger transaction finalizers | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
+| **Trigger framework**          | Configuration-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, a searchable record of what each trigger actually did (execution observability), reacting to record-change events (Change Data Capture, with the change header available to Flow and Apex actions), and follow-up work that runs after the transaction commits (post-trigger finalizers) | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
 | **Query builder**              | A fluent SOQL API with no string concatenation, FLS/CRUD enforced by default, an audit log on every bypass, and a subclassable builder                                                                                                                                                                                           | `apex-fluently-soql` if a standalone fluent-DSL is all you want and developer-managed access control is acceptable                              |
 | **DML**                        | Transactional batching, FLS/CRUD enforced on writes by default, audited bypass, async DML, and multi-level dependency-graph resolution with cycle detection                                                                                                                                                                      | `apex-fluently-dml` if you prefer its record-builder relationship DSL. Both resolve multi-level graphs; the difference is API shape, not depth |
-| **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, response-DTO marshalling, validation hooks, and a paired test harness                                                                                                                                                                                | No framework alternative among those compared: hand-roll the dispatcher per endpoint, or adopt KernDX                                           |
-| **Outbound HTTP**              | Production callouts with retry/backoff, circuit breaker, idempotency keys, dead-letter queue, named-credential resolution, and a mock library                                                                                                                                                                                 | `apex-fluently-httpmock` ties on the *mock* surface only; it ships no production callout path                                                   |
-| **Logging**                    | A lean Apex/LWC/Flow logging API with default-on async emission, integrated with triggers/query/DML/async                                                                                                                                                                                                                        | `nebula-logger` if you need multi-transport selection, all seven platform log levels, per-record retention, or a historical log-browser UI      |
+| **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, small response classes that convert themselves to and from JSON (DTO marshalling), validation hooks, and a paired test harness                                                                                                                        | No framework alternative among those compared: hand-roll the dispatcher per endpoint, or adopt KernDX                                           |
+| **Outbound HTTP**              | Production callouts with retry/backoff, a circuit breaker (after repeated failures it stops calling the failing system for a cool-off, then resumes), idempotency keys (the same request arriving twice returns the first result instead of re-running), a dead-letter queue (messages that fail after all retries are set aside for inspection, not lost), named-credential resolution, and a mock library | `apex-fluently-httpmock` ties on the *mock* surface only; it ships no production callout path                                                   |
+| **Logging**                    | A lean Apex/LWC/Flow logging API that writes log records in the background by default, integrated with triggers/query/DML/async                                                                                                                                                                                                   | `nebula-logger` if you need multi-transport selection, all seven platform log levels, per-record retention, or a historical log-browser UI      |
 | **Testing**                    | A builder-pattern test-data factory with parent-child wiring, DML-free query mocking, and framework-object assertion helpers                                                                                                                                                                                                     | `fflib-mocks` if you need Mockito-style behaviour verification (argument matchers, verification modes); KernDX has no equivalent               |
 | **Resilience / feature flags** | A feature-flag framework you can extend (custom metadata + per-user/profile settings) consumable from Apex/Flow/LWC, with pluggable resolution strategies and retry utilities                                                                                                                                             | `rflib` if you need only a simple hierarchical kill-switch and no pluggable strategies                                                          |
 | **Security**                   | FLS/CRUD enforced on reads and writes by default, an org-wide kill switch, per-call bypass, and an audit entry on every bypass                                                                                                                                                                                                   | None of the frameworks compared here ship both an org-wide kill switch *and* runtime audit-on-bypass                                            |
 | **Data masking**               | Runtime masking on the call path (regex + credit-card detection + literal + JSON-key), four modes, three failure actions, caller scoping, and shipped rules                                                                                                                                                                      | `mask-sobject` for *batch* anonymisation of existing data (sandbox refresh): a complementary, different job                                    |
 | **LWC**                        | A component base with five built-in modules (toast / Apex controller / navigation / Lightning Message / Flow nav) and opt-in activation                                                                                                                                                                                          | No comparable alternative ships a coherent LWC component framework                                                                              |
-| **Async**                      | Chained queueables with shared state across transactions, finalizer recovery, a kill switch, and per-step error/completion handlers                                                                                                                                                                                              | A focused library (`apex-fluently-async`, `apex-promisify`) if you want only the standalone chaining shape                                      |
+| **Async**                      | Chained queueables with shared state across transactions, recovery work that runs after the transaction commits (finalizer recovery), a kill switch, and per-step error/completion handlers                                                                                                                                       | A focused library (`apex-fluently-async`, `apex-promisify`) if you want only the standalone chaining shape                                      |
 
 ---
 
@@ -132,7 +143,7 @@ The cost of that isolation is that **your team becomes the systems integrator**.
 3. **Upgrades and maintenance, repeated per library.** Each library releases on its own schedule, so every time any one of them tags a release you pin versions, track breaking changes, and test that they all still work together.
 
 KernDX makes the opposite trade: it gives up the ability to swap one piece out for **integration that's already done for you**. The capabilities share one namespace, one security posture, one tracking ID that follows a user action across them,
-one bypass-audit signal, and one release cadence. The wiring you'd otherwise do is done.
+one record of every bypass, and one release cadence. The wiring you'd otherwise do is done.
 
 Neither side is free, and the honest framing is even-handed. An integrated package concentrates dependency ownership and widens the blast radius of an upgrade. A library stack
 spreads that out, but it multiplies the work of integrating and reviewing the pieces. Because KernDX is [opt-in at runtime](#one-deployment-opt-in-at-runtime), you can also split the difference:
@@ -169,7 +180,7 @@ DML, outbound, async, security, and masking.
 
 **Where it wins.** Little over KernDX on capability. KernDX covers everything `taf` does, including Change Data Capture dispatch and post-trigger finalizers, and adds bypass
 auditing, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There are two honest cases for `taf`. First, you already run it and want triggers
-only, so a migration isn't worth the churn. Second, the license case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 license matters to you. (Under BSL 1.1, ordinary subscribers and the consultants
+only, so a migration isn't worth the churn. Second, the licence case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 licence matters to you. (Under BSL 1.1, ordinary subscribers and the consultants
 deploying for them keep full production-use rights, and it converts to Apache 2.0 four years after publication.)
 
 **The KernDX divergence.** `taf` bypasses run unaudited: no log, no platform event, no signal. You cannot plug your own registration logic into it, and it ships no coverage
@@ -184,14 +195,14 @@ one.
 **Migration complexity: Low–Medium.** The metadata-driven registration concepts map closely.
 
 > **Pick:** KernDX. `taf` is a well-regarded focused trigger framework (KernDX's own trigger layer evolved from it), but KernDX covers everything it does and more. Keep `taf`
-> only if you're already invested and want triggers alone (or for the narrow paid-competing-framework license case), accepting unaudited bypasses on the trigger layer.
+> only if you're already invested and want triggers alone (or for the narrow paid-competing-framework licence case), accepting unaudited bypasses on the trigger layer.
 
 ### vs. apex-libra
 
 **The library.** `apex-libra` is a multi-capability framework covering trigger registration, DML, logging, resilience, security, testing, and utilities. Of the frameworks here, it is the closest single-package
 alternative to KernDX by breadth. License: MIT.
 
-**Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (A permissive license rarely
+**Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (A permissive licence rarely
 decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
 
 **The KernDX divergence.** `apex-libra` defaults to *system mode* on DML writes, so you override per call to enforce FLS/CRUD on writes. Its bypasses are unaudited, it ships no
@@ -249,7 +260,7 @@ logging is not wired into a trigger/query/DML bypass-audit or async status signa
 the highest cadence. License: MIT across the family.
 
 **Where it wins.** You want a single capability without a bundled framework footprint, or you prefer a specific library's DSL ergonomics (for example, `apex-fluently-dml`'s record-builder
-relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (A permissive license
+relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (A permissive licence
 rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
 
 **The KernDX divergence.** Access control is delegated and unaudited across the family. `apex-fluently-soql`'s executor is sealed (you can't subclass to extend the builder),
@@ -262,7 +273,7 @@ requirement.
 **Migration complexity: Low–Medium per library.** Each DSL surface can be swapped independently.
 
 > **Pick:** KernDX for integrated guarantees. Adopt an individual Apex Fluently library when you need exactly one capability without a bundled framework, or you specifically prefer
-> its DSL, accepting developer-managed access control on that surface. (A permissive license rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying
+> its DSL, accepting developer-managed access control on that surface. (A permissive licence rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying
 > for you full production-use rights.)
 
 ### vs. fflib-mocks
@@ -288,6 +299,9 @@ assertions: a different and complementary surface.
 
 Beyond the seven above, these single-purpose libraries each cover one specialty surface. In most cases KernDX already covers the same ground as part of its integrated scope; the table flags the exceptions where a specialty library is still worth reaching for.
 
+<details>
+<summary>Full specialty-library comparison (14 libraries)</summary>
+
 | Library                  | What it does                                                               | KernDX equivalent                                                                                                                   | Recommendation                                                                                                         |
 |--------------------------|----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
 | `apex-async-linkable`    | Standalone queueable-link library                                          | `UTIL_AsyncChain` adds shared state, finalizer recovery, kill switch, orchestration                                                 | Use KernDX unless you need the standalone shape                                                                        |
@@ -304,6 +318,8 @@ Beyond the seven above, these single-purpose libraries each cover one specialty 
 | `mask-sobject`           | Batch anonymisation of existing org data                                   | `UTIL_FrameworkMasker` does runtime masking on the call path; batch scrub is the differentiator                                     | Use KernDX for runtime masking; use this for batch sandbox scrub (complementary)                                       |
 | `nebula-triggers`        | Single-class metadata-driven trigger dispatcher                            | KernDX trigger framework adds recursion control, four-level audited bypass, observability                                           | Use KernDX                                                                                                             |
 | `promise`                | Promise-style queueable chaining, no shared state                          | `UTIL_AsyncChain` adds shared state, recovery, kill switch                                                                          | Use KernDX                                                                                                             |
+
+</details>
 
 ---
 
@@ -322,7 +338,7 @@ Capability fit is only half the decision. Organisational fit is the other half. 
 **Prefer specialised libraries when:**
 
 - **Existing investment.** You have deep existing investment in one (for example, established `fflib` domains) and no reason to move it.
-- **OSI-at-install procurement.** Strict procurement requires an OSI-approved license at install time (KernDX is BSL 1.1 until its Apache 2.0 conversion).
+- **OSI-at-install procurement.** Strict procurement requires an OSI-approved licence at install time (KernDX is BSL 1.1 until its Apache 2.0 conversion).
 - **Single narrow need.** You need exactly one narrow capability and nothing else.
 - **Mature in-house standards.** You already operate mature internal patterns and governance controls and want to add a single focused library to fill one gap.
 

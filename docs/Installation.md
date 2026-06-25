@@ -515,7 +515,7 @@ Once your package is released:
 1. **Install in Orgs:** Share the installation URL with your team
 2. **Version Updates:** Update `versionNumber` in `sfdx-project.json`, commit the change, and run `node scripts/build-package.js --package "YourCompanyFramework" --no-resync`
 3. **Documentation:** Already updated with your namespace from Step 3.2
-4. **Customize:** Add your own classes extending KernDX capabilities using `SEL_Base`, `TRG_Base`, `DML_Builder`,
+4. **Customise:** Add your own classes extending KernDX capabilities using `SEL_Base`, `TRG_Base`, `DML_Builder`,
    and `QRY_Builder`
 5. **Support:** Set up processes for bug fixes and enhancement requests
 6. **Governance:** Establish release management and versioning strategies
@@ -535,7 +535,7 @@ It ships as a standalone zip that lives entirely in your repo's `.kerndx-pipelin
 ### What's Inside
 
 - `@jvb-consulting/kerndx-pipeline` CLI: 8 commands (`init`, `scan`, `naming`, `preflight`, `doctor`, `upgrade`, `classify-ref`, `slack-payload`).
-- ESLint plugin (`eslint-plugin-kerndx`): 6 behavioral rules, with no formatting opinions.
+- ESLint plugin (`eslint-plugin-kerndx`): 6 behavioural rules, with no formatting opinions.
 - Two PMD rulesets: naming and sharing-modifier enforcement.
 - Eleven Eta-rendered GitHub Actions workflow templates: scan, preflight, release-notes, and Slack-bridge wiring.
 - `INSTALL-PIPELINE.md`: the full setup guide, bundled inside the zip.
