@@ -9,12 +9,18 @@ navOrder: 16
 
 > **If you installed KernDX as a managed package:** prefix framework class references with your installed namespace (for example, `AcmeLib.QRY_Builder`).
 
-**Who this guide is for:**
+**Target Audience:**
 
 - **Developers** writing code that reads or writes data and needs to honour the running user's permissions, sharing, and encryption.
 - **Architects** designing how an org protects sensitive data and enforces access.
 - **Business analysts** who want to understand the security capabilities, the encryption options, and what they do and do not cover for compliance.
 - **Security reviewers** auditing where sharing is enforced, and where (and why) it is deliberately bypassed.
+
+---
+
+## In one paragraph
+
+Every Salesforce app has to answer the same questions on every read and write: can this user see this object and field, can they see this particular record, and is any sensitive value about to be written down in plain text. Getting one of those wrong is how data leaks reach a security review. This guide shows you how KernDX answers them for you. By default, queries and saves run with the current user's read/write permissions and record sharing enforced (Salesforce calls this `USER_MODE`), sensitive values can be masked before they ever hit the database, and short-lived secrets can be encrypted in memory. Read this if you write Apex that reads or writes data, design security patterns for an org, or need to show an auditor where access is enforced. Reach for it whenever code touches records that not every user should see.
 
 ---
 
@@ -29,9 +35,9 @@ navOrder: 16
     - [Framework Philosophy](#framework-philosophy)
 3. [Architecture](#architecture)
     - [Architecture Diagram](#architecture-diagram)
-4. [Secure-by-Default Defaults](#secure-by-default-defaults)
+4. [Safe by Default](#safe-by-default)
 5. [Quick Start](#quick-start)
-6. [Escape Hatches](#escape-hatches)
+6. [How to opt out](#how-to-opt-out)
 7. [Data Encryption & Decryption (UTIL_SessionEncryption)](#data-encryption--decryption-util_sessionencryption)
     - [Overview](#overview-1)
         - [CRITICAL ARCHITECTURAL WARNING](#critical-architectural-warning)
@@ -155,8 +161,6 @@ navOrder: 16
 
 ## Overview
 
-**In one paragraph:** Every Salesforce app has to answer the same questions on every read and write: can this user see this object and field, can they see this particular record, and is any sensitive value about to be written down in plain text. Getting one of those wrong is how data leaks reach a security review. This guide shows you how KernDX answers them for you. By default, queries and saves run with the current user's read/write permissions and record sharing enforced (Salesforce calls this `USER_MODE`), sensitive values can be masked before they ever hit the database, and short-lived secrets can be encrypted in memory. Read this if you write Apex that reads or writes data, design security patterns for an org, or need to show an auditor where access is enforced. Reach for it whenever code touches records that not every user should see.
-
 This guide covers all of the security capabilities KernDX provides: data encryption, record-level sharing, and the patterns that enforce field, object, and record permissions. Together they help you follow Salesforce security best practice, protect sensitive data, and control who can reach which records.
 
 > **What this framework is responsible for:** The Security framework enforces access control (object create/read/update/delete permissions, field-level security, and record sharing) and protects sensitive data through encryption. It does not contain business logic or decide what data your app reads. Its job is narrower: it checks that the current user is allowed to perform an operation, and throws an exception when they are not.
@@ -243,11 +247,11 @@ The security framework works in layers. You turn each one on independently and c
 
 The layers do not depend on one another: you can enforce field security without enforcing sharing, or control sharing without checking object permissions. The starting point matters most: **every query and save your own code can reach runs with the current user's permissions and sharing enforced by default** (`AccessLevel.USER_MODE`). So a developer who does nothing special still gets the safe behaviour.
 
-A few framework-internal selectors do need to skip those checks, for example readers of custom metadata, framework-owned objects, and system schema. They opt out by overriding the `systemModeRequired()` hook on `SEL_Base`. If you ever need to roll the secure default back across the whole org in an incident, there is a master off-switch you can flip in metadata without a deployment: the `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` records, described in [Secure-by-Default Defaults](#secure-by-default-defaults) below.
+A few framework-internal selectors do need to skip those checks, for example readers of custom metadata, framework-owned objects, and system schema. They opt out by overriding the `systemModeRequired()` hook on `SEL_Base`. If you ever need to roll the secure default back across the whole org in an incident, there is a master off-switch you can flip in metadata without a deployment: the `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` records, described in [Safe by Default](#safe-by-default) below.
 
 ---
 
-## Secure-by-Default Defaults
+## Safe by Default
 
 The safe behaviour is on automatically. You step outside it only when you choose to. Every query and save your code can reach runs with the current user's permissions and sharing enforced (`AccessLevel.USER_MODE`) unless you say otherwise. In practice:
 
@@ -329,7 +333,7 @@ For more detail, keep reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 Sometimes the secure default is not what you want, and you need to step outside it for a single call. Every protection here is opt-in per layer and controllable right where you call it: you choose the sharing behaviour, the access mode (`AccessLevel`), and whether object and field permissions are enforced, all on the same line. Nothing is hidden in framework internals. The framework's own classes default to `inherited sharing` (176 of 185 production classes), so the caller's sharing context always flows through unchanged.
 
@@ -911,7 +915,7 @@ global inherited sharing class DML_Builder
 | *(default)*        | `inherited sharing` proxy | DML inherits caller's sharing context |
 | `.bypassSharing()` | `without sharing` proxy   | DML ignores sharing rules             |
 
-There is no `.withSharing()` method on `DML_Builder`. To enforce sharing on a save, call the transaction from a `with sharing` class (or from one whose `inherited sharing` caller is itself `with sharing`). To enforce object and field permissions as well, add `.withUserMode()` (see [Secure-by-Default Defaults](#secure-by-default-defaults)).
+There is no `.withSharing()` method on `DML_Builder`. To enforce sharing on a save, call the transaction from a `with sharing` class (or from one whose `inherited sharing` caller is itself `with sharing`). To enforce object and field permissions as well, add `.withUserMode()` (see [Safe by Default](#safe-by-default)).
 
 #### How the Proxy Pattern Works
 
@@ -1005,7 +1009,7 @@ global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
 }
 ```
 
-**3. Org-wide emergency off-switch.** Set the `kern__FeatureFlag.UserModeQueries_Enabled` custom metadata record to `IsEnabledByDefault__c = false`. Every query your code can reach falls back to SYSTEM_MODE on the next transaction. The companion flag `UserModeDml_Enabled` does the same for `DML_Builder`. See [Secure-by-Default Defaults](#secure-by-default-defaults).
+**3. Org-wide emergency off-switch.** Set the `kern__FeatureFlag.UserModeQueries_Enabled` custom metadata record to `IsEnabledByDefault__c = false`. Every query your code can reach falls back to SYSTEM_MODE on the next transaction. The companion flag `UserModeDml_Enabled` does the same for `DML_Builder`. See [Safe by Default](#safe-by-default).
 
 > **Which to use:** the per-call override for one-off exceptions, the per-selector override for framework-internal classes, and the metadata off-switch only to roll the secure default back in an emergency. Do not flip the metadata flag as a routine setting: it weakens the protection on every query your code can reach.
 
@@ -1480,7 +1484,7 @@ Salesforce's [`AccessLevel`](https://developer.salesforce.com/docs/atlas.en-us.a
 | `AccessLevel.USER_MODE`   | Enforced | Enforced (runs through the user's sharing)                                      | The **secure default** for the queries and saves your code can reach (shipped package behaviour)                            |
 | `AccessLevel.SYSTEM_MODE` | Bypassed | Controlled by the helper class (class declaration / `.withSharing()` / `.bypassSharing()`) | Framework-internal reads, custom-metadata readers, log and orchestration writes. Opt in with `.withSystemMode()` or `systemModeRequired()` |
 
-By default, the `QRY_Builder` and `DML_Builder` calls your code can reach run in `USER_MODE`. SYSTEM_MODE is reserved for framework-internal operations and a few narrow, documented opt-outs. Framework-internal selectors override `SEL_Base.systemModeRequired()` to return `true`; individual calls use `.withSystemMode()`. The org-wide flip on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` is an emergency off-switch only (see [Secure-by-Default Defaults](#secure-by-default-defaults)). For how the sharing helper classes layer on top of `AccessLevel.SYSTEM_MODE`, see [Record Sharing > AccessLevel Selection](#accesslevel-selection).
+By default, the `QRY_Builder` and `DML_Builder` calls your code can reach run in `USER_MODE`. SYSTEM_MODE is reserved for framework-internal operations and a few narrow, documented opt-outs. Framework-internal selectors override `SEL_Base.systemModeRequired()` to return `true`; individual calls use `.withSystemMode()`. The org-wide flip on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` is an emergency off-switch only (see [Safe by Default](#safe-by-default)). For how the sharing helper classes layer on top of `AccessLevel.SYSTEM_MODE`, see [Record Sharing > AccessLevel Selection](#accesslevel-selection).
 
 #### Combining All Three Security Layers
 

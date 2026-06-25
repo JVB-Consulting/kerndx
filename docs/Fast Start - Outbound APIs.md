@@ -17,7 +17,7 @@ navOrder: 32
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.SEL_Base`). Your own classes don't need a namespace prefix — the framework's Type Resolver handles
+> `kern.SEL_Base`). Your own classes don't need a namespace prefix: the framework's Type Resolver handles
 > resolution automatically.
 
 **What you'll build:** A working outbound HTTP call to an external API. You start with a one-liner and

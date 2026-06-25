@@ -625,6 +625,8 @@ One record per piece of logic. Each row points at an action (an Apex class or a 
 
 ### TriggerSetting__mdt Field Reference
 
+Each field below is tagged with who can change it: **(Subscriber Controlled)** means you can edit the value in your own org, and **(Developer Controlled)** means the framework sets it and your org cannot change it.
+
 #### SObjectType__c (Required)
 
 **Purpose:** Identifies which SObject this setting applies to via

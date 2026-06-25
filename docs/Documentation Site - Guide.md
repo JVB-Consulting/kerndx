@@ -16,7 +16,7 @@ navOrder: 96
 
 ## Overview
 
-This repository ships with a complete, self-hosting documentation site: the guides, Fast Starts, and full API reference you are reading now, built as a fast, searchable static site. The same pipeline that publishes it for KernDX works unchanged in **your** clone — enable it and your team gets its own copy of the documentation at a URL you control, rebuilt automatically every time you pull a new release or add your own pages.
+This repository ships with a complete, self-hosting documentation site: the guides, Fast Starts, and full API reference you are reading now, built as a fast, searchable static site. The same pipeline that publishes it for KernDX works unchanged in **your** clone: enable it and your team gets its own copy of the documentation at a URL you control, rebuilt automatically every time you pull a new release or add your own pages.
 
 Publishing is controlled entirely by three repository variables. No code changes are required.
 
@@ -32,11 +32,11 @@ The site is generated from this repository's `docs/` folder and `README.md` by t
 
 - Your clone of this repository pushed to GitHub, with GitHub Actions enabled (forks: Actions must be enabled once under the repository's **Actions** tab).
 - Repository admin access.
-- The `gh` CLI authenticated (`gh auth login`) — or use the GitHub web console paths given alongside each command.
+- The `gh` CLI authenticated (`gh auth login`), or use the GitHub web console paths given alongside each command.
 
 Every step below is a copy-paste command. Replace `<your-org>/<your-repo>` (and for custom domains, `docs.example.com`) with your values.
 
-## Option A — Publish at your GitHub Pages URL
+## Option A: Publish at your GitHub Pages URL
 
 The fastest path. Your site appears at `https://<your-org>.github.io/<your-repo>/`.
 
@@ -53,11 +53,11 @@ Console equivalent: **Settings → Pages → Source: GitHub Actions**, then **Se
 
 > The trailing and leading slashes in `DOCS_BASE` matter: `/<your-repo>/`, exactly. A wrong base is the most common cause of a deployed site with broken styling.
 
-## Option B — Publish on a custom domain
+## Option B: Publish on a custom domain
 
 Serve the site at a domain you own, like `docs.example.com`.
 
-**Step 1 — DNS.** At your DNS provider, create a CNAME record pointing your subdomain at your GitHub Pages hostname:
+**Step 1: DNS.** At your DNS provider, create a CNAME record pointing your subdomain at your GitHub Pages hostname:
 
 ```
 docs.example.com  CNAME  <your-org>.github.io.
@@ -71,7 +71,7 @@ dig +short docs.example.com CNAME
 
 Expected output: `<your-org>.github.io.`
 
-**Step 2 — Enable publishing.** Same as Option A, but set the domain instead of a base path (the site is served at the domain root, so `DOCS_BASE` stays unset):
+**Step 2: Enable publishing.** Same as Option A, but set the domain instead of a base path (the site is served at the domain root, so `DOCS_BASE` stays unset):
 
 ```bash
 gh api -X POST repos/<your-org>/<your-repo>/pages -f build_type=workflow
@@ -84,7 +84,7 @@ gh workflow run docs.yml --repo <your-org>/<your-repo>
 
 The first deploy writes a `CNAME` file into the site, which registers the custom domain with GitHub Pages automatically.
 
-**Step 3 — HTTPS.** Once GitHub has provisioned the TLS certificate (usually minutes, occasionally up to an hour), enforce HTTPS:
+**Step 3: HTTPS.** Once GitHub has provisioned the TLS certificate (usually minutes, occasionally up to an hour), enforce HTTPS:
 
 ```bash
 gh api -X PUT repos/<your-org>/<your-repo>/pages -f cname=docs.example.com -F https_enforced=true
@@ -104,17 +104,17 @@ A healthy deploy shows the `build` job green (the strict gate), the `deploy` job
 
 ## Keeping the site current
 
-Every push to your default branch that touches `docs/`, `README.md`, release notes, or the site pipeline rebuilds and redeploys automatically — including when you pull in a new KernDX release. No manual steps after the one-time setup.
+Every push to your default branch that touches `docs/`, `README.md`, release notes, or the site pipeline rebuilds and redeploys automatically, including when you pull in a new KernDX release. No manual steps after the one-time setup.
 
 ## Adding your own pages
 
-Drop Markdown files into `docs/` and push — each becomes a page with a clean URL, appears in the sidebar, and is indexed by search automatically. File naming controls sidebar grouping:
+Drop Markdown files into `docs/` and push: each becomes a page with a clean URL, appears in the sidebar, and is indexed by search automatically. File naming controls sidebar grouping:
 
 - Names ending in " - Guide" land under **Guides**
 - Names starting with "Fast Start - " land under **Fast Starts**
 - Anything else lands under **Getting Started**
 
-Internal links between pages are plain relative Markdown links (`[Selectors](Selectors%20-%20Guide.md)`); the build resolves them and fails loudly on any link that points nowhere — so a broken link never ships.
+Internal links between pages are plain relative Markdown links (`[Selectors](Selectors%20-%20Guide.md)`); the build resolves them and fails loudly on any link that points nowhere, so a broken link never ships.
 
 ## Troubleshooting
 

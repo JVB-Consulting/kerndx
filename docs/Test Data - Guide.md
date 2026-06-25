@@ -35,7 +35,7 @@ for it whenever a test needs records, and skip it when a single plain `new Accou
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Escape Hatches](#escape-hatches)
+4. [How to opt out](#how-to-opt-out)
 5. [Architecture](#architecture)
     - [KernDX vs OOTB: Test Data Comparison](#kerndx-vs-ootb-test-data-comparison)
     - [Layer 1: TST_Builder](#layer-1-tst_builder)
@@ -176,7 +176,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 Sometimes you want to step outside the builder, and you can. The test-data layer is opt-in: when it
 does not fit, plain Apex record creation still works exactly as it always has. Nothing in the

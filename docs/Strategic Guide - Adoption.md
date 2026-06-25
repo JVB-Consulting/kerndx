@@ -29,7 +29,7 @@ also: [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20P
     - [Build vs Buy: Hidden Costs](#build-vs-buy-hidden-costs)
     - [Build vs Buy: Cost Considerations](#build-vs-buy-cost-considerations)
     - [Coherence Costs of Modular Stacks](#coherence-costs-of-modular-stacks)
-    - [Operational Entropy and Maintainability in Multi-Team Environments](#operational-entropy-and-maintainability-in-multi-team-environments)
+    - [Code Drift in Multi-Team Environments](#code-drift-in-multi-team-environments)
 - [AI & Modern Platform](#ai--modern-platform)
     - [AI Development Landscape](#ai-development-landscape)
     - [AI Context Files](#ai-context-files)
@@ -88,7 +88,7 @@ This sets up a recurring tension between keeping things consistent and using eac
 | **Overall multi-SI risk**    | **Higher risk** without strong central governance to enforce consistent usage across SIs; **manageable** with central authority                                                                                                                                                     | **Comparable risk** to KernDX. Multi-SI fragmentation is governance-driven, not framework-driven. Modular stacks fragment differently (library divergence) than integrated stacks (partial adoption), but both fragment without governance             |
 
 *Recommendation: In multi-SI environments, the deciding variable is the strength of your governance, not which framework you pick. Either approach fragments without a central architectural authority enforcing consistency across all delivery partners; either works with one.
-See [Operational Entropy and Maintainability in Multi-Team Environments](#operational-entropy-and-maintainability-in-multi-team-environments) for how that gradual drift toward inconsistent code sets in.*
+See [Code Drift in Multi-Team Environments](#code-drift-in-multi-team-environments) for how that gradual drift toward inconsistent code sets in.*
 
 ### Onboarding Time Comparison
 
@@ -274,7 +274,7 @@ See [Success Metrics](#success-metrics) for the metric set most enterprises trac
 - **Maintenance and upgrades.** One managed package with one upgrade cycle (KernDX) versus five-to-eight independent libraries with five-to-eight independent release cadences (a modular
   stack) is a real difference, but the dollar magnitude depends on your team's release-engineering maturity.
 - **Multi-SI fragmentation.** In environments with multiple SIs and weak central governance, both stacks fragment. With strong central governance, either is viable. The mechanism is
-  described in [Operational Entropy and Maintainability in Multi-Team Environments](#operational-entropy-and-maintainability-in-multi-team-environments).
+  described in [Code Drift in Multi-Team Environments](#code-drift-in-multi-team-environments).
 
 **Sensitivity analysis (how the picture shifts by scenario):**
 
@@ -286,7 +286,7 @@ See [Success Metrics](#success-metrics) for the metric set most enterprises trac
 | **Pure Apex org (>90% logic in Apex)**                  | Maximum framework value: all logic flows through framework patterns                                                                              | Maximum framework value: all logic benefits from library standards                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | KernDX (marginal)                                                |
 | **Bus factor event (maintainer unavailable 6+ months)** | **High impact per component:** single maintainer; source publicly available under BSL 1.1 lets the team self-maintain from the public repository | **Portfolio-distributed risk, component-level concentration is comparable.** A 5-library modular stack spreads bus-factor events across 5 solo maintainers (a single event affects ~20% of the stack, not 100%), but individual components are themselves single-maintainer in most cases. Across comparable Apex frameworks, most comparable Apex frameworks are also single-maintainer. Only the `fflib` family has distributed maintainership. Fork potential applies equally to KernDX (source publicly available under BSL 1.1). See [Bus Factor Mitigation](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#bus-factor-mitigation). | Modular (portfolio spread), otherwise equivalent                 |
 
-*The risk of gradual drift toward inconsistent code (see [Operational Entropy and Maintainability in Multi-Team Environments](#operational-entropy-and-maintainability-in-multi-team-environments)) is worth treating
+*The risk of gradual drift toward inconsistent code (see [Code Drift in Multi-Team Environments](#code-drift-in-multi-team-environments)) is worth treating
 as an additional TCO variable. In multi-SI, weakly governed environments, the cost of that drift in a modular stack can exceed the coherence savings of an integrated framework. In
 centrally governed environments, the reverse holds: an integrated framework reduces the cost of drift.*
 
@@ -320,7 +320,7 @@ evaluation criteria.
 
 When you assemble separate libraries, someone has to keep them working together consistently. That ongoing effort is the hidden cost of a modular stack: an integrated framework does it for you automatically. The table below shows the concrete tasks involved. One term it uses is the correlation ID: a single tracking ID that follows one user action across triggers, queries, callouts, and jobs, so you can trace what happened end to end. For the conceptual argument,
 see [Integrated Stack](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#integrated-stack). For the operating model perspective,
-see [Operational Entropy and Maintainability in Multi-Team Environments](#operational-entropy-and-maintainability-in-multi-team-environments).
+see [Code Drift in Multi-Team Environments](#code-drift-in-multi-team-environments).
 
 | Concern                    | Modular Stack Cost                                                                     | Integrated Framework                                                                                             |
 |----------------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -335,7 +335,7 @@ see [Operational Entropy and Maintainability in Multi-Team Environments](#operat
 These costs are manageable with strong technical guidance. Teams with dedicated architects who enforce cross-library consistency can maintain a coherent modular stack. Teams
 without that discipline will see these costs compound over time.
 
-### Operational Entropy and Maintainability in Multi-Team Environments
+### Code Drift in Multi-Team Environments
 
 #### Problem Statement
 
@@ -367,7 +367,7 @@ The presence of an open-source framework does not inherently enforce:
 Open-source modularity gives you building blocks. It does not enforce organisational consistency. Lasting maintainability depends on governance, enforcement, and architectural
 authority.
 
-#### Entropy Risk in Modular Architectures
+#### Drift Risk in Modular Architectures
 
 In multi-SI or loosely governed environments, modular stacks can introduce additional degrees of freedom. Common failure patterns include:
 
@@ -397,7 +397,7 @@ In distributed delivery environments, the drift compounds in a predictable order
 
 This is not a failure of any framework. It is what naturally happens when modular freedom meets distributed ownership.
 
-#### Integrated Framework as Entropy Constraint
+#### How an Integrated Framework Limits Drift
 
 An integrated framework narrows the number of ways to do the same thing. It centralises trigger orchestration, logging standards, query construction, error handling, resilience patterns, and test scaffolding, which reduces the number of architectural decisions each team has to make on its own.
 
@@ -435,9 +435,9 @@ Each approach has trade-offs; which one suits you depends on how mature your ope
 Maintainability is not determined by open-source status. It is determined by consistency, enforcement, and cultural discipline. The key difference is how much structural
 guard-rail the architecture gives you when discipline slips.
 
-#### Entropy Risk by Environment
+#### Drift Risk by Environment
 
-| Delivery Environment               | Modular Stack Entropy Risk | Integrated Framework Entropy Risk |
+| Delivery Environment               | Modular Stack Drift Risk | Integrated Framework Drift Risk |
 |------------------------------------|:--------------------------:|:---------------------------------:|
 | Single cohesive team               |            Low             |                Low                |
 | Two coordinated teams              |           Medium           |                Low                |
@@ -447,9 +447,9 @@ guard-rail the architecture gives you when discipline slips.
 
 *This table assumes governance strength as the primary variable.*
 
-#### Governance Maturity and Framework Suitability
+#### Governance Readiness and Framework Suitability
 
-Framework suitability correlates with the adopting organisation's governance maturity:
+Framework suitability correlates with the adopting organisation's governance readiness:
 
 **Level 1, the tactical delivery org:** Multiple vendors, no architectural board, and sprint velocity prioritised over consistency. The risk of a modular stack drifting apart is high here because no central
 authority forces everyone toward the same patterns. Integrated frameworks reduce divergent decisions but still need a minimum governance investment (naming conventions, code-review standards, and upgrade
@@ -471,7 +471,7 @@ coherence across the libraries. An integrated framework offers diminishing retur
 | Level 2 (Controlled) | Viable with enforcement |    Additional guard-rails    |
 | Level 3 (Platform)   |  Sustainable long-term  | Diminishing marginal returns |
 
-KernDX reduces dependency on Level 2/3 governance maturity but does not eliminate the need for it.
+KernDX reduces dependency on Level 2/3 governance readiness but does not eliminate the need for it.
 
 #### Key Framing Principle
 
@@ -593,7 +593,7 @@ Use this table to work out which approach best fits your constraints. Each colum
 | Criterion                             | Favours Integrated (KernDX)                                                                                                                                                               | Favours Modular (`taf` + Apex Fluently + `nebula-logger`)                                                                               |
 |---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
 | Team size > 20 developers             | Convention enforcement via managed package                                                                                                                                                | Modular libraries with team-supplied conventions (architectural discipline required to keep multiple libraries consistent)              |
-| Governance maturity is low            | Managed package encapsulates standards                                                                                                                                                    | Requires architectural discipline to maintain consistency                                                                               |
+| Governance readiness is low           | Managed package encapsulates standards                                                                                                                                                    | Requires architectural discipline to maintain consistency                                                                               |
 | Integration volume > 5 APIs           | Built-in retry, circuit breaker, transactional outbox                                                                                                                                     | Build custom resilience or adopt `apex-libra`                                                                                           |
 | Package encapsulation needed          | 2GP managed, exempt from 6 MB limit                                                                                                                                                       | Source-distributed, counts against limit                                                                                                |
 | Open-source community required        | Not a fit. The source is public under BSL 1.1, but BSL is not OSI-approved until the Apache 2.0 conversion, and the contribution model is single-maintainer / issues-only                    | MIT-licensed, public GitHub repos                                                                                                       |
@@ -602,7 +602,7 @@ Use this table to work out which approach best fits your constraints. Each colum
 | Rapid prototyping                     | Strong default conventions speed delivery                                                                                                                                                 | Lighter initial setup                                                                                                                   |
 | AI-assisted development               | `AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root plus [AI Agent Instructions](AI%20Agent%20Instructions.md) per-module framework reference, optimised for AI code generation | Per-library README quality varies; `apex-fluently-soql` and `nebula-logger` ship maintainer-authored docs sites                         |
 | Consulting delivery with handover     | Source is public under BSL 1.1; consulting delivery adds direct source delivery and handover support, and the client owns and can self-maintain the framework                             | Client may already know one or more of the libraries; if not, the per-library ramp is comparable to learning KernDX                     |
-| Risk of code drifting apart (multi-team) | Less room for code to drift apart (see [Operational Entropy](#operational-entropy-and-maintainability-in-multi-team-environments))                                                           | Higher drift risk without governance (see [Operational Entropy](#operational-entropy-and-maintainability-in-multi-team-environments)) |
+| Risk of code drifting apart (multi-team) | Less room for code to drift apart (see [Code Drift](#code-drift-in-multi-team-environments))                                                           | Higher drift risk without governance (see [Code Drift](#code-drift-in-multi-team-environments)) |
 
 ### Capability Comparison
 

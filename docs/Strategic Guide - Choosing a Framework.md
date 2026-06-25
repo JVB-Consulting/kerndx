@@ -111,7 +111,7 @@ Got a specific need? This is the fast lookup. The "Consider an alternative whenâ
 | **Outbound HTTP**              | Production callouts with retry/backoff, circuit breaker, idempotency keys, dead-letter queue, named-credential resolution, and a mock library                                                                                                                                                                                 | `apex-fluently-httpmock` ties on the *mock* surface only; it ships no production callout path                                                   |
 | **Logging**                    | A lean Apex/LWC/Flow logging API with default-on async emission, integrated with triggers/query/DML/async                                                                                                                                                                                                                        | `nebula-logger` if you need multi-transport selection, all seven platform log levels, per-record retention, or a historical log-browser UI      |
 | **Testing**                    | A builder-pattern test-data factory with parent-child wiring, DML-free query mocking, and framework-object assertion helpers                                                                                                                                                                                                     | `fflib-mocks` if you need Mockito-style behaviour verification (argument matchers, verification modes); KernDX has no equivalent               |
-| **Resilience / feature flags** | A subscriber-extensible feature-flag framework (custom metadata + per-user/profile settings) consumable from Apex/Flow/LWC, with pluggable resolution strategies and retry utilities                                                                                                                                             | `rflib` if you need only a simple hierarchical kill-switch and no pluggable strategies                                                          |
+| **Resilience / feature flags** | A feature-flag framework you can extend (custom metadata + per-user/profile settings) consumable from Apex/Flow/LWC, with pluggable resolution strategies and retry utilities                                                                                                                                             | `rflib` if you need only a simple hierarchical kill-switch and no pluggable strategies                                                          |
 | **Security**                   | FLS/CRUD enforced on reads and writes by default, an org-wide kill switch, per-call bypass, and an audit entry on every bypass                                                                                                                                                                                                   | None of the frameworks compared here ship both an org-wide kill switch *and* runtime audit-on-bypass                                            |
 | **Data masking**               | Runtime masking on the call path (regex + credit-card detection + literal + JSON-key), four modes, three failure actions, caller scoping, and shipped rules                                                                                                                                                                      | `mask-sobject` for *batch* anonymisation of existing data (sandbox refresh): a complementary, different job                                    |
 | **LWC**                        | A component base with five built-in modules (toast / Apex controller / navigation / Lightning Message / Flow nav) and opt-in activation                                                                                                                                                                                          | No comparable alternative ships a coherent LWC component framework                                                                              |
@@ -172,7 +172,7 @@ auditing, per-action performance logging, a coverage gate, fuller documentation,
 only, so a migration isn't worth the churn. Second, the license case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 license matters to you. (Under BSL 1.1, ordinary subscribers and the consultants
 deploying for them keep full production-use rights, and it converts to Apache 2.0 four years after publication.)
 
-**The KernDX divergence.** `taf` bypasses run unaudited: no log, no platform event, no signal. Its registration algorithm is not subscriber-pluggable, and it ships no coverage
+**The KernDX divergence.** `taf` bypasses run unaudited: no log, no platform event, no signal. You cannot plug your own registration logic into it, and it ships no coverage
 gate. KernDX emits an audit entry on every bypass and covers the capability areas beyond triggers. Both frameworks dispatch trigger actions on Change Data Capture events (with the
 change header available to Flow and Apex actions) and run post-trigger / transaction-finalizer actions; KernDX additionally emits a bypass audit and a per-action performance log on
 those paths. (Teams already fluent in `taf`'s registration style transition with low friction, because the metadata shape is similar;
@@ -192,7 +192,7 @@ one.
 alternative to KernDX by breadth. License: MIT.
 
 **Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (A permissive license rarely
-decides the choice on its own: BSL 1.1 grants subscribers and the consultants deploying for them full production-use rights.)
+decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
 
 **The KernDX divergence.** `apex-libra` defaults to *system mode* on DML writes, so you override per call to enforce FLS/CRUD on writes. Its bypasses are unaudited, it ships no
 recursion-suppression mechanism, and it has no inbound REST, outbound HTTP, data masking, health check, or LWC framework. KernDX defaults to user mode on reads and writes, audits
@@ -250,7 +250,7 @@ the highest cadence. License: MIT across the family.
 
 **Where it wins.** You want a single capability without a bundled framework footprint, or you prefer a specific library's DSL ergonomics (for example, `apex-fluently-dml`'s record-builder
 relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (A permissive license
-rarely decides the choice on its own: BSL 1.1 grants subscribers and the consultants deploying for them full production-use rights.)
+rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
 
 **The KernDX divergence.** Access control is delegated and unaudited across the family. `apex-fluently-soql`'s executor is sealed (you can't subclass to extend the builder),
 `apex-fluently-dml` ships no async DML path, and `apex-fluently-httpmock` is mock-only with no production callout path. Adopt several pieces and you get no shared bypass-audit or
@@ -262,8 +262,8 @@ requirement.
 **Migration complexity: Lowâ€“Medium per library.** Each DSL surface can be swapped independently.
 
 > **Pick:** KernDX for integrated guarantees. Adopt an individual Apex Fluently library when you need exactly one capability without a bundled framework, or you specifically prefer
-> its DSL, accepting developer-managed access control on that surface. (A permissive license rarely decides the choice on its own: BSL 1.1 grants subscribers and the consultants deploying
-> for them full production-use rights.)
+> its DSL, accepting developer-managed access control on that surface. (A permissive license rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying
+> for you full production-use rights.)
 
 ### vs. fflib-mocks
 
@@ -293,7 +293,7 @@ Beyond the seven above, these single-purpose libraries each cover one specialty 
 | `apex-async-linkable`    | Standalone queueable-link library                                          | `UTIL_AsyncChain` adds shared state, finalizer recovery, kill switch, orchestration                                                 | Use KernDX unless you need the standalone shape                                                                        |
 | `apex-chainable`         | Queueable-chaining with chain-runtime exceptions                           | `UTIL_AsyncChain` chains at greater depth                                                                                           | Use KernDX                                                                                                             |
 | `apex-fluently-async`    | Single-purpose async-chain library                                         | `UTIL_AsyncChain` adds shared state, recovery, kill switch, per-step handlers                                                       | Use KernDX unless you want the focused shape                                                                           |
-| `apex-fluently-cache`    | Single-class platform-cache wrapper, three storage tiers, no auto-dispatch | `UTIL_Cache` adds auto-scope dispatch and opt-in graceful in-transaction fallback                                                   | Use KernDX                                                                                                             |
+| `apex-fluently-cache`    | Single-class platform-cache wrapper, three storage tiers, no auto-dispatch | `UTIL_Cache` adds auto-scope dispatch (`Scope.AUTO` picks the cache tier for you)                                                   | Use KernDX                                                                                                             |
 | `apex-fluently-consts`   | Constant-organisation utility                                              | Covered by KernDX utility helpers                                                                                                   | Use KernDX utilities                                                                                                   |
 | `apex-fluently-dml`      | Fluent DML DSL with record-builder relationships and graph resolution      | `DML_Builder` ships the same graph algorithm plus audited bypass, async DML, and FLS/CRUD on writes by default                      | Use KernDX for general DML; consider this for its DSL shape                                                            |
 | `apex-fluently-httpmock` | HTTP-callout mock library, several resolution strategies                   | `API_MockFactory` ties on mocking; KernDX adds production outbound infrastructure                                                   | Use KernDX when already on it; use this when you need only the mock surface                                            |

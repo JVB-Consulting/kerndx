@@ -15,6 +15,12 @@ navOrder: 62
 
 ---
 
+## In one paragraph
+
+Calls to outside systems fail in ways you don't control. A payment gateway times out, a rate limit kicks in, a CRM goes down for maintenance. When that happens, naive code either gives up too soon or keeps hammering a service that is already down, wasting your org's limited callout time and CPU. This framework gives you two ready-made tools for handling those failures gracefully, so you don't have to write your own timing math and failure-tracking logic. Developers use it to make individual callouts more reliable; architects use it to design integrations that stay healthy when a dependency slows or fails. Reach for it whenever your code calls a system you don't run yourself.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -23,7 +29,7 @@ navOrder: 62
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Escape Hatches](#escape-hatches)
+4. [How to opt out](#how-to-opt-out)
 5. [Architecture](#architecture)
     - [Two Patterns, One Goal](#two-patterns-one-goal)
     - [How They Fit Together](#how-they-fit-together)
@@ -75,8 +81,6 @@ navOrder: 62
 ---
 
 ## Overview
-
-**In one paragraph:** Calls to outside systems fail in ways you don't control. A payment gateway times out, a rate limit kicks in, a CRM goes down for maintenance. When that happens, naive code either gives up too soon or keeps hammering a service that is already down, wasting your org's limited callout time and CPU. This framework gives you two ready-made tools for handling those failures gracefully, so you don't have to write your own timing math and failure-tracking logic. Developers use it to make individual callouts more reliable; architects use it to design integrations that stay healthy when a dependency slows or fails. Reach for it whenever your code calls a system you don't run yourself.
 
 The two tools answer different questions:
 
@@ -151,7 +155,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 You are never required to use these classes. The Resilience framework is opt-in: it pays off where calls are unreliable, and plain Apex is simpler everywhere else. The table below shows what to reach for in each situation, including when to skip the framework entirely.
 

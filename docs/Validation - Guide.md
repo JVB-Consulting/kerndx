@@ -18,6 +18,12 @@ navOrder: 60
 
 ---
 
+## In one paragraph
+
+This is a way to stop bad data from being saved when a plain Salesforce validation rule cannot do the job. You write the check as a formula, but store it as a configuration record rather than code, so you can query related records, run the same rule from Apex and from Flow, roll a rule out quietly before it starts blocking, and turn rules off in a controlled way. Read this if you enforce data quality and you have hit the limits of standard validation rules: checks that span more than one object, checks that need to add up child records, or rules you want to test in production first. Reach for a standard Salesforce validation rule whenever it is enough; reach for this when it is not.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -100,8 +106,6 @@ navOrder: 60
 ---
 
 ## Overview
-
-**In short:** This is a way to stop bad data from being saved when a plain Salesforce validation rule cannot do the job. You write the check as a formula, but store it as a configuration record rather than code, so you can query related records, run the same rule from Apex and from Flow, roll a rule out quietly before it starts blocking, and turn rules off in a controlled way. Read this if you enforce data quality and you have hit the limits of standard validation rules: checks that span more than one object, checks that need to add up child records, or rules you want to test in production first. Reach for a standard Salesforce validation rule whenever it is enough; reach for this when it is not.
 
 ### What is the Validation Framework?
 

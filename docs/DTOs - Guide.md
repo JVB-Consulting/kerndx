@@ -14,6 +14,12 @@ navOrder: 66
 
 ---
 
+## In one paragraph
+
+When your code moves data between two places (Apex to a Lightning component, Apex to an outside system, or a screen flow to Apex), you need a tidy package to carry it. A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. This guide shows you how to build and use DTOs in KernDX, so that the shape of the data you send is clear, type-checked by the compiler, and easy to test. Developers reach for DTOs when building APIs, sending structured data to the front end, or passing parameters into flows. Architects use them to keep your internal database structure separate from the formats outside systems see. Read this when you are designing or consuming a data contract.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -44,7 +50,7 @@ navOrder: 66
     - [DTO_ChangeEventHeader](#dto_changeeventheader)
 8. [Creating Custom DTO Classes](#creating-custom-dto-classes)
     - [Creating JSON DTOs](#creating-json-dtos)
-    - [Type Resolution: CRITICAL Requirement for Subscriber Orgs](#type-resolution-critical-requirement-for-subscriber-orgs)
+    - [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org)
         - [Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)](#type-resolution-option-3-custom-type-resolver-recommended)
     - [Implementing populate() Methods](#implementing-populate-methods)
     - [Implementing transform() Methods](#implementing-transform-methods)
@@ -97,8 +103,6 @@ navOrder: 66
 ---
 
 ## Overview
-
-**In one paragraph:** When your code moves data between two places (Apex to a Lightning component, Apex to an outside system, or a screen flow to Apex), you need a tidy package to carry it. A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. This guide shows you how to build and use DTOs in KernDX, so that the shape of the data you send is clear, type-checked by the compiler, and easy to test. Developers reach for DTOs when building APIs, sending structured data to the front end, or passing parameters into flows. Architects use them to keep your internal database structure separate from the formats outside systems see. Read this when you are designing or consuming a data contract.
 
 **Data Transfer Objects (DTOs)** are lightweight objects designed to transfer data between different layers of your application. DTOs provide a structured, type-safe way to
 serialize and deserialize data for:
@@ -184,7 +188,7 @@ String json = summary.serialize();
 DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
 ```
 
-> **When KernDX is installed as a managed package:** Always include `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-for-subscriber-orgs) for the other requirement.
+> **When KernDX is installed as a managed package:** Always include `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
 
 For deeper coverage, continue reading the sections below.
 
@@ -802,7 +806,7 @@ public class DTO_CustomerOrder extends DTO_JsonBase
 
 ---
 
-### Type Resolution: CRITICAL Requirement for Subscriber Orgs
+### Type Resolution: CRITICAL Requirement in Your Org
 
 When the framework parses JSON back into a DTO, it has to build an instance of the right class by name. With a Type Resolver, you tell the framework where to find the Apex classes in your namespace. When KernDX runs as an installed managed package, its code lives in a different namespace from yours, so it cannot find your classes on its own. You have to point it at them. Skip this and deserialization fails at runtime.
 
@@ -1849,7 +1853,7 @@ private class DTO_InternalData extends DTO_JsonBase
 }
 ```
 
-**See [Type Resolution: CRITICAL Requirement for Subscriber Orgs](#type-resolution-critical-requirement-for-subscriber-orgs) for setup details.**
+**See [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org) for setup details.**
 
 ### Use @AuraEnabled for LWC
 
@@ -1968,7 +1972,7 @@ System.JSONException: Type cannot be deserialized as it is not globally visible 
 
 **Solution:**
 Add `@JsonAccess(Serializable='always' Deserializable='always')` to your DTO class. See the full WRONG/CORRECT example in
-[Type Resolution: CRITICAL Requirement for Subscriber Orgs](#type-resolution-critical-requirement-for-subscriber-orgs).
+[Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org).
 
 **Why this is required:**
 When your code extends a managed package class (for example `YourNamespace.DTO_JsonBase`) and the package's code then tries to serialize or deserialize your class, Salesforce security requires you to grant explicit permission with the `@JsonAccess` annotation. Without it, the operation fails with a security error.

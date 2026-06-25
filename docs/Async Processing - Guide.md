@@ -15,6 +15,18 @@ navOrder: 34
 
 ---
 
+## In one paragraph
+
+Background work that is too big or too slow to run while a user waits (processing tens of thousands of records, calling
+external systems, or running on a nightly schedule) needs the right async tool, and choosing it as data volumes change
+is a recurring source of bugs. This framework lets you write your processing logic once and have it run at the right
+scale automatically, picking Queueable, Batch, or parallel execution based on how many records there are and how close
+you are to platform limits. Developers building background jobs, architects designing for governor-limit safety, and
+business analysts who configure and monitor scheduled jobs should read it. Use it for asynchronous record processing,
+multi-step workflows, and recurring scheduled jobs.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -23,7 +35,7 @@ navOrder: 34
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Escape Hatches](#escape-hatches)
+4. [How to opt out](#how-to-opt-out)
 5. [KernDX vs OOTB: Async Framework Comparison](#kerndx-vs-ootb-async-framework-comparison)
     - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
     - [Pros & Cons Comparison](#pros--cons-comparison)
@@ -205,7 +217,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 Sometimes you want to step outside the framework and use Salesforce's own async tools directly. You can, at any time:
 the framework never takes that control away from you.

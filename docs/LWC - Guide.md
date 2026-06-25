@@ -15,6 +15,12 @@ navOrder: 30
 
 ---
 
+## In one paragraph
+
+Every Lightning Web Component (LWC) you build needs the same repetitive plumbing, toast notifications, Apex calls with error handling, navigation, and logging that survives a page reload. Re-writing that wiring in each component is slow and easy to get inconsistent. This part of KernDX gives you that plumbing once, as a base class you extend and a set of ready-to-use helper functions, plus drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all. Developers use it to build components faster and more consistently. Architects use it to keep separation of concerns clean. Business analysts use the pre-built components to assemble pages. Reach for it whenever you create a custom LWC, or when a standard Lightning base component already does the job and you just need to place it.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -59,7 +65,7 @@ navOrder: 30
         - [Counter Generator](#counter-generator)
         - [Array Generator](#array-generator)
     - [featureFlag - Feature Flag Bridge](#featureflag---feature-flag-bridge)
-        - [LDS Cache Staleness — Not for Client-Side Authorization](#lds-cache-staleness--not-for-client-side-authorization)
+        - [LDS Cache Staleness: Not for Client-Side Authorization](#lds-cache-staleness-not-for-client-side-authorization)
 6. [Base Component Architecture](#base-component-architecture)
     - [ComponentBuilder Pattern](#componentbuilder-pattern)
     - [Available Modules](#available-modules)
@@ -68,7 +74,7 @@ navOrder: 30
         - [Module Files](#module-files)
         - [Why This Pattern?](#why-this-pattern)
         - [When to Use Which Modules](#when-to-use-which-modules)
-        - [Extending at Runtime (Advanced — Internal API)](#extending-at-runtime-advanced--internal-api)
+        - [Extending at Runtime (Advanced: Internal API)](#extending-at-runtime-advanced-internal-api)
         - [Performance Consideration](#performance-consideration)
     - [BaseComponent API Reference](#basecomponent-api-reference)
         - [Notification Methods](#notification-methods)
@@ -158,8 +164,6 @@ navOrder: 30
 ---
 
 ## Overview
-
-**In one paragraph:** Every Lightning Web Component (LWC) you build needs the same repetitive plumbing, toast notifications, Apex calls with error handling, navigation, and logging that survives a page reload. Re-writing that wiring in each component is slow and easy to get inconsistent. This part of KernDX gives you that plumbing once, as a base class you extend and a set of ready-to-use helper functions, plus drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all. Developers use it to build components faster and more consistently. Architects use it to keep separation of concerns clean. Business analysts use the pre-built components to assemble pages. Reach for it whenever you create a custom LWC, or when a standard Lightning base component already does the job and you just need to place it.
 
 The pieces of this part of KernDX are: helper functions for common operations (logging, string handling, arrays), a base class you extend to build your own components, and a library of pre-built components for common patterns.
 
@@ -837,7 +841,7 @@ export default class MyComponent extends ComponentBuilder('notification')
 |---------------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `isFlagEnabled(flagName)` | `Promise<boolean>` | Resolves to flag state for the running user. Errors propagate so callers can fall back via `try/catch` or `.catch()`. |
 
-#### LDS Cache Staleness — Not for Client-Side Authorization
+#### LDS Cache Staleness: Not for Client-Side Authorization
 
 There is one thing to know before you rely on this. The bridge calls `CTRL_FeatureFlag.isEnabled`, which is marked `@AuraEnabled(cacheable=true)`. Salesforce's Lightning Data Service (LDS) caches the answer per user session and per parameter, so one user can never see another user's result. The catch is staleness: a cached answer can lag behind a permission change made mid-session. Here is the sequence that goes wrong.
 
@@ -986,7 +990,7 @@ Why build it this way rather than one giant base class? Four reasons, each with 
 | Flow screen component                 | `notification`, `flow-navigation` |
 | Full-featured component               | `all`                             |
 
-#### Extending at Runtime (Advanced — Internal API)
+#### Extending at Runtime (Advanced: Internal API)
 
 > **For a rare edge case only:** almost always you list your modules up front in `ComponentBuilder(...)` and you are done. The pattern below is for the unusual case where a module has to be added later, after the component is already built, based on a runtime condition.
 

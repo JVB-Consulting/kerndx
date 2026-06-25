@@ -70,7 +70,7 @@ page.deletedRecords; // rows the cursor saw deleted
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="testing">Testing</p>
-<a class="kl-ledger-chip" href="/selectors-guide#mocking-with-tst_mock"><span class="kl-chip-t">Inject mock records</span><span class="kl-chip-d">TST_Mock.of(type).build() serves mock records (with mock Ids and no DML) from the next query for that type.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#mocking-with-tst-mock"><span class="kl-chip-t">Inject mock records</span><span class="kl-chip-d">TST_Mock.of(type).build() serves mock records (with mock Ids and no DML) from the next query for that type.</span></a>
 </div>
 
 </template>
@@ -125,7 +125,7 @@ kern.DML_Builder.newTransaction()
 <a class="kl-ledger-chip hero" href="/dml-guide#use-all-or-nothing-appropriately"><span class="kl-chip-t">Atomic graph</span><span class="kl-chip-d">One savepoint. Any insert failure rolls the whole graph back, so no orphaned parent leaks.</span></a>
 <a class="kl-ledger-chip" href="/dml-guide#registering-relationships"><span class="kl-chip-t">Auto-wired foreign keys</span><span class="kl-chip-d">Each foreign key is set from the new parent's Id after it inserts, with no manual AccountId stitching.</span></a>
 <a class="kl-ledger-chip" href="/dml-guide#managing-dependencies"><span class="kl-chip-t">Dependency ordering</span><span class="kl-chip-d">Parents insert before children, so the Account always saves before its Opportunity and Contact.</span></a>
-<a class="kl-ledger-chip" href="/dml-guide#escape-hatches"><span class="kl-chip-t">DML-row-limit guard</span><span class="kl-chip-d">Guards the per-transaction DML-row limit before committing. It fails fast and points you to .async().</span></a>
+<a class="kl-ledger-chip" href="/dml-guide#how-to-opt-out"><span class="kl-chip-t">DML-row-limit guard</span><span class="kl-chip-d">Guards the per-transaction DML-row limit before committing. It fails fast and points you to .async().</span></a>
 <a class="kl-ledger-chip" href="/dml-guide#upsert-with-external-id"><span class="kl-chip-t">Match-or-create on an external key</span><span class="kl-chip-d">doUpsert(record, externalIdField) matches on a stable external ID, so a replayed integration write updates the existing record instead of duplicating it.</span></a>
 </div>
 

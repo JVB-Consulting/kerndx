@@ -13,7 +13,7 @@ Spend your team on the features that move the business, not on rebuilding the tr
 
 `95 global API classes` · `189 production classes` · `63 LWC components` · `3,742 tests` · `100% Apex / 95% LWC coverage`
 
-**Most Salesforce open-source gives you a library. KernDX gives you the library, plus the onboarding, CI, and guardrails around it.**
+**Most Salesforce open-source ships a library and stops there. KernDX ships the library plus the onboarding, CI, and guardrails that keep it consistent.**
 
 One managed package, but not all-or-nothing: switch on the parts that fit your situation, and the rest is there the day you need it.
 
@@ -55,7 +55,7 @@ Each has a Fast Start you can finish in under 30 minutes. Jump to the one you ca
 
 → Comparing against alternatives? [Choosing a Framework](./docs/Strategic%20Guide%20-%20Choosing%20a%20Framework.md) covers head-to-head trade-offs vs `taf`, `fflib`, `rflib`, `nebula-logger`, `apex-libra`, the [Apex Fluently](https://github.com/beyond-the-cloud-dev) libraries, and `fflib-mocks`.
 
-KernDX is a **complete Salesforce framework and library suite**: one managed package that replaces a dozen separate libraries. That covers the SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
+KernDX is **one managed package that replaces a dozen separate libraries**: the SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
 
 This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.1.0-11` at this snapshot.
 
@@ -125,7 +125,7 @@ One click deploys `force-app/` source into a scratch or sandbox org you nominate
 
 ## Quick start
 
-> **Developer-focused.** This Quick Start is for contributors cloning the source tree to run tests or contribute. **Subscribers installing the framework**: see [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package). You do not need to clone the repo.
+> **Developer-focused.** This Quick Start is for contributors cloning the source tree to run tests or contribute. **Installing the framework into your org?** See [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package). You do not need to clone the repo.
 
 ```bash
 git clone https://github.com/JVB-Consulting/kerndx.git
@@ -198,7 +198,7 @@ Contact: `jason@jvb-consulting.io`. The framework itself is and remains [BSL 1.1
 ## Licensing
 
 - **Framework (Apex, LWC, docs, scripts, metadata):** [Business Source License 1.1](./LICENSE), source-available, with a four-year clock to Apache 2.0 (the Change License).
-- **Standalone CI pipeline tooling under `pipeline/`:** [MIT License](./pipeline/LICENSE), licensed separately so subscribers and CI vendors can adopt it without inheriting BSL terms.
+- **Standalone CI pipeline tooling under `pipeline/`:** [MIT License](./pipeline/LICENSE), licensed separately so teams and CI vendors can adopt it without inheriting BSL terms.
 - **Third-party-derived files:** KernDX includes Apache 2.0 derivatives (apex-lang, apex-trigger-actions-framework), MIT derivatives (ApexLogger, SObjectIndex, JsonPath), BSD 3-Clause derivatives (Apex-Util describe + unit-of-work utilities), and CC0-1.0 derivatives (streaming-monitor). Each derived file's header carries an SPDX-License-Identifier and upstream attribution; [`NOTICES.md`](./NOTICES.md) is the per-upstream-project attribution document; the [`LICENSE`](./LICENSE) carve-out section enumerates the Apache-2.0 / MIT / BSD-3-Clause files (CC0-1.0 derivatives are relicensed under BSL 1.1 since CC0 imposes no requirement). Full upstream license texts ship under [`LICENSES/`](./LICENSES/).
 
 ## AI coding assistants

@@ -7,7 +7,7 @@ title: "Fast Starts"
 
 **Copy-paste-ready guides that get one KernDX capability working in about 30 minutes, with no prior framework knowledge needed.** Each one is a self-contained walkthrough: the smallest example that runs, then the few options you'll actually reach for. New to KernDX? Start at the top and work down.
 
-## Start here — the daily drivers
+## Start here: the daily drivers
 
 These five are the spine of almost every KernDX project. Learn them first.
 

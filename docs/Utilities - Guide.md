@@ -15,6 +15,10 @@ navOrder: 72
 
 ---
 
+## In one paragraph
+
+Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. KernDX ships ready-made, tested versions of those everyday helpers, so you reach for a proven method instead of hand-rolling one where a null-pointer or off-by-one bug can hide. Read it when you want a quick way to do a common task in Apex, or to expose a framework capability to a Flow. Developers use it as a day-to-day reference, architects to see what already exists before building, and business analysts to skim what the framework offers for data formatting, validation, and Flow actions.
+
 ## Table of Contents
 
 <details>

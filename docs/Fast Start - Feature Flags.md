@@ -415,7 +415,7 @@ The framework reads them directly from Apex to control how it behaves across you
 > The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use. The flags listed above are the
 > complete set visible to you.
 
-See [Security Guide, Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults) for how
+See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default) for how
 `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with `.withSystemMode()`, `.withUserMode()`, and
 the `systemModeRequired()` hook on `SEL_Base`.
 

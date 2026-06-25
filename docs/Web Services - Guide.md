@@ -15,6 +15,12 @@ navOrder: 32
 
 ---
 
+## In one paragraph
+
+Connecting Salesforce to an outside system in Apex means writing the same plumbing every time: build the request, send it, parse the response, log what happened, retry on failure, hide sensitive data, and make sure the callout runs before you save any records. This framework writes that plumbing once. You extend a base class, fill in the parts unique to your integration (the URL, the body, what to do with the answer), and the framework runs the rest. It handles both directions: calls Salesforce makes to other systems (**outbound**) and calls other systems make into Salesforce (**inbound**). Developers use it to build REST integrations; architects use it to standardise how every integration logs, retries, and protects data; analysts use it to monitor API health and configure behaviour without code. Reach for it whenever code calls an external API or exposes an endpoint. Skip it for a single throwaway callout in a script.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -196,8 +202,6 @@ navOrder: 32
 ---
 
 ## Overview
-
-**In one paragraph:** Connecting Salesforce to an outside system in Apex means writing the same plumbing every time: build the request, send it, parse the response, log what happened, retry on failure, hide sensitive data, and make sure the callout runs before you save any records. This framework writes that plumbing once. You extend a base class, fill in the parts unique to your integration (the URL, the body, what to do with the answer), and the framework runs the rest. It handles both directions: calls Salesforce makes to other systems (**outbound**) and calls other systems make into Salesforce (**inbound**). Developers use it to build REST integrations; architects use it to standardise how every integration logs, retries, and protects data; analysts use it to monitor API health and configure behaviour without code. Reach for it whenever code calls an external API or exposes an endpoint. Skip it for a single throwaway callout in a script.
 
 ### What is the Web Services Framework?
 
@@ -3001,9 +3005,10 @@ System.schedule
 Sometimes you want to run an API handler to see what it would do without actually changing any data, for instance to replay a failed request or to try a new handler before it goes live. Safe Mode does exactly that: it runs the handler as a dry run, then rolls back every database change at the end so nothing is left behind. The framework uses it internally for testing, debugging, and validating API
 behaviour without persisting changes.
 
-> **Framework-internal API.** `API_Base.enterSafeMode()`, `API_Base.isSafeModeActive()`, and `API_Base.SafeModeContext` are declared `public` (not `global`) and are not callable
-> from subscriber Apex. Subscribers who want dry-run testing of an inbound API should use `@IsTest` methods with `Test.startTest()` / `Test.stopTest()` and let the test-mode rollback
-> do the work, or mock the outbound callout via `kern.API_MockFactory.forService(serviceName).body(json).register()`.
+> **Dry-run testing of your own APIs.** To exercise an inbound API without persisting changes, write `@IsTest` methods with `Test.startTest()` / `Test.stopTest()` and let the
+> test-mode rollback do the work. To exercise an outbound API without making a real callout, mock it via `kern.API_MockFactory.forService(serviceName).body(json).register()`.
+> Both give you a clean dry run, and both run in your own namespace. The framework relies on `API_Base.enterSafeMode()`, `API_Base.isSafeModeActive()`, and `API_Base.SafeModeContext`
+> internally for the same effect (shown below for reference).
 
 #### Framework usage (reference)
 
@@ -3085,7 +3090,7 @@ Ships as part of Kern with three metadata artifacts, no App Builder wiring requi
 - `Administrator.permissionset-meta.xml`: grants tab visibility via `<tabSettings>`
 
 Users navigate to `/lightning/n/ApiTestHarness` or click the **API Test Harness** tool card on Kern Home to open it. The `apiTestHarnessForm` LWC is also exposed to
-`lightning__AppPage` and `lightning__HomePage` if subscribers want to embed it elsewhere.
+`lightning__AppPage` and `lightning__HomePage` if you want to embed it elsewhere.
 
 ---
 
@@ -4203,7 +4208,7 @@ Most of what this framework does is controlled by configuration records, not cod
 | API endpoint configuration (inbound)  | `ApiSetting__mdt`                         | `EndpointPath__c`                                                                                                                     | Declarative endpoint configuration for inbound REST handlers                                                              |
 | API endpoint configuration (outbound) | `ApiSetting__mdt`                         | `EndpointPath__c` (HTTP method via handler's `getHttpMethod()` override)                                                              | Declarative endpoint; HTTP verb is set in the handler class, not the metadata record                                      |
 | Credential management                 | `ApiCredential__mdt`                      | Named Credential reference                                                                                                            | Secure credential storage and rotation                                                                                    |
-| Data masking                          | `MaskingRule__mdt` + `MaskingTarget__mdt` | `Mode__c` (Regex / JsonKey / ExactMatch / CreditCard), `Pattern__c`, `Replacement__c`, `MinInputLength__c`, `ApplicableFieldTypes__c` | Shared redaction framework; ships with secrets + credit-card rules active; subscribers opt additional rules in per field |
+| Data masking                          | `MaskingRule__mdt` + `MaskingTarget__mdt` | `Mode__c` (Regex / JsonKey / ExactMatch / CreditCard), `Pattern__c`, `Replacement__c`, `MinInputLength__c`, `ApplicableFieldTypes__c` | Shared redaction framework; ships with secrets + credit-card rules active; you opt additional rules in per field |
 | Mock mode                             | `ApiSetting__mdt`                         | `MockingEnabled__c`                                                                                                                   | Enable mock responses without callouts                                                                                    |
 | API disable switch                    | `ApiRuntimeSwitch__c`                     | `DisableAllApis__c`                                                                                                                   | Emergency kill switch for all API calls (hierarchy)                                                                       |
 | Retry strategy                        | `ApiSetting__mdt`                         | `MaxRetryCount__c`, `RetryBackoffSeconds__c`                                                                                          | Configurable retry with linear or exponential backoff                                                                     |
