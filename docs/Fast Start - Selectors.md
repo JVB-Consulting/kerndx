@@ -6,29 +6,30 @@ navOrder: 12
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Centralize all queries for an object in one reusable class -- with inherited methods and compile-time field safety.
+**What this is:** A way to keep every database query (SOQL) for an object in one reusable Apex class, so the same field lists and filters are used everywhere you read that object. **Why it exists:** When queries are scattered across the codebase, field lists drift, a renamed field breaks at runtime, and the same query gets rewritten over and over. Putting them in one place fixes all three: you get ready-made query methods you inherit for free, and the compiler catches a missing or renamed field before it ships. **Who should care:** Developers writing Apex queries, and tech leads who want consistent, testable data access. **When to use it:** Any time you query the same object from more than one place; for a true one-off, a quick inline query is fine.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.SEL_Base`). Your own classes don't need a namespace prefix — the framework's Type Resolver handles
-> resolution automatically.
+> `kern.SEL_Base`). Your own classes don't need a namespace prefix: the framework's Type Resolver (how the
+> framework finds the Apex classes in your namespace, once you tell it where to look) handles resolution
+> automatically.
 
 **What you'll build:** A reusable Account selector with inherited query methods (`findById`, `findByField`),
-a custom `findByIndustry` filter, and an aggregate `revenueByIndustry` method -- all without writing a
+a custom `findByIndustry` filter, and an aggregate `revenueByIndustry` method, all without writing a
 single line of SOQL.
 
 **Success looks like:** You query Accounts through your selector class, get compile-time field validation,
 and your test class has 100% coverage.
 
-**In one line:** `List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');` --
-no SOQL, compile-time field safety, inherited from the base class.
+**In one line:** `List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');` (no
+SOQL, compile-time field safety, inherited from the base class).
 
 ---
 
@@ -66,8 +67,9 @@ no SOQL, compile-time field safety, inherited from the base class.
 
 ## Tier 1: See It Work (~2 minutes)
 
-Use [`QRY_Builder`](reference/apex/QRY_Builder.md) for quick queries directly from anonymous Apex. No custom
-classes needed.
+The fastest way to see the value is a query you can run right now, with nothing to set up first. Use
+[`QRY_Builder`](reference/apex/QRY_Builder.md), the fluent query builder, directly from anonymous Apex. No
+custom classes needed.
 
 ### Query Records
 
@@ -128,20 +130,23 @@ System.debug('Has Technology accounts: ' + hasAccounts);
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
 > and skip the `sf project deploy start` and `sf apex run test` commands.
 
-Build a selector for the Account object with inherited query methods and a custom `findByIndustry` method.
+Now you'll put the queries for one object in their own class so the rest of your code can reuse them. You'll
+build a selector for the Account object: it inherits ready-made query methods and adds a custom
+`findByIndustry` method of your own.
 
 ### Step 1: Create the Selector
 
-Create a new file named `SEL_Accounts.cls`. Copy the following code exactly as is -- do not modify the class
+Create a new file named `SEL_Accounts.cls`. Copy the following code exactly as is, and do not modify the class
 name or `kern.*` namespace references.
 
 > **Why `public`?** Unlike triggers and APIs, selectors are instantiated directly by your code (`new
-> SEL_Accounts()`). The framework doesn't need to resolve them by name, so `global` is not required.
+> SEL_Accounts()`). The framework never has to look them up by name, so `public` is enough and `global` is
+> not required.
 
 > **Why `kern.SEL_Base` (with prefix) but `SEL_Accounts` (no prefix)?** `SEL_Base` is a framework class
-> (documented under `docs/reference/apex/`), so it needs the `kern.` prefix to be reachable from your
-> subscriber namespace. Your own `SEL_Accounts` lives in your namespace — adding `kern.` to your own
-> class throws `Invalid type: kern.SEL_Accounts`. The decision rule: **framework classes (in the API
+> (documented under `docs/reference/apex/`), so it needs the `kern.` prefix to be reachable from your own
+> namespace. Your own `SEL_Accounts` lives in your namespace, so adding `kern.` to it throws
+> `Invalid type: kern.SEL_Accounts`. The decision rule is short: **framework classes (the ones in the API
 > reference) take the prefix; your own classes never do.** See
 > [AI Agent Instructions](AI%20Agent%20Instructions.md#critical--namespace-prefix-rule) for the canonical rule.
 
@@ -255,12 +260,12 @@ for(kern.QRY_Builder.AggregateRow row : rows)
 }
 ```
 
-> **Naming tip:** Apex is case-insensitive. A variable named `account` shadows the `Account` type, causing
-> `Account.Industry` to read the variable's field instead of the SObjectField token. Use `result`, `found`,
-> or another name.
+> **Naming tip:** Apex is case-insensitive. A variable named `account` shadows the `Account` type, which makes
+> `Account.Industry` read the variable's field instead of the SObjectField token. Pick another name such as
+> `result` or `found`.
 
-**Expected output** (in a fresh org — the `findById` row and the counts reflect the single Account you just
-inserted; if your org already holds Technology Accounts, those lines will differ):
+**Expected output** (in a fresh org, the `findById` row and the counts reflect the single Account you just
+inserted. If your org already holds Technology Accounts, those lines will differ):
 
 ```text
 findById: Acme Corp — Technology
@@ -269,17 +274,17 @@ findByIndustry: 1 results
 Industry: Technology Revenue: 500000
 ```
 
-**Why it works -- key patterns:**
+**Why it works (the key patterns):**
 
-- **`extends kern.SEL_Base`** -- Provides `findById()`, `findByField()`, `query`, `toList()`, `count()`, and more
-- **`super(Account.SObjectType)`** -- Tells the base class which object to query
-- **`getFields()`** -- Defines the default field list for every query from this selector. Uses `SObjectField`
-  tokens for compile-time validation (a renamed field breaks at compile, not at runtime).
-- **`query` property** -- Returns a pre-configured `QRY_Builder.Builder` with your default fields. Always use
-  this inside custom query methods -- never `QRY_Builder.selectFrom()` (which skips your default fields).
-- **Aggregate queries** -- Chain `.groupBy()` + `.sum()` + `.toAggregateList()` on the same `query` property.
+- **`extends kern.SEL_Base`**: provides `findById()`, `findByField()`, `query`, `toList()`, `count()`, and more
+- **`super(Account.SObjectType)`**: tells the base class which object to query
+- **`getFields()`**: defines the default field list for every query from this selector. It uses `SObjectField`
+  tokens for compile-time validation, so a renamed field breaks at compile, not at runtime.
+- **`query` property**: returns a pre-configured `QRY_Builder.Builder` with your default fields. Always use
+  this inside custom query methods, never `QRY_Builder.selectFrom()` (which skips your default fields).
+- **Aggregate queries**: chain `.groupBy()` + `.sum()` + `.toAggregateList()` on the same `query` property.
   Access results via `AggregateRow.getString('fieldName')` and `AggregateRow.getDecimal('sum_fieldName')`.
-- **Cast results** -- `findById()` returns `SObject`, so cast to `Account`
+- **Cast results**: `findById()` returns `SObject`, so cast to `Account`
 
 ### Step 3: Write Tests
 
@@ -384,13 +389,14 @@ sf apex run test -o YourOrgAlias -t SEL_Accounts_TEST --code-coverage --synchron
 
 **Expected:** 4 tests passing, 100% coverage on `SEL_Accounts`.
 
-Inherited methods (`findById()`, `findByField()`, etc.) are tested by the framework. Focus your tests on custom
-methods you add.
+You only need to test the custom methods you add. The inherited methods (`findById()`, `findByField()`, and the
+rest) are already tested by the framework, so don't re-test them.
 
 > **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
 > `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts, but consider adding
-> `System.runAs()` in production tests to verify profile and permission set access.
+> turns off a static analysis rule (a check that reads your code without running it) about `System.runAs()`.
+> That's fine for quick starts, but in production tests consider adding `System.runAs()` to verify profile and
+> permission set access.
 
 ---
 
@@ -400,8 +406,8 @@ These patterns build on the `SEL_Accounts` class you created in Tier 2.
 
 ### Parent Field Access
 
-Add relationship fields to your selector. Override `getFieldPaths()` in `SEL_Accounts` for fields that
-should be included in every query:
+Often you need a field from a parent record, such as the account owner's name or email. To pull those in for
+every query, override `getFieldPaths()` in `SEL_Accounts` and list the relationship fields you always want:
 
 ```apex
 // Add this method to SEL_Accounts.cls (after getFields())
@@ -436,7 +442,8 @@ System.debug('Owner: ' + result.getSObject('Owner').get('Name'));
 
 ### Ordering and Limits
 
-Add this method to `SEL_Accounts`:
+To sort results and cap how many come back (for example, the top few accounts in an industry), chain
+`.orderBy()` and `.withLimit()`. Add this method to `SEL_Accounts`:
 
 ```apex
 // Add this method to SEL_Accounts.cls
@@ -511,8 +518,8 @@ Map<String, SObject> accountByName = kern.QRY_Builder.selectFrom(Account.SObject
 
 ### QRY_Builder for One-Off Queries
 
-Use `QRY_Builder.selectFrom()` directly when you don't need a full selector class -- for one-off scripts,
-anonymous Apex, or querying objects where you don't have a selector:
+Use `QRY_Builder.selectFrom()` directly when you don't need a full selector class: handy for one-off scripts,
+anonymous Apex, or querying an object you don't have a selector for:
 
 ```apex
 // Find Contacts related to a set of Accounts
@@ -534,8 +541,14 @@ System.debug('Found ' + contacts.size() + ' contacts for Technology accounts');
 
 ### Security Modes
 
-KernDX ships **USER_MODE as the secure-by-default** for every `kern.QRY_Builder` query — CRUD, FLS, and sharing are enforced unless a caller explicitly opts out. The default is
-controlled by the `UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
+By default, a query only returns what the person running it is allowed to see, and only writes what they are
+allowed to write. You don't switch that protection on; it is on automatically, and you step outside it only by
+deliberate choice.
+
+In Salesforce terms, every `kern.QRY_Builder` query runs in USER_MODE: it respects the current user's
+read/write permissions and record sharing (CRUD = object create/read/update/delete permissions, FLS =
+field-level security, plus sharing), unless a caller explicitly opts out. The default is controlled by the
+`UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
 
 Run these from Execute Anonymous to compare:
 
@@ -564,18 +577,22 @@ List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 System.debug('Strip inaccessible: ' + stripped.size() + ' accounts');
 ```
 
-> **Note:** As an admin, USER_MODE and SYSTEM_MODE often return the same rows because the admin holds every permission. The difference is visible when running as a lower-permission
-> user (e.g., via `System.runAs()` in tests). Subscriber code should almost never need `.withSystemMode()` — it is reserved for framework-internal reads that must bypass the running
-> user's permissions (audit tables, configuration metadata). If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and override `systemModeRequired()` to return
-`true` — that keeps the opt-out local to one selector rather than sprinkled across call sites.
+> **Note:** As an admin you'll often see USER_MODE and SYSTEM_MODE return the same rows, because an admin
+> already holds every permission. The difference only shows up when you run as a lower-permission user (for
+> example via `System.runAs()` in tests). Your own code should almost never need `.withSystemMode()`. It is
+> reserved for framework-internal reads that must bypass the running user's permissions, such as audit tables
+> and configuration metadata. If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and
+> override `systemModeRequired()` to return `true`. That keeps the opt-out in one selector rather than
+> scattered across call sites.
 >
-> **Kill switch:** deploy an org override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c = false` to temporarily fall back to SYSTEM_MODE
-> framework-wide — for emergency only, while offending code is fixed.
+> **Kill switch:** if you need to turn this off org-wide during an incident without a deployment, deploy an org
+> override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c = false` to fall back to
+> SYSTEM_MODE framework-wide. Use it for emergencies only, while the offending code is being fixed.
 
 ### Compound Conditions
 
-The fluent `.condition()` / `.andCondition()` / `.orCondition()` methods handle most queries. When you need
-grouped logic — like `WHERE Industry = 'Tech' AND (Status = 'Active' OR Status = 'Pending')` — use
+The chained `.condition()` / `.andCondition()` / `.orCondition()` methods handle most queries. When you need
+grouped logic, such as `WHERE Industry = 'Tech' AND (Status = 'Active' OR Status = 'Pending')`, use
 `OrCondition` / `AndCondition` with `.addCondition()`:
 
 ```apex
@@ -599,7 +616,8 @@ List<Account> results = kern.QRY_Builder.selectFrom(Account.SObjectType)
 
 ### Date Literals
 
-Use `DateLiteral` for relative date conditions (TODAY, LAST_N_DAYS, etc.):
+To filter on a moving date range (records from today, or the last several days) without hardcoding a date, use
+`DateLiteral` for relative date conditions (TODAY, LAST_N_DAYS, and so on):
 
 ```apex
 List<Account> recentAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -629,7 +647,7 @@ List<SObject> articles = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SOb
 Operators: `.at()` (exact), `.above()` (ancestors), `.below()` (descendants), `.aboveOrBelow()` (both). Chain multiple
 `.withDataCategory()` calls for different groups (joined with AND). Knowledge queries require `PublishStatus` in WHERE.
 
-See the [Selectors Guide — Data Category Queries](Selectors%20-%20Guide.md#data-category-queries) for full details.
+See [Data Category Queries in the Selectors Guide](Selectors%20-%20Guide.md#data-category-queries) for full details.
 
 ### Multi-Field GROUP BY and ROLLUP
 
@@ -648,8 +666,8 @@ List<kern.QRY_Builder.AggregateRow> results = kern.QRY_Builder.selectFrom(Opport
 
 ### SOQL Functions (Date, toLabel, FORMAT)
 
-The 13 SOQL date functions have typed `QRY_Function` factories (`calendarYear`, `calendarMonth`, `fiscalQuarter`, …) for `addField` / `groupBy` / `orderBy`; `toLabel()` and
-`FORMAT()` work through string overloads:
+The 13 SOQL date functions have typed `QRY_Function` factories (`calendarYear`, `calendarMonth`, `fiscalQuarter`, …) for use with `addField` / `groupBy` / `orderBy`. The `toLabel()` and
+`FORMAT()` functions work through string overloads:
 
 ```apex
 kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
@@ -659,7 +677,7 @@ kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
 	.toAggregateList();
 ```
 
-See the [Selectors Guide — SOQL Functions](Selectors%20-%20Guide.md#soql-functions-in-queries) for all 13 date
+See [SOQL Functions in the Selectors Guide](Selectors%20-%20Guide.md#soql-functions-in-queries) for all 13 date
 functions, toLabel, and FORMAT examples.
 
 ---
@@ -669,7 +687,7 @@ functions, toLabel, and FORMAT examples.
 | Problem                                                                   | Cause                                           | Fix                                                                                 |
 |---------------------------------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------|
 | `SObject row was retrieved via SOQL without querying the requested field` | Field not in `getFields()`                      | Add the field to `getFields()` or use `.addField()` in the query method             |
-| Wrong results from custom query                                           | Used `QRY_Builder.selectFrom()` inside selector | Use the inherited `query` property -- it includes your default fields               |
+| Wrong results from custom query                                           | Used `QRY_Builder.selectFrom()` inside selector | Use the inherited `query` property: it includes your default fields                 |
 | `List has no rows for assignment`                                         | `findById()` returns `null` when not found      | Check for `null` before casting, or use `findByIdOrThrow()`                         |
 | Missing parent fields                                                     | Used `SObjectField` for relationship fields     | Use `getFieldPaths()` or `.addFields(List<String>)` for `Owner.Name` etc.           |
 | `Variable does not exist: query`                                          | Class doesn't extend `kern.SEL_Base`            | Add `extends kern.SEL_Base` and `super(SObjectType)` in constructor                 |
@@ -684,20 +702,20 @@ After completing this guide, you understand the **selector pattern** in KernDX:
 
 | Concept               | What It Does                                                                 |
 |-----------------------|------------------------------------------------------------------------------|
-| **`SEL_Base`**        | Base class for all selectors -- provides inherited query methods             |
+| **`SEL_Base`**        | Base class for all selectors; provides inherited query methods               |
 | **`getFields()`**     | Defines default fields for every query (compile-time validated)              |
 | **`query` property**  | Pre-configured `QRY_Builder.Builder` with your default fields                |
 | **`QRY_Builder`**     | Fluent query builder for ad-hoc queries without a selector                   |
-| **Inherited methods** | `findById()`, `findByField()`, `toList()`, `count()`, `exists()` -- all free |
+| **Inherited methods** | `findById()`, `findByField()`, `toList()`, `count()`, `exists()`; all free   |
 
 **Key patterns:**
 
-- **One class per object** -- all queries for an object go through its `SEL_*` class
-- **`with sharing`** -- the default this guide uses for subscriber selectors (framework-internal selectors use `inherited sharing`)
-- **`SObjectField` tokens** -- compile-time field validation, no hardcoded strings
-- **`query` property** -- always use inside selectors (not `QRY_Builder.selectFrom()`)
-- **Cast results** -- `findById()` returns `SObject`, cast to your specific type
-- **`public`** -- selectors are directly instantiated, so `global` is not required
+- **One class per object**: all queries for an object go through its `SEL_*` class
+- **`with sharing`**: the default this guide uses for your own selectors (framework-internal selectors use `inherited sharing`)
+- **`SObjectField` tokens**: compile-time field validation, no hardcoded strings
+- **`query` property**: always use inside selectors (not `QRY_Builder.selectFrom()`)
+- **Cast results**: `findById()` returns `SObject`, cast to your specific type
+- **`public`**: selectors are directly instantiated, so `global` is not required
 
 ---
 

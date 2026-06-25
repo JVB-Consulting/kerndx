@@ -6,24 +6,23 @@ navOrder: 66
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Create test records with automatic field population, bulk creation, parent-child relationships,
-> and DML-free query mocking -- override only what your test cares about.
+**What this is:** A faster way to build the data your Apex tests need. You write one short expression and the framework fills in every required field, so you spell out only the values the test cares about. **Why it exists:** Hand-written test setup is slow, brittle when an admin adds a required field, and wastes governor limits on records you do not need. **Who should care:** Any developer writing Apex tests, and tech leads who want setup that survives schema changes. **When to use it:** Whenever a test needs records, saved, kept in memory, or returned from a query.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 **What you'll build:** A test class that uses `TST_Builder` for clean test data creation and `TST_Mock`
-for DML-free query testing -- with 100% coverage on a simple utility class.
+for query testing without saving records (no DML), reaching 100% coverage on a simple utility class.
 
 **Success looks like:** Your tests create Accounts with auto-populated fields, bulk cycling values, and
-DML-free mocks -- all without hardcoding boilerplate setup code.
+mocks that need no DML, all without hand-writing boilerplate setup code.
 
-**In one line:** `kern.TST_Builder.of(Account.SObjectType).withOverride(Account.Industry, 'Technology').build();` --
+**In one line:** `kern.TST_Builder.of(Account.SObjectType).withOverride(Account.Industry, 'Technology').build();`
 auto-populates required fields, inserts, and returns the record in one expression.
 
 ---
@@ -58,7 +57,7 @@ auto-populates required fields, inserts, and returns the record in one expressio
 
 ## Tier 1: See It Work (~2 minutes)
 
-Use [`TST_Builder`](reference/apex/TST_Builder.md) directly from anonymous Apex. No custom classes needed.
+See the builder make a record in under a minute. You can run [`TST_Builder`](reference/apex/TST_Builder.md) straight from anonymous Apex, with no custom classes to write first.
 
 ### Create a Record with Auto-Populated Fields
 
@@ -79,8 +78,7 @@ Name: cqpcCtfZke0
 Id: 001...
 ```
 
-`TST_Builder` populates Salesforce-required fields automatically. Custom validation rules may require additional
-`.withOverride()` calls.
+You did not have to set a name: `TST_Builder` fills in every Salesforce-required field for you. If your org has custom validation rules that demand specific values, add a `.withOverride()` call for each of those fields.
 
 ### Override Specific Fields
 
@@ -116,8 +114,10 @@ System.debug('Created ' + accounts.size() + ' accounts');
 
 ### In-Memory Records (No DML)
 
-`.withoutInsertion()` = in-memory only (no Id). `.withoutInsertion(true)` = in-memory with mock Id (for code
-that checks `record.Id != null`).
+Sometimes a test only needs a record in memory, never saved to the database, which keeps the test fast and avoids governor-limit cost. Two options cover this:
+
+- `.withoutInsertion()` gives you an in-memory record with no Id.
+- `.withoutInsertion(true)` gives you an in-memory record with a fake Id, useful for code that checks `record.Id != null`.
 
 ```apex
 Account inMemory = (Account)kern.TST_Builder.of(Account.SObjectType)
@@ -283,21 +283,21 @@ sf apex run test -o YourOrgAlias -t FastStart_TestData_DEMO_TEST --code-coverage
 
 **Expected:** 4 tests passing, 100% coverage on `FastStart_TestData_DEMO`.
 
-**Why it works -- key patterns:**
+**Why it works, line by line:**
 
-- **`TST_Builder.of(SObjectType)`** -- Creates a builder for any SObject type. Auto-populates required fields.
-- **`.withOverride(field, value)`** -- Sets specific field values. Override only what matters for the test.
-- **`.withoutInsertion()`** -- Builds in-memory (no DML). Use when testing logic that doesn't need a real record.
-- **`.withCycle(field, values)`** -- Rotates values across records in `buildList()`. One call covers multiple scenarios.
-- **`.withCount(n).buildList()`** -- Bulk creation with a single DML statement.
-- **`TST_Mock.of(SObjectType).build()`** -- Creates a record without DML and auto-registers it so that
-  `QRY_Builder` queries return mock data instead of hitting the database.
+- **`TST_Builder.of(SObjectType)`** creates a builder for any SObject type and auto-populates its required fields.
+- **`.withOverride(field, value)`** sets a specific field value. Override only what matters for the test.
+- **`.withoutInsertion()`** builds the record in memory without saving it (no DML). Use it when testing logic that does not need a real record.
+- **`.withCycle(field, values)`** rotates through the values across the records in `buildList()`, so one call covers multiple scenarios.
+- **`.withCount(n).buildList()`** creates many records with a single DML statement.
+- **`TST_Mock.of(SObjectType).build()`** creates a record without saving it (no DML) and registers it automatically, so `QRY_Builder` queries return the mock data instead of reading the database.
 
 > **About the annotations:** `@IsTest(SeeAllData=false IsParallel=true)` is the standard declaration for
 > classes that don't insert `User` / `Group` / `PermissionSet` records. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts, but consider adding
-> `System.runAs()` in production tests to verify profile and permission set access. Remove `IsParallel=true`
-> if your test class inserts `User` records (Salesforce forbids `User` DML in parallel tests).
+> turns off a code-scanner rule (static analysis, which checks code without running it) that wants every test
+> to use `System.runAs()`. That is fine for a quick start, but in production tests consider adding `System.runAs()`
+> to verify profile and permission set access. Remove `IsParallel=true` if your test class inserts `User` records,
+> because Salesforce forbids `User` DML in parallel tests.
 
 ---
 
@@ -338,11 +338,10 @@ want to hit the database.
 
 ### TST_Mock for DML-Free Query Interception
 
-[`TST_Mock`](reference/apex/TST_Mock.md) creates mock records and automatically registers them so that
-`QRY_Builder` queries return mock data instead of hitting the database.
+Some tests need to check how your code reacts to query results without paying to save those records first. [`TST_Mock`](reference/apex/TST_Mock.md) creates records, keeps them in memory, and registers them so `QRY_Builder` queries return that mock data instead of reading the database.
 
-> **`@IsTest` context only:** `TST_Mock` works exclusively inside test classes. The examples below show
-> how to use it in test methods -- they cannot be run from Execute Anonymous.
+> **`@IsTest` context only:** `TST_Mock` works only inside test classes. The examples below show how to use it
+> in test methods. They cannot be run from Execute Anonymous.
 
 ```apex
 /** @description Tests that the classifier handles mock data without DML. */
@@ -391,9 +390,7 @@ kern.TST_Mock.clear(Account.SObjectType);   // Clear one type
 
 #### Negative-Path: Simulate a SOQL Failure
 
-`kern.TST_Mock.throwsException(SObjectType[, Exception/String])` registers an exception that fires the next
-time the framework queries the specified type. Use it to exercise catch blocks around a SOQL call without
-having to mock at a different layer.
+Good tests also prove that your code handles a query failure gracefully, not just the happy path. To force a query to fail on demand, call `kern.TST_Mock.throwsException(SObjectType[, Exception/String])`: it registers an exception that fires the next time the framework queries that type. This lets you exercise the catch block around a SOQL call without having to fake anything at a lower layer.
 
 ```apex
 /** @description Verifies the caller surfaces a friendly error when the underlying SOQL fails. */
@@ -415,8 +412,8 @@ private static void shouldHandleQueryFailureGracefully()
 }
 ```
 
-> **`SEL_Accounts` is the selector you build in the [Selectors Fast Start](Fast%20Start%20-%20Selectors.md)** —
-> it isn't part of the package. If you haven't created it, swap in a selector you already have, or query inline
+> **`SEL_Accounts` is the selector you build in the [Selectors Fast Start](Fast%20Start%20-%20Selectors.md).**
+> It isn't part of the package. If you haven't created it, swap in a selector you already have, or query inline
 > with `kern.QRY_Builder.selectFrom(Account.SObjectType)...` so this snippet is self-contained.
 
 Three overloads are available; pick the shortest that names the failure:
@@ -433,13 +430,14 @@ kern.TST_Mock.throwsException(Account.SObjectType);
 ```
 
 **Coexistence with record mocks:** if both an exception and records are registered for the same
-`SObjectType`, the exception is thrown first -- the record path is unreachable. Both registrations are
+`SObjectType`, the exception is thrown first, so the record path is never reached. Both registrations are
 wiped by `kern.TST_Mock.clear()` and `kern.TST_Mock.clear(SObjectType)`.
 
 ### TST_Factory for Users
 
-Create test users with specific profiles. Remove `IsParallel=true` from the test class header when inserting
-`User` records -- Salesforce forbids `User` DML in parallel tests.
+When a test needs to run as a particular kind of user, create one with a specific profile in a single call.
+Remove `IsParallel=true` from the test class header when inserting `User` records, because Salesforce forbids
+`User` DML in parallel tests.
 
 ```apex
 /** @description Tests behaviour as a Standard User. */
@@ -474,8 +472,8 @@ Assert.isTrue(isEnabled, 'Flag should be enabled');
 
 ### Framework Metadata: Trigger and Validation Setup
 
-To exercise framework Trigger Action or Validation Rule behaviour in your tests -- or to set up that
-metadata from a setup script -- deploy the relevant `CustomMetadata` records via XML. See
+To exercise a framework Trigger Action or Validation Rule in your tests (or to set up that metadata from a
+setup script), deploy the relevant `CustomMetadata` records as XML. See
 [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) and
 [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) for the XML deploy pattern.
 
@@ -501,7 +499,7 @@ private static void shouldFireTriggerAction()
 | `REQUIRED_FIELD_MISSING` on insert                                 | Field marked required but builder doesn't know about it    | Add `.withOverride(field, value)` for the missing field                  |
 | Records created in a loop                                          | Using `.build()` inside a loop                             | Use `.withCount(n).buildList()` for bulk creation (single DML)           |
 | Mock IDs when not needed                                           | Using `.withoutInsertion(true)` for simple in-memory tests | Use `.withoutInsertion()` (no argument) when IDs aren't needed           |
-| Mocks leaking between tests                                        | Forgetting to clear `TST_Mock` state                       | Salesforce resets static state between tests -- no manual cleanup needed |
+| Mocks leaking between tests                                        | Forgetting to clear `TST_Mock` state                       | Salesforce resets static state between tests, so no manual cleanup is needed |
 | `null` for optional fields                                         | Builder only auto-populates required fields                | Use `.withOverride()` to set optional fields your test needs             |
 | Trigger action or validation rule doesn't fire in a test           | The framework metadata isn't present in the org            | Deploy the relevant `CustomMetadata` records via XML for triggers and validations |
 
@@ -519,13 +517,13 @@ After completing this guide, you understand the **three test data tools** in Ker
 
 **Key patterns:**
 
-- **Override only what matters** -- let `TST_Builder` handle required fields. Tests stay focused on behaviour.
-- **`.withoutInsertion()` for logic tests** -- skip DML when testing pure logic (faster tests, no governor cost)
-- **`.withCycle()` for multiple scenarios** -- test different values without writing separate test methods
-- **`.withChildren()` for relationships** -- auto-handles foreign key assignment
-- **`TST_Mock` for query mocking** -- no DML, no database, mock data flows through `QRY_Builder`
-- **Framework metadata via XML** -- to exercise trigger or validation behaviour in your tests, deploy the
-  relevant `CustomMetadata` records via XML
+- **Override only what matters.** Let `TST_Builder` handle required fields so tests stay focused on behaviour.
+- **`.withoutInsertion()` for logic tests.** Skip DML when testing pure logic (faster tests, no governor cost).
+- **`.withCycle()` for multiple scenarios.** Test different values without writing separate test methods.
+- **`.withChildren()` for relationships.** Foreign-key assignment is handled for you.
+- **`TST_Mock` for query mocking.** No DML, no database: the mock data flows through `QRY_Builder`.
+- **Framework metadata via XML.** To exercise trigger or validation behaviour in your tests, deploy the
+  relevant `CustomMetadata` records as XML.
 
 ---
 

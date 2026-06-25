@@ -6,27 +6,28 @@ navOrder: 10
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-> Modular, metadata-driven trigger logic -- one class per action, ordered and toggled without deployment.
+**What this is:** A way to put trigger logic into small, focused Apex classes (one per behaviour) and wire them to an object through configuration records, so you can add, reorder, or switch a behaviour off without editing or redeploying the trigger. **Why it exists:** Hand-written triggers tend to grow into one large file that is hard to read, test, or change safely; this keeps each behaviour separate and independently testable. **Who should follow it:** developers and admins adding automation to an object. **When to use it:** any time you'd otherwise write or extend a trigger.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.IF_Trigger.BeforeInsert`). Your own classes don't need a namespace prefix — the framework's
-> Type Resolver handles resolution automatically.
+> `kern.IF_Trigger.BeforeInsert`). Your own classes don't need a namespace prefix: the framework's
+> Type Resolver (how it finds the Apex classes in your namespace, once you tell it where to look) handles
+> this for you.
 
-**What you'll build:** A trigger action that stamps default field values on new records -- handler class,
-metadata wiring, and a test class with 100% coverage.
+**What you'll build:** A trigger action that stamps default field values on new records. You'll create the
+handler class, wire it up with metadata, and add a test class with 100% coverage.
 
 **Success looks like:** You insert an Account, see the default Description populated automatically, and
 have 2 passing tests with 100% coverage.
 
-**In one line:** `new kern.TRG_Dispatcher().run();` -- one line in the trigger, all logic lives in handler
+**In one line:** `new kern.TRG_Dispatcher().run();` is the only line in the trigger; all logic lives in handler
 classes configured via Custom Metadata.
 
 ---
@@ -65,17 +66,19 @@ classes configured via Custom Metadata.
 
 ## How It Works
 
-The trigger framework splits responsibilities:
+The aim is to keep each trigger behaviour small, separate, and easy to switch on or off without a code change.
+To get there, the framework splits the work into four pieces:
 
 | Component                                     | Role                                          | You Create           |
 |-----------------------------------------------|-----------------------------------------------|----------------------|
-| **Physical trigger** (`TRG_Account`)          | Delegates to framework -- single line of code | Once per object      |
-| **Trigger action** (`TRG_AccountSetDefaults`) | One class per behavior                        | One per action       |
+| **Physical trigger** (`TRG_Account`)          | The one-line trigger file that hands control to the framework | Once per object      |
+| **Trigger action** (`TRG_AccountSetDefaults`) | One class per behaviour                        | One per action       |
 | **`TriggerSetting__mdt`**                     | Per-object configuration                      | One per object       |
-| **`TriggerAction__mdt`**                      | Wires actions to events, controls ordering    | One per action+event |
+| **`TriggerAction__mdt`**                      | Wires actions to events and controls their run order | One per action+event |
 
-**Why?** Adding/removing/reordering trigger behavior is a metadata change, not a code change. Each action is
-independently testable. No monolithic trigger file.
+**Why?** Adding a behaviour, removing one, or changing the order they run becomes a configuration change rather
+than a code change. Each behaviour lives in its own class, so you can test it on its own. And you never end up
+with one large trigger file that everyone is afraid to touch.
 
 ---
 
@@ -91,9 +94,10 @@ Build a trigger action that stamps a default Description on new Account records 
 
 Create a new file named `TRG_AccountSetDefaults.cls`:
 
-> **Why `global`?** This lets the managed package resolve the class at runtime without additional setup.
-> If you prefer `public inherited sharing`, you'll need a Type Resolver class. The Kern home page health
-> check provides the code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+> **Why `global`?** Marking the class `global` lets the framework find and run it at runtime with no extra
+> setup. If you'd rather keep it `public inherited sharing`, you'll need a Type Resolver class so the
+> framework knows where to look. The Kern home page health check provides that code, or see
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
 /**
@@ -356,20 +360,20 @@ Description: New account - pending review
 
 **Key patterns:**
 
-- **`extends kern.TRG_Base`** -- Provides trigger context, bypass control, and `triggerOldMap`
-- **`implements kern.IF_Trigger.BeforeInsert`** -- Each interface maps to one trigger event
-- **`inherited sharing`** -- Respects the calling context's sharing mode
-- **Loop over all records** -- Always bulk-safe (process every record in the list)
-- **Before context** -- Modify records directly, no DML needed
+- **`extends kern.TRG_Base`**: gives you trigger context, bypass control, and `triggerOldMap`
+- **`implements kern.IF_Trigger.BeforeInsert`**: each interface maps to one trigger event
+- **`inherited sharing`**: respects the calling context's sharing mode
+- **Loop over all records**: always bulk-safe, because you process every record in the list
+- **Before context**: modify records directly, no DML needed
 
 ---
 
 ## Tier 2: Test It (~3 minutes)
 
-> **Testing a trigger action in a subscriber org:** invoke the handler directly. Build an in-memory
-> record with `kern.TST_Builder` (using `.withoutInsertion()` so no DML runs), call your handler's
-> method, and assert on the record. This needs no framework metadata setup and fully covers your
-> handler's logic. Direct invocation is the supported subscriber pattern.
+> **Testing a trigger action in your own org:** call the handler directly. Build an in-memory record with
+> `kern.TST_Builder` (using `.withoutInsertion()` so no DML runs), call your handler's method, and assert on
+> the record. This needs no framework metadata setup and fully covers your handler's logic. Calling the
+> handler directly is the supported pattern.
 
 Create `TRG_AccountSetDefaults_TEST.cls`:
 
@@ -436,21 +440,22 @@ sf apex run test -o YourOrgAlias -t TRG_AccountSetDefaults_TEST --code-coverage 
 
 **Expected:** 2 tests passing, 100% coverage on `TRG_AccountSetDefaults`.
 
-> **About the annotations:** `@IsTest(SeeAllData=false IsParallel=true)` enables parallel execution and
-> explicitly declares no org data access. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts.
+> **About the annotations:** `@IsTest(SeeAllData=false IsParallel=true)` lets the test run in parallel and
+> states up front that it touches no org data. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
+> turns off a code-quality rule about `System.runAs()`, which is fine for a quick start.
 
-> **Why invoke the handler directly?** `beforeInsert` is a plain method that takes the trigger records,
-> so calling it with an in-memory `kern.TST_Builder` record (built `.withoutInsertion()`, so no DML and
-> no validation rules fire) exercises the logic directly and gives 100% coverage with no setup. Direct
-> invocation is the supported subscriber path. (To verify the full metadata wiring end-to-end, deploy the
-> CMDT from Tier 1 and assert against an inserted record from an integration test or the Verify step above.)
+> **Why invoke the handler directly?** `beforeInsert` is a plain method that takes the trigger records, so
+> you can call it straight from the test. You pass it an in-memory `kern.TST_Builder` record, built with
+> `.withoutInsertion()` so no DML runs and no validation rules fire. That exercises your logic directly and
+> gives 100% coverage with no setup, and it's the supported way to test a handler in your own org. (To check
+> the full metadata wiring from end to end, deploy the CMDT from Tier 1 and assert against an inserted record,
+> either from an integration test or from the Verify step above.)
 
 ### Testing Flow Actions with TST_InvokeFlowMock
 
-If you have `TriggerAction__mdt` records configured as flow actions (`kern__FlowName__c` populated,
-`kern__ApexClassName__c` blank), `kern.TST_InvokeFlowMock` lets you unit-test orchestration without
-deploying throwaway flows.
+Some trigger actions run a flow rather than an Apex class (a `TriggerAction__mdt` record with
+`kern__FlowName__c` populated and `kern__ApexClassName__c` blank). For those, `kern.TST_InvokeFlowMock` lets you
+unit-test that the right flow is called at the right time, without deploying throwaway flows just for the test.
 
 ```apex
 @IsTest
@@ -483,8 +488,8 @@ private static void shouldRouteFlowFailureThroughLogAndContinue()
 | `kern.TST_InvokeFlowMock.getLastInputPriorRecord(name)`                     | Inspect `recordPrior` for update-context tests       |
 | `kern.TST_InvokeFlowMock.clear()`                                           | Reset all registered mocks and invocation history    |
 
-> `TST_InvokeFlowMock` tests orchestration -- that the framework called the right flow at the right time.
-> It does not test flow logic. Write a separate `_INTEGRATION_TEST` class for end-to-end flow verification.
+> `TST_InvokeFlowMock` checks that the framework called the right flow at the right time. It does not test what
+> the flow itself does. To verify the flow's own logic end to end, write a separate `_INTEGRATION_TEST` class.
 
 ---
 
@@ -504,7 +509,9 @@ private static void shouldRouteFlowFailureThroughLogAndContinue()
 
 ### Comparing Old vs New Values (Update Context)
 
-`triggerOldMap` is a lazy-loaded `Map<Id, SObject>` on `kern.TRG_Base`. Use it in update contexts to compare old and new values:
+In an update, you often need to know what a field was before the change. `kern.TRG_Base` gives you
+`triggerOldMap`, a `Map<Id, SObject>` of the prior record values (loaded only when you ask for it), so you can
+compare old and new:
 
 ```apex
 global inherited sharing class TRG_AccountIndustryChanged extends kern.TRG_Base
@@ -541,7 +548,8 @@ with `Event__c = After Update` and `TriggerSetting__c = Account`.
 
 ### Bypass Mechanisms
 
-Bypass triggers at runtime without metadata changes:
+Sometimes you need to turn a trigger off for a moment, for example during a one-off data fix. You can do this
+at runtime in code, with no metadata change:
 
 ```apex
 // Bypass a single action
@@ -555,18 +563,21 @@ kern.TRG_Base.bypass(Account.SObjectType);
 kern.TRG_Base.clearBypass(Account.SObjectType);
 ```
 
-Or declaratively: set `BypassExecution__c = true` on the `TriggerSetting__mdt` (all actions) or
-`TriggerAction__mdt` (single action) record.
+You can also do it without code: set `BypassExecution__c = true` on the `TriggerSetting__mdt` record (turns off
+all actions for the object) or on a `TriggerAction__mdt` record (turns off a single action).
 
-> **Every bypass is audit-logged.** `bypass()`, `bypassAction()`, and their clear counterparts each emit
-> a WARN `LogEntry__c` with category `BypassEvent` -- capturing action, type, target, and (if set) reason.
-> Query `kern__LogEntry__c` after the fact to answer "who bypassed which trigger, when, and why?" See the
+> **Every bypass is audit-logged.** Whenever a trigger is bypassed, the framework records what happened, so the
+> off-switch can't be used quietly. `bypass()`, `bypassAction()`, and their clear counterparts each write a WARN
+> `LogEntry__c` with category `BypassEvent`, capturing the action, the type, the target, and a reason if one was
+> given. Later you can query `kern__LogEntry__c` to answer "who bypassed which trigger, when, and why?" See the
 > [Triggers Guide](Triggers%20-%20Guide.md#bypass-mechanisms) for the full bypass API.
 
 ### Feature Flag Integration
 
-Gate a trigger action on a Feature Flag using `RequiredFeatureFlag__c`. When the flag is disabled or
-missing, the action is skipped automatically. Add this field to your `TriggerAction__mdt` record:
+You can make a trigger action depend on a Feature Flag, an on/off switch you control without a deployment.
+When the flag is off or missing, the action is skipped automatically, so you can release the logic but keep it
+dark until you're ready to turn it on. Point an action at a flag with `RequiredFeatureFlag__c`. Add this field
+to your `TriggerAction__mdt` record:
 
 ```xml
 <values>
@@ -579,7 +590,8 @@ See [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) for crea
 
 ### Ordering Multiple Actions
 
-Set `Order__c` on each `TriggerAction__mdt` record. Lower values run first:
+When several actions run on the same event, you control the sequence with the `Order__c` field on each
+`TriggerAction__mdt` record. Lower numbers run first:
 
 | Order | Action                 | Purpose                  |
 |-------|------------------------|--------------------------|
@@ -591,9 +603,10 @@ Set `Order__c` on each `TriggerAction__mdt` record. Lower values run first:
 
 ## Using Flow as a Trigger Action
 
-Register an auto-launched flow as a trigger action by setting `kern__FlowName__c` on a
-`TriggerAction__mdt` row and leaving `kern__ApexClassName__c` blank. The framework dispatches via its
-built-in flow runner, and the flow inherits ordering, bypass, recursion control, and feature-flag gating.
+A trigger action doesn't have to be Apex. You can run an auto-launched flow instead, which lets an admin build
+the behaviour with no code. To do this, set `kern__FlowName__c` on a `TriggerAction__mdt` row and leave
+`kern__ApexClassName__c` blank. The framework runs the flow for you, and the flow gets the same ordering,
+bypass, recursion control, and feature-flag gating that an Apex action does.
 
 ### Variable contract
 
@@ -618,9 +631,10 @@ built-in flow runner, and the flow inherits ordering, bypass, recursion control,
 </CustomMetadata>
 ```
 
-`kern__FailureAction__c`: `LogAndContinue` (default) emits a `LogEntryEvent__e` and lets DML proceed;
-`BlockDml` calls `record.addError(...)` to stop the save and surface the error to the user. Setting both
-`kern__FlowName__c` and `kern__ApexClassName__c` fails the `MutuallyExclusiveTarget` validation rule.
+`kern__FailureAction__c` decides what happens if the flow fails. `LogAndContinue` (the default) writes a
+`LogEntryEvent__e` and lets the save proceed. `BlockDml` calls `record.addError(...)` to stop the save and show
+the error to the user. Note that an action can't be both a flow and an Apex class: if you set both
+`kern__FlowName__c` and `kern__ApexClassName__c`, the `MutuallyExclusiveTarget` validation rule rejects it.
 
 Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Triggers%20-%20Guide.md#flow-as-a-trigger-action).
 
@@ -637,7 +651,7 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 | Governor limit: SOQL in loop                                          | Querying inside the record loop                | Collect IDs first, query once outside the loop                                                 |
 | Not bulk-safe                                                         | Processing only `newRecords[0]`                | Always loop over all records in the list                                                       |
 | Sharing not declared                                                  | Missing sharing keyword on class               | Add `inherited sharing` (default) or `with sharing`                                            |
-| Unsure how to test a trigger action handler | Trying to drive the handler through framework metadata setup | Invoke your handler directly in the test — build a record with `kern.TST_Builder` (`.withoutInsertion()`), call the method, assert (see Tier 2) |
+| Unsure how to test a trigger action handler | Trying to drive the handler through framework metadata setup | Call your handler directly in the test: build a record with `kern.TST_Builder` (`.withoutInsertion()`), call the method, then assert (see Tier 2) |
 
 ---
 
@@ -645,22 +659,22 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 
 | Concept                   | What It Does                                                        |
 |---------------------------|---------------------------------------------------------------------|
-| **Physical trigger**      | One per object -- `new kern.TRG_Dispatcher().run()`                 |
-| **`TRG_Base`**            | Base class -- provides context, bypass control, and `triggerOldMap` |
-| **`IF_Trigger.*`**        | Interfaces for each event -- `BeforeInsert`, `AfterUpdate`, etc.    |
-| **`TriggerSetting__mdt`** | Per-object config -- links an SObject to the framework              |
-| **`TriggerAction__mdt`**  | Per-action config -- wires a class to an event with ordering        |
+| **Physical trigger**      | One per object; holds only `new kern.TRG_Dispatcher().run()`        |
+| **`TRG_Base`**            | The base class your handlers extend; provides context, bypass control, and `triggerOldMap` |
+| **`IF_Trigger.*`**        | One interface per event (`BeforeInsert`, `AfterUpdate`, and so on)  |
+| **`TriggerSetting__mdt`** | Per-object config; links an SObject to the framework                |
+| **`TriggerAction__mdt`**  | Per-action config; wires a class to an event and sets its order     |
 
 **Key patterns:**
 
-- **One class per action** -- single responsibility, independently testable
-- **`inherited sharing`** -- default sharing mode for trigger actions
-- **Metadata-driven ordering** -- `Order__c` controls execution sequence
-- **Declarative bypass** -- `BypassExecution__c` checkbox, no code deployment needed
-- **Audit-logged bypass** -- every bypass call emits a WARN `LogEntry__c` with category `BypassEvent`
-- **`global`** -- required for subscriber classes (or `public` with Type Resolver)
-- **Bulk-safe** -- always loop over all records, no SOQL inside loops
-- **Test setup** -- invoke your handler directly with a `kern.TST_Builder` record (built
+- **One class per action**: each does one thing and can be tested on its own
+- **`inherited sharing`**: the default sharing mode for trigger actions
+- **Configuration-driven ordering**: `Order__c` controls the run sequence
+- **Bypass without code**: the `BypassExecution__c` checkbox, no deployment needed
+- **Audit-logged bypass**: every bypass call writes a WARN `LogEntry__c` with category `BypassEvent`
+- **`global`**: required for classes in your own org (or `public` with a Type Resolver)
+- **Bulk-safe**: always loop over all records, and never put SOQL inside a loop
+- **Test setup**: call your handler directly with a `kern.TST_Builder` record (built
   `.withoutInsertion()`); no framework metadata setup needed
 
 ---

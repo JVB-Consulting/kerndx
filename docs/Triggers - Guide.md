@@ -15,6 +15,12 @@ navOrder: 10
 
 ---
 
+## In one paragraph
+
+Salesforce gives you triggers but no structure for organising what they do, so most orgs end up with one large trigger file per object that nobody wants to touch. This framework lets you break that logic into small, single-purpose classes (called trigger actions), then control their run order, turn them on or off, and add conditions, all through configuration records rather than code changes. The payoff: each piece of logic is testable on its own, safe to reorder, and can be switched off in production without a deployment. Developers write the small action classes; architects design the run order and separation of concerns; admins and analysts manage settings without touching Apex. Reach for it whenever an object needs more than a trivial trigger, and you want that logic to stay readable, testable, and changeable over time.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -176,9 +182,7 @@ navOrder: 10
 
 ## Overview
 
-The KernDX framework provides a **metadata-driven Trigger Action Framework** that enables modular,
-configurable [trigger](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers.htm) logic without code deployment. Trigger actions are small, focused
-classes that implement specific business logic and can be:
+The goal is to keep trigger logic small, testable, and easy to change without redeploying code. KernDX does this with a **metadata-driven Trigger Action Framework**: instead of one big [trigger](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers.htm) file, you write small, focused classes (trigger actions) that each handle one piece of business logic. Configuration records, not code, then decide how those actions behave. Each action can be:
 
 - **Ordered**: Execute in a specific sequence via metadata configuration
 - **Coordinated**: Act like functions that can be composed and orchestrated
@@ -187,13 +191,13 @@ classes that implement specific business logic and can be:
 - **Bypassed**: Disabled at runtime without code changes
 - **Reusable**: Applied to multiple objects via metadata
 
-> **Trigger Framework Scope:** 7 `TRG_*` handler classes, 6 physical triggers (`TRG_ApiCall`, `TRG_ApiIssue`, `TRG_AsyncChainExecution`, `TRG_Foobar`, `TRG_LogEntryEvent`,
-`TRG_ScheduledJob`) — all config-driven via `TriggerSetting__mdt`
-> and `TriggerAction__mdt` custom metadata. Supports object-level and action-level bypass, entry criteria formulas, ordered execution, and a bypass audit trail on every
+> **Trigger Framework Scope:** 7 `TRG_*` handler classes and 6 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`, `TRG_AsyncChainExecution`, `TRG_Foobar`, `TRG_LogEntryEvent`,
+`TRG_ScheduledJob`). All of it is driven by `TriggerSetting__mdt`
+> and `TriggerAction__mdt` custom metadata. It supports object-level and action-level bypass, entry criteria formulas, ordered execution, and an audit trail on every
 > programmatic bypass call.
 
 > **Responsibilities:** Trigger actions execute discrete units of work (validation, field defaulting, related record creation). They do not
-> query data inline -- use selectors for that. They do not contain reusable business logic -- extract that to service classes.
+> query data inline; use selectors for that. They do not contain reusable business logic; extract that to service classes.
 
 > **When NOT to use this pattern:**
 > - Simple field updates that a formula field or record-triggered Flow can handle declaratively
@@ -299,7 +303,7 @@ trigger AccountTrigger on Account (before insert, after update) {
 | **Modular Actions**      | Small, focused classes implementing interfaces                                               | Manually create helper/handler classes                    |
 | **Configuration**        | Enable/disable actions via metadata without deployment                                       | Requires code deployment to change behavior               |
 | **Bypass Control**       | Global, object-level, and action-level bypass                                                | Must manually implement bypass logic (static flags)       |
-| **Recursion Prevention** | Built-in — `TRG_Dispatcher` tracks the execution stack and short-circuits re-entrant actions | Must manually implement recursion tracking (static flags) |
+| **Recursion Prevention** | Built-in. `TRG_Dispatcher` tracks the execution stack and short-circuits re-entrant actions | Must manually implement recursion tracking (static flags) |
 | **Entry Criteria**       | Declarative formula evaluation per action                                                    | Must code all conditional logic in if statements          |
 | **Reusability**          | Same action class on multiple objects via metadata                                           | Can create reusable helpers, but requires manual wiring   |
 | **Testing**              | Test each action independently                                                               | Typically test entire trigger flow together               |
@@ -325,7 +329,7 @@ trigger AccountTrigger on Account (before insert, after update) {
 - **Simple triggers** with minimal logic
 - **One-time implementations** that rarely change
 - **Maximum performance** is critical (avoid framework overhead)
-- **Small teams** with simple requirements
+- **Throwaway logic** with simple, fixed requirements that will never be reordered or reused
 - **Prototype/POC** projects
 - **Team familiarity** with traditional trigger patterns
 - **No metadata configuration** desired
@@ -447,14 +451,13 @@ public inherited sharing class TRG_AccountPopulateNumber extends TRG_Base
 
 ### Legacy Handler Pattern
 
-The Handler Pattern (TRH_* classes) is **retained for backward compatibility** in the managed package but has been replaced by the Trigger Action Framework. New implementations
-should use the TRG_* pattern exclusively.
+If you see older `TRH_*` handler classes in the package, they are kept only so existing code keeps working. They have been replaced by the Trigger Action Framework, so write all new logic with the `TRG_*` pattern.
 
 ---
 
 ## Quick Start
 
-Extend `TRG_Base` and implement a `IF_Trigger` context interface to create metadata-driven trigger actions.
+You want to add one piece of logic to an object's trigger. Write a small class that extends `TRG_Base` and implements one `IF_Trigger` context interface (one interface per trigger event, such as before-insert). That class is a trigger action, and the framework runs it for you based on a configuration record.
 
 > **Step-by-step walkthrough:** [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) covers implementation,
 > testing, and common pitfalls.
@@ -485,8 +488,7 @@ For deeper coverage, continue reading the sections below.
 
 #### [TRG_Base](reference/apex/TRG_Base.md)
 
-Base class that all trigger actions extend. Provides common functionality
-and [trigger context](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_context_variables.htm) access:
+Every trigger action extends this base class. It saves you from rewriting the same plumbing in each action: it hands you the records being changed, tells you which trigger event you are in, and gives you the methods that turn actions on and off. In short, it provides the common wiring and [trigger context](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_context_variables.htm) access:
 
 ```apex
 global virtual inherited sharing class TRG_Base
@@ -532,7 +534,7 @@ global virtual inherited sharing class TRG_Base
 
 #### [TRG_Dispatcher](reference/apex/TRG_Dispatcher.md)
 
-Factory class that orchestrates trigger action execution:
+This is the one class your trigger file calls. It reads your configuration, works out which actions apply to the current object and event, and runs them in order, so you never wire that up by hand:
 
 ```apex
 global inherited sharing class TRG_Dispatcher
@@ -557,7 +559,7 @@ global inherited sharing class TRG_Dispatcher
 
 #### [IF_Trigger](reference/apex/IF_Trigger.md)
 
-Collection of interfaces defining methods for each trigger context:
+There is one interface per trigger event. Your action implements the one (or ones) that match when it should run, and that single choice is what tells the framework where to invoke it:
 
 ```apex
 global interface BeforeInsert { void beforeInsert(List<SObject> newRecords); }
@@ -580,7 +582,7 @@ global interface AfterUndelete { void afterUndelete(List<SObject> newRecords); }
 
 #### TriggerSetting__mdt
 
-Defines per-object configuration for trigger actions:
+One record per object you want the framework to manage. It is the switchboard for that object: it turns the framework on, and sets org-wide options such as bypass and masking that apply to every action on the object.
 
 | Field                    | Type                                   | Purpose                                             |
 |--------------------------|----------------------------------------|-----------------------------------------------------|
@@ -592,7 +594,7 @@ Defines per-object configuration for trigger actions:
 
 #### TriggerAction__mdt
 
-Defines individual trigger actions and their behavior:
+One record per piece of logic. Each row points at an action (an Apex class or a flow), says which trigger event it runs in, sets its run order, and carries its own options such as conditions and bypass:
 
 | Field                              | Type                                      | Purpose                                                                                                                                                                                                                               |
 |------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -614,8 +616,8 @@ Defines individual trigger actions and their behavior:
 | `SuppressPerformanceLogging__c`    | Checkbox                                  | Never log performance for this action                                                                                                                                                                                                 |
 | `PerformanceThresholdMs__c`        | Number(8,0)                               | Log if duration exceeds threshold (ms)                                                                                                                                                                                                |
 
-> **Validation rule:** `MutuallyExclusiveTarget` enforces XOR on `(ApexClassName__c, FlowName__c)` — exactly one must be populated. A row with both populated is ambiguous; a row
-> with neither has no dispatch target. The deploy fails if either invariant is violated.
+> **Validation rule:** `MutuallyExclusiveTarget` requires exactly one of `(ApexClassName__c, FlowName__c)` to be populated. A row with both populated is ambiguous; a row
+> with neither has nothing to run. The deploy fails if either rule is broken.
 
 ---
 
@@ -663,7 +665,7 @@ Bypass Execution: true
 
 **Purpose:** Feature Flag that bypasses all actions when enabled for the running user.
 
-**Type:** MetadataRelationship — lookup to a `FeatureFlag__mdt` record (e.g., `Bypass_Account_Triggers`). Selected via dropdown picker in the CMDT UI.
+**Type:** MetadataRelationship, a lookup to a `FeatureFlag__mdt` record (e.g., `Bypass_Account_Triggers`). Selected via dropdown picker in the CMDT UI.
 
 **When to Use:**
 
@@ -685,7 +687,7 @@ Bypass Feature Flag: Bypass_Account_Triggers
 
 **Purpose:** Feature Flag required for actions to execute.
 
-**Type:** MetadataRelationship — lookup to a `FeatureFlag__mdt` record (e.g., `Enable_Account_Validation`). Selected via dropdown picker in the CMDT UI.
+**Type:** MetadataRelationship, a lookup to a `FeatureFlag__mdt` record (e.g., `Enable_Account_Validation`). Selected via dropdown picker in the CMDT UI.
 
 **When to Use:**
 
@@ -749,9 +751,9 @@ Performance Threshold Ms: 200
 **Purpose:** Runs the [data masking](Security%20-%20Guide.md#data-masking) pass on this object before any trigger actions execute, so configured sensitive
 fields are redacted on save.
 
-**Default:** `true` — every object with a Trigger Setting is masked automatically. Uncheck it to opt one object out.
+**Default:** `true`. Every object with a Trigger Setting is masked automatically. Uncheck it to opt one object out.
 
-**How it runs:** On every **before-insert** and **before-update**, the dispatcher masks the records *before* the first trigger action fires — so downstream
+**How it runs:** On every **before-insert** and **before-update**, the dispatcher masks the records *before* the first trigger action fires, so downstream
 actions, and the database, only ever see the masked values. The pass runs only when the `MaskingFramework_Enabled` feature flag is on, and only redacts fields you
 have wired up with a `MaskingTarget__mdt` record. It runs in the `before` phase and writes onto the record in memory, so it adds no extra DML.
 
@@ -766,7 +768,7 @@ have wired up with a `MaskingTarget__mdt` record. It runs in the `before` phase 
 Apply Masking: true
 ```
 
-**Effect:** Sensitive values matching your masking rules are redacted on this object before any trigger action — Apex or flow — sees them, and before the record
+**Effect:** Sensitive values matching your masking rules are redacted on this object before any trigger action (Apex or flow) sees them, and before the record
 is committed.
 
 > **See Also:** [Data Masking](Security%20-%20Guide.md#data-masking) in the Security Guide for rule and target configuration, the honest caveats (masking is
@@ -1061,12 +1063,12 @@ This allows bulk imports to preset values while ensuring all records have a uniq
 
 ## Flow as a Trigger Action
 
-The framework includes a built-in flow runner that invokes an auto-launched Flow as a trigger action. Subscribers
-register a flow as a trigger action by deploying a `TriggerAction__mdt` row with `FlowName__c` populated and
-`ApexClassName__c` left blank — the framework auto-resolves the dispatch target to its built-in flow runner. The
-dispatcher constructs the flow interview, supplies the trigger record, executes the flow, and copies the
-populated fields back onto the trigger record. The action inherits ordering, bypass, recursion control,
-performance monitoring, audit logging, and feature-flag gating from the standard dispatcher path.
+Sometimes the logic you want to add is easier to build in Flow than in Apex. You can run an auto-launched Flow as a trigger action and have it behave exactly like an Apex action, with the same run order, bypass, recursion control, performance monitoring, audit logging, and feature-flag gating.
+
+To register a flow, deploy a `TriggerAction__mdt` row with `FlowName__c` populated and
+`ApexClassName__c` left blank. The framework then dispatches to its built-in flow runner: it
+constructs the flow interview, supplies the trigger record, runs the flow, and copies the
+populated fields back onto the trigger record. You write no Apex to wire it up.
 
 **For a copy-paste quick start** see the [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md#using-flow-as-a-trigger-action)
 walkthrough. The decision criteria, error strategies, audit gating, bypass / rollback options, and TAF migration
@@ -1078,7 +1080,7 @@ recipe live in this guide below.
 |--------------------|-----------|-----------------------------------|------------------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `FlowName__c`      | Text(80)  | Yes (XOR with `ApexClassName__c`) | —                | Bare flow API name, no namespace prefix | Flow API name bound to this action. The framework resolves the namespace internally. Validated at deploy by the `npm run scan:flow-references` CI scanner rule (existence + active state + variable contract).                                                                                                                    |
 | `ApexClassName__c` | Text(100) | Leave blank for flow actions      | —                | —                                       | Leave this field blank when configuring a flow action. The `MutuallyExclusiveTarget` validation rule rejects rows with both fields populated.                                                                                                                                                                                     |
-| `FailureAction__c` | Picklist  | No (defaulted)                    | `LogAndContinue` | `LogAndContinue`, `BlockDml`            | How the framework handles uncaught flow errors. `LogAndContinue` (default) emits a `LogEntryEvent__e` and lets DML proceed; `BlockDml` calls `record.addError(...)` to stop the save and surface the flow error to the user. See [Failure-action strategies](#failure-action-strategies) — the field applies to Apex actions too. |
+| `FailureAction__c` | Picklist  | No (defaulted)                    | `LogAndContinue` | `LogAndContinue`, `BlockDml`            | How the framework handles uncaught flow errors. `LogAndContinue` (default) emits a `LogEntryEvent__e` and lets DML proceed; `BlockDml` calls `record.addError(...)` to stop the save and surface the flow error to the user. See [Failure-action strategies](#failure-action-strategies); the field applies to Apex actions too. |
 
 ### Variable contract on the registered flow
 
@@ -1091,8 +1093,8 @@ one or two variables, exactly as listed below:
 | `recordPrior` | The trigger object (e.g. `Account`) | **Input only**     | Before Update / After Update only |
 
 The variable type must match the dispatching `TriggerSetting__mdt.SObjectType__c` exactly. A flow whose `record`
-variable is typed `Contact` cannot be registered against an `Account` trigger setting — type mismatch is
-unrecoverable at runtime. The deploy-time CI scanner rule (`npm run scan:flow-references`) catches this before
+variable is typed `Contact` cannot be registered against an `Account` trigger setting, because a type mismatch
+cannot be recovered from at runtime. The deploy-time CI scanner rule (`npm run scan:flow-references`) catches this before
 merge by reading the active flow's `Metadata.variables` via Tooling API and comparing the `objectType` to the
 dispatching trigger setting.
 
@@ -1100,15 +1102,15 @@ dispatching trigger setting.
 
 | Field                                      | Type     | Default      | Allowed values                  | Purpose                                                                                                                                                                                                                                                                                                                                                                                    |
 |--------------------------------------------|----------|--------------|---------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `LogSetting__c.EnableFlowActionLogging__c` | Text(40) | `ErrorsOnly` | `Off`, `ErrorsOnly`, `AlwaysOn` | Controls how often the framework writes flow-action audit log entries. `Off` disables audit logging entirely. `ErrorsOnly` (default) logs one entry per failed flow run, with the failed record identified. `AlwaysOn` logs one summary entry per successful batch plus one entry per failed record — use this only in orgs that need compliance-grade evidence of every flow trigger run. |
+| `LogSetting__c.EnableFlowActionLogging__c` | Text(40) | `ErrorsOnly` | `Off`, `ErrorsOnly`, `AlwaysOn` | Controls how often the framework writes flow-action audit log entries. `Off` disables audit logging entirely. `ErrorsOnly` (default) logs one entry per failed flow run, with the failed record identified. `AlwaysOn` logs one summary entry per successful batch plus one entry per failed record. Use this only in orgs that need compliance-grade evidence of every flow trigger run. |
 
-The volume gate is layered per-user in the same way as the existing `LogSetting__c.LogLevelThreshold__c` field —
+The volume gate is layered per-user in the same way as the existing `LogSetting__c.LogLevelThreshold__c` field:
 each user can have their own `LogSetting__c` record overriding the org-default. Performance logging is
 controlled separately via the existing `LogSetting__c.TriggerPerformanceThresholdMs__c` field.
 
 ### Mock harness
 
-`TST_InvokeFlowMock.forFlow(name)...register()` short-circuits `Flow.Interview` at test time — see
+In tests you do not want to run a real flow. `TST_InvokeFlowMock.forFlow(name)...register()` short-circuits `Flow.Interview` at test time. See
 [Fast Start - Trigger Actions: Testing Flow Actions with TST_InvokeFlowMock](Fast%20Start%20-%20Trigger%20Actions.md#testing-flow-actions-with-tst_invokeflowmock) for the helper
 reference and the worked example.
 
@@ -1125,17 +1127,17 @@ bypass, shared audit) or run **alongside** them as an independent unit. Interlea
 | Validation flows that must respect existing `UTIL_ValidationRule` bypass / group-of-rules wiring | Flow action with `FailureAction__c = 'BlockDml'`                                                                                                             |
 | Async / scheduled-path Flow logic                                                                | Native record-triggered flow (a flow action runs synchronously inside the trigger)                                                                           |
 | Flow needs to abort the save with a custom message                                               | Flow action with `FailureAction__c = 'BlockDml'` (the framework copies the flow's error to `record.addError(...)` with the flow name and record id appended) |
-| Flow only updates the same record's fields and runs once per save                                | Either — flow action if other Apex actions are already configured on the object; native RTF otherwise                                                        |
+| Flow only updates the same record's fields and runs once per save                                | Either one: a flow action if other Apex actions are already configured on the object; a native record-triggered flow otherwise                               |
 
 ### Failure-action strategies
 
-`FailureAction__c` is a per-row error-handling policy applied to **every** trigger action — Apex and flow alike. The
+When an action throws an error, you need to decide whether the user's save should still go through or be stopped. `FailureAction__c` is that decision, set per row, and it applies to **every** trigger action (Apex and flow alike). The
 dispatcher wraps each action invocation in a try/catch and routes any uncaught `Exception` through the configured
 policy.
 
 | Strategy                   | Behaviour on action error                                                                                                                                      | Recommended for                                                                                                                                                                 |
 |----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `LogAndContinue` (default) | Emits a `LogEntryEvent__e` via `LOG_Builder` with `LogLevel__c = ERROR`, the action identity, the record id, and the original error message. **DML proceeds.** | Orchestration, derived-field population, notifications, supplemental logging — anything where a single action's failure should be visible but should not block the user's save. |
+| `LogAndContinue` (default) | Emits a `LogEntryEvent__e` via `LOG_Builder` with `LogLevel__c = ERROR`, the action identity, the record id, and the original error message. **DML proceeds.** | Orchestration, derived-field population, notifications, supplemental logging: anything where a single action's failure should be visible but should not block the user's save. |
 | `BlockDml`                 | Calls `record.addError(formattedMessage)` to block DML. Surfaces the error to the user.                                                                        | Validation actions where the trigger should reject records that fail the action's checks.                                                                                       |
 
 The formatted error message for flow actions has the shape:
@@ -1154,12 +1156,12 @@ history for the same record.
 
 ### Cross-namespace flow resolution
 
-`FlowName__c` accepts a **bare flow API name** — never a namespace-qualified name. The framework resolves the namespace
+`FlowName__c` accepts a **bare flow API name**, never a namespace-qualified name. The framework resolves the namespace
 internally by calling the 2-arg form `Flow.Interview.createInterview(flowName, variables)`, which returns the active
-flow regardless of whether it lives in the kern namespace or the subscriber namespace.
+flow whether it lives in the kern namespace or in your own namespace.
 
-- A `FlowName__c` value of `Account_SetDefaults` resolves to the subscriber-namespace flow when the dispatching CMDT
-  row is in the subscriber's package, and to the kern-namespace flow when the row is in the kern package. Both work
+- A `FlowName__c` value of `Account_SetDefaults` resolves to the flow in your own namespace when the dispatching CMDT
+  row is in your package, and to the kern-namespace flow when the row is in the kern package. Both work
   from the same field shape.
 - Authors should not prefix `FlowName__c` with `kern.` or any other namespace. A namespace prefix in this field
   produces a deploy-time scanner error and a runtime configuration error.
@@ -1170,25 +1172,25 @@ When you ship a flow-action row, default these fields based on the flow's purpos
 
 | Flow purpose                                                              | `FailureAction__c` | `AllowRecursion__c` | Notes                                                                    |
 |---------------------------------------------------------------------------|--------------------|---------------------|--------------------------------------------------------------------------|
-| Orchestration (set defaults, populate derived fields, send notifications) | `LogAndContinue`   | `true`              | Default shape — production-resilient, audit-visible.                     |
+| Orchestration (set defaults, populate derived fields, send notifications) | `LogAndContinue`   | `true`              | Default shape: production-resilient, audit-visible.                      |
 | Validation (reject records that fail business rules)                      | `BlockDml`         | `true`              | Surfaces the flow's error to the user.                                   |
 | Cascading update (writes to related records)                              | `LogAndContinue`   | `false`             | Block recursion on the originating object to avoid unintended self-fire. |
 
 ### Audit volume control
 
-Every flow-action invocation can emit a `LogEntryEvent__e` audit entry. Volume is controlled by
-`LogSetting__c.EnableFlowActionLogging__c` — a 3-state field shared by the org or layered per-user (mirrors the
+Every flow-action invocation can emit a `LogEntryEvent__e` audit entry. You control how much it logs with
+`LogSetting__c.EnableFlowActionLogging__c`, a 3-state field set for the org or layered per-user (it mirrors the
 existing `LogLevelThreshold__c` precedent on the same custom setting):
 
 | Value                  | Success path                                                                                                           | Error path                                                                 | When to use                                                                                                                       |
 |------------------------|------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `Off`                  | No emission                                                                                                            | No emission                                                                | Integration-only orgs where audit volume is excessive and external observability already covers the path.                         |
-| `ErrorsOnly` (default) | No emission                                                                                                            | One entry per failed record (with `RecordId__c` set, queryable per-record) | Production default — bounded volume, full forensic coverage of failures.                                                          |
-| `AlwaysOn`             | One per-batch summary entry per dispatch (record ids serialised into `ContextData__c.recordIds`, `RecordId__c = null`) | One entry per failed record                                                | High-regulation orgs where every flow trigger run must be evidenced. Heavy DML multiplies entry volume — measure before flipping. |
+| `ErrorsOnly` (default) | No emission                                                                                                            | One entry per failed record (with `RecordId__c` set, queryable per-record) | Production default: bounded volume, with a kept record of every failure.                                                          |
+| `AlwaysOn`             | One per-batch summary entry per dispatch (record ids serialised into `ContextData__c.recordIds`, `RecordId__c = null`) | One entry per failed record                                                | High-regulation orgs where every flow trigger run must be evidenced. Heavy DML multiplies entry volume, so measure before flipping. |
 
 Performance logging is separate from audit logging and is always sparse (only emits when an action exceeds its
 `PerformanceThresholdMs__c`). The two log streams can be queried independently, and the perf log entry includes
-`flowName` as a context dimension so subscribers can filter perf logs by flow.
+`flowName` as a context dimension so you can filter perf logs by flow.
 
 ### Bypass and rollback
 
@@ -1197,16 +1199,16 @@ Two options, in priority order from most-surgical to most-broad:
 1. **Per-row declarative bypass (recommended for surgical disable).** Set `BypassExecution__c = true` on the specific
    `TriggerAction__mdt` row. One-row CMDT deploy disables this flow action and only this flow action.
 2. **Per-row feature-flag bypass (recommended for staged rollout).** Set the row's `RequiredFeatureFlag__c` to a
-   `FeatureFlag__mdt` record and flip its `IsEnabledByDefault__c` to `false`. Useful when several flow actions need
-   to be gated together — point them all at the same feature flag and flip the flag once.
+   `FeatureFlag__mdt` record and flip its `IsEnabledByDefault__c` to `false`. This is useful when several flow actions need
+   to be gated together: point them all at the same feature flag and flip the flag once.
 
 Per-flow surgical bypass via Apex (e.g. `bypassFlow('Account_SetDefaults')`) is not provided. To disable a specific
 flow action, use option 1 or option 2 above.
 
 ### Migrating from TAF to KernDX
 
-Both frameworks invoke a flow once per record and follow the same authoring contract — the auto-launched flow
-declares a `record` variable matching the trigger object. Migration is a metadata-only field rename on the
+If you already run flows through the Trigger Action Flow (TAF) library, moving them to KernDX is low-effort. Both frameworks invoke a flow once per record and follow the same authoring contract: the auto-launched flow
+declares a `record` variable matching the trigger object. The flow does not change, and the migration is a metadata-only field rename on the
 `Trigger_Action__mdt` records:
 
 ```xml
@@ -1219,30 +1221,29 @@ declares a `record` variable matching the trigger object. Migration is a metadat
 <values><field>kern__FailureAction__c</field><value xsi:type="xsd:string">LogAndContinue</value></values>
 ```
 
-The flow itself does not change. Note that `kern__ApexClassName__c` is **omitted** from KernDX flow rows — the
+Note that `kern__ApexClassName__c` is **omitted** from KernDX flow rows: the
 framework dispatches via its built-in flow runner whenever `FlowName__c` is populated and `ApexClassName__c` is
 blank. Setting both fields fails the `MutuallyExclusiveTarget` validation rule.
 
-`FailureAction__c` defaults to `LogAndContinue` if left blank — explicitly specify it on every record so future
+`FailureAction__c` defaults to `LogAndContinue` if left blank. Set it explicitly on every record so future
 readers don't have to look up framework defaults to know how the row will behave.
 
 ---
 
 ## Change Data Capture Actions
 
-[Change Data Capture](https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_intro.htm)
+Sometimes you need to react to a change *after* it has been saved, including changes that did not come through the normal UI: a Bulk API job, an integration, or another package. [Change Data Capture](https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_intro.htm)
 publishes a Change Event whenever a record is created, updated, deleted, or undeleted. KernDX runs trigger actions on
-those Change Events through the same metadata-driven framework you already use for object triggers — so you can react
-to committed changes (including changes made by Bulk API jobs, integrations, or other packages) with ordered,
+those Change Events through the same framework you already use for object triggers, so you can respond to any committed change with ordered,
 bypassable, feature-flag-gated actions written in Apex or Flow.
 
 A Change Event action runs **after** the change has committed. There is no before-phase and nothing to roll back: the
-event is a notification that the change already happened.
+event is simply a notification that the change already happened.
 
 ### The Change Event trigger
 
-A Change Event entity gets the same one-line physical trigger as any object. Change Events are insert-only from the
-subscriber's side, so the trigger handles `after insert`:
+A Change Event entity gets the same one-line trigger file as any object, the one that hands control to the framework. Change Events can only be inserted from your
+side, so the trigger handles `after insert`:
 
 ```apex
 trigger TRG_FoobarChangeEvent on Foobar__ChangeEvent (after insert)
@@ -1255,12 +1256,12 @@ Each delivered event is one record in the action's incoming list. A single event
 records of the same object, because the platform batches changes committed together.
 
 > **Enabling Change Data Capture:** the Change Event entity (`Foobar__ChangeEvent`) only exists once CDC is switched
-> on for the object — in **Setup → Change Data Capture**, or by deploying a `PlatformEventChannel` and
+> on for the object, either in **Setup → Change Data Capture** or by deploying a `PlatformEventChannel` and
 > `PlatformEventChannelMember`. The framework does not enable CDC for you.
 
 ### Registering a Change Event action
 
-Change Event entities cannot be selected in the **SObject Type** relationship picklist on `TriggerSetting__mdt` — the
+Change Event entities cannot be selected in the **SObject Type** relationship picklist on `TriggerSetting__mdt`, because the
 platform excludes them from that lookup. Register the setting with the **Object API Name Override** field instead:
 
 | Field                      | Value for a CDC setting                                                                                    |
@@ -1274,13 +1275,13 @@ validation rule:
 > Set either SObject Type (for standard objects, custom objects, and platform events) or Object API Name Override (for
 > Change Data Capture entities). At least one must be populated.
 
-Once the setting exists, register `TriggerAction__mdt` rows against it exactly as you would for any object — set
+Once the setting exists, register `TriggerAction__mdt` rows against it exactly as you would for any object. Set
 `Event__c` to `After Insert`, and populate either `ApexClassName__c` (for an Apex action) or `FlowName__c` (for a flow
 action).
 
 ### Reading the change header
 
-Every Change Event carries a header describing what changed — the change type, the affected record IDs, the changed
+Every Change Event carries a header describing what changed: the change type, the affected record IDs, the changed
 field names, and commit metadata.
 
 **Apex actions** read the platform header straight off the event record:
@@ -1305,13 +1306,13 @@ public inherited sharing class TRG_FoobarChangeAudit extends TRG_Base implements
 
 **Flow actions** receive the header as a strongly-typed input variable. Beyond the standard `record` input (which holds
 the Change Event itself), a flow registered against a Change Event entity also receives a variable named `header` of
-type [`DTO_ChangeEventHeader`](reference/apex/DTO_ChangeEventHeader.md). Declare an Apex-defined variable on the flow:
+type [`DTO_ChangeEventHeader`](reference/apex/DTO_ChangeEventHeader.md). (A DTO is a small class holding exactly the fields you want to read.) Declare an Apex-defined variable on the flow:
 
 - **Variable name:** `header`
 - **Type:** Apex-Defined
 - **Apex Class:** `DTO_ChangeEventHeader`
 
-The framework projects the platform header onto the DTO and populates `header` before the interview runs — you write no
+The framework copies the platform header into that DTO and populates `header` before the interview runs, so you write no
 Apex to bridge it. Read its fields in assignments and decisions, for example `header.changeType`, `header.recordIds`,
 and `header.changedFields`.
 
@@ -1322,9 +1323,9 @@ The header exposes the supported subset of the platform's change-event metadata:
 | `changeType`                                      | `CREATE`, `UPDATE`, `DELETE`, `UNDELETE`, or a `GAP_*` replay-gap notification.                   |
 | `recordIds`                                       | The source record IDs this event covers.                                                          |
 | `changedFields`                                   | The fields whose values changed in this commit.                                                   |
-| `entityName`                                      | The source object API name (`Foobar__c`) — not the Change Event suffix.                           |
+| `entityName`                                      | The source object API name (`Foobar__c`), not the Change Event suffix.                            |
 | `changeOrigin`                                    | The change's origin; useful for filtering out self-initiated changes.                             |
-| `commitTimestamp` / `commitUser` / `commitNumber` | Commit metadata — note `commitTimestamp` is Unix epoch milliseconds (a `Long`), not a `Datetime`. |
+| `commitTimestamp` / `commitUser` / `commitNumber` | Commit metadata. Note `commitTimestamp` is Unix epoch milliseconds (a `Long`), not a `Datetime`.  |
 | `transactionKey` / `sequenceNumber`               | Correlate changes from the same atomic transaction.                                               |
 | `nulledFields` / `diffFields`                     | Fields nulled, and large/complex fields that differ from the prior commit.                        |
 
@@ -1333,7 +1334,7 @@ See the [`DTO_ChangeEventHeader` reference](reference/apex/DTO_ChangeEventHeader
 ### Block DML is unavailable for Change Data Capture
 
 `FailureAction__c = BlockDml` cannot apply to a Change Event action. Block DML works by calling `addError(...)` to abort
-an in-progress save — but a Change Event is delivered *after* the change has already committed, so there is nothing left
+an in-progress save, but a Change Event is delivered *after* the change has already committed, so there is nothing left
 to block. Two layers keep you from configuring it by accident:
 
 - **At deploy:** the flow-reference scanner (`npm run scan:flow-references`) rejects a Change Event *flow* row whose
@@ -1355,12 +1356,13 @@ the dispatch continues; the underlying data is already committed regardless.
 
 ## Post-Trigger Actions
 
+Some work should happen once for the whole transaction, not once per object or per record: one audit summary for everything that changed, a single background job for the whole batch, or transaction-wide metrics. That work does not belong inside any one object's trigger action.
+
 A **post-trigger action** is an Apex class that runs **once at the very end of a trigger transaction**, after every
-trigger action on every object has finished. It exists for transaction-scoped or cross-object work that does not belong
-inside any single object's trigger action — for example, aggregating one audit summary for the whole transaction,
+trigger action on every object has finished. Examples of what to put there: aggregating one audit summary for the whole transaction,
 enqueuing a single asynchronous job, or emitting transaction-wide telemetry.
 
-Post-trigger actions are registered with `PostTriggerAction__mdt` and inherit the framework's ordering, feature-flag
+You register a post-trigger action with `PostTriggerAction__mdt`, and it inherits the framework's ordering, feature-flag
 gating, bypass, and performance monitoring.
 
 ### When post-trigger actions fire
@@ -1368,10 +1370,10 @@ gating, bypass, and performance monitoring.
 Post-trigger actions fire **once per outermost trigger dispatch**:
 
 - **Nested DML does not re-fire them.** If a trigger action performs DML on another object, that nested dispatch does
-  not run post-actions — the framework fires them only when the outermost dispatch unwinds, so they run exactly once no
+  not run post-actions. The framework fires them only when the outermost dispatch unwinds, so they run exactly once no
   matter how deeply triggers nest.
 - **Multiple top-level DML statements fire them multiple times.** A transaction with several independent top-level DML
-  statements runs post-actions once for each of them — once as each top-level dispatch completes. Write post-actions to
+  statements runs post-actions once for each of them, once as each top-level dispatch completes. Write post-actions to
   be safe to run more than once in a transaction.
 - **Asynchronous and platform-event work gets its own firing.** A Queueable, future, scheduled job, or platform-event
   subscriber runs in a fresh transaction, so its triggers produce their own outermost dispatch and their own
@@ -1380,15 +1382,15 @@ Post-trigger actions fire **once per outermost trigger dispatch**:
 ### The no-DML contract
 
 **A post-trigger action must not perform synchronous DML.** After your `execute(...)` returns, the framework checks
-whether any synchronous DML ran and throws if it did — and this **always fails the transaction**, regardless of the
+whether any synchronous DML ran and throws if it did. This **always fails the transaction**, regardless of the
 row's Failure Action, because it is a contract violation rather than a runtime fault. The error names the offending
 class:
 
 > Post-trigger action "{class}" performed synchronous DML. Post-trigger actions run once after all trigger actions
 > complete and must not perform synchronous DML (compute, log, or enqueue async only).
 
-To change data from a post-action, use an **asynchronous** path: enqueue a Queueable, future, or scheduled job, or
-publish a Platform Event. These are the supported escape hatches and do not trip the guard.
+To change data from a post-action, use an **asynchronous** path instead: enqueue a Queueable, future, or scheduled job, or
+publish a Platform Event. These are the supported ways to write data from a post-action, and they do not trip the guard.
 
 ### Intended uses and anti-patterns
 
@@ -1399,7 +1401,7 @@ publish a Platform Event. These are the supported escape hatches and do not trip
 | Cross-object orchestration that must run after all object triggers complete | Logic that needs per-record old/new values                     |
 | Transaction-wide metrics or instrumentation                                 | Object-specific business logic                                 |
 
-A post-trigger action has no per-record context — only the set of SObject *types* whose triggers fired — and cannot do
+A post-trigger action has no per-record context (only the set of SObject *types* whose triggers fired) and cannot do
 synchronous DML. Anything that needs a specific record's values, or that writes data, belongs in a normal trigger action
 on the relevant object.
 
@@ -1424,7 +1426,7 @@ public inherited sharing class TRG_EmitTransactionAudit implements IF_Trigger.Po
 }
 ```
 
-`context.touchedSObjectTypes` is a read-only `Set<SObjectType>` — the SObject types whose triggers participated in the
+`context.touchedSObjectTypes` is a read-only `Set<SObjectType>`: the SObject types whose triggers participated in the
 transaction. Branch on it to decide what to do:
 
 ```apex
@@ -1449,14 +1451,14 @@ Create a `PostTriggerAction__mdt` record. See the
 | `ApexClassName__c`                                         | The class implementing `IF_Trigger.PostAction`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `Order__c`                                                 | Execution sequence (lower runs first). Rows sharing an order value have no guaranteed sequence.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `Description__c`                                           | What the post-action does and why it exists.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `FailureAction__c`                                         | How an unhandled error is handled. **Log and Continue** (the default) records the error in the audit log and lets the transaction proceed — best for non-critical follow-up such as notifications or telemetry. **Block DML** rethrows the error so the originating DML rolls back — choose it when the post-action must be guaranteed to complete before any data is committed. Either way, governor-limit exceptions always propagate, and a synchronous-DML violation always fails the transaction regardless of this setting. |
-| `RequiredFeatureFlag__c` / `BypassFeatureFlag__c`          | Feature-flag gating — run only when a flag is on, or skip when a flag is on. Same model as trigger actions.                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `BypassExecution__c`                                       | Unconditional kill switch — when checked, the post-action is skipped for everyone.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `FailureAction__c`                                         | How an unhandled error is handled. **Log and Continue** (the default) records the error in the audit log and lets the transaction proceed; best for non-critical follow-up such as notifications or telemetry. **Block DML** rethrows the error so the originating DML rolls back; choose it when the post-action must be guaranteed to complete before any data is committed. Either way, governor-limit exceptions always propagate, and a synchronous-DML violation always fails the transaction regardless of this setting. |
+| `RequiredFeatureFlag__c` / `BypassFeatureFlag__c`          | Feature-flag gating: run only when a flag is on, or skip when a flag is on. Same model as trigger actions.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `BypassExecution__c`                                       | Unconditional kill switch (a master off-switch): when checked, the post-action is skipped for everyone.                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `TriggerSetting__c`                                        | Optional scope. Leave blank to fire on every outermost dispatch (cross-object work). Set it to a Trigger Setting to fire **only** when that setting's object participated in the transaction.                                                                                                                                                                                                                                                                                                                                     |
-| `EntryCriteriaContextClassName__c`                         | Optional Apex evaluator implementing `IF_Trigger.PostActionEntryCriteria`. Its `shouldRun(context)` gates the action — return `false` to skip. Use for conditions richer than the Trigger Setting scope.                                                                                                                                                                                                                                                                                                                          |
-| `PerformanceThresholdMs__c` / `ForcePerformanceLogging__c` | Per-action performance monitoring — log when the action runs longer than the threshold, or force its timing to be logged every time. Inherits the global default when blank.                                                                                                                                                                                                                                                                                                                                                      |
+| `EntryCriteriaContextClassName__c`                         | Optional Apex evaluator implementing `IF_Trigger.PostActionEntryCriteria`. Its `shouldRun(context)` gates the action: return `false` to skip. Use for conditions richer than the Trigger Setting scope.                                                                                                                                                                                                                                                                                                                           |
+| `PerformanceThresholdMs__c` / `ForcePerformanceLogging__c` | Per-action performance monitoring: log when the action runs longer than the threshold, or force its timing to be logged every time. Inherits the global default when blank.                                                                                                                                                                                                                                                                                                                                                       |
 
-Bypass Execution is applied first, at query time — the framework loads only non-bypassed rows. The surviving rows are
+Bypass Execution is applied first, at query time: the framework loads only non-bypassed rows. The surviving rows are
 then gated in order, cheapest check first, and the framework stops at the first gate that excludes a row: feature flags
 → Trigger Setting scope → entry-criteria evaluator → run.
 
@@ -1823,8 +1825,7 @@ public inherited sharing class TRG_CreateRestoreReviewTask extends TRG_Base impl
 
 ## Caching with Trigger Actions
 
-One of the most powerful features of the Trigger Action Framework is the ability to cache data using ordered actions. **Early actions can query and cache data that later actions
-consume**, eliminating redundant SOQL queries and improving performance.
+When several actions on the same object need the same related data, querying it in each one wastes queries and risks hitting governor limits. Because actions run in a defined order, you can query once and share the result: **an early action queries and caches the data, and later actions read from that cache**. The result is fewer SOQL queries and faster triggers.
 
 ### Caching Pattern Overview
 
@@ -2175,7 +2176,7 @@ private class TRG_ValidatePremiumAccountContacts_TEST
 
 ## Function-Like Coordination
 
-Trigger actions act like **functions in a pipeline**, where:
+Because each action is small and runs in a known order, you can build complex behaviour by composing several simple actions rather than writing one large one. Think of the actions as **functions in a pipeline**, where:
 
 - Each action has a **single, focused responsibility**
 - Actions execute in a **defined order** (like function calls)
@@ -2338,7 +2339,7 @@ TRG_NotifyReviewers:
 
 ### Recursion Prevention
 
-Actions can control recursive execution to prevent infinite loops.
+An action that updates the same object can trigger itself, which risks an infinite loop. You can stop that by telling the framework to run an action only once per transaction.
 
 **How It Works:**
 
@@ -2392,7 +2393,7 @@ public inherited sharing class TRG_UpdateAccountFromContact extends TRG_Base imp
 
 ### Self-Initiated Control
 
-Actions can control whether they execute when triggered indirectly.
+Sometimes you want an action to run only when a user changes the object directly, not when another object's trigger changes it as a side effect. This setting gives you that control.
 
 **How It Works:**
 
@@ -2442,8 +2443,8 @@ public inherited sharing class TRG_CreateDefaultContact ...
 
 ### Bypass Mechanisms
 
-Multiple levels of bypass control for runtime flexibility. Every programmatic bypass call (object-level and
-action-level) emits a `LogEntryEvent__e` at WARN level with a `BypassEvent` category — creating an audit trail
+During a data load, migration, or incident, you sometimes need to turn trigger logic off without a deployment. The framework gives you several levels of bypass: an entire object, a single action, or a flag-controlled group. Every programmatic bypass call (object-level and
+action-level) emits a `LogEntryEvent__e` at WARN level with a `BypassEvent` category, creating an audit trail
 of who bypassed which actions and why.
 
 #### Object-Level Bypass (TriggerSetting__mdt)
@@ -2513,8 +2514,8 @@ the running user, the action (`BYPASS`, `CLEAR`, `CLEAR_ALL`), the surface (`tri
 The same audit channel covers query (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity` →
 `surface = 'query'`), DML (`DML_Builder.withSystemMode` / `bypassSharing` → `surface = 'dml'`), and validation
 (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule` → `surface = 'validation'`) bypasses.
-Subscribers can disable runtime emission in noisy environments via a `FeatureFlagStrategy__mdt` override on
-the `BypassAudit_Enabled` `FeatureFlag__mdt` record (default-on).
+In a noisy environment you can turn this runtime emission off via a `FeatureFlagStrategy__mdt` override on
+the `BypassAudit_Enabled` `FeatureFlag__mdt` record (it is on by default).
 
 ```apex
 // Attach a business reason to any bypasses emitted in this transaction
@@ -2524,7 +2525,7 @@ TRG_Base.bypass(Account.SObjectType);
 TRG_Base.bypassAction('TRG_ValidateAccount');
 ```
 
-The `TRG_Base.BypassAction` enum is `global` and subscribers can reason about bypass events directly. To
+The `TRG_Base.BypassAction` enum is `global`, so you can reason about bypass events directly in your own code. To
 query the audit log:
 
 ```apex
@@ -2571,7 +2572,7 @@ TriggerSetting__mdt:
 
 **Use Cases:**
 
-- Emergency kill switches (enable flag to bypass — no deployment required)
+- Emergency kill switches, a master off-switch you can flip in an incident (enable the flag to bypass, no deployment required)
 - Targeted bypass for integration users via Permission Set Group strategy
 - Data migration bypass controlled by Feature Flag
 
@@ -2606,9 +2607,9 @@ TriggerAction__mdt:
 
 ### Feature Flag Integration
 
-The `BypassFeatureFlag__c` and `RequiredFeatureFlag__c` fields on both `TriggerSetting__mdt` and `TriggerAction__mdt` are **MetadataRelationship** lookups to `FeatureFlag__mdt`
-records managed through the [Feature Flag framework](reference/apex/UTIL_FeatureFlag.md). They appear as dropdown pickers in the Custom Metadata UI, providing referential integrity
-and preventing typos.
+Feature flags let you roll an action out to a chosen group of users, or switch it off in an emergency, without redeploying. The `BypassFeatureFlag__c` and `RequiredFeatureFlag__c` fields on both `TriggerSetting__mdt` and `TriggerAction__mdt` are **MetadataRelationship** lookups to `FeatureFlag__mdt`
+records managed through the [Feature Flag framework](reference/apex/UTIL_FeatureFlag.md). They appear as dropdown pickers in the Custom Metadata UI, which keeps the link valid
+and prevents typos.
 
 **How It Works:**
 
@@ -2690,7 +2691,7 @@ Trigger action "Account_SyncExternal" on Account SKIPPED. Setting required not m
 
 ### Entry Criteria Formulas
 
-Execute actions conditionally based on formula evaluation per record.
+To run an action only for certain records (say, only Premium accounts), give it an entry criteria formula. The framework evaluates that formula per record and passes only the matching records to your action, so the action's own code stays free of filtering logic.
 
 #### Simple Entry Criteria
 
@@ -2838,6 +2839,8 @@ isHighValue && (statusChanged || oldRecord == null)
 ---
 
 ## Common Patterns
+
+Most trigger work falls into a handful of recurring shapes. Each pattern below pairs a common job with a worked action you can copy and adapt.
 
 ### Validation Pattern
 
@@ -3090,6 +3093,8 @@ public inherited sharing class TRG_AuditStatusChanges extends TRG_Base implement
 
 ## Testing
 
+Because each action is a small, self-contained class, you can test it on its own rather than exercising the whole trigger. The examples below show the two common styles: a full save through the framework, and a direct call to one action with no database writes at all.
+
 ### Testing Individual Actions
 
 ```apex
@@ -3179,7 +3184,7 @@ private class TRG_ValidateAccount_TEST
 
 ### Testing an Action Without DML
 
-Every action receives its records as a plain `List<SObject>`, so you can unit-test one in isolation — no `insert`, no dispatcher, and no `TriggerAction__mdt` deployment. Build the trigger records in memory, and if the action reads related data through a selector, register those rows with [`TST_Mock`](reference/apex/TST_Mock.md) so the query returns them without a database round-trip.
+Every action receives its records as a plain `List<SObject>`, so you can unit-test one in isolation with no `insert`, no dispatcher, and no `TriggerAction__mdt` deployment. Build the trigger records in memory, and if the action reads related data through a selector, register those rows with [`TST_Mock`](reference/apex/TST_Mock.md) so the query returns them without a database round-trip.
 
 ```apex
 @IsTest(SeeAllData=false IsParallel=true)
@@ -3344,8 +3349,7 @@ private static void entryCriteria_givenNonPremium_shouldNotExecute()
 
 ## Performance Logging
 
-The Trigger Action Framework includes built-in performance monitoring that automatically times trigger action execution and logs slow operations. This helps identify performance
-bottlenecks without adding instrumentation code to your trigger actions.
+When a trigger gets slow, you need to know which action is to blame without scattering timing code through your classes. The framework times every action for you and logs the slow ones, so you can find the bottleneck from a report instead of by guesswork.
 
 ### Performance Logging Overview
 
@@ -3488,11 +3492,13 @@ Create a report on `LogEntry__c` with:
 | Review logs weekly                                      | Identify degrading performance trends       |
 | Set stricter thresholds for high-volume objects         | Catch issues before they impact users       |
 
-> **See Also:** For comprehensive logging documentation including correlation tracking, context stack, and other performance timers, see [Logging - Guide](Logging%20-%20Guide.md).
+> **See Also:** For the full logging documentation, including correlation tracking (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), the context stack, and other performance timers, see [Logging - Guide](Logging%20-%20Guide.md).
 
 ---
 
 ## Capability Matrix (for Analysts)
+
+If you configure triggers without writing Apex, this table is your map: each row is a capability, the metadata record and field that control it, and what it does.
 
 | Capability             | Custom Metadata       | Field                                            | Notes                                                                                                                                                                                                     |
 |------------------------|-----------------------|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -3511,6 +3517,8 @@ Create a report on `LogEntry__c` with:
 ---
 
 ## Anti-Patterns
+
+These are the common mistakes that make trigger logic hard to maintain. Each row names the mistake, why it hurts, and what to do instead.
 
 | Anti-Pattern                                        | Why It's Wrong                                                                     | Instead                                                                    |
 |-----------------------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
@@ -3551,6 +3559,8 @@ Create a report on `LogEntry__c` with:
 ---
 
 ## Troubleshooting
+
+Find your symptom below, then work through the likely causes and the fixes for each.
 
 ### Common Issues
 

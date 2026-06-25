@@ -6,24 +6,24 @@ navOrder: 38
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-> Toggle features on and off per user, profile, or permission — zero deployments, zero code changes.
+**What this is:** A way to switch features on and off in a live org by editing a configuration record, with no deployment and no code change. You can flip a feature for everyone, or target it by user, profile, permission, or group. **Why it exists:** Shipping a risky change behind a flag lets you turn it on for a few people first, watch how it behaves, and roll it back instantly if something goes wrong. **Who should follow this:** developers building features they want to release gradually, plus admins and tech leads who manage rollouts. **When to use it:** any time you want to release code one audience at a time, or keep a master off-switch ready for an incident.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see the [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 **What you'll build:** A pricing service that switches between legacy and new calculation logic based on a
 feature flag.
 
-**Success looks like:** Toggling a Custom Metadata record flips your code from one execution path to another —
+**Success looks like:** Toggling a Custom Metadata record flips your code from one execution path to another, with
 no deployment needed.
 
-**In one line:** `if(kern.UTIL_FeatureFlag.isEnabled('NewPricing'))` -- one metadata record controls the
-behaviour, toggled without deployment.
+**In one line:** `if(kern.UTIL_FeatureFlag.isEnabled('NewPricing'))`, where one metadata record controls the
+behaviour and is toggled without deployment.
 
 ---
 
@@ -82,7 +82,7 @@ System.debug('NewPricingEngine enabled: ' + isEnabled);
 NewPricingEngine enabled: false
 ```
 
-Flags that don't exist return `false` — safe by default. Your code won't break if a flag hasn't been created
+A flag that doesn't exist returns `false`, so the behaviour is safe by default. Your code won't break if a flag hasn't been created
 yet.
 
 ### Use a flag in conditional logic
@@ -204,8 +204,8 @@ sf project delete source -o YourOrgAlias \
 > **Prefer the UI?** Go to **Setup > Custom Metadata Types > Feature Flag > Manage Records**, click **Del** next
 > to `NewPricingEngine`, and confirm.
 
-Re-run the same code — you're back to `Using LEGACY pricing engine`. This confirms the safe default: missing
-flags always return `false`.
+Re-run the same code and you're back to `Using LEGACY pricing engine`. This confirms the safe default: a missing
+flag always returns `false`.
 
 > **When to move to Tier 2:** When you want to build a real service that branches on a flag, with tests covering
 > both paths.
@@ -220,8 +220,7 @@ flags always return `false`.
 
 ### Step 1: Create the service class
 
-This pricing service uses a feature flag to switch between a legacy surcharge (5%) and a new lower surcharge
-(3%).
+Here is the goal: a pricing service that charges a 5% surcharge today, and a lower 3% surcharge once you turn the new pricing on. A feature flag decides which rate applies, so you can switch behaviour without redeploying the class.
 
 Copy this code exactly as is into `force-app/main/default/classes/FastStart_FeatureFlag_DEMO.cls`:
 
@@ -291,7 +290,7 @@ Decimal amount = demo.processWithNewPricing(100.00);
 System.debug('Amount: ' + amount);
 ```
 
-**Expected output** (with flag not created or inactive — Apex `Decimal` preserves scale, so the value
+**Expected output** (with the flag not created or inactive; Apex `Decimal` preserves scale, so the value
 carries four decimal places):
 
 ```text
@@ -299,7 +298,7 @@ Amount: 105.0000
 ```
 
 > **See it in the org:** Create the `FastStart_NewPricing` flag in Setup (as in Tier 1) with Is Active = checked
-> and Is Enabled By Default = checked, then re-run — you'll get `103.0000`. Deactivate or delete it and you're
+> and Is Enabled By Default = checked, then re-run. You'll get `103.0000`. Deactivate or delete the flag and you're
 > back to `105.0`.
 
 ### Step 3: Write the test class
@@ -358,16 +357,15 @@ private class FastStart_FeatureFlag_DEMO_TEST
 ```
 
 > **About the annotations:** `@IsTest(IsParallel=true)` allows tests to run concurrently for faster feedback.
-> `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a code analysis rule — in production
+> `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a code analysis rule (the scanner that checks code without running it). In production
 > tests, wrap your test logic in `System.runAs(testUser)`.
 
 > **Test isolation:** The "disabled" test relies on the flag **not existing** in the org. If you created a
 > `FastStart_NewPricing` flag via the UI or CLI, make sure it is inactive or deleted before running tests.
-> Custom Metadata records are visible in all tests — `kern.TST_Factory.newFeatureFlag()` is the correct way
-> to activate flags in test context.
+> Custom Metadata records are visible in every test, so use `kern.TST_Factory.newFeatureFlag()` to activate flags in test context.
 
 > **Seeding flags in tests:** `kern.TST_Factory.newFeatureFlag('YourFlag')` seeds an active flag for the test
-> in memory — no CMDT record is created in the org. To test the disabled path, simply don't seed the flag: an
+> in memory, so no Custom Metadata record is created in the org. To test the disabled path, simply don't seed the flag: an
 > unseeded flag is treated as off.
 
 ### Step 4: Deploy and run tests
@@ -402,8 +400,8 @@ Failing          0
 
 ### Framework-shipped flags you inherit automatically
 
-KernDX ships a small set of framework-owned `FeatureFlag__mdt` records that you don't manage yourself —
-they're referenced directly from Apex and drive framework-wide behaviour.
+KernDX ships a small set of framework-owned `FeatureFlag__mdt` records that you don't create or maintain yourself.
+The framework reads them directly from Apex to control how it behaves across your org. Several of them act as a kill-switch: a master off-switch you can flip in an incident without a deployment. Two of them also choose whether queries and saves run with the current user's read/write permissions and record sharing enforced (USER_MODE) or skip all of those checks (SYSTEM_MODE). In the table below, CRUD means object create/read/update/delete permissions and FLS means field-level security.
 
 | Flag                                                                  | Purpose                                                                                                                                                                                            | Default | Emergency Rollback                                                       |
 |-----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|--------------------------------------------------------------------------|
@@ -414,16 +412,16 @@ they're referenced directly from Apex and drive framework-wide behaviour.
 | `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework.                                                                                                                                               | `false` | Same metadata flip path.                                                 |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles used by `API_MockFactory`.                                                                                                                                                       | `false` | Same metadata flip path.                                                 |
 
-> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It's not subscriber-facing — the flags listed above are the
-> complete subscriber-visible inventory.
+> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use. The flags listed above are the
+> complete set visible to you.
 
-See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults) for how
-`UserModeQueries_Enabled` / `UserModeDml_Enabled` interact with `.withSystemMode()` / `.withUserMode()` /
+See [Security Guide, Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults) for how
+`UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with `.withSystemMode()`, `.withUserMode()`, and
 the `systemModeRequired()` hook on `SEL_Base`.
 
 ### Strategy-based targeting
 
-Instead of enabling a flag for everyone, target specific users using **strategies**. This example adds a
+Most rollouts start with a small audience, not the whole org. A **strategy** lets you turn a flag on only for the users you choose, by permission, profile, group, or setting, instead of for everyone at once. This example adds a
 Custom Permission strategy to the `NewPricingEngine` flag you created in Tier 2.
 
 | Strategy Type               | Target Example                   | Use Case                         |
@@ -435,16 +433,16 @@ Custom Permission strategy to the `NewPricingEngine` flag you created in Tier 2.
 | Hierarchical Custom Setting | `MySettings__c.EnableFeature__c` | Org/profile/user hierarchy       |
 | Custom Metadata             | `Config__mdt.Setting.Field__c`   | Configuration-driven flags       |
 
-> **SOQL cost:** every strategy except namespaced/`core.` Custom Permission for the running user (and the no-strategy
-> `IsEnabledByDefault__c` fast path) consumes one SOQL per `isEnabled(...)` call. That's fine for synchronous code paths but adds up
-> inside record loops, batches, and scheduled jobs. If you're calling flags in tight loops — or several flags read off the same Custom
-> Setting — see [Feature Flags - Guide → Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for the per-strategy
-> cost table, the hoisting pattern, and a `getInstance()`-based custom handler that dodges SOQL for Custom Setting strategies.
+> **SOQL cost:** each `isEnabled(...)` call usually runs one query (SOQL) behind the scenes. Two cases avoid that query: a namespaced or `core.` Custom Permission check for the running user, and the no-strategy
+> `IsEnabledByDefault__c` fast path. One query per call is fine for everyday synchronous code, but it adds up
+> inside record loops, batches, and scheduled jobs. If you call flags in tight loops, or read several flags off the same Custom
+> Setting, see [Feature Flags - Guide, Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for the per-strategy
+> cost table, the pattern for reading a flag once and reusing the result, and a `getInstance()`-based custom handler that avoids the query for Custom Setting strategies.
 
 #### Deploy a Custom Permission strategy
 
-First, re-deploy the `NewPricingEngine` flag from Tier 1 with `IsEnabledByDefault = false` — the strategy
-will control who gets access:
+First, re-deploy the `NewPricingEngine` flag from Tier 1 with `IsEnabledByDefault = false`. With the default off, the strategy
+decides who gets access:
 
 <details open>
 <summary><strong>Windows (PowerShell)</strong></summary>
@@ -662,12 +660,12 @@ System.debug('After assignment: ' + after);
 After assignment: true
 ```
 
-The flag is now enabled only for users with the `NewPricingEngine` permission set — everyone else still gets
+The flag is now enabled only for users who have the `NewPricingEngine` permission set. Everyone else still gets
 `false`.
 
 ### Evaluation logic
 
-The framework evaluates flags in a specific order. Run this to see each fallback path:
+When you ask whether a flag is on, the framework checks a fixed sequence of conditions and stops at the first one that decides the answer. Knowing this order helps you predict what a flag will return. Run this to watch the fallback path in action:
 
 ```apex
 // Path 1: Flag doesn't exist → returns false (safe default)
@@ -697,8 +695,7 @@ The full evaluation flow:
 
 ### Check flags for specific users
 
-Use the user-specific overload in batch jobs, platform events, or security policies where
-`UserInfo.getUserId()` may not be the relevant user:
+Sometimes the user you care about isn't the one running the code: a batch job, a platform event, or a security policy may act on behalf of someone else. For those cases, pass a specific user (by Id or username) so the flag is evaluated against that person, not the running user:
 
 ```apex
 // Check for a specific user by ID
@@ -741,8 +738,7 @@ Use the **Is Feature Flag Enabled** invocable action to check flags in Flows:
 
 ### Use in LWC
 
-Import `c/featureFlag` and call `isFlagEnabled(flagName)` to read the same evaluation result Apex consumers
-see:
+You can check the same flags from a Lightning component, so the screen shows or hides parts of the page to match what your Apex code does. Import `c/featureFlag` and call `isFlagEnabled(flagName)` to read the same result your Apex code sees:
 
 ```javascript
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -759,23 +755,23 @@ export default class MyComponent extends ComponentBuilder('notification')
 }
 ```
 
-The bridge resolves through `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheable=true)`) so the same per-user
-evaluation chain Apex sees applies. The LDS cache may serve stale results after a permission-set assignment or
-revocation flips a flag's strategy match for the running user — the cache invalidates on page reload but not on
-a `@wire` re-fire. Use this for UX-shaping decisions (panel visibility, conditional sections); not for
-client-side authorization gates. See [LWC Guide → Feature Flag Bridge](LWC%20-%20Guide.md) for full caveats.
+Behind the scenes this calls `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheable=true)`), so a component sees the same per-user
+result your Apex sees. One caution: because the result is cached on the client, it can be briefly out of date after you assign or
+remove a permission set that changes a flag for the running user. The cache refreshes on a page reload, but not when
+a `@wire` simply re-fires. So use this to shape the user experience (showing or hiding a panel or section), not to decide whether someone is
+allowed to do something. Treat real authorization in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for the full caveats.
 
 ### Custom strategy handler
 
-For complex evaluation logic beyond the built-in strategy types, implement a custom handler class.
+The built-in strategy types (permission, profile, group, and so on) cover most rollouts. When your "who gets this flag" rule is more involved, for example matching on a user's locale or a value from another record, you write a small Apex class that decides, and point a strategy at it.
 
-> **Naming convention:** The strategy interface is `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy` — note
-> `INT_*`, not `IF_*`. Top-level framework interfaces use the `IF_*` prefix; inner interfaces nested inside
-> `UTIL_*` classes use the `INT_*` prefix. This is a deliberate codebase convention — do not rename it.
+> **Naming convention:** The strategy interface is `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`. Note the
+> `INT_*` prefix, not `IF_*`. Top-level framework interfaces use the `IF_*` prefix, while inner interfaces nested inside
+> `UTIL_*` classes use the `INT_*` prefix. This is a deliberate codebase convention, so don't rename it.
 
-> **Why `global`?** This lets the managed package resolve the class at runtime without additional setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class. The Kern home page health check
-> provides the code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+> **Why `global`?** Declaring the class `global` lets the framework find and create it at runtime with no extra setup.
+> If you prefer `public with sharing`, you'll need a Type Resolver class, which is how the framework finds the Apex classes in your namespace: you tell it where to look. The Kern home page health check
+> provides that code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 #### Deploy the handler
 
@@ -872,8 +868,8 @@ sf project deploy start -o YourOrgAlias \
 
 #### Wire it to a flag via strategy metadata
 
-Create a strategy that uses the custom handler. Set the **Custom Handler** field to the class name and
-**Target** to the locale prefix to match (e.g., `de_DE` for German locale):
+Create a strategy that points at your custom handler. Set the **Custom Handler** field to the class name, and set
+**Target** to the locale prefix you want to match (for example, `de_DE` for the German locale):
 
 <details open>
 <summary><strong>Windows (PowerShell)</strong></summary>
@@ -964,7 +960,7 @@ sf project deploy start -o YourOrgAlias \
 > Records > New**: Feature Flag = `NewPricingEngine`, Type = `Custom Permission`,
 > Custom Handler = `MY_RegionStrategy`, Target = `de_DE`, Is Active = checked, Order = `2`.
 >
-> The `Type` value doesn't matter when `Custom Handler` is populated — the framework evaluates the custom
+> The `Type` value doesn't matter when `Custom Handler` is populated: the framework runs your custom
 > handler class regardless of the selected type.
 
 #### Verify
@@ -981,17 +977,17 @@ User locale: en_US
 NewPricingEngine enabled: false
 ```
 
-The region strategy targets `de_DE` (German locale), so it won't match an `en_US` user. **One catch:** if
+The region strategy targets `de_DE` (the German locale), so it won't match an `en_US` user. **One catch:** if
 you still have the `NewPricingEngine` Custom Permission assigned from the earlier *Verify the strategy*
 step, the Order-1 Custom Permission strategy matches first and the flag returns `true`. Remove that
 assignment (**Setup > Permission Sets > New Pricing Engine > Manage Assignments > Del**) to let the region
-strategy decide. If you change your locale to German (Setup > Personal Information > Locale), the flag
+strategy decide. If you then change your locale to German (Setup > Personal Information > Locale), the flag
 returns `true`.
 
 ### Package-bundled API control flags
 
-KernDX ships with API control flags (all disabled by default). These are a subset of the [framework-shipped flags](#framework-shipped-flags-you-inherit-automatically) listed
-earlier, scoped to the web services framework:
+KernDX ships with API control flags, all disabled by default. They are part of the [framework-shipped flags](#framework-shipped-flags-you-inherit-automatically) listed
+earlier, and they specifically control the web services framework:
 
 | Flag                     | Purpose                                |
 |--------------------------|----------------------------------------|
@@ -1001,7 +997,7 @@ earlier, scoped to the web services framework:
 | `MockAllAPIs`            | Return mock responses for all APIs     |
 | `MockAllInboundAPIs`     | Return mock responses for inbound APIs |
 
-These integrate automatically with the web services framework — no code needed. Verify from Execute Anonymous:
+These work with the web services framework automatically, with no code needed. Verify from Execute Anonymous:
 
 ```apex
 // These are pre-packaged flags — check their current state
@@ -1032,10 +1028,10 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 |-------------------------------------------------|------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `isEnabled()` always returns `false`            | Flag doesn't exist or `IsActive` unchecked                 | Create the `FeatureFlag__mdt` record and check **Is Active**                                                                                                                                                          |
 | Flag enabled globally but not for specific user | Strategy `IsActive` not checked                            | Check **Is Active** on each `FeatureFlagStrategy__mdt` record                                                                                                                                                         |
-| "Disabled" test fails — flag returns `true`     | `FeatureFlag__mdt` record exists in the org                | Delete or deactivate the flag from Setup. Custom Metadata is visible in all tests. Use `kern.TST_Factory.newFeatureFlag()` for the enabled path only                                                                  |
+| "Disabled" test fails, flag returns `true`      | `FeatureFlag__mdt` record exists in the org                | Delete or deactivate the flag from Setup. Custom Metadata is visible in all tests. Use `kern.TST_Factory.newFeatureFlag()` for the enabled path only                                                                  |
 | `TST_Factory.newFeatureFlag()` not found        | Missing namespace prefix                                   | Use `kern.TST_Factory.newFeatureFlag('FlagName')`                                                                                                                                                                     |
 | Custom permission strategy not matching         | Permission not assigned to test user                       | Verify Custom Permission → Permission Set → User assignment chain                                                                                                                                                     |
-| Custom handler class not found                  | Wrong class name, missing namespace, or class not `global` | Declare the class `global` (not `public`) — the package resolves it via `Type.newInstance()` and cannot see `public` subscriber classes. Use fully qualified name if in a namespace (e.g., `mypkg.MY_RegionStrategy`) |
+| Custom handler class not found                  | Wrong class name, missing namespace, or class not `global` | Declare the class `global`, not `public`. The framework creates it via `Type.newInstance()`, which only reaches a `global` class in your org. Use the fully qualified name if your code lives in a namespace (e.g., `mypkg.MY_RegionStrategy`) |
 | "Type is not visible" on custom strategy        | Class declared `public` instead of `global`                | Change the class declaration to `global with sharing`                                                                                                                                                                 |
 
 ---
@@ -1050,16 +1046,16 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 | `FeatureFlagStrategy__mdt`                          | Child record defining targeting rules (permission, profile, group) |
 | `kern.TST_Factory.newFeatureFlag(flagName)`         | Registers an active in-memory flag in test context                 |
 | `FLOW_CheckFeatureFlag`                             | Invocable action for checking flags in Flows                       |
-| `isFlagEnabled(flagName)` from `c/featureFlag`      | LWC bridge — reads the same evaluation result as Apex              |
+| `isFlagEnabled(flagName)` from `c/featureFlag`      | LWC bridge that reads the same evaluation result as Apex           |
 | `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`     | Interface to implement for custom strategy handlers                |
 
 **Key patterns:**
 
 - Store flag names as `@TestVisible private static final String` constants
 - Test both enabled and disabled paths in every class that uses flags
-- Use `kern.TST_Factory.newFeatureFlag(flagName)` in tests — don't deploy `FeatureFlag__mdt` as source code
+- Use `kern.TST_Factory.newFeatureFlag(flagName)` in tests; don't deploy `FeatureFlag__mdt` as source code
 - Use strategies for gradual rollout instead of enabling for everyone
-- Custom strategy classes must be `global` — not `public` — so the managed package can instantiate them
+- Custom strategy classes must be `global`, not `public`, so the managed package can create them
 - Package-bundled API flags integrate automatically with web services
 
 ---

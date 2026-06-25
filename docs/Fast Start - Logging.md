@@ -6,26 +6,28 @@ navOrder: 18
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Persistent, queryable logging via platform events — zero DML in your transaction, survives rollbacks.
+**What this is:** A way to write logs that you can search, report on, and keep, instead of Salesforce's built-in `System.debug()` output, which expires and can't be queried. **Why it matters:** when something fails in production, the evidence is still there days later, linked to the records and the single user action that triggered it. **Who should follow this:** developers capturing errors, plus tech leads and DevOps who need traceability in live systems. **When to use it:** any time you'd otherwise reach for `System.debug()`.
+
+> What you'll get working: persistent, queryable logging that adds no database writes to your own transaction and survives rollbacks.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
-**What you'll build:** A service class that logs every step of order processing — start, per-record
-progress, errors, and completion — with all entries correlated under a single ID.
+**What you'll build:** A service class that logs every step of order processing (start, per-record
+progress, errors, and completion), with all entries correlated under a single ID.
 
 **Success looks like:** Log entries visible in **App Launcher > Kern > Log Entries**, showing correlated
 info/debug/error messages linked to specific Account records. Your test class shows 2/2 passing. (The two
 tests cover the happy path; the defensive per-record error handler isn't exercised, so `SVC_OrderProcessor`
-lands at ~82% coverage — add a test that forces a failure inside the loop to take it to 100%.)
+lands at ~82% coverage. Add a test that forces a failure inside the loop to take it to 100%.)
 
 **In one line:** `kern.LOG_Builder.build().info('Payment processed').forRecord(accountId).emitAt('SVC.charge');`
-— persisted via platform event, survives rollbacks.
+persists via platform event and survives rollbacks.
 
 ---
 
@@ -85,11 +87,13 @@ finally
 ```
 
 Open **App Launcher > Kern > Log Entries** to see your four entries. Each has a log level, message, and
-class/method context — and all four share the same **Correlation ID** so you can filter them as a group.
+class/method context. All four also share the same **Correlation ID**, a single tracking ID that follows
+one user action across triggers, queries, callouts, and jobs, so you can filter the four entries as a group.
 
-> **Why the scope wrapper?** Each `.emit()` publishes a platform event. Without batching, emitting more
-> than 150 events in one transaction hits the `PublishImmediate` governor. `LOG_Builder.scope()` batches
-> all emissions inside the try/finally into a single flush when `scope.close()` is called.
+> **Why the scope wrapper?** Each `.emit()` publishes a platform event, and Salesforce caps a single
+> transaction at 150 such immediate publishes (the `PublishImmediate` governor). The scope wrapper keeps
+> you safely under that cap: `LOG_Builder.scope()` collects every emission inside the try/finally and
+> sends them as one batch when `scope.close()` runs.
 
 ### Log an exception with full stack trace
 
@@ -104,8 +108,8 @@ catch(Exception error)
 }
 ```
 
-Open the log entry — you'll see the exception type (`MathException`) and the full stack trace captured
-automatically.
+Open the log entry. You'll see the exception type (`MathException`) and the full stack trace, both
+captured automatically.
 
 ### Correlate logs to a record
 
@@ -140,8 +144,8 @@ Both log entries link to the Account record. Click **View Record** on any log en
 
 ### Step 1: Create the service class
 
-This service processes Account records and logs every step — start, per-record progress, errors, and
-completion — correlated under one Scope.
+This service processes Account records and logs every step (start, per-record progress, errors, and
+completion), correlated under one Scope.
 
 Copy this code exactly as is into `force-app/main/default/classes/SVC_OrderProcessor.cls`:
 
@@ -223,8 +227,8 @@ public with sharing class SVC_OrderProcessor
 
 **What this code does:**
 
-- `LOG_Builder.scope()` opens a batch scope — all `.emit()` calls inside the try/finally share one
-  Correlation ID and are flushed together at `scope.close()`, staying well under the 150-event limit
+- `LOG_Builder.scope()` opens a batch scope: every `.emit()` call inside the try/finally shares one
+  Correlation ID and is flushed together at `scope.close()`, staying well under the 150-event limit
 - `.info()` / `.debug()` / `.warn()` / `.error()` set the log level
 - `.at('ClassName.methodName')` records where the log came from
 - `.forRecord(account.Id)` links the log entry to the Account being processed
@@ -247,8 +251,8 @@ new SVC_OrderProcessor().processOrders(new List<Account>{ newAccount });
 System.debug('Done — check App Launcher > Kern > Log Entries');
 ```
 
-> **See it in the org:** Open **App Launcher > Kern > Log Entries**. You'll see three entries — an INFO
-> (started), a DEBUG (per-record), and an INFO (completed) — all sharing the same Correlation ID.
+> **See it in the org:** Open **App Launcher > Kern > Log Entries**. You'll see three entries (an INFO
+> for started, a DEBUG per record, and an INFO for completed), all sharing the same Correlation ID.
 
 ### Step 3: Write the test class
 
@@ -346,14 +350,14 @@ private class SVC_OrderProcessor_TEST
 }
 ```
 
-> **About the query filter:** Tests must filter `kern__LogEntry__c` by `kern__UserId__c`, not
+> **About the query filter:** Tests must filter `kern__LogEntry__c` by `kern__UserId__c`, not by
 > `CreatedById`. The platform trigger that persists log entries (`TRG_PersistLogEntry`) runs as the
-> Automated Process user, so `CreatedById` returns zero rows. `kern__UserId__c` is set to the ID of the
-> user who emitted the log.
+> Automated Process user, so a `CreatedById` filter returns zero rows. The `kern__UserId__c` field, by
+> contrast, holds the ID of the user who emitted the log.
 
 > **About the annotations:** `@IsTest(SeeAllData=false IsParallel=true)` keeps tests isolated and
 > enables parallel execution. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a
-> code analysis rule — in production tests, consider wrapping logic in `System.runAs(testUser)` to
+> code analysis rule. In production tests, consider wrapping logic in `System.runAs(testUser)` to
 > verify profile and permission set access.
 
 ### Step 4: Deploy and run tests
@@ -382,7 +386,7 @@ Failing          0
 | Debug inside loops       | `.debug('Processing account')`            | Filtered in production; visible in sandbox                             |
 | Catch-log-continue       | `.error(error)` in catch, no rethrow      | Persistent record; processing continues for remaining items            |
 | Single-shot alert        | `.error('message').emitAt(...)`           | One-liner for config/startup errors                                    |
-| Query by UserId          | `kern__UserId__c = UserInfo.getUserId()`  | NOT `CreatedById` — TRG_PersistLogEntry runs as Automated Process user |
+| Query by UserId          | `kern__UserId__c = UserInfo.getUserId()`  | NOT `CreatedById` (TRG_PersistLogEntry runs as Automated Process user) |
 
 ---
 
@@ -402,7 +406,7 @@ configuration.
 
 ### Flood control for repeated events
 
-When the same event fires in a hot loop, tag it with a fingerprint so it doesn't flood the log table — the first occurrence keeps a full entry and repeats roll up into a daily counter:
+When the same event fires repeatedly in a hot loop, you don't want thousands of near-identical rows drowning the log table. Tag the event with a fingerprint instead: the first occurrence keeps a full entry, and repeats roll up into a daily counter.
 
 ```apex
 kern.LOG_Builder.build()
@@ -411,7 +415,7 @@ kern.LOG_Builder.build()
 		.emitAt('PaymentSync.run');
 ```
 
-Use a stable identity for the *kind* of event (never a record Id or timestamp). See [Log Grouping & Flood Control](Logging%20-%20Guide.md#log-grouping--flood-control) in the Logging Guide for reading grouped logs and reporting on occurrence counts.
+Pick a fingerprint that identifies the *kind* of event, and keep it stable (never use a record Id or timestamp, or every occurrence looks unique and the rollup never kicks in). See [Log Grouping & Flood Control](Logging%20-%20Guide.md#log-grouping--flood-control) in the Logging Guide for reading grouped logs and reporting on occurrence counts.
 
 ### Shorthand: `.emitAt()`
 
@@ -428,7 +432,7 @@ Use `.emitAt()` for simple messages. Use `.at()` + chain + `.emit()` when adding
 
 ### Exception logging
 
-Always pass the `Exception` object — never `.getMessage()`:
+Always pass the `Exception` object, never `.getMessage()`:
 
 ```apex
 catch(Exception error)
@@ -441,9 +445,10 @@ catch(Exception error)
 
 ### Testing with logs
 
-By default, logs don't emit in `@IsTest` context. Set `kern.LOG_Builder.ignoreTestMode = true` before
-your log call to enable logging in tests, then call `Test.getEventBus().deliver()` to deliver the
-platform events synchronously before asserting.
+To assert on log entries in a test, you need them to actually be written, and by default they aren't:
+logs are suppressed in `@IsTest` context. Two steps turn them on. Set
+`kern.LOG_Builder.ignoreTestMode = true` before your log call to enable logging in tests, then call
+`Test.getEventBus().deliver()` to deliver the platform events synchronously before you assert.
 
 Here's the complete working pattern:
 
@@ -469,17 +474,20 @@ Assert.isFalse(entries.isEmpty(), 'Should have log entries');
 > **Key steps:** `ignoreTestMode = true` → emit logs → `Test.getEventBus().deliver()` → query by
 > `kern__UserId__c` → assert.
 
-> **Why inline SOQL for `kern__LogEntry__c`?** When a managed-package object is referenced through
-> `kern.QRY_Builder.selectFrom(<kern__sobject>.SObjectType)` and then chained with `.condition(<kern__sobject>.<kern__field>)`,
-> Apex's namespace tokenizer struggles with the doubly-prefixed field token. Inline SOQL is the simplest
-> idiomatic pattern for subscriber tests against managed-package objects when no `SEL_*` selector exists.
-> For your own subscriber objects, `kern.QRY_Builder` works without issue.
+> **Why inline SOQL for `kern__LogEntry__c`?** Plain inline SOQL is the simplest way to query a
+> managed-package object from your own tests when no `SEL_*` selector exists for it. The query builder
+> hits a snag here: when you reference a managed-package object through
+> `kern.QRY_Builder.selectFrom(<kern__sobject>.SObjectType)` and then chain `.condition(<kern__sobject>.<kern__field>)`,
+> Apex's namespace tokenizer struggles with the doubly-prefixed field token. This affects only
+> managed-package objects: for your own objects, `kern.QRY_Builder` works without issue.
 
 ### Scoped logging
 
-`LOG_Builder.scope()` groups all log entries emitted inside a try/finally block under a single
-Correlation ID, and batches their platform event publications into one flush at `scope.close()`.
-This keeps you well clear of the 150-event `PublishImmediate` governor limit.
+When one operation emits many logs, you want them grouped together and you want to avoid the platform
+event publish cap. A scope does both. `LOG_Builder.scope()` groups every log entry emitted inside a
+try/finally block under a single Correlation ID, and batches their platform event publications into one
+flush at `scope.close()`. That single flush keeps you well clear of the 150-event `PublishImmediate`
+governor limit.
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -544,9 +552,11 @@ All log entries from the Flow share the same Correlation ID, so you can filter t
 
 ### Logging from LWC
 
-LWC logging uses the built-in `consoleLog()` and `consoleError()` methods from ComponentBuilder. These
-write to the browser console (not to `kern__LogEntry__c`). For server-side persistent logging, use
-`LOG_Builder` in your Apex controller methods.
+From a Lightning Web Component, log with the built-in `consoleLog()` and `consoleError()` methods on
+ComponentBuilder (the KernDX base class that gives your components their common wiring, such as toasts,
+Apex calls, and navigation, already built in). These write to the browser console, not to
+`kern__LogEntry__c`. So for server-side persistent logging, use `LOG_Builder` in your Apex controller
+methods instead.
 
 ```javascript
 // In any ComponentBuilder LWC:
@@ -561,34 +571,38 @@ See the [LWC Guide](LWC%20-%20Guide.md) for the full ComponentBuilder reference,
 
 ## Sensitive data is masked by default
 
-Log entries pass through the data masking framework before persistence. Out of the box, two rules fire:
+You don't have to remember to scrub secrets out of your logs: every entry passes through the data
+masking framework before it is saved. Out of the box, two rules fire:
 
-- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`,
+- **`MaskSecretKeys`** redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`,
   `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`) anywhere they appear in a
   field value.
-- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
-  major card brands; digits may be separated by spaces or hyphens. The Luhn check filters out most
+- **`MaskPaymentCard`** redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
+  major card brands (digits may be separated by spaces or hyphens). The Luhn check filters out most
   transaction IDs, order numbers, and other long digit runs that would otherwise false-positive as card
-  data. (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
+  data. (It replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
 
 So `LOG_Builder.build().info('Payload: ' + JSON.serialize(payload)).emitAt(...)` is safe even if `payload`
-contains a `password` or card number — the persisted `LogEntry__c.Message__c` will have them redacted.
+contains a `password` or card number: the persisted `LogEntry__c.Message__c` will have them redacted.
 Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
-URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates — flip
+URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates. To switch one on, flip
 `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule
 to the fields that need it.
 
-> **Wiring gotcha.** Rules carry two optional filters that override explicit target wiring:
-> `ApplicableFieldTypes__c` (which `DisplayType`s the rule fires on) and `MinInputLength__c` (minimum value
-> length). If a `MaskingTarget__mdt` points at a specific `Field__c` whose type or value length is rejected
-> by the rule's filter, the rule will **not** fire on that field. For `ApplicableFieldTypes__c` mismatches
-> the framework logs a one-time `warn` LogEntry to surface the misconfiguration; `MinInputLength__c`
-> mismatches are silent. Either widen the rule filter or remove the target.
+> **Wiring gotcha.** Wiring a rule to a field doesn't guarantee it fires: a rule carries two optional
+> filters that can quietly veto a target. `ApplicableFieldTypes__c` restricts which `DisplayType`s the
+> rule applies to, and `MinInputLength__c` sets a minimum value length. If a `MaskingTarget__mdt` points
+> at a `Field__c` whose type or value length the filter rejects, the rule will **not** run on that field.
+> A type mismatch is at least visible: for an `ApplicableFieldTypes__c` mismatch the framework logs a
+> one-time `warn` LogEntry to surface the misconfiguration. A `MinInputLength__c` mismatch is silent.
+> The fix in either case is to widen the rule filter or remove the target.
 
-> **Masking performance telemetry.** Masking runs inside trigger dispatch. When a batch's masking duration
-> is material, enable `LogSetting__c.EnableMaskerPerformanceLogging__c` (default off) to emit one aggregate
-> `LogEntry__c` per trigger batch (not per record). The log fires only when total masking time for that
-> batch meets or exceeds `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100ms).
+> **Masking performance telemetry.** If you ever suspect masking is slowing down a trigger, you can
+> measure it. Masking runs inside trigger dispatch, so enable
+> `LogSetting__c.EnableMaskerPerformanceLogging__c` (default off) to emit one aggregate `LogEntry__c` per
+> trigger batch, not per record. The log fires only when total masking time for that batch meets or
+> exceeds `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100ms), so it stays quiet until there's
+> something worth seeing.
 
 ---
 
@@ -598,13 +612,13 @@ to the fields that need it.
 |------------------------------------------------|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | No log entries appear in tests                 | Logs suppressed in test context                            | Set `kern.LOG_Builder.ignoreTestMode = true` before logging                                                                                                                |
 | Log entries empty after `ignoreTestMode`       | Platform events not delivered                              | Call `Test.getEventBus().deliver()` after emitting and before asserting                                                                                                    |
-| Query returns zero rows in tests               | Filtering by `CreatedById` instead of `kern__UserId__c`    | Use `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()` — `TRG_PersistLogEntry` runs as the Automated Process user, so `CreatedById` never matches the running user |
+| Query returns zero rows in tests               | Filtering by `CreatedById` instead of `kern__UserId__c`    | Use `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()`. `TRG_PersistLogEntry` runs as the Automated Process user, so `CreatedById` never matches the running user |
 | `Variable does not exist: kern__LogEntry__c`   | Missing namespace prefix                                   | Use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for SObjects and fields                                                                               |
 | `.error(error.getMessage())` loses stack trace | Passing String instead of Exception                        | Use `.error(error)` to pass the Exception object directly                                                                                                                  |
 | Logs have no method context                    | Missing `.at()` or `.emitAt()`                             | Always include `.emitAt('Class.method')` or `.at('Class.method')`                                                                                                          |
 | PE governor error after many emits             | >150 `PublishImmediate` events in one transaction          | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush                                                                                             |
 | `Test.getEventBus()` not found                 | Running outside `@IsTest` context                          | `Test.getEventBus().deliver()` only works inside test methods                                                                                                              |
-| Sensitive value appears raw in a log           | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard) — see [Logging Guide](Logging%20-%20Guide.md)              |
+| Sensitive value appears raw in a log           | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard). See [Logging Guide](Logging%20-%20Guide.md)              |
 
 ---
 
@@ -623,7 +637,7 @@ to the fields that need it.
 | `LOG_Builder.scope()`                           | Batches all emits under one Correlation ID; prevents PE governor hit |
 | `ignoreTestMode = true`                         | Enables logging in test context                                      |
 | `Test.getEventBus().deliver()`                  | Delivers platform events synchronously in tests                      |
-| `kern__UserId__c`                               | The field to filter on when querying log entries — NOT `CreatedById` |
+| `kern__UserId__c`                               | The field to filter on when querying log entries (NOT `CreatedById`) |
 
 **Key patterns:**
 

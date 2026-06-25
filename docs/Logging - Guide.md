@@ -107,26 +107,31 @@ navOrder: 18
 
 ## Overview
 
-The KernDX Logging Framework provides end-to-end observability across all Salesforce execution contexts. Unlike `System.debug()` which produces ephemeral debug logs, this framework
-persists logs to a queryable custom object (`LogEntry__c`)
-via [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`).
+**In one paragraph:** Salesforce's built-in `System.debug()` writes to debug logs that expire and that you cannot search or chart. This framework instead saves every log as a real
+record you can report on, filter, and keep, so when something fails in production the evidence is still there next week. You log the same way from Apex, screen flows, and Lightning
+components, and the framework can stitch a single user action together even when it spans a button click, a trigger, a callout, and a background job. Developers use it to capture
+errors, architects use it to design traceability, and DevOps uses it to monitor live systems. Reach for it whenever you would otherwise reach for `System.debug()`.
 
-> **Responsibilities:** The Logging Framework persists diagnostic and operational data to `LogEntry__c`. It does not enforce business rules,
-> perform DML on business objects, or control execution flow. Use it for observability only.
+**How it works under the hood:** each log is published as a [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm)
+(`LogEntryEvent__e`), then saved to a queryable custom object (`LogEntry__c`) you can run reports and SOQL against.
 
-**Key Capabilities:**
+> **What it does and does not do:** This framework only records diagnostic and operational data to `LogEntry__c`. It does not enforce business rules, write to your business
+> objects, or change how your code runs. Its single job is to give you a kept, searchable record of what happened.
+
+**What you get:**
 
 | Feature                    | Description                                                          |
 |----------------------------|----------------------------------------------------------------------|
-| **Multi-Channel**          | Log from Apex, LWC, and Flows with consistent API                    |
-| **Correlation Tracking**   | Link related logs across async boundaries with correlation IDs       |
+| **Multi-Channel**          | Log the same way from Apex, LWC, and Flows                           |
+| **Correlation Tracking**   | Follow one user action across triggers, callouts, and background jobs by tagging every related log with one tracking ID |
 | **Context Stack**          | Capture nested operation context (query details, trigger info, etc.) |
-| **Performance Monitoring** | Automatic timing with configurable thresholds                        |
+| **Performance Monitoring** | Time operations automatically, and log only the slow ones (you set the threshold) |
 | **Structured Context**     | Attach key-value metadata to log entries                             |
-| **Log Buffering**          | Batch logs for efficient publishing                                  |
+| **Log Buffering**          | Hold logs and publish them in batches, so a bulk job uses fewer platform events |
 
-> **Logging Framework Scope:** 4 `LOG_*` classes, 1 platform event (`LogEntryEvent__e`), and multi-channel support (Apex, LWC, Flow). Logging
-> is integrated across all 14 API outbound services, all trigger handlers, and the async processing framework.
+> **How big is it, and where is it already wired in?** The framework is 4 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), and it works the same way from Apex, LWC,
+> and Flow. You do not have to add logging everywhere yourself: it is already built into all 14 API outbound services, every trigger handler, and the async processing framework, so
+> those parts of the framework log for you.
 
 ---
 
@@ -168,11 +173,12 @@ via [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform
                       +------------------------------+
 ```
 
-**Flow:**
+**What happens when you log something:** your code never waits for the log to be saved. It hands the entry off and carries on, and the record lands in `LogEntry__c` a moment later.
+The steps are:
 
 1. Code calls logging methods ([`LOG_Builder`](reference/apex/LOG_Builder.md), `utilityLogger`, [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md) / [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md) / [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
 2. `LOG_Engine` manages correlation IDs and context
-3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking)
+3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking, so your transaction is not slowed down)
 4. [`TRG_LogEntryEvent`](reference/apex/TRG_LogEntryEvent.md) trigger inserts records into `LogEntry__c`
 
 ---
@@ -229,7 +235,8 @@ For deeper coverage, continue reading the sections below.
 
 ## Apex Logging ([`LOG_Builder`](reference/apex/LOG_Builder.md))
 
-[`LOG_Builder`](reference/apex/LOG_Builder.md) is the primary Apex interface for logging. All methods delegate to `LOG_Engine` for event publishing and context management.
+When you want to log something from Apex, [`LOG_Builder`](reference/apex/LOG_Builder.md) is the class you call. You configure the entry with a few short chained calls, then one
+final call sends it. Behind the scenes, every method hands the work to `LOG_Engine`, which takes care of publishing the event and tracking context.
 
 ### Log Levels
 
@@ -282,8 +289,9 @@ catch(Exception e)
 
 ### DML Error Logging
 
-For partial DML operations, use `errorDMLOperationResults()` to extract and log all errors from `Database.SaveResult`, `Database.DeleteResult`, or `Database.UpsertResult`
-collections.
+When you save records in bulk and allow partial success, some rows save and others fail. To capture every failure in one call instead of looping through the results yourself, pass
+the result collection to `errorDMLOperationResults()`. It pulls out and logs all the errors from a `Database.SaveResult`, `Database.DeleteResult`, or `Database.UpsertResult`
+collection.
 
 ```apex
 // Automatically extract and log all DML errors
@@ -312,7 +320,8 @@ LOG_Builder.build().warn(messages).emitAt('BatchProcessor.execute');
 
 ### Log Grouping & Flood Control
 
-When the same event recurs at high frequency — a retry loop, a flaky integration, a batch job logging per record — give it a fingerprint:
+Sometimes the same event happens thousands of times in a row: a retry loop, a flaky integration, a batch job that logs once per record. Left alone, that floods your log table with
+near-identical rows. To collapse them, tag the event with a stable label (a "fingerprint") so the framework can group the repeats:
 
 ```apex
 LOG_Builder.build()
@@ -321,40 +330,42 @@ LOG_Builder.build()
 		.emitAt('PaymentSync.run');
 ```
 
-The first occurrence persists as a full log entry — the row whose **Fingerprint** starts with `detail:`. Repeats roll up into one counter row per day (the `rollup:` prefix) carrying an **Occurrence Count**, so thousands of identical entries collapse to two rows.
+The first occurrence is kept in full: that is the row whose **Fingerprint** starts with `detail:`. After that, repeats roll up into one counter row per day (the `rollup:` prefix) that carries an **Occurrence Count**. The result is that thousands of identical entries collapse to two rows: one full sample, plus one running count.
 
-**Choosing a key:** use a stable identity for the *kind* of event, never per-occurrence data. `'payment-gateway-retry'` groups; a key containing a record Id or timestamp makes every entry unique and produces more rows than plain logging. Keys are trimmed; a key longer than 200 characters, or one starting with the reserved `bypass:` prefix, is hashed automatically. When a key is hashed, the original key is recorded on the detail row's context under `fingerprintSource`, so a hashed fingerprint always traces back to what you passed.
+**Choosing a key:** pick a stable label for the *kind* of event, never something that changes every time. `'payment-gateway-retry'` groups well. A key that contains a record Id or a timestamp makes every entry unique, which defeats the purpose and produces more rows than logging normally would. Keys are trimmed automatically. A key longer than 200 characters, or one starting with the reserved `bypass:` prefix, is hashed for you; when that happens, the original key is saved on the detail row's context under `fingerprintSource`, so a hashed fingerprint always traces back to what you passed.
 
 **Reading grouped logs:**
 
-- **Forensics:** filter **Fingerprint** starting with `detail:` — one full sample per event kind.
-- **Volumes:** SUM **Occurrence Count** over rows whose Fingerprint starts with `rollup:`. The sampled occurrence is already included in the count, so rollup rows alone are the true total — counting detail and rollup rows together double-counts.
-- A detail row's **Created Date** means "oldest retained sample": if your log purge job removes it, the next occurrence simply re-creates it. Rollup rows are counts, not forensic records — their message reflects the window's first occurrence.
+- **To see what happened (one example per event kind):** filter **Fingerprint** starting with `detail:`. That gives you one full sample of each event kind.
+- **To count how often it happened:** SUM **Occurrence Count** over rows whose Fingerprint starts with `rollup:`. The sampled occurrence is already included in that count, so the rollup rows alone are the true total. Counting detail and rollup rows together double-counts, so do not add them.
+- A detail row's **Created Date** is the oldest retained sample, not the most recent. If your log purge job removes it, the next occurrence simply re-creates it. Rollup rows are counts, not forensic records, so their message reflects the window's first occurrence.
 
-**Framework bypass audit** uses this mechanism automatically: every security-bypass identity (who, which surface, what target) keeps exactly one detail row in retained logs plus daily counters, so a bypass in a hot loop can no longer flood the log table. A *new* bypass identity appearing in production — new code path, new user — still lands loudly as a fresh detail row.
+**Framework bypass audit** uses this mechanism automatically. (A "bypass" is when a developer turns off a safety check; the framework records who did it, on which surface, and against what target.) Each distinct bypass identity keeps exactly one detail row in retained logs plus daily counters, so a bypass that fires inside a hot loop can no longer flood the log table. A *new* bypass identity appearing in production, such as a new code path or a new user, still lands loudly as a fresh detail row, so you are not blind to genuinely new activity.
 
-> **Note:** flood control collapses *storage*, not emission. Each occurrence still publishes a platform event and consumes event allocations; the `BypassAudit_Enabled` feature flag remains the emission-side off switch for bypass auditing.
+> **Note:** flood control reduces how many rows are *stored*, not how many events are *published*. Each occurrence still publishes a platform event and uses up your event allocations. If you need to stop the bypass-audit events themselves, the `BypassAudit_Enabled` feature flag is the off switch for that.
 
 ### Logging Inside Platform Event & Change Event Triggers
 
-Log entries are normally published as a `LogEntryEvent__e` platform event and persisted asynchronously (see [Architecture](#architecture)). That
-publish-then-persist path needs one adjustment in a specific place: code that logs **while running inside a platform event (`__e`) or Change Data Capture
-(`*ChangeEvent`) trigger**. Publishing a new platform event from inside an event trigger can cause the platform to redeliver the original event, and a
-"log on every delivery" pattern then becomes a redelivery loop.
+There is one place where logging needs special care, and the framework handles it for you so you do not have to think about it. Normally a log is published as a `LogEntryEvent__e`
+platform event and saved a moment later (see [Architecture](#architecture)). But if you log **while your code is running inside a platform event (`__e`) or Change Data Capture
+(`*ChangeEvent`) trigger**, publishing a brand-new platform event from inside an event trigger can make the platform redeliver the original event. A "log on every delivery" pattern
+would then turn into an endless redelivery loop.
 
-The framework handles this for you. When a log is emitted while a platform-event or change-event trigger is on the stack, the engine **suppresses the event
-publish and persists the entry synchronously, in the same transaction, via DML** — the same `LogEntry__c` rows, with no second platform event and no loop.
-There is nothing to configure: logging from a Change Data Capture trigger action or a platform-event subscriber is safe by default.
+To prevent that, when a log is emitted while a platform-event or change-event trigger is on the stack, the engine skips the event publish and instead saves the entry directly in the
+same transaction. You get the same `LogEntry__c` rows, with no second platform event and no loop. There is nothing to configure: logging from a Change Data Capture trigger action or
+a platform-event subscriber is safe by default.
 
-Flood control applies on this path too. Fingerprinted entries collapse into one detail row plus per-day rollup counters exactly as they do on the asynchronous
-path (see [Log Grouping & Flood Control](#log-grouping--flood-control)), so a high-volume change-event stream cannot flood `LogEntry__c`.
+Flood control works on this path too. Fingerprinted entries collapse into one detail row plus per-day rollup counters exactly as they do on the normal asynchronous path (see
+[Log Grouping & Flood Control](#log-grouping--flood-control)), so even a high-volume change-event stream cannot flood `LogEntry__c`.
 
 ---
 
 ## Correlation Tracking
 
-Correlation IDs link related log entries across transaction boundaries, making it possible to trace a user action from LWC through to async processing. The correlation ID is stored
-on each `LogEntryEvent__e` and subsequently on every `LogEntry__c` record, enabling filtering in `SEL_LogEntry` queries.
+One user action often touches several disconnected places: a button click, a trigger, a callout, then a background job. When something goes wrong, you want to see all of those logs
+together rather than hunting through them one at a time. A correlation ID makes that possible: it is one tracking ID that follows a single user action across triggers, queries,
+callouts, and jobs, so every log produced along the way carries the same ID. The framework stores that ID on each `LogEntryEvent__e` and then on every `LogEntry__c` record, so you
+can filter for the whole story of one action in a `SEL_LogEntry` query.
 
 ### Starting Correlation
 
@@ -369,7 +380,8 @@ LOG_Builder.build().info('Step 2').emitAt('MyClass.myMethod');
 
 ### Async Context Propagation
 
-When spawning async work (Queueable, Batch, Future), serialize and restore context:
+A correlation ID lives in one transaction. When you kick off a background job (Queueable, Batch, Future), that job runs in a separate transaction and would otherwise start with a
+fresh, unrelated ID. To keep the chain joined up, save the context before you start the job and restore it inside the job:
 
 ```apex
 // Parent transaction - serialize context
@@ -406,15 +418,16 @@ public with sharing class MyQueueable implements Queueable
 }
 ```
 
-> **Automatic capture for async chains.** The pattern above is the manual approach for a hand-rolled Queueable. The
-> [async chain framework](Async%20Processing%20-%20Guide.md) does this for you — it serializes and restores the logging context across every step, and attaches a
+> **You may not need to do this by hand.** The pattern above is the manual approach for a Queueable you wrote yourself. If you use the
+> [async chain framework](Async%20Processing%20-%20Guide.md) instead, it does the saving and restoring for you across every step. It also attaches a
 > [Transaction Finalizer](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_transaction_finalizers.htm) that logs any **unhandled**
-> exception (including governor-limit crashes a step's own `try/catch` cannot trap) and marks the chain Failed rather than leaving it stuck in a Running state.
-> An async step that dies still produces a correlated error log.
+> exception (including governor-limit crashes that a step's own `try/catch` cannot trap) and marks the chain Failed rather than leaving it stuck in a Running state.
+> So even an async step that dies still produces a correlated error log you can find later.
 
 ### External Correlation
 
-When receiving requests from external systems with their own correlation IDs:
+When another system calls your endpoint and already has its own tracking ID for the request, you can adopt that ID instead of generating a new one. Your logs then line up with the
+caller's logs, which makes a cross-system problem far easier to trace:
 
 ```apex
 // REST endpoint receiving external correlation
@@ -447,7 +460,8 @@ global inherited sharing class OrderAPI
 
 ### Global Context
 
-Attach key-value pairs to all subsequent log entries in the transaction:
+When you set up a piece of work, you often want every log from that point on to carry the same details (which account, which user, which industry) without repeating them on every
+call. Global context lets you set those key-value pairs once, and they attach to all later log entries in the transaction:
 
 ```apex
 public void processAccount(Account account)
@@ -480,10 +494,11 @@ public void processAccount(Account account)
 
 ### Operation Context Stack
 
-The framework maintains an internal operation-context stack that is pushed and popped automatically at every dispatcher entry point — `TRG_Dispatcher` around each trigger action,
-`API_Dispatcher` around each inbound and outbound call, `UTIL_AsyncChain` around each chain step. Subscribers do not interact with the stack directly (`LOG_Engine.pushOperationContext` / `popOperationContext` are `public` framework-internal methods, not callable from subscriber Apex).
+As your code runs, the framework automatically records which operation produced each log: the trigger action, the API call, the async chain step. It does this at every dispatcher
+entry point, so the context is filled in for you without any work on your part. `TRG_Dispatcher` adds it around each trigger action, `API_Dispatcher` around each inbound and outbound
+call, and `UTIL_AsyncChain` around each chain step. You do not manage this yourself; the framework keeps it accurate behind the scenes.
 
-For per-call subscriber context, attach it directly to the log entry via `.withContext(key, value)`:
+When you want to attach your own context to a single log entry, the positive path is `.withContext(key, value)`, which adds the pair right on that entry:
 
 ```apex
 kern.LOG_Builder.build()
@@ -494,34 +509,36 @@ kern.LOG_Builder.build()
 	.emitAt('MyClass.runQuery');
 ```
 
-The framework-managed operation types you will see in `LogEntry__c` records are `API_CALL`, `API_BATCH`, `TRIGGER_ACTION`, `QUERY`, `FLOW`, `LWC`, and `VALIDATION` — all set
-automatically by the dispatchers.
+In your `LogEntry__c` records you will see operation types of `API_CALL`, `API_BATCH`, `TRIGGER_ACTION`, `QUERY`, `FLOW`, `LWC`, and `VALIDATION`. The dispatchers set all of these
+for you, so you can filter logs by where they came from without doing anything extra.
 
 ---
 
 ## Performance Logging
 
-The framework automatically times operations across queries, triggers, and API calls. No subscriber code is needed — timing is built into the framework infrastructure. All timers
-track governor limit deltas (CPU time, heap, SOQL queries, DML) and log only when configured thresholds are exceeded.
+To find what is making a transaction slow, you usually have to add timing code by hand. This framework does it for you: it times your queries, triggers, and API calls automatically,
+with no code to write. Every timer also tracks how much of each governor limit the operation consumed (CPU time, heap, SOQL queries, DML), and it only writes a log when the
+operation crosses a threshold you set, so fast operations stay quiet and only the slow ones surface.
 
 ### What Gets Automatically Timed
 
-**Query performance** — Every `QRY_Builder` and `SEL_*` query is timed automatically. Log entries include the SOQL statement, row count, object name, and cache status (hit/miss/stored). This helps identify slow queries and N+1 patterns without instrumenting individual selectors.
+**Query performance.** Every `QRY_Builder` and `SEL_*` query is timed for you. The log entry records the SOQL statement, the row count, the object name, and the cache status
+(hit/miss/stored). That lets you spot slow queries and N+1 patterns (the same query run once per record in a loop) without adding timing to each selector by hand.
 
-**Trigger action performance** — Each action dispatched by `TRG_Dispatcher` is timed with full context: action class name, trigger operation (e.g., `BEFORE_INSERT`), object name,
-and record count. This surfaces which trigger actions contribute most to transaction time.
+**Trigger action performance.** Each action dispatched by `TRG_Dispatcher` is timed with full context: the action class name, the trigger operation (for example `BEFORE_INSERT`), the
+object name, and the record count. This tells you which trigger actions are taking the most of your transaction time.
 
-**API operation performance** — Outbound and inbound API calls processed through the web services framework are timed automatically, capturing HTTP method, endpoint, and response
-status.
+**API operation performance.** Outbound and inbound API calls that go through the web services framework are timed for you, capturing the HTTP method, the endpoint, and the response
+status, so you can see which integrations are slow.
 
-All performance logging is threshold-based and disabled by default. Enable and configure thresholds via `LogSetting__c` (see [Performance Configuration](#performance-configuration)
-below).
+All of this performance logging is off by default and only fires once an operation crosses a threshold. You turn it on and set the thresholds in `LogSetting__c` (see
+[Performance Configuration](#performance-configuration) below).
 
 ### Custom Timing in Subscriber Code
 
-`UTIL_StopWatch` is the framework-internal base class used by the three specialised performance timers. It is declared `public` and is not intended for direct subscriber use. For
-ad-hoc timing around a custom batch step or callout, wrap the work in a `LOG_Builder.scope()` block — the scope captures start/end timestamps and emits a `LogEntryEvent__e` that
-joins the same correlation pipeline as the framework's automatic timers.
+When you want to time a piece of your own code (a custom batch step, a callout) the same way the framework times itself, wrap the work in a `LOG_Builder.scope()` block. The scope
+records when the work started and finished and emits a `LogEntryEvent__e` that joins the same correlation chain as the framework's automatic timers, so your custom timing shows up
+right alongside everything else for the same user action.
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -552,16 +569,17 @@ Configure via `LogSetting__c` (Setup > Custom Settings > Log Setting):
 | `EnableMaskerPerformanceLogging__c`     | Enable data-masking performance logging (default OFF) | `false` |
 | `MaskerPerformanceThresholdMs__c`       | Threshold for masking on a trigger batch (ms)         | `100`   |
 
-Masker performance logging emits one aggregate `LogEntryEvent__e` per trigger batch when `EnableMaskerPerformanceLogging__c` is true and the masker's elapsed time meets the
-threshold. Default off so subscribers pay zero log volume by default — turn on during investigation of slow commits to attribute the time to masking. Entries carry the target
-SObject name in `ClassMethod__c` (e.g., `UTIL_MaskerPerformanceTimer/Foobar__c`) for per-object aggregation.
+Masker performance logging emits one combined `LogEntryEvent__e` per trigger batch, but only when `EnableMaskerPerformanceLogging__c` is true and the masker's elapsed time meets the
+threshold. It is off by default so you pay zero log volume unless you ask for it. Turn it on when you are investigating slow saves and want to know how much of the time is data
+masking. Each entry carries the target SObject name in `ClassMethod__c` (for example `UTIL_MaskerPerformanceTimer/Foobar__c`), so you can group the results by object.
 
 ---
 
 ## Log Buffering
 
-For batch operations, buffer logs to reduce [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm)
-publishes:
+A batch job that logs once per record can publish thousands of platform events, and those events count against your org's allocations. To use far fewer, tell the framework to hold
+logs and publish them together rather than one at a time. This is buffering, and it
+[reduces platform event publishes](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm):
 
 ```apex
 public void processBulkRecords(List<SObject> records)
@@ -591,13 +609,14 @@ public void processBulkRecords(List<SObject> records)
 }
 ```
 
-> **Note:** ERROR-level logs bypass the buffer and trigger an immediate flush. This ensures error visibility even when buffering is active.
+> **Note:** ERROR-level logs skip the buffer and are sent immediately, even while buffering is on. That way an error is never sitting unpublished in the buffer when you need to see it.
 
 ---
 
 ## LWC Client-Side Logging
 
-The `utilityLogger` LWC module provides client-side logging with automatic correlation tracking.
+You can log from your Lightning components the same way you log from Apex, and those client-side logs land in the same place with the same tracking ID. The `utilityLogger` module gives
+your component that logging, and it tracks the correlation ID for you so a click in the browser and the Apex it triggers show up together.
 
 ### LWC Setup
 
@@ -708,8 +727,8 @@ async loadData()
 
 ### Server Persistence
 
-The `utilityLogger` module automatically persists buffered logs to the server. A framework controller bridges client-side and server-side logging, linking correlation IDs from the
-client with server-side log entries.
+Logs you write in the browser are not useful until they reach Salesforce and become records. The `utilityLogger` module sends its buffered logs to the server for you. A framework
+controller receives them and joins the browser's correlation ID to the server-side entries, so the whole user action stays linked from the click through to the Apex.
 
 **How It Works:**
 
@@ -747,7 +766,8 @@ This ensures LWC logs appear in `LogEntry__c` with proper correlation and contex
 
 ### Console Fallback
 
-If Apex persistence fails, logs automatically fall back to browser console:
+If the logs cannot reach the server (for example the Apex call fails), they are not lost: the framework writes them to the browser console instead, so you can still see them while
+debugging:
 
 ```text
 [utilityLogger] Failed to persist logs to server: [error details]
@@ -760,9 +780,12 @@ If Apex persistence fails, logs automatically fall back to browser console:
 
 ## Flow Logging ([`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md), [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md), [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
 
+Admins and flow builders can log from a screen flow or record-triggered flow without writing Apex, using invocable actions. There are two ways to do it: a single action for one-off
+messages, and a three-action "bookend" pattern when you want every log in the flow tied together.
+
 ### Flow Simple Logging
 
-For logging without correlation, use [`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md):
+When you just need to drop a single log message and do not need it linked to anything else, use the one-shot [`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md) action:
 
 **[`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md)** (Full control):
 
@@ -775,7 +798,8 @@ For logging without correlation, use [`FLOW_WriteLog`](reference/apex/FLOW_Write
 
 ### Flow Bookend Pattern
 
-For correlated logging across a Flow, use the bookend pattern with three invocable actions:
+When you want every log from a flow tied together (so you can see the whole run as one story), use the bookend pattern: one action to start, one to log each message, and one to end.
+You start the correlation once, pass the returned ID into each log along the way, and close it out at the end. The three invocable actions are:
 
 **1. [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md)** - Begin correlation
 
@@ -854,7 +878,8 @@ For correlated logging across a Flow, use the bookend pattern with three invocab
 
 ## Testing
 
-By default, logging is suppressed in unit tests to avoid side effects. Enable logging when testing logging behavior:
+In unit tests, logging is turned off by default so it does not add noise or side effects to your tests. When the thing you are actually testing *is* the logging, switch it back on
+first:
 
 ```apex
 @IsTest(SeeAllData=false IsParallel=true)
@@ -892,20 +917,17 @@ private class MyService_TEST
 
 ## Querying Log Entries
 
-When filtering `LogEntry__c` records by user — in reports, dashboards, cleanup scripts, or audit
-queries — **filter by `UserId__c`, NOT by `CreatedById`**.
+There is one trap to know about before you query your logs. When you want the logs for a particular user (in reports, dashboards, cleanup scripts, or audit
+queries), **filter by `UserId__c`, NOT by `CreatedById`**. Filtering by `CreatedById` looks correct but silently returns nothing, and the next section explains why.
 
 ### Why
 
-The framework persists log entries asynchronously: `LOG_Builder.emit()` publishes a
-`LogEntryEvent__e` Platform Event, and `TRG_PersistLogEntry` (a Platform Event subscriber trigger)
-inserts the `LogEntry__c` row. Salesforce executes Platform Event triggers as the **Automated
-Process** user (e.g. `autoproc@<orgid>`) regardless of who fired the event, so EVERY persisted
-`LogEntry__c.CreatedById` is the Automated Process user.
+Remember that logs are saved asynchronously: `LOG_Builder.emit()` publishes a `LogEntryEvent__e` Platform Event, and `TRG_PersistLogEntry` (a Platform Event subscriber trigger)
+inserts the `LogEntry__c` row. Salesforce runs Platform Event triggers as the **Automated Process** user (for example `autoproc@<orgid>`), no matter who fired the event. So every saved
+`LogEntry__c.CreatedById` is the Automated Process user, never the person whose code logged the message.
 
-The framework captures the emitting user's Id at publish time on `LogEntryEvent__e.UserId__c` and
-`TRG_PersistLogEntry` propagates it to `LogEntry__c.UserId__c`. That field — not `CreatedById` —
-is the correct join key for "which user emitted this log".
+The real user is captured separately. At publish time the framework records the emitting user's Id on `LogEntryEvent__e.UserId__c`, and `TRG_PersistLogEntry` copies it onto
+`LogEntry__c.UserId__c`. That field, not `CreatedById`, is the one to use when you ask "which user produced this log".
 
 ### Right vs wrong
 
@@ -924,20 +946,18 @@ List<LogEntry__c> brokenQuery = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 
 ### Reports and dashboards
 
-The same applies to declarative reports, dashboards, and list views. To filter by emitting user,
-add a column or filter on **User ID** (`kern__UserId__c`), not Created By.
+The same rule applies to declarative reports, dashboards, and list views. To filter by the user who emitted the log, add a column or filter on **User ID** (`kern__UserId__c`), not
+Created By.
 
-`UserId__c` is a Text(18) — not a Lookup — so `UserId__r.Name` traversal is NOT available. To
-filter or display by user name, build a report type that joins `LogEntry__c.UserId__c` to the
-`User` object via a Report Type Cross-Filter or a custom report formula. The companion field
-`UserLink__c` is a formula that renders an "Open" hyperlink to the user record (so reports can
-include a one-click jump from a log row to the User detail page); use it for navigation, and
-`UserId__c` for filtering.
+One thing to know: `UserId__c` is a Text(18) field, not a Lookup, so you cannot traverse `UserId__r.Name` to get the user's name. To filter or display by user name, build a report
+type that joins `LogEntry__c.UserId__c` to the `User` object, using a Report Type Cross-Filter or a custom report formula. There is a companion field, `UserLink__c`, which is a formula
+that renders an "Open" hyperlink to the user record, so a report can include a one-click jump from a log row to the User detail page. Use `UserLink__c` for navigation and `UserId__c`
+for filtering.
 
 ### Cleanup scripts
 
-Cleanup queries should also filter by `UserId__c`. The platform allows `WHERE CreatedDate < ...`
-clauses against the Automated Process user's records — the cleanup user just needs delete
+Cleanup queries should filter by `UserId__c` too. You can still use a `WHERE CreatedDate < ...`
+clause against the Automated Process user's records; the user running the cleanup just needs delete
 access to `LogEntry__c`.
 
 ```apex
@@ -951,10 +971,11 @@ DML_Builder.newTransaction().doDelete(stale).execute();
 
 ### Sharing considerations
 
-`TRG_PersistLogEntry` runs `inherited sharing`, so the OWD model on `LogEntry__c` applies to the
-Automated Process user's record-level access — not the emitting user's. If subscribers want
-emitting users to see their own logs without granting "View All", a criteria-based sharing rule
-keyed on `UserId__c` closes that visibility gap.
+Because `TRG_PersistLogEntry` runs `inherited sharing`, the organization-wide default sharing on
+`LogEntry__c` is judged against the Automated Process user's record access, not the access of the
+user who emitted the log. If you want each user to see their own logs without giving them the
+broad "View All" permission, add a criteria-based sharing rule keyed on `UserId__c`. That closes
+the visibility gap for exactly those records.
 
 ---
 
@@ -962,11 +983,12 @@ keyed on `UserId__c` closes that visibility gap.
 
 ### `LogSetting__c` Fields
 
-Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom Settings > Log Setting.
+These settings control what gets logged and when, with no deployment needed. They are a hierarchical custom setting, which means you can set a value for the whole org and then
+override it for a profile or an individual user (Org, then Profile, then User). Configure them in Setup > Custom Settings > Log Setting.
 
 | Field                                   | Type      | Default | Description                                                                                                       |
 |-----------------------------------------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
-| `IsEnabled__c`                          | Checkbox  | true    | Master kill switch. When false, all non-ERROR logs are dropped.                                                   |
+| `IsEnabled__c`                          | Checkbox  | true    | Master off-switch you can flip in an incident without a deployment. When false, all non-ERROR logs are dropped.   |
 | `LogLevelThreshold__c`                  | Text(10)  | DEBUG   | Minimum level to log (DEBUG, INFO, WARN, ERROR)                                                                   |
 | `ClassFilter__c`                        | Text(255) | blank   | Comma-separated class name patterns with trailing `*` wildcard (e.g., `API_*,SVC_Payment*`). Blank = all classes. |
 | `MaxContextDataSize__c`                 | Number    | 32768   | Max characters for ContextData__c                                                                                 |
@@ -978,7 +1000,7 @@ Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom
 | `TriggerPerformanceThresholdMs__c`      | Number    | 500     | Threshold for trigger timers (ms)                                                                                 |
 | `EnableValidationPerformanceLogging__c` | Checkbox  | true    | Enable validation performance logging                                                                             |
 | `ValidationPerformanceThresholdMs__c`   | Number    | 100     | Threshold for validation timers (ms)                                                                              |
-| `EnableMaskerPerformanceLogging__c`     | Checkbox  | false   | Enable masker performance logging (default OFF — opt-in)                                                          |
+| `EnableMaskerPerformanceLogging__c`     | Checkbox  | false   | Enable masker performance logging (off by default; opt in)                                                        |
 | `MaskerPerformanceThresholdMs__c`       | Number    | 100     | Threshold for masking on a trigger batch (ms)                                                                     |
 
 ### `TriggerSetting__mdt` Fields (Trigger Performance)
@@ -996,7 +1018,7 @@ Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom
 | `SuppressPerformanceLogging__c` | Checkbox | Never log this action            |
 | `PerformanceThresholdMs__c`     | Number   | Custom threshold for this action |
 
-**Configuration Hierarchy** (highest priority first):
+When the same setting is defined in more than one place, the most specific one wins. The order, from highest priority to lowest, is:
 
 1. TriggerAction__mdt (action-specific)
 2. TriggerSetting__mdt (object-specific)
@@ -1006,11 +1028,14 @@ Hierarchical custom setting (Org > Profile > User). Configure via Setup > Custom
 
 ## Anti-Patterns
 
+These are the common mistakes people make when logging (an "anti-pattern" is a tempting approach that causes problems later). Each row shows what to avoid, why it bites you, and what
+to do instead.
+
 | Anti-Pattern                                     | Why It's Wrong                                                        | Instead                                                                                                                                                                                                                |
 |--------------------------------------------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Using `System.debug()`                           | Output is ephemeral, not queryable, and lost after debug log rotation | Use `LOG_Builder.build().error(e).emitAt('Class.method')`                                                                                                                                                              |
 | Logging without class.method context             | Impossible to trace which code generated a log entry                  | Always provide context via `.emitAt('ClassName.methodName')` or `.at('ClassName.methodName')`                                                                                                                          |
-| Logging PII or secrets (passwords, tokens, SSNs) | Violates compliance requirements and creates security vulnerabilities | The data masking framework (`MaskingRule__mdt` + `MaskingTarget__mdt`) is on by default and redacts configured patterns on every `LogEntryEvent__e`. Ship custom rules if your payload shape needs additional patterns |
+| Logging personal data or secrets (passwords, tokens, SSNs) | Breaks compliance rules and creates security holes | The data masking framework (`MaskingRule__mdt` + `MaskingTarget__mdt`) is on by default and redacts the patterns it is configured for on every `LogEntryEvent__e`. Add your own rules if your data has patterns the defaults do not cover |
 | Missing correlation in async operations          | Cannot trace a logical operation across transaction boundaries        | Use `LOG_Builder.setCorrelationId(correlationId)` or `serializeContext()`/`hydrateContext()` to propagate correlation IDs across async boundaries                                                                      |
 | Forgetting to close log scopes                   | Buffered log entries may not be emitted, causing silent data loss     | Always call `scope.close()` in a `finally` block                                                                                                                                                                       |
 
@@ -1076,8 +1101,8 @@ finally
 
 ### Enable Performance Logging for Critical Operations
 
-Enable performance logging via `LogSetting__c` to surface slow operations. The framework automatically times queries, trigger actions, and API calls — no code changes required. For
-custom timing in subscriber code, wrap the work in a `LOG_Builder.scope()` block:
+Turn on performance logging in `LogSetting__c` to surface your slow operations. The framework already times queries, trigger actions, and API calls for you, with no code changes. To
+time your own code as well, wrap the work in a `LOG_Builder.scope()` block:
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();

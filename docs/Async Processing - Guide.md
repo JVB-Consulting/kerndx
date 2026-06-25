@@ -115,55 +115,70 @@ navOrder: 34
 
 ## Overview
 
-The Asynchronous Operations framework provides **enterprise-grade patterns** for running long-running processes, scheduled jobs,
-and bulk data processing. It abstracts away the complexity of choosing between Salesforce's async mechanisms
-([Queueable](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_queueing_jobs.htm),
-[Batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm),
-[Scheduled Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm))
-and automatically optimizes execution based on data volume and governor limits.
+Some jobs are too big or too slow to run while a user waits: processing tens of thousands of records, calling external
+systems, or running on a nightly schedule. Salesforce offers three separate tools for this work, and choosing the right
+one (and switching between them as data volumes change) is a recurring source of bugs and governor-limit failures.
+"Governor limits" are the platform's per-transaction caps on how much work Apex can do at once.
 
-The framework consists of six complementary layers:
+This framework lets you write your processing logic once and have it run at the right scale automatically. You implement
+one small class; the framework picks Queueable, Batch, or parallel execution based on how many records there are and how
+close you are to platform limits. The three Salesforce tools it sits on top of are
+[Queueable](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_queueing_jobs.htm),
+[Batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm), and
+[Scheduled Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm).
 
-1. **[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md)** — Simplified entry point for launching async jobs with adaptive strategy selection
-2. **[`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)** — Interface for defining processing logic
-3. **`UTIL_AdaptiveAsynchronousProcessor`** — Adaptive processing engine (internal) — selects Queueable, Batch, or synchronous based on data volume
-4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** — Chain orchestration with shared context, execution tracking, error/completion handlers, and built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge
-5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** — Interface for configurable scheduled jobs with parameter definitions, managed via [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
-6. **`CTRL_ChainMonitor`** — Real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`) with streaming updates,
-   step timeline, and error detail panels
+**Who should read this guide:** developers building background jobs, architects designing for governor-limit safety, and
+business analysts who configure and monitor scheduled jobs. **When to use it:** for asynchronous record processing,
+multi-step workflows, and recurring scheduled jobs. Reach for the platform's native tools directly only for the small
+synchronous cases noted below.
 
-> **Responsibilities:** The Async framework launches and manages long-running or deferred work. It does not contain business logic itself --
-> that belongs in your `Processable` implementation. It does not query data; pass records or a `Builder` to the launcher.
+The framework is made up of six pieces that work together:
+
+1. **[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md)** is the entry point: one place to launch async jobs, with the right strategy chosen for you.
+2. **[`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)** is the interface where you put your processing logic.
+3. **`UTIL_AdaptiveAsynchronousProcessor`** is the engine that picks Queueable, Batch, or synchronous execution based on data volume. The framework drives it for you.
+4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** runs multi-step workflows that share data, track progress, and have error and completion handlers, including a built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge.
+5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** is the interface for configurable scheduled jobs that accept parameters, managed through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records.
+6. **`CTRL_ChainMonitor`** powers the real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`), with live updates,
+   a step timeline, and error detail panels.
+
+> **Responsibilities:** The Async framework launches and manages long-running or deferred work. It does not contain the
+> business logic itself: that belongs in your `Processable` implementation. It does not query data either; you pass
+> records or a `Builder` to the launcher.
 
 > **When NOT to use this pattern:**
 > - Small synchronous operations (under 100 records) that complete well within governor limits
 > - Simple scheduled jobs that a declarative Scheduled Flow can handle without code
 
-**Key Benefits:**
+**What you get:**
 
-- **Automatic Strategy Selection** — Framework chooses Queueable or Batch based on volume
-- **Simplified API** — Simple entry point for complex async operations
-- **Chain Orchestration** — Multi-step workflows with shared context, error/completion handlers, and persistent execution tracking
-- **Web Service Bridge** — `ApiStep` wraps any `API_Outbound` handler as a chain step with zero changes
-- **Real-Time Monitoring** — Chain Monitor UI with streaming updates, step timeline, and error panels
-- **Configurable Schedulers** — Parameterized scheduled jobs without code changes
-- **Governor Limit Aware** — Automatically handles governor limit constraints
-- **Consistent Error Handling** — Standardized error handling and logging across all async patterns
-- **Testable** — Built-in test support with configurable behavior
+- **Automatic strategy selection.** The framework chooses Queueable or Batch based on volume, so you don't have to guess
+  upfront or rework the call when data grows.
+- **A simple entry point.** One method launches complex async work.
+- **Chain orchestration.** Run multi-step workflows that share data between steps, with built-in error and completion
+  handlers and a persistent record of progress.
+- **A web service bridge.** `ApiStep` wraps any `API_Outbound` handler as a chain step with no changes to that handler.
+- **Real-time monitoring.** The Chain Monitor UI shows live updates, a step-by-step timeline, and error detail panels.
+- **Configurable schedulers.** Change a job's parameters without touching code.
+- **Governor-limit awareness.** The framework works within the platform's per-transaction caps automatically.
+- **Consistent error handling.** Errors and logs follow the same pattern across every async strategy.
+- **Testability.** Built-in test support lets you control async behaviour in `@IsTest` code.
 
 > **Async Framework Scope:** Adaptive strategy selection (Queueable vs Batch), chain orchestration with shared context and `ApiStep` web service bridge, declarative scheduling via
 `ScheduledJob__c`, real-time Chain Monitor UI, and four pre-built schedulable reference implementations (`SCHED_DeactivateUsers`, `SCHED_PerformBatchedCallouts`,
 `SCHED_ProcessLoginHistory`, `SCHED_PurgeRecords`) extending the abstract `SCHED_Base`.
 
-> **Declarative Scheduling:** Configure recurring jobs entirely through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
-> records — set a class name, cron expression, and activate. No code deployment needed to schedule, reschedule, or
+> **Declarative scheduling:** Configure recurring jobs entirely through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
+> records. Set a class name and a cron expression, then activate. No code deployment is needed to schedule, reschedule, or
 > deactivate jobs.
 
 ---
 
 ## Quick Start
 
-Implement `IF_Async.Processable` and launch with `UTIL_AsynchronousJobLauncher` -- the framework picks the optimal strategy.
+To process records in the background, you write one class that holds your logic and hand it to the launcher. Put your
+logic in a class that implements `IF_Async.Processable`, then launch it with `UTIL_AsynchronousJobLauncher`. The
+framework picks the right execution strategy for you.
 
 > **Step-by-step walkthrough:** [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md) covers implementation,
 > testing, and common pitfalls.
@@ -192,20 +207,26 @@ For deeper coverage, continue reading the sections below.
 
 ## Escape Hatches
 
-The async framework provides three execution strategies and adapts between them automatically. `UTIL_AsyncChain` is **one** option — for sequenced, dependent work with shared
-state. Parallel execution is a separate, first-class strategy. Subscribers always retain full control of the platform's native async primitives.
+Sometimes you want to step outside the framework and use Salesforce's own async tools directly. You can, at any time:
+the framework never takes that control away from you.
+
+The framework offers three execution strategies and switches between them automatically. `UTIL_AsyncChain` is just
+**one** of your options, meant for sequenced, dependent work that shares state from step to step. Running jobs in
+parallel is a separate, equally supported strategy. The table below maps each thing you might want to do to the
+direct route that gives it to you.
 
 | You need                                                                         | Use                                                                                                                                                                    | See                                                                       |
 |----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | **Parallel Queueables** (multiple jobs running concurrently)                     | `UTIL_AsynchronousJobLauncher.process()` auto-selects `PARALLEL_QUEUEABLES` when the 10-concurrent platform limit allows.                                              | [Execution Strategy Comparison](#execution-strategy-comparison)           |
-| **Direct `System.enqueueJob()`** for an independent Queueable                    | Works unmodified — nothing intercepts `enqueueJob`. Subscribers freely write `implements Queueable` and enqueue independently of any chain.                            | [Queueable Pattern with Correlation](#queueable-pattern-with-correlation) |
-| **Native `Database.Batchable` / `Database.Stateful`**                            | Write your own batch class as you always would. No mandatory base class. The framework's `IF_Async.Processable` interface is optional.                                 | [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)      |
-| **Change Data Capture / Platform Event triggers**                                | Subscribers write `trigger MyTrigger on Account__ChangeEvent` directly. Framework code calls `EventBus.publishWithAccessLevel()` without wrapping subscriber triggers. | —                                                                         |
-| **Force a specific execution strategy** instead of letting the dispatcher choose | `IF_Async.AsynchronousExecutionStrategy` enum exposes `PARALLEL_QUEUEABLES`, `CHAINABLE`, `BATCH` — pass it to the launcher.                                           | [Execution Strategy Comparison](#execution-strategy-comparison)           |
-| **10-concurrent-limit awareness for adaptive degradation**                       | The adaptive processor reads `UTIL_Limits.queueableJobs().remaining()` and degrades PARALLEL → CHAINABLE → BATCH automatically.                                        | [Execution Strategy Flow](#execution-strategy-flow)                       |
+| **Direct `System.enqueueJob()`** for an independent Queueable                    | Works unchanged. Nothing intercepts `enqueueJob`. You freely write `implements Queueable` and enqueue independently of any chain.                            | [Queueable Pattern with Correlation](#queueable-pattern-with-correlation) |
+| **Native `Database.Batchable` / `Database.Stateful`**                            | Write your own batch class as you always would. There is no mandatory base class. The framework's `IF_Async.Processable` interface is optional.                                 | [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)      |
+| **Change Data Capture / Platform Event triggers**                                | You write `trigger MyTrigger on Account__ChangeEvent` directly. Framework code calls `EventBus.publishWithAccessLevel()` without wrapping your triggers. | —                                                                         |
+| **Force a specific execution strategy** instead of letting the dispatcher choose | `IF_Async.AsynchronousExecutionStrategy` enum exposes `PARALLEL_QUEUEABLES`, `CHAINABLE`, `BATCH`; pass the one you want to the launcher.                                           | [Execution Strategy Comparison](#execution-strategy-comparison)           |
+| **10-concurrent-limit awareness for adaptive degradation**                       | The adaptive processor reads `UTIL_Limits.queueableJobs().remaining()` and steps down PARALLEL → CHAINABLE → BATCH automatically as slots run low.                                        | [Execution Strategy Flow](#execution-strategy-flow)                       |
 
-`UTIL_AsyncChain` is for one specific pattern: sequenced, dependent steps with shared context across transactions. It does **not** preclude parallel execution — it's the wrong tool
-for that, and the framework names the right one (`PARALLEL_QUEUEABLES`) explicitly.
+A reminder on scope: `UTIL_AsyncChain` is for one specific pattern, sequenced steps that depend on each other and share
+context across transactions. It is the wrong tool for parallel work, but that does not mean parallel work is unavailable.
+The framework names the right tool for that case (`PARALLEL_QUEUEABLES`) explicitly.
 
 ---
 
@@ -257,29 +278,29 @@ public class MyQueueable implements Queueable {
 | **Test Support**            | `AsyncOptions` for controlled testing                                                  | Standard Test.startTest()/stopTest()               |
 | **Simplicity**              | Requires learning framework                                                            | Standard Salesforce patterns                       |
 | **Learning Curve**          | Framework-specific knowledge                                                           | Standard Apex knowledge                            |
-| **Performance**             | Minimal framework overhead                                                             | Direct platform execution                          |
+| **Performance**             | A thin layer over the platform's own execution                                                             | Direct platform execution                          |
 | **Flexibility**             | Must use framework patterns                                                            | Full control over implementation                   |
 
 ### When to Use KernDX Async Framework
 
-- **Variable data volumes** - Framework auto-selects Queueable vs Batch
-- **Reusable processing logic** - Same processor works across strategies
-- **Declarative job management** - Admin-managed schedules via [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)
-- **Log correlation required** - Track async operations back to source via [`LOG_Builder`](reference/apex/LOG_Builder.md)
-- **Parallel queueable patterns** - Framework handles chunking and enqueuing
-- **Consistent error handling** - Framework provides standardized error events
-- **Multiple developers** - Enforces consistent patterns
-- **Enterprise applications** - Full lifecycle management
+- **Variable data volumes.** The framework auto-selects Queueable vs Batch, so the same code keeps working as data grows.
+- **Reusable processing logic.** One processor works across every strategy.
+- **Declarative job management.** Admins manage schedules through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records, no code deployment.
+- **Log correlation required.** Trace async operations back to where they started via [`LOG_Builder`](reference/apex/LOG_Builder.md).
+- **Parallel queueable patterns.** The framework handles chunking and enqueuing for you.
+- **Consistent error handling.** You get the same standardized error events everywhere.
+- **Multiple developers.** Everyone follows the same pattern instead of inventing their own.
+- **Long-running applications that need full lifecycle management** (launch, monitor, finalize, and reschedule in one place).
 
 ### When to Use OOTB Batch/Queueable
 
-- **Simple one-off jobs** - Basic batch or queueable without reuse
-- **Maximum control** - Need custom start/execute/finish behavior
-- **Performance critical** - Avoid any framework overhead
-- **Stateful batch** - Need `Database.Stateful` for cross-batch state
-- **Custom chaining logic** - Complex conditional chaining requirements
-- **Small codebase** - Few async jobs, minimal consistency needs
-- **Developers prefer** - Direct Salesforce patterns
+- **Simple one-off jobs.** A basic batch or queueable you won't reuse.
+- **Maximum control.** You need custom start, execute, or finish behaviour.
+- **Performance critical.** You want to avoid even a thin framework layer.
+- **Stateful batch.** You need `Database.Stateful` to keep state across batches.
+- **Custom chaining logic.** Your chaining has involved conditional rules.
+- **Few async jobs.** A small codebase where shared conventions add little.
+- **Team preference.** Your developers prefer working with the platform's patterns directly.
 
 ### Example Comparison
 
@@ -622,7 +643,8 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 
 ### [`IF_Async.Processable`](reference/apex/IF_Async.Processable.md) (Required)
 
-The core interface for your processing logic. Implement this to define what happens to each batch of records.
+This is where your work lives. Implement this interface to define what happens to each batch of records the framework
+hands you.
 
 ```apex
 public with sharing class MyProcessor implements IF_Async.Processable
@@ -653,7 +675,9 @@ public with sharing class MyProcessor implements IF_Async.Processable
 
 ### [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) (Optional)
 
-Implement this alongside [`IF_Async.Processable`](reference/apex/IF_Async.Processable.md) when you need cleanup or notification after all processing completes.
+Add this interface alongside [`IF_Async.Processable`](reference/apex/IF_Async.Processable.md) when you need to clean up or
+send a notification once all the records are processed. The framework calls your `finish()` method one time, after the
+last batch.
 
 ```apex
 public with sharing class MyProcessor implements
@@ -698,8 +722,10 @@ public with sharing class MyProcessor implements
 
 ## Async Chain Orchestration
 
-Async chains sequence multiple steps across separate Queueable transactions with shared state, automatic progress tracking,
-and built-in error handling. Each step runs in its own transaction with fresh governor limits.
+Some work has distinct phases that must run in order, where one phase is too much to fit in a single transaction with the
+next. An async chain runs those phases as separate steps, one after another, each in its own transaction. Steps share
+data, progress is tracked automatically, and errors are handled for you. Because each step is a fresh transaction, it
+starts with a clean set of governor limits.
 
 ### When to Use Chains
 
@@ -709,8 +735,8 @@ and built-in error handling. Each step runs in its own transaction with fresh go
 | Scheduler (`IF_Schedulable`)              | Recurring jobs on a cron schedule                                                          |
 | **Async chain**                           | Multi-step workflows where steps must run sequentially, each needing fresh governor limits |
 
-Use chains when your workflow has distinct phases that depend on each other -- for example, load data, transform it,
-then send a notification. Each step can make callouts, run DML, and query without competing for the same transaction's limits.
+Use chains when your workflow has distinct phases that depend on each other: for example, load data, transform it, then
+send a notification. Each step can make callouts, run DML, and query without competing for the same transaction's limits.
 
 ### Architecture
 
@@ -801,7 +827,8 @@ then send a notification. Each step can make callouts, run DML, and query withou
 
 ### Building Steps
 
-Extend `UTIL_AsyncChain.ChainStep` and implement `work(ChainContext)`. Return a `StepResult` to indicate success or failure.
+Each step in a chain is a small class you write. Extend `UTIL_AsyncChain.ChainStep` and implement `work(ChainContext)`,
+then return a `StepResult` to say whether the step succeeded or failed.
 
 ```apex
 public class LoadDataStep extends UTIL_AsyncChain.ChainStep
@@ -846,7 +873,8 @@ public class TransformDataStep extends UTIL_AsyncChain.ChainStep
 
 ### Chain Builder API
 
-Build and execute chains fluently with `UTIL_AsyncChain.newChain()`:
+You configure a chain with a series of short chained calls, then one call runs it. Start with
+`UTIL_AsyncChain.newChain()`:
 
 ```apex
 String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
@@ -874,8 +902,9 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 
 ### Context Sharing
 
-The `ChainContext` object is serialized between transactions, so all values must be JSON-serializable.
-Prefer IDs and primitives over full SObject graphs.
+Steps pass data to each other through a shared `ChainContext` object. Because that object is saved (serialized) between
+transactions, every value you put in it must be JSON-serializable. Prefer record IDs and simple values over full SObject
+graphs, which are heavier to carry across each transaction boundary.
 
 ```apex
 public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
@@ -909,9 +938,10 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 
 ### Error Handling
 
-**onError handler:** Runs when any step fails (unless the failing step has `continueOnError = true`). The handler
-executes in its own Queueable transaction (`HandlerExecutor`), guaranteeing fresh governor limits and allowing
-callouts even if the failed step performed DML. Receives the full context, including the previous step's failure result.
+**onError handler:** This runs when any step fails (unless the failing step is marked `continueOnError = true`). It runs
+in its own fresh transaction (`HandlerExecutor`), so it starts with clean governor limits and can make callouts even when
+the failed step already performed DML. It receives the full context, including the failure result from the step that
+broke.
 
 ```apex
 public class NotifyAdminStep extends UTIL_AsyncChain.ChainStep
@@ -931,7 +961,8 @@ public class NotifyAdminStep extends UTIL_AsyncChain.ChainStep
 }
 ```
 
-**continueOnError:** Use the `then(step, true)` overload to allow the chain to proceed past a step failure.
+**continueOnError:** When a step is allowed to fail without stopping the whole chain, pass `true` to the
+`then(step, true)` overload. The chain logs the failure and moves on to the next step.
 
 ```apex
 UTIL_AsyncChain.newChain('ResilientChain')
@@ -941,14 +972,16 @@ UTIL_AsyncChain.newChain('ResilientChain')
 	.execute();
 ```
 
-**onComplete handler:** Runs after all steps complete successfully, in its own Queueable transaction (`HandlerExecutor`).
-Callouts are safe even if the final step performed DML. If the handler throws, the chain is marked as Failed.
+**onComplete handler:** This runs after every step has succeeded, again in its own fresh transaction
+(`HandlerExecutor`). Callouts are safe here even if the final step performed DML. If this handler throws, the chain is
+marked as Failed.
 
 **Chain statuses:** `Running` → `Completed` | `Failed` | `Aborted`
 
 ### Monitoring
 
-Query chain status programmatically or inspect `AsyncChainExecution__c` records directly.
+To see how a chain is doing, you can either ask for its status in code or open the `AsyncChainExecution__c` records
+directly. Every chain you run leaves one of these records behind.
 
 ```apex
 Map<String, Object> status = UTIL_AsyncChain.getStatus(executionId);
@@ -979,35 +1012,39 @@ The object has field history tracking enabled on `Status__c`, `CompletedSteps__c
 
 ### Logging Strategy
 
-The chain framework minimises log noise. Progress is tracked on the `AsyncChainExecution__c` record (Status,
-CompletedSteps, CurrentStepName, DurationMs). `CompletedSteps__c` counts only steps that succeeded — failed
-steps (including `continueOnError`) are not counted. Logs are reserved for actionable events only:
+The chain framework keeps logs quiet so the ones that appear matter. Ordinary progress (Status, CompletedSteps,
+CurrentStepName, DurationMs) is tracked on the `AsyncChainExecution__c` record, not written to logs. `CompletedSteps__c`
+counts only the steps that succeeded; failed steps (including ones marked `continueOnError`) are not counted. Logs are
+reserved for events you can act on:
 
 | Event                        | Level | When                                                                |
 |------------------------------|-------|---------------------------------------------------------------------|
 | Step exception (stack trace) | Error | Step throws an unhandled exception                                  |
-| Step failed but continuing   | Warn  | `continueOnError` step fails — includes failure reason and duration |
+| Step failed but continuing   | Warn  | A `continueOnError` step fails; the log includes the failure reason and duration |
 | Chain crashed                | Error | Finalizer catches unhandled Queueable crash (governor limits)       |
 | Chain aborted                | Warn  | Kill switch active or max steps exceeded                            |
-| Execution record deleted     | Warn  | Rare — record removed externally while chain running                |
+| Execution record deleted     | Warn  | Rare: a record was removed externally while the chain was running                |
 
-**Performance logging** is automatic via `UTIL_PerformanceTimer`. Each step is timed; if the step duration
-exceeds the threshold in `LogSetting__c.PerformanceThresholdMs__c`, a structured performance log is emitted
-with CPU, heap, SOQL, and DML deltas. No manual configuration needed — just enable
+**Performance logging** happens automatically through `UTIL_PerformanceTimer`. Each step is timed, and if a step runs
+longer than the threshold in `LogSetting__c.PerformanceThresholdMs__c`, the framework writes a structured performance log
+showing the CPU, heap, SOQL, and DML it used. There is nothing to configure by hand: just enable
 `LogSetting__c.EnablePerformanceLogging__c`.
 
-**Non-fatal failure tracking:** When `continueOnError` steps fail, the failure summaries are appended to
-`ErrorMessage__c` on the execution record (e.g., "Non-fatal step failures: CleanupStep: Timeout; OptionalStep:
-Service unavailable"). Status remains `Completed` — admins can filter on ErrorMessage to find chains with issues.
+**Non-fatal failure tracking:** When `continueOnError` steps fail, their failure summaries are added to
+`ErrorMessage__c` on the execution record (for example, "Non-fatal step failures: CleanupStep: Timeout; OptionalStep:
+Service unavailable"). The status stays `Completed`, so admins can filter on `ErrorMessage__c` to find chains that
+finished but had problems along the way.
 
 ### Log Correlation
 
-Chains automatically inherit the current `LOG_Builder` correlation context. When a chain spans multiple Queueable
-transactions, `LOG_Builder.serializeContext()` and `hydrateContext()` are called internally to preserve the
-correlation ID, parent transaction ID, and custom context data across transaction boundaries.
+A correlation ID is one tracking ID that follows a single user action across triggers, queries, callouts, and jobs, so
+you can pull every log from one action together later. Chains inherit the current `LOG_Builder` correlation context
+automatically. When a chain spans several Queueable transactions, the framework calls `LOG_Builder.serializeContext()`
+and `hydrateContext()` for you behind the scenes, carrying the correlation ID, the parent transaction ID, and any custom
+context data across each transaction boundary.
 
-All log entries emitted within chain steps share the same correlation ID, making it straightforward to trace
-an entire chain execution in **App Launcher > Kern > Log Entries**.
+Because every log a chain's steps write shares the same correlation ID, you can trace a whole chain run in one place:
+**App Launcher > Kern > Log Entries**.
 
 To supply a specific correlation ID:
 
@@ -1026,29 +1063,34 @@ context.put('CreateAccount.accountId', account.Id);
 context.put('SendEmail.messageId', response.messageId);
 ```
 
-**Idempotency:** The framework does not enforce idempotency — this is the step author's responsibility.
-Steps that perform side effects (DML, callouts) should be safe to run more than once, because manual
-reprocessing, multiple entry points, or partial failures followed by re-execution can cause repeated
-invocations. Use upsert with external IDs, check-before-insert, or idempotent downstream APIs.
+**Safe to run twice (idempotency):** A step is idempotent when running it a second time produces the same end state as
+running it once, with no duplicate side effects. The framework does not guarantee this for you; it is the step author's
+job. Steps that change data or call out to other systems should be safe to run more than once, because manual
+reprocessing, multiple entry points, or a partial failure followed by a re-run can all cause a step to fire again. Use
+upsert with external IDs, check before you insert, or call downstream APIs that are themselves safe to repeat.
 
 ### Kill Switch
 
-The `FeatureFlag.AsyncChain` custom metadata record acts as a global kill switch. When disabled, any running chain
-executor immediately aborts with the message "Kill switch active" and no further steps are enqueued.
+If chains start misbehaving in production, you want to stop them without a deployment. The `FeatureFlag.AsyncChain`
+custom metadata record is that master off-switch you can flip in an incident. When you disable it, any running chain
+aborts at once with the message "Kill switch active" and no further steps are enqueued.
 
-This is controlled via `UTIL_FeatureFlag.isEnabled('AsyncChain')` and ships enabled by default.
+It is read through `UTIL_FeatureFlag.isEnabled('AsyncChain')` and ships enabled by default, so chains work out of the
+box.
 
 ### ApiStep: Web Service Integration
 
-[`UTIL_AsyncChain.ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) bridges any existing
-[`API_Outbound`](reference/apex/API_Outbound.md) handler into a chain step with zero changes to the handler class —
-including non-POST verbs (override `getHttpMethod()` in the handler; see [Web Services - Guide](Web%20Services%20-%20Guide.md)).
-The adapter wraps the full web service lifecycle — validation, callout, response parsing, DML, and `ApiCall__c`
-persistence — via [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) delegation mode.
+If you already have an outbound integration written as an [`API_Outbound`](reference/apex/API_Outbound.md) handler, you
+can drop it into a chain as one step without changing the handler at all.
+[`UTIL_AsyncChain.ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) does the bridging. It works with non-POST verbs
+too (override `getHttpMethod()` in the handler; see [Web Services - Guide](Web%20Services%20-%20Guide.md)). Behind the
+scenes it runs the full web service lifecycle for you (validation, the callout, parsing the response, DML, and saving an
+`ApiCall__c` record) through [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) delegation mode.
 
-**Key design:** ApiStep configuration is stored in the `ChainContext` (not on the step instance) because steps are
-serialized as class names and reconstructed via reflection. At build-time, the `ChainBuilder` persists the step's
-configuration into the initial context. At execution-time, `work()` reads it back using the step index.
+**How it works:** Chain steps are saved by class name and rebuilt later, so an `ApiStep` can't keep its settings on the
+step object itself. Instead, its configuration is stored in the `ChainContext`. When you build the chain, the
+`ChainBuilder` writes the step's configuration into the initial context; when the step runs, `work()` reads it back using
+the step's position in the chain.
 
 #### Basic Usage
 
@@ -1078,10 +1120,10 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 
 #### Reading Results from Downstream Steps
 
-After an `ApiStep` executes, its result is stored in the context under the key `__apiResult_{stepIndex}` as a
-`Map<String, Object>` with keys: `success` (Boolean), `statusCode` (Integer), `apiCallId` (String), and
-`errors` (String, present only on failure). The full response body lives on the `ApiCall__c` record — downstream
-steps can query it by ID if needed.
+After an `ApiStep` runs, its result is stored in the context under the key `__apiResult_{stepIndex}` as a
+`Map<String, Object>` with these keys: `success` (Boolean), `statusCode` (Integer), `apiCallId` (String), and
+`errors` (String, present only on failure). The full response body lives on the `ApiCall__c` record, so a later step can
+query it by ID when it needs the body.
 
 ```apex
 public class ProcessPaymentResultStep extends UTIL_AsyncChain.ChainStep
@@ -1099,7 +1141,8 @@ public class ProcessPaymentResultStep extends UTIL_AsyncChain.ChainStep
 
 #### Standalone vs. Chain Execution
 
-The same `API_Outbound` handler works in both modes with zero changes:
+You can call the same `API_Outbound` handler on its own or as a chain step. Either way, the handler itself stays the
+same:
 
 | Mode           | Entry Point                                                                   | Lifecycle                         |
 |----------------|-------------------------------------------------------------------------------|-----------------------------------|
@@ -1108,10 +1151,10 @@ The same `API_Outbound` handler works in both modes with zero changes:
 
 #### Error Handling
 
-When the API call fails, the `ApiStep` returns `UTIL_AsyncChain.failed()` with the handler's error messages. The
-chain's `onError()` handler fires (if configured), and the `ApiCall__c` record is persisted for audit. Synchronous
-retries within the step's Queueable transaction happen normally via `UTIL_HttpClient`; async retries are not
-scheduled because the chain owns the error flow.
+When the API call fails, the `ApiStep` returns `UTIL_AsyncChain.failed()` carrying the handler's error messages. Your
+chain's `onError()` handler then fires (if you configured one), and the `ApiCall__c` record is still saved for audit.
+Retries that happen inside the step's own transaction run normally via `UTIL_HttpClient`. Async retries are not
+scheduled, because the chain, not the handler, owns what happens on failure.
 
 Use `continueOnError` when a failed API call should not stop the chain:
 
@@ -1122,13 +1165,13 @@ Use `continueOnError` when a failed API call should not stop the chain:
 
 ### Testing Chains
 
-Chains run as Queueables, so wrap execution in `Test.startTest()` / `Test.stopTest()`. For multi-step chains,
-provide `AsyncOptions` (the platform built-in `System.AsyncOptions`, not a kern-namespaced type) with
-`maximumQueueableStackDepth` matching your chain depth to allow the platform to execute chained Queueables
-synchronously within the test context.
+Chains run as Queueables, so wrap the execution in `Test.startTest()` / `Test.stopTest()`. For a chain with more than
+one step, also provide `AsyncOptions` (the platform built-in `System.AsyncOptions`, not a kern-namespaced type) and set
+`maximumQueueableStackDepth` to match your chain's depth. That tells the platform it may run the chained Queueables one
+after another inside the test.
 
-The `AsyncChain` feature flag ships `IsEnabledByDefault__c = true`, so the chain is enabled by default — no
-seeding needed in subscriber tests.
+The `AsyncChain` feature flag ships with `IsEnabledByDefault__c = true`, so chains are on by default. You don't need to
+seed anything to enable them in your tests.
 
 ```apex
 @IsTest
@@ -1152,19 +1195,23 @@ private static void shouldCompleteThreeStepChain()
 }
 ```
 
-> **Why `maximumQueueableStackDepth`?** In production, the framework automatically sets the stack depth to
-> `steps.size() + 1`. In tests, Salesforce defaults to a stack depth of 1, which prevents chained Queueables.
-> Pass `withAsyncOptions()` to override this for test execution.
+> **Why `maximumQueueableStackDepth`?** In production the framework sets the stack depth to `steps.size() + 1`
+> automatically. In tests, Salesforce defaults to a depth of 1, which blocks chained Queueables from running. Pass
+> `withAsyncOptions()` to raise that limit for the test.
 
-> **The framework creates and wires up the `ChainContext` for you.** You don't construct it — drive chains
+> **The framework creates and wires up the `ChainContext` for you.** You never construct it yourself. Drive chains
 > through `newChain().then().execute()` inside `Test.startTest()`/`Test.stopTest()`, and the framework builds the
-> context and passes it to each step. To read or assert on the context, do so from inside your step's
-> `work(ChainContext context)` override (where it's handed to you), then assert the chain's outcome with
+> context and hands it to each step. If you need to read or assert on the context, do it from inside your step's
+> `work(ChainContext context)` override (where the context is handed to you), then check the chain's outcome with
 > `UTIL_AsyncChain.getStatus(executionId)`.
 
 ---
 
 ## Scheduler Framework
+
+When you need a job to run on a recurring schedule (nightly, hourly, every Monday), you have two routes. The recommended
+one lets admins create and change schedules as configuration records, with no code deployment. The other is the
+platform's own `System.schedule()` call, for full programmatic control. This section covers both.
 
 ### Scheduler Architecture
 
@@ -1222,12 +1269,14 @@ private static void shouldCompleteThreeStepChain()
 
 #### How It Works
 
-1. **Create** a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record with class name, cron expression, and optional attributes
-2. **Trigger fires** on insert/update/delete
-3. **Handler validates** the class exists and implements correct interface
-4. **Job is scheduled** automatically when `IsActive__c = true`
-5. **Job ID stored** in `ScheduledJobId__c` for monitoring
-6. **Changes are automatic** - update record = reschedule, delete = abort
+You manage scheduled jobs by editing records, and the framework handles the platform plumbing for you:
+
+1. **You create** a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record with a class name, a cron expression, and any optional attributes.
+2. **A trigger fires** on insert, update, or delete.
+3. **The handler validates** that the class exists and implements the right interface.
+4. **The job is scheduled** automatically once `IsActive__c = true`.
+5. **The job ID is stored** in `ScheduledJobId__c` so you can monitor it.
+6. **Changes apply by themselves:** updating the record reschedules the job, deleting it aborts the job.
 
 #### ScheduledJob__c Fields
 
@@ -1273,8 +1322,9 @@ DML_Builder.newTransaction().doInsert(purgeJob).execute();
 
 #### Timezone Awareness
 
-`System.schedule()` interprets cron expressions in the **running user's timezone**. If User A (SAST, UTC+2) creates a job for noon and User B (PST, UTC-8) later activates it, the
-job fires at noon PST — 10 hours late. The scheduler framework solves this automatically.
+Here is a subtle trap the framework removes for you. `System.schedule()` reads cron expressions in the **running user's
+timezone**, not the author's. So if User A (SAST, UTC+2) sets up a job for noon and User B (PST, UTC-8) later activates
+it, the job fires at noon PST, 10 hours later than intended. The scheduler framework corrects this automatically.
 
 **How it works:**
 
@@ -1287,14 +1337,16 @@ job fires at noon PST — 10 hours late. The scheduler framework solves this aut
 
 | Scenario                                       | Behaviour                                                     |
 |------------------------------------------------|---------------------------------------------------------------|
-| Same timezone (author = runner)                | No shift — short-circuit                                      |
+| Same timezone (author = runner)                | No shift needed; the framework short-circuits                                      |
 | Half-hour timezones (e.g., India UTC+5:30)     | Minutes field also shifted                                    |
 | Day rollover (hours cross midnight)            | Day-of-week and day-of-month shifted accordingly              |
 | Day-of-month boundary (would produce 0 or >31) | Day-of-month left unchanged to avoid invalid cron             |
-| Wildcard/step hours (`*`, `*/2`)               | Not shifted — fires at regular intervals regardless           |
-| `L`/`W` day-of-month suffixes                  | Not shifted — relative expressions cannot be reliably shifted |
+| Wildcard/step hours (`*`, `*/2`)               | Not shifted; it fires at regular intervals regardless           |
+| `L`/`W` day-of-month suffixes                  | Not shifted; relative expressions cannot be reliably shifted |
 
 ### Built-in Schedulers
+
+Four common housekeeping jobs ship ready to use. You schedule them by configuration alone, no code:
 
 | Scheduler                                                                        | Purpose                   | Key Attributes                                                    |
 |----------------------------------------------------------------------------------|---------------------------|-------------------------------------------------------------------|
@@ -1306,6 +1358,10 @@ job fires at noon PST — 10 hours late. The scheduler framework solves this aut
 > **See Also:** [`DTO_NameValues`](reference/apex/DTO_NameValues.md) for attribute parsing utilities.
 
 ### Creating Custom Configurable Schedulers
+
+When the built-in jobs don't cover your case, you can write your own scheduler that still accepts parameters from a
+record. Extend `SCHED_Base`, declare the parameters your job expects, and read their typed values at run time. The
+example below syncs records with an external system, taking its endpoint, object, and batch size from configuration:
 
 ```apex
 /**
@@ -1365,11 +1421,14 @@ global inherited sharing class SCHED_ExternalSync extends SCHED_Base
 
 ## Transaction Correlation in Async Operations
 
-Transaction correlation uses [`LOG_Builder`](reference/apex/LOG_Builder.md) to track related log entries across async boundaries.
+When you do this yourself in plain Queueable or Batch code (rather than through a chain), you can still link all the logs
+from one user action together using a correlation ID, the single tracking ID that follows that action across
+transactions. [`LOG_Builder`](reference/apex/LOG_Builder.md) carries that ID across async boundaries for you.
 
 ### Why Correlation Matters
 
-When a synchronous operation spawns async jobs, logs from those jobs appear disconnected. Correlation IDs link them together:
+When a synchronous operation spawns async jobs, the logs from those jobs look unrelated to where they came from. A
+correlation ID stitches them back together:
 
 ```text
 Without Correlation:                    With Correlation:
@@ -1502,6 +1561,9 @@ All methods are available on [`LOG_Builder`](reference/apex/LOG_Builder.md):
 
 ## Capability Matrix (for Analysts)
 
+This section is for analysts and admins deciding what they can set up without a developer. It lists the tasks that ship
+ready to schedule, the ones that need a small amount of custom code, and the configuration options for the built-in jobs.
+
 ### What Can Be Scheduled?
 
 | Task Type                 | Built-in Solution                                                                | Custom Required | Effort         |
@@ -1617,18 +1679,19 @@ List<AsyncApexJob> failedJobs = [
 
 ### Monitoring Async Chain Failures
 
-A Queueable that fails on an **uncatchable** error — a governor-limit crash that no `try/catch` inside the step can trap — would otherwise
-vanish: `AsyncApexJob` marks it `Failed` with little detail, and a hand-rolled chain could sit stuck in a `Running` state forever. The async
-chain framework closes that gap with a
-[Transaction Finalizer](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_transaction_finalizers.htm) on every step.
-The finalizer receives fresh governor limits even after the crash and does two things:
+Some Queueable failures cannot be caught from inside the step: a governor-limit crash that no `try/catch` can trap.
+Without help, such a crash would simply disappear. `AsyncApexJob` marks it `Failed` with almost no detail, and a
+hand-rolled chain could sit stuck in `Running` forever. The async chain framework closes that gap by attaching a
+[Transaction Finalizer](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_transaction_finalizers.htm) to every step.
+A finalizer runs with fresh governor limits even after the crash, and it does two things:
 
-1. **Logs the failure.** It writes an `Error` `LogEntry__c` carrying the chain's correlation ID and the failure reason, so the crash is durable
-   and correlated even though the Queueable itself died (see the [Logging Guide](Logging%20-%20Guide.md#async-context-propagation)).
+1. **Logs the failure.** It writes an `Error` `LogEntry__c` carrying the chain's correlation ID and the reason, so the crash is kept
+   and traceable even though the Queueable itself died (see the [Logging Guide](Logging%20-%20Guide.md#async-context-propagation)).
 2. **Marks the chain Failed.** It sets the `AsyncChainExecution__c` record's `Status__c` to `Failed` (with the reason in `ErrorMessage__c`), so the
-   chain never lingers as a zombie in `Running`.
+   chain never lingers stuck in `Running`.
 
-To find failed chains, filter `AsyncChainExecution__c` on `Status__c = 'Failed'` — in a report, a list view, or the Developer Console:
+To find failed chains, filter `AsyncChainExecution__c` on `Status__c = 'Failed'` in a report, a list view, or the
+Developer Console:
 
 ```apex
 // Recent chain failures, newest first (Developer Console)
@@ -1643,23 +1706,21 @@ List<AsyncChainExecution__c> failedChains = [
 
 Use each row's `CorrelationId__c` to pull the full correlated trace from `LogEntry__c`. The chain
 [Monitoring](#monitoring) section above lists every `AsyncChainExecution__c` field, and the
-[Logging Strategy](#logging-strategy) table records the exact events the framework logs. For a single chain whose Id you already hold,
-`UTIL_AsyncChain.getStatus(executionId)` returns its live status with no query.
+[Logging Strategy](#logging-strategy) table records the exact events the framework logs. If you already hold a single
+chain's Id, `UTIL_AsyncChain.getStatus(executionId)` returns its live status without running a query.
 
 ---
 
 ## Testing
 
-Async processors are tested using `Test.startTest()` / `Test.stopTest()` which forces asynchronous operations to
-execute synchronously. The framework's internal Batch and Queueable infrastructure is tested by the framework
-itself; your tests should focus on verifying that your `Processable.execute()` logic produces the expected
-results.
+You test async processors by wrapping the call in `Test.startTest()` / `Test.stopTest()`, which makes the async work run
+right away inside the test. The framework already tests its own Batch and Queueable machinery, so your tests can stay
+focused on one thing: proving that your `Processable.execute()` logic produces the result you expect.
 
 **Testing a processor with list-based input:**
 
-`MyProcessor` (defined earlier in this guide) casts its input to `List<Account>`, so the test must seed
-accounts to match. If your processor is typed for a different object, adjust the `TST_Builder` call and
-the `QRY_Builder` query to match.
+`MyProcessor` (defined earlier in this guide) casts its input to `List<Account>`, so the test seeds accounts to match. If
+your processor is typed for a different object, adjust the `TST_Builder` call and the `QRY_Builder` query to suit.
 
 ```apex
 @IsTest
@@ -1702,13 +1763,14 @@ private static void shouldExecuteScheduledJob()
 
 **Testing finalization logic:**
 
-When your processor implements `Finishable`, `Test.stopTest()` triggers the `finish()` method after all
-batches complete. Assert on the side effects of your `finish()` method (status records created, emails sent via
-mock, etc.).
+When your processor implements `Finishable`, `Test.stopTest()` runs the `finish()` method once all batches have
+completed. Assert on what `finish()` produced: status records created, emails sent through a mock, and so on.
 
 ---
 
 ## Common Pitfalls
+
+If a scheduled or async job isn't behaving, start here. Each row pairs a symptom with its usual cause and the fix:
 
 | Issue                   | Cause                  | Solution                                                                                    |
 |-------------------------|------------------------|---------------------------------------------------------------------------------------------|
@@ -1721,6 +1783,8 @@ mock, etc.).
 ---
 
 ## Anti-Patterns
+
+These are common mistakes (anti-patterns) that look reasonable but cause trouble later, with the better approach for each:
 
 | Anti-Pattern                                                  | Why It's Wrong                                                          | Instead                                                    |
 |---------------------------------------------------------------|-------------------------------------------------------------------------|------------------------------------------------------------|
@@ -1785,8 +1849,8 @@ mock, etc.).
 
 **Key Takeaways:**
 
-1. **Use the framework** - Don't build custom Batch/Queueable from scratch
-2. **Let AUTO decide** - Framework optimizes execution strategy
-3. **Declarative scheduling** - [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) for production jobs
-4. **Correlation is automatic** - Web service framework handles it; manual for custom async using [`LOG_Builder`](reference/apex/LOG_Builder.md)
-5. **Monitor proactively** - Query `AsyncApexJob` for failures
+1. **Use the framework.** Don't build custom Batch or Queueable jobs from scratch.
+2. **Let AUTO decide.** The framework picks the execution strategy for you.
+3. **Schedule declaratively.** Use [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records for production jobs.
+4. **Correlation is automatic** in chains and the web service framework; wire it up by hand for custom async using [`LOG_Builder`](reference/apex/LOG_Builder.md).
+5. **Monitor proactively.** Query `AsyncApexJob` for failures.

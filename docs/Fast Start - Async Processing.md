@@ -6,29 +6,31 @@ navOrder: 36
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-> Sequence work across separate Apex transactions with shared state, automatic recovery, and per-step
-> governor isolation -- without hand-rolled Queueable chains.
+**What this is:** A way to run a multi-step background job where each step runs in its own Salesforce transaction but they pass information to each other. **Why it exists:** Some work is too big or too slow to finish while a user waits, and a single background job can run out of Salesforce's per-transaction allowances (governor limits) or hit conflicts between calling an external system and saving records. Splitting the work into a sequence gives each step a fresh start, automatic recovery if one fails, and a record of how far it got, without you writing the wiring by hand. **Who should follow this:** developers building background processing, and the tech leads reviewing it. **When to reach for it:** any time you have several steps that should run after a user's request returns, and you want each step isolated and the whole run tracked.
+
+What you'll build in one line: a two-step background job that creates an Account, then enriches it in a second transaction.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g.,
-> `kern.UTIL_AsyncChain.ChainStep`). Your own classes don't need a namespace prefix — the framework's
-> Type Resolver handles resolution automatically.
+> `kern.UTIL_AsyncChain.ChainStep`). Your own classes don't need a namespace prefix. The framework's
+> Type Resolver (how it finds the Apex classes in your namespace, so you tell it where to look) handles
+> resolution automatically.
 
-**What you'll build:** A two-step async chain that creates an Account, then enriches it in a second
-transaction -- plus a paired test class with 100% coverage.
+**What you'll build:** A two-step async chain (a sequence of background steps) that creates an Account,
+then enriches it in a second transaction, plus a paired test class with 100% coverage.
 
 **Success looks like:** Your chain row appears in `AsyncChainExecution__c` with `Status__c = Completed`,
 the enriched Account shows the stamped Description, and the test class passes both branches.
 
-**In one line:** `kern.UTIL_AsyncChain.newChain('Foo').then(new MyStep()).execute();` --
-chain orchestration, persistent status, error recovery, all built in.
+**In one line:** `kern.UTIL_AsyncChain.newChain('Foo').then(new MyStep()).execute();` runs your steps in
+order, tracks their status as a record, and recovers from errors, all built in.
 
 ---
 
@@ -56,20 +58,25 @@ chain orchestration, persistent status, error recovery, all built in.
 
 ## How It Works
 
-An async chain sequences steps across separate Queueable transactions. Each step gets a fresh set of
-governor limits and a shared `ChainContext` that carries state between steps.
+A chain is just a list of steps that run one after another. Each step runs in its own background
+transaction (a Queueable), so it starts with a fresh set of Salesforce's per-transaction allowances
+(governor limits). A shared object called the `ChainContext` carries information from one step to the
+next.
+
+Here are the pieces you'll work with:
 
 | Component                               | Role                                                            |
 |-----------------------------------------|-----------------------------------------------------------------|
-| `kern.UTIL_AsyncChain.newChain('Name')` | Entry point — returns a `ChainBuilder`                          |
-| `kern.UTIL_AsyncChain.ChainStep`        | Abstract base — extend it and implement `work()`                |
+| `kern.UTIL_AsyncChain.newChain('Name')` | Entry point: returns a `ChainBuilder`                          |
+| `kern.UTIL_AsyncChain.ChainStep`        | Abstract base: extend it and implement `work()`                |
 | `kern.UTIL_AsyncChain.ChainContext`     | Shared state between steps (`get` / `put` / `has`)              |
-| `kern.UTIL_AsyncChain.StepResult`       | Return value — `succeeded()` / `failed()`                       |
-| `kern__AsyncChainExecution__c`          | Tracking row — status, step counts, error message, context data |
+| `kern.UTIL_AsyncChain.StepResult`       | Return value: `succeeded()` / `failed()`                       |
+| `kern__AsyncChainExecution__c`          | Tracking row: status, step counts, error message, context data |
 
-**Why a chain instead of a single Queueable?** Each step runs in its own transaction, so callouts +
-DML do not conflict, governor limits reset between steps, and the framework records progress and
-errors to a queryable row.
+**Why a chain instead of a single Queueable?** Because each step runs in its own transaction, you get
+three things a single job can't give you. A step that calls an external system and a step that saves
+records no longer conflict. Each step starts with its allowances reset. And the framework writes
+progress and any errors to a record you can query later.
 
 ---
 
@@ -118,8 +125,8 @@ Completed: 1/1
 > **See it in the org:** App Launcher > Kern > **AsyncChainExecution** tab lists every chain with
 > status, step counts, duration, and error message. This is the operator view.
 
-For single-statement async work without orchestration, skip the chain entirely:
-`kern.DML_Builder.newTransaction().doUpdate(records).async().execute();` —
+If all you need is a single statement run in the background (no multiple steps to sequence), skip the
+chain entirely and use `kern.DML_Builder.newTransaction().doUpdate(records).async().execute();`. The
 [Fast Start - DML](Fast%20Start%20-%20DML.md) covers this.
 
 > **When to move to Tier 2:** When you want a reusable step class with its own test coverage, a stable
@@ -138,9 +145,11 @@ For single-statement async work without orchestration, skip the chain entirely:
 Build a step that reads an Account Id from the chain context and stamps a Description. Copy this code
 exactly as is into `force-app/main/default/classes/EnrichAccountStep.cls`:
 
-> **Why `global`?** This lets the managed package resolve the class at runtime without additional setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class. The Kern home page health check
-> provides the code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+> **Why `global`?** The framework finds your step class by name at runtime, and marking it `global` lets
+> it do that with no extra setup. If you prefer `public with sharing`, you'll instead point the framework
+> at your classes with a Type Resolver class (how it finds the Apex classes in your namespace: you tell it
+> where to look). The Kern home page health check provides the code, or see
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
 /**
@@ -199,11 +208,11 @@ sf project deploy start -o YourOrgAlias -m "ApexClass:EnrichAccountStep"
 
 **Key patterns:**
 
-- `extends kern.UTIL_AsyncChain.ChainStep` — pulls in the `work()` contract
-- `global override StepResult work(ChainContext)` — the only required method
-- Read inputs via `context.get(key)` — store outputs via `context.put(key, value)`
-- Return `kern.UTIL_AsyncChain.succeeded(msg, data)` or `.failed(msg)` — never throw
-- Public no-arg constructor (Apex provides one when none are declared) — required for reflection
+- `extends kern.UTIL_AsyncChain.ChainStep` pulls in the `work()` contract
+- `global override StepResult work(ChainContext)` is the only required method
+- Read inputs via `context.get(key)`, and store outputs via `context.put(key, value)`
+- Return `kern.UTIL_AsyncChain.succeeded(msg, data)` or `.failed(msg)`. Never throw
+- A public no-arg constructor is required so the framework can create the step by name (Apex provides one when you declare none)
 
 ### Step 2: Execute the chain
 
@@ -237,8 +246,8 @@ Description: Enriched by Fast Start chain
 ### Step 3: Write the test class
 
 Copy this code exactly as is into `force-app/main/default/classes/EnrichAccountStep_TEST.cls`. Both
-tests drive the step through `execute()` rather than calling `work()` directly because
-`kern.UTIL_AsyncChain.ChainContext` cannot be instantiated outside the framework.
+tests run the step through `execute()` rather than calling `work()` directly, because only the
+framework can create a `kern.UTIL_AsyncChain.ChainContext`, so you let it run the chain for you.
 
 ```apex
 /**
@@ -304,16 +313,17 @@ sf apex run test -o YourOrgAlias -t EnrichAccountStep_TEST --code-coverage --syn
 
 **Expected:** 2 tests passing, 100% coverage on `EnrichAccountStep`.
 
-> **Why `Test.startTest() / Test.stopTest()`?** Without it, the Queueable enqueued by `execute()`
-> never runs in the test transaction. `Test.stopTest()` flushes async work synchronously -- this is
-> the single most common chain-test bug.
+> **Why `Test.startTest() / Test.stopTest()`?** Without it, the background job (Queueable) that
+> `execute()` enqueues never actually runs inside the test. `Test.stopTest()` forces that queued work to
+> run right then. Forgetting this is the single most common chain-test bug.
 
 ---
 
 ## Tier 3: Production Patterns (~5-10 minutes)
 
-**Handlers** — attach steps that run when the chain fails or finishes. Inside `onError`,
-`context.getPreviousStepResult()` returns the failed step's `StepResult` (inspect `message` / `error`):
+**Handlers:** attach steps that run when the chain fails or finishes, so you can react to either outcome.
+Inside `onError`, `context.getPreviousStepResult()` returns the failed step's `StepResult` (inspect
+`message` / `error`):
 
 ```apex
 kern.UTIL_AsyncChain.newChain('AccountEnrichment')
@@ -324,7 +334,8 @@ kern.UTIL_AsyncChain.newChain('AccountEnrichment')
 	.execute();
 ```
 
-**Continue past optional failures** — pass `true` to `.then()` to skip over a failed step:
+**Continue past optional failures:** pass `true` to `.then()` to let the chain skip over a failed step
+and keep going:
 
 ```apex
 kern.UTIL_AsyncChain.newChain('OrderProcessing')
@@ -334,8 +345,9 @@ kern.UTIL_AsyncChain.newChain('OrderProcessing')
 	.execute();
 ```
 
-**Wrap an outbound API as a step** — `kern.UTIL_AsyncChain.ApiStep` runs any `kern.API_Outbound`
-handler with validation, callout, parsing, DML, and `ApiCall__c` logging:
+**Wrap an outbound API call as a step:** `kern.UTIL_AsyncChain.ApiStep` runs any `kern.API_Outbound`
+handler for you, handling validation, the callout, parsing the response, saving records, and `ApiCall__c`
+logging:
 
 ```apex
 kern.UTIL_AsyncChain.newChain('OrderConfirmation')
@@ -348,8 +360,9 @@ kern.UTIL_AsyncChain.newChain('OrderConfirmation')
 
 See [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) for the handler shape.
 
-**Test chains of more than one step** — Apex caps `Test.stopTest()` to one Queueable. Raise it via
-`AsyncOptions` (the platform built-in `System.AsyncOptions`, not a kern inner class):
+**Test chains of more than one step:** in a test, Apex only lets `Test.stopTest()` run one background
+job by default. Raise that limit with `AsyncOptions` (the platform built-in `System.AsyncOptions`, not a
+kern inner class):
 
 ```apex
 AsyncOptions options = new AsyncOptions();
@@ -367,12 +380,17 @@ See the [Async Processing Guide](Async%20Processing%20-%20Guide.md) for delayed 
 
 ## Sensitive data is masked by default
 
-Chain state persisted on `AsyncChainExecution__c` (context data, step logs, error messages) is
-redacted by the data masking framework before storage. Out of the box, `MaskSecretKeys` redacts
-common secret JSON keys (`password`, `token`, `apiKey`, etc.) and `MaskPaymentCard` redacts
-Luhn-validated card numbers. So `context.put('password', userPassword)` is safe at rest — but the
-redaction is destructive, so downstream steps re-reading the persisted row see the redacted form.
-Don't rely on chain context for authenticated callouts; use a Named Credential instead.
+Anything the chain saves to its tracking row (`AsyncChainExecution__c`) is scrubbed of sensitive values
+before it is stored, so secrets don't end up sitting in a queryable record. The chain's context data,
+step logs, and error messages all pass through the data masking framework first. Out of the box,
+`MaskSecretKeys` blanks out common secret JSON keys (`password`, `token`, `apiKey`, etc.) and
+`MaskPaymentCard` blanks out card numbers that pass the standard card-number check (Luhn).
+
+There is one consequence to know about. Putting a secret in the context, such as
+`context.put('password', userPassword)`, is safe once stored, but the scrubbing is permanent: a later
+step that re-reads the saved row sees only the redacted value, not the original. So don't rely on the
+chain context to pass credentials between steps for an authenticated callout. Use a Named Credential
+instead.
 
 ---
 
@@ -381,7 +399,7 @@ Don't rely on chain context for authenticated callouts; use a Named Credential i
 | Problem                                          | Cause                                                             | Fix                                                                        |
 |--------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------|
 | `Failed (Class Not Found: MyStep)`               | Step class is `public`, invisible across the package namespace    | Make the step class `global`, or register a Type Resolver                  |
-| Test assertions fail — Description never stamped | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest`                |
+| Test assertions fail (Description never stamped) | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest`                |
 | `Status: Running` indefinitely                   | First step threw an unhandled exception before persisting status  | Check the `kern__LogEntry__c` rows for the chain's `correlationId`         |
 | Chain test only runs first step                  | Default `maximumQueueableStackDepth` is 1 in tests                | Pass `.withAsyncOptions(options)` with `maximumQueueableStackDepth` raised |
 | `context.get()` returns null                     | Value not JSON-serialisable, or key spelling mismatch             | Store only Ids, primitives, and simple collections; verify the key         |
@@ -391,20 +409,20 @@ Don't rely on chain context for authenticated callouts; use a Named Credential i
 
 ## What You Now Know
 
-- **`kern.UTIL_AsyncChain.newChain(name)`** — entry point that returns a `ChainBuilder`
-- **`kern.UTIL_AsyncChain.ChainStep`** — extend and implement `work(ChainContext)`; return
+- **`kern.UTIL_AsyncChain.newChain(name)`** is the entry point that returns a `ChainBuilder`
+- **`kern.UTIL_AsyncChain.ChainStep`** is the base you extend; implement `work(ChainContext)` and return
   `kern.UTIL_AsyncChain.succeeded(...)` or `.failed(...)` rather than throwing
-- **`ChainContext`** — shared state across transactions via `get` / `put` / `has`;
-  `getPreviousStepResult()` for handler steps
-- **`kern__AsyncChainExecution__c`** — persistent tracking row (status, step counts, error
-  message) queryable from anywhere
-- **`kern.UTIL_AsyncChain.ApiStep`** — runs a `kern.API_Outbound` handler as a chain step
-- **`global` is required on step classes** — the framework instantiates them by class name
-  via reflection across the package namespace boundary
-- **`Test.startTest() / Test.stopTest()`** flushes the queueable; raise
+- **`ChainContext`** carries shared state across transactions via `get` / `put` / `has`; use
+  `getPreviousStepResult()` in handler steps
+- **`kern__AsyncChainExecution__c`** is the tracking row (status, step counts, error message), kept and
+  queryable from anywhere
+- **`kern.UTIL_AsyncChain.ApiStep`** runs a `kern.API_Outbound` handler as a chain step
+- **`global` is required on step classes**, because the framework creates them from their class name at
+  runtime (reflection) across the package namespace boundary
+- **`Test.startTest() / Test.stopTest()`** forces the queued background job to run; raise
   `AsyncOptions.maximumQueueableStackDepth` for chains of more than one step under test
-- **Use `kern.DML_Builder.async()`** for single-statement async work; use a chain only when you
-  need multi-step orchestration with fresh governor limits between steps
+- **Use `kern.DML_Builder.async()`** for single-statement background work; use a chain only when you
+  need several steps in sequence, each with its allowances reset
 
 ---
 

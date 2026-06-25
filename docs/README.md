@@ -1,8 +1,10 @@
 # KernDX - Developer Documentation
 
+This page is the map to everything you can read about KernDX. It is for anyone building on the framework, whether you are a brand-new Salesforce developer looking for a quick task guide or an architect comparing design choices. Skim the [Learning Paths](#learning-paths) if you are starting out, jump to a [Fast Start](#fast-starts) when you have a specific task, or open a full [Guide](#guides) when you want the complete picture.
+
 > **Using an AI coding assistant?** Load [`docs/AI Agent Instructions.md`](AI%20Agent%20Instructions.md)
-> into it before generating KernDX code — that one file is the assistant's complete context for writing
-> selectors, triggers, callouts, LWC, and tests the KernDX way. It's already in this repo / release; see
+> into it before generating KernDX code. That one file is the assistant's complete context for writing
+> selectors, triggers, callouts, LWC, and tests the KernDX way. It's already in this repo and release; see
 > its header for exactly how to wire it into your tool.
 
 ## Table of Contents
@@ -41,11 +43,11 @@
 
 Verify these prerequisites before starting any Fast Start guide:
 
-- [ ] **Salesforce org access** — developer or sandbox org with admin permissions
-- [ ] **Salesforce DX** — `sf` CLI installed and authenticated to your org
-- [ ] **KernDX deployed** — KernDX managed package installed
-- [ ] **API version 67.0** — org and project metadata aligned to API 67.0
-- [ ] **Custom Metadata access** — permission to create/edit Custom Metadata Type records
+- [ ] **Salesforce org access**: a developer or sandbox org with admin permissions
+- [ ] **Salesforce DX**: the `sf` CLI installed and authenticated to your org
+- [ ] **KernDX deployed**: the KernDX managed package installed
+- [ ] **API version 67.0**: org and project metadata aligned to API 67.0
+- [ ] **Custom Metadata access**: permission to create and edit Custom Metadata Type records
 
 ---
 
@@ -75,7 +77,7 @@ Choose the path that matches your project needs:
 
 ## Fast Starts
 
-Focused, task-oriented guides for building specific implementations quickly.
+Have a specific task in mind? These short, focused guides walk you through one job at a time so you can build it quickly.
 
 ### Data Access
 
@@ -137,7 +139,7 @@ Focused, task-oriented guides for building specific implementations quickly.
 
 ## Guides
 
-Comprehensive reference guides covering full framework capabilities, patterns, and best practices.
+In-depth reference guides. Reach for these when you want the complete picture of a framework area: its capabilities, the patterns behind it, and the recommended way to use it.
 
 ### Core Frameworks
 
@@ -184,8 +186,8 @@ Comprehensive reference guides covering full framework capabilities, patterns, a
 
 | Name                                                | Description                                                                          |
 |-----------------------------------------------------|--------------------------------------------------------------------------------------|
-| [Test Data - Guide](Test%20Data%20-%20Guide.md)     | TST_Builder, TST_Mock, TST_Factory — auto-population, bulk creation, relationships, DML-free query mocking |
-| [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md) | Playwright E2E testing for Salesforce — authentication, helpers, page objects, CI/CD |
+| [Test Data - Guide](Test%20Data%20-%20Guide.md)     | TST_Builder, TST_Mock, TST_Factory: auto-population, bulk creation, relationships, DML-free query mocking |
+| [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md) | Playwright E2E testing for Salesforce: authentication, helpers, page objects, CI/CD |
 
 ---
 
@@ -209,7 +211,7 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Document                                                      | Description                                                                                     |
 |---------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
 | [AI Agent Instructions](AI%20Agent%20Instructions.md)         | Complete framework reference for AI agents, repackaging with custom namespace, subscriber setup |
-| [Code Conventions - Guide](Code%20Conventions%20-%20Guide.md) | Canonical Apex/LWC/JS coding conventions — naming, formatting, ApexDoc, anti-patterns           |
+| [Code Conventions - Guide](Code%20Conventions%20-%20Guide.md) | Canonical Apex/LWC/JS coding conventions: naming, formatting, ApexDoc, anti-patterns           |
 | [Installation](Installation.md)                               | Subscriber org configuration, post-install steps, health check verification                     |
 
 ### Strategic Guide (9 documents)
@@ -224,7 +226,7 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | [Risks](Strategic%20Guide%20-%20Risks.md)                                               | Risk register and mitigations for adoption decisions                                                                              |
 | [Personas](Strategic%20Guide%20-%20Personas.md)                                         | Stakeholder-specific decision views (CTO, architect, developer, PM, ISV)                                                          |
 | [Glossary](Strategic%20Guide%20-%20Glossary.md)                                         | Term definitions with links to relevant sections                                                                                  |
-| [Metrics](Strategic%20Guide%20-%20Metrics.md)                                           | Canonical framework metrics — class counts, test coverage, metadata totals                                                        |
+| [Metrics](Strategic%20Guide%20-%20Metrics.md)                                           | Canonical framework metrics: class counts, test coverage, metadata totals                                                        |
 
 ---
 

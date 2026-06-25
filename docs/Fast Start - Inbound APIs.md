@@ -6,28 +6,28 @@ navOrder: 34
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Receive data from external systems into Salesforce -- with automatic logging, validation, and error handling.
+**What this is:** A way to build a Salesforce REST endpoint that receives data from an outside system (a website form, a partner system, another app), checks the data, saves a record, and returns a clean response. **Why it matters:** Hand-rolled REST endpoints usually scatter logging, validation, and error handling across each one, so they drift apart and break differently. Here those are built in, so every endpoint behaves the same. **Who should follow this:** developers building integrations, and tech leads who want consistent, testable inbound APIs. **When to reach for it:** any time an external system needs to send data into Salesforce.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.SEL_Base`). Your own classes don't need a namespace prefix — the framework's Type Resolver handles
-> resolution automatically.
+> `kern.SEL_Base`). Your own classes don't need a namespace prefix: the framework's Type Resolver (how it finds
+> the Apex classes in your namespace, once you tell it where to look) handles resolution automatically.
 
 **What you'll build:** A REST API endpoint that receives JSON from external systems, validates the data,
 creates a Salesforce record, and returns a structured response.
 
 **Success looks like:** You POST JSON to your endpoint, see a response with the new record ID, and the call
-is logged in the Kern app's **API Calls** tab -- with 100% test coverage.
+is logged in the Kern app's **API Calls** tab, with 100% test coverage.
 
-**In one line:** `kern.API_Dispatcher.processInboundService(API_ContactFormSubmit.class.getName());` -- one line in the
-REST resource, all logic lives in the handler class.
+**In one line:** `kern.API_Dispatcher.processInboundService(API_ContactFormSubmit.class.getName());` is the only line in the
+REST resource; all logic lives in the handler class.
 
 ---
 
@@ -62,7 +62,7 @@ REST resource, all logic lives in the handler class.
 
 ## Tier 1: See It Work (~2 minutes)
 
-The package ships with a built-in **Echo** endpoint you can call immediately -- no code needed.
+Before you build anything, prove the framework works end to end. The package ships with a built-in **Echo** endpoint you can call right away, no code needed.
 
 ### Call the Echo API
 
@@ -83,7 +83,7 @@ sf api request rest -o YourOrgAlias --method POST --body '{"message":"Hello from
 The Echo endpoint received your JSON, processed it through the framework, and echoed it back. Behind the scenes,
 the framework:
 
-- Parsed the request body into a DTO
+- Parsed the request body into a DTO (a small class holding exactly the fields to move in or out, that converts itself to and from JSON)
 - Ran validation (non-blank body required)
 - Logged the call as an `ApiCall__c` record
 - Returned the response
@@ -92,18 +92,18 @@ the framework:
 > see the Echo call logged with the full request/response details, status, and timing.
 
 > **No CLI installed?** Tier 1 just verifies the package endpoint is working. If you don't have the Salesforce CLI,
-> skip to [Tier 2](#tier-2-build-your-own-20-minutes) — you can do everything from the Developer Console. Alternatively, use
+> skip to [Tier 2](#tier-2-build-your-own-20-minutes): you can do everything from the Developer Console. Alternatively, use
 > [Workbench](https://workbench.developerforce.com/) (REST Explorer > POST >
 > `/services/apexrest/kern/echo` > body: `{"message":"Hello from Salesforce"}`).
 
 ### How It Works (Two-Class Architecture)
 
-Every inbound API uses two classes:
+Every inbound API splits into two classes so that the wiring Salesforce requires stays separate from your own logic. One class only routes the URL; the other does the real work. That split keeps each class small and easy to test on its own.
 
 | Class    | Role                                                             | Visibility                                |
 |----------|------------------------------------------------------------------|-------------------------------------------|
-| `REST_*` | URL routing only -- defines the endpoint, delegates to framework | `global` (required by Salesforce)         |
-| `API_*`  | Business logic -- validation, DML, response building             | `global` (or `public` with Type Resolver) |
+| `REST_*` | URL routing only: defines the endpoint, delegates to framework   | `global` (required by Salesforce)         |
+| `API_*`  | Business logic: validation, DML, response building               | `global` (or `public` with Type Resolver) |
 
 The Echo API's routing class is just three lines of logic:
 
@@ -119,7 +119,7 @@ global inherited sharing class REST_Echo
 }
 ```
 
-> **When to move to Tier 2:** When you need to build your own endpoint that creates/updates records, validates
+> **When to move to Tier 2:** When you need to build your own endpoint that creates or updates records, validates
 > input, and returns structured responses.
 
 ---
@@ -147,7 +147,7 @@ POST /services/apexrest/v1/contact-form
 
 ### Step 1: Create the REST Routing Class
 
-This class defines the URL endpoint. It contains no business logic -- just routing. Create a new file named
+This class defines the URL endpoint. It contains no business logic, just routing. Create a new file named
 `REST_ContactForm.cls` and copy the following code exactly as is:
 
 ```apex
@@ -179,11 +179,12 @@ global inherited sharing class REST_ContactForm
 ### Step 2: Create the API Handler
 
 This class contains all the business logic. Create a new file named `API_ContactFormSubmit.cls` and copy the
-following code exactly as is -- do not modify the class name or `kern.*` namespace references.
+following code exactly as is. Do not modify the class name or `kern.*` namespace references.
 
 > **Why `global`?** This lets the managed package resolve the class at runtime without additional setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class. The Kern home page health check
-> provides the code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+> If you prefer `public with sharing`, you'll need a Type Resolver class (it tells the framework where to find your
+> own classes). The Kern home page health check provides the code, or see
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
 /**
@@ -314,7 +315,7 @@ sf project deploy start -o YourOrgAlias -m "ApexClass:REST_ContactForm" -m "Apex
 
 ### Step 3: Register Metadata
 
-Create an `ApiSetting__mdt` record so the framework knows about your handler.
+The framework needs to know which handler class serves which URL. You tell it by creating one configuration record (an `ApiSetting__mdt`) instead of wiring it in code, so you can add or change endpoints without a redeploy.
 
 <details open>
 <summary><strong>Windows (PowerShell)</strong></summary>
@@ -400,8 +401,8 @@ sf project deploy start -o YourOrgAlias \
 > Direction__c = `Inbound`, EndpointPath__c = `/v1/contact-form/*`,
 > IsActive__c = checked, LogIssues__c = checked.
 
-> **ClassName__c** must match the `API_*` class name exactly (e.g., `API_ContactFormSubmit`), not
-> namespace-prefixed. The framework's type resolver handles namespace resolution automatically.
+> **ClassName__c** must match the `API_*` class name exactly (e.g., `API_ContactFormSubmit`), with no
+> namespace prefix. The framework finds the class in your namespace for you.
 
 ### Step 4: Execute
 
@@ -426,14 +427,14 @@ sf api request rest -o YourOrgAlias --method POST \
 > **See it in the org:** Open **App Launcher > Kern > API Calls** tab and select the **All** list view.
 > You'll see your call logged with the full request/response details, status, and timing.
 
-**Why it works — key patterns:**
+**Why it works, the key patterns:**
 
-- **`configure()`** -- Always call `super.configure()` first, then set `requestPayload` and `responsePayload`
-- **`getValidationErrors()`** -- Return error messages; empty list = validation passed. Framework aborts if non-empty.
-- **`onSuccess()`** -- Use inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT direct DML). The framework commits
-  all DML together after processing.
-- **`updateResponseDTO()`** -- Runs AFTER the database commit, so record IDs are available
-- **`@JsonAccess`** -- Required on all DTOs in a managed package context
+- **`configure()`**: always call `super.configure()` first, then set `requestPayload` and `responsePayload`
+- **`getValidationErrors()`**: return error messages; an empty list means validation passed, and the framework aborts the call if the list is non-empty.
+- **`onSuccess()`**: use inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT direct DML). The framework commits
+  all the changes together after processing.
+- **`updateResponseDTO()`**: runs after the database commit, so the new record IDs are available
+- **`@JsonAccess`**: required on all DTOs in a managed package context
 
 ### Step 5: Write Tests
 
@@ -505,7 +506,7 @@ sf apex run test -o YourOrgAlias -t API_ContactFormSubmit_TEST --code-coverage -
 
 > **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
 > `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts, but consider adding
+> suppresses a code-quality rule about `System.runAs()`: fine for quick starts, but consider adding
 > `System.runAs()` in production tests to verify profile and permission set access.
 
 ---
@@ -514,9 +515,9 @@ sf apex run test -o YourOrgAlias -t API_ContactFormSubmit_TEST --code-coverage -
 
 ### Feature Flag Gating
 
-Gate your inbound API on a [Feature Flag](Fast%20Start%20-%20Feature%20Flags.md) using the `RequiredFeatureFlag__c`
-field on your `ApiSetting__mdt` record. When the flag is not enabled, the framework aborts the request
-automatically -- no code changes needed.
+Sometimes you want an endpoint deployed but switched off until you decide to turn it on, for example during a phased rollout. You can do that without touching code: point the `RequiredFeatureFlag__c`
+field on your `ApiSetting__mdt` record at a [Feature Flag](Fast%20Start%20-%20Feature%20Flags.md). When the flag is not enabled, the framework aborts the request
+automatically.
 
 #### Deploy a feature-flagged API
 
@@ -584,19 +585,19 @@ sf api request rest -o YourOrgAlias --method POST \
   'services/apexrest/v1/contact-form'
 ```
 
-**Expected output** (flag is disabled — the framework returns the error messages as a bare JSON array):
+**Expected output** (the flag is disabled, so the framework returns the error messages as a bare JSON array):
 
 ```json
 ["Required condition \"EnableContactFormApi\" is not met"]
 ```
 
 Enable the flag (set `IsEnabledByDefault = true` or create a strategy) and the API starts accepting
-requests again. Use `BypassFeatureFlag__c` instead for a kill-switch pattern (service is bypassed when the
-flag is **enabled**).
+requests again. Use `BypassFeatureFlag__c` instead for a kill-switch (a master off-switch you can flip in an incident
+without a deployment): the service is bypassed when the flag is **enabled**.
 
 ### Multiple HTTP Methods on One URL
 
-Add more methods to the same `REST_*` class. Each HTTP method delegates to a different `API_*` handler
+One URL can serve more than one action, for example POST to submit a form and GET to read submissions back. You add more methods to the same `REST_*` class. Each HTTP method hands off to a different `API_*` handler
 class, each with its own `ApiSetting__mdt` record:
 
 ```apex
@@ -617,12 +618,12 @@ global inherited sharing class REST_ContactForm
 }
 ```
 
-> **Note:** This is an architectural pattern -- `API_GetContactSubmissions` is not included in this guide.
+> **Note:** This shows the shape of the pattern; `API_GetContactSubmissions` is not included in this guide.
 > See the [Web Services Guide](Web%20Services%20-%20Guide.md) for a working multi-method example.
 
 ### Idempotency
 
-Enable idempotency to prevent duplicate processing of the same request. Set `IdempotencyEnabled__c = true` on
+A flaky network or an over-eager retry can send the same request twice and create two records when the caller meant one. Idempotency prevents that: if the exact same request arrives twice, the first result is returned again rather than re-run. Turn it on by setting `IdempotencyEnabled__c = true` on
 your `ApiSetting__mdt` record (**Setup > Custom Metadata Types > ApiSetting > ContactFormSubmit > Edit >
 IdempotencyEnabled = checked > Save**).
 
@@ -643,11 +644,11 @@ sf api request rest -o YourOrgAlias --method POST \
 ```
 
 The first call creates the Lead and returns a success response. The second call recognises the duplicate
-`Idempotency-Key` and returns the **same cached response** (HTTP 200) without re-running the handler — no
+`Idempotency-Key` and returns the **same cached response** (HTTP 200) without re-running the handler: no
 duplicate Lead is created and the caller sees the original success payload.
 
-If a caller reuses the same key with a **different request body** (e.g. a buggy retry that mutated the payload),
-the framework rejects with **HTTP 409** and a JSON body containing the original `ApiCall.Id` so the caller can
+There is one deliberate exception. If a caller reuses the same key with a **different request body** (for example a buggy retry that mutated the payload),
+the framework rejects it with **HTTP 409** rather than silently masking the change, and returns a JSON body containing the original `ApiCall.Id` so the caller can
 reconcile against the conflicting request. See [Idempotency in the Web Services Guide](Web%20Services%20-%20Guide.md#idempotency-inbound-apis)
 for the full replay table and 409 response shape.
 
@@ -659,17 +660,18 @@ for the full replay table and 409 response shape.
 
 ## Sensitive data is masked by default
 
-Inbound requests and responses are captured to `ApiCall__c` for audit. The request body, response body, URL, and parameters are redacted through the data masking framework before
-persistence. Out of the box, two rules fire:
+Logging every call is useful, but you don't want a logged audit record to become the place a password or card number leaks. To avoid that, every inbound request and response is captured to `ApiCall__c` for audit, and the request body, response body, URL, and parameters are first run through the data masking framework, which redacts sensitive values before they are saved. Out of the box, two rules fire:
 
-- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
+- **`MaskSecretKeys`**: redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
   `refresh_token`).
-- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
+- **`MaskPaymentCard`**: redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
   (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
 
-So if a caller posts a body containing a `password` or card number, the persisted `ApiCall__c.Request__c` has those redacted — the response you generate and return to the caller is
-untouched. Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address,
-free text, international phone) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the field(s)
+So if a caller posts a body containing a `password` or card number, the persisted `ApiCall__c.Request__c` has those redacted. The response you generate and return to the caller is
+untouched.
+
+Fifteen more rules ship as inactive templates: SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address,
+free text, and international phone. To turn one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule to the field(s)
 that need it.
 
 ## Common Issues
@@ -681,9 +683,9 @@ that need it.
 | `super.configure()` not called              | Missing `super` in override                                | Always call `super.configure()` first                                                                                                                                                 |
 | NullPointerException in test                | RestContext not initialized                                | Use `kern.API_InboundTestHelper.setupRestContext()` or the `assertCall*` methods                                                                                                      |
 | Business logic in REST_ class               | Bypass of framework logging/validation                     | Move all logic to the `API_*` class; REST_ class only delegates                                                                                                                       |
-| DML error in `onSuccess()`                  | Using `insert` instead of `doInsert()`                     | Use inherited `doInsert()`/`doUpdate()` -- framework commits all DML together                                                                                                         |
+| DML error in `onSuccess()`                  | Using `insert` instead of `doInsert()`                     | Use inherited `doInsert()`/`doUpdate()`; the framework commits all DML together                                                                                                       |
 | Missing `@JsonAccess` on DTO                | Runtime serialization error                                | Add `@JsonAccess(Serializable='always' Deserializable='always')`                                                                                                                      |
-| Sensitive value appears raw on `ApiCall__c` | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, `SObjectType__c = ApiCall__c`, and a `Field__c` (blank for wildcard) — see [Web Services Guide](Web%20Services%20-%20Guide.md) |
+| Sensitive value appears raw on `ApiCall__c` | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, `SObjectType__c = ApiCall__c`, and a `Field__c` (blank for wildcard); see [Web Services Guide](Web%20Services%20-%20Guide.md) |
 
 ---
 
@@ -700,12 +702,12 @@ After completing this guide, you understand the **inbound API architecture** in 
 
 **Key methods you override:**
 
-- **`configure()`** -- Set up DTOs (always call `super.configure()` first)
-- **`getValidationErrors()`** -- Return error messages; framework aborts if non-empty
-- **`onSuccess()`** -- Create/update records using `doInsert()`/`doUpdate()` (NOT direct DML)
-- **`updateResponseDTO()`** -- Build the response after the database commit
-- **`@JsonAccess`** -- Required on all DTOs in a managed package context
-- **`API_InboundTestHelper`** -- One-line test assertions for success, abort, and failure paths
+- **`configure()`**: set up DTOs (always call `super.configure()` first)
+- **`getValidationErrors()`**: return error messages; the framework aborts if the list is non-empty
+- **`onSuccess()`**: create or update records using `doInsert()`/`doUpdate()` (NOT direct DML)
+- **`updateResponseDTO()`**: build the response after the database commit
+- **`@JsonAccess`**: required on all DTOs in a managed package context
+- **`API_InboundTestHelper`**: one-line test assertions for success, abort, and failure paths
 
 ---
 

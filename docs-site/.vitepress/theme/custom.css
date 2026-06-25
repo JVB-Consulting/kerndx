@@ -410,3 +410,17 @@
 		margin-bottom : 0.15rem;
 	}
 }
+
+/* ── Administration Tools tour — compact "at a glance" quick-jump chips ──────── */
+.admin-tools-glance{ display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 40px; }
+.admin-tools-glance a{
+	font-size: .82rem;
+	font-weight: 600;
+	color: var(--vp-c-brand-1);
+	text-decoration: none;
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 20px;
+	padding: 5px 13px;
+	background: var(--vp-c-bg-soft);
+}
+.admin-tools-glance a:hover{ border-color: var(--vp-c-brand-1); }
