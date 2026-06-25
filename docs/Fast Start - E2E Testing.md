@@ -6,24 +6,25 @@ navOrder: 92
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-> Write a subscriber Apex class, deploy it to the org named by `SF_SUBSCRIBER_ORG_ALIAS`, run its tests, and see green — then optionally wire up Playwright to drive the browser.
+**What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end: you write an Apex class, deploy it, run its tests, and watch them pass. **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live org," which is where most release surprises come from. **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle. **When to reach for it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with Playwright is an optional add-on at the end.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
+- [ ] Org configured post-install: verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
 - [ ] CLI authenticated (`sf org display -o YourOrgAlias` to verify)
-- [ ] Node.js 22+ installed (`node --version`) — required for the Playwright tier only
+- [ ] Node.js 22+ installed (`node --version`), required for the Playwright tier only
 
 > **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.SEL_Base`). Your own classes don't need a namespace prefix — the framework's Type Resolver handles
-> resolution automatically.
+> `kern.SEL_Base`). Your own classes don't need a namespace prefix: the framework's Type Resolver (how the
+> framework finds the Apex classes in your namespace, by you telling it where to look) handles resolution
+> automatically.
 
 **What you'll build:** A subscriber Apex service, its `_TEST` class with 100% coverage, and a working
 deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
 
-**Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and — optionally — a green
-Playwright run against the same org.
+**Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and,
+optionally, a green Playwright run against the same org.
 
 ---
 
@@ -49,22 +50,26 @@ Playwright run against the same org.
 
 ## How It Works
 
-KernDX's E2E story has two layers:
+There are two things worth testing, and they answer different questions. One asks "does my business logic
+work?" The other asks "does the screen the user sees work?" KernDX covers both, in two layers:
 
 | Layer                        | What It Tests                               | Tool                  |
 |------------------------------|---------------------------------------------|-----------------------|
 | **Apex subscriber tests**    | Business logic deployed to a subscriber org | `sf apex run test`    |
 | **Playwright browser tests** | Lightning UI rendered in a real browser     | `npx playwright test` |
 
-The Fast Start focuses on the Apex layer because that is where most subscriber teams start: write a class,
-deploy it, prove it works with a `_TEST` class. Playwright sits on top and is covered in Tier 3 and in the
-full runbook at [`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md).
+This Fast Start focuses on the Apex layer first, because that is where most teams start: write a class,
+deploy it, and prove it works with a `_TEST` class (a companion test class). Browser testing with
+Playwright sits on top of that, and you'll set it up in Tier 3. The full reference, with every helper
+script, is the runbook at [`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md).
 
 ---
 
 ## Tier 1: See It Work (~5 minutes)
 
-Deploy and run the paired demo class that ships with the framework. From your project root:
+The fastest way to see the whole cycle work is to deploy a ready-made demo class and run its tests. The
+framework ships a paired demo (the class plus its test class) so you don't have to write anything yet. From
+your project root, copy them into your source folder:
 
 ```bash
 cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls \
@@ -103,18 +108,21 @@ Tests Ran            3
 Pass Rate            100%
 ```
 
-> **Org-wide coverage won't be 100%.** With KernDX installed, org-wide coverage is dominated by the
-> framework's own classes, so `--result-format human` reports a lower number. What matters here is the
-> `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO` itself.
+> **Org-wide coverage won't be 100%, and that's expected.** With KernDX installed, the org-wide coverage
+> number is dominated by the framework's own classes, so `--result-format human` reports a lower figure.
+> Ignore that number here. What matters is the `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO`
+> itself.
 
-If you see `Pass Rate 100%`, the subscriber test cycle works end-to-end.
+If you see `Pass Rate 100%`, you've just proven the full subscriber test cycle works, from source to a
+green run, without writing a line of code.
 
 ---
 
 ## Tier 2: Build Your Own (~10 minutes)
 
-Build `ProcessingService` — a simple string-transformation class — to understand the full cycle from source
-to passing tests.
+Now do it yourself, so the cycle sticks. You'll build a small class called `ProcessingService` (a simple
+string-transformation class), write its tests, deploy it, and watch them pass. The goal is to walk the full
+path from source to a green run with your own code.
 
 ### Step 1: Create the Service Class
 
@@ -278,14 +286,15 @@ sf apex run test -o YourOrgAlias \
 
 ## Tier 3: Playwright Browser Tests (~5 minutes)
 
-Once your Apex subscriber tests are green, Playwright adds browser-level verification: authenticate to
-Lightning, navigate to a record, assert UI state.
+Apex tests prove your logic is right, but they don't prove the screen renders. Playwright fills that gap:
+it drives a real browser to confirm the user-facing experience actually works. Once your Apex tests are
+green, it logs into Lightning, navigates to a record, and checks that the UI looks the way it should.
 
 > **Full setup and all helper scripts live in** [`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md)
-> (Phase 3). The infrastructure under `release-testing/e2e/` is ready to use — helpers for auth, navigation,
+> (Phase 3). The infrastructure under `release-testing/e2e/` is ready to use: helpers for auth, navigation,
 > CLI commands, wait strategies, and Lightning selectors are pre-written and documented there.
 
-The minimum to run the existing E2E suite against your org:
+To run the existing browser-test suite against your org, you need just four commands:
 
 ```bash
 npm ci
@@ -294,11 +303,11 @@ export SF_SUBSCRIBER_ORG_ALIAS=<your-org-alias>
 npm run test:e2e
 ```
 
-The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Export it
-to point the suite at your org — the helpers call `sf -o $SF_SUBSCRIBER_ORG_ALIAS` directly, so it's the
-one place the alias needs to change.
+The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Export it to
+point the suite at your org. The helpers call `sf -o $SF_SUBSCRIBER_ORG_ALIAS` directly, so this is the one
+place the alias ever needs to change.
 
-**What runs:** 9 spec files covering app navigation, record pages, log entry verification,
+**What runs:** 9 spec files. They cover app navigation, record pages, log entry verification,
 API call visibility, LWC component rendering, async chains, chain monitor, and the masking advisor.
 
 **To write your own spec**, add a file under `release-testing/e2e/specs/` following this pattern:
@@ -319,8 +328,9 @@ test.describe.serial('My Feature', () =>
 ```
 
 **Why `test.describe.serial` and one worker?** All tests share a single `sid` session cookie saved by global
-setup. Parallel contexts reusing the same cookie generate conflicting CSRF tokens — serial execution avoids
-this entirely.
+setup (a one-time login step). If tests ran in parallel, they would reuse that same cookie and generate
+conflicting CSRF tokens (the anti-forgery tokens Salesforce checks on each request). Running the tests one
+at a time avoids that conflict entirely.
 
 > **CI/CD:** Store `SFDX_AUTH_URL` as a repository secret, authenticate the CLI to your subscriber org
 > with the configured subscriber alias before invoking `npm run test:e2e`, and install Chromium with
@@ -332,12 +342,12 @@ this entirely.
 
 | Problem                               | Cause                                | Fix                                                                                                                                          |
 |---------------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `Type not visible` in subscriber test | Class is `public` in managed package | No change needed — subscriber classes are always resolved in the subscriber namespace                                                        |
+| `Type not visible` in subscriber test | Class is `public` in managed package | No change needed: your own classes are always resolved in your namespace                                                        |
 | `No such column 'kern__FieldName__c'` | Missing namespace prefix in SOQL     | Use `kern__FieldName__c` for KernDX custom fields                                                                                            |
 | `Could not extract frontdoor URL`     | CLI not authenticated or wrong alias | Run `sf org display -o YourOrgAlias` to verify                                                                                               |
 | Playwright timeout on nav bar         | Lightning didn't fully load          | Delete `release-testing/e2e/.auth/state.json` and `release-testing/e2e/.auth/instance.json`, then re-run to refresh the session              |
 | `ECONNREFUSED`                        | Chromium not installed               | Run `npx playwright install chromium`                                                                                                        |
-| Tests fail after working yesterday    | Frontdoor URL expired                | Delete both `release-testing/e2e/.auth/state.json` and `release-testing/e2e/.auth/instance.json` — global setup regenerates them on next run |
+| Tests fail after working yesterday    | Frontdoor URL expired                | Delete both `release-testing/e2e/.auth/state.json` and `release-testing/e2e/.auth/instance.json`; global setup regenerates them on next run |
 
 ---
 
@@ -347,9 +357,9 @@ this entirely.
 |-------------------------------------------|-----------------------------------------------------------------------|
 | **Subscriber `_TEST` class**              | Deploys alongside production code; proves coverage before release     |
 | **`--code-coverage --synchronous`**       | Forces coverage report inline in the same CLI run                     |
-| **`release-testing/subscriber/classes/`** | Pre-built demo classes — copy, deploy, run                            |
+| **`release-testing/subscriber/classes/`** | Pre-built demo classes you copy, deploy, and run                      |
 | **Playwright global setup**               | Authenticates once via frontdoor URL, reuses session across all specs |
-| **Serial execution**                      | Single browser, single worker — reliable for Salesforce Lightning     |
+| **Serial execution**                      | One browser, one worker: reliable for Salesforce Lightning            |
 
 ---
 

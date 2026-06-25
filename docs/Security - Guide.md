@@ -7,15 +7,14 @@ navOrder: 16
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **Note for Subscriber Implementations:** When using KernDX as a managed package dependency, prefix framework class references with your installed namespace (e.g.,
-`AcmeLib.QRY_Builder`).
+> **If you installed KernDX as a managed package:** prefix framework class references with your installed namespace (for example, `AcmeLib.QRY_Builder`).
 
-**Target Audience:**
+**Who this guide is for:**
 
-- **Developers** - Implementing secure code with data encryption, sharing enforcement, and security-aware data access
-- **Architects** - Designing security patterns for sensitive data protection and security-aware data access
-- **Business Analysts** - Understanding security capabilities, encryption options, and compliance features
-- **Security Reviewers** - Auditing sharing enforcement points and bypass mechanisms
+- **Developers** writing code that reads or writes data and needs to honour the running user's permissions, sharing, and encryption.
+- **Architects** designing how an org protects sensitive data and enforces access.
+- **Business analysts** who want to understand the security capabilities, the encryption options, and what they do and do not cover for compliance.
+- **Security reviewers** auditing where sharing is enforced, and where (and why) it is deliberately bypassed.
 
 ---
 
@@ -156,25 +155,21 @@ navOrder: 16
 
 ## Overview
 
-This guide covers all security capabilities provided by the KernDX framework, including data encryption, record-level sharing, and sharing enforcement patterns. These utilities
-help developers enforce Salesforce security best practices, protect sensitive data, and control record access.
+**In one paragraph:** Every Salesforce app has to answer the same questions on every read and write: can this user see this object and field, can they see this particular record, and is any sensitive value about to be written down in plain text. Getting one of those wrong is how data leaks reach a security review. This guide shows you how KernDX answers them for you. By default, queries and saves run with the current user's read/write permissions and record sharing enforced (Salesforce calls this `USER_MODE`), sensitive values can be masked before they ever hit the database, and short-lived secrets can be encrypted in memory. Read this if you write Apex that reads or writes data, design security patterns for an org, or need to show an auditor where access is enforced. Reach for it whenever code touches records that not every user should see.
 
-> **Responsibilities:** The Security framework enforces access control (CRUD, FLS, sharing) and protects sensitive data (encryption). It does
-> not contain business logic or make data access decisions -- it verifies that the current user is allowed to perform an operation and throws
-> exceptions when they are not.
+This guide covers all of the security capabilities KernDX provides: data encryption, record-level sharing, and the patterns that enforce field, object, and record permissions. Together they help you follow Salesforce security best practice, protect sensitive data, and control who can reach which records.
 
-The framework provides three main security capabilities:
+> **What this framework is responsible for:** The Security framework enforces access control (object create/read/update/delete permissions, field-level security, and record sharing) and protects sensitive data through encryption. It does not contain business logic or decide what data your app reads. Its job is narrower: it checks that the current user is allowed to perform an operation, and throws an exception when they are not.
 
-1. **Data Encryption** ([`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md)) - Encrypt and decrypt sensitive data with automatic key management
-2. **Record Sharing** ([`UTIL_Sharing`](reference/apex/UTIL_Sharing.md), [`DML_Builder`](reference/apex/DML_Builder.md)) - Runtime control over Salesforce sharing rules
-3. **Query Security** ([`QRY_Builder`](reference/apex/QRY_Builder.md)) - Independent, combinable security options for queries (CRUD/FLS via `.withUserMode()`,
-   `.stripInaccessible()`)
+The framework gives you three main security capabilities:
 
-> **Security Framework Scope:** Session encryption (`UTIL_SessionEncryption`), sharing control across both query (`QRY_Builder`) and DML
-> (`DML_Builder`) operations, and CRUD/FLS enforcement via `QRY_Builder.withUserMode()` and `QRY_Builder.stripInaccessible()`.
+1. **Data encryption** ([`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md)): encrypt and decrypt sensitive values in memory, with the key managed for you.
+2. **Record sharing** ([`UTIL_Sharing`](reference/apex/UTIL_Sharing.md), [`DML_Builder`](reference/apex/DML_Builder.md)): decide at run time whether Salesforce sharing rules apply, instead of fixing it in code.
+3. **Query security** ([`QRY_Builder`](reference/apex/QRY_Builder.md)): combinable options that enforce object create/read/update/delete permissions (CRUD) and field-level security (FLS) on a query, through `.withUserMode()` and `.stripInaccessible()`.
 
-> **Namespace Note:** All code examples in this guide omit the namespace prefix. If you are using KernDX as a managed package dependency in a subscriber org, prefix framework class
-> references with the installed namespace (e.g., `YourNamespace.QRY_Builder`).
+> **What sits inside this framework:** in-memory encryption (`UTIL_SessionEncryption`), sharing control on both queries (`QRY_Builder`) and saves (`DML_Builder`), and CRUD/FLS enforcement through `QRY_Builder.withUserMode()` and `QRY_Builder.stripInaccessible()`.
+
+> **A note on namespaces:** the code examples here leave off the namespace prefix for readability. If you have installed KernDX as a managed package, prefix framework class references with your installed namespace (for example, `YourNamespace.QRY_Builder`).
 
 ### Key Concepts
 
@@ -188,12 +183,12 @@ The framework provides three main security capabilities:
 
 ### Framework Philosophy
 
-KernDX follows these security principles:
+Four ideas shape how KernDX handles security. Each one exists to prevent a common way that access controls quietly go wrong.
 
-1. **Explicit Over Implicit** - Sharing behavior should be consciously chosen, not accidentally inherited
-2. **Configurable at Runtime** - Different contexts (UI, batch, triggers) may need different sharing behavior
-3. **Centralized Control** - All DML and queries flow through framework classes that can enforce policy
-4. **Defense in Depth** - Sharing, FLS, and CRUD are separate concerns that can be enforced independently
+1. **Choose sharing on purpose, not by accident.** Whether a piece of code respects sharing rules should be a deliberate decision you can see, not something it inherited without anyone noticing.
+2. **Let the context decide at run time.** The same logic may run from a UI button, a nightly batch, and a trigger, and each may need different sharing. You set the behaviour when the code runs, not when it compiles.
+3. **Route data access through one place.** Queries and saves flow through framework classes, so a security policy can be applied in one spot rather than re-checked everywhere.
+4. **Layer the protections.** Record sharing, field-level security, and object permissions are separate concerns. You can turn each on independently, so a gap in one does not silently open the others.
 
 ---
 
@@ -239,38 +234,33 @@ KernDX follows these security principles:
 +---------------------------------------------------------------------------+
 ```
 
-KernDX's security framework operates at multiple layers, each independently configurable and combinable:
+The security framework works in layers. You turn each one on independently and combine them as a feature needs:
 
-1. **CRUD/FLS Enforcement** - `QRY_Builder.withUserMode()` enforces CRUD and FLS at the database level; `QRY_Builder.stripInaccessible()` removes inaccessible fields post-query
-2. **Record-Level (Sharing)** - `DML_Builder` and `QRY_Builder` use a proxy pattern to execute operations under
-   `with sharing`, `without sharing`, or `inherited sharing` context at runtime
-3. **Query Security** - `QRY_Builder` offers `withUserMode()` (enforces CRUD, FLS, and sharing at database
-   level), `stripInaccessible()` (removes inaccessible fields post-query), and `withSharing()` /
-   `bypassSharing()` (sharing proxy for SYSTEM_MODE queries)
-4. **Data Protection** - `UTIL_SessionEncryption` provides AES-256 encryption with automatic key management for sensitive field values
+1. **Object and field permissions (CRUD/FLS).** `QRY_Builder.withUserMode()` enforces object permissions and field-level security right inside the query; `QRY_Builder.stripInaccessible()` quietly drops fields the user cannot read from the results.
+2. **Record sharing.** `DML_Builder` and `QRY_Builder` decide at run time whether a query or save respects sharing rules (`with sharing`), ignores them (`without sharing`), or follows whatever the caller chose (`inherited sharing`). They do this through a small "proxy" class, explained below.
+3. **Query security options.** On a query, `QRY_Builder` offers `withUserMode()` (enforce object permissions, field security, and sharing at the database), `stripInaccessible()` (remove unreadable fields after the query), and `withSharing()` / `bypassSharing()` (control sharing for a query that runs without full permission enforcement).
+4. **Data protection.** `UTIL_SessionEncryption` encrypts sensitive values with AES-256 and manages the key for you.
 
-These layers are independent: you can enforce FLS without sharing enforcement, or use sharing proxies without
-CRUD checks. **Subscriber-reachable queries and DML default to `AccessLevel.USER_MODE`** — the running user's FLS,
-CRUD, and sharing are enforced automatically. Framework-internal selectors (CMDT readers, framework-owned sObjects,
-system-schema lookups) override this via the `systemModeRequired()` hook on `SEL_Base`. Emergency kill-switch is a
-metadata flip on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` — see [Secure-by-Default Defaults](#secure-by-default-defaults) below.
+The layers do not depend on one another: you can enforce field security without enforcing sharing, or control sharing without checking object permissions. The starting point matters most: **every query and save your own code can reach runs with the current user's permissions and sharing enforced by default** (`AccessLevel.USER_MODE`). So a developer who does nothing special still gets the safe behaviour.
+
+A few framework-internal selectors do need to skip those checks, for example readers of custom metadata, framework-owned objects, and system schema. They opt out by overriding the `systemModeRequired()` hook on `SEL_Base`. If you ever need to roll the secure default back across the whole org in an incident, there is a master off-switch you can flip in metadata without a deployment: the `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` records, described in [Secure-by-Default Defaults](#secure-by-default-defaults) below.
 
 ---
 
 ## Secure-by-Default Defaults
 
-Every subscriber-reachable query and DML call defaults to `AccessLevel.USER_MODE`. Concretely:
+The safe behaviour is on automatically. You step outside it only when you choose to. Every query and save your code can reach runs with the current user's permissions and sharing enforced (`AccessLevel.USER_MODE`) unless you say otherwise. In practice:
 
-- `new SEL_Account().findById(id)` → USER_MODE (FLS / CRUD / sharing enforced).
-- `QRY_Builder.selectFrom(Account.SObjectType)...toList()` → USER_MODE.
-- `DML_Builder.newTransaction().doInsert(record).execute()` → USER_MODE.
+- `new SEL_Account().findById(id)` runs in USER_MODE (field security, object permissions, and sharing all enforced).
+- `QRY_Builder.selectFrom(Account.SObjectType)...toList()` runs in USER_MODE.
+- `DML_Builder.newTransaction().doInsert(record).execute()` runs in USER_MODE.
 
-Two `FeatureFlag__mdt` records drive the default:
+So a developer who writes a normal query gets the protected behaviour without thinking about it. Two configuration records (`FeatureFlag__mdt`) drive this default:
 
-- `FeatureFlag.UserModeQueries_Enabled` — controls `QRY_Builder` / `SEL_Base.query`.
-- `FeatureFlag.UserModeDml_Enabled` — controls `DML_Builder` / `DML_SharingProxy.defaultAccessLevel`.
+- `FeatureFlag.UserModeQueries_Enabled` controls `QRY_Builder` / `SEL_Base.query`.
+- `FeatureFlag.UserModeDml_Enabled` controls `DML_Builder` / `DML_SharingProxy.defaultAccessLevel`.
 
-Both ship with `IsEnabledByDefault__c = true`.
+Both ship turned on (`IsEnabledByDefault__c = true`).
 
 **Opting individual calls out of the default:**
 
@@ -288,7 +278,7 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Opting a whole selector out (for subscribers writing their own `SEL_*`):**
+**Opting a whole selector out (when you write your own `SEL_*` class):**
 
 ```apex
 global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
@@ -302,25 +292,19 @@ global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
 }
 ```
 
-The `systemModeRequired()` hook on `SEL_Base` is `global virtual`. Every `findById` / `findByField` / `query`-getter call through a selector that returns `true` runs in
-`AccessLevel.SYSTEM_MODE` regardless of the flag state.
+The `systemModeRequired()` hook on `SEL_Base` is `global virtual`, so you can override it in your own selectors. When it returns `true`, every `findById`, `findByField`, and `query`-getter call through that selector runs in `AccessLevel.SYSTEM_MODE` (all permission and sharing checks skipped), whatever the flag is set to.
 
-**Emergency kill-switch (metadata-only, no deploy needed):**
+**Emergency off-switch (metadata only, no deployment needed):**
 
-Setup → Custom Metadata Types → FeatureFlag → `UserModeQueries_Enabled` → edit → set `IsEnabledByDefault__c = false` → save. Next transaction picks it up — all subscriber-reachable
-queries revert to `SYSTEM_MODE`. Same for `UserModeDml_Enabled`.
+Go to Setup, then Custom Metadata Types, then FeatureFlag, edit `UserModeQueries_Enabled`, set `IsEnabledByDefault__c = false`, and save. The next transaction picks it up, and every query your code can reach reverts to `SYSTEM_MODE`. The same applies to `UserModeDml_Enabled`. This is a lever for incidents, not a routine setting.
 
-**Bypass audit trail (framework-wide):** every bypass call across the trigger (`TRG_Base.bypass*`), query (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`),
-DML (`DML_Builder.withSystemMode` / `bypassSharing`), and validation (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`) surfaces emits a `LogEntryEvent__e` with
-category `BypassEvent` via `UTIL_BypassAudit.emit` (user, action, surface, target, optional reason via `UTIL_BypassAudit.setBypassReason(String)`). The `BypassAudit_Enabled`
-`FeatureFlag__mdt` is a master kill-switch (default-on; subscribers disable via `FeatureFlagStrategy__mdt` override). Query via
-`SEL_LogEntry.query.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')`.
+**Bypass audit trail (across the whole framework).** Whenever a safety check is turned off, KernDX records what was bypassed and why, so a later review can see it. This covers every bypass call: on triggers (`TRG_Base.bypass*`), on queries (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`), on saves (`DML_Builder.withSystemMode` / `bypassSharing`), and on validations (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`). Each one writes a `LogEntryEvent__e` record with category `BypassEvent` through `UTIL_BypassAudit.emit`, capturing the user, the action, the surface, the target, and an optional reason you set with `UTIL_BypassAudit.setBypassReason(String)`. The `BypassAudit_Enabled` feature flag (`FeatureFlag__mdt`) is the master off-switch for this audit; it ships on, and you can disable it through a `FeatureFlagStrategy__mdt` override. To read the audit trail back, query with `SEL_LogEntry.query.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')`.
 
 ---
 
 ## Quick Start
 
-The most common security pattern is enforcing CRUD/FLS at the query level. Here is the simplest usage:
+You want to read records but only the ones, and only the fields, that the current user is allowed to see. That is the most common security need, and it takes one method. Here is the simplest form:
 
 ```apex
 // Enforce CRUD, FLS, and sharing in a single query
@@ -330,7 +314,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-For sharing enforcement without FLS (SYSTEM_MODE), use sharing proxies:
+If you need sharing enforced but not field-level security (a query running in SYSTEM_MODE), use the sharing controls instead:
 
 ```apex
 // Enforce sharing and strip inaccessible fields
@@ -341,26 +325,25 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-For deeper coverage, continue reading the sections below.
+For more detail, keep reading the sections below.
 
 ---
 
 ## Escape Hatches
 
-The security layer is opt-in per layer. Sharing modifiers, `AccessLevel` selection, and CRUD/FLS enforcement are all directly controllable at the call site. The framework's own
-classes default to `inherited sharing` (176 of 185 production classes) so caller context always flows through.
+Sometimes the secure default is not what you want, and you need to step outside it for a single call. Every protection here is opt-in per layer and controllable right where you call it: you choose the sharing behaviour, the access mode (`AccessLevel`), and whether object and field permissions are enforced, all on the same line. Nothing is hidden in framework internals. The framework's own classes default to `inherited sharing` (176 of 185 production classes), so the caller's sharing context always flows through unchanged.
 
 | You need                                                         | Use                                                                                                                                              | See                                                                                                                  |
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| **`AccessLevel.USER_MODE` per transaction**                      | `DML_Builder.withUserMode()` / `QRY_Builder.withUserMode()` — explicit override of the flag-driven default.                                      | [Per-Transaction DML Control](#per-transaction-dml-control), [Per-Query Sharing Control](#per-query-sharing-control) |
-| **`AccessLevel.SYSTEM_MODE`** (privileged framework code)        | `.withSystemMode()` on either builder — bypasses CRUD/FLS for that operation only.                                                               | [AccessLevel Selection](#accesslevel-selection)                                                                      |
-| **Bypass sharing rules for an isolated calculation**             | `.bypassSharing()` routes through the `without sharing` proxy; or write your own `without sharing` class — the framework never intercepts these. | [Without Sharing Classes](#without-sharing-classes)                                                                  |
-| **Inherited sharing from the caller**                            | Default for framework classes. Caller's sharing context flows through unchanged.                                                                 | [Inherited Sharing Classes](#inherited-sharing-classes)                                                              |
-| **Custom sharing modes** beyond BYPASS / ENFORCE / INHERITED     | Extend `DML_SharingProxy.DatabaseProxy` (virtual class).                                                                                         | [Adding New Sharing Modes](#adding-new-sharing-modes)                                                                |
-| **Org-wide kill-switch** for USER_MODE rollout                   | `UserModeDml_Enabled` feature flag — flip via metadata; takes effect next transaction.                                                           | [Org-Wide Access Mode Kill-Switches](#org-wide-access-mode-kill-switches)                                            |
-| **Direct `Database.insert(records, allOrNothing, AccessLevel)`** | Works unmodified — nothing intercepts raw platform DML.                                                                                          | —                                                                                                                    |
+| **`AccessLevel.USER_MODE` for one transaction**                  | `DML_Builder.withUserMode()` / `QRY_Builder.withUserMode()`. Explicitly overrides the flag-driven default.                                       | [Per-Transaction DML Control](#per-transaction-dml-control), [Per-Query Sharing Control](#per-query-sharing-control) |
+| **`AccessLevel.SYSTEM_MODE`** (privileged framework code)        | `.withSystemMode()` on either builder. Skips object and field permission checks for that one operation.                                          | [AccessLevel Selection](#accesslevel-selection)                                                                      |
+| **Bypass sharing rules for an isolated calculation**             | `.bypassSharing()` routes through the `without sharing` proxy. Or write your own `without sharing` class: the framework never intercepts those.   | [Without Sharing Classes](#without-sharing-classes)                                                                  |
+| **Inherit sharing from the caller**                              | The default for framework classes. The caller's sharing context flows through unchanged.                                                         | [Inherited Sharing Classes](#inherited-sharing-classes)                                                              |
+| **Custom sharing modes** beyond BYPASS / ENFORCE / INHERITED     | Extend `DML_SharingProxy.DatabaseProxy` (a virtual class).                                                                                       | [Adding New Sharing Modes](#adding-new-sharing-modes)                                                                |
+| **Org-wide off-switch** for the USER_MODE rollout                | The `UserModeDml_Enabled` feature flag. Flip it in metadata; it takes effect on the next transaction.                                            | [Org-Wide Access Mode Kill-Switches](#org-wide-access-mode-kill-switches)                                            |
+| **Direct `Database.insert(records, allOrNothing, AccessLevel)`** | Works unchanged. Nothing intercepts raw platform DML.                                                                                            | —                                                                                                                    |
 
-Sharing control is decided at the call site, not buried in framework internals. Every default has a documented override on the same fluent builder.
+Sharing control is decided where you call it, not buried in framework internals. Every default has a documented override on the same fluent builder (the chain of short method calls you build the query or save with).
 
 ---
 
@@ -368,15 +351,13 @@ Sharing control is decided at the call site, not buried in framework internals. 
 
 ### Overview
 
-[`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) provides bi-directional encryption and decryption using AES256 encryption with HMAC-SHA256 (Encrypt-then-MAC)
-and automatic key management.
+You want to protect a sensitive value for a short while, for example a token you pass between two steps of a wizard, without managing encryption keys yourself. That is what [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) does: it encrypts and decrypts values using AES256 with HMAC-SHA256 (the Encrypt-then-MAC pattern, which also detects tampering) and manages the key for you. The trade-off, and it is a sharp one, is in the warning below: this is for short-lived data only.
 
 #### CRITICAL ARCHITECTURAL WARNING
 
-**This utility uses EPHEMERAL STORAGE (Platform Cache) for encryption keys.**
+**This utility keeps its encryption keys in temporary storage (Platform Cache), not in the database.**
 
-Keys are **NOT persisted to the database**. If the cache expires, is flushed, or the session ends, the key is **LOST FOREVER** and any data encrypted with it becomes **permanently
-unrecoverable**.
+The key is **NOT saved to the database**. If the cache expires, is flushed, or the session ends, the key is **LOST FOREVER**, and any data you encrypted with it becomes **permanently unrecoverable**.
 
 **DO NOT USE THIS CLASS FOR:**
 
@@ -405,13 +386,11 @@ unrecoverable**.
 
 #### Salesforce Out-of-the-Box Alternatives
 
-Salesforce provides several native encryption options:
+Before reaching for the KernDX utility, know that Salesforce already offers native encryption. Which one fits depends on whether you need the data back later and whether you have a Shield licence:
 
-1. **[Crypto.encrypt() / Crypto.decrypt()](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_crypto.htm)** - Manual encryption with your
-   own keys
-2. **[Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/security_pe_overview.htm)** - Transparent field
-   encryption at rest (requires Shield license)
-3. **Crypto.encryptWithManagedIV() / Crypto.decryptWithManagedIV()** - Automatic IV management
+1. **[Crypto.encrypt() / Crypto.decrypt()](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_crypto.htm):** encryption where you manage the keys yourself.
+2. **[Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/security_pe_overview.htm):** encrypts fields at rest with no code changes (needs a Shield licence).
+3. **Crypto.encryptWithManagedIV() / Crypto.decryptWithManagedIV():** Salesforce manages the initialization vector for you.
 
 #### Pros & Cons Comparison
 
@@ -534,15 +513,14 @@ use [Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-
 
 ### Why Use This Utility?
 
-Salesforce provides [`Crypto.encrypt()` and `Crypto.decrypt()`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_crypto.htm), but these
-require you to manually manage encryption keys. [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) simplifies this by:
+The native [`Crypto.encrypt()` and `Crypto.decrypt()`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_crypto.htm) work, but they leave key management to you, which is the part that is easy to get wrong. [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) takes that off your plate:
 
-1. **Auto-generating keys** when needed
-2. **Caching keys** in platform cache for performance
-3. **Rotating keys** automatically (8-hour expiry)
-4. **Handling multiple cache strategies** (session vs. org cache)
+1. It **generates a key** the first time you need one.
+2. It **caches the key** in platform cache, so repeat operations are fast.
+3. It **rotates the key** automatically (it expires after 8 hours).
+4. It **picks the right cache** for you (session cache, falling back to org cache).
 
-This makes it easy to encrypt sensitive data like API tokens, credentials, or personally identifiable information (PII).
+The result is that encrypting a short-lived API token, credential, or piece of personally identifiable information (PII) is a one-line call.
 
 ### Encryption Methods
 
@@ -630,7 +608,7 @@ request.setHeader('Authorization', 'Bearer ' + plainTextToken);
 
 #### Secure Multi-Step Wizard State
 
-Encrypt sensitive data entered in an early step for use in a later step, all within a single user session:
+A user enters a credential in step 1 of a wizard that you need again in step 3, and you do not want it sitting in page state as plain text. Encrypt it on the way in and decrypt it on the way out, all within the same session:
 
 ```apex
 public inherited sharing class WizardController
@@ -668,7 +646,7 @@ public inherited sharing class WizardController
 
 #### Temporary OAuth Token Caching
 
-Encrypt an OAuth token returned from an external auth flow for reuse during the current session:
+You get an OAuth token back from an external login and want to reuse it for the rest of the session without writing it to the database. Encrypt it before caching, decrypt it just before each callout:
 
 ```apex
 public inherited sharing class OAuthSessionManager
@@ -705,7 +683,7 @@ public inherited sharing class OAuthSessionManager
 
 #### Secure Parameter Passing via Platform Events
 
-Encrypt sensitive data before publishing through Platform Events within a single transaction context:
+You need to send a sensitive value through a Platform Event but the event payload would otherwise carry it in the clear. Encrypt it before publishing, and have the subscribing code decrypt it, as long as both run under the same user's cache:
 
 ```apex
 public inherited sharing class SecureEventPublisher
@@ -758,10 +736,10 @@ public inherited sharing class SecureEventPublisher
 
 **Performance:**
 
-- First encryption operation generates new 256-bit AES key
-- Subsequent operations are fast due to platform cache
-- User-scoped keys prevent cross-user key reuse
-- HMAC validation adds minimal overhead for integrity checks
+- The first encryption operation generates a new 256-bit AES key.
+- After that, operations are fast because the key comes from platform cache.
+- User-scoped keys stop one user's key being reused for another.
+- The HMAC tamper check adds one extra step on each operation, which costs little.
 
 **Security:**
 
@@ -785,27 +763,15 @@ public inherited sharing class SecureEventPublisher
 
 ## Data Masking
 
-KernDX includes a built-in **data masking** framework that rewrites sensitive text on records *before they are
-saved* — so secrets, card numbers, and personal data never reach the database in readable form. Masking is **on by
-default** and protects the framework's own diagnostic records (API call logs, async-chain payloads, integration error
-records) out of the box. You extend it to your own objects by deploying a small amount of configuration metadata — no
-Apex required.
+Some values should never reach the database in readable form in the first place: a secret, a card number, a piece of personal data that slipped into a free-text field. KernDX includes a built-in **data masking** framework that rewrites those values on records *before they are saved*. Masking is **on by default** and already protects the framework's own diagnostic records (API call logs, async-chain payloads, integration error records). To cover your own objects, you deploy a small amount of configuration metadata. No Apex is required.
 
-> **Full reference.** This section is the security-lens summary — what masking protects and where its boundaries lie.
-> For the setup walkthrough, the rule catalogue, the four matching modes, failure handling, and the no-code Data
-> Masking Advisor, see the **[Data Masking Guide](Data%20Masking%20-%20Guide.md)** (or the
-> [Fast Start - Data Masking](Fast%20Start%20-%20Data%20Masking.md) to mask a field in about twenty minutes).
+> **Where the full reference lives.** This section is the security-lens summary: what masking protects, and where its boundaries are. For the setup walkthrough, the rule catalogue, the four matching modes, failure handling, and the no-code Data Masking Advisor, see the **[Data Masking Guide](Data%20Masking%20-%20Guide.md)** (or the [Fast Start - Data Masking](Fast%20Start%20-%20Data%20Masking.md) to mask a field in about twenty minutes).
 
-> **Masking vs. encryption.** Masking and [session encryption](#data-encryption--decryption-util_sessionencryption)
-> solve opposite problems. Encryption is *reversible*: you encrypt a value, store it, and decrypt it later. Masking is
-> *deliberately one-way*: it overwrites the sensitive value with a redacted one and the original is gone. Use
-> encryption when you need the data back; use masking when the value should never have been stored in readable form in
-> the first place (for example, an API request body captured for diagnostics that happens to carry a bearer token).
+> **Masking vs. encryption.** These two solve opposite problems. [Session encryption](#data-encryption--decryption-util_sessionencryption) is *reversible*: you encrypt a value, store it, and decrypt it later. Masking is *deliberately one-way*: it overwrites the sensitive value with a redacted one, and the original is gone. Use encryption when you need the data back. Use masking when the value should never have been stored readably at all (for example, an API request body captured for diagnostics that happens to carry a bearer token).
 
 ### What Data Masking Does
 
-Masking rewrites the value of **text-shaped fields** at write time using rules you configure. It supports four
-matching modes:
+Masking rewrites the value of **text-shaped fields** as records are saved, following rules you configure. It can recognise a sensitive value in four ways:
 
 | Mode            | What it matches                                                                                        | Typical use                                       |
 |-----------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------|
@@ -814,68 +780,53 @@ matching modes:
 | **Exact Match** | A literal substring; every occurrence is replaced                                                       | A known fixed string                              |
 | **Credit Card** | Like Regex, but each match must also pass the Luhn (mod-10) checksum                                    | Card-number redaction without catching ordinary long digit runs |
 
-Out of the box, the logging, web-service, and async-chain subsystems mask their own records — request and response
-bodies, async-chain payloads, and integration error records have card numbers and credential-shaped values redacted
-before they are persisted. The shipped rules cover categories such as Contact, Personal, Payment, Health, Credentials,
-Financial, Identity, and Network.
+Out of the box, the logging, web-service, and async-chain subsystems mask their own records. Request and response bodies, async-chain payloads, and integration error records have card numbers and credential-shaped values redacted before they are saved. The shipped rules cover categories such as Contact, Personal, Payment, Health, Credentials, Financial, Identity, and Network.
 
 ### What Masking Is Not
 
-Masking is a focused tool. Understand its boundaries before you rely on it:
+Masking is a focused tool. Know its boundaries before you rely on it:
 
-- **It is destructive.** The redacted value *replaces* the original; KernDX does not keep a copy and there is no
-  "unmask". If you need the original back, you need encryption or a separate secure store — not masking.
+- **It is destructive.** The redacted value *replaces* the original. KernDX does not keep a copy and there is no
+  "unmask". If you need the original back, use encryption or a separate secure store, not masking.
 - **It covers text fields only.** Masking applies to Text, Text Area, Long Text Area, URL, Email, Phone, and Encrypted
   Text fields. Numbers, dates, checkboxes, picklists, and lookups are never touched.
 - **It is not retroactive.** A rule masks records as they are inserted or updated *after* you deploy it. Data already
-  in the database is untouched until the next time each record is written. To remediate historical data, re-save the
-  records (for example, via a one-off batch) so they pass through the masking pass.
+  in the database is untouched until the next time each record is written. To clean up historical data, re-save the
+  records (for example, via a one-off batch) so they pass through the masking step.
 - **It is not access control.** Masking decides *what is stored*, not *who can see it*. It does not replace field-level
   security, sharing, or
   [Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/security_pe_overview.htm).
-  Use those for at-rest protection and per-user visibility; use masking to keep a sensitive value from being written
+  Use those for at-rest protection and per-user visibility. Use masking to keep a sensitive value from being written
   down at all.
 - **Your custom objects are not masked until you configure them.** The shipped rules protect KernDX's own diagnostic
-  records. Masking does not auto-detect sensitive fields at runtime — a field is masked only when a Masking Target
+  records. Masking does not auto-detect sensitive fields at run time: a field is masked only when a Masking Target
   points a rule at it. The [Data Masking Advisor](Data%20Masking%20-%20Guide.md#the-data-masking-advisor) helps you find the fields that need one.
 
 ### Configuring Masking
 
-Masking is configured entirely in metadata: a **Masking Rule** (`MaskingRule__mdt`, describing *how* to redact) wired
-to a **Masking Target** (`MaskingTarget__mdt`, describing *where*), gated per object by the **Apply Masking** switch on
-its Trigger Setting and globally by the `MaskingFramework_Enabled` feature flag (on by default). From a security
-review's standpoint the important properties are that every masking decision is **declarative, version-controlled, and
-deployable** — there is no imperative "mask this" call buried in Apex to audit — and that it runs in the `before` phase
-with no extra DML, so it is bulk-safe.
+You configure masking entirely in metadata. A **Masking Rule** (`MaskingRule__mdt`) describes *how* to redact; you wire it to a **Masking Target** (`MaskingTarget__mdt`) that describes *where*. Masking is gated per object by the **Apply Masking** switch on that object's Trigger Setting, and globally by the `MaskingFramework_Enabled` feature flag (on by default).
 
-The full setup walkthrough, the four matching modes, the rule catalogue, failure handling (Log and Continue / Write
-Failure Marker / Block DML), and the no-code **Data Masking Advisor** — which also exports a regulated-field inventory
-for auditors — live in the **[Data Masking Guide](Data%20Masking%20-%20Guide.md)**.
+Two things matter to a security reviewer. First, every masking decision is declarative, version-controlled, and deployable, so there is no imperative "mask this" call buried in Apex to track down. Second, it runs in the `before` phase with no extra DML, so it is safe to run on large data loads.
 
-For how the Advisor's artifacts fit a governance or audit process — and what they deliberately do *not* prove — see
-[Security Governance Evidence](#security-governance-evidence).
+The full setup walkthrough, the four matching modes, the rule catalogue, the failure-handling options (Log and Continue, Write Failure Marker, Block DML), and the no-code **Data Masking Advisor** (which also exports a regulated-field inventory for auditors) all live in the **[Data Masking Guide](Data%20Masking%20-%20Guide.md)**.
+
+For how the Advisor's artifacts fit a governance or audit process, and what they deliberately do *not* prove, see [Security Governance Evidence](#security-governance-evidence).
 
 ### Secret Scanning in CI
 
-Runtime masking keeps secrets out of your *data*. A separate, **dev-time** control keeps them out of your *source*: the
-KernDX delivery pipeline ships a Salesforce-aware **`kerndx secret-scan`** gate that inspects changed files for
-hardcoded credentials — API keys, tokens, private keys, and the like — and fails the build before they merge. It runs
-as part of the standard CI workflow and supports inline and fingerprint-based suppression for reviewed false positives.
-See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for setup and rule detail.
+Runtime masking keeps secrets out of your *data*. A separate control, this one running at development time, keeps them out of your *source code*. The KernDX delivery pipeline ships a Salesforce-aware **`kerndx secret-scan`** gate that inspects changed files for hardcoded credentials such as API keys, tokens, and private keys, and fails the build before they can merge. It runs as part of the standard CI workflow, and you can suppress a reviewed false positive inline or by fingerprint. See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for setup and rule detail.
 
 ---
 
 ## Record Sharing
 
-This section covers runtime control over Salesforce [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm).
-Unlike standard Apex where sharing is determined at compile-time via class declarations (`with sharing`, `without sharing`, `inherited sharing`), KernDX allows you to **choose
-sharing behavior at execution time** through a proxy pattern.
+In plain Apex, you decide whether a class respects sharing rules when you write it, by declaring `with sharing`, `without sharing`, or `inherited sharing` on the class. You cannot change that decision later. KernDX lets you **choose the sharing behaviour when the code runs** instead, so the same logic can enforce sharing for a UI user and bypass it for a system batch. This section covers that runtime control over Salesforce [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm), and the small "proxy" class pattern that makes it possible.
 
 ### Sharing Architecture
 
 #### Sharing Control Points
 
-The framework provides sharing control at four key points:
+You can control sharing at four points in the framework:
 
 ```text
 +-----------------------------------------------------------------------------+
@@ -937,8 +888,7 @@ QRY_Builder (inherited sharing)
 
 #### DML_Builder
 
-[`DML_Builder`](reference/apex/DML_Builder.md) is the core class controlling sharing enforcement for all DML operations. It uses the **Strategy Pattern** with inner proxy classes
-that have different sharing declarations, selected per transaction via fluent builder methods.
+When you save records, [`DML_Builder`](reference/apex/DML_Builder.md) is the class that decides whether sharing rules apply. Behind the scenes it keeps a few small helper classes, each declared with a different sharing mode, and picks the right one for your transaction based on the methods you chain (this is the Strategy pattern: swap in different behaviour behind one interface).
 
 **Class Declaration:**
 
@@ -946,30 +896,26 @@ that have different sharing declarations, selected per transaction via fluent bu
 global inherited sharing class DML_Builder
 ```
 
-**Key Components:**
+**Key parts:**
 
-1. **Access-mode methods** - `.withUserMode()` / `.withSystemMode()` select the `AccessLevel` for the transaction
-2. **Sharing control** - `.bypassSharing()` selects the `without sharing` proxy
-3. **Inner Proxy Classes** - Execute DML with specific sharing context (`DML_SharingProxy.SharingType` enum, internal)
+1. **Access-mode methods.** `.withUserMode()` / `.withSystemMode()` choose the access level (`AccessLevel`) for the transaction.
+2. **Sharing control.** `.bypassSharing()` switches to the `without sharing` helper.
+3. **Helper classes.** These run the actual save with a specific sharing mode (the internal `DML_SharingProxy.SharingType` enum).
 
 #### Per-Transaction Sharing Control
 
-`DML_Builder` offers a single programmatic sharing override: `.bypassSharing()`. When not called, the transaction inherits the caller's sharing context via the `inherited sharing`
-proxy.
+`DML_Builder` gives you one sharing override in code: `.bypassSharing()`. If you do not call it, the transaction follows the caller's sharing context through the `inherited sharing` helper.
 
 | Builder Method     | Proxy Used                | Effect                                |
 |--------------------|---------------------------|---------------------------------------|
 | *(default)*        | `inherited sharing` proxy | DML inherits caller's sharing context |
 | `.bypassSharing()` | `without sharing` proxy   | DML ignores sharing rules             |
 
-There is no `.withSharing()` method on `DML_Builder` — to enforce sharing on a DML transaction, call the transaction from a `with sharing` class (or one whose `inherited sharing`
-caller is `with sharing`). For full CRUD/FLS enforcement, use `.withUserMode()` (see [Secure-by-Default Defaults](#secure-by-default-defaults)).
+There is no `.withSharing()` method on `DML_Builder`. To enforce sharing on a save, call the transaction from a `with sharing` class (or from one whose `inherited sharing` caller is itself `with sharing`). To enforce object and field permissions as well, add `.withUserMode()` (see [Secure-by-Default Defaults](#secure-by-default-defaults)).
 
 #### How the Proxy Pattern Works
 
-The framework implements the **Strategy Pattern** using inner proxy classes (on `DML_SharingProxy`) with
-different [sharing declarations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_keywords_sharing.htm). The `DML_SharingProxy.SharingType`
-enum is package-internal (`public`, not `global`) — subscribers drive proxy selection through the fluent builder methods rather than referencing the enum directly:
+KernDX keeps a small helper class for each sharing mode (on `DML_SharingProxy`), each declared with a different [sharing keyword](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_keywords_sharing.htm), and routes your save through the matching one. The `DML_SharingProxy.SharingType` enum that names these modes is internal to the package, so you drive the choice through the fluent builder methods rather than touching the enum yourself:
 
 | Builder Method                   | Proxy Class (internal)                         | Sharing Declaration | Effect                        |
 |----------------------------------|------------------------------------------------|---------------------|-------------------------------|
@@ -977,23 +923,19 @@ enum is package-internal (`public`, not `global`) — subscribers drive proxy se
 | *(default, with sharing caller)* | `DML_SharingProxy.DatabaseProxyWithSharing`    | `with sharing`      | DML respects sharing rules    |
 | *(default, inherited caller)*    | `DML_SharingProxy.DatabaseProxy`               | `inherited sharing` | DML inherits caller's context |
 
-**Why This Matters:**
+**Why this matters:**
 
-In standard Apex, sharing behavior is determined at compile-time by the class declaration. You cannot change it at runtime. The proxy pattern solves this by delegating DML
-operations to inner classes with the desired sharing declaration.
+In plain Apex, the class declaration fixes the sharing behaviour when you compile, and you cannot change it at run time. The helper-class approach gets around that by handing the save to a class that already has the sharing mode you want.
 
-**Key Capability:** The proxy layer can override the caller's sharing context when needed. Even if your code is in a `without sharing` class, running DML from inside a dedicated
-`with sharing` class that calls `DML_Builder.newTransaction()...execute()` will execute DML through the `with sharing` proxy. Conversely, `.bypassSharing()` on the builder
-explicitly elects the `without sharing` proxy. Pair this with `.withUserMode()` to also enforce CRUD/FLS at the database level.
+**What this buys you:** the helper layer can override the caller's sharing context when you need it to. Even if your code lives in a `without sharing` class, running a save from inside a dedicated `with sharing` class that calls `DML_Builder.newTransaction()...execute()` will run through the `with sharing` helper. The reverse also works: `.bypassSharing()` on the builder deliberately picks the `without sharing` helper. Add `.withUserMode()` to enforce object and field permissions at the database as well.
 
 #### AccessLevel Selection
 
-Every `DML_Builder` transaction resolves an `AccessLevel` when `.execute()` runs:
+Every `DML_Builder` transaction settles on an access level (`AccessLevel`) the moment `.execute()` runs:
 
-1. `.withUserMode()` → forces `AccessLevel.USER_MODE` (CRUD + FLS + sharing enforced).
-2. `.withSystemMode()` → forces `AccessLevel.SYSTEM_MODE` (CRUD + FLS bypassed; sharing controlled by proxy).
-3. *(neither called)* → the `UserModeDml_Enabled` feature flag drives the default. When the flag is `true` (package default), USER_MODE is used; when the flag is flipped to `false`
-   via metadata, SYSTEM_MODE is used.
+1. `.withUserMode()` forces `AccessLevel.USER_MODE` (object permissions, field security, and sharing all enforced).
+2. `.withSystemMode()` forces `AccessLevel.SYSTEM_MODE` (object and field permission checks skipped; sharing still controlled by the helper class).
+3. If you call neither, the `UserModeDml_Enabled` feature flag decides. It ships `true`, so USER_MODE is used; if someone flips it to `false` in metadata, SYSTEM_MODE is used.
 
 ```apex
 // User-facing DML: enforce CRUD, FLS, sharing
@@ -1009,14 +951,13 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-> **Important:** `AccessLevel.SYSTEM_MODE` bypasses FLS/CRUD, but the sharing declaration on the proxy (`with sharing` / `without sharing` / `inherited sharing`) still controls
-> record-level access.
+> **Important:** `AccessLevel.SYSTEM_MODE` skips field and object permission checks, but it does *not* turn off sharing. The sharing mode on the helper class (`with sharing` / `without sharing` / `inherited sharing`) still decides which records the code can reach.
 
 ### Query Sharing Enforcement
 
 #### QRY_Builder Sharing Control
 
-[`QRY_Builder`](reference/apex/QRY_Builder.md) provides the same proxy pattern for queries. It offers both **per-query** and **global** sharing control.
+[`QRY_Builder`](reference/apex/QRY_Builder.md) uses the same helper-class approach for queries, so you can control sharing one query at a time or set a default for the whole org.
 
 **Class Declaration:**
 
@@ -1026,8 +967,7 @@ global inherited sharing class QRY_Builder
 
 #### How Query Sharing Works
 
-Similar to DML operations, [`QRY_Builder`](reference/apex/QRY_Builder.md) uses inner proxy classes to control sharing at query time. The sharing methods determine which proxy
-executes the query:
+Just as with saves, [`QRY_Builder`](reference/apex/QRY_Builder.md) uses helper classes to control sharing on a query. The method you chain decides which helper runs the query:
 
 | Sharing Method     | Proxy Used         | Effect                                  |
 |--------------------|--------------------|-----------------------------------------|
@@ -1035,24 +975,23 @@ executes the query:
 | `.withSharing()`   | `WithSharingProxy` | Query enforces sharing rules            |
 | `.bypassSharing()` | `NoSharingProxy`   | Query bypasses sharing rules            |
 
-**Three-State Logic:**
+**Three choices:**
 
-The sharing proxy methods provide three distinct behaviors:
+The sharing methods give you three distinct behaviours:
 
-- **Default (no method called)** - Respects the calling class's sharing declaration. If your class is `with sharing`, queries enforce sharing. If `without sharing`, they bypass.
-- **`.withSharing()`** - Always enforces sharing regardless of caller's context. Use for user-facing features.
-- **`.bypassSharing()`** - Always bypasses sharing regardless of caller's context. Use for system operations.
+- **Default (no method called).** Follows the calling class's own sharing declaration. If your class is `with sharing`, the query enforces sharing; if `without sharing`, it bypasses.
+- **`.withSharing()`.** Always enforces sharing, whatever the caller's context. Use this for user-facing features.
+- **`.bypassSharing()`.** Always bypasses sharing, whatever the caller's context. Use this for system operations.
 
-This approach lets you write flexible code that can operate in different security contexts without changing the code itself.
+So the same query can run in different security contexts without you editing the query itself.
 
 #### Org-Wide Access Mode Override
 
-There is **no per-transaction singleton flag** for flipping every query between `with` / `without` sharing. When you need consistent behaviour across many queries, use one of the
-three mechanisms below.
+There is **no single per-transaction flag** that flips every query between `with` and `without` sharing at once. When you want consistent behaviour across many queries, reach for one of the three approaches below.
 
-**1. Per-call on each query.** Chain `.withSharing()` / `.bypassSharing()` on individual `QRY_Builder` calls, or `.withUserMode()` / `.withSystemMode()` to also control CRUD/FLS.
+**1. Per call on each query.** Chain `.withSharing()` / `.bypassSharing()` on individual `QRY_Builder` calls, or `.withUserMode()` / `.withSystemMode()` to also control object and field permissions.
 
-**2. Per-selector lock.** Subscriber `SEL_*` classes that must always run SYSTEM_MODE (framework-internal CMDT readers, system-schema selectors) override `systemModeRequired()`:
+**2. Per selector.** Your own `SEL_*` classes that must always run in SYSTEM_MODE (readers of custom metadata, system-schema selectors) override `systemModeRequired()`:
 
 ```apex
 global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
@@ -1066,16 +1005,13 @@ global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
 }
 ```
 
-**3. Org-wide emergency kill-switch.** Flip the `kern__FeatureFlag.UserModeQueries_Enabled` custom metadata record to `IsEnabledByDefault__c = false`. Every subscriber-reachable
-query falls back to SYSTEM_MODE on the next transaction. The companion flag `UserModeDml_Enabled` does the same for `DML_Builder`.
-See [Secure-by-Default Defaults](#secure-by-default-defaults).
+**3. Org-wide emergency off-switch.** Set the `kern__FeatureFlag.UserModeQueries_Enabled` custom metadata record to `IsEnabledByDefault__c = false`. Every query your code can reach falls back to SYSTEM_MODE on the next transaction. The companion flag `UserModeDml_Enabled` does the same for `DML_Builder`. See [Secure-by-Default Defaults](#secure-by-default-defaults).
 
-> **When to use which:** per-call for one-off exceptions, per-selector override for framework-internal classes, metadata kill-switch only for emergency rollback of the
-> secure-by-default posture. Do not flip the metadata flag as a routine configuration lever — it weakens the security posture of every subscriber-reachable query.
+> **Which to use:** the per-call override for one-off exceptions, the per-selector override for framework-internal classes, and the metadata off-switch only to roll the secure default back in an emergency. Do not flip the metadata flag as a routine setting: it weakens the protection on every query your code can reach.
 
 #### QRY_Builder Security Methods
 
-[`QRY_Builder`](reference/apex/QRY_Builder.md) (the fluent query builder) is the recommended approach for 95% of queries. It provides independent, combinable security options:
+For about 95% of queries, [`QRY_Builder`](reference/apex/QRY_Builder.md) (the fluent query builder, configured with short chained calls) is the recommended way to write them. Its security options are independent and combinable:
 
 ##### Security Method Summary
 
@@ -1089,14 +1025,11 @@ See [Secure-by-Default Defaults](#secure-by-default-defaults).
 
 ##### Default Behaviour
 
-Subscriber-reachable queries run in **USER_MODE** with **inherited sharing** by default — driven by the `UserModeQueries_Enabled` feature flag (shipped `true`). USER_MODE enforces
-CRUD, FLS, and sharing at the database level. Framework-internal selectors opt out via `systemModeRequired()` returning `true`, and individual calls opt out via
-`.withSystemMode()`. If the org flips `UserModeQueries_Enabled` to `false` (emergency kill-switch), every query falls back to SYSTEM_MODE on the next transaction.
+By default, every query your code can reach runs in **USER_MODE** with **inherited sharing**, driven by the `UserModeQueries_Enabled` feature flag (shipped `true`). USER_MODE enforces object permissions, field security, and sharing at the database. Framework-internal selectors opt out by returning `true` from `systemModeRequired()`, and individual calls opt out with `.withSystemMode()`. If someone flips `UserModeQueries_Enabled` to `false` (the emergency off-switch), every query falls back to SYSTEM_MODE on the next transaction.
 
 ##### USER_MODE vs Sharing Proxy
 
-When using `withUserMode()`, sharing is enforced at the database level regardless of `withSharing()`/`bypassSharing()` settings. The sharing proxy methods only have effect in
-SYSTEM_MODE.
+When you use `withUserMode()`, sharing is enforced at the database whatever your `withSharing()` / `bypassSharing()` settings say. Those sharing methods only take effect in SYSTEM_MODE.
 
 ##### Code Examples
 
@@ -1151,7 +1084,7 @@ List<Account> fullSecurityAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 #### Org-Wide Access Mode Kill-Switches
 
-There is **no per-transaction singleton flag** for DML sharing. The only org-wide controls are the two `FeatureFlag__mdt` records that drive the secure-by-default posture:
+There is **no single per-transaction flag** for DML sharing. The only org-wide controls are the two configuration records (`FeatureFlag__mdt`) that drive the secure default:
 
 ```text
 Setup -> Custom Metadata Types -> FeatureFlag -> UserModeQueries_Enabled
@@ -1163,11 +1096,11 @@ Setup -> Custom Metadata Types -> FeatureFlag -> UserModeDml_Enabled
    -> IsEnabledByDefault__c = false  (emergency kill-switch — SYSTEM_MODE for all DML)
 ```
 
-Flipping a flag affects the next transaction in the org. Treat this as an emergency rollback lever only — do not use it as a routine configuration knob.
+Flipping a flag takes effect on the next transaction across the org. Treat it as an emergency rollback lever, not a routine setting.
 
 #### Per-Transaction DML Control
 
-Use [`DML_Builder`](reference/apex/DML_Builder.md) for specific operations with explicit access mode or sharing:
+When you want to set the access mode or sharing for a specific save, use [`DML_Builder`](reference/apex/DML_Builder.md):
 
 ```apex
 // USER_MODE: enforce CRUD + FLS + sharing for this transaction
@@ -1197,7 +1130,7 @@ DML_Builder.newTransaction()
 
 #### Per-Query Sharing Control
 
-When you need to control sharing or access mode for a specific query (without affecting other queries), use the fluent [`QRY_Builder`](reference/apex/QRY_Builder.md) API:
+When you want to set the sharing or access mode for one query without touching any others, use the fluent [`QRY_Builder`](reference/apex/QRY_Builder.md) API:
 
 ```apex
 // USER_MODE: full CRUD + FLS + sharing enforcement for this query only
@@ -1230,7 +1163,7 @@ List<Account> defaultedAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 #### DML_Transaction Sharing Control
 
-[`DML_Builder`](reference/apex/DML_Builder.md) supports sharing control at the transaction level via `.bypassSharing()`:
+[`DML_Builder`](reference/apex/DML_Builder.md) lets you control sharing for a whole transaction with `.bypassSharing()`:
 
 ```apex
 // Bypass sharing for the entire transaction
@@ -1248,12 +1181,9 @@ DML_Builder.newTransaction()
 
 ### Share Object Management
 
-Creating and deleting Share records (like `AccountShare`, `OpportunityShare`, etc.) requires elevated permissions. The [`UTIL_Sharing`](reference/apex/UTIL_Sharing.md) utility
-handles this by explicitly bypassing sharing for Share object DML.
+You want to grant a user access to some records by creating Share records (like `AccountShare` or `OpportunityShare`), but that needs elevated permissions the granting user may not have. The [`UTIL_Sharing`](reference/apex/UTIL_Sharing.md) utility handles this for you by bypassing sharing on the Share-object save.
 
-**Why bypass sharing for shares?** A user granting access to their records may not have direct access to the underlying Share objects. For example, a manager sharing their Accounts
-with an assistant needs the Share records created even though the manager can't query `AccountShare` directly. The framework handles this complexity so you can focus on the
-business logic.
+**Why bypass sharing for shares?** The person granting access may not have direct access to the Share objects themselves. A manager sharing their Accounts with an assistant, for instance, needs the Share records created even though they cannot query `AccountShare` directly. The framework absorbs that complexity so you can focus on the business logic.
 
 **Usage:**
 
@@ -1265,13 +1195,13 @@ List<SObject> shares = UTIL_Sharing.grant(accounts, groupId, 'Read');
 List<SObject> tempShares = UTIL_Sharing.grantTemporary(accounts, groupId, 'Read', 30);
 ```
 
-The framework creates the appropriate Share records with `BYPASS` sharing mode, ensuring the operation succeeds regardless of the calling user's permissions on Share objects.
+The framework creates the right Share records with `BYPASS` sharing mode, so the operation succeeds no matter what permissions the calling user has on Share objects.
 
 ### Classes with Explicit Sharing Declarations
 
 #### Without Sharing Classes
 
-These framework classes are declared `without sharing`, meaning their internal operations bypass sharing rules by default:
+A few framework classes are declared `without sharing`, which means their internal operations bypass sharing rules by default:
 
 | Class                                          | Purpose            | Rationale                                                     |
 |------------------------------------------------|--------------------|---------------------------------------------------------------|
@@ -1287,10 +1217,7 @@ global without sharing class TST_Builder
 - Creates test data, custom metadata, permission assignments
 - Must operate regardless of test user's permissions
 
-> **Important:** Even though these classes are declared `without sharing`, DML operations that use the framework's [`DML_Builder`](reference/apex/DML_Builder.md) methods flow
-> through the sharing proxy. A `with sharing` inner proxy can override a `without sharing` caller — so you can still enforce sharing on DML operations from a `without sharing` class
-> by calling the builder from a dedicated `with sharing` wrapper, or pair the call with `.withUserMode()` to enforce CRUD + FLS + sharing at the database level regardless of caller
-> context.
+> **Important:** Even though these classes are declared `without sharing`, any save you make through the framework's [`DML_Builder`](reference/apex/DML_Builder.md) methods still flows through the sharing helper. A `with sharing` helper can override a `without sharing` caller, so you can still enforce sharing from a `without sharing` class: call the builder from a dedicated `with sharing` wrapper, or add `.withUserMode()` to enforce object permissions, field security, and sharing at the database regardless of the caller's context.
 
 #### With Sharing Classes
 
@@ -1311,7 +1238,7 @@ global with sharing class UTIL_SessionEncryption
 
 #### Inherited Sharing Classes
 
-Most framework classes use `inherited sharing` to respect the caller's context:
+Most framework classes use `inherited sharing` so they follow whatever sharing context the caller is in:
 
 | Class                                                  | Purpose                   |
 |--------------------------------------------------------|---------------------------|
@@ -1326,7 +1253,7 @@ Most framework classes use `inherited sharing` to respect the caller's context:
 
 #### Creating Custom Selectors with Sharing Control
 
-You can create custom selectors that leverage the sharing proxy pattern through [`SEL_Base`](reference/apex/SEL_Base.md) and [`QRY_Builder`](reference/apex/QRY_Builder.md):
+You can build your own selectors that use the same sharing controls, through [`SEL_Base`](reference/apex/SEL_Base.md) and [`QRY_Builder`](reference/apex/QRY_Builder.md):
 
 ```apex
 public inherited sharing class SEL_CustomObject extends SEL_Base
@@ -1363,10 +1290,9 @@ public inherited sharing class SEL_CustomObject extends SEL_Base
 
 #### Adding New Sharing Modes
 
-The framework's proxy pattern can be extended by creating new inner classes with different behaviors. However, the current three modes (BYPASS, ENFORCE, INHERITED) cover the
-standard use cases.
+You can extend the helper-class approach by adding your own classes with different behaviour. That said, the three built-in modes (BYPASS, ENFORCE, INHERITED) cover the usual cases, so you rarely need to.
 
-For specialized needs, consider:
+For specialised needs, consider these:
 
 ##### Combining with FLS Enforcement
 
@@ -1380,7 +1306,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 ##### Creating Wrapper Methods
 
-Create wrapper methods that set both sharing and security:
+Write a wrapper method that sets both sharing and field/object security in one place:
 
 ```apex
 public static List<Account> findByIdSecure(Id accountId)
@@ -1399,7 +1325,7 @@ public static List<Account> findByIdSecure(Id accountId)
 
 #### Testing with Different Users
 
-Create test users with different permissions to verify sharing:
+To prove sharing works, create test users with different permissions and check what each one can see:
 
 ```apex
 @IsTest
@@ -1473,7 +1399,7 @@ private static void shouldBypassSharingWhenConfigured()
 
 ### Security vs Sharing
 
-KernDX distinguishes between three security layers. Each layer can be enforced independently for maximum flexibility.
+Salesforce access control has three separate layers, and it helps to keep them straight because they answer different questions. KernDX lets you enforce each one on its own:
 
 | Security Layer                      | What It Controls                         | Key Framework Class                                                                             |
 |-------------------------------------|------------------------------------------|-------------------------------------------------------------------------------------------------|
@@ -1483,16 +1409,15 @@ KernDX distinguishes between three security layers. Each layer can be enforced i
 
 #### Field-Level Security (FLS)
 
-Controls which fields a user can read or modify.
+Field-level security controls which fields a user can read or change. You have two ways to enforce it.
 
-**Option 1: Query-Level Enforcement via `withUserMode()`:**
+**Option 1: Enforce it in the query with `withUserMode()`.**
 
-Using `.withUserMode()` on [`QRY_Builder`](reference/apex/QRY_Builder.md) causes the query to execute with `AccessLevel.USER_MODE`. This enforces both FLS and CRUD directly in the
-SOQL execution:
+Adding `.withUserMode()` to a [`QRY_Builder`](reference/apex/QRY_Builder.md) query runs it in `AccessLevel.USER_MODE`, which enforces both field security and object permissions inside the SOQL itself:
 
-- **FLS Enforcement:** Fields the user cannot read are automatically stripped from the results
-- **CRUD Enforcement:** If the user lacks Read access to the object, the query throws an exception
-- **Cache Bypass:** Caching is automatically disabled when security is enforced (prevents data leakage between users)
+- **Field security:** fields the user cannot read are stripped from the results automatically.
+- **Object permissions:** if the user lacks Read access to the object, the query throws an exception.
+- **Cache turned off:** caching is disabled automatically while security is enforced, which stops results leaking between users with different access.
 
 ```apex
 // If user lacks FLS access to AnnualRevenue, it's stripped from results
@@ -1503,7 +1428,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-**Option 2: Post-Query Strip with `stripInaccessible()`:**
+**Option 2: Strip unreadable fields after the query with `stripInaccessible()`.**
 
 ```apex
 // Strip inaccessible fields after query execution
@@ -1515,9 +1440,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 #### Object-Level Security (CRUD)
 
-Controls Create, Read, Update, Delete permissions on objects.
+Object-level security controls who can create, read, update, and delete a given object. You have two ways to check it.
 
-**Option 1: Flow Integration with [`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md):**
+**Option 1: From a Flow, with [`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md).**
 
 ```apex
 FLOW_CheckObjectPermissions.DTO_Request request = new FLOW_CheckObjectPermissions.DTO_Request();
@@ -1532,7 +1457,7 @@ if(perms[0].hasCreateAccess)
 }
 ```
 
-**Option 2: Query-Level Enforcement via `withUserMode()`:**
+**Option 2: In the query, with `withUserMode()`.**
 
 ```apex
 // Enforce CRUD at the query level — throws exception if user lacks Read access
@@ -1544,27 +1469,22 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 #### Record-Level Security (Sharing)
 
-Controls which specific records a user can access. Controlled via sharing proxies as described in the [Record Sharing](#record-sharing) section.
+Record-level security controls which specific records a user can reach. You control it through the sharing helpers described in the [Record Sharing](#record-sharing) section.
 
 #### AccessLevel Modes
 
-Salesforce's [`AccessLevel`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_AccessLevel.htm) parameter controls FLS/CRUD enforcement at the
-database operation level:
+Salesforce's [`AccessLevel`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_AccessLevel.htm) setting decides whether object and field permissions are enforced on a database operation:
 
 | Mode                      | FLS/CRUD | Sharing                                                                         | When Used                                                                                                                   |
 |---------------------------|----------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `AccessLevel.USER_MODE`   | Enforced | Enforced (runs through user's sharing)                                          | **Secure-by-default** for subscriber-reachable queries and DML (shipped package behaviour)                                  |
-| `AccessLevel.SYSTEM_MODE` | Bypassed | Controlled by proxy (class declaration / `.withSharing()` / `.bypassSharing()`) | Framework-internal reads, CMDT readers, log/orchestration writes — opt in via `.withSystemMode()` or `systemModeRequired()` |
+| `AccessLevel.USER_MODE`   | Enforced | Enforced (runs through the user's sharing)                                      | The **secure default** for the queries and saves your code can reach (shipped package behaviour)                            |
+| `AccessLevel.SYSTEM_MODE` | Bypassed | Controlled by the helper class (class declaration / `.withSharing()` / `.bypassSharing()`) | Framework-internal reads, custom-metadata readers, log and orchestration writes. Opt in with `.withSystemMode()` or `systemModeRequired()` |
 
-Subscriber-reachable `QRY_Builder` and `DML_Builder` calls default to `USER_MODE` under the secure-by-default posture (v1.0 GA). SYSTEM_MODE is reserved for framework-internal
-operations and narrow, documented opt-outs. Framework-internal selectors override `SEL_Base.systemModeRequired()` to return `true`; individual calls use `.withSystemMode()`. An
-org-wide flip is available on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` as an emergency kill-switch only —
-see [Secure-by-Default Defaults](#secure-by-default-defaults). For details on how the sharing proxy classes layer on top of `AccessLevel.SYSTEM_MODE`,
-see [Record Sharing > AccessLevel Selection](#accesslevel-selection).
+By default, the `QRY_Builder` and `DML_Builder` calls your code can reach run in `USER_MODE`. SYSTEM_MODE is reserved for framework-internal operations and a few narrow, documented opt-outs. Framework-internal selectors override `SEL_Base.systemModeRequired()` to return `true`; individual calls use `.withSystemMode()`. The org-wide flip on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` is an emergency off-switch only (see [Secure-by-Default Defaults](#secure-by-default-defaults)). For how the sharing helper classes layer on top of `AccessLevel.SYSTEM_MODE`, see [Record Sharing > AccessLevel Selection](#accesslevel-selection).
 
 #### Combining All Three Security Layers
 
-For maximum security in user-facing features, enforce CRUD + FLS + sharing on both the query and the DML transaction with `.withUserMode()`:
+For the strongest protection in user-facing features, enforce object permissions, field security, and sharing on both the query and the save with `.withUserMode()`:
 
 ```apex
 public with sharing class SecureAccountController
@@ -1589,19 +1509,15 @@ public with sharing class SecureAccountController
 }
 ```
 
-> Under the secure-by-default posture (v1.0), `.withUserMode()` is the runtime default for both queries and DML — the explicit call above documents intent and guards against an org
-> that has flipped the `UserModeQueries_Enabled` / `UserModeDml_Enabled` kill-switch to `false`.
+> Because the secure default already runs both queries and saves in `USER_MODE`, the explicit `.withUserMode()` calls above are not strictly required. They are worth keeping anyway: they document the intent, and they protect you if someone has flipped the `UserModeQueries_Enabled` / `UserModeDml_Enabled` off-switch to `false`.
 
 ### Common Sharing Patterns
 
 #### Public Site / Community Controllers
 
-Community and portal users should only see records they have access to. Configure sharing enforcement in the controller constructor to ensure all operations respect the user's
-permissions.
+Community and portal users should only see records they are entitled to. Enforce sharing in the controller so every operation respects the user's permissions.
 
-**Why enforce sharing here?** External users accessing your application
-through [Experience Cloud](https://developer.salesforce.com/docs/atlas.en-us.communities_dev.meta/communities_dev/communities_dev_intro.htm) or a public site should never see
-records belonging to other users or organizations. Even if the OWD (Organization-Wide Default) is set correctly, explicitly enforcing sharing provides defense-in-depth.
+**Why enforce sharing here?** External users reaching your app through [Experience Cloud](https://developer.salesforce.com/docs/atlas.en-us.communities_dev.meta/communities_dev/communities_dev_intro.htm) or a public site must never see records belonging to other users or organizations. Even when the Organization-Wide Default (OWD) is set correctly, enforcing sharing explicitly gives you a second line of defence.
 
 ```apex
 public with sharing class CommunityAccountController
@@ -1626,15 +1542,13 @@ public with sharing class CommunityAccountController
 }
 ```
 
-> `public with sharing` on the controller already enforces sharing for any inline SOQL, and `.withUserMode()` enforces CRUD + FLS + sharing at the database level for every
-`QRY_Builder` / `DML_Builder` call inside it — belt-and-braces for guest / external-user contexts.
+> `public with sharing` on the controller already enforces sharing for any inline SOQL, and `.withUserMode()` enforces object permissions, field security, and sharing at the database for every `QRY_Builder` / `DML_Builder` call inside it. Belt and braces for guest and external-user contexts.
 
 #### System Batch Processing
 
-Batch jobs often need to process all records in an object regardless of the running user's access. This is common for data maintenance, synchronization, and cleanup operations.
+A batch job often needs to process every record of an object, whatever the running user can see. This is common for data maintenance, synchronization, and cleanup.
 
-**Why bypass sharing here?** Batch jobs typically run as a specific user (often a service account or the user who scheduled the job). Without bypassing sharing, the batch would
-only process records that user can see, potentially leaving some records unprocessed. For system-level operations, you want to process the entire dataset.
+**Why bypass sharing here?** A batch job runs as a specific user, usually a service account or whoever scheduled it. If you do not bypass sharing, the job only processes the records that user can see, and the rest go untouched. For a system-level job you want the whole dataset.
 
 ```apex
 public without sharing class BATCH_ProcessAllAccounts implements Database.Batchable<SObject>
@@ -1675,17 +1589,13 @@ public without sharing class BATCH_ProcessAllAccounts implements Database.Batcha
 }
 ```
 
-> `without sharing` on the class + `.withSystemMode().bypassSharing()` on each builder call makes the bypass explicit at every layer. Prefer this over a single top-of-transaction
-> flag — the explicit chaining shows up in code review and leaves an audit trail at the call site.
+> `without sharing` on the class plus `.withSystemMode().bypassSharing()` on each builder call makes the bypass explicit at every layer. Prefer this to a single flag set at the top of the transaction: the explicit chaining shows up in code review and leaves a record at the exact call site.
 
 #### Trigger Actions
 
-Trigger actions should use `inherited sharing` to respect whatever context the trigger runs in. Triggers execute with the permissions of the user who caused the DML operation, but
-typically have system-level access to the records being processed.
+A trigger action should use `inherited sharing` so it follows whatever context the trigger is running in. A trigger runs with the permissions of the user who caused the change, but usually has system-level access to the records it processes.
 
-**Why inherited sharing here?** Trigger actions are reusable components that may be invoked in different contexts. Using `inherited sharing` ensures they work correctly whether
-called from a user context (enforcing sharing) or a system context (bypassing sharing). When a trigger action needs to override the caller's context for a specific DML or query
-call, use the fluent `.withSystemMode()` / `.withUserMode()` / `.bypassSharing()` methods on the relevant `DML_Builder` / `QRY_Builder` call at the point of use.
+**Why inherited sharing here?** Trigger actions are reusable pieces that may run in different contexts. `inherited sharing` keeps them correct whether they are called from a user context (where sharing is enforced) or a system context (where it is bypassed). If a trigger action needs to override the caller's context for one query or save, use the fluent `.withSystemMode()` / `.withUserMode()` / `.bypassSharing()` methods on that specific `DML_Builder` / `QRY_Builder` call.
 
 ```apex
 public inherited sharing class TRG_AccountSetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
@@ -1707,20 +1617,20 @@ public inherited sharing class TRG_AccountSetDefaults extends TRG_Base implement
 
 #### Logging Operations
 
-[`LOG_Builder`](reference/apex/LOG_Builder.md) internally bypasses sharing to ensure logging always succeeds:
+[`LOG_Builder`](reference/apex/LOG_Builder.md) bypasses sharing internally so that logging always succeeds:
 
 ```apex
 // Logging works regardless of current user's sharing context
 LOG_Builder.build().error(exception).emitAt('MyClass.myMethod');
 ```
 
-**Why?** Error logs must be captured regardless of the current user's permissions. Logging failures would hide important diagnostic information.
+**Why?** Error logs have to be captured whatever the current user's permissions are. If logging failed silently, you would lose the diagnostic evidence exactly when you need it.
 
 ### Security Considerations
 
 #### When to Bypass Sharing
 
-Bypass sharing with `.withSystemMode().bypassSharing()` on the relevant `QRY_Builder` / `DML_Builder` call, and log the rationale via `TRG_Base.setBypassReason(String)`:
+Bypass sharing with `.withSystemMode().bypassSharing()` on the relevant `QRY_Builder` / `DML_Builder` call, and record why with `TRG_Base.setBypassReason(String)`. Typical cases:
 
 | Scenario                | Example                                                 |
 |-------------------------|---------------------------------------------------------|
@@ -1734,8 +1644,7 @@ Bypass sharing with `.withSystemMode().bypassSharing()` on the relevant `QRY_Bui
 
 #### When to Enforce Sharing
 
-Enforce CRUD + FLS + sharing with `.withUserMode()` on the relevant `QRY_Builder` / `DML_Builder` call. Under the secure-by-default posture, this is the framework default for
-subscriber-reachable calls — the explicit method makes intent clear and guards against the kill-switch flag being flipped.
+Enforce object permissions, field security, and sharing with `.withUserMode()` on the relevant `QRY_Builder` / `DML_Builder` call. This is already the default for the calls your code can reach; calling it explicitly makes the intent clear and protects you if the off-switch flag is ever flipped. Typical cases:
 
 | Scenario                      | Example                        |
 |-------------------------------|--------------------------------|
@@ -1748,7 +1657,7 @@ subscriber-reachable calls — the explicit method makes intent clear and guards
 
 #### Cache Security
 
-The framework automatically disables caching when security is enforced:
+When security is enforced, the framework turns caching off for you:
 
 ```apex
 // Caching disabled when using withUserMode() - prevents data leakage across users
@@ -1758,89 +1667,86 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-**Why?** Cached query results could leak data between users with different access levels.
+**Why?** A cached result from one user could otherwise be served to another user with different access, leaking data between them.
 
 ---
 
 ## Security Governance Evidence
 
-KernDX is a framework, not a governance system. It does not store approvals, sign-offs, or decision
-history, and it is **not your security system of record**. What it provides is durable,
-version-controlled *evidence* that feeds the governance process you already run — so the artifacts an
-auditor asks for come out of source control and reporting rather than out of someone's memory.
+KernDX is a framework, not a governance system. It does not store approvals, sign-offs, or decision history, and it is **not your security system of record**. What it does provide is durable, version-controlled *evidence* that feeds the governance process you already run. The payoff: the artifacts an auditor asks for come out of source control and reporting, not out of someone's memory.
 
 ### Masking Configuration as a Version-Controlled Record
 
 Your masking rules and the fields they protect are defined entirely in metadata (`MaskingRule__mdt` and
-`MaskingTarget__mdt`). Because they are metadata, every change is deployable and lives in source control —
-so your version history *is* the change record: who committed it, when, the exact before-and-after, and
+`MaskingTarget__mdt`). Because they are metadata, every change is deployable and lives in source control.
+So your version history *is* the change record: who committed it, when, the exact before-and-after, and
 (in a pull-request workflow) who reviewed it.
 
 The Data Masking Advisor turns this into two exportable artifacts:
 
-- **Deployable masking configuration** — a ready-to-deploy metadata bundle describing exactly which
+- **Deployable masking configuration:** a ready-to-deploy metadata bundle describing exactly which
   fields are masked, with which rule, and whether each assignment is active. You commit it to your own
   repository and deploy it through your pipeline. It is inert text: KernDX performs no deployment and
   writes no records on your behalf.
-- **Regulated-field inventory** — a read-only census, downloadable as CSV or JSON, of the fields KernDX
+- **Regulated-field inventory:** a read-only census, downloadable as CSV or JSON, of the fields KernDX
   identifies as sensitive across an object or the whole org, together with their current masking status.
   This is the inventory you hand to an auditor or load into your system of record.
 
-**What this does — and does not — give you.** These artifacts answer *what* is masked, with which rule, in
+**What this does, and does not, give you.** These artifacts answer *what* is masked, with which rule, in
 what state, and as of which deployment. They are **inputs to** your security system of record; they are
 not the system of record itself. A metadata record cannot tell you *who* decided to enable or disable
-masking on a field, *under whose authority*, or *who approved the exception* — and you should not treat it
+masking on a field, *under whose authority*, or *who approved the exception*, and you should not treat it
 as if it can. On most teams the name on a commit belongs to whoever ran the deployment tool, not whoever
 made or authorized the decision, and many pipelines commit under a single service account. Attributable,
-authorized decisions — with separation between the person who requests a change and the person who
-approves it — belong in your change-management approval gates or your governance, risk, and compliance
+authorized decisions (with separation between the person who requests a change and the person who
+approves it) belong in your change-management approval gates or your governance, risk, and compliance
 (GRC) system. KernDX feeds those systems; it does not replace them.
 
 **Recommended use.** Keep masking configuration in source control and deploy it through a pipeline that
 requires review and approval, so the approval is captured by *that* gate. Export the regulated-field
 inventory before each audit and reconcile it into your system of record. Reserve direct edits to masking
-metadata in production Setup for emergencies — those take effect on the next transaction but are recorded
-only in the Setup Audit Trail, a coarse and time-limited log — so back-port any emergency change to source
-promptly.
+metadata in production Setup for emergencies: those take effect on the next transaction but are recorded
+only in the Setup Audit Trail, which is a coarse and time-limited log, so back-port any emergency change
+to source promptly.
 
 ### Access-Review Primitives
 
-Confirming that each user's access is still appropriate — certified by a business owner, with stale access
-removed — is a process your organization owns. KernDX does not run that review or store its sign-offs. It
-provides two primitives that supply the *evidence* and the *remediation* the review depends on:
+Confirming that each user's access is still appropriate, certified by a business owner with stale access
+removed, is a process your organization owns. KernDX does not run that review or store its sign-offs. It
+gives you two building blocks that supply the *evidence* and the *remediation* the review depends on:
 
-- **Login-activity reporting (Login Frequency).** A scheduled processor aggregates each user's login
-  history into per-user, per-month records — total logins and unique active days — surfaced on the
+- **Login-activity reporting (Login Frequency).** A scheduled processor rolls each user's login
+  history up into per-user, per-month records (total logins and unique active days) shown on the
   **Login Frequency** tab. This is the "is this person actually using this access?" evidence that makes a
-  review meaningful, and it surfaces dormant accounts before they become a finding.
+  review meaningful, and it surfaces dormant accounts before they become an audit finding.
 - **Automated deactivation of inactive users.** The **Deactivate Inactive Users** scheduled job
   deactivates users in chosen profiles who have not logged in for a configurable number of days (with
-  batch-size and all-or-nothing controls). Schedule it from the Scheduled Job editor to remediate dormant
+  batch-size and all-or-nothing controls). Schedule it from the Scheduled Job editor to clear out dormant
   access continuously, so each review starts from a cleaner baseline.
 
-**What this does — and does not — give you.** These primitives produce activity evidence and automate one
+**What this does, and does not, give you.** These building blocks produce activity evidence and automate one
 common remediation. They do not certify access, capture a business owner's approval, or track remediation
-sign-off — that recertification step remains a documented process in your system of record. KernDX is
+sign-off; that recertification step remains a documented process in your system of record. KernDX is
 deliberately not a recertification engine.
 
 ---
 
 ## Security Boundaries and Portal Hardening
 
-KernDX provides security *mechanisms* — it does not run org-wide security monitoring or make an org compliant. For the full, control-by-control map of what
-KernDX evidences versus what stays your configuration, see the
+KernDX gives you security *mechanisms*. It does not run org-wide security monitoring or make an org compliant on its own. For the full, control-by-control map of what
+KernDX evidences versus what stays your own configuration, see the
 [Security Benchmark for Salesforce Alignment](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md#security-benchmark-for-salesforce-alignment) section.
-This section covers the two developer-facing patterns that the benchmark expects you to get right in your own code, and states plainly what KernDX does not
+This section covers the two patterns that benchmark expects you to get right in your own code, and states plainly what KernDX does not
 watch for you.
 
 ### Parameter-Based Record Access in Portals
 
 A page that takes a record Id from the URL or an input parameter and then reads or writes that record **without checking the running user** lets a guest,
-community, or portal user reach records they should never see — an insecure direct object reference (IDOR). This is application-code security, and it is
-yours to get right.
+community, or portal user reach records they should never see. (Security people call this an insecure direct object reference, or IDOR.) This is application-code
+security, and it is yours to get right.
 
-The KernDX default that helps: `QRY_Builder` and `DML_Builder` run in `USER_MODE` by default, so a record the running user cannot see is not returned, and a
-write the running user is not permitted is not committed — **as long as you do not bypass it.**
+Here is the KernDX default that helps you: `QRY_Builder` and `DML_Builder` run in `USER_MODE` by default. So a record the running user cannot see is not returned, and a
+write the running user is not permitted to make is not committed, **as long as you do not bypass it.**
 
 ```apex
 // Portal/guest-reachable controller: trust the platform, not the parameter.
@@ -1859,40 +1765,37 @@ public static Case getCase(Id caseId)
 }
 ```
 
-The rule of thumb: on any path a guest or external user can reach, **keep `USER_MODE` on** — do not reach for `.withSystemMode()` / `.bypassSharing()` to "make
-the query work," because that is exactly the access check the request needs. KernDX documents this pattern; it does not ship a scanner that detects IDOR in
-your code — finding it is your application-security review's job. See [When to Enforce Sharing](#when-to-enforce-sharing) for the matching sharing posture.
+The rule of thumb: on any path a guest or external user can reach, **keep `USER_MODE` on**. Do not reach for `.withSystemMode()` / `.bypassSharing()` to "make
+the query work," because that access check is exactly what the request needs. KernDX documents this pattern, but it does not ship a scanner that detects IDOR in
+your code; finding it is your application-security review's job. See [When to Enforce Sharing](#when-to-enforce-sharing) for the matching sharing posture.
 
 ### Flow Input-Variable Hygiene
 
-Autolaunched flows invoked from a portal, guest, or community context carry the same risk: an input record variable is attacker-controllable. Treat it as
-untrusted. Where the flow calls Apex, route that Apex through `QRY_Builder` / `DML_Builder` in `USER_MODE` so record access is enforced on the running user
-rather than the flow's running context — never pass an input Id straight into a system-mode query. Scope the input variable to the records the flow is meant
+An autolaunched flow invoked from a portal, guest, or community context carries the same risk: an input record variable can be controlled by the caller, so treat it as
+untrusted. Where the flow calls Apex, route that Apex through `QRY_Builder` / `DML_Builder` in `USER_MODE` so access is enforced on the running user
+rather than on the flow's running context. Never pass an input Id straight into a system-mode query. Scope the input variable to the records the flow is meant
 to touch, and validate it before acting on it.
 
 ### What KernDX Does Not Monitor
 
-KernDX is an accelerator, not an org-security monitor. It deliberately stays out of org-posture detection, leaving it to the tools built for it. Concretely:
+KernDX is an accelerator, not an org-security monitor. It deliberately leaves org-wide posture detection to the tools built for it. Concretely:
 
-- **Metadata-change governance.** KernDX owns the *source-control* half: deterministic package builds, a refusal to build from a dirty working tree, and the
-  bypass-alert pair on the CI pipeline. Org-wide config-drift and unauthorized-change detection belong to your deployment platform and to Salesforce Shield /
-  AppOmni — KernDX ships no Setup Audit Trail monitor.
-- **Backup and recovery.** KernDX ships no org backup; use a dedicated backup-and-recovery solution.
-- **API and login monitoring.** `ApiCall__c` records KernDX-routed callouts only — it is not an org-wide API-usage log. Org-wide API, login, and
+- **Metadata-change governance.** KernDX owns the *source-control* half: repeatable package builds, a refusal to build from a dirty working tree, and the
+  bypass-alert pair on the CI pipeline. Detecting org-wide config drift and unauthorized changes belongs to your deployment platform and to Salesforce Shield or
+  AppOmni. KernDX ships no Setup Audit Trail monitor.
+- **Backup and recovery.** KernDX ships no org backup. Use a dedicated backup-and-recovery solution.
+- **API and login monitoring.** `ApiCall__c` records only the callouts KernDX routes; it is not an org-wide API-usage log. Org-wide API, login, and
   anomaly monitoring is Salesforce Event Monitoring and your SIEM.
 - **Org security baseline.** KernDX's own Health Check verifies *KernDX* configuration (cache allocation, masking posture, scheduled jobs). It is **not** the
-  native Salesforce Security Health Check, which scores your org against Salesforce's baseline — run that separately.
+  native Salesforce Security Health Check, which scores your org against Salesforce's baseline. Run that separately.
 
 ---
 
 ## Testing
 
-Security features are tested by verifying that permission checks throw the correct exceptions for unauthorized
-users and that sharing enforcement restricts record visibility. The framework's internal security classes are
-tested by KernDX itself; your tests should focus on verifying that your code correctly calls the security APIs and
-handles exceptions.
+You test security by checking two things: that a permission check throws the right exception for a user who is not allowed, and that sharing enforcement actually hides records the user should not see. KernDX tests its own internal security classes, so your tests can focus on what is yours: that your code calls the security APIs correctly and handles the exceptions.
 
-**Testing CRUD/FLS enforcement via `withUserMode()`:**
+**Testing object and field permission enforcement with `withUserMode()`:**
 
 ```apex
 @IsTest
@@ -1956,12 +1859,14 @@ private static void shouldEncryptAndDecryptSuccessfully()
 }
 ```
 
-For detailed sharing test patterns including `System.runAs()` and share record verification, see the
+For more detailed sharing test patterns, including `System.runAs()` and share-record verification, see the
 [Testing Sharing Behavior](#testing-sharing-behavior) subsection under Record Sharing.
 
 ---
 
 ## Capability Matrix (for Analysts)
+
+If you are evaluating what the framework controls rather than writing the code, this table is your one-page summary: each security capability, where it is applied, the method that does it, and what to know about it.
 
 | Capability                       | Control Point             | Class/Method                                                     | Notes                                                          |
 |----------------------------------|---------------------------|------------------------------------------------------------------|----------------------------------------------------------------|
@@ -1972,12 +1877,14 @@ For detailed sharing test patterns including `System.runAs()` and share record v
 | Query sharing enforcement        | Per-query control         | `.withSharing()` / `.bypassSharing()` / `.withUserMode()`        | Applied on `QRY_Builder` queries                               |
 | DML sharing enforcement          | Per-transaction control   | `DML_Builder.newTransaction().bypassSharing()`                   | Applied on DML transactions                                    |
 | Selector-wide SYSTEM_MODE lock   | Selector-level override   | `SEL_Base.systemModeRequired()` override                         | Framework-internal selectors opt out of USER_MODE default      |
-| Org-wide access mode kill-switch | Custom metadata flag      | `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled`    | Emergency rollback only — flips all queries/DML to SYSTEM_MODE |
+| Org-wide access mode kill-switch | Custom metadata flag      | `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled`    | Emergency rollback only: flips all queries and DML to SYSTEM_MODE |
 | Bypass audit trail               | Platform event            | `TRG_Base.bypass*()` + `LogEntryEvent__e` category `BypassEvent` | Attach reason via `TRG_Base.setBypassReason(String)`           |
 
 ---
 
 ## Anti-Patterns
+
+These are the common security mistakes (the risky habits worth catching in review), why each one bites, and what to do instead.
 
 | Anti-Pattern                                                   | Why It's Wrong                                                            | Instead                                                                                        |
 |----------------------------------------------------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
@@ -2050,7 +1957,7 @@ Cache.Session.put('api_token', encryptedToken);
 
 ### Be Explicit About Sharing Context
 
-Declare sharing explicitly on the class and call the relevant access-mode method on each `DML_Builder` / `QRY_Builder` call when it matters for the feature:
+Declare sharing explicitly on the class, and call the relevant access-mode method on each `DML_Builder` / `QRY_Builder` call where it matters for the feature:
 
 ```apex
 // DO: Explicit sharing declaration + explicit USER_MODE on secure calls
@@ -2084,8 +1991,7 @@ public class MyController
 
 ### Keep Sharing Decisions at the Call Site
 
-Access mode and sharing are chosen per-call via fluent methods — there is no transaction-scoped static flag to save and restore. Make the bypass explicit at the exact call that
-needs it:
+You choose the access mode and sharing per call, through the fluent methods. There is no transaction-wide flag to save and restore, so make the bypass explicit at the exact call that needs it:
 
 ```apex
 // Temporary, localised system operation — no cleanup needed
@@ -2101,7 +2007,7 @@ List<Account> userVisibleAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-Each builder chain carries its own access mode and sharing selection — they do not leak between calls.
+Each builder chain carries its own access mode and sharing selection, and they do not leak between calls.
 
 ### Don't Log Sensitive Data
 
@@ -2172,7 +2078,7 @@ public inherited sharing class SecureDataAccess
 
 ### Use Inherited Sharing for Reusable Code
 
-When creating utility methods called from different contexts:
+For a utility method that gets called from different contexts:
 
 ```apex
 // DO: Use inherited sharing for utilities
@@ -2191,8 +2097,7 @@ public without sharing class MyUtility  // Always bypasses - may be security ris
 
 ### Document Sharing Decisions
 
-Add ApexDoc comments explaining why a specific sharing mode is used, and record the bypass rationale via `TRG_Base.setBypassReason(String)` so it lands on the `LogEntryEvent__e`
-audit trail with category `BypassEvent`:
+Add ApexDoc comments that explain why a specific sharing mode is used, and record the bypass reason with `TRG_Base.setBypassReason(String)` so it lands on the `LogEntryEvent__e` audit trail under category `BypassEvent`:
 
 ```apex
 /**
@@ -2214,7 +2119,7 @@ public void execute(Database.BatchableContext context, List<Account> scope)
 
 ### Combine Sharing with FLS/CRUD Checks
 
-For user-facing features, enforce both sharing and security:
+For user-facing features, enforce both sharing and field/object permissions together:
 
 ```apex
 // Enforce complete security for user-initiated operations
@@ -2227,7 +2132,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 ### Test Sharing Behavior
 
-Include tests that verify sharing works as expected:
+Include tests that prove sharing behaves as expected:
 
 ```apex
 @IsTest
@@ -2247,7 +2152,7 @@ private static void shouldBypassSharingForBatchProcess()
 
 ### Audit Sharing Bypasses
 
-Maintain a list of code locations that bypass sharing and review periodically:
+Keep a list of the places in your code that bypass sharing, and review it periodically:
 
 | Class                      | Method             | Bypass Reason                        |
 |----------------------------|--------------------|--------------------------------------|
@@ -2258,6 +2163,8 @@ Maintain a list of code locations that bypass sharing and review periodically:
 ---
 
 ## Quick Reference
+
+A lookup section for when you already know what you want and just need the exact method or pattern.
 
 ### Encryption/Decryption
 

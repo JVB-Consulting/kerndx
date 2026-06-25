@@ -82,27 +82,27 @@ navOrder: 70
 
 ## Overview
 
-> **Responsibilities:** This guide documents the data model and metadata configuration for the KernDX framework. The objects and metadata types
-> described here store configuration, logs, and operational data. They do not contain business logic -- that lives in the Apex classes
-> documented in other guides.
+**In one paragraph:** Every part of KernDX is steered by data you can see and change: configuration records that turn behaviour on, log records that capture what happened, and a handful of tracking objects that record API calls and background jobs. This guide is the map of all of them. It tells you which object or metadata type stores what, which field controls which behaviour, and how the objects connect across the framework. Reach for it when you need to look up a field, wire up a configuration record, or understand how one framework's data feeds another. Developers use it as a field reference; architects use it to see the whole data model; analysts use it to find the records they configure.
+
+These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
 
 > **Package Data Model:** 10 custom objects, 15 custom metadata types, 57 pre-built metadata records, and 1 platform event.
 > These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
-The KernDX managed package includes custom SObjects that provide enterprise-grade infrastructure for Salesforce development:
+The package groups its data into four kinds of building block. Each kind plays a different role:
 
-- **Custom Objects** - Persistent data storage for logs, configurations, and operational data
-- **Custom Settings** - Runtime configuration and feature toggles
-- **Platform Events** - Event-driven architecture for asynchronous processing
-- **Custom Metadata Types** - Declarative configuration for framework behaviors
+- **Custom Objects** store data that needs to persist and be queried: logs, configuration, and operational records.
+- **Custom Settings** hold runtime configuration and feature toggles, which you can set per user, per profile, or org-wide.
+- **Platform Events** carry messages between parts of the system so work can happen in the background instead of slowing the user down.
+- **Custom Metadata Types** hold declarative configuration: you change framework behaviour by editing a record, not by editing code.
 
-These objects work together to provide integrated frameworks: Logging, Trigger Actions, Web Services, Feature Management, Asynchronous Operations, and
-Data Management. For background on Salesforce
+Together these objects power six integrated frameworks: Logging, Trigger Actions, Web Services, Feature Management, Asynchronous Operations, and
+Data Management. If you are new to the underlying Salesforce concepts, the official Salesforce documentation explains
 [Custom Metadata Types](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/custommetadatatypes_overview.htm),
 [Custom Objects](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_custom_objects.htm), and
-[Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm), see the Salesforce documentation.
+[Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm).
 
 ---
 
@@ -123,7 +123,7 @@ Data Management. For background on Salesforce
 
 | Custom Setting                                                    | Type      | Purpose                                                                         |
 |-------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------|
-| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | Runtime API kill switch (disable all APIs per user/profile/org)                 |
+| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | A master off-switch you can flip in an incident without a deployment (kill-switch): disable all APIs per user, profile, or org |
 | [`LogSetting__c`](reference/objects/LogSetting__c.md)             | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
 | [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md)   | List      | Runtime state for scheduled jobs (last run time)                                |
 
@@ -157,12 +157,12 @@ Data Management. For background on Salesforce
 
 ## Quick Start
 
-The most common metadata configuration tasks are setting up trigger actions and scheduling jobs. Here are the two most frequent patterns:
+Two tasks come up more than any others: adding behaviour to an object's trigger, and scheduling a recurring job. Both are done by creating configuration records, not by editing code. Here is how each one works.
 
 **Configure a trigger action via custom metadata:**
 
-Create a `TriggerSetting__mdt` record for your object, then create a `TriggerAction__mdt` child record pointing
-to your handler class. The framework automatically discovers and executes your handler when the trigger fires.
+You want to run some Apex logic when records on an object are saved. Create a `TriggerSetting__mdt` record for your object, then create a `TriggerAction__mdt` child record that points
+to your handler class. The framework finds and runs your handler automatically when the trigger fires, so you never edit the trigger file itself.
 
 ```text
 TriggerSetting__mdt:
@@ -177,7 +177,7 @@ TriggerAction__mdt:
 
 **Schedule a recurring job via ScheduledJob__c:**
 
-Create a `ScheduledJob__c` record with a cron expression and class name. Set `IsActive__c = true` and the framework schedules the job automatically.
+You want a class to run on a schedule, for example a nightly clean-up. Create a `ScheduledJob__c` record with a cron expression (the time pattern) and the class name, then set `IsActive__c = true`. The framework schedules the job for you.
 
 ```apex
 ScheduledJob__c job = new ScheduledJob__c();
@@ -197,10 +197,9 @@ For deeper coverage, continue reading the sections below.
 
 ### Logging Framework
 
-**Purpose**: Provides asynchronous, persistent logging with categorization, severity levels, and record associations using
-[`LOG_Builder`](reference/apex/LOG_Builder.md), [`LogEntry__c`](reference/objects/LogEntry__c.md),
-[`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) and
-[`LogSetting__c`](reference/objects/LogSetting__c.md). Sensitive content in logs is redacted by the shared data masking framework — see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md).
+**What it does:** Saves your log messages as real, searchable records instead of debug logs that expire, and does it in the background so logging never slows down the user's transaction. Each entry carries a category, a severity level, and an optional link to the record it relates to.
+
+**The pieces:** You write logs with [`LOG_Builder`](reference/apex/LOG_Builder.md). Each one is published as the [`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) platform event and then saved to the [`LogEntry__c`](reference/objects/LogEntry__c.md) object. [`LogSetting__c`](reference/objects/LogSetting__c.md) controls how much gets logged. Anything sensitive in a log is automatically redacted by the shared data masking framework (see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)).
 
 See also: [Logging - Guide](Logging%20-%20Guide.md),
 [Fast Start - Logging](Fast%20Start%20-%20Logging.md)
@@ -340,12 +339,12 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 **Usage**:
 
 - Published automatically by [`LOG_Builder`](reference/apex/LOG_Builder.md)
-- Consumed by `TRG_LogEntryEvent` trigger to create `LogEntry__c` records
-- Enables asynchronous logging without impacting transaction performance
-- Supports distributed tracing via correlation and transaction IDs
+- Consumed by the `TRG_LogEntryEvent` trigger, which creates the `LogEntry__c` records
+- Lets logging run in the background, so it does not slow down the user's transaction
+- Carries a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs) plus a transaction ID, so you can trace one action through every step
 
-**Sensitive data in log entries** is redacted by the data masking framework ([`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) + [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)) before the platform event is published. The default ship set wildcards the active `MaskSecretKeys` and
-`MaskPaymentCard` rules onto `LogEntryEvent__e`, so nothing in the log-entry pipeline persists a raw secret or card number out of the box.
+**Sensitive data in log entries** is redacted by the data masking framework ([`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) plus [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)) before the platform event is published. Out of the box, the active `MaskSecretKeys` and
+`MaskPaymentCard` rules are applied to every text field on `LogEntryEvent__e`, so a raw secret or card number never gets saved through the log-entry pipeline. You get this protection without any setup.
 
 ##### [LogSetting__c](reference/objects/LogSetting__c.md) (Hierarchy Custom Setting)
 
@@ -399,10 +398,9 @@ Defaults are provided code-level by LOG_Engine.getLogSetting() when no custom se
 
 ### Trigger Action Framework
 
-**Purpose**: Metadata-driven trigger orchestration enabling modular, reusable, and testable trigger logic using
-[`TRG_Dispatcher`](reference/apex/TRG_Dispatcher.md), [`TRG_Base`](reference/apex/TRG_Base.md),
-[`IF_Trigger`](reference/apex/IF_Trigger.md), [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md), and
-[`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md).
+**What it does:** Lets you add behaviour to an object's trigger by creating a configuration record instead of editing trigger code. Each piece of logic lives in its own small Apex class, so triggers stay easy to read, reorder, and switch off without a deployment.
+
+**The pieces:** A [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) record turns the framework on for one object; one [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md) record per behaviour points to a handler class and sets its run order. At runtime [`TRG_Dispatcher`](reference/apex/TRG_Dispatcher.md) reads that configuration and runs each handler (handlers extend [`TRG_Base`](reference/apex/TRG_Base.md) and implement an [`IF_Trigger`](reference/apex/IF_Trigger.md) interface).
 
 See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)
@@ -470,7 +468,7 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 | `EnablePerformanceLogging__c` | Checkbox                                          | Master switch for performance logging on this object         |
 | `PerformanceThresholdMs__c`   | Number(10,0)                                      | Object-level performance threshold (ms)                      |
 | `ApplyMasking__c`             | Checkbox                                          | Run the data masking pass on this object before insert/update (Default: true; uncheck to opt out) |
-| `ObjectApiNameOverride__c`    | Text(255)                                         | Optional override of `SObjectType__c` at dispatch — registers a CDC entity (e.g. `Foobar__ChangeEvent`) |
+| `ObjectApiNameOverride__c`    | Text(255)                                         | Optional override of `SObjectType__c` at dispatch, used to register a CDC entity (e.g. `Foobar__ChangeEvent`) |
 
 **Relationships**:
 
@@ -478,7 +476,7 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 - Parent of `ValidationRuleGroup__mdt` via `TriggerSetting__c` (child relationship: `ValidationRuleGroups__r`)
 
 **Pre-built records (6 shipped):** framework settings for objects the package itself triggers on (`LogEntryEvent__e`, `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, etc.).
-Subscribers add their own `TriggerSetting__mdt` records for their SObjects.
+You add your own `TriggerSetting__mdt` records for your objects.
 
 **Usage**:
 
@@ -517,8 +515,8 @@ Create one TriggerSetting__mdt record per SObject:
 
 - MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c` (child relationship: `TriggerActions__r`)
 
-**Pre-built records (6 shipped):** framework actions on framework-owned objects (e.g., `TRG_LogEntryEvent_AfterInsert`, retry orchestration on `ApiIssue__c`). Subscribers add their
-own `TriggerAction__mdt` records to wire subscriber handler classes.
+**Pre-built records (6 shipped):** framework actions on framework-owned objects (e.g., `TRG_LogEntryEvent_AfterInsert`, retry orchestration on `ApiIssue__c`). You add your
+own `TriggerAction__mdt` records to wire up your handler classes.
 
 **Usage**:
 
@@ -535,7 +533,7 @@ Example Configuration:
 ##### [PostTriggerAction__mdt](reference/metadata/PostTriggerAction__mdt.md) (Custom Metadata)
 
 **Description**: Defines declarative actions that run once at the end of the trigger transaction, after every per-record trigger action has completed. Use post-trigger
-actions for transaction-level work such as a single rollup or one outbound notification per save. A post-action cannot perform DML — attempting it always fails the transaction.
+actions for transaction-level work such as a single rollup or one outbound notification per save. A post-action cannot perform DML: attempting it always fails the transaction.
 
 **Fields**:
 
@@ -543,7 +541,7 @@ actions for transaction-level work such as a single rollup or one outbound notif
 |------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
 | `ApexClassName__c`                 | Text(100)                                 | Class implementing `IF_Trigger.PostAction` (DML is not permitted inside a post-action)                              |
 | `TriggerSetting__c`                | MetadataRelationship(TriggerSetting__mdt) | Optional. Set to scope the action to one SObject; leave blank to fire on every outermost dispatch                   |
-| `FailureAction__c`                 | Picklist                                  | On error: Log and Continue (default — save proceeds) or Block DML (save stops, the error is shown to the user)      |
+| `FailureAction__c`                 | Picklist                                  | On error: Log and Continue (the default, where the save proceeds) or Block DML (the save stops and the error is shown to the user) |
 | `Order__c`                         | Number(3,0)                               | Execution order (lower runs first; leave gaps so new actions can be inserted)                                       |
 | `Description__c`                   | Text                                      | Action description                                                                                                  |
 | `EntryCriteriaContextClassName__c` | Text(100)                                 | Optional class implementing `IF_Trigger.PostActionEntryCriteria`; `shouldRun(context)` returning false skips it     |
@@ -555,17 +553,16 @@ actions for transaction-level work such as a single rollup or one outbound notif
 
 **Relationships**:
 
-- Optional MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c`. Unlike `TriggerAction__mdt`, this link is not required — leave it blank to run the action on every
+- Optional MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c`. Unlike `TriggerAction__mdt`, this link is not required: leave it blank to run the action on every
   outermost trigger dispatch.
 
 See also: [Triggers - Guide](Triggers%20-%20Guide.md) for the `IF_Trigger.PostAction` contract and entry-criteria details.
 
 ### Validation Framework
 
-**Purpose**: Formula-driven declarative validation for advanced scenarios like cross-object validation, aggregate checks, and conditional bypass logic using
-[`UTIL_ValidationRule`](reference/apex/UTIL_ValidationRule.md), [`TRG_ExecuteValidationRules`](reference/apex/TRG_ExecuteValidationRules.md),
-[`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md), and
-[`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md).
+**What it does:** Stops bad data from being saved by checking it against rules you write as formulas, no Apex required. It handles cases standard Salesforce validation rules struggle with, such as checking related records, comparing fields across an object, or turning a rule off under a condition.
+
+**The pieces:** You group rules per object with [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md) and write each individual check as a [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) record. At runtime [`TRG_ExecuteValidationRules`](reference/apex/TRG_ExecuteValidationRules.md) runs the rules (backed by [`UTIL_ValidationRule`](reference/apex/UTIL_ValidationRule.md)).
 
 See also: [Validation - Guide](Validation%20-%20Guide.md),
 [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md)
@@ -595,7 +592,7 @@ See also: [Validation - Guide](Validation%20-%20Guide.md),
 - MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c`
 - Parent of `ValidationRule__mdt` via `ValidationRuleGroup__c`
 
-**Pre-built records:** none — extensibility-only. Subscribers create `ValidationRuleGroup__mdt` records to configure validation rules.
+**Pre-built records:** none; this type is for your own use. You create `ValidationRuleGroup__mdt` records to configure validation rules.
 
 **Usage**:
 
@@ -624,7 +621,7 @@ Example Configuration:
 | `Order__c`               | Number(4,0)                                               | Execution order (lower = first)                    |
 | `Description__c`         | Long Text Area (Required)                                 | Business purpose of this rule                      |
 | `ContextClassName__c`    | Text(100)                                                 | Override context class for this rule               |
-| `ShadowMode__c`          | Checkbox                                                  | Log but don't block (testing mode, Default: false) |
+| `ShadowMode__c`          | Checkbox                                                  | Run the rule watch-only (shadow mode): it logs what it would do but does not block the save (Default: false) |
 | `BypassExecution__c`     | Checkbox                                                  | Bypass this rule (Default: false)                  |
 | `BypassFeatureFlag__c`   | MetadataRelationship(FeatureFlag__mdt)                    | Feature Flag that bypasses this rule when enabled  |
 | `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt)                    | Feature Flag required for this rule to execute     |
@@ -633,7 +630,7 @@ Example Configuration:
 
 - MetadataRelationship to `ValidationRuleGroup__mdt` via `ValidationRuleGroup__c`
 
-**Pre-built records:** none — extensibility-only. Subscribers create `ValidationRule__mdt` records to configure rule formulas.
+**Pre-built records:** none; this type is for your own use. You create `ValidationRule__mdt` records to configure rule formulas.
 
 **Usage**:
 
@@ -652,13 +649,9 @@ Example Configuration:
 
 ### Web Service Framework
 
-**Purpose**: Comprehensive HTTP/REST integration framework with automatic logging, retry logic, data masking, and orchestration using
-[`API_Outbound`](reference/apex/API_Outbound.md), [`API_Inbound`](reference/apex/API_Inbound.md),
-[`ApiCall__c`](reference/objects/ApiCall__c.md), [`ApiIssue__c`](reference/objects/ApiIssue__c.md),
-[`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md), [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md),
-and [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md).
-Request / response redaction is handled by the shared data masking framework —
-see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md).
+**What it does:** Handles calls to and from external systems over HTTP/REST, and takes care of the work that surrounds every integration: logging each call, retrying failures, redacting sensitive data, and saving requests before commit. You write the part that is specific to your integration; the framework runs the rest.
+
+**The pieces:** Outbound calls extend [`API_Outbound`](reference/apex/API_Outbound.md) and inbound ones extend [`API_Inbound`](reference/apex/API_Inbound.md). Each call is recorded in [`ApiCall__c`](reference/objects/ApiCall__c.md), and failures that need retrying land in [`ApiIssue__c`](reference/objects/ApiIssue__c.md). Configuration lives in [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) (endpoints and behaviour), [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md) (authentication), and [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md) (mock responses for testing). Request and response payloads are redacted by the shared data masking framework (see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)).
 
 See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md),
@@ -720,7 +713,7 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 ##### [ApiCall__c](reference/objects/ApiCall__c.md) (Custom Object)
 
-**Description**: Orchestrates and tracks all webservice calls (inbound and outbound) with comprehensive logging and retry management.
+**Description**: Records every webservice call, inbound and outbound, with full logging and retry management in one place.
 
 **Fields**:
 
@@ -736,10 +729,10 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 | `Response__c`            | Long Text Area(131072) | Response payload                                                                                  |
 | `StatusCode__c`          | Text(50)               | HTTP status code                                                                                  |
 | `ErrorMessages__c`       | Long Text Area(32768)  | Errors encountered during processing                                                              |
-| `IdempotencyKey__c`      | Text(255)              | Unique key for duplicate detection (External ID)                                                  |
-| `IsIdempotencyHit__c`    | Checkbox               | True if response was returned from a previous call with the same idempotency key (Default: false) |
+| `IdempotencyKey__c`      | Text(255)              | Idempotency key for duplicate detection: if the same request arrives twice, the first result is returned again rather than re-run (External ID) |
+| `IsIdempotencyHit__c`    | Checkbox               | True if the response was returned from a previous call with the same idempotency key, not re-run (Default: false) |
 | `IsMockedResponse__c`    | Checkbox               | True if response is mocked (Default: false)                                                       |
-| `DeadLettered__c`        | Formula(Checkbox)      | True when retries are exhausted or manually dead-lettered                                         |
+| `DeadLettered__c`        | Formula(Checkbox)      | True once retries are exhausted or the call is manually set aside (dead-lettered) for inspection rather than retried again |
 | `ManualDeadLetter__c`    | Checkbox               | Admin override to permanently dead-letter a failed call (Default: false)                          |
 | `Retries__c`             | Number(2,0)            | Retry count (Default: 0)                                                                          |
 | `MaxRetries__c`          | Number                 | Maximum retry attempts for this API call                                                          |
@@ -760,13 +753,13 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Usage**:
 
-- Automatically created by API framework classes
-- Provides audit trail for all API interactions
-- Enables retry logic for failed calls
-- Tracks performance metrics
-- **Auto-Correlation**: `LoggerContext__c` is automatically populated when queue items are created via
-  [`TST_Factory`](reference/apex/TST_Factory.md) `.newOutboundApiCall()` methods. When the async job executes,
-  the API dispatcher automatically hydrates the logger context, linking all logs in the async transaction to the original correlation ID.
+- Created automatically by the API framework classes, so you do not insert these records yourself
+- Gives you an audit trail of every API interaction
+- Drives the retry logic for failed calls
+- Records performance metrics
+- **Auto-correlation:** `LoggerContext__c` is filled in automatically when queue items are created through
+  [`TST_Factory`](reference/apex/TST_Factory.md) `.newOutboundApiCall()`. When the background job later runs,
+  the API dispatcher restores that logger context, so every log written during the async transaction is tied back to the original correlation ID (the tracking ID for the whole action).
 
 ##### [ApiIssue__c](reference/objects/ApiIssue__c.md) (Custom Object)
 
@@ -822,7 +815,7 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 | `IdempotencyEnabled__c`             | Checkbox              | Enable idempotency key duplicate detection (Default: false)            |
 | `MockingEnabled__c`                 | Checkbox              | Enable mock responses from ApiMock__mdt records (Default: false)       |
 | `ApiCredential__c`                  | Metadata Relationship | Link to credential configuration                                       |
-| `CircuitBreakerEnabled__c`          | Checkbox              | Enable circuit breaker pattern                                         |
+| `CircuitBreakerEnabled__c`          | Checkbox              | Turn on the circuit breaker: after repeated failures the framework stops calling a failing system for a cool-off, then resumes |
 | `CircuitBreakerFailureThreshold__c` | Number(3,0)           | Consecutive failures before opening circuit (Default: 10)              |
 | `CircuitBreakerSuccessThreshold__c` | Number(2,0)           | Consecutive successes in half-open state to close circuit (Default: 2) |
 | `CircuitBreakerTimeout__c`          | Number(5,0)           | Seconds before attempting to close the circuit (Default: 60)           |
@@ -833,8 +826,8 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 - Metadata relationship to `ApiCredential__mdt`
 
-**Pre-built records (4 shipped):** framework-demo API settings (ApiMock endpoints, self-callout examples) used by the bundled sample services. Subscribers add their own
-`ApiSetting__mdt` for each of their handler classes.
+**Pre-built records (4 shipped):** framework-demo API settings (ApiMock endpoints, self-callout examples) used by the bundled sample services. You add your own
+`ApiSetting__mdt` for each of your handler classes.
 
 **Usage**:
 
@@ -862,7 +855,7 @@ Example Configuration:
 
 - Parent of `ApiSetting__mdt` (1:N)
 
-**Pre-built records (3 shipped):** framework-demo credentials matching the bundled sample API services. Subscribers add their own `ApiCredential__mdt` referencing their Named
+**Pre-built records (3 shipped):** framework-demo credentials matching the bundled sample API services. You add your own `ApiCredential__mdt` referencing your Named
 Credentials.
 
 **Usage**:
@@ -873,12 +866,12 @@ Example Configuration:
 - NamedCredential__c: callout:CustomerAPI
 ```
 
-**Redaction of API request / response payloads** is handled by the shared data masking framework —
-see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)
-in the Data Masking section of this guide (or the reference pages directly). The default ship set wildcards `MaskSecretKeys`
+**Redaction of API request and response payloads** is handled by the shared data masking framework
+(see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)
+in the Data Masking section of this guide, or the reference pages directly). Out of the box, two rules are applied to every
+text field of `ApiCall__c` and `ApiIssue__c`: `MaskSecretKeys`
 (JSON key redaction for `password`, `token`, `apiKey`, and similar) and `MaskPaymentCard` (13–19 digit
-sequences that pass the Luhn checksum, all major card brands) onto every
-text field of `ApiCall__c` and `ApiIssue__c`, so raw secrets and card numbers never land in the logged request or response.
+sequences that pass the Luhn checksum, across all major card brands). So raw secrets and card numbers never land in the logged request or response.
 
 ##### [ApiMock__mdt](reference/metadata/ApiMock__mdt.md) (Custom Metadata)
 
@@ -928,23 +921,23 @@ Example Mock Configuration:
 | `Replacement__c`          | Text(255)      | Replacement text (e.g., `[REDACTED]`)                                                                                                                                                          |
 | `CaseSensitive__c`        | Checkbox       | Toggle case-insensitive matching (Default: false)                                                                                                                                              |
 | `FailureAction__c`        | Picklist       | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws                                                                                                                    |
-| `MinInputLength__c`       | Number         | Optional minimum input length — rule skipped for shorter values (zero-cost short-circuit for short fields)                                                                                     |
+| `MinInputLength__c`       | Number         | Optional minimum input length: the rule is skipped for shorter values, so short fields cost nothing to check                                                                                   |
 | `ApplicableFieldTypes__c` | Text           | Optional semicolon-delimited `System.DisplayType.name()` list (e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`) restricting the rule to specific field types; blank applies to every text-shaped field |
 | `IsActive__c`             | Checkbox       | Enable/disable rule globally                                                                                                                                                                   |
 | `Order__c`                | Number(4,0)    | Rule application order                                                                                                                                                                         |
-| `Replaces__c`             | Text(40)       | On a shipped replacement rule: developer name of the older rule it replaces — while both carry their shipped values, the newer rule does the work wherever both are wired. Managed by the package |
-| `ReplacesFingerprint__c`  | Text(64)       | Fingerprint of the replaced rule's original shipped values — any customisation you make to the older rule keeps it running. Managed by the package                                              |
-| `ShippedFingerprint__c`   | Text(64)       | Fingerprint of this rule's own shipped values — customising the replacement rule turns the takeover off, and both rules run. Managed by the package                                             |
+| `Replaces__c`             | Text(40)       | On a shipped replacement rule: the developer name of the older rule it replaces. While both still carry their shipped values, the newer rule does the work wherever both are wired. Managed by the package |
+| `ReplacesFingerprint__c`  | Text(64)       | Fingerprint of the replaced rule's original shipped values. If you customise the older rule, it keeps running. Managed by the package                                                          |
+| `ShippedFingerprint__c`   | Text(64)       | Fingerprint of this rule's own shipped values. If you customise the replacement rule, the takeover turns off and both rules run. Managed by the package                                        |
 
 **Relationships**:
 
 - Parent of `MaskingTarget__mdt` (1:N)
 
-**Pre-built records (18 shipped):** 3 active — `MaskSecretKeys` (JSON key redaction scoped to `STRING;TEXTAREA`), `MaskPaymentCard` (13–19 digit Luhn-checked card numbers with
-`MinInputLength=13`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`), and `MaskCreditCard` (the original issuer-prefix card rule that `MaskPaymentCard` replaces — still shipped for
-compatibility with configurations that reference it). 15 inactive templates ship for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
-URL basic auth, authorization header, private IPv4, postal address, free text, and international phone — flip `IsActive__c=true` and add a `MaskingTarget__mdt` when your org's data
-profile calls for them.
+**Pre-built records (18 shipped):** 3 are active out of the box: `MaskSecretKeys` (JSON key redaction scoped to `STRING;TEXTAREA`), `MaskPaymentCard` (13–19 digit Luhn-checked card numbers with
+`MinInputLength=13`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`), and `MaskCreditCard` (the original issuer-prefix card rule that `MaskPaymentCard` replaces; still shipped for
+compatibility with configurations that reference it). The other 15 are inactive templates for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
+URL basic auth, authorization header, private IPv4, postal address, free text, and international phone. To use one, set `IsActive__c=true` and add a `MaskingTarget__mdt` when your org's data
+profile calls for it.
 
 ##### [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md) (Custom Metadata)
 
@@ -957,7 +950,7 @@ profile calls for them.
 | `Rule__c`        | MetadataRelationship(MaskingRule__mdt) (Required) | The rule to apply                                                                                                             |
 | `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | Target SObject (e.g., `ApiCall__c`, `LogEntryEvent__e`)                                                                       |
 | `Field__c`       | MetadataRelationship(FieldDefinition)             | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject |
-| `CallerClass__c` | Text(100)                                         | Optional scope — only fire when the caller class name matches                                                                 |
+| `CallerClass__c` | Text(100)                                         | Optional scope: only fire when the caller class name matches                                                                  |
 | `IsActive__c`    | Checkbox                                          | Enable/disable this wiring without touching the rule                                                                          |
 
 **Relationships**:
@@ -965,21 +958,20 @@ profile calls for them.
 - Child of `MaskingRule__mdt` via `Rule__c`
 
 **Pre-built records (12 shipped):** the secrets, payment-card, and legacy credit-card rules are each wildcarded onto `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, and
-`LogEntryEvent__e` — so every persisted API / async-chain / log row passes through `MaskSecretKeys` and `MaskPaymentCard` out of the box (the legacy credit-card targets defer to
-the payment-card rule on those objects).
+`LogEntryEvent__e`. So out of the box, every persisted API, async-chain, and log row passes through `MaskSecretKeys` and `MaskPaymentCard` (on those objects the legacy credit-card targets defer to
+the payment-card rule).
 
 **Interaction with `ApplicableFieldTypes__c`:** Rule-level filters take precedence over per-target wiring. If a target wires a rule to a specific `Field__c` whose `DisplayType` is
-excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field. The framework emits a one-time `warn`-level `LogEntry__c` with
-`ClassMethod__c='UTIL_FrameworkMasker.filterTargetsByFieldType'` to surface the misconfiguration.
+excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field. To flag the misconfiguration, the framework writes a one-time `warn`-level `LogEntry__c` with
+`ClassMethod__c='UTIL_FrameworkMasker.filterTargetsByFieldType'`.
 
 ---
 
 ### Feature Management Framework
 
-**Purpose**: Declarative feature flag system enabling runtime feature toggles at user, profile, and organization levels using
-[`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md), [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md),
-[`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md), and
-[`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md).
+**What it does:** Lets you turn features on or off at runtime without a deployment, and target who sees them, by user, by profile, or org-wide. So you can roll a feature out gradually, or switch it off instantly if something goes wrong.
+
+**The pieces:** Each feature is a [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) record, with one or more [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) records that decide who it applies to. Your code checks a flag with [`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md). [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) is a related master off-switch for APIs.
 
 See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 
@@ -1025,8 +1017,8 @@ See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 
 - Parent of `FeatureFlagStrategy__mdt` (1:N)
 
-**Pre-built records (10 shipped):** framework flags including `UserModeQueries_Enabled`, `UserModeDml_Enabled` (the secure-by-default posture kill-switches — both default `true`),
-`DisableAllAPIs`, `MockAllInboundAPIs`, and similar framework-scoped toggles. Subscribers add their own feature flags alongside these.
+**Pre-built records (10 shipped):** framework flags including `UserModeQueries_Enabled` and `UserModeDml_Enabled` (the master off-switches for the framework's safe-by-default security behaviour, both default `true`, so the safe behaviour is on automatically),
+plus `DisableAllAPIs`, `MockAllInboundAPIs`, and similar framework-scoped toggles. You add your own feature flags alongside these.
 
 **Usage**:
 
@@ -1060,7 +1052,7 @@ if(isEnabled)
 
 - Metadata relationship to `FeatureFlag__mdt` (parent)
 
-**Pre-built records (2 shipped):** strategies attached to framework flags. Subscribers add their own strategies on framework flags or their own flags.
+**Pre-built records (2 shipped):** strategies attached to framework flags. You add your own strategies, either onto framework flags or onto your own flags.
 
 **Usage**:
 
@@ -1086,7 +1078,7 @@ Example Strategy Configuration:
 
 | Field               | Type     | Description                                               |
 |---------------------|----------|-----------------------------------------------------------|
-| `DisableAllApis__c` | Checkbox | Disables all APIs — inbound and outbound (Default: false) |
+| `DisableAllApis__c` | Checkbox | Disables all APIs, both inbound and outbound (Default: false) |
 
 For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs`
 feature flags.
@@ -1113,11 +1105,9 @@ if(settings.DisableAllApis__c)
 
 ### Asynchronous Operations Framework
 
-**Purpose**: Declarative configuration for batch jobs, schedulers, and asynchronous processing with automatic execution strategy selection using
-[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md),
-[`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md),
-[`ScheduledJob__c`](reference/objects/ScheduledJob__c.md), and
-[`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md).
+**What it does:** Runs work in the background, batch jobs, scheduled jobs, and long-running processing, and picks the right execution approach for you based on the data volume, so you do not have to choose between Salesforce's separate async tools by hand. You configure jobs with records instead of code.
+
+**The pieces:** You launch background work with [`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md), tuned by [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md). Recurring jobs are defined as [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records, and [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md) keeps their runtime state (such as the last successful run time).
 
 See also: [Async Processing - Guide](Async%20Processing%20-%20Guide.md),
 [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md)
@@ -1270,10 +1260,7 @@ Map<String, Object> status = kern.UTIL_AsyncChain.getStatus(executionId);
 
 ### Data Management & Configuration
 
-**Purpose**: Utility objects and configuration types supporting class resolution and UI customization using
-[`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md),
-[`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md), and
-[`LoginFrequency__c`](reference/objects/LoginFrequency__c.md).
+**What it does:** A few supporting objects that don't belong to one framework. They help the framework find your Apex classes ([`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md)), group field sets for use in UI components ([`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md)), and track login activity for reporting ([`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)).
 
 #### Objects
 
@@ -1281,23 +1268,20 @@ Map<String, Object> status = kern.UTIL_AsyncChain.getStatus(executionId);
 
 Used with [`UTIL_TypeResolver`](reference/apex/UTIL_TypeResolver.md).
 
-**Description**: Registers subscriber-org classes that resolve Apex class names to Types at runtime. Required when subscriber classes used by
-the framework (e.g., trigger handlers, web services, DTOs) are not declared as `global`. Multiple resolvers are chained in a chain of
-responsibility pattern, ordered by `Order__c` ascending.
+**Description**: Tells the framework how to find the Apex classes in your namespace at runtime. You need this when classes the framework calls (trigger handlers, web services, DTOs, and the like) are not declared `global`, because the framework can't see them otherwise. You can register more than one resolver; they run in turn (ordered by `Order__c`, lowest first), and the first one that finds the class wins.
 
 **Fields**:
 
 | Field          | Type               | Manageability         | Description                                                                       |
 |----------------|--------------------|-----------------------|-----------------------------------------------------------------------------------|
 | `ClassName__c` | Text(100) (Unique) | Subscriber Controlled | Fully qualified class name implementing `UTIL_TypeResolver.INT_ClassTypeResolver` |
-| `Order__c`     | Number(2,0)        | Subscriber Controlled | Execution priority — resolvers are chained in ascending order (lowest first)      |
+| `Order__c`     | Number(2,0)        | Subscriber Controlled | Execution priority: resolvers run in ascending order (lowest first)               |
 
-**How it works**: The framework loads all `ClassTypeResolver__mdt` records ordered by `Order__c`, instantiates each resolver class, and chains
-them via `setNext()`. The built-in `PackageClassResolver` runs first (subscriber-first namespace resolution), then delegates to the custom
-resolver chain. The first resolver to return a non-null Type wins.
+**How it works**: The framework loads every `ClassTypeResolver__mdt` record in `Order__c` order, creates each resolver class, and links them in a chain (via `setNext()`). The built-in `PackageClassResolver` runs first (it looks in your namespace before the package's), then hands off to your custom
+resolvers in turn. The first one to return a class wins.
 
-**Subscriber example.** You don't have to write this by hand — the Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row → **Setup**);
-see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide. The class must be `global` so the package can construct it across namespaces via
+**Example.** You don't have to write this by hand. The Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row, then **Setup**);
+see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide. The class is declared `global` so the package can construct it across namespaces with
 `Type.newInstance()`; the `resolveType` override stays `public`.
 
 ```apex
@@ -1433,23 +1417,29 @@ DATA MANAGEMENT
 
 ### Key Integration Patterns
 
-1. **Universal Logging**: All frameworks use [`LOG_Builder`](reference/apex/LOG_Builder.md) ->
+A few patterns repeat across the whole framework. Recognising them helps you see how one object's data feeds another:
+
+1. **Logging is shared by everything.** Every framework writes its logs the same way: [`LOG_Builder`](reference/apex/LOG_Builder.md) ->
    [`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) -> [`LogEntry__c`](reference/objects/LogEntry__c.md)
-2. **Feature Gating**: [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) and
-   [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) control API runtime behavior
-3. **Metadata-Driven**: Trigger Actions, Web Services use
-   [Custom Metadata Types](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/custommetadatatypes_overview.htm)
-   for zero-code configuration
-4. **Event-Driven**: [Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm)
-   enable asynchronous, scalable processing
-5. **Audit Trail**: [`ApiCall__c`](reference/objects/ApiCall__c.md) and [`LogEntry__c`](reference/objects/LogEntry__c.md)
-   provide comprehensive audit logs
+2. **Feature gating controls what runs.** [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) and
+   [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) decide whether APIs run at runtime
+3. **Configuration is metadata, not code.** Trigger Actions and Web Services are set up with
+   [Custom Metadata Types](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/custommetadatatypes_overview.htm),
+   so you change behaviour without deploying code
+4. **Work moves in the background.** [Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm)
+   let processing run asynchronously and scale
+5. **Two objects hold the audit trail.** [`ApiCall__c`](reference/objects/ApiCall__c.md) records API activity and [`LogEntry__c`](reference/objects/LogEntry__c.md)
+   records log activity, so you have a kept record of what happened
 
 ---
 
 ## Usage Patterns
 
+The three examples below show how these objects work together end to end. Each starts with the Apex you write, then the configuration records that wire it up, then what happens automatically at runtime.
+
 ### Pattern 1: Metadata-Driven Trigger with Logging
+
+You want a trigger to validate records and log anything it rejects. Write the handler, register it as a trigger action, and the logs flow on their own:
 
 ```apex
 // 1. Create Trigger Action class
@@ -1487,6 +1477,8 @@ public class TRG_AccountValidator extends TRG_Base
 
 ### Pattern 2: API Integration with Retry Logic
 
+You want to call an external service and have failures retried automatically. Write the API class, point it at a credential, set the retry options on the setting record, and the framework handles success, failure, and retry:
+
 ```apex
 // 1. Create API class
 public with sharing class API_GetCustomerData extends API_Outbound
@@ -1520,6 +1512,8 @@ public with sharing class API_GetCustomerData extends API_Outbound
 
 ### Pattern 3: Feature Flag with Multiple Strategies
 
+You want to release a feature to some users before everyone. Check the flag in code, then control who sees it with one or more strategy records, no code change needed to widen the rollout:
+
 ```apex
 // 1. Check feature in code
 Boolean isAdvancedReportingEnabled = UTIL_FeatureFlag.isEnabled('Advanced_Reporting');
@@ -1547,10 +1541,10 @@ if(isAdvancedReportingEnabled)
 
 ## Testing
 
-Custom objects and metadata types are tested indirectly through the framework classes that consume them. Test
-metadata-driven behavior by exercising the framework end-to-end through `kern.TST_Builder` — build (and insert) a
-record, then assert the configured effect. For feature-flag state, seed an active flag with the global
-`kern.TST_Factory.newFeatureFlag(...)` helper. This keeps tests isolated and parallel-safe.
+You don't test these objects and metadata types on their own. You test the behaviour they configure, by running the
+framework end to end. With `kern.TST_Builder`, build (and insert) a record, then check that the configured effect happened.
+When a test needs a feature flag switched on, seed it with the global `kern.TST_Factory.newFeatureFlag(...)` helper.
+Tests written this way stay isolated and can run in parallel.
 
 **Testing trigger action metadata:**
 
@@ -1571,9 +1565,8 @@ private static void shouldExecuteTriggerAction()
 
 **Testing scheduled job configuration:**
 
-Scheduled jobs configured via `ScheduledJob__c` are tested by verifying the scheduler class executes correctly
-with the expected attributes. Use `TST_Factory` to create in-memory attribute sets and invoke the scheduler's
-`execute()` method directly.
+To test a job configured through `ScheduledJob__c`, check that the scheduler class runs correctly with the attributes you expect.
+Use `TST_Factory` to build the attribute sets in memory, then call the scheduler's `execute()` method directly.
 
 **Testing feature flags:**
 
@@ -1587,15 +1580,17 @@ private static void shouldRespectFeatureFlag()
 }
 ```
 
-Custom metadata records (`TriggerSetting__mdt`, `TriggerAction__mdt`, `FeatureFlag__mdt`, etc.) cannot be
-inserted via DML in tests. Drive the configured behavior through `kern.TST_Builder` end-to-end (build/insert a
-record and assert the effect) rather than asserting on metadata directly. For feature-flag state, seed an active
-flag with the global `kern.TST_Factory.newFeatureFlag(...)` helper; to test the off path, simply leave the flag
-unseeded (an unseeded flag is treated as off).
+One thing to know: custom metadata records (`TriggerSetting__mdt`, `TriggerAction__mdt`, `FeatureFlag__mdt`, and the rest) cannot be
+inserted with DML inside a test. So instead of asserting on the metadata directly, run the configured behaviour through `kern.TST_Builder` end to end (build or insert a
+record, then assert the effect). For feature-flag state, seed an active flag with the global
+`kern.TST_Factory.newFeatureFlag(...)` helper. To test the off path, just leave the flag
+unseeded: an unseeded flag is treated as off.
 
 ---
 
 ## Anti-Patterns
+
+These are common mistakes (anti-patterns) when working with the framework's objects and metadata, with what to do instead:
 
 | Anti-Pattern                                                          | Why It's Wrong                                                          | Instead                                                                                                                     |
 |-----------------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|

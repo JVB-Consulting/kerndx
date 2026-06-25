@@ -8,7 +8,7 @@ sidebar: false
 
 <template #examples>
 
-<CodeCompare title="Paginate past 2,000 rows — and know when the data shifts under you" link="/selectors-guide#pagination" linkText="Selectors Guide → Pagination" wrote="5 lines" caps="8">
+<CodeCompare title="Paginate past 2,000 rows, and know when the data shifts under you" link="/selectors-guide#pagination" linkText="Selectors Guide → Pagination" wrote="5 lines" caps="8">
 
 <template #before>
 
@@ -47,43 +47,43 @@ page.deletedRecords; // rows the cursor saw deleted
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/selectors-guide#pagination"><span class="kl-chip-t">Cursor pagination</span><span class="kl-chip-d">Clears the 2,000-row OFFSET ceiling that plain LIMIT/OFFSET hits — getPage() runs and wires a pagination cursor for you.</span></a>
-<a class="kl-ledger-chip" href="/selectors-guide#pagination"><span class="kl-chip-t">Total count, no 2nd query</span><span class="kl-chip-d">page.totalRecords folds into the same cursor call — no separate COUNT() query.</span></a>
+<a class="kl-ledger-chip hero" href="/selectors-guide#pagination"><span class="kl-chip-t">Cursor pagination</span><span class="kl-chip-d">Clears the 2,000-row OFFSET ceiling that plain LIMIT/OFFSET hits: getPage() runs and wires a pagination cursor for you.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#pagination"><span class="kl-chip-t">Total count, no 2nd query</span><span class="kl-chip-d">page.totalRecords folds into the same cursor call, with no separate COUNT() query.</span></a>
 <a class="kl-ledger-chip" href="/selectors-guide#cursor-based-processing"><span class="kl-chip-t">Deleted-row tracking</span><span class="kl-chip-d">page.deletedRecords flags rows the cursor saw deleted mid-fetch, not silently dropped.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE by default</span><span class="kl-chip-d">Runs the running user's CRUD, FLS &amp; sharing — no hand-rolled checks.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE by default</span><span class="kl-chip-d">Runs the running user's object and field permissions (CRUD and FLS) plus record sharing, with no hand-rolled checks.</span></a>
 <a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">Audited bypass</span><span class="kl-chip-d">withSystemMode() opt-outs are logged to an audit trail.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="observability">Observability</p>
-<a class="kl-ledger-chip" href="/selectors-guide#query-performance-logging"><span class="kl-chip-t">Slow-query telemetry</span><span class="kl-chip-d">Any query at 1000ms or slower (default) logs a performance entry — silent when fast.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#query-performance-logging"><span class="kl-chip-t">Slow-query telemetry</span><span class="kl-chip-d">Any query at 1000ms or slower (the default) logs a performance entry. Fast queries stay silent.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="performance">Performance</p>
-<a class="kl-ledger-chip" href="/selectors-guide#platform-cache-integration"><span class="kl-chip-t">Cache the read inline</span><span class="kl-chip-d">withCache(ttlSeconds) parks the result in platform cache for the chosen lifetime — repeat reads skip the query.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#platform-cache-integration"><span class="kl-chip-t">Cache the read inline</span><span class="kl-chip-d">withCache(ttlSeconds) parks the result in platform cache for the chosen lifetime, so repeat reads skip the query.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="testing">Testing</p>
-<a class="kl-ledger-chip" href="/selectors-guide#mocking-with-tst_mock"><span class="kl-chip-t">Inject mock records</span><span class="kl-chip-d">TST_Mock.of(type).build() serves mock records — mock Ids, no DML — from the next query for that type.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#mocking-with-tst_mock"><span class="kl-chip-t">Inject mock records</span><span class="kl-chip-d">TST_Mock.of(type).build() serves mock records (with mock Ids and no DML) from the next query for that type.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-Salesforce exposes query cursors, but you normally wire one by hand. `getPage()` runs a pagination cursor for you, folds the row count into that same call instead of a second query, and reports what the cursor saw deleted mid-fetch — in the running user's CRUD, FLS and sharing mode by default.
+Salesforce exposes query cursors, but you normally wire one by hand. `getPage()` runs a pagination cursor for you, folds the row count into that same call instead of a second query, and reports what the cursor saw deleted mid-fetch. All of it runs in the running user's CRUD, FLS and sharing mode by default.
 
 </template>
 
 </CodeCompare>
 
-<CodeCompare title="Create an Account, Opportunity, and Contact — atomically" link="/fast-start-dml#parent-child-insert" linkText="DML Fast Start → Parent-Child Insert" wrote="5 lines" caps="7">
+<CodeCompare title="Create an Account, Opportunity, and Contact in a single atomic save" link="/fast-start-dml#parent-child-insert" linkText="DML Fast Start → Parent-Child Insert" wrote="5 lines" caps="7">
 
 <template #before>
 
@@ -122,16 +122,16 @@ kern.DML_Builder.newTransaction()
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/dml-guide#use-all-or-nothing-appropriately"><span class="kl-chip-t">Atomic graph</span><span class="kl-chip-d">One savepoint — any insert failure rolls the whole graph back, so no orphaned parent leaks.</span></a>
-<a class="kl-ledger-chip" href="/dml-guide#registering-relationships"><span class="kl-chip-t">Auto-wired foreign keys</span><span class="kl-chip-d">Each FK is set from the new parent's Id after it inserts — no manual AccountId stitching.</span></a>
-<a class="kl-ledger-chip" href="/dml-guide#managing-dependencies"><span class="kl-chip-t">Dependency ordering</span><span class="kl-chip-d">Parents insert before children — the Account always before its Opportunity and Contact.</span></a>
-<a class="kl-ledger-chip" href="/dml-guide#escape-hatches"><span class="kl-chip-t">DML-row-limit guard</span><span class="kl-chip-d">Guards the per-transaction DML-row limit before committing — fails fast, points you to .async().</span></a>
+<a class="kl-ledger-chip hero" href="/dml-guide#use-all-or-nothing-appropriately"><span class="kl-chip-t">Atomic graph</span><span class="kl-chip-d">One savepoint. Any insert failure rolls the whole graph back, so no orphaned parent leaks.</span></a>
+<a class="kl-ledger-chip" href="/dml-guide#registering-relationships"><span class="kl-chip-t">Auto-wired foreign keys</span><span class="kl-chip-d">Each foreign key is set from the new parent's Id after it inserts, with no manual AccountId stitching.</span></a>
+<a class="kl-ledger-chip" href="/dml-guide#managing-dependencies"><span class="kl-chip-t">Dependency ordering</span><span class="kl-chip-d">Parents insert before children, so the Account always saves before its Opportunity and Contact.</span></a>
+<a class="kl-ledger-chip" href="/dml-guide#escape-hatches"><span class="kl-chip-t">DML-row-limit guard</span><span class="kl-chip-d">Guards the per-transaction DML-row limit before committing. It fails fast and points you to .async().</span></a>
 <a class="kl-ledger-chip" href="/dml-guide#upsert-with-external-id"><span class="kl-chip-t">Match-or-create on an external key</span><span class="kl-chip-d">doUpsert(record, externalIdField) matches on a stable external ID, so a replayed integration write updates the existing record instead of duplicating it.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip" href="/dml-guide#access-mode-user-mode-system-mode"><span class="kl-chip-t">USER_MODE by default</span><span class="kl-chip-d">Inserts run in USER_MODE — the running user's FLS and CRUD enforced on every row.</span></a>
+<a class="kl-ledger-chip" href="/dml-guide#access-mode-user-mode-system-mode"><span class="kl-chip-t">USER_MODE by default</span><span class="kl-chip-d">Inserts run in USER_MODE, so the running user's FLS and CRUD are enforced on every row.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -143,13 +143,13 @@ kern.DML_Builder.newTransaction()
 
 <template #why>
 
-Each foreign key is set from the new parent's Id the moment that parent inserts, and all three rows commit on a single savepoint — so if any insert fails, the whole graph rolls back and a half-saved parent never leaks.
+Each foreign key is set from the new parent's Id the moment that parent inserts, and all three rows commit on a single savepoint. So if any insert fails, the whole graph rolls back and a half-saved parent never leaks.
 
 </template>
 
 </CodeCompare>
 
-<CodeCompare title="A resilient callout — and the test, in one chain" link="/fast-start-resilience#step-1-make-a-resilient-callout" linkText="Resilience Fast Start → Resilient Callout" wrote="9 lines" caps="9">
+<CodeCompare title="A resilient callout and its test, in one chain" link="/fast-start-resilience#step-1-make-a-resilient-callout" linkText="Resilience Fast Start → Resilient Callout" wrote="9 lines" caps="9">
 
 <template #before>
 
@@ -197,15 +197,15 @@ kern.API_MockFactory.forService('PaymentGateway')
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/fast-start-resilience#retry-built-into-a-callout"><span class="kl-chip-t">Two-layer retry</span><span class="kl-chip-d">Retries transient 5xx {500, 502, 503, 504} immediately — you never typed the loop or the codes.</span></a>
-<a class="kl-ledger-chip" href="/web-services-guide#automatic-retries"><span class="kl-chip-t">Async re-drive</span><span class="kl-chip-d">Still failing? the call is persisted and a scheduled Flow re-drives it at a backoff date.</span></a>
+<a class="kl-ledger-chip hero" href="/fast-start-resilience#retry-built-into-a-callout"><span class="kl-chip-t">Two-layer retry</span><span class="kl-chip-d">Retries transient 5xx responses {500, 502, 503, 504} immediately. You never typed the loop or the codes.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#automatic-retries"><span class="kl-chip-t">Async re-drive</span><span class="kl-chip-d">Still failing? The call is persisted and a scheduled Flow re-drives it at a backoff date.</span></a>
 <a class="kl-ledger-chip" href="/resilience-guide#platform-cache-and-cross-transaction-state"><span class="kl-chip-t">Cross-transaction breaker</span><span class="kl-chip-d">Circuit-breaker state lives in Platform Cache, keyed by the credential, shared across transactions.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
 <a class="kl-ledger-chip" href="/web-services-guide#data-masking"><span class="kl-chip-t">Masked before save</span><span class="kl-chip-d">Card and secret-key rules redact Request__c / Response__c before the ApiCall__c row is saved.</span></a>
-<a class="kl-ledger-chip" href="/web-services-guide#accessing-large-payloads"><span class="kl-chip-t">Large-payload overflow</span><span class="kl-chip-d">A body too large for the field overflows to a ContentVersion file — masked the same way.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#accessing-large-payloads"><span class="kl-chip-t">Large-payload overflow</span><span class="kl-chip-d">A body too large for the field overflows to a ContentVersion file, masked the same way.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#where-things-are-logged"><span class="kl-chip-t">Audit in SYSTEM_MODE</span><span class="kl-chip-d">The whole audit write runs in SYSTEM_MODE, fixed up front and not overridable per-call.</span></a>
 </div>
 
@@ -217,14 +217,14 @@ kern.API_MockFactory.forService('PaymentGateway')
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="testing">Testing</p>
 <a class="kl-ledger-chip" href="/web-services-guide#api-mockfactory-programmatic-mocking"><span class="kl-chip-t">One-line mock</span><span class="kl-chip-d">API_MockFactory.forService(...).register() replaces the whole HttpCalloutMock + Test.setMock.</span></a>
-<a class="kl-ledger-chip" href="/web-services-guide#call-verification"><span class="kl-chip-t">Verify what was sent</span><span class="kl-chip-d">Assert a mock was called and the last request body contained the right field — Mockito-style, no captor wiring.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#call-verification"><span class="kl-chip-t">Verify what was sent</span><span class="kl-chip-d">Assert a mock was called and the last request body contained the right field, Mockito-style, with no captor wiring.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-The non-obvious part: a transient 5xx comes back *on* the response rather than thrown, and once in-transaction retries are spent the call is persisted so a scheduled Flow can re-drive it at a backoff date — resilience that outlives the original transaction. The circuit-breaker state lives in Platform Cache keyed by the credential, so a dependency that's down stays shorted across transactions, not just within one.
+The non-obvious part: a transient 5xx comes back *on* the response rather than thrown, and once in-transaction retries are spent the call is persisted so a scheduled Flow can re-drive it at a backoff date. The resilience outlives the original transaction. After repeated failures the framework stops calling a failing dependency for a cool-off, then resumes (a circuit breaker), and that state lives in Platform Cache keyed by the credential, so a dependency that's down stays shorted across transactions, not just within one.
 
 </template>
 
@@ -276,13 +276,13 @@ catch(Exception error)
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
 <a class="kl-ledger-chip hero" href="/logging-guide#architecture"><span class="kl-chip-t">Rollback-proof</span><span class="kl-chip-d">Published as a platform event, so the saved log outlives the rollback that erases the payment.</span></a>
-<a class="kl-ledger-chip" href="/logging-guide#log-buffering"><span class="kl-chip-t">ERROR flushes early</span><span class="kl-chip-d">An ERROR-level entry is never held in the suspended-save buffer — it flushes before the re-throw.</span></a>
+<a class="kl-ledger-chip" href="/logging-guide#log-buffering"><span class="kl-chip-t">ERROR flushes early</span><span class="kl-chip-d">An ERROR-level entry is never held in the suspended-save buffer; it flushes before the re-throw.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="observability">Observability</p>
-<a class="kl-ledger-chip" href="/logging-guide#performance-logging"><span class="kl-chip-t">Governor-limit snapshot</span><span class="kl-chip-d">Snapshots every limit (SOQL/DML/CPU/heap/callouts — used of maximum) onto the row.</span></a>
-<a class="kl-ledger-chip" href="/logging-guide#correlation-tracking"><span class="kl-chip-t">Correlation id</span><span class="kl-chip-d">One startCorrelation() stamps a shared id on every log — query the whole flow by that one id.</span></a>
+<a class="kl-ledger-chip" href="/logging-guide#performance-logging"><span class="kl-chip-t">Governor-limit snapshot</span><span class="kl-chip-d">Snapshots every limit (SOQL, DML, CPU, heap, callouts, each as used of maximum) onto the row.</span></a>
+<a class="kl-ledger-chip" href="/logging-guide#correlation-tracking"><span class="kl-chip-t">Correlation id</span><span class="kl-chip-d">One startCorrelation() stamps a shared id on every log, so you query the whole flow by that one id.</span></a>
 <a class="kl-ledger-chip" href="/logging-guide#async-context-propagation"><span class="kl-chip-t">Correlation survives the async hop</span><span class="kl-chip-d">serializeContext() / hydrateContext() carry the correlation id across a Queueable, Batch, or Future, so one flow stays joinable.</span></a>
 <a class="kl-ledger-chip" href="/logging-guide#operation-context-stack"><span class="kl-chip-t">Full execution context</span><span class="kl-chip-d">Captures class + method, the context (trigger/REST/batch…), and the user who emitted the log.</span></a>
 <a class="kl-ledger-chip" href="/fast-start-logging#log-an-exception-with-full-stack-trace"><span class="kl-chip-t">Exception detail</span><span class="kl-chip-d">Records the exception type, the full stack trace, and the failing line number.</span></a>
@@ -290,14 +290,14 @@ catch(Exception error)
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip" href="/fast-start-logging#sensitive-data-is-masked-by-default"><span class="kl-chip-t">Masked by default</span><span class="kl-chip-d">Runs the row through the masking framework before publish — on by default.</span></a>
+<a class="kl-ledger-chip" href="/fast-start-logging#sensitive-data-is-masked-by-default"><span class="kl-chip-t">Masked by default</span><span class="kl-chip-d">Runs the row through the masking framework before publish, on by default.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-The log is published as a platform event committed to the event bus *immediately* — independent of your transaction — so the rollback that erases the payment can't un-publish the record of *why* it failed. A plain `insert Error_Log__c` shares the failing transaction and is undone by the very rollback the re-throw triggers.
+The log is published as a platform event committed to the event bus *immediately*, independent of your transaction, so the rollback that erases the payment can't un-publish the record of *why* it failed. A plain `insert Error_Log__c` shares the failing transaction and is undone by the very rollback the re-throw triggers.
 
 </template>
 
@@ -307,7 +307,7 @@ The log is published as a platform event committed to the event bus *immediately
 
 <template #examplesMore>
 
-<CodeCompare title="Reject a replayed request with a changed body — HTTP 409, automatically" link="/fast-start-inbound-apis#idempotency" linkText="Inbound APIs Fast Start → Idempotency" wrote="1 handler + a checkbox" caps="8">
+<CodeCompare title="Reject a replayed request with a changed body: HTTP 409, automatically" link="/fast-start-inbound-apis#idempotency" linkText="Inbound APIs Fast Start → Idempotency" wrote="1 handler + a checkbox" caps="8">
 
 <template #before>
 
@@ -385,9 +385,9 @@ global inherited sharing class API_Charge extends kern.API_Inbound
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
 <a class="kl-ledger-chip hero" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Body-hash dedupe</span><span class="kl-chip-d">Same key + changed body → HTTP 409 naming the original ApiCall__c.Id.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Cached replay</span><span class="kl-chip-d">Same key + same body → cached HTTP 200, your handler never re-runs.</span></a>
-<a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">One-checkbox SHA-256</span><span class="kl-chip-d">The dedupe is a SHA-256 hash of the body — turned on by one config checkbox.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">One-checkbox SHA-256</span><span class="kl-chip-d">The dedupe is a SHA-256 hash of the body, turned on by one config checkbox.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Completed-only match</span><span class="kl-chip-d">Replay matches the indexed Idempotency-Key, only against requests that completed successfully.</span></a>
-<a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Inbound, not outbound</span><span class="kl-chip-d">This is INBOUND body-hash idempotency — outbound uses an explicit idempotency key you set, not a body hash.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Inbound, not outbound</span><span class="kl-chip-d">This is INBOUND body-hash idempotency. Outbound uses an explicit idempotency key you set, not a body hash.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -398,14 +398,14 @@ global inherited sharing class API_Charge extends kern.API_Inbound
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip" href="/fast-start-inbound-apis#feature-flag-gating"><span class="kl-chip-t">Feature-flag-gated endpoint</span><span class="kl-chip-d">Name a flag in RequiredFeatureFlag__c and a disabled inbound API auto-aborts — take a live endpoint offline by toggling a flag, no redeploy.</span></a>
+<a class="kl-ledger-chip" href="/fast-start-inbound-apis#feature-flag-gating"><span class="kl-chip-t">Feature-flag-gated endpoint</span><span class="kl-chip-d">Name a flag in RequiredFeatureFlag__c and a disabled inbound API aborts automatically, so you can take a live endpoint offline by toggling a flag, with no redeploy.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-A naive hand-rolled dedupe checks only that the key was seen before — never that the body still matches — so a retry that mutates the payload under the same key double-charges in silence. The framework instead stores a SHA-256 hash of the request body next to the (External-ID-indexed) Idempotency-Key, so a replay with a changed body is *detectable*: it returns HTTP 409 naming the original `ApiCall__c.Id`, while an identical replay returns the cached 200 without re-running your handler. This is inbound body-hash idempotency — outbound instead uses an explicit idempotency key you stamp via `UTIL_HttpClient.withIdempotencyKey()`.
+A naive hand-rolled dedupe checks only that the key was seen before, never that the body still matches, so a retry that mutates the payload under the same key double-charges in silence. The framework instead stores a SHA-256 hash of the request body next to the (External-ID-indexed) Idempotency-Key, so a replay with a changed body is *detectable*: it returns HTTP 409 naming the original `ApiCall__c.Id`, while an identical replay returns the cached 200 without re-running your handler. This is inbound body-hash idempotency. Outbound instead uses an explicit idempotency key you stamp via `UTIL_HttpClient.withIdempotencyKey()`.
 
 </template>
 
@@ -452,8 +452,8 @@ kern.UTIL_AsyncChain.newChain('OrderSync')
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/async-processing-guide#monitoring-async-chain-failures"><span class="kl-chip-t">Durable recovery</span><span class="kl-chip-d">An uncatchable governor-limit crash still flips the run to Failed — never a zombie on Running.</span></a>
-<a class="kl-ledger-chip" href="/fast-start-async-processing#how-it-works"><span class="kl-chip-t">Fresh limits per step</span><span class="kl-chip-d">Each step ran in its own Queueable transaction — a fresh set of governor limits.</span></a>
+<a class="kl-ledger-chip hero" href="/async-processing-guide#monitoring-async-chain-failures"><span class="kl-chip-t">Durable recovery</span><span class="kl-chip-d">An uncatchable governor-limit crash still flips the run to Failed, never a zombie stuck on Running.</span></a>
+<a class="kl-ledger-chip" href="/fast-start-async-processing#how-it-works"><span class="kl-chip-t">Fresh limits per step</span><span class="kl-chip-d">Each step ran in its own Queueable transaction, with a fresh set of governor limits.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#error-handling"><span class="kl-chip-t">Callout-capable onError</span><span class="kl-chip-d">An onError handler runs in its own callout-capable transaction, even after the failed step did DML.</span></a>
 </div>
 
@@ -461,28 +461,28 @@ kern.UTIL_AsyncChain.newChain('OrderSync')
 <p class="kl-cat-h" data-cat="observability">Observability</p>
 <a class="kl-ledger-chip" href="/async-processing-guide#overview"><span class="kl-chip-t">Real-time Chain Monitor</span><span class="kl-chip-d">A live UI surfaces running and failed chains without writing a query.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Queryable status</span><span class="kl-chip-d">Status persists to an AsyncChainExecution__c row at every transition (Running → Completed/Failed/Aborted).</span></a>
-<a class="kl-ledger-chip" href="/async-processing-guide#log-correlation"><span class="kl-chip-t">Shared correlation id</span><span class="kl-chip-d">Logs inside a step share the chain's id — one filter traces the whole multi-transaction run.</span></a>
-<a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Field-history audit</span><span class="kl-chip-d">Status__c, CompletedSteps__c, CurrentStepName__c, and CompletedAt__c carry field-history — a step-by-step trail.</span></a>
+<a class="kl-ledger-chip" href="/async-processing-guide#log-correlation"><span class="kl-chip-t">Shared correlation id</span><span class="kl-chip-d">Logs inside a step share the chain's id, so one filter traces the whole multi-transaction run.</span></a>
+<a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Field-history audit</span><span class="kl-chip-d">Status__c, CompletedSteps__c, CurrentStepName__c, and CompletedAt__c carry field-history, giving a step-by-step trail.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring-async-chain-failures"><span class="kl-chip-t">Durable crash log</span><span class="kl-chip-d">On crash the Finalizer wrote a durable Error log stamped with the failed chain-execution id.</span></a>
-<a class="kl-ledger-chip" href="/async-processing-guide#logging-strategy"><span class="kl-chip-t">Quiet when clean</span><span class="kl-chip-d">Logs are reserved for actionable events — a clean, fast, successful run emits no noise.</span></a>
+<a class="kl-ledger-chip" href="/async-processing-guide#logging-strategy"><span class="kl-chip-t">Quiet when clean</span><span class="kl-chip-d">Logs are reserved for actionable events, so a clean, fast, successful run emits no noise.</span></a>
 </div>
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="performance">Performance</p>
-<a class="kl-ledger-chip" href="/async-processing-guide#logging-strategy"><span class="kl-chip-t">Per-step timing</span><span class="kl-chip-d">Each step is timed; a slow step emits a structured performance log with CPU/heap/SOQL/DML deltas.</span></a>
+<a class="kl-ledger-chip" href="/async-processing-guide#logging-strategy"><span class="kl-chip-t">Per-step timing</span><span class="kl-chip-d">Each step is timed; a slow step emits a structured performance log with CPU, heap, SOQL, and DML deltas.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-A hand-rolled Queueable that hits an uncatchable governor limit just dies — no `finish()` hook, no error row, status stuck on "Running." The framework attaches a Finalizer to every step, and a Finalizer is guaranteed to run with *fresh* limits even after that crash — so the run is marked Failed with a reason and a correlated log instead of vanishing.
+A hand-rolled Queueable that hits an uncatchable governor limit just dies: no `finish()` hook, no error row, status stuck on "Running." The framework attaches a Finalizer to every step, and a Finalizer is guaranteed to run with *fresh* limits even after that crash. So the run is marked Failed with a reason and a correlated log instead of vanishing.
 
 </template>
 
 </CodeCompare>
 
-<CodeCompare title="Scrub card numbers from your logs — without shredding your order IDs" link="/data-masking-guide#the-shipped-rules" linkText="Data Masking Guide → Shipped Rules" wrote="4 lines" caps="8">
+<CodeCompare title="Scrub card numbers from your logs without shredding your order IDs" link="/data-masking-guide#the-shipped-rules" linkText="Data Masking Guide → Shipped Rules" wrote="4 lines" caps="8">
 
 <template #before>
 
@@ -524,13 +524,13 @@ kern.LOG_Builder.build()
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip hero" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">Luhn-precise</span><span class="kl-chip-d">Luhn-checked each match — the card redacted, the 16-digit order ID survived.</span></a>
-<a class="kl-ledger-chip" href="/data-masking-guide#what-ships-masked-by-default"><span class="kl-chip-t">On by default</span><span class="kl-chip-d">On by default when you log — you configured nothing to get this.</span></a>
-<a class="kl-ledger-chip" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">Pre-wired rule</span><span class="kl-chip-d">The replacement reads [CARD_REDACTED] — the rule ships pre-wired, no Apex.</span></a>
+<a class="kl-ledger-chip hero" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">Luhn-precise</span><span class="kl-chip-d">Luhn-checked each match: the card redacted, the 16-digit order ID survived.</span></a>
+<a class="kl-ledger-chip" href="/data-masking-guide#what-ships-masked-by-default"><span class="kl-chip-t">On by default</span><span class="kl-chip-d">On by default when you log. You configured nothing to get this.</span></a>
+<a class="kl-ledger-chip" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">Pre-wired rule</span><span class="kl-chip-d">The replacement reads [CARD_REDACTED], and the rule ships pre-wired, with no Apex.</span></a>
 <a class="kl-ledger-chip" href="/data-masking-guide#what-ships-masked-by-default"><span class="kl-chip-t">Covers framework records</span><span class="kl-chip-d">The same rule also masks the framework's outbound-API, API-issue, async-chain, and log records.</span></a>
-<a class="kl-ledger-chip" href="/data-masking-guide#masking-records-on-your-own-objects"><span class="kl-chip-t">Point at your own objects</span><span class="kl-chip-d">Aim the same engine at your object with config — a masking target plus the object's toggle, no Apex.</span></a>
+<a class="kl-ledger-chip" href="/data-masking-guide#masking-records-on-your-own-objects"><span class="kl-chip-t">Point at your own objects</span><span class="kl-chip-d">Aim the same engine at your object with config: a masking target plus the object's toggle, no Apex.</span></a>
 <a class="kl-ledger-chip" href="/data-masking-guide#what-ships-masked-by-default"><span class="kl-chip-t">Master kill switch</span><span class="kl-chip-d">A master kill switch disables all framework masking for diagnostics.</span></a>
-<a class="kl-ledger-chip" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">15 dormant rule templates</span><span class="kl-chip-d">SSN, JWT, AWS keys, IBAN, SWIFT, private IPs and more ship as proven patterns — activate one by wiring a target and flipping its IsActive flag, no regex to write.</span></a>
+<a class="kl-ledger-chip" href="/data-masking-guide#the-shipped-rules"><span class="kl-chip-t">15 dormant rule templates</span><span class="kl-chip-d">SSN, JWT, AWS keys, IBAN, SWIFT, private IPs and more ship as proven patterns. Activate one by wiring a target and flipping its IsActive flag, with no regex to write.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -542,7 +542,7 @@ kern.LOG_Builder.build()
 
 <template #why>
 
-A blunt regex can't tell a card from any other 16-digit number — it either shreds the order ID alongside the card or, loosened to spare the order ID, lets a real card through. The shipped rule runs in CreditCard mode and checks each candidate match against a Luhn (mod-10) checksum first, so the valid card (4111 1111 1111 1111) is redacted while the order ID — which fails Luhn — passes through untouched. The masking runs on the framework's own `LogEntryEvent` before it is published, with nothing to configure.
+A blunt regex can't tell a card from any other 16-digit number: it either shreds the order ID alongside the card or, loosened to spare the order ID, lets a real card through. The shipped rule runs in CreditCard mode and checks each candidate match against a Luhn (mod-10) checksum first, so the valid card (4111 1111 1111 1111) is redacted while the order ID, which fails Luhn, passes through untouched. The masking runs on the framework's own `LogEntryEvent` before it is published, with nothing to configure.
 
 </template>
 
@@ -613,9 +613,9 @@ List<LogEntry__c> shadowViolations = kern.QRY_Builder.selectFrom(LogEntry__c.SOb
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/validation-guide#shadow-mode"><span class="kl-chip-t">Shadow mode</span><span class="kl-chip-d">Save never blocked — even with Severity = Error, a shadow violation is logged, not raised.</span></a>
-<a class="kl-ledger-chip" href="/fast-start-custom-validations#shadow-mode"><span class="kl-chip-t">Same deployed formula</span><span class="kl-chip-d">Fires on every in-scope save against the SAME formula — one checkbox flips shadow to enforce.</span></a>
-<a class="kl-ledger-chip" href="/validation-guide#troubleshooting"><span class="kl-chip-t">Throw-safe evaluation</span><span class="kl-chip-d">A formula that throws still won't block the save — the error is logged and swallowed, not rethrown.</span></a>
+<a class="kl-ledger-chip hero" href="/validation-guide#shadow-mode"><span class="kl-chip-t">Shadow mode</span><span class="kl-chip-d">Save never blocked: even with Severity = Error, a shadow violation is logged, not raised.</span></a>
+<a class="kl-ledger-chip" href="/fast-start-custom-validations#shadow-mode"><span class="kl-chip-t">Same deployed formula</span><span class="kl-chip-d">Fires on every in-scope save against the SAME formula, and one checkbox flips shadow to enforce.</span></a>
+<a class="kl-ledger-chip" href="/validation-guide#troubleshooting"><span class="kl-chip-t">Throw-safe evaluation</span><span class="kl-chip-d">A formula that throws still won't block the save. The error is logged and swallowed, not rethrown.</span></a>
 <a class="kl-ledger-chip" href="/validation-guide#validating-records-in-flow"><span class="kl-chip-t">Same rules, callable from Flow</span><span class="kl-chip-d">An Execute Validation Rules invocable runs the very same formula rules from a Flow and returns errors/warnings without blocking the save.</span></a>
 </div>
 
@@ -628,14 +628,14 @@ List<LogEntry__c> shadowViolations = kern.QRY_Builder.selectFrom(LogEntry__c.SOb
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
 <a class="kl-ledger-chip" href="/validation-guide#shadow-mode"><span class="kl-chip-t">Three documented outcomes</span><span class="kl-chip-d">Severity Error blocks the save, Warning logs it, Shadow logs it regardless of severity.</span></a>
-<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default — honoring the running user's LogEntry__c permissions.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default, honoring the running user's LogEntry__c permissions.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-A native validation rule has two states only — off, or blocking every offending save the instant it is Active — so a new rule meets your dirty production data as a wall of `FIELD_CUSTOM_VALIDATION_EXCEPTION` errors. With `ShadowMode__c = true` the rule still fires on every in-scope save and evaluates the very same deployed formula, but each would-be violation is written to `LogEntry__c` as a `[SHADOW]` WARN instead of calling `addError()` — so nothing is blocked. You measure the blast radius from the log, then flip one checkbox to enforce.
+A native validation rule has two states only: off, or blocking every offending save the instant it is Active. So a new rule meets your dirty production data as a wall of `FIELD_CUSTOM_VALIDATION_EXCEPTION` errors. With `ShadowMode__c = true` the rule still fires on every in-scope save and evaluates the very same deployed formula, but each would-be violation is written to `LogEntry__c` as a `[SHADOW]` WARN instead of calling `addError()`, so nothing is blocked. You measure the blast radius from the log, then flip one checkbox to enforce.
 
 </template>
 
@@ -713,7 +713,7 @@ public inherited sharing class TRG_SetAccountRating
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
-<a class="kl-ledger-chip hero" href="/triggers-guide#order-c-required"><span class="kl-chip-t">Config, not code</span><span class="kl-chip-d">Actions dispatch in Order__c sequence — reorder them without a deploy.</span></a>
+<a class="kl-ledger-chip hero" href="/triggers-guide#order-c-required"><span class="kl-chip-t">Config, not code</span><span class="kl-chip-d">Actions dispatch in Order__c sequence, so you reorder them without a deploy.</span></a>
 <a class="kl-ledger-chip" href="/triggers-guide#bypassexecution-c-subscriber-controlled-1"><span class="kl-chip-t">Per-action kill switch</span><span class="kl-chip-d">Flip BypassExecution__c to kill an action with no deploy.</span></a>
 <a class="kl-ledger-chip" href="/triggers-guide#object-level-bypass-triggersetting-mdt"><span class="kl-chip-t">Object-level bypass</span><span class="kl-chip-d">Disable every trigger action for an object in one call with TRG_Base.bypass().</span></a>
 <a class="kl-ledger-chip" href="/triggers-guide#feature-flag-gating"><span class="kl-chip-t">Feature-flag gating</span><span class="kl-chip-d">Gate an action on a feature flag without touching code.</span></a>
@@ -733,14 +733,14 @@ public inherited sharing class TRG_SetAccountRating
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="testing">Testing</p>
-<a class="kl-ledger-chip" href="/triggers-guide#testing-an-action-without-dml"><span class="kl-chip-t">DML-free action tests</span><span class="kl-chip-d">Call an action directly on in-memory rows (TST_Builder/TST_Mock) and mock its selector reads — unit-test one rule, no DML.</span></a>
+<a class="kl-ledger-chip" href="/triggers-guide#testing-an-action-without-dml"><span class="kl-chip-t">DML-free action tests</span><span class="kl-chip-d">Call an action directly on in-memory rows (TST_Builder/TST_Mock) and mock its selector reads, so you unit-test one rule with no DML.</span></a>
 </div>
 
 </template>
 
 <template #why>
 
-A one-line trigger hands off to `TRG_Dispatcher().run()`, which queries the `TriggerAction__mdt` rows for that object and event, sorts them by `Order__c`, and dispatches each to a small single-purpose class through the matching `IF_Trigger` interface. Because order, bypass, recursion, and flag-gating are *rows* rather than Apex, they change with no redeploy — and because each action just takes a record list, you unit-test one in isolation.
+A one-line trigger hands off to `TRG_Dispatcher().run()`, which queries the `TriggerAction__mdt` rows for that object and event, sorts them by `Order__c`, and dispatches each to a small single-purpose class through the matching `IF_Trigger` interface. Because order, bypass, recursion, and flag-gating are *rows* rather than Apex, they change with no redeploy. And because each action just takes a record list, you unit-test one in isolation.
 
 </template>
 

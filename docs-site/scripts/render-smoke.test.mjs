@@ -152,6 +152,55 @@ try
 	const orphanLabels = refText.split('\n').map(l => l.trim()).filter(l => l === 'Since:' || l === 'Example:');
 	assert(orphanLabels.length === 0, `reference property details have no orphan Since:/Example: labels (found ${orphanLabels.length})`);
 
+	// 10. Administration Tools tour page renders hero-loop videos: each <video> is muted +
+	//     looped, carries a poster + aria-label, offers a webm AND an mp4 <source>; each loop
+	//     has a "Read the full guide" deep-link; every source, poster, AND guide target resolves
+	//     (HTTP 200). Reduced-motion safety is handled in the component.
+	await page.goto(`${BASE}/administration-tools-guide`, {waitUntil: 'networkidle'});
+	const loops = await page.evaluate(() =>
+	{
+		const out = [];
+		for(const fig of document.querySelectorAll('figure.hero-loop'))
+		{
+			const v = fig.querySelector('video.hero-loop__video');
+			if(!v)
+			{
+				continue;
+			}
+			const g = fig.querySelector('a.hero-loop__guide');
+			out.push({
+				poster: v.getAttribute('poster'),
+				ariaLabel: v.getAttribute('aria-label'),
+				muted: v.muted,
+				loop: v.loop,
+				sources: Array.from(v.querySelectorAll('source')).map(s => ({src: s.getAttribute('src'), type: s.getAttribute('type')})),
+				guide: g ? g.getAttribute('href') : null
+			});
+		}
+		return out;
+	});
+	assert(loops.length >= 4, `tour page renders >=4 hero loops (got ${loops.length})`);
+	for(const l of loops)
+	{
+		assert(l.muted && l.loop, `hero loop is muted + looped (${l.poster})`);
+		assert(!!l.poster, `hero loop has a poster (${l.poster})`);
+		assert(!!l.ariaLabel, `hero loop has an aria-label (${l.poster})`);
+		const types = l.sources.map(s => s.type);
+		assert(types.includes('video/webm') && types.includes('video/mp4'), `hero loop offers webm + mp4 (${l.poster})`);
+		for(const s of l.sources)
+		{
+			const sres = await page.request.get(new URL(s.src, page.url()).href);
+			assert(sres.status() === 200, `hero loop source resolves 200: ${s.src}`);
+		}
+		const pres = await page.request.get(new URL(l.poster, page.url()).href);
+		assert(pres.status() === 200, `hero loop poster resolves 200: ${l.poster}`);
+		assert(!!l.guide, `hero loop has a guide deep-link (${l.poster})`);
+		// vite preview serves built files; request the .html artifact so a typo'd slug 404s here.
+		const gres = await page.request.get(new URL(l.guide.replace(/\/$/, '') + '.html', page.url()).href);
+		assert(gres.status() === 200, `hero loop guide link resolves 200: ${l.guide}`);
+		console.log(`ok: hero loop ${l.poster} (webm+mp4, poster, guide ${l.guide})`);
+	}
+
 	console.log('render smoke-test PASSED');
 }
 finally

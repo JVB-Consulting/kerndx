@@ -17,7 +17,11 @@ module.exports = {
         '^cheerio$': '<rootDir>/node_modules/cheerio/dist/commonjs/slim.js'
     },
     modulePathIgnorePatterns: ['<rootDir>/.localdevserver', '<rootDir>/tmp/'],
-    testPathIgnorePatterns: ['/node_modules/', '/coverage/', '/release-testing/e2e/specs/', '<rootDir>/tmp/', '/__tests__/fixtures/'],
+    // release-testing/e2e/helpers/capture-overlay.smoke.test.js is a Playwright BROWSER smoke test
+    // (it launches chromium) run via `node --test`, not a jest unit test — jest can't load it, so
+    // its dir is excluded (alongside the Playwright e2e specs). The processor's pure-function unit
+    // tests live in release-testing/__tests__ and run as normal jest under `npm run test:release`.
+    testPathIgnorePatterns: ['/node_modules/', '/coverage/', '/release-testing/e2e/specs/', '/release-testing/e2e/helpers/', '<rootDir>/tmp/', '/__tests__/fixtures/'],
     collectCoverageFrom: [
         'force-app/main/default/lwc/**/*.js',
         'scripts/**/*.js',

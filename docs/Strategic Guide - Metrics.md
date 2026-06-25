@@ -4,7 +4,7 @@ navOrder: 34
 
 # Strategic Guide — Metrics
 
-> Canonical framework statistics for KernDX. All other documents should link here rather than hardcoding numbers. Update this file when the codebase changes.
+> This is the single source of truth for the numbers that describe KernDX: how much code it contains, how many tests run, how big the public API is, and how it compares on size and activity. Every other guide links here instead of repeating a figure, so there is only one place to keep current. If you are looking up a statistic to cite, this is the page. Update this file when the codebase changes.
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
@@ -61,8 +61,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Apex character limit   | 10,000,000 |
 | Percent of limit used  |       ~10% |
 
-> Visible in Setup → Apex Classes → view limit bar; the ~990K figure is approximate and was last measured against an earlier 1.0.0-x build (the current build has 363 Apex classes
-> total). Includes all Apex classes and triggers defined in the org, excluding comments and `@IsTest` annotated classes. Managed package code does not count toward this limit.
+> You can see this yourself in Setup → Apex Classes → view limit bar. The ~990K figure is approximate and was last measured against an earlier 1.0.0-x build (the current build has 363 Apex classes total). The count includes all Apex classes and triggers defined in the org, excluding comments and `@IsTest` annotated classes. Managed package code does not count toward this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
 
 ## Global API Surface
 
@@ -77,8 +76,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 ## Subscriber Extension Points
 
-> Where subscribers plug into the framework. The [Global API Surface](#global-api-surface) section covers raw symbol counts; this section organises the **integration seams** by how
-> subscribers consume them.
+> The points where your own code connects to the framework. The [Global API Surface](#global-api-surface) section above counts the raw symbols (classes, methods, and so on). This section is more useful day to day: it groups those connection points by *how* you use them, so you can tell at a glance whether a given extension needs configuration, Apex, or just clicks in Flow.
 
 ### Metadata-Configured (no code required)
 
@@ -92,12 +90,12 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | `ApiCredential__mdt`             |       3 |                                                                                                              |
 | `MaskingRule__mdt`               |      18 | 3 active by default (MaskSecretKeys, MaskPaymentCard, and the legacy MaskCreditCard it replaces), 15 shipped as inactive templates |
 | `MaskingTarget__mdt`             |      12 | Wildcards wiring the card and secret rules to ApiCall__c, ApiIssue__c, AsyncChainExecution__c, and LogEntryEvent__e (4 of the 12 belong to the replaced credit-card rule) |
-| `ApiMock__mdt`                   |       0 | Extensibility-only — no pre-built records                                                                    |
-| `ValidationRuleGroup__mdt`       |       0 | Extensibility-only — no pre-built records                                                                    |
-| `ValidationRule__mdt`            |       0 | Extensibility-only — no pre-built records                                                                    |
-| `ClassTypeResolver__mdt`         |       0 | Extensibility-only — no pre-built records                                                                    |
-| `AsynchronousJobSetting__mdt`    |       0 | Extensibility-only — no pre-built records                                                                    |
-| `FieldSetGroup__mdt`             |       0 | Extensibility-only — no pre-built records                                                                    |
+| `ApiMock__mdt`                   |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `ValidationRuleGroup__mdt`       |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `ValidationRule__mdt`            |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `ClassTypeResolver__mdt`         |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `AsynchronousJobSetting__mdt`    |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `FieldSetGroup__mdt`             |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | **Total pre-built CMDT records** |  **62** |                                                                                                              |
 
 ### Code-Level (extend or implement)
@@ -148,7 +146,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                                        | Count | Notes                                                                                                                       |
 |-----------------------------------------------|------:|-----------------------------------------------------------------------------------------------------------------------------|
-| Developer guides                              |    20 | Excluding the Strategic Guide series; counted from `docs/*%20-%20Guide.md`                                                  |
+| Developer guides                              |    21 | Excluding the Strategic Guide series; counted from `docs/*%20-%20Guide.md`                                                  |
 | Fast Start guides                             |    16 |                                                                                                                             |
 | Strategic Guide documents                     |     9 | Overview + Architecture & Philosophy + Adoption + Operations + Risks + Glossary + Personas + Metrics + Choosing a Framework |
 | API reference pages (Apex)                    |   239 |                                                                                                                             |
@@ -156,10 +154,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | API reference pages (objects)                 |    11 |                                                                                                                             |
 | API reference pages (events)                  |     2 |                                                                                                                             |
 | API reference pages (total)                   |   268 | sum of all reference categories                                                                                             |
-| Total documentation files (developer-focused) |    45 | 20 developer guides + 16 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
+| Total documentation files (developer-focused) |    46 | 21 developer guides + 16 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
 
-> Headline figure used in companion docs: 36 developer documents (20 guides + 16 Fast Starts) + 263 API reference pages. The 263 figure includes the Security Guide (separately
-> tracked at 2,027 lines) alongside the 262 categorised reference pages.
+> The headline figure quoted in companion docs is 37 developer documents (21 guides + 16 Fast Starts) plus 263 API reference pages. The 263 figure counts the 262 categorised reference pages plus the Security Guide (which is tracked separately, at 2,027 lines).
 
 ## Code Quality & Scanning
 
@@ -183,7 +180,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric              | Count |
 |---------------------|------:|
-| Spec files          |     9 |
+| Spec files          |    10 |
 | Test cases          |    57 |
 | Page objects        |    12 |
 | Helper modules      |     6 |
@@ -202,8 +199,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 ## Activity Snapshot
 
-Distribution-maturity figures at the snapshot date (2026-05-09), reported separately from capability coverage so that activity duration does not skew capability comparisons.
-Figures derive from `sfdx-project.json` `packageAliases`.
+These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-05-09). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
@@ -211,12 +207,11 @@ Figures derive from `sfdx-project.json` `packageAliases`.
 | Latest packaged version            | 1.1.0-11 (released) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 
-> KernDX is a young, single-maintainer project whose distribution maturity is carried by 107 published managed-package version IDs rather than by a long public commit history.
+> KernDX is a single-maintainer project. Its readiness to install shows up in the 107 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
 
 ## Comparator Set
 
-KernDX is compared against a set of alternative Salesforce frameworks across the same capability areas. The Adoption and Architecture guides cover area-by-area coverage notes; the
-Risks guide covers maintenance and bus-factor considerations.
+When the guides rank or compare KernDX, they measure it against the same group of other Salesforce frameworks across the same capability areas, so every comparison is like-for-like. This page only points you to the detail rather than repeating it: the Adoption and Architecture guides walk through how each area is covered, and the Risks guide covers maintenance and the bus-factor question (what happens if the people who built it move on).
 
 ---
 

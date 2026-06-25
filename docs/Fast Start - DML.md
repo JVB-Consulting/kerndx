@@ -6,25 +6,24 @@ navOrder: 14
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Replace direct DML (`insert`, `update`, `delete`) with a fluent builder that handles error logging,
-> parent-child relationships, partial success, and sharing control.
+**What this is:** A safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction. **Why it matters:** That single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate. **Who should follow it:** any developer who writes Apex that saves data. **When to use it:** any time your code creates, changes, or removes records.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see the [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 **What you'll build:** A service class that creates an Account with related Contacts and an Opportunity
-in a single atomic transaction -- with automatic parent-child foreign key resolution.
+in a single atomic (all-or-nothing) transaction, with the parent-child foreign keys filled in automatically.
 
 **Success looks like:** You call your service, verify the Account and its children were created with correct
 relationships, and your test class has 100% coverage.
 
-**In one line:** `kern.DML_Builder.newTransaction().doInsert(newAccount).doInsert(newContact, Contact.AccountId, newAccount).execute();` --
-parent-child foreign keys are resolved automatically.
+**In one line:** `kern.DML_Builder.newTransaction().doInsert(newAccount).doInsert(newContact, Contact.AccountId, newAccount).execute();`
+(parent-child foreign keys are resolved automatically).
 
 ---
 
@@ -56,7 +55,7 @@ parent-child foreign keys are resolved automatically.
 
 ## Tier 1: See It Work (~2 minutes)
 
-Use [`DML_Builder`](reference/apex/DML_Builder.md) directly from anonymous Apex. No custom classes needed.
+See the builder work straight away. You can call [`DML_Builder`](reference/apex/DML_Builder.md) directly from anonymous Apex, with no custom classes to create first.
 
 ### Insert a Record
 
@@ -101,7 +100,7 @@ System.debug('Updated Industry: ' + found.Industry);
 
 ### Parent-Child Insert
 
-Insert an Account and a Contact in one transaction -- the Contact's `AccountId` is auto-populated:
+Insert an Account and a Contact in one transaction. The framework fills in the Contact's `AccountId` for you:
 
 ```apex
 Account newAccount = new Account(Name = 'Parent Co', Phone = '555-0100');
@@ -124,11 +123,11 @@ Account Id: 001...
 Contact AccountId: 001...
 ```
 
-The Contact's `AccountId` matches the Account's `Id` -- set automatically by the framework.
+The Contact's `AccountId` matches the Account's `Id`, set automatically by the framework.
 
-> **Naming tip:** Don't name a variable `contact` (lowercase) in anonymous Apex when using `Contact.AccountId`
-> -- the variable shadows the SObject type, and `Contact.AccountId` resolves as a field value (Id) instead of
-> a field token (SObjectField). Use `newContact`, `result`, or another name. Same applies to `account`/`Account`.
+> **Naming tip:** Don't name a variable `contact` (lowercase) in anonymous Apex when using `Contact.AccountId`.
+> The variable shadows the SObject type, so `Contact.AccountId` resolves as a field value (Id) instead of
+> a field token (SObjectField). Use `newContact`, `result`, or another name. The same applies to `account` and `Account`.
 
 > **When to move to Tier 2:** When you need to encapsulate DML operations in a reusable service class
 > with proper test coverage.
@@ -146,11 +145,11 @@ in a single atomic transaction.
 
 ### Step 1: Create the Service Class
 
-Create a new file named `SVC_AccountOnboarding.cls`. Copy the following code exactly as is -- do not
-modify the class name or `kern.*` namespace references.
+Create a new file named `SVC_AccountOnboarding.cls`. Copy the following code exactly as is. Do not
+modify the class name or the `kern.*` namespace references.
 
-> **Why `public`?** Unlike triggers and APIs, service classes are called directly by your code. The
-> framework doesn't need to resolve them by name, so `global` is not required.
+> **Why `public`?** Unlike triggers and APIs, service classes are called directly by your own code, so
+> the framework never has to look them up by name. That means `public` is enough; `global` is not required.
 
 ```apex
 /**
@@ -210,7 +209,7 @@ public with sharing class SVC_AccountOnboarding
 > **Naming tip:** Avoid naming variables `account`, `contact`, or `opportunity` (lowercase) when using
 > `Account.SomeField`, `Contact.AccountId`, or `Opportunity.AccountId` as SObjectField tokens. Apex is
 > case-insensitive, so the variable shadows the SObject type and the field reference resolves as a value
-> instead of a token. Use `newAccount`, `newContact`, etc.
+> instead of a token. Use `newAccount`, `newContact`, and so on.
 
 **Deploy:**
 
@@ -220,7 +219,7 @@ sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_AccountOnboarding"
 
 ### Step 2: Execute
 
-Test from anonymous Apex (paste both snippets in one Execute Anonymous window — the second depends on `result` from the first):
+Test from anonymous Apex. Paste both snippets in one Execute Anonymous window, because the second depends on `result` from the first:
 
 ```apex
 List<String> contactLastNames = new List<String>{ 'Smith', 'Jones' };
@@ -267,16 +266,16 @@ Contacts: 2
 Opportunities: 1
 ```
 
-**Why it works -- key patterns:**
+**Why it works, step by step:**
 
-- **`DML_Builder.newTransaction()`** -- Creates a new transaction builder
-- **`.doInsert(record)`** -- Registers a record for insertion
-- **`.doInsert(child, field, parent)`** -- Registers a child with a parent relationship. The parent must
+- **`DML_Builder.newTransaction()`**: creates a new transaction builder.
+- **`.doInsert(record)`**: registers a record for insertion.
+- **`.doInsert(child, field, parent)`**: registers a child with a parent relationship. The parent must
   be registered first. After `execute()`, the child's lookup field is auto-populated with the parent's ID.
-- **`.execute()`** -- Commits all operations atomically, in registration order. After each parent inserts,
+- **`.execute()`**: commits all operations atomically, in registration order. After each parent inserts,
   the framework populates its children's lookup fields. If any operation fails, all are rolled back.
-- **`TransactionResult`** -- Contains `isSuccess()`, `getInsertedIds()`, `getErrors()`, `getSuccessCount()`,
-  `getFailureCount()`
+- **`TransactionResult`**: contains `isSuccess()`, `getInsertedIds()`, `getErrors()`, `getSuccessCount()`,
+  `getFailureCount()`.
 
 ### Step 3: Write Tests
 
@@ -368,8 +367,8 @@ sf apex run test -o YourOrgAlias -t SVC_AccountOnboarding_TEST --code-coverage -
 
 > **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
 > `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts, but consider adding
-> `System.runAs()` in production tests to verify profile and permission set access.
+> turns off a code-quality warning about `System.runAs()`, which is fine for quick starts. In production tests,
+> consider adding `System.runAs()` to verify profile and permission set access.
 
 ---
 
@@ -453,8 +452,8 @@ Error: Required fields are missing: [Name]
 
 ### Partial Success
 
-By default, DML is all-or-nothing -- if one record fails, all are rolled back. Chain `.allowPartial()`
-to save valid records and log failures:
+By default, DML is all-or-nothing: if one record fails, all are rolled back. Chain `.allowPartial()`
+to save the valid records and log the failures instead:
 
 ```apex
 List<Account> mixedAccounts = new List<Account>
@@ -482,15 +481,17 @@ Failed: 1
 Inserted IDs: (001..., 001...)
 ```
 
-Failed records are automatically logged via `LOG_Builder` — check **App Launcher > Kern > Log Entries**.
+Failed records are automatically logged via `LOG_Builder`. To see them, open **App Launcher > Kern > Log Entries**.
 
 ### Security, Sharing, Suppression, and Async
 
 These are situational patterns. See the [DML Guide](DML%20-%20Guide.md) for detailed examples.
 
-**Default access mode.** At v1.0 GA, `kern.DML_Builder.newTransaction()` runs in `AccessLevel.USER_MODE` — CRUD and FLS are enforced against the running user, and sharing is
-honoured. This is driven by the `UserModeDml_Enabled` feature flag (ships `true`). Override per call with `.withSystemMode()` (bypasses CRUD/FLS) or belt-and-braces with
-`.withUserMode()` even when the flag is flipped. `.bypassSharing()` only affects sharing — it does NOT turn off USER_MODE's CRUD/FLS enforcement.
+**Default access mode.** By default, `kern.DML_Builder.newTransaction()` runs in `AccessLevel.USER_MODE`: it saves data with the current user's read/write permissions and record sharing
+enforced, rather than skipping those checks (the alternative, `SYSTEM_MODE`). In practice that means CRUD (object create/read/update/delete permissions) and FLS (field-level security)
+are both checked against the running user, and sharing rules are honoured. This safe default is controlled by the `UserModeDml_Enabled` feature flag, which ships set to `true`.
+You can override it on a single call with `.withSystemMode()` (which skips the CRUD and FLS checks), or be explicit and pass `.withUserMode()` even when the flag is on.
+`.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides.
 See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
 
 ```apex
@@ -523,7 +524,7 @@ kern.DML_Builder.newTransaction().doInsert(records).allowPartial().suppressLoggi
 | `DmlException` thrown                                          | All-or-nothing mode (default) and a record failed                  | Use `.allowPartial()` for partial success, or `.suppressExceptions()` to log instead of throw        |
 | Second `.execute()` does nothing                               | Transaction is consumed after first execute                        | Register all operations, execute once                                                                |
 | Using direct `insert`/`update`                                 | Bypasses framework error logging                                   | Use `kern.DML_Builder.newTransaction().doInsert(record).execute()`                                   |
-| Child lookup is `null` and parent appears after child in chain | `.doInsert(child, field, parent)` requires parent registered first | Move the parent's `.doInsert()` call above the child's -- the framework does not re-order operations |
+| Child lookup is `null` and parent appears after child in chain | `.doInsert(child, field, parent)` requires parent registered first | Move the parent's `.doInsert()` call above the child's, because the framework does not re-order operations |
 | `System.NullPointerException` on result                        | Accessing result fields incorrectly                                | Use `result.isSuccess()`, `result.getInsertedIds()`, `result.getErrors()`                            |
 | `Method does not exist: doInsert(Contact, Id, Account)`        | Variable named `contact` shadows `Contact` type                    | Rename the variable (e.g., `newContact`) so `Contact.AccountId` resolves as SObjectField             |
 
@@ -535,18 +536,18 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 
 | Concept                               | What It Does                                                                        |
 |---------------------------------------|-------------------------------------------------------------------------------------|
-| **`DML_Builder`**                     | Fluent builder for all DML operations -- replaces direct `insert`/`update`/`delete` |
+| **`DML_Builder`**                     | One builder for all DML operations; it replaces direct `insert`/`update`/`delete`   |
 | **`.doInsert(child, field, parent)`** | Auto-populates foreign keys after parent insert                                     |
-| **`.execute()`**                      | Commits all operations atomically — parents before children                         |
+| **`.execute()`**                      | Commits all operations atomically: parents before children                          |
 | **`TransactionResult`**               | Inspection API: `isSuccess()`, `getInsertedIds()`, `getErrors()`, counts            |
 
 **Key patterns:**
 
-- **Always use `DML_Builder`** -- not direct DML. The framework provides automatic error logging.
-- **Register parent before child** -- use the 3-argument `.doInsert(child, field, parent)` overload
-- **One `execute()` per transaction** -- register all operations first, then execute once
-- **`public` visibility** -- service classes using DML_Builder don't need `global`
-- **`TransactionResult`** -- always check `isSuccess()` when using `.allowPartial()` or `.suppressExceptions()`
+- **Always use `DML_Builder`**, not direct DML: the framework provides automatic error logging.
+- **Register the parent before the child**: use the 3-argument `.doInsert(child, field, parent)` overload.
+- **One `execute()` per transaction**: register all operations first, then execute once.
+- **`public` visibility**: service classes using DML_Builder don't need `global`.
+- **`TransactionResult`**: always check `isSuccess()` when using `.allowPartial()` or `.suppressExceptions()`.
 
 ---
 

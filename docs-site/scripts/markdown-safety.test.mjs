@@ -91,3 +91,12 @@ test('preserves HTML comments inside code (they are intentional examples there)'
 	assert.equal(escapeAngles(fence), fence);
 	assert.equal(escapeAngles('Inline `<!-- keep -->` example'), 'Inline `<!-- keep -->` example');
 });
+
+test('HeroLoop component tag survives escapeAngles (so the tour page embed renders)', () =>
+{
+	const md = '<HeroLoop src="/recordings/api-harness.webm" poster="/recordings/api-harness-poster.jpg" caption="Toggle Safe Mode, then Execute."></HeroLoop>';
+	const out = escapeAngles(md);
+	assert.ok(out.includes('<HeroLoop'), 'opening tag preserved verbatim');
+	assert.ok(out.includes('</HeroLoop>'), 'closing tag preserved verbatim');
+	assert.ok(!out.includes('&lt;HeroLoop'), 'tag is not angle-escaped');
+});

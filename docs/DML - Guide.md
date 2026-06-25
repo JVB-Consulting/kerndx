@@ -9,9 +9,9 @@ navOrder: 14
 
 **Target Audience:**
 
-- **Developers** - Implementing secure DML operations using Unit of Work, bulk processing, and test data factories
-- **Architects** - Designing transactional patterns with proper sharing enforcement and permission checking
-- **Business Analysts** - Understanding data operation capabilities, security controls, and testing patterns
+- **Developers** who write code that saves records and want every insert, update, and delete to be safe, bulk-ready, and easy to test
+- **Architects** who want one consistent way to handle transactions, security, and permission checks across the whole codebase
+- **Business Analysts** who need to understand what the data layer can do, how it protects data, and how it gets tested
 
 ---
 
@@ -120,42 +120,42 @@ navOrder: 14
 
 ## Overview
 
-The DML Operations framework provides enterprise-grade patterns for
-managing [database operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) in Salesforce. It implements industry-standard
-patterns including Unit of Work, bulk DML processing, sharing enforcement, and permission checking to ensure secure, performant, and maintainable data operations.
+When you save records to Salesforce in Apex, four things routinely go wrong: a multi-step save fails halfway and leaves orphaned records behind, a loop hits governor limits, code accidentally lets a user write data they should not, or test setup becomes a wall of boilerplate. This framework gives you one consistent way to write records ([the DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) that insert, update, and delete data) that fixes all four.
 
-The framework consists of four complementary layers:
+You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default. Developers use it for every insert, update, and delete; architects use it to standardise transaction and security patterns. Reach for it whenever code writes data; skip it for a single field tweak inside a before-trigger.
 
-1. **[`DML_Transaction`](reference/apex/DML_Transaction.md)** - Unit of Work pattern for managing complex transactions
-2. **[`DML_Builder`](reference/apex/DML_Builder.md)** - Bulk DML operations with sharing control
-3. **Sharing Proxy** - Sharing enforcement mechanisms
-4. **[`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md)** - Permission checking utilities
+The framework is made of four parts that build on each other:
 
-Additional utilities include:
+1. **[`DML_Transaction`](reference/apex/DML_Transaction.md)** keeps a complex, multi-object save together: register everything, then commit it all or roll it all back (the Unit of Work pattern).
+2. **[`DML_Builder`](reference/apex/DML_Builder.md)** is the everyday tool you call. It runs bulk inserts, updates, and deletes and lets you decide how sharing applies.
+3. **Sharing Proxy** decides whether a write respects the running user's record visibility or runs with elevated access.
+4. **[`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md)** confirms a user is allowed to create, read, update, or delete an object before you write to it.
 
-- **[`TST_Builder`](reference/apex/TST_Builder.md)** - Test data factory with builder pattern
-- **`UTIL_PurgeRecords`** - Bulk record deletion utilities
-- **`UTIL_BulkUpdates`** - Bulk update operations
+A few helpers round out the toolkit:
+
+- **[`TST_Builder`](reference/apex/TST_Builder.md)** builds test records (with required fields filled in for you) so test setup stays short.
+- **`UTIL_PurgeRecords`** deletes records in bulk for cleanup.
+- **`UTIL_BulkUpdates`** applies the same field change across many records at once.
 
 > **DML Framework Scope:** 6 DML classes providing transactional Unit of Work, bulk operations, sharing control, and partial success handling.
 > The test data factory (`TST_Builder`, `TST_Factory`, `TST_Mock`) spans 10 utility classes used across 165 test classes and ~3,359 Apex
 > test methods (see [Metrics](Strategic%20Guide%20-%20Metrics.md)).
 
 > **Responsibilities:** The DML framework manages database writes (insert, update, delete, upsert, undelete) with transactional integrity,
-> sharing control, and error handling. It does not query data -- use selectors for that. It does not contain business logic.
+> sharing control, and error handling. It does not query data (use selectors for that), and it does not contain business logic.
 
 > **When NOT to use this pattern:**
 > - Single-record field assignments in before-trigger actions where direct field mutation on `Trigger.new` suffices (no DML needed)
 > - Anonymous Apex scripts or data loader operations where the overhead of `DML_Builder` adds no value
 
-**Key Benefits:**
+**What you get:**
 
-- **Transaction Management** - Unit of Work pattern for complex multi-object transactions
-- **Bulk Processing** - Efficient handling of large data volumes
-- **Sharing Control** - Explicit enforcement or bypass of [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm)
-- **Permission Checking** - Validate user permissions before DML operations
-- **Test Data** - Builder pattern for clean, maintainable test data creation
-- **Consistency** - Standardized DML patterns across the codebase
+- **Safe multi-object saves.** Register related records and commit them together, so a half-finished save can't leave orphaned records behind.
+- **Bulk-friendly by default.** One call handles large volumes without you writing loop-and-batch plumbing.
+- **Clear control over who can see what.** Choose, per operation, whether a write respects the running user's [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) or runs with elevated access.
+- **Permission checks before you write.** Confirm a user is allowed to create, edit, or delete an object before the save happens.
+- **Short, readable test data.** Build test records without a wall of setup code.
+- **One way to do it.** Every team member writes data the same way, so the codebase stays predictable.
 
 ---
 
@@ -212,18 +212,17 @@ Additional utilities include:
 
 ### Layer 1: [`DML_Transaction`](reference/apex/DML_Transaction.md)
 
-**Purpose:** Implements Martin Fowler's [Unit of Work](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_transaction.htm) pattern to manage
-complex DML operations across multiple SObjects in a single transaction.
+**What it does:** Lets you register a set of related records, then save them all in a single transaction. Either every change commits, or if anything fails, all of them roll back. This is the [Unit of Work](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_transaction.htm) pattern.
 
-**When to Use:** When you need to perform multiple DML operations that must succeed or fail as a single unit, especially with relationship management between objects.
+**When to use it:** When several records must succeed or fail together, especially when some of them are parents and children that need linking.
 
-**Key Features:**
+**What it handles for you:**
 
-- Register records for insert, update, delete, upsert, and undelete
-- Automatic dependency management
-- Parent-child relationship resolution
-- Single transaction commit
-- Rollback on failure
+- Registers records for insert, update, delete, upsert, and undelete
+- Works out the save order so parents go in before children
+- Fills in the child's lookup to its parent automatically
+- Commits everything in one transaction
+- Rolls the whole transaction back if any part fails
 
 **Example:**
 
@@ -238,21 +237,20 @@ DML_Builder.newTransaction()
 
 ### Layer 2: [`DML_Builder`](reference/apex/DML_Builder.md)
 
-**Purpose:** Provides standardized methods for performing [DML operations](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm) with
-built-in sharing control and error handling.
+**What it does:** Gives you one set of methods for every [database write](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml.htm), with sharing control and error handling already built in, so you don't repeat that boilerplate everywhere.
 
-**When to Use:** For all
+**When to use it:** For every
 database [insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm), [update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm), [delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm), [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm),
-and [undelete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_undelete.htm) operations.
+and [undelete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_undelete.htm). This is the layer you call day to day.
 
-**Key Features:**
+**What it handles for you:**
 
-- Bulk processing support
-- Sharing enforcement options
-- All-or-nothing vs partial commit
-- Comprehensive error handling
-- [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
-  management
+- Bulk processing of many records in one call
+- Choosing how sharing is enforced
+- Deciding between all-or-nothing and partial commit
+- Catching and surfacing errors
+- Managing the platform [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
+  objects for you
 
 **Example:**
 
@@ -272,17 +270,16 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 ### Layer 3: Sharing Proxy
 
-**Purpose:** Controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) and access mode are applied
-during DML operations.
+**What it does:** Decides how strictly a write respects security. A write can run with the current user's read/write permissions and record sharing enforced (USER_MODE), or skip all of those checks for system work (SYSTEM_MODE). It also controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) apply.
 
-**When to Use:** When you need explicit control over access mode (USER_MODE / SYSTEM_MODE) or sharing (proxy class selection) for specific operations.
+**When to use it:** When you want explicit control over that security level, or over sharing, for a particular operation.
 
-**Key Features:**
+**What it handles for you:**
 
-- Secure-by-default: USER_MODE (CRUD + FLS + sharing enforced) via `FeatureFlag.UserModeDml_Enabled`
-- `.withUserMode()` / `.withSystemMode()` for explicit access-mode selection
-- `.bypassSharing()` for `without sharing` proxy routing (in SYSTEM_MODE)
-- Operation-level control via fluent builder methods
+- A safe default that's on automatically: USER_MODE enforces FLS (field-level security), CRUD (object create/read/update/delete permissions), and sharing, governed by the `FeatureFlag.UserModeDml_Enabled` record
+- `.withUserMode()` / `.withSystemMode()` to pick the security level explicitly
+- `.bypassSharing()` to route a write through a `without sharing` path (in SYSTEM_MODE)
+- Per-operation control through short chained method calls
 - [AccessLevel.SYSTEM_MODE](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_enforce_usermode.htm) support
 
 **Example:**
@@ -300,17 +297,16 @@ DML_Builder.newTransaction().doInsert(logEntries).withSystemMode().execute();
 
 ### Layer 4: [`FLOW_CheckObjectPermissions`](reference/apex/FLOW_CheckObjectPermissions.md)
 
-**Purpose:** Validates user [permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) before attempting DML
-operations.
+**What it does:** Checks whether a user is allowed to perform an operation before you attempt it, so you can stop a forbidden write with a clear message instead of an unhandled error. (See the Salesforce reference on [enforcing permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm).)
 
-**When to Use:** Before performing DML operations in user-facing features or public sites/communities.
+**When to use it:** Before a write in user-facing features, or on public sites and communities where users may have limited access.
 
-**Key Features:**
+**What it handles for you:**
 
-- [Object-level permission](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_methods_system_sobject_describe.htm) checking
-- Create, read, update, delete access validation
-- Invocable method for Flow integration
-- SObject describe-based checks
+- [Object-level permission](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_methods_system_sobject_describe.htm) checks
+- Confirms create, read, update, and delete access
+- An invocable method so Flows can call it too
+- Checks based on the object's describe information
 
 **Example:**
 
@@ -337,7 +333,7 @@ else
 
 ## Quick Start
 
-The most common DML pattern in KernDX uses `DML_Builder` for straightforward insert, update, and delete operations. For related multi-object transactions, use `DML_Transaction`.
+For everyday inserts, updates, and deletes, call `DML_Builder`. When several related records must save together as one unit, reach for `DML_Transaction`.
 
 > **Step-by-step walkthrough:** [Fast Start - DML](Fast%20Start%20-%20DML.md) covers implementation,
 > testing, and common pitfalls.
@@ -372,30 +368,28 @@ For deeper coverage, continue reading the sections below.
 
 ## Escape Hatches
 
-The framework is opt-in. Every common edge case the layered API doesn't cover by default has a documented hatch on the same fluent builder — and raw `Database.*` is always still
-available when you need it.
+You are never locked in. The framework is opt-in, and for every common case the standard methods don't cover by default, there's a documented way to step outside on the same builder. When you need to skip the framework entirely, raw `Database.*` is always available.
 
 | You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
 |-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()` — failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
-| **>10K rows in one logical transaction**                              | `DML_Builder.async()` — streams operations through queueables/batches; the chosen access mode propagates. The platform throws a catchable pre-flight exception with `.async()` named as the remediation when sync would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
-| **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE — overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
+| **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()`. Failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
+| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches, and the chosen access mode propagates. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
+| **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE. Either overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
 | **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
 | **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
-| **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified — nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
+| **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified, because nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
 
-Use the framework for the 95% common case; reach for the hatch (or raw `Database.*`) for the 5% edge case. Both paths are first-class.
+Use the framework for the 95% common case, and reach for one of these options (or raw `Database.*`) for the 5% edge case. Both paths are fully supported.
 
 ---
 
 ## Transactional DML Pattern ([`DML_Builder`](reference/apex/DML_Builder.md))
 
-The transactional DML pattern tracks changes to SObjects and commits them in a single transaction, maintaining referential integrity and dependency order. `DML_Builder` is the
-public facade; [`DML_Transaction`](reference/apex/DML_Transaction.md) is the internal engine.
+This pattern collects the record changes you want, then commits them in one transaction. It keeps your records linked correctly and saves parents before children. You call `DML_Builder`; it drives [`DML_Transaction`](reference/apex/DML_Transaction.md) behind the scenes.
 
 ### Basic Usage
 
-Use `DML_Builder.newTransaction()` to create a fluent transaction and chain DML operations.
+Call `DML_Builder.newTransaction()` to start a transaction, then chain on the operations you want with short method calls.
 
 **Example:**
 
@@ -414,8 +408,7 @@ DML_Builder.newTransaction()
 
 ### Managing Dependencies
 
-The framework automatically resolves parent-child dependency order using the relationship fields specified in `doInsert` calls. Parents are inserted before children, and child
-foreign keys are populated automatically.
+You don't have to insert parents first and wire up the lookups yourself. The framework reads the relationship fields you pass to `doInsert`, inserts parents before children, and fills in each child's lookup to its parent for you.
 
 **Example:**
 
@@ -440,8 +433,7 @@ DML_Builder.newTransaction()
 
 ### Registering Relationships
 
-Use the three-argument `doInsert` to register relationships between new records that don't have Ids yet. The framework automatically populates foreign keys after parent records are
-inserted.
+When you want to link two new records that don't have Ids yet, use the three-argument form of `doInsert`. The framework inserts the parent first, then sets the child's lookup once the parent's Id exists.
 
 **Example:**
 
@@ -468,8 +460,7 @@ DML_Builder.newTransaction()
 
 ### Upsert with External ID
 
-Use `doUpsert` with an external ID field to match existing records
-for [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm) operations.
+An [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_upsert.htm) inserts a record if it's new and updates it if it already exists. Pass an external ID field to `doUpsert` so the framework knows how to match an incoming record to an existing one.
 
 **Single Record:**
 
@@ -531,7 +522,7 @@ DML_Builder.newTransaction()
 
 ### Mixed Operations
 
-Combine inserts, updates, and deletes in a single transaction.
+You can mix inserts, updates, and deletes in the same transaction. They all commit together, or all roll back if any one fails.
 
 **Example:**
 
@@ -572,7 +563,7 @@ catch(Exception error)
 
 ### Insert Operations
 
-[Insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm) single or multiple records with sharing control.
+[Insert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_insert.htm) one record or many in a single call, with sharing control applied.
 
 **Example:**
 
@@ -593,7 +584,7 @@ DML_Builder.newTransaction()
 
 ### Update Operations
 
-[Update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm) existing records with sharing control.
+[Update](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_update.htm) existing records in bulk, with sharing control applied.
 
 **Example:**
 
@@ -619,7 +610,7 @@ DML_Builder.newTransaction()
 
 ### Delete Operations
 
-[Delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm) records with sharing control.
+[Delete](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/langCon_apex_dml_examples_delete.htm) records in bulk, with sharing control applied.
 
 **Example:**
 
@@ -653,7 +644,7 @@ else
 
 ### Upsert Operations
 
-Insert or update records based on external ID or record Id. The external ID field determines how records are matched for updates.
+Upsert inserts new records and updates existing ones in the same call. By default it matches on the record Id; pass an external ID field to match on that instead.
 
 **Basic Upsert (by Record Id):**
 
@@ -708,7 +699,7 @@ DML_Builder.newTransaction()
 
 ### Undelete Operations
 
-Restore previously deleted records.
+Restore records that were deleted but are still in the recycle bin.
 
 **Example:**
 
@@ -734,10 +725,7 @@ if(!deletedAccounts.isEmpty())
 
 ### Context-Driven Sharing
 
-Each `DML_Builder` chain inherits the calling class's sharing context by default. Combine explicit class-level
-sharing declarations (`with sharing` for user-facing code, `without sharing` for system maintenance) with the
-per-call fluent methods (`.bypassSharing()`, `.withUserMode()`, `.withSystemMode()`) for precise, auditable
-control.
+By default, a `DML_Builder` chain follows the sharing rules of the class that called it. You set that at the class level: `with sharing` for user-facing code, `without sharing` for system maintenance. When you need finer control for one write, the per-call methods (`.bypassSharing()`, `.withUserMode()`, `.withSystemMode()`) override the default, and each override is recorded so the decision can be audited later.
 
 **Example:**
 
@@ -778,15 +766,11 @@ public without sharing class SystemBatchProcess implements Database.Batchable<SO
 
 ### Operation-Level Sharing
 
-`DML_Builder` defaults to `AccessLevel.USER_MODE` (CRUD + FLS + sharing enforced at the database level). Use
-`.bypassSharing()` to route through the `without sharing` proxy, or `.withSystemMode()` to bypass CRUD / FLS
-entirely for framework-internal writes.
+By default `DML_Builder` runs in `AccessLevel.USER_MODE`, so object permissions, field permissions, and sharing are all enforced at the database level. To loosen that for a specific write: use `.bypassSharing()` to ignore record sharing (routing through a `without sharing` path), or `.withSystemMode()` to skip the permission checks entirely for framework-internal writes.
 
 ### Access Mode (USER_MODE / SYSTEM_MODE)
 
-Subscriber-reachable DML calls default to `AccessLevel.USER_MODE` — the running user's FLS and CRUD are enforced
-on every insert/update/delete/upsert/undelete. The default is driven by the `FeatureFlag.UserModeDml_Enabled`
-custom metadata record (`IsEnabledByDefault__c = true`).
+Your DML calls default to `AccessLevel.USER_MODE`, which enforces the running user's field and object permissions on every insert, update, delete, upsert, and undelete. That default comes from the `FeatureFlag.UserModeDml_Enabled` custom metadata record, which ships with `IsEnabledByDefault__c = true`.
 
 **Force a specific mode:**
 
@@ -804,9 +788,7 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Emergency kill-switch:** flip `FeatureFlag.UserModeDml_Enabled.IsEnabledByDefault__c` to `false` via metadata
-deploy. Takes effect on next transaction — every call without explicit `.withUserMode()` / `.withSystemMode()`
-reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+**Emergency kill-switch (a master off-switch you can flip in an incident without a deployment of code):** set `FeatureFlag.UserModeDml_Enabled.IsEnabledByDefault__c` to `false` with a metadata deploy. It takes effect on the next transaction, and from then on every call that doesn't explicitly use `.withUserMode()` or `.withSystemMode()` reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide, Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
 
 **Example:**
 
@@ -823,7 +805,7 @@ DML_Builder.newTransaction()
 
 ### Bypass vs Enforce vs Inherited
 
-Understanding the three sharing modes.
+There are three ways sharing can apply to a write: bypass it, enforce it, or inherit whatever the calling class uses. The examples below show each.
 
 **Example:**
 
@@ -852,7 +834,7 @@ DML_Builder.newTransaction()
 
 ### Object-Level Permissions
 
-Check user [permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) before DML operations.
+Confirm a user is allowed to create, read, edit, or delete an object before you write to it, so you can return a clear message instead of letting the save fail. (Background: [enforcing permissions](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm).)
 
 **Example:**
 
@@ -885,7 +867,7 @@ public static void safeCreateAccount(String accountName)
 
 ### Before DML Checks
 
-Validate permissions for multiple operations.
+Check the permissions once and reuse the result for several operations, rather than checking again for each write.
 
 **Example:**
 
@@ -940,7 +922,7 @@ public with sharing class AccountManager
 
 ### Field-Level Security
 
-Check [field-level access](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) using describe methods.
+When you need to check access to one specific field rather than the whole object, read its [field-level access](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_perms_enforcing.htm) from the field's describe information.
 
 **Example:**
 
@@ -970,24 +952,23 @@ public static void safeUpdateRevenue(Id accountId, Decimal newRevenue)
 
 ### [TST_Builder](reference/apex/TST_Builder.md)
 
-The [`TST_Builder`](reference/apex/TST_Builder.md) provides a powerful, fluent builder pattern for creating test data in Apex tests. It automatically handles required fields,
-supports complex parent-child relationships, and offers fine-grained control over field population.
+Writing test data by hand is tedious: you have to set every required field, link parents to children, and repeat it in every test. [`TST_Builder`](reference/apex/TST_Builder.md) does that work for you. You name the object, override the fields you care about, and it fills in the rest with valid defaults. You configure it with short chained calls, then one call builds the record.
 
-**Key Features:**
+**What it does for you:**
 
-- **Automatic Required Field Population** - Framework automatically fills required fields with valid defaults
-- **Flexible Field Overrides** - Override specific fields using String names or type-safe SObjectField tokens
-- **Bulk Record Creation** - Create multiple records efficiently with `withCount()` and `buildList()`
-- **Parent-Child Relationships** - Build complex object graphs with automatic foreign key assignment
-- **Record Type Support** - Set record types using developer names
-- **Optional/Defaulted Field Control** - Fine-tune which optional fields get populated
-- **Customizable** - Extend default value generation for custom requirements
+- **Fills required fields automatically.** You only set what your test cares about; valid defaults cover the rest.
+- **Lets you override any field.** Use String field names or type-safe `SObjectField` tokens.
+- **Creates many records at once.** Use `withCount()` and `buildList()` for bulk data.
+- **Builds parent-child graphs.** Children get linked to their parent automatically.
+- **Sets record types by developer name.**
+- **Controls optional fields.** Decide which optional fields get populated.
+- **Can be extended.** Customise how default values are generated when you need to.
 
 ---
 
 ### Basic Usage
 
-Create a single record with all required fields automatically populated:
+Build one record. Every required field is filled in for you:
 
 ```apex
 @IsTest
@@ -1005,7 +986,7 @@ private static void testBasicAccountCreation()
 }
 ```
 
-Create without database insertion:
+Build a record in memory only, without saving it to the database:
 
 ```apex
 @IsTest
@@ -1029,7 +1010,7 @@ private static void testInMemoryAccount()
 
 ### Field Overrides
 
-Override specific fields using **String field names** or **type-safe SObjectField tokens**:
+Set the fields you care about, either with **String field names** or with **type-safe `SObjectField` tokens** (tokens are preferred, since the compiler catches a typo):
 
 **Single Field Override:**
 
@@ -1094,7 +1075,7 @@ Contact contact = (Contact)TST_Builder.of(Contact.SObjectType)
 
 ### Bulk Record Creation
 
-Use `withCount()` and `buildList()` to create multiple records efficiently:
+To create many records at once, set how many with `withCount()` and build them with `buildList()`:
 
 ```apex
 @IsTest
@@ -1154,7 +1135,7 @@ private static void testCustomBulkData()
 
 ### Record Type Support
 
-Set record types using developer names:
+Assign a record type by its developer name:
 
 ```apex
 @IsTest
@@ -1199,7 +1180,7 @@ catch(Exception error)
 
 ### Parent-Child Relationships
 
-Build complex object graphs with automatic foreign key assignment. The framework supports multiple patterns for creating parent-child relationships.
+Build a parent and its children together; the framework links each child to its parent for you. There are several ways to do this, depending on how much you need to customise the children. The patterns below go from simplest to most flexible.
 
 #### Pattern 1: Simple Child Creation (No Field Overrides)
 
@@ -1329,7 +1310,7 @@ private static void testMultipleChildTypes()
 
 #### Pattern 5: Explicit Relationship Name (Edge Cases)
 
-For objects with **multiple lookup relationships** to the same parent type:
+When an object has **more than one lookup to the same parent type**, name the relationship explicitly so the framework knows which one you mean:
 
 ```apex
 @IsTest
@@ -1431,7 +1412,7 @@ private static void testBulkParentsWithChildren()
 
 ### Optional and Defaulted Fields
 
-Control which optional fields get populated automatically:
+By default, optional fields are left empty. Use these methods to force one to be populated, or to stop a normally-populated field from being set:
 
 #### Force Optional Fields to be Populated
 
@@ -1470,8 +1451,7 @@ Account account = (Account)TST_Builder.of(Account.SObjectType)
 
 #### Multi-Level Relationship Paths
 
-Use dot notation to automatically populate fields in parent or grandparent relationships. The framework accepts both **relationship names** (e.g., `'Account.Parent'`) and **field
-names** (e.g., `'AccountId.ParentId'`) interchangeably:
+To populate a field on a parent or grandparent record, write the path with dots. The framework accepts either **relationship names** (such as `'Account.Parent'`) or **field names** (such as `'AccountId.ParentId'`), and you can mix the two:
 
 ```apex
 @IsTest
@@ -1516,8 +1496,7 @@ Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 
 **Polymorphic Fields:**
 
-Polymorphic lookup fields (fields that can reference multiple object types, like `OwnerId` which can be User or Queue) are automatically skipped. The framework logs an
-informational message when this occurs:
+Some lookup fields can point to more than one object type. For example, `OwnerId` can be a User or a Queue. The framework can't guess which one you want, so it skips these fields automatically and logs an informational message:
 
 ```apex
 @IsTest
@@ -1540,7 +1519,7 @@ private static void testPolymorphicFieldHandling()
 
 #### Mark Required Fields as Optional
 
-Prevent the framework from auto-populating specific fields:
+Stop the framework from filling in a field it would normally populate:
 
 ```apex
 @IsTest
@@ -1601,7 +1580,7 @@ private static void testGlobalOptionalFields()
 
 #### Mock ID Generation for Query Mocking
 
-Use `withoutInsertion(true)` to create records with auto-generated mock IDs without database insertion. This is essential when using the Query Mocking feature in tests.
+Sometimes you need a record that has an Id but was never saved to the database, for example when you mock a query so your test runs without DML. `withoutInsertion(true)` gives you exactly that: a record with a generated mock Id and no database write.
 
 **Difference between `withoutInsertion()` and `withoutInsertion(true)`:**
 
@@ -1691,7 +1670,7 @@ private static void testWithQueryMocking()
 
 #### Auto-Default Marker
 
-Use `autoDefaultFieldValueProvider` to request automatic value generation within override maps:
+When you pass an override map but want one field to keep its auto-generated value, set that field to `autoDefaultFieldValueProvider`:
 
 ```apex
 Account account = (Account)TST_Builder.of(Account.SObjectType)
@@ -1708,7 +1687,7 @@ Assert.isNotNull(account.Description, 'Auto-default marker triggers value genera
 
 #### Custom Default Value Provider
 
-Extend [`TST_Builder.DefaultValueProvider`](reference/apex/TST_Builder.DefaultValueProvider.md) to customize default value generation:
+When the built-in defaults don't suit your org, you can change how default values are generated by extending [`TST_Builder.DefaultValueProvider`](reference/apex/TST_Builder.DefaultValueProvider.md):
 
 ```apex
 public inherited sharing class CustomDefaultProvider extends TST_Builder.DefaultValueProvider
@@ -1735,7 +1714,7 @@ TST_Builder.defaultValueProvider = new CustomDefaultProvider();
 
 #### Custom Factory Provider
 
-Implement a custom factory provider for complete control over record creation (advanced):
+For full control over how records are created, supply your own factory provider. This is an advanced option most tests won't need:
 
 ```apex
 public inherited sharing class CustomFactoryProvider implements TST_Builder.FactoryProvider
@@ -1755,7 +1734,7 @@ TST_Builder.factoryProvider = new CustomFactoryProvider();
 
 ### Complete Example
 
-A comprehensive example demonstrating multiple features:
+This example pulls several features together: a record type, field overrides, optional fields, and two kinds of children.
 
 ```apex
 @IsTest
@@ -1822,7 +1801,7 @@ private static void testCompleteExample()
 
 ### Bulk Field Updates
 
-`UTIL_BulkUpdates` provides utility methods for batch updating fields across multiple records.
+When you want to apply the same field change to many records, `UTIL_BulkUpdates` does it in batches for you, so you don't write the query-loop-and-save code yourself.
 
 **Example:**
 
@@ -1883,7 +1862,7 @@ UTIL_BulkUpdates.deactivateUsers(
 
 ### Purge Records (`UTIL_PurgeRecords`)
 
-Delete all or old records for data cleanup.
+Clean up data by deleting every record of a type, or only the records older than a cutoff.
 
 **Example:**
 
@@ -1904,7 +1883,7 @@ UTIL_PurgeRecords.deleteAllRecords('Lead', false, 200);
 
 ### Deactivate Users
 
-Batch deactivate inactive users.
+Deactivate users who have been inactive, in batches, and on a schedule if you want it to run regularly.
 
 **Example:**
 
@@ -1927,7 +1906,7 @@ System.schedule('Deactivate Inactive Users', cronExpression, job);
 
 ### Batch Processing
 
-Leverage [batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) for large-scale DML operations.
+For very large volumes, run your writes in [batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) and call `DML_Builder` inside each batch chunk.
 
 **Example:**
 
@@ -1972,8 +1951,7 @@ Database.executeBatch(new BATCH_UpdateAccountIndustry(), 200);
 
 ## Testing
 
-Testing DML operations in KernDX relies on `TST_Builder` for test data creation and `TST_Mock` for DML-free query interception. The framework ensures that all test
-records are created through the builder pattern rather than inline DML, maintaining consistency and readability.
+To test code that writes data, you have two tools. `TST_Builder` creates the test records, and `TST_Mock` lets you stand in mock query results so a test can run without touching the database. Building records through the builder instead of inline DML keeps tests short and easy to read.
 
 **Testing DML_Builder operations:**
 
@@ -2023,7 +2001,7 @@ private static void shouldCommitRelatedRecords()
 
 **Testing with mock data (no DML):**
 
-When testing business logic that reads data via selectors, use `TST_Mock` to register mock records. This avoids DML entirely and keeps tests fast:
+When your code reads data through selectors, register mock records with `TST_Mock` so the selector returns them. The test skips DML entirely, which keeps it fast:
 
 ```apex
 @IsTest
@@ -2065,7 +2043,7 @@ private static void shouldProcessMockedRecords()
 | Anti-Pattern                                | Why It's Wrong                                                                 | Instead                                                                     |
 |---------------------------------------------|--------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | Raw `insert`/`update`/`delete` statements   | Bypasses sharing enforcement, error handling, and framework consistency        | Use `DML_Builder.newTransaction().doInsert(records).execute()`              |
-| Separate DML calls for related objects      | If the second DML fails, the first remains committed -- no rollback            | Use `DML_Transaction` (Unit of Work) to commit all changes atomically       |
+| Separate DML calls for related objects      | If the second DML fails, the first stays committed, with no way to roll it back | Use `DML_Transaction` (Unit of Work) to commit all changes atomically       |
 | DML inside a loop                           | Hits governor limits on bulk operations                                        | Collect records into a list, then perform a single bulk DML call            |
 | Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder` |
 | Performing DML in a selector or query class | Violates separation of concerns and makes the selector untestable in isolation | Keep DML in trigger actions, service classes, or controllers                |
@@ -2076,7 +2054,7 @@ private static void shouldProcessMockedRecords()
 
 ### **Use Transactional DML for Complex Transactions**
 
-When dealing with multiple related objects, always use `DML_Builder.newTransaction()`.
+When you save several related objects, register them in one `DML_Builder.newTransaction()` so a partial failure can't leave the data half-saved.
 
 **DO:**
 
@@ -2103,7 +2081,7 @@ insert contact; // If this fails, Account remains in database - no rollback
 
 ### **Always Use [DML_Builder](reference/apex/DML_Builder.md) for DML**
 
-Centralize DML operations through the framework.
+Route every write through the framework so sharing control and error handling are applied consistently, instead of scattering raw DML statements.
 
 **DO:**
 
@@ -2121,7 +2099,7 @@ insert account; // No sharing control, no standardized error handling
 
 ### **Be Explicit About Sharing**
 
-Always set sharing enforcement when security is a concern.
+When security matters, state the sharing behaviour you want rather than relying on whatever the caller happens to use.
 
 ```apex
 // Explicitly control sharing enforcement for security-sensitive operations
@@ -2134,7 +2112,7 @@ DML_Builder.newTransaction().doInsert(records).bypassSharing().execute();
 
 ### **Check Permissions Before DML**
 
-Validate user permissions in user-facing features.
+In user-facing features, check the user's permissions first so a forbidden action returns a clear message instead of an unhandled error.
 
 ```apex
 // Check user permissions before attempting DML operations
@@ -2151,7 +2129,7 @@ if(perms[0].hasCreateAccess)
 
 ### **Use [TST_Builder](reference/apex/TST_Builder.md) in Tests**
 
-Create test data with the builder pattern for maintainability and readability.
+Build test data with the builder instead of hand-written inserts, so your tests stay short and easy to read.
 
 **DO:**
 
@@ -2183,13 +2161,13 @@ private static void testMethod()
 }
 ```
 
-**Use key builder features:**
+**Reach for these builder features:**
 
-- **Type-safe overrides** - Use `SObjectField` tokens instead of strings (e.g., `Account.Name` not `'Name'`)
-- **Parent-child relationships** - Use `withChildren()` to create object graphs atomically
-- **Record types** - Use `withRecordType('DeveloperName')` for record type-specific testing
-- **Bulk creation** - Use `withCount()` and `buildList()` for bulk test scenarios
-- **Optional field control** - Use `withDefaultedField()` or `withOptionalField()` for fine control
+- **Type-safe overrides.** Use `SObjectField` tokens instead of strings (for example `Account.Name`, not `'Name'`) so a typo is caught at compile time.
+- **Parent-child relationships.** Use `withChildren()` to build a parent and its children together.
+- **Record types.** Use `withRecordType('DeveloperName')` to test record-type-specific behaviour.
+- **Bulk creation.** Use `withCount()` and `buildList()` for bulk scenarios.
+- **Optional field control.** Use `withDefaultedField()` or `withOptionalField()` to decide which optional fields get set.
 
 **DON'T:**
 
@@ -2212,9 +2190,9 @@ private static void testMethod()
 
 ### **Handle DML Errors Properly**
 
-Always
-check [Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
-for errors.
+Check the results of every write so failures don't pass silently. The
+[Database.SaveResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_saveresult.htm)/[Database.DeleteResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_deleteresult.htm)
+objects carry the per-row errors.
 
 ```apex
 // Always check and handle DML operation results
@@ -2226,7 +2204,7 @@ DML_Builder.newTransaction()
 
 ### **Use Bulk Operations**
 
-Process records in bulk, not one at a time.
+Save a whole list of records in one call rather than one record at a time, so a loop can't blow the limit on DML statements.
 
 **DO:**
 
@@ -2248,7 +2226,7 @@ for(Account account : accounts)
 
 ### **Leverage Batch Apex for Large Volumes**
 
-Use [batch processing](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) for operations on thousands of records.
+For operations on thousands of records, run them in [batch Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_batch_interface.htm) so each chunk stays within platform limits.
 
 ```apex
 // Use batch processing for large-scale operations
@@ -2257,7 +2235,7 @@ Database.executeBatch(new BATCH_ProcessRecords(), 200);
 
 ### **Use UTIL_BulkUpdates for Common Bulk Operations**
 
-Leverage built-in utilities for common bulk update scenarios.
+For common bulk updates, use the built-in utilities instead of writing your own query-and-loop code each time.
 
 **DO:**
 
@@ -2285,7 +2263,7 @@ update contacts; // Missing batch processing, error handling, transaction contro
 
 ### **Create Fresh Transactions**
 
-Each `DML_Builder.newTransaction()` call creates a clean transaction context.
+Start a fresh `DML_Builder.newTransaction()` for each separate unit of work; each call gives you a clean transaction with nothing carried over from the last.
 
 ```apex
 // Create a new transaction for each logical unit of work
@@ -2301,7 +2279,7 @@ DML_Builder.newTransaction()
 
 ### **Document DML Operations**
 
-All DML methods must have comprehensive ApexDoc.
+Give every DML method clear ApexDoc, so the next person knows what it does and how to call it.
 
 ```apex
 /**
@@ -2327,7 +2305,7 @@ public static Account createAccountWithContacts(String accountName, List<String>
 
 ### **Use All-or-Nothing Appropriately**
 
-Choose between atomic and partial commits based on requirements.
+Decide whether everything must succeed together (all-or-nothing) or whether the good rows can commit while bad ones are reported (partial). Pick based on what the work needs.
 
 ```apex
 // Choose between atomic and partial commits based on business requirements
@@ -2340,7 +2318,7 @@ DML_Builder.newTransaction().doInsert(records).allowPartial().execute();
 
 ### **Reset Sharing After Operations**
 
-Use operation-level sharing control instead of global state when possible.
+Set sharing per operation rather than flipping a shared, global setting, so one write can't accidentally change the behaviour of another.
 
 ```apex
 // Prefer operation-level sharing control
@@ -2351,7 +2329,7 @@ DML_Builder.newTransaction()
 
 ### **Use Purge Utilities for Cleanup**
 
-Leverage built-in utilities for data cleanup operations.
+For data cleanup, use the built-in purge utilities instead of hand-written delete logic.
 
 ```apex
 // Use purge utilities for data cleanup operations

@@ -15,6 +15,10 @@ navOrder: 92
 
 ---
 
+**In short:** This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. Unit tests check one piece of code in isolation. End-to-end (E2E) tests drive a real browser through the whole journey, so they catch problems that only show up once everything is wired together, such as a page that renders wrong after a layout change or a toast message that never appears. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning. Read it if you build, design, or verify Lightning features. Use it whenever a unit test cannot prove that the user-facing result is correct.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -121,9 +125,9 @@ navOrder: 92
 
 ### Why E2E Testing for Salesforce?
 
-Unit tests (Apex `@IsTest`, LWC Jest) verify individual components in isolation. E2E tests verify the complete user
-experience: authentication, page navigation, data rendering, component interaction, and side effects. For Salesforce
-applications, E2E tests catch issues that unit tests cannot:
+Some failures only appear when a real user clicks through your app, and a unit test will never see them. A unit test (Apex `@IsTest`, LWC Jest) checks one component on its own. An E2E test plays out the whole user journey in a real browser: logging in, moving between pages, watching data render, clicking components, and confirming the side effects.
+
+That broader view is the point. For Salesforce apps, E2E tests catch problems unit tests cannot:
 
 - Lightning page layout rendering after metadata changes
 - Trigger side effects visible in the UI after record creation
@@ -177,30 +181,24 @@ applications, E2E tests catch issues that unit tests cannot:
 | Layer            | Purpose                                                                    |
 |------------------|----------------------------------------------------------------------------|
 | **Global setup** | Authenticates once, saves session cookies to `.auth/state.json`            |
-| **Specs**        | Test files — run serially in a single browser worker                       |
+| **Specs**        | Test files that run serially in a single browser worker                    |
 | **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
 | **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
 | **sf CLI**       | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
 
 ### Key Design Decisions
 
-1. **Serial execution with single worker** — All tests share a single `sid` session cookie. Parallel browser
-   contexts reusing the same cookie generate conflicting CSRF/Aura tokens — one context's page load invalidates
-   the token in another, causing "Page Expired" errors and random logouts.
+A few choices shape how this setup runs. Knowing the reasoning saves you from "fixing" something that is deliberate.
 
-2. **Frontdoor URL authentication** — No stored passwords. `sf org open --url-only` generates a one-time URL
-   that authenticates via Salesforce's frontdoor.jsp endpoint.
+1. **Run tests one at a time, in a single browser.** Every test shares one `sid` login cookie. If two browser sessions reuse that cookie at once, Salesforce hands out conflicting security tokens (CSRF and Aura): one session's page load quietly cancels the other's token. The result is "Page Expired" errors and tests that log themselves out at random. Running serially in a single worker avoids all of that.
 
-3. **CLI helpers for data operations** — Creating records, running SOQL, and executing Apex via `sf` CLI is
-   faster and more reliable than filling forms through the browser. Use the browser only for verification.
+2. **Log in with a one-time frontdoor URL, not a stored password.** `sf org open --url-only` generates a short-lived URL that signs you in through Salesforce's frontdoor.jsp endpoint. Nothing sensitive sits in the test code.
 
-4. **Generous timeouts** — Lightning pages involve multiple network requests and DOM re-renders. Default test
-   timeout is 120 seconds, expect timeout is 15 seconds.
+3. **Set up and check data through the CLI, not the browser.** Creating records, running SOQL, and executing Apex through the `sf` CLI is faster and steadier than filling in forms. Drive the browser only for the thing you are actually verifying.
 
-> **Extending framework classes from a subscriber org.** Subscriber Apex extends `kern` framework classes via the namespaced public API —
-> e.g. `public inherited sharing class CustomTriggerHandler extends kern.TRG_Base implements kern.IF_Trigger.BeforeInsert`. The same
-> pattern applies to `kern.SEL_Base` selectors and the `kern.UTIL_*` utilities. See the Triggers, Selectors, and DML Developer Guides
-> for long-form treatment.
+4. **Allow generous timeouts.** A Lightning page makes several network calls and re-renders the DOM more than once before it settles. So the defaults are patient: 120 seconds for a whole test, 15 seconds for a single assertion.
+
+> **Extending framework classes from your org.** Your own Apex extends the `kern` framework classes through their public, namespaced API. For example: `public inherited sharing class CustomTriggerHandler extends kern.TRG_Base implements kern.IF_Trigger.BeforeInsert`. The same pattern applies to the `kern.SEL_Base` selectors and the `kern.UTIL_*` utilities. The Triggers, Selectors, and DML Developer Guides cover this in full.
 
 ---
 
@@ -292,10 +290,10 @@ module.exports = defineConfig({
 | `expect.timeout`    | `15_000`              | [Assertions](https://playwright.dev/docs/test-assertions) need time for Lightning re-renders |
 | `fullyParallel`     | `false`               | Shared session cookie causes CSRF token conflicts in parallel                                |
 | `workers`           | `1`                   | Single browser context, single authenticated session                                         |
-| `retries`           | `0`                   | Retries mask real issues — fix flakiness in helpers instead                                  |
-| `reporter`          | `'list'`              | Simple output — add `'html'` for detailed reports                                            |
+| `retries`           | `0`                   | Retries mask real issues; fix flakiness in helpers instead                                   |
+| `reporter`          | `'list'`              | Simple output; add `'html'` for detailed reports                                             |
 | `storageState`      | `.auth/state.json`    | Session cookies saved by global setup                                                        |
-| `viewport`          | `1920x1080`           | Full desktop layout — Lightning responsive breakpoints matter                                |
+| `viewport`          | `1920x1080`           | Full desktop layout; Lightning responsive breakpoints matter                                 |
 | `screenshot`        | `'on'`                | Capture screenshot for every test (useful for visual verification)                           |
 | `trace`             | `'retain-on-failure'` | Full trace for debugging, only kept for failed tests                                         |
 | `video`             | `'retain-on-failure'` | Video recording for failed tests                                                             |
@@ -304,19 +302,18 @@ module.exports = defineConfig({
 
 ### Org Alias
 
-The Playwright suite is bound to a single hard-coded org alias — declared as the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js:5`. The helper does not read any
-environment variable for the alias; the constant is the only configuration surface.
+The Playwright suite always talks to one org, named by a fixed alias. That name is the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js:5`. The helper does not read an environment variable for it, so the constant is the single place the alias is set.
 
-If your scratch org already uses that alias, no setup is required beyond defaulting your CLI to it:
+If your scratch org already uses that alias, the only setup is to make it your CLI default:
 
 ```bash
 sf config set target-org=$SF_SUBSCRIBER_ORG_ALIAS
 ```
 
-If your org has a different alias, you have two options:
+If your org uses a different alias, pick one of two paths:
 
-- **Rename the alias** (recommended for one-off subscriber testing): `export SF_SUBSCRIBER_ORG_ALIAS=YourExistingAlias`.
-- **Fork the helper**: edit the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js` to match your alias. Tracked via your own fork; not upstreamable.
+- **Rename the alias** (the simpler path for one-off testing): `export SF_SUBSCRIBER_ORG_ALIAS=YourExistingAlias`.
+- **Edit your own copy of the helper**: change the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js` to match your alias. This change lives in your own copy and is not contributed back upstream.
 
 ---
 
@@ -405,7 +402,7 @@ transparently.
 
 If tests fail with authentication errors:
 
-1. Delete `.auth/state.json` — global setup regenerates it on the next run
+1. Delete `.auth/state.json` (global setup regenerates it on the next run)
 2. Verify CLI authentication: `sf org display -o YourOrgAlias`
 3. Check org session timeout settings: Setup > Session Settings > Session Timeout
 
@@ -414,7 +411,7 @@ For long-running test suites (>2 hours), consider lowering the test count per ru
 
 ### Package Upgrade in E2E Context
 
-Beta packages cannot be upgraded in-place. When promoting a new package version, recreate the scratch org and clear the cached auth artifacts:
+A beta (unpromoted) package version cannot be upgraded over an existing install: Salesforce only supports in-place upgrades for promoted versions. So when you move to a new version, recreate the scratch org from scratch and clear the cached login files:
 
 ```bash
 sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
@@ -423,15 +420,13 @@ sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <NewSubscriberPackageVe
 rm -f release-testing/e2e/.auth/state.json release-testing/e2e/.auth/instance.json
 ```
 
-The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via
-`node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
+Deleting the `.auth/` files is a safety net. Playwright's `globalSetup` rewrites both of them the next time you run `npm run test:e2e`, so the test run itself is fine either way. The risk is a development workflow that calls the helpers directly with `node` before that next run: without the clear, it could pick up a stale instance URL or expired login cookies from the org you just deleted.
 
 ---
 
 ## Salesforce Lightning Challenges
 
-Lightning's architecture creates specific challenges for browser automation. Each challenge below includes the
-problem, why it happens, and the proven solution.
+A handful of things about Lightning trip up browser automation and make tests flaky if you do not know about them. The good news: each has a known fix. The sections below follow the same shape every time, so you can scan for the symptom you are hitting: the problem, why it happens, and the fix that works.
 
 ### Shadow DOM
 
@@ -501,7 +496,7 @@ await dismissToast(page);
 
 **Problem:** `page.goto()` resolves before Lightning finishes rendering. Interacting immediately causes timeouts.
 
-**Why:** Lightning loads in stages — DOM first, then components, then data. `domcontentloaded` fires early.
+**Why:** Lightning loads in stages: the DOM first, then the components, then the data. `domcontentloaded` fires at the very start of that.
 
 **Solution:** Use navigation helpers that wait for Lightning-specific indicators:
 
@@ -718,7 +713,7 @@ deployMetadata('../force-app/main/default/customMetadata');
 - Runs `sf project deploy start` with `--ignore-conflicts --wait ${waitMinutes}` so the CLI returns a completed deploy payload rather than an async deploy id
 - Returns parsed JSON result
 - Options: `{timeout: 120_000, waitMinutes: 10}`
-- Path is relative to the `e2e/` working directory — use `../force-app/...` to reach the outer SFDX project's source tree
+- The path is relative to the `e2e/` working directory, so use `../force-app/...` to reach the outer SFDX project's source tree
 
 ### sf-navigation.js
 
@@ -759,7 +754,7 @@ await navigateToRecord(page, '001xx000003DGb0AAG');
 
 - Navigates to `/lightning/r/${recordId}/view`
 - Waits for page content via `waitForPageLoad()`
-- Works with any SObject type — the record ID determines the page layout
+- Works with any SObject type, because the record ID determines the page layout
 
 **`clickNavTab(page, tabName)`**
 
@@ -838,9 +833,7 @@ const {TOAST, SPINNER, NAV_BAR, RECORD_HEADER} = require('../helpers/sf-selector
 
 ### Why Page Objects for Salesforce
 
-Lightning pages have complex, nested DOM structures with generated class names and dynamic component trees. Page
-objects centralize locator logic so that when Salesforce updates its DOM structure, you fix one file instead of
-every test.
+A Lightning page has a deeply nested DOM, auto-generated class names, and a component tree that shifts at runtime. Pin a test directly to those details and a single Salesforce change can break it. A page object solves that: it keeps all the locators for a page in one class. When Salesforce changes the DOM, you fix that one file instead of hunting through every test that touched the page.
 
 ### Base Structure
 
@@ -867,15 +860,15 @@ Use these selectors in order of preference:
 
 | Strategy                | Example                                    | Reliability                                |
 |-------------------------|--------------------------------------------|--------------------------------------------|
-| `getByText()`           | `page.getByText('Account Name')`           | High — visible text rarely changes         |
-| `getByRole()`           | `page.getByRole('button', {name: 'Save'})` | High — semantic roles are stable           |
-| Component tag           | `page.locator('lightning-formatted-text')` | Medium — LWC tag names are stable          |
-| `field-label` attribute | `page.locator('[field-label="Industry"]')` | Medium — field labels can change           |
-| CSS class               | `page.locator('.slds-page-header__title')` | Low — SLDS classes change between releases |
+| `getByText()`           | `page.getByText('Account Name')`           | High: visible text rarely changes         |
+| `getByRole()`           | `page.getByRole('button', {name: 'Save'})` | High: semantic roles are stable           |
+| Component tag           | `page.locator('lightning-formatted-text')` | Medium: LWC tag names are stable          |
+| `field-label` attribute | `page.locator('[field-label="Industry"]')` | Medium: field labels can change           |
+| CSS class               | `page.locator('.slds-page-header__title')` | Low: SLDS classes change between releases |
 
 > **SLDS release impact:** Salesforce updates SLDS classes with each major release (Spring, Summer, Winter).
 > CSS-class-based selectors that work today may break after a platform upgrade. This is the primary reason to
-> prefer `getByText()`, `getByRole()`, and Lightning component tags — these are stable across releases.
+> prefer `getByText()`, `getByRole()`, and Lightning component tags, which stay stable across releases.
 
 ### Dynamic Content Handling
 
@@ -1015,6 +1008,8 @@ module.exports = CustomDashboardPage;
 ---
 
 ## Testing Common Salesforce Features
+
+This section is a recipe book. Each entry is a thing you commonly need to verify in a Salesforce app, with a short, copy-ready test. The recurring shape is the same throughout: set the data up through the CLI, drive the browser only to check what the user sees.
 
 ### Record CRUD and Field Verification
 
@@ -1185,8 +1180,7 @@ test('should create record via modal', async ({page}) =>
 
 ### Log Entry Verification
 
-Emit a log entry via KernDX and verify it renders on its record page. Uses `pollUntil` because
-`kern.LOG_Builder` publishes via platform event — the record is created asynchronously:
+Emit a log entry through KernDX, then verify it renders on its record page. The test uses `pollUntil` because `kern.LOG_Builder` publishes through a platform event, so the record is created asynchronously and is not there the instant the Apex returns:
 
 ```javascript
 test('should display log entry in Kern app', async ({page}) =>
@@ -1243,10 +1237,7 @@ test('should log API call record', async ({page}) =>
 
 ### Streaming and Change Data Capture Monitor
 
-KernDX ships a real-time **Streaming Event Monitor** (the `kern-streaming-monitor` component) that subscribes to Platform Events,
-Change Data Capture channels, PushTopics, and Generic events. Launch it from the **Kern Home** tool cards; its controls expose stable
-`data-testid` hooks, so target those rather than SLDS classes. The pattern is the same as any event test — subscribe to a channel, emit an
-event out-of-band, then assert the received-event count rises.
+KernDX ships a live **Streaming Event Monitor** (the `kern-streaming-monitor` component) that subscribes to Platform Events, Change Data Capture channels, PushTopics, and Generic events. Launch it from the **Kern Home** tool cards. Its controls carry stable `data-testid` hooks, so target those rather than SLDS classes (which shift between releases). The test pattern is the same as any event test: subscribe to a channel, emit an event from outside the page, then assert the received-event count goes up.
 
 ```javascript
 const {test, expect} = require('@playwright/test');
@@ -1287,7 +1278,7 @@ async function eventCount(page)
 ```
 
 Subscribe to the Log Entry Event platform-event channel, emit a log entry, and assert the monitor receives it. `kern.LOG_Builder`
-publishes via platform event, so the row arrives asynchronously — poll for it:
+publishes through a platform event, so the row arrives asynchronously: poll for it rather than checking once.
 
 ```javascript
 test.describe.serial('Streaming Event Monitor', () =>
@@ -1314,8 +1305,8 @@ test.describe.serial('Streaming Event Monitor', () =>
 });
 ```
 
-For Change Data Capture, subscribe to the **Change Data Capture event** type and pick the object's change event, then commit a DML change.
-The platform delivers the change event to the live subscription — let the CometD handshake settle before committing, and assert the
+For Change Data Capture, subscribe to the **Change Data Capture event** type, pick the object's change event, then commit a DML change.
+The platform delivers the change event to the live subscription, so give the CometD handshake a moment to settle before you commit, then assert the
 received-event count increases:
 
 ```javascript
@@ -1341,17 +1332,16 @@ test('surfaces a change event after a record commit', async ({page}) =>
 ```
 
 > **CDC prerequisite:** the object must have a Change Data Capture entity selected (Setup > Change Data Capture). `Change Event: Account`
-> only appears in the channel list once Account CDC is enabled — the monitor lists only real change-event entities.
+> only appears in the channel list once Account CDC is enabled, because the monitor lists only real change-event entities.
 
 The monitor can also publish an event for you: open **Publish an event**, fill the `[data-testid="publish-payload"]` textarea, and click
 `[data-testid="publish-button"]`. Reset subscriptions between runs with `[data-testid="unsubscribe-all"]`.
 
 ### Event Usage Metrics
 
-The Streaming Event Monitor's **Event usage metrics** view charts platform-event publish and delivery volume from `PlatformEventUsageMetric`.
-It ships a chart/table toggle, a date-range preset, a series legend, and a granularity switch. Daily granularity is always available; hourly
-and 15-minute granularity require **Enhanced Usage Metrics** in the org, so a default org renders them disabled with a notice. Controls expose
-`data-spec-id` hooks (chart bars use `[data-testid="usage-bar"]`):
+The Streaming Event Monitor's **Event usage metrics** view shows how many platform events your org published and delivered, charted from the `PlatformEventUsageMetric` data. It gives you a chart/table toggle, a date-range preset, a series legend, and a granularity switch.
+
+Daily granularity always works. Hourly and 15-minute granularity need **Enhanced Usage Metrics** turned on for the org, so a plain org shows those two disabled with a notice explaining why. The controls carry `data-spec-id` hooks (the chart bars use `[data-testid="usage-bar"]`):
 
 ```javascript
 test('Event usage metrics renders its controls', async ({page}) =>
@@ -1375,8 +1365,8 @@ test('Event usage metrics renders its controls', async ({page}) =>
 });
 ```
 
-> **Aggregation lag:** `PlatformEventUsageMetric` rows are populated by the platform on a delay (daily rows can take hours), so a
-> freshly-seeded org may legitimately render the empty state. Assert on the controls and the chart/table toggle — always present — rather than
+> **Aggregation lag:** the platform fills in `PlatformEventUsageMetric` rows on a delay (daily rows can take hours), so a
+> freshly-seeded org may show the empty state and still be working correctly. Assert on the controls and the chart/table toggle (always present) rather than
 > on a specific bar count.
 
 ---
@@ -1385,9 +1375,9 @@ test('Event usage metrics renders its controls', async ({page}) =>
 
 ### Creating Test Data
 
-**Rule: Only use the browser to test the browser.** All test data setup must go through CLI helpers or anonymous
-Apex — never through browser form fills. Browser-based data creation is slow, flaky, and couples your data setup
-to page layout changes. Reserve browser interaction exclusively for the assertions you're actually testing.
+**Rule: only use the browser to test the browser.** Set up all test data through the CLI helpers or anonymous
+Apex, never by filling in browser forms. Creating data through the browser is slow and flaky, and it ties your data setup
+to the page layout, so a layout change can break setup that has nothing to do with what you are testing. Keep browser interaction for the assertions you actually care about.
 
 Use CLI helpers for data creation:
 
@@ -1547,7 +1537,7 @@ Lightning's Shadow DOM can make element inspection tricky. In headed mode:
 1. Right-click the element > Inspect
 2. Look for the `lightning-*` or `c-*` component tag
 3. Check the `shadowRoot` for child elements
-4. Use Playwright's locator — it pierces shadow DOM automatically
+4. Use Playwright's locator, which pierces shadow DOM automatically
 
 Useful DevTools trick: In the Elements panel, enable "Show user agent shadow DOM" in Settings to see all
 shadow boundaries.
@@ -1625,17 +1615,15 @@ For ephemeral test environments, create a scratch org per CI run:
 
 ### Session Management in CI
 
-CI environments start fresh every run. There is no cached `.auth/state.json`. Global setup handles authentication
-automatically. Key considerations:
+A CI environment starts fresh on every run, so there is never a cached `.auth/state.json`. Global setup logs in for you each time, so authentication just works. A few things are worth setting up deliberately:
 
 - **Auth URL secret:** Generate with `sf org display -o YourOrg --verbose --json` and store the `sfdxAuthUrl`
   field as a GitHub secret
 - **Timeout:** CI environments can be slower. Consider increasing `timeout` to `180_000`
 - **Headless:** Always `true` in CI (default)
-- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), authenticate each one under the canonical alias —
-  `sf org login sfdx-url --alias <ORG_ALIAS> ...` per run, substituting the value of the `ORG_ALIAS` constant from `sf-auth.js:5`. The helper is alias-bound, not URL-bound; every
-  test run targets whichever org is currently registered under that alias. Forking the helper to read an env-var is the alternative if your release-management tool cannot rename
-  aliases.
+- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), log each one in under the expected alias with
+  `sf org login sfdx-url --alias <ORG_ALIAS> ...` on every run, substituting the value of the `ORG_ALIAS` constant from `sf-auth.js:5`. The helper follows the alias, not a URL, so every
+  test run targets whichever org is currently registered under that alias. If your release-management tool cannot rename aliases, the alternative is to edit your own copy of the helper to read the alias from an environment variable.
 
 ### Artifact Collection
 
@@ -1658,31 +1646,28 @@ Artifacts include screenshots, videos (for failures), and trace files.
 
 **Do:**
 
-- Use CLI helpers (`createRecord`, `soqlQuery`) for data setup — avoid filling forms through the browser
-- Use SOQL for data assertions — faster and more reliable than reading field values from the DOM
-- Clean up test data in `test.afterAll` — prevent data accumulation across runs
-- Use `test.describe.serial` — Salesforce tests must run in order within a describe block
-- Use page objects for pages you test frequently — centralizes locator maintenance
-- Wait for Lightning-specific indicators — nav bar, record page, list view, spinner gone
-- Use `getByText()` and `getByRole()` — more resilient than CSS selectors
-- Run tests against sandboxes or scratch orgs — never production
-- Capture traces on failure — `trace: 'retain-on-failure'` for debugging
+- Use CLI helpers (`createRecord`, `soqlQuery`) for data setup, rather than filling forms through the browser
+- Use SOQL for data assertions: it is faster and more reliable than reading field values from the DOM
+- Clean up test data in `test.afterAll` so data does not pile up across runs
+- Use `test.describe.serial`, because Salesforce tests must run in order within a describe block
+- Use page objects for pages you test often: it keeps locator maintenance in one place
+- Wait for Lightning-specific indicators: nav bar, record page, list view, spinner gone
+- Use `getByText()` and `getByRole()`: they hold up better than CSS selectors
+- Run tests against sandboxes or scratch orgs, never production
+- Capture traces on failure with `trace: 'retain-on-failure'` so you have something to debug from
 
 **Don't:**
 
-- Don't use `page.waitForTimeout()` as the primary wait strategy — use helper functions
-- Don't use parallel workers with a shared session — CSRF token conflicts cause flakiness
-- Don't retry flaky tests — fix the root cause in wait logic
-- Don't hardcode record IDs — create records in setup, reference by variable
-- Don't rely on CSS class names — SLDS classes change between Salesforce releases
-- Don't test Salesforce platform behavior — focus on your custom features
+- Don't lean on `page.waitForTimeout()` as your main wait strategy; use the helper functions instead
+- Don't use parallel workers with a shared session: the CSRF token conflicts cause flakiness
+- Don't retry flaky tests; fix the root cause in the wait logic
+- Don't hardcode record IDs; create records in setup and reference them by variable
+- Don't rely on CSS class names, because SLDS classes change between Salesforce releases
+- Don't test Salesforce platform behavior; focus on your custom features
 
-**Scaling beyond serial execution:** A typical serial suite hits a ceiling around 100+ tests (~30 minute feedback
-loop at ~20 seconds per test). The bottleneck is the shared `sid` session cookie — parallel workers reusing it
-generate conflicting CSRF/Aura tokens. To scale, authenticate multiple unique Salesforce users and assign each
-to a separate Playwright worker with its own `storageState` file. Each worker gets an independent session cookie,
-eliminating cross-worker token conflicts. This requires provisioning dedicated test users with appropriate profiles
-and permission sets.
+**Scaling beyond serial execution:** Running one test at a time works well until the suite gets large. A typical serial suite hits a ceiling around 100+ tests, which is roughly a 30 minute feedback loop at about 20 seconds per test. The reason you cannot simply run them in parallel is the shared `sid` session cookie: parallel workers reusing the one cookie generate conflicting CSRF and Aura security tokens.
+
+The way around it is to give each worker its own login. Authenticate several distinct Salesforce users, then assign each one to a separate Playwright worker with its own `storageState` file. Now every worker has an independent session cookie, so the cross-worker token conflicts disappear. The cost is setup: you have to provision dedicated test users with the right profiles and permission sets.
 
 ---
 
@@ -1690,13 +1675,13 @@ and permission sets.
 
 | Anti-Pattern                                                            | Problem                                      | Better Approach                                                        |
 |-------------------------------------------------------------------------|----------------------------------------------|------------------------------------------------------------------------|
-| **Flaky selectors** — `div:nth-child(3) > span`                         | Breaks when layout changes                   | Use `getByText()`, component tags, or `field-label` attributes         |
-| **Missing auth checks** — navigating without `ensureAuthenticated()`    | Random failures when session expires         | Use navigation helpers that call `ensureAuthenticated()` automatically |
-| **Empty list view assertions** — asserting immediately after navigation | List data loads asynchronously               | Use `waitForListView()` then assert on rows                            |
-| **Deployment propagation** — testing immediately after metadata deploy  | Metadata may not be active yet               | Add a short wait or verify via SOQL after deployment                   |
-| **Testing platform internals** — verifying Salesforce standard behavior | Wastes time, breaks on platform updates      | Focus on your custom trigger actions, LWC, and API integrations        |
-| **Browser-based data creation** — filling forms for test setup          | Slow, flaky, depends on page layout          | Use `createRecord()` or `executeAnonymousApex()` via CLI               |
-| **Shared state between tests** — relying on data from previous test     | One failure cascades to all subsequent tests | Each test creates its own data, cleans up in `afterAll`                |
+| **Flaky selectors**, e.g. `div:nth-child(3) > span`                     | Breaks when layout changes                   | Use `getByText()`, component tags, or `field-label` attributes         |
+| **Missing auth checks**: navigating without `ensureAuthenticated()`     | Random failures when session expires         | Use navigation helpers that call `ensureAuthenticated()` automatically |
+| **Empty list view assertions**: asserting immediately after navigation  | List data loads asynchronously               | Use `waitForListView()` then assert on rows                            |
+| **Deployment propagation**: testing immediately after metadata deploy   | Metadata may not be active yet               | Add a short wait or verify via SOQL after deployment                   |
+| **Testing platform internals**: verifying Salesforce standard behavior  | Wastes time, breaks on platform updates      | Focus on your custom trigger actions, LWC, and API integrations        |
+| **Browser-based data creation**: filling forms for test setup           | Slow, flaky, depends on page layout          | Use `createRecord()` or `executeAnonymousApex()` via CLI               |
+| **Shared state between tests**: relying on data from previous test      | One failure cascades to all subsequent tests | Each test creates its own data, cleans up in `afterAll`                |
 
 ---
 
@@ -1711,7 +1696,7 @@ and permission sets.
 | `ECONNREFUSED`                               | Chromium not installed             | Run `npx playwright install chromium`                                                            |
 | Tests pass locally, fail in CI               | Different timing, missing deps     | Add `--with-deps` to Chromium install, increase timeouts                                         |
 | SOQL returns empty array                     | Missing namespace prefix           | Use `kern__ObjectName__c` and `kern__FieldName__c`                                               |
-| `JSON.parse` error on CLI output             | ANSI color codes in output         | Helpers strip ANSI automatically — use `soqlQuery()` not raw `execSync`                          |
+| `JSON.parse` error on CLI output             | ANSI color codes in output         | Helpers strip ANSI automatically; use `soqlQuery()` not raw `execSync`                           |
 | Record page shows "Loading..."               | Record not yet committed           | Use `await waitForRecordPage(page)` after navigation (Best Practices bans bare `waitForTimeout`) |
 | Toast assertion fails                        | Toast already dismissed            | Use `waitForToastMessage()` which waits for toast to appear                                      |
 | Session expired mid-test                     | Long-running test suite            | Call `reauthenticate(page)` in `test.beforeEach`                                                 |
@@ -1724,7 +1709,7 @@ and permission sets.
 
 | Document                                                                | Description                                           |
 |-------------------------------------------------------------------------|-------------------------------------------------------|
-| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)         | Quick setup guide — get 3 tests passing in 25 minutes |
+| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)         | Quick setup guide: get 3 tests passing in 25 minutes  |
 | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) | Build trigger actions to test E2E                     |
 | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                   | Application logging to verify in Kern app             |
 | [LWC - Guide](LWC%20-%20Guide.md)                                       | Build LWC components to test E2E                      |

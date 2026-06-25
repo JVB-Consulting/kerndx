@@ -6,27 +6,27 @@ navOrder: 60
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-> Declarative, formula-based validation rules — no Apex code needed, just metadata records.
+**What this is:** A way to stop bad data from being saved (required fields, conditional rules, cross-field checks) by writing formula rules as configuration records instead of Apex code. **Why it exists:** Standard Salesforce validation rules live one-per-object and are hard to test, bypass, or roll out gradually. KernDX rules are grouped, unit-testable without saving a record, and can run in a log-only "shadow" mode first. **Who should care:** developers and admins enforcing data quality, plus tech leads who want validation logic that is version-controlled and tested. **When to use it:** any time you would reach for a Salesforce validation rule but want testability, gradual rollout, and a single place to manage the rules for an object.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
 > **Subscriber orgs:** Use `kern.ClassName` when calling framework classes (e.g., `kern.UTIL_ValidationRule`).
-> Your own classes don't need a namespace prefix — the framework's Type Resolver handles resolution automatically.
+> Your own classes don't need a namespace prefix: the framework's Type Resolver (how it finds the Apex classes in your namespace, once you tell it where to look) handles that for you.
 
-**What you'll build:** Account validation rules that enforce required fields and conditional logic —
+**What you'll build:** Account validation rules that enforce required fields and conditional logic,
 all configured through Custom Metadata, with a test class proving every rule works.
 
-**Success looks like:** Two test methods pass — proving your rule fires when the record is invalid and
-is satisfied when it's valid — and you can query your CMDT records to see exactly what's configured.
+**Success looks like:** Two test methods pass (proving your rule fires when the record is invalid and
+is satisfied when it's valid), and you can query your CMDT records to see exactly what's configured.
 
-**In one line:** `kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'MyRule');` — test any
-metadata-configured rule without DML or triggers.
+**In one line:** `kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'MyRule');` tests any
+metadata-configured rule without saving a record or running a trigger.
 
 ---
 
@@ -57,8 +57,9 @@ metadata-configured rule without DML or triggers.
 
 ## Tier 1: See It Work (~5 minutes)
 
-Custom validations are metadata-driven — you define rules as CMDT records, not Apex code. Three
-record types form a parent-child hierarchy:
+The goal here is to block a save when the data is wrong, without writing any Apex. You do that by
+creating configuration records (Custom Metadata, or CMDT) instead of code. Three record types nest
+inside each other, parent to child:
 
 ```text
 TriggerSetting__mdt (Account)
@@ -66,8 +67,8 @@ TriggerSetting__mdt (Account)
       └── ValidationRule__mdt (DescriptionRequired)
 ```
 
-You author these records yourself — a fresh org ships with no Account rules. Create the three below and
-deploy them. Each Custom Metadata record requires a **Description** — the deploy is rejected without one.
+You author these records yourself: a fresh org ships with no Account rules. Create the three below and
+deploy them. Each Custom Metadata record requires a **Description**, and the deploy is rejected without one.
 
 `customMetadata/kern__TriggerSetting.Account.md-meta.xml` (skip if you already created it for triggers):
 
@@ -98,8 +99,8 @@ deploy them. Each Custom Metadata record requires a **Description** — the depl
 </CustomMetadata>
 ```
 
-`customMetadata/kern__ValidationRule.DescriptionRequired.md-meta.xml` — formula
-`ISBLANK(newRecord.Description)`, active by default (`kern__BypassExecution__c` defaults to `false`):
+`customMetadata/kern__ValidationRule.DescriptionRequired.md-meta.xml` uses the formula
+`ISBLANK(newRecord.Description)` and is active by default (`kern__BypassExecution__c` defaults to `false`):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -129,7 +130,7 @@ sf project deploy start -o YourOrgAlias \
 > to the parent records.
 
 Query them to see what's configured. The parent links are MetadataRelationship fields, so filter on the
-parent's `DeveloperName` via the `__r` relationship — **not** a string literal on the `__c` field:
+parent's `DeveloperName` through the `__r` relationship, **not** a string literal on the `__c` field:
 
 ```apex
 List<kern__ValidationRuleGroup__mdt> groups =
@@ -157,7 +158,7 @@ for(kern__ValidationRule__mdt rule : rules)
 }
 ```
 
-Now run the rule in-memory against a record — no DML, no trigger needed:
+Now run the rule against a record in memory, with nothing saved and no trigger involved:
 
 ```apex
 Account invalidAccount = new Account(Name = 'Test Corp');
@@ -190,9 +191,9 @@ System.debug('Valid: ' + result.isValid + ' — Errors: ' + result.errors.size()
 Valid: true — Errors: 0
 ```
 
-> **Formula logic is inverted:** formula returns `true` = validation **fails** (record is invalid).
-> `ISBLANK(newRecord.Description)` returns `true` when Description is blank — the rule fires. When
-> Description is populated the formula returns `false` — the rule is satisfied.
+> **Formula logic is inverted:** a formula that returns `true` means validation **fails** (the record is invalid).
+> `ISBLANK(newRecord.Description)` returns `true` when Description is blank, so the rule fires. When
+> Description is populated the formula returns `false`, so the rule is satisfied.
 
 ---
 
@@ -202,10 +203,11 @@ Valid: true — Errors: 0
 > File > New > Apex Class) and run it from there (Test > New Run). Paste the code, save, and skip the
 > `sf project deploy start` and `sf apex run test` commands.
 
-Validation rules are metadata, so there is no Apex of your own to cover — but you still want a test that
-proves each rule fires when it should and is satisfied when the record is valid.
-`kern.UTIL_ValidationTestHelper` evaluates a single deployed rule in-memory, with no DML and no trigger.
-Both helpers are `global`, so they are callable from a subscriber `@IsTest` class.
+You want confidence that each rule does what you think: it blocks an invalid record and lets a valid one
+through. Because the rules are configuration rather than your own Apex, there is no code of yours to cover,
+but you still want a test that proves the behaviour and fails loudly if someone later breaks a rule.
+`kern.UTIL_ValidationTestHelper` evaluates a single deployed rule against a record in memory, with nothing
+saved and no trigger involved. Both helpers are `global`, so you can call them from your own `@IsTest` class.
 
 ### Step 1: Write the test
 
@@ -268,25 +270,25 @@ Fail Rate    0%
 ```
 
 > **`assertRuleFails` / `assertRulePasses` evaluate the *deployed* rule by DeveloperName.** The rule must
-> be deployed and active (`kern__BypassExecution__c = false`, as in Tier 1); they evaluate the formula
-> directly and need no physical trigger. `kern.TST_Builder.of(...).withoutInsertion()` builds an in-memory
-> record (with a fake Id) so nothing is written to the database.
+> be deployed and active (`kern__BypassExecution__c = false`, as in Tier 1). They evaluate the formula
+> directly and need no trigger file in place. `kern.TST_Builder.of(...).withoutInsertion()` builds a record
+> in memory (with a fake Id) so nothing is written to the database.
 
 > **Test against your deployed rule.** Deploy the rule as CMDT (Tier 1), then assert against it with
-> `kern.UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses` — both are `global` and callable
-> from your `@IsTest` class. They evaluate your deployed rule directly, so no in-memory rule registration
-> is needed. This is the supported subscriber pattern.
+> `kern.UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses`: both are `global` and callable
+> from your `@IsTest` class. They evaluate your deployed rule directly, so you don't need to register a rule
+> in memory. This is the supported path in your own org.
 
 ### Key patterns
 
 | Pattern                                          | Why                                                                          |
 |--------------------------------------------------|------------------------------------------------------------------------------|
-| `validate(record)`                               | Evaluates ALL active rules for the object in-memory — returns a `ValidationResult` |
-| `assertRuleFails(record, ruleName)`              | Asserts one deployed, active rule fires — no DML, no trigger                  |
+| `validate(record)`                               | Evaluates ALL active rules for the object in memory and returns a `ValidationResult` |
+| `assertRuleFails(record, ruleName)`              | Asserts one deployed, active rule fires (nothing saved, no trigger)          |
 | `assertRulePasses(record, ruleName)`             | Asserts one deployed, active rule is satisfied                               |
-| `withoutInsertion()`                             | Builds an in-memory record with a fake Id — no database write               |
+| `withoutInsertion()`                             | Builds a record in memory with a fake Id (no database write)                |
 | Formula returns `true` = fails                   | `ISBLANK(newRecord.Description)` fires when Description is blank             |
-| `ISPICKVAL()` for picklists                      | `ISPICKVAL(newRecord.Industry, "Technology")` — use this, not `=`, for picklist values |
+| `ISPICKVAL()` for picklists                      | `ISPICKVAL(newRecord.Industry, "Technology")`: use this, not `=`, for picklist values |
 
 ---
 
@@ -294,8 +296,8 @@ Fail Rate    0%
 
 ### Trigger integration
 
-To enforce rules automatically when records are saved, add a `TriggerAction__mdt` record pointing to
-the built-in `TRG_ExecuteValidationRules` action. No custom Apex needed.
+So far you have tested the rules by hand. To have them run automatically every time a record is saved,
+point a `TriggerAction__mdt` record at the built-in `TRG_ExecuteValidationRules` action. No custom Apex needed.
 
 This requires a trigger on the object (see [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md)):
 
@@ -342,8 +344,8 @@ Create the trigger action record (XML for source-controlled projects):
 </CustomMetadata>
 ```
 
-> **Note:** `kern__ApexClassName__c` is `TRG_ExecuteValidationRules` (no `kern.` prefix) — the Type
-> Resolver locates the framework class in the managed namespace automatically.
+> **Note:** `kern__ApexClassName__c` is `TRG_ExecuteValidationRules` (no `kern.` prefix). The Type
+> Resolver locates the framework class in the managed namespace for you.
 
 Verify via Execute Anonymous:
 
@@ -365,7 +367,7 @@ catch(DmlException error)
 | Function                     | Example                                                   | Description                               |
 |------------------------------|-----------------------------------------------------------|-------------------------------------------|
 | `ISBLANK(field)`             | `ISBLANK(newRecord.Description)`                          | Field is empty                            |
-| `ISPICKVAL(field, value)`    | `ISPICKVAL(newRecord.Industry, "Technology")`             | Picklist equals value — use this, not `=` |
+| `ISPICKVAL(field, value)`    | `ISPICKVAL(newRecord.Industry, "Technology")`             | Picklist equals value (use this, not `=`) |
 | `NOT(condition)`             | `NOT(ISBLANK(newRecord.Email))`                           | Negate a condition                        |
 | `AND(a, b)`                  | `AND(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))` | Both conditions true                      |
 | `OR(a, b)`                   | `OR(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))`  | Either condition true                     |
@@ -391,8 +393,9 @@ kern.UTIL_ValidationRule.clearAllBypasses();
 
 ### Shadow mode
 
-Set `ShadowMode__c = true` on a rule to log violations without blocking saves. Useful for testing
-new rules in production before enforcing them. Violations appear in **App Launcher > Kern > Log Entries**
+Shadow mode lets a new rule run watch-only in production: it logs what it would have blocked but doesn't
+block the save yet, so you can confirm a rule behaves before you let it stop real users. Set
+`ShadowMode__c = true` on a rule to turn this on. Violations appear in **App Launcher > Kern > Log Entries**
 with a `[SHADOW]` tag.
 
 To try it: **Setup > Custom Metadata Types > Validation Rule > Manage Records > [your rule] > Edit >
@@ -400,7 +403,8 @@ Shadow Mode = checked > Save.**
 
 ### Feature flag integration
 
-Gate validation groups or individual rules on [Feature Flags](Fast%20Start%20-%20Feature%20Flags.md):
+You can turn a rule (or a whole group) on or off with a [Feature Flag](Fast%20Start%20-%20Feature%20Flags.md),
+which is handy for staged rollouts or for switching a rule off in an incident without a deployment:
 
 | Field                                       | Effect                                                |
 |---------------------------------------------|-------------------------------------------------------|
@@ -429,12 +433,12 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 |------------------------------------------|-------------------------------------------|-----------------------------------------------------------------------------|
 | Rule doesn't fire                        | Formula syntax error                      | Check Log Entries for formula compilation errors                            |
 | Picklist comparison fails                | Using `=` instead of `ISPICKVAL()`        | Use `ISPICKVAL(newRecord.Field, "Value")` for picklists                     |
-| `assertRuleFails` says rule passed       | Formula logic inverted                    | Formula returning `true` means invalid — check your condition               |
+| `assertRuleFails` says rule passed       | Formula logic inverted                    | Formula returning `true` means invalid, so check your condition             |
 | Rule fires on insert but not update      | `TriggerOperations__c` missing `Update`   | Add `Update` to the semicolon-separated list                                |
 | Error not on the right field             | Wrong `ErrorDisplayField__c`              | Use the field API name only (e.g., `Description` not `Account.Description`) |
 | Rules don't fire via trigger             | Missing `TriggerAction__mdt`              | Create action pointing to `TRG_ExecuteValidationRules`                      |
-| Multiple rules — only first fires        | `ExecutionStrategy__c` set to `Fail Fast` | Change to `Accumulate`                                                      |
-| Need to register a validation rule from a test | Subscriber tests assert against deployed rules, not in-memory-registered ones | Deploy your rule as CMDT (Tier 1) and assert with `assertRuleFails` / `assertRulePasses` |
+| Multiple rules, only first fires         | `ExecutionStrategy__c` set to `Fail Fast` | Change to `Accumulate`                                                      |
+| Need to register a validation rule from a test | Your tests assert against deployed rules, not ones registered in memory | Deploy your rule as CMDT (Tier 1) and assert with `assertRuleFails` / `assertRulePasses` |
 
 ---
 
@@ -445,9 +449,9 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 | `ValidationRuleGroup__mdt`                                     | Groups rules for an object and trigger context              |
 | `ValidationRule__mdt`                                          | Individual formula-based check with error message           |
 | `UTIL_ValidationTestHelper.validate(record)`                   | Evaluates all rules in-memory, returns a `ValidationResult` |
-| `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)`  | Asserts one rule fires — no DML                             |
+| `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)`  | Asserts one rule fires (nothing saved)                      |
 | `UTIL_ValidationTestHelper.assertRulePasses(record, ruleName)` | Asserts one rule is satisfied                               |
-| `UTIL_ValidationRule.bypassObject('Account')`                  | Bypasses all Account rules — String param                   |
+| `UTIL_ValidationRule.bypassObject('Account')`                  | Bypasses all Account rules (takes a String)                 |
 | `TST_Builder.of(type).withoutInsertion()`                      | Builds an in-memory record (fake Id) for in-memory rule evaluation |
 | `TRG_ExecuteValidationRules`                                   | Built-in trigger action that enforces rules on save         |
 
@@ -455,10 +459,10 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
 - Formulas return `true` when the record is **invalid** (inverted logic)
 - Use `ISPICKVAL()` for picklist comparisons, not `=`
-- Tests use `UTIL_ValidationTestHelper` — no DML needed, no trigger needed
+- Tests use `UTIL_ValidationTestHelper` (nothing saved, no trigger needed)
 - `bypassObject` takes a **String** (`'Account'`), not an `SObjectType`
-- Deploy validation metadata as XML for version control; set `kern__BypassExecution__c = true` on a
-  group or rule to deactivate it without removing it
+- Deploy validation metadata as XML for version control. To deactivate a group or rule without removing it,
+  set `kern__BypassExecution__c = true` on it
 
 ---
 

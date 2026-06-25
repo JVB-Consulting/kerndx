@@ -19,14 +19,15 @@
 					<span class="kl-badge" data-spec-id="badge-license">BSL 1.1 → Apache 2.0</span>
 					<span class="kl-badge" data-spec-id="badge-api">API 67.0</span>
 				</div>
-				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding — in one Apex &amp; LWC library.</h1>
-				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business — not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.</p>
-				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't — security by default, with logging, performance, and traceability built in.</p>
+				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding, in one Apex &amp; LWC library.</h1>
+				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, with public source on GitHub.</p>
+				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't: security by default, with logging, performance, and traceability built in.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
 					<a class="kl-cta primary" href="/installation" data-spec-id="cta-install">Install KernDX →</a>
 					<a class="kl-cta ghost" href="/fast-starts" data-spec-id="cta-fast-starts">Browse the Fast Starts</a>
 					<a class="kl-cta ghost" href="/ai-agent-instructions" data-spec-id="cta-ai-assistant">AI context</a>
+					<a class="kl-cta ghost" href="/administration-tools-guide" data-spec-id="cta-admin-tools">See the admin tools in action →</a>
 				</div>
 			</div>
 		</header>
@@ -51,11 +52,11 @@
 				<div class="kl-callout" data-spec-id="failure-modes">
 					<ul>
 						<li data-spec-id="failure-trigger-drift">the trigger framework you copied into fifteen orgs has drifted in all fifteen, and the bug only reproduces in the one you didn't touch?</li>
-						<li data-spec-id="failure-fls-bypass">a query runs in system mode, skips the user's field permissions, and the security reviewer asks you to prove it didn't — with no single place to look?</li>
+						<li data-spec-id="failure-fls-bypass">a query runs in system mode, skips the user's field permissions, and the security reviewer asks you to prove it didn't, with no single place to look?</li>
 						<li data-spec-id="failure-slow-tests">a clean deploy finishes before the test suite that's supposed to guard it does, so the suite stops being a gate and starts being a formality?</li>
 						<li data-spec-id="failure-ai-apex">the AI assistant writes Apex that compiles, passes review, and ignores every naming and bypass rule your team agreed on last quarter?</li>
 					</ul>
-					<p class="kl-resolve"><strong>KernDX makes each one hard to reach</strong> — permissions on by default, one trigger path every org shares, every shortcut logged with the reason it was taken, and a standards file your AI assistant actually reads before it writes.</p>
+					<p class="kl-resolve"><strong>KernDX makes each one hard to reach</strong>: permissions on by default, one trigger path every org shares, every shortcut logged with the reason it was taken, and a standards file your AI assistant actually reads before it writes.</p>
 				</div>
 			</div>
 		</section>
@@ -66,8 +67,8 @@
 				<h2 class="kl-eyebrow" id="why-it-exists">Why it exists</h2>
 				<p class="kl-headline">An accelerator you own, not a product you rent.</p>
 				<div class="kl-origin" data-spec-id="origin-story">
-					<p>Most enterprise Salesforce orgs rebuild the same foundations — selectors, trigger handling, logging, web services, async, masking, FLS enforcement — over three to five years, taking on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and LWC, plus the onboarding docs, CI tooling, and enforced defaults — permissions on by default, audit-logged bypasses, a coverage gate run on every release — that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
-					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public — BSL 1.1 today, converting to Apache 2.0 on a fixed schedule — so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
+					<p>Most enterprise Salesforce orgs spend three to five years rebuilding the same foundations: selectors, trigger handling, logging, web services, async, masking, and field-level security (FLS) enforcement. They take on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and Lightning Web Components (LWC), plus the onboarding docs, continuous-integration (CI) tooling, and enforced defaults (permissions on by default, audit-logged bypasses, a coverage gate run on every release) that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
+					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public (BSL 1.1 today, converting to Apache 2.0 on a fixed schedule), so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
 				</div>
 			</div>
 		</section>
@@ -77,7 +78,7 @@
 				<div class="kl-wrap">
 					<h2 class="kl-eyebrow" id="whats-in-the-box">What you get on day one</h2>
 					<p class="kl-headline">One install. The whole stack.</p>
-					<p class="kl-lead">Nothing to assemble — every layer ships in the one package, each one ready to switch on when you reach for it.</p>
+					<p class="kl-lead">Nothing to assemble. Every layer ships in the one package, each one ready to switch on when you reach for it.</p>
 					<div class="kl-stack" data-spec-id="day-one">
 						<a href="/fast-start-trigger-actions#tier-1-build-it-5-minutes" data-spec-id="day-one-triggers">Trigger framework</a>
 						<a href="/fast-start-selectors#tier-1-see-it-work-2-minutes" data-spec-id="day-one-selectors">Selectors &amp; queries</a>
@@ -101,7 +102,7 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="the-same-task">The same task, with and without KernDX</h2>
 				<p class="kl-headline">You write the line you expect. You get the depth you didn't.</p>
-				<p class="kl-lead">Plain Apex on the left, KernDX on the right. Under each KernDX snippet is a depth-ledger — <em>what you also got, without typing it</em>: the security, logging, performance, and correlation the framework added for free. Every item links to the guide section that proves it.</p>
+				<p class="kl-lead">Plain Apex on the left, KernDX on the right. Under each KernDX snippet is a depth-ledger, <em>what you also got, without typing it</em>: the security, logging, performance, and correlation the framework added for free. Every item links to the guide section that proves it.</p>
 				<slot name="examples" />
 				<details class="kl-secmore" data-spec-id="examples-show-more">
 					<summary><span class="kl-secmore-c">Show 5 more examples</span><span class="kl-secmore-o">Show fewer examples</span></summary>
@@ -115,19 +116,19 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="built-for-ai">Built for AI-assisted development</h2>
 				<p class="kl-headline">Your AI assistant gets the standards before it writes.</p>
-				<p class="kl-lead">KernDX ships its AI context as plain files in the public repo — nothing to install — so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework: the naming, the secure defaults, the audited-bypass rule, instead of inventing their own.</p>
+				<p class="kl-lead">KernDX ships its AI context as plain files in the public repo, with nothing to install, so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework (the naming, the secure defaults, the audited-bypass rule) instead of inventing their own.</p>
 				<div class="kl-agentic">
-					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source — one managed package (namespace <code>kern</code>, API 67.0) covering trigger handling, secure queries and saves, structured logging, background-job orchestration, inbound and outbound REST, no-code feature flags and validation, and write-time data masking — plus CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
+					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API 67.0) covering trigger handling, secure queries and saves, structured logging, background-job orchestration, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
 					<div class="kl-usage" data-spec-id="agentic-usage">
 						<p class="kl-usage-title">What ships, and how to wire it up</p>
 						<ol>
-							<li><a href="/agents"><strong>AGENTS.md</strong></a> sits at the repo root — the tool-neutral on-ramp that Claude Code, Cursor, Codex, and Cline read first. It orients your assistant and points it at the conventions and the full reference.</li>
+							<li><a href="/agents"><strong>AGENTS.md</strong></a> sits at the repo root: the tool-neutral on-ramp that Claude Code, Cursor, Codex, and Cline read first. It orients your assistant and points it at the conventions and the full reference.</li>
 							<li><a href="/ai-agent-instructions"><strong>AI Agent Instructions</strong></a> is the complete code-generation reference. Copy it into the rules file your tool auto-loads (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, or <code>.cursorrules</code>), or reference it so a <code>git pull</code> keeps it current.</li>
-							<li>From then on your assistant writes framework-correct Apex and LWC: the right namespace prefix, FLS-enforced reads and writes, the naming rules, and the audited-bypass pattern — instead of reinventing them.</li>
+							<li>From then on your assistant writes framework-correct Apex and LWC: the right namespace prefix, FLS-enforced reads and writes, the naming rules, and the audited-bypass pattern, instead of reinventing them.</li>
 						</ol>
 					</div>
 					<p class="kl-files" data-spec-id="agentic-llms">AGENTS.md · /llms.txt · Code Conventions Guide · PMD + ESLint rules</p>
-					<p class="kl-foot-note" data-spec-id="agentic-enforcement">Those same standards ship as PMD rulesets and an ESLint plugin, so what the assistant follows is also enforced where you already work — inline in VS Code or IntelliJ / Illuminated Cloud, and gated on every pull request in CI.</p>
+					<p class="kl-foot-note" data-spec-id="agentic-enforcement">Those same standards ship as PMD rulesets and an ESLint plugin, so what the assistant follows is also enforced where you already work: inline in VS Code or IntelliJ / Illuminated Cloud, and gated on every pull request in CI.</p>
 					<a class="kl-cta primary" href="/ai-agent-instructions" data-spec-id="agentic-cta">Open the AI Agent Instructions →</a>
 				</div>
 			</div>
@@ -138,14 +139,14 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="ideas-worth-taking">Ideas worth taking</h2>
 				<p class="kl-headline">Worth reading even if you never adopt KernDX.</p>
-				<p class="kl-lead">These are design decisions, not feature names — take the ideas with you. Each links to the guide that explains the thinking. The source is public (BSL 1.1, becoming Apache 2.0).</p>
+				<p class="kl-lead">These are design decisions, not feature names, so take the ideas with you. Each links to the guide that explains the thinking. The source is public (BSL 1.1, becoming Apache 2.0).</p>
 				<div class="kl-cards">
-					<a class="kl-card" href="/fast-start-inbound-apis#idempotency" data-spec-id="steal-idempotency"><h4>Why a &lsquo;safe to retry&rsquo; key isn't enough</h4><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result — so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/fast-start-inbound-apis#idempotency" data-spec-id="steal-idempotency"><h4>Why a &lsquo;safe to retry&rsquo; key isn't enough</h4><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" href="/logging-guide#logging-inside-platform-event-change-event-triggers" data-spec-id="steal-self-trigger-log"><h4>Why a logging tool must avoid logging about itself</h4><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" href="/selectors-guide#handle-null-and-empty-collections" data-spec-id="steal-empty-filter"><h4>Why an empty filter should match nothing, not everything</h4><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h4>Why hiding card numbers takes more than pattern-matching</h4><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum — so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h4>Why the framework looks for your version of a class first</h4><p>It checks your project for a class before falling back to its own — so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customize behavior, with nothing to register.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h4>Why feature flags decide like an access list</h4><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo; — and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h4>Why hiding card numbers takes more than pattern-matching</h4><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h4>Why the framework looks for your version of a class first</h4><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customize behavior, with nothing to register.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h4>Why feature flags decide like an access list</h4><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
 				</div>
 			</div>
 		</section>
@@ -155,7 +156,7 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="how-it-flows">How a request flows</h2>
 				<p class="kl-headline">Many ways in. One secure core. Optional layers.</p>
-				<p class="kl-lead">An LWC call, a DML save, a trigger, a REST endpoint, a batch job — any of them starts the same way. The core transaction is always there; the rest snap in only when your code uses them, and one correlation id (the KERN-ID) ties whichever layers ran into a single trace.</p>
+				<p class="kl-lead">An LWC call, a DML save, a trigger, a REST endpoint, a batch job: any of them starts the same way. The core transaction is always there; the rest snap in only when your code uses them, and one correlation id (the KERN-ID) ties whichever layers ran into a single trace.</p>
 				<div class="kl-flow" data-spec-id="flow-diagram">
 					<div class="kl-flow-row" data-spec-id="flow-entries">
 						<span class="kl-flow-label">Any entry point</span>
@@ -189,7 +190,7 @@
 						</div>
 					</div>
 				</div>
-				<p class="kl-flow-foot">Adopt one layer today — just the query library, say — and snap in the trigger framework or the async chain the day you need it. The KERN-ID makes whatever ran traceable as one request.</p>
+				<p class="kl-flow-foot">Adopt one layer today (just the query library, say) and snap in the trigger framework or the async chain the day you need it. The KERN-ID makes whatever ran traceable as one request.</p>
 			</div>
 		</section>
 
@@ -200,13 +201,13 @@
 				<p class="kl-headline">What's different by default.</p>
 				<div class="kl-bydefault" data-spec-id="by-default">
 					<ul>
-						<li><strong>Security is enforced on reads and writes</strong> — with an audit entry written every time it's deliberately bypassed.</li>
-						<li><strong>One integrated package</strong> — triggers, queries, transactions, logging, REST, async, and masking share one model, instead of you wiring separate libraries together.</li>
-						<li><strong>100% Apex coverage and PMD-clean</strong> — enforced on every build, not aspirational.</li>
+						<li><strong>Security is enforced on reads and writes</strong>, with an audit entry written every time it's deliberately bypassed.</li>
+						<li><strong>One integrated package</strong>: triggers, queries, transactions, logging, REST, async, and masking share one model, instead of you wiring separate libraries together.</li>
+						<li><strong>100% Apex coverage and PMD-clean</strong>, enforced on every build, not aspirational.</li>
 					</ul>
 					<a class="kl-cta ghost" href="/strategic-guide-choosing-a-framework" data-spec-id="by-default-link">Full capability-by-capability comparison →</a>
 				</div>
-				<p class="kl-foot-note" data-spec-id="by-default-honesty">Honest about scope: a logging-only library can go deeper on logging, and a mocking library on mocking — the guide says so, capability by capability.</p>
+				<p class="kl-foot-note" data-spec-id="by-default-honesty">Honest about scope: a logging-only library can go deeper on logging, and a mocking library on mocking. The guide says so, capability by capability.</p>
 			</div>
 		</section>
 
@@ -215,7 +216,7 @@
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="adopt-at-your-pace">Adopt at your own pace</h2>
 				<p class="kl-headline">Not all-or-nothing.</p>
-				<p class="kl-lead">No rip-and-replace, and nothing you take all at once — which is what makes it low-risk to bring into an existing program. A typical path in: the query library first, then secure DML, then the trigger framework, adding async, masking, and the AI standards whenever you reach for them. Each layer stands alone, so adoption stays incremental and reversible.</p>
+				<p class="kl-lead">No rip-and-replace, and nothing you take all at once, which is what makes it low-risk to bring into an existing program. A typical path in: the query library first, then secure DML, then the trigger framework, adding async, masking, and the AI standards whenever you reach for them. Each layer stands alone, so adoption stays incremental and reversible.</p>
 				<div class="kl-assess" data-spec-id="self-assessment">
 						<div class="kl-col yes" data-spec-id="assess-worth"><h4>A fit if…</h4>
 							<ul>
@@ -233,7 +234,7 @@
 							</ul>
 						</div>
 					</div>
-					<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't — or would rather not — install a managed package? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. There's a way in for every org.</p>
+					<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't install a managed package, or would rather not? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. There's a way in for every org.</p>
 			</div>
 		</section>
 
@@ -245,7 +246,7 @@
 				<div class="kl-paths" data-spec-id="install-paths">
 					<a class="kl-path" href="/installation" data-spec-id="path-install"><b>Install the package</b><span>Add <code>kern</code> at v1.1.0-11 to your org. Swap it in within days.</span></a>
 					<a class="kl-path" href="/installation" data-spec-id="path-repackage"><b>Repackage under your own name</b><span>Build KernDX into your own package, as your code.</span></a>
-					<a class="kl-path" href="/installation" data-spec-id="path-ci"><b>CI tooling only</b><span>PMD rulesets + ESLint plugin that flag violations inline in VS Code or IntelliJ / Illuminated Cloud and gate them in CI — no framework code.</span></a>
+					<a class="kl-path" href="/installation" data-spec-id="path-ci"><b>CI tooling only</b><span>PMD rulesets + ESLint plugin that flag violations inline in VS Code or IntelliJ / Illuminated Cloud and gate them in CI, with no framework code.</span></a>
 				</div>
 			</div>
 		</section>

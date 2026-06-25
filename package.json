@@ -15,7 +15,7 @@
     "scan:access-modes": "node scripts/scan-access-modes.js",
     "scan:flow-references": "node scripts/scan-flow-references.js",
     "test:scanner": "sfdx-lwc-jest --coverage -- --testPathPattern=scanner/eslint-plugin-kerndx --collectCoverageFrom='scanner/eslint-plugin-kerndx/**/*.js'",
-    "test:release": "sfdx-lwc-jest --coverage -- --testPathPattern=release-testing/__tests__ --collectCoverageFrom='release-testing/runner/**/*.js' --collectCoverageFrom='release-testing/e2e/helpers/**/*.js'",
+    "test:release": "sfdx-lwc-jest --coverage -- --testPathPattern=release-testing/__tests__ --collectCoverageFrom='release-testing/runner/**/*.js' --collectCoverageFrom='release-testing/e2e/helpers/**/*.js' --collectCoverageFrom='release-testing/scripts/**/*.js'",
     "prettier": "prettier --write \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "prettier:verify": "prettier --list-different \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "postinstall": "node scripts/postinstall.js",
@@ -45,6 +45,7 @@
     "release:phase3": "npx playwright test --config release-testing/e2e/playwright.config.js",
     "release:all": "node release-testing/runner/run-all.js",
     "test:perf:history": "node release-testing/runner/perf-history.js",
+    "capture:heroes": "node release-testing/runner/capture-heroes.js",
     "test:pipeline": "cd pipeline && npm ci --omit=dev && npm test"
   },
   "devDependencies": {

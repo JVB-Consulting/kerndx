@@ -6,27 +6,25 @@ navOrder: 30
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Build Lightning Web Components on the KernDX base class — toast notifications, Apex calls, navigation,
-> and structured logging come for free, with no manual mixin plumbing.
+**What this is:** A faster way to build Lightning Web Components. You extend one KernDX base class and the wiring every component needs (toast notifications, Apex calls with error handling, navigation, and logging) is already built in. **Why it exists:** Without a framework you re-write that same plumbing in every component, by hand. **Who should follow this:** developers building Lightning UI, and the tech leads who review it. **When to use it:** any time you'd otherwise start a component from `LightningElement` and re-wire toasts and Apex calls yourself.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] A Salesforce DX project on disk (LWC bundles cannot be authored in the Developer Console) — verify with `sf org open -o YourOrgAlias`
+- [ ] Org configured post-install. Verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
+- [ ] A Salesforce DX project on disk (LWC bundles cannot be authored in the Developer Console). Verify with `sf org open -o YourOrgAlias`
 - [ ] Node 22 installed for Jest unit tests (`node --version` shows `v22.x`)
 - [ ] Working in a sandbox or scratch org (not production)
 
 **What you'll build:** A KernDX-aware Lightning Web Component that calls an Apex controller method, shows a
-toast on success or failure, and logs to the browser console through the framework — plus a Jest test that
+toast on success or failure, and logs to the browser console through the framework. You'll also write a Jest test that
 mocks the framework base class so the component runs in isolation.
 
 **Success looks like:** Your component drops onto a Lightning page, calls Apex, and raises a success toast.
 Your Jest test passes with the framework base class mocked out, and the component imports the base from the
 managed-package namespace (`kern/componentBuilder`).
 
-**In one line:** `export default class MyComponent extends ComponentBuilder('notification', 'controller') {}`
-— every KernDX component extends `ComponentBuilder(...)`, never `LightningElement` directly.
+**In one line:** `export default class MyComponent extends ComponentBuilder('notification', 'controller') {}`. Every KernDX component extends `ComponentBuilder(...)`, never `LightningElement` directly.
 
 ---
 
@@ -64,8 +62,11 @@ managed-package namespace (`kern/componentBuilder`).
 
 ## The one rule: extend ComponentBuilder
 
-Every custom KernDX component extends the result of the `ComponentBuilder(...)` factory instead of
-extending `LightningElement` directly:
+Every Lightning Web Component you build needs the same plumbing: toast notifications, Apex calls with error
+handling, navigation, and logging. Without a framework you re-write that wiring in every component. KernDX
+gives you one base class that already has it all wired in (a base class with the common LWC wiring already
+built in, the `ComponentBuilder(...)` factory). So each custom component extends `ComponentBuilder(...)`
+instead of extending `LightningElement` directly:
 
 ```javascript
 import {ComponentBuilder} from 'kern/componentBuilder';
@@ -77,21 +78,21 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 ```
 
 `ComponentBuilder(...)` returns a base class with the modules you ask for already wired in. You pass module
-identifiers — `'notification'`, `'controller'`, `'navigation'`, `'lightning-message'`, `'flow-navigation'`,
-or `'all'` — and the matching methods (`showSuccessToast()`, `callControllerMethod()`, and so on) become
-available on `this`. Ask only for the modules you use; an unrequested module's method logs a guidance error
-instead of running.
+identifiers (`'notification'`, `'controller'`, `'navigation'`, `'lightning-message'`, `'flow-navigation'`,
+or `'all'`) and the matching methods (`showSuccessToast()`, `callControllerMethod()`, and so on) become
+available on `this`. Ask only for the modules you use. If you call a method from a module you didn't request,
+it logs a guidance error instead of running.
 
 > **Why not `LightningElement`?** Extending `LightningElement` directly bypasses the framework's
-> notification, controller, navigation, and logging helpers — you would re-implement toasts, Apex error
-> handling, and navigation by hand in every component. `ComponentBuilder` with a single module has minimal
-> overhead and is the recommended starting point for every custom component.
+> notification, controller, navigation, and logging helpers. You would re-implement toasts, Apex error
+> handling, and navigation by hand in every component. `ComponentBuilder` asked for a single module only
+> initialises that one module, so it is the recommended starting point for every custom component.
 
 ---
 
 ## Tier 1: See It Work (~2 minutes)
 
-> **Heads up — no Developer Console here.** Unlike the Apex Fast Starts, LWC bundles cannot be created in the
+> **Heads up: no Developer Console here.** Unlike the Apex Fast Starts, LWC bundles cannot be created in the
 > Developer Console's Execute Anonymous window. You need a Salesforce DX project on disk and the `sf` CLI.
 > Each component below is a folder under `force-app/main/default/lwc/`.
 
@@ -136,8 +137,8 @@ export default class FirstKernComponent extends ComponentBuilder('notification')
 </LightningComponentBundle>
 ```
 
-Because the class extends `ComponentBuilder('notification')`, `this.showSuccessToast(...)` already exists —
-you did not import `ShowToastEvent` or dispatch it yourself.
+Because the class extends `ComponentBuilder('notification')`, `this.showSuccessToast(...)` already exists.
+You did not import `ShowToastEvent` or dispatch it yourself.
 
 ### Add a toast
 
@@ -150,7 +151,7 @@ this.showWarningToast('Please review your input');
 this.showInfoToast('Working on it…');
 ```
 
-`showErrorToast` is especially handy: pass it the raw error object straight from a `catch` block and the
+`showErrorToast` is especially handy. Pass it the raw error object straight from a `catch` block and the
 framework normalises Apex, Lightning Data Service, and UI API error shapes into a readable message for you.
 
 ### The namespace gotcha
@@ -166,9 +167,9 @@ import {ComponentBuilder} from 'kern/componentBuilder';
 import {ComponentBuilder} from 'c/componentBuilder';
 ```
 
-The same rule applies to any KernDX LWC module you import — `kern/utilityLogger`, `kern/utilityString`,
-`kern/featureFlag`, and so on. Your **own** components still reference each other with `c/` (your namespace);
-only the modules that ship inside the KernDX managed package take the `kern/` prefix.
+The same rule applies to any KernDX LWC module you import: `kern/utilityLogger`, `kern/utilityString`,
+`kern/featureFlag`, and so on. Your **own** components still reference each other with `c/` (your namespace).
+Only the modules that ship inside the KernDX managed package take the `kern/` prefix.
 
 > **Quick test:** if a component fails to compile on deploy with *"No MODULE named markup://c/componentBuilder
 > found"*, you imported from `c/` instead of `kern/`. Switch the prefix and redeploy.
@@ -179,13 +180,14 @@ only the modules that ship inside the KernDX managed package take the `kern/` pr
 
 ## Tier 2: Build Your Own (~20 minutes)
 
-Build an Account summary card: it calls an Apex controller to load an Account by ID, shows the name and
-industry, and raises a toast if the load fails.
+Now build something real: an Account summary card. It calls an Apex controller to load an Account by ID,
+shows the name and industry, and raises a toast if the load fails. This is the everyday shape of a KernDX
+component, so it doubles as a template you can copy for your own work.
 
 ### Step 1: Create the Apex controller
 
 A KernDX LWC component calls server logic through `callControllerMethod()`, which invokes an
-`@AuraEnabled` Apex method. Keep the component thin — business logic belongs in Apex, not the component.
+`@AuraEnabled` Apex method. Keep the component thin: business logic belongs in Apex, not the component.
 
 Create `force-app/main/default/classes/CTRL_AccountCard.cls`:
 
@@ -221,10 +223,11 @@ public with sharing class CTRL_AccountCard
 }
 ```
 
-> **Why `kern.QRY_Builder`?** It enforces field-level security on the query and keeps your controller free of
-> inline SOQL. See [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md) for the full query pattern.
+> **Why `kern.QRY_Builder`?** It enforces field-level security (FLS, who can see which fields) on the query
+> and keeps your controller free of inline SOQL. See [Fast Start - Selectors](Fast%20Start%20-%20Selectors.md)
+> for the full query pattern.
 
-Add a test for the controller — the framework's coverage gate expects every Apex class covered. Create
+Add a test for the controller, because the framework's coverage gate expects every Apex class covered. Create
 `force-app/main/default/classes/CTRL_AccountCard_TEST.cls`:
 
 ```apex
@@ -321,7 +324,7 @@ export default class AccountCard extends ComponentBuilder('notification', 'contr
 </LightningComponentBundle>
 ```
 
-`accountCard.js` imports a Custom Label, so create it as deployable metadata too — otherwise the bundle
+`accountCard.js` imports a Custom Label, so create it as deployable metadata too. Otherwise the bundle
 deploy in Step 3 fails with *Invalid reference c.AccountCard_LoadFailed of type label*. Add
 `force-app/main/default/labels/CustomLabels.labels-meta.xml`:
 
@@ -340,22 +343,22 @@ deploy in Step 3 fails with *Invalid reference c.AccountCard_LoadFailed of type 
 
 **What this code does:**
 
-- `extends ComponentBuilder('notification', 'controller')` — gives the component toast helpers AND
+- `extends ComponentBuilder('notification', 'controller')`: gives the component toast helpers AND
   `callControllerMethod()`
-- `import {ComponentBuilder} from 'kern/componentBuilder'` — the base class comes from the managed package
-- `this.callControllerMethod(getAccount, {accountId: this.recordId})` — calls the `@AuraEnabled` Apex method,
+- `import {ComponentBuilder} from 'kern/componentBuilder'`: the base class comes from the managed package
+- `this.callControllerMethod(getAccount, {accountId: this.recordId})`: calls the `@AuraEnabled` Apex method,
   passing parameters by name, with framework error handling built in
-- `this.showErrorToast(LOAD_FAILED)` — raises an error toast using a Custom Label, not a hardcoded string
-- `this.consoleError(error, 'accountCard.connectedCallback')` — logs the error through the framework
+- `this.showErrorToast(LOAD_FAILED)`: raises an error toast using a Custom Label, not a hardcoded string
+- `this.consoleError(error, 'accountCard.connectedCallback')`: logs the error through the framework
 
 > **All displayed text comes from Custom Labels.** `LOAD_FAILED` is imported with
 > `import LOAD_FAILED from '@salesforce/label/c.AccountCard_LoadFailed';`, so the `AccountCard_LoadFailed`
-> label must exist **before** the bundle deploys — you created it as deployable metadata above (or add it
-> under **Setup > Custom Labels**). Subscribers can then translate or override it without editing your code.
+> label must exist **before** the bundle deploys. You created it as deployable metadata above (or you can add
+> it under **Setup > Custom Labels**). Your org can then translate or override it without editing your code.
 
 ### Step 3: Deploy and drop it on a page
 
-Deploy the label first — the component's `@salesforce/label` import is resolved at deploy time, so the
+Deploy the label first. The component's `@salesforce/label` import is resolved at deploy time, so the
 bundle won't compile until the label exists in the org:
 
 ```bash
@@ -375,10 +378,9 @@ Apex controller.
 ### Step 4: Write the Jest test
 
 Jest runs your component outside Salesforce, so the real `kern/componentBuilder` module is not on the test
-runner's module path. You **mock** it — supplying a stand-in base class that provides the framework methods
-your component calls (`callControllerMethod`, `showErrorToast`, `consoleError`). This is the Jest mock the
-task description refers to: without it, the import of `kern/componentBuilder` fails to resolve and the test
-cannot load your component.
+runner's module path. You **mock** it: you supply a stand-in base class that provides the framework methods
+your component calls (`callControllerMethod`, `showErrorToast`, `consoleError`). Without this mock, the import
+of `kern/componentBuilder` fails to resolve and the test cannot load your component.
 
 Create `force-app/main/default/lwc/accountCard/__tests__/accountCard.test.js`:
 
@@ -448,12 +450,12 @@ describe('c-account-card', () =>
 > but not by Jest.
 
 > **Note the two import prefixes.** Inside the test you import the component under test as `c/accountCard`
-> (your namespace) but mock the framework base as `kern/componentBuilder` (the managed-package namespace) —
+> (your namespace) but mock the framework base as `kern/componentBuilder` (the managed-package namespace),
 > exactly matching how the component itself imports it.
 
 ### Step 5: Run the test
 
-If this is your first LWC test in the project, install the Jest runner once — it's standard Salesforce
+If this is your first LWC test in the project, install the Jest runner once. It's standard Salesforce
 LWC tooling, not part of the managed package:
 
 ```bash
@@ -483,7 +485,7 @@ PASS  force-app/main/default/lwc/accountCard/__tests__/accountCard.test.js
 | Import from `kern/`    | `from 'kern/componentBuilder'`                          | The base class lives in the managed package, not your namespace |
 | Call Apex via module   | `this.callControllerMethod(apexMethod, {params})`       | Framework error handling and consistent calling convention      |
 | Toast from a `catch`   | `this.showErrorToast(error)`                            | Normalises Apex / LDS / UI API error shapes automatically       |
-| Custom Labels for text | `@salesforce/label/c.AccountCard_LoadFailed`            | Translatable, overridable — never hardcode user-facing strings  |
+| Custom Labels for text | `@salesforce/label/c.AccountCard_LoadFailed`            | Translatable, overridable: never hardcode user-facing strings   |
 | Virtual-mock the base  | `jest.mock('kern/componentBuilder', …, {virtual:true})` | Resolves the managed-package import inside Jest                 |
 
 ---
@@ -492,8 +494,9 @@ PASS  force-app/main/default/lwc/accountCard/__tests__/accountCard.test.js
 
 ### Choosing modules
 
-`ComponentBuilder(...)` accepts any combination of these identifiers. Ask for what you use; an unrequested
-module's method logs guidance instead of running.
+You only pay for the helpers you ask for, so request the modules your component actually uses.
+`ComponentBuilder(...)` accepts any combination of these identifiers. If you call a method from a module you
+didn't request, it logs guidance instead of running.
 
 | Module              | Gives you                                                                                                                                |
 |---------------------|------------------------------------------------------------------------------------------------------------------------------------------|
@@ -518,8 +521,8 @@ module's method logs guidance instead of running.
 
 ### What every component inherits
 
-Regardless of which modules you request, every component extending `ComponentBuilder(...)` inherits a few
-base capabilities:
+Some helpers come with every component, no matter which modules you request. Every component extending
+`ComponentBuilder(...)` inherits these base capabilities:
 
 ```javascript
 // Dispatch a custom event (the framework routes the real name through the detail payload)
@@ -533,8 +536,8 @@ this.consoleLog('State loaded', this.account);
 this.consoleError(error, 'accountCard.connectedCallback');
 ```
 
-The base class also handles teardown: register cleanup work with `this.addTearDownOperation(fn)` and the
-framework runs every registered operation in `disconnectedCallback()` for you.
+The base class also handles teardown for you: register cleanup work with `this.addTearDownOperation(fn)` and
+the framework runs every registered operation in `disconnectedCallback()` for you.
 
 ### Client-side logging
 
@@ -550,16 +553,16 @@ this.consoleError(error, 'accountCard.handleSave');
 ```
 
 These write to the browser console. For **persistent, queryable** server-side logging that survives the
-transaction, call `kern.LOG_Builder` from your Apex controller method — see
-[Fast Start - Logging](Fast%20Start%20-%20Logging.md). To correlate a client interaction with the Apex it
-triggers, the [LWC Guide](LWC%20-%20Guide.md#utilitylogger---client-side-logging) covers the `utilityLogger`
-correlation helpers.
+transaction, call `kern.LOG_Builder` from your Apex controller method. See
+[Fast Start - Logging](Fast%20Start%20-%20Logging.md). To tie a client interaction to the Apex it triggers
+under one tracking ID that follows a single user action across triggers, queries, callouts and jobs (a
+correlation ID), the [LWC Guide](LWC%20-%20Guide.md#utilitylogger---client-side-logging) covers the
+`utilityLogger` correlation helpers.
 
 ### Custom labels for all UI text
 
-Every string a user sees must come from a Custom Label, never a hardcoded literal — this is what lets
-subscribers translate and override your component's copy. The pattern in an LWC is a `@salesforce/label`
-import:
+Every string a user sees must come from a Custom Label, never a hardcoded literal. This is what lets your org
+translate and override your component's copy. The pattern in an LWC is a `@salesforce/label` import:
 
 ```javascript
 import SAVE_SUCCESS from '@salesforce/label/c.AccountCard_SaveSuccess';
@@ -589,7 +592,8 @@ Lightning App Builder or Flow Builder with no code:
 | `jsonViewer`         | Read-only JSON viewer with syntax highlighting                           | Flow Screens                                      |
 
 The full catalogue, including programmatic building blocks like `sObjectLookup`, lives in the
-[LWC Guide](LWC%20-%20Guide.md#appendix-droppable-components-quick-reference).
+[LWC Guide](LWC%20-%20Guide.md#appendix-droppable-components-quick-reference). If one of these already does
+what you need, you save the whole build.
 
 ### Honest scope and limitations
 
@@ -618,7 +622,7 @@ The full catalogue, including programmatic building blocks like `sObjectLookup`,
 | Jest: *Cannot find module '@salesforce/apex/...'*                           | Apex and label imports are platform-resolved, not on disk | Virtual-mock each `@salesforce/apex/...` and `@salesforce/label/...` import                         |
 | A freshly deployed change looks like it did nothing                         | The live session served the cached bundle                 | Do a full browser page reload to pick up the new bundle                                             |
 | User-facing text can't be translated                                        | A string literal was hardcoded in markup or JS            | Import the text from a Custom Label (`@salesforce/label/c.X`) and reference the import              |
-| `consoleError` logs the wrong thing                                         | Arguments passed in the wrong order                       | Call `this.consoleError(errorObject, 'Class.method')` — the error object is the **first** argument  |
+| `consoleError` logs the wrong thing                                         | Arguments passed in the wrong order                       | Call `this.consoleError(errorObject, 'Class.method')`: the error object is the **first** argument   |
 
 ---
 
@@ -637,12 +641,12 @@ The full catalogue, including programmatic building blocks like `sObjectLookup`,
 
 **Key patterns:**
 
-- **Extend `ComponentBuilder(...)`, never `LightningElement`** — request only the modules you use
-- **Import KernDX modules from `kern/`, your own from `c/`** — the namespace gotcha behind most deploy errors
-- **Call Apex through `callControllerMethod()`** — consistent calling convention and error handling
-- **All user-facing text comes from Custom Labels** — `@salesforce/label/c.X` in LWC, `System.Label.X` in Apex
-- **Virtual-mock every managed-package and platform import in Jest** — the base class, Apex methods, and labels
-- **Keep components thin** — presentation in the component, business logic in Apex
+- **Extend `ComponentBuilder(...)`, never `LightningElement`:** request only the modules you use
+- **Import KernDX modules from `kern/`, your own from `c/`:** the namespace gotcha behind most deploy errors
+- **Call Apex through `callControllerMethod()`:** consistent calling convention and error handling
+- **All user-facing text comes from Custom Labels:** `@salesforce/label/c.X` in LWC, `System.Label.X` in Apex
+- **Virtual-mock every managed-package and platform import in Jest:** the base class, Apex methods, and labels
+- **Keep components thin:** presentation in the component, business logic in Apex
 
 ---
 

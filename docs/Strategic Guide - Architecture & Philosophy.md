@@ -57,39 +57,27 @@ also: [Adoption](Strategic%20Guide%20-%20Adoption.md) | [Operations](Strategic%2
 
 ## Design Thesis
 
-KernDX exists because most enterprise Salesforce orgs eventually build versions of these patterns themselves — over three to five years, accumulating tech debt at every layer (selectors, triggers, logging, web services, async, masking, FLS enforcement). KernDX is what those teams would build *if they had the budget and the cross-cutting design discipline
-upfront*. Subscribers skip the accumulation cycle.
+**What this guide is:** a plain-English explanation of how KernDX is built and why, plus how it lines up against Salesforce's own architecture guidance and against the open-source Apex libraries you might assemble instead. **Why it exists:** so you can judge whether KernDX fits your org before you install anything. **Who should read it:** architects and tech leads choosing a framework, and the delivery managers and executives who need to understand the trade-offs without reading code. **When to use it:** during framework selection, an Architecture Review Board, or a build-versus-buy decision. Throughout, "FLS" means field-level security and "CRUD" means object create, read, update, and delete permissions.
+
+KernDX is a ready-built foundation layer for Salesforce orgs. It ships tested solutions for the plumbing every serious org needs: database access, automation triggers, logging, integrations, background jobs, data protection, and security checks. Most teams build that plumbing themselves over three to five years, picking up maintenance debt at every layer along the way (selectors, triggers, logging, web services, async jobs, masking, security enforcement). KernDX is that same foundation, designed up front by one team. You skip the build-it-yourself cycle and the debt that comes with it.
 
 Five design choices flow from that thesis:
 
-1. **Every feature ships for immediate value.** Capabilities are scoped to what most subscribers will actually use. `TST_Mock` query interception solves the day-one subscriber-test
-   pain (DML-free testing without SOQL side effects) — KernDX deliberately omits a Mockito-style stub-and-verify DSL because the small population of Apex developers who already
-   know that pattern do not justify the API surface for everyone else. Per-SObject masking opt-in is performance-aware: most subscribers do not push credit-card data through every
-   log emit, and a default-on regex tax across every log entry is paid by every subscriber regardless.
-2. **Easy to understand.** The framework uses a consistent fluent-builder pattern across every major surface. `TST_Builder`, `QRY_Builder`, `DML_Builder`, `LOG_Builder`,
-   `UTIL_HttpClient`, and the rest follow the same chainable-build → terminal-execute shape — discoverable through IDE auto-complete, productive on day one. Learning one means
-   learning the others.
-3. **Solves what 95%+ of subscribers will use.** KernDX ships production-ready implementations of every core Salesforce capability — every core capability a Salesforce org needs is
-   shipped, documented, and usable from day one, not just stubbed or aspirational. This is broader than other Apex frameworks the team has surveyed. The long tail of niche
-   capabilities is deliberately not shipped.
-4. **Integration is a feature, not an accident.** `TRG_Base`, `SEL_Base`, `DML_Builder`, `LOG_Builder`, `ComponentBuilder`, `API_Inbound`, and `API_Outbound` cooperate through
-   shared context. Cross-module guarantees — FLS/CRUD enforced by default on read AND write, correlation IDs propagating from trigger through query through outbound HTTP, masking
-   applied before persistence on every framework persistence path, every bypass writes an audit log at the trigger surface — are *only* possible because subscribers adopt the
-   framework families together. A drop-in library cannot make those guarantees.
-5. **Shortcut to enterprise tech-debt avoidance.** Adopting KernDX is a budget-and-time arbitrage: pay for the integration once, get the cross-cutting framework guarantees, skip
-   three to five years of internal-platform-team rebuild cost.
+1. **Every feature earns its place.** Each capability is scoped to what most orgs will actually use. For example, `TST_Mock` lets you write unit tests that return canned query results without saving any data, which removes a day-one pain in subscriber testing. KernDX deliberately leaves out a Mockito-style stub-and-verify testing language, because only a small group of Apex developers already know that pattern, and shipping it for everyone else would not pay off. Masking is another example: you turn it on per object rather than across every log line, because most orgs do not push payment-card data through every log entry, and a default-on scan of every entry would cost every org regardless.
+2. **Easy to learn once, then reuse.** Every major part of the framework is configured the same way: you make a few short chained calls to set it up, then one call runs it and returns the result. `TST_Builder`, `QRY_Builder`, `DML_Builder`, `LOG_Builder`, `UTIL_HttpClient`, and the rest all share that shape. Your editor's auto-complete reveals the options, so learning one builder teaches you the others.
+3. **It covers what 95%+ of orgs need.** KernDX ships ready-to-use, documented implementations of every core Salesforce capability, not stubs or "coming soon" placeholders. That coverage is broader than other Apex frameworks the team has surveyed. The long tail of rare, niche capabilities is deliberately left out.
+4. **The pieces work together by design, not by luck.** `TRG_Base`, `SEL_Base`, `DML_Builder`, `LOG_Builder`, `ComponentBuilder`, `API_Inbound`, and `API_Outbound` share a common context as a request flows through them. That shared context is what makes the cross-module promises possible: permissions enforced by default on both reads and writes; one tracking ID following a single user action from trigger to query to outbound HTTP call (a correlation ID); sensitive data masked before anything is saved on every framework save path; and an audit log written every time a trigger safety check is turned off. These promises are *only* possible because you adopt the framework families together. A drop-in library, picked one piece at a time, cannot make those guarantees.
+5. **A shortcut past years of tech debt.** Adopting KernDX trades money and time once for the integrated guarantees above, so you skip the three to five years (and the rebuild cost) of an internal platform team building the same thing.
 
-**The cost of cohesion is the value.** Subscribers extend `TRG_Base` / `SEL_Base` / `DML_Builder` / `LOG_Builder` / `ComponentBuilder` / `API_Inbound` / `API_Outbound` to use the
-corresponding capability families — that is the deliberate cohesion trade-off the framework exists to deliver, not a deficiency. Drop-in libraries make no cross-module guarantees;
-that is what they trade away.
+**The cost of cohesion is the value.** To use a capability family, you extend its base class (`TRG_Base`, `SEL_Base`, `DML_Builder`, `LOG_Builder`, `ComponentBuilder`, `API_Inbound`, or `API_Outbound`). Routing your code through those base classes is the deliberate trade the framework exists to make, not a flaw: it is what lets the pieces cooperate. Drop-in libraries make no cross-module guarantees, and that is exactly what they trade away in return for independence.
 
 ## Philosophy & Design Principles
 
-The thesis above informs six architectural principles that distinguish KernDX from both single-vendor monolithic frameworks and modular library assembly.
+That thesis leads to six design principles. Together they set KernDX apart from two other options: a single-vendor framework that is one big locked block, and a modular stack you assemble yourself from separate libraries.
 
 ### Configuration over Code
 
-Every recurring architectural decision in KernDX is driven by custom metadata rather than hardcoded logic:
+The outcome here is that admins can change how the framework behaves without a developer and without a deployment. The way it works: every recurring architectural decision in KernDX is driven by configuration records (custom metadata) instead of hardcoded logic.
 
 | Concern           | Metadata Type                                      | What It Controls                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 |-------------------|----------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -101,56 +89,40 @@ Every recurring architectural decision in KernDX is driven by custom metadata ra
 | Logging           | `LogSetting__c`                                    | Log level thresholds, performance thresholds                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Data masking      | `MaskingRule__mdt` + `MaskingTarget__mdt`          | Runtime field redaction for any SObject or platform event before the record is persisted. Four masking modes (regex, JSON-key, exact-match, credit-card with Luhn validation) plus 18 built-in masking rules. Default ship set wires three active rules to four package objects through twelve `MaskingTarget__mdt` records; admins extend coverage to their own objects by adding more `MaskingTarget__mdt` records. Rules can be scoped via `MinInputLength__c` and `ApplicableFieldTypes__c`. |
 
-Admins can reorder trigger handlers, toggle features, adjust retry strategies, and enable debug logging — all without code deployment.
+So an admin can reorder trigger handlers, toggle features on or off, adjust retry strategies, and turn on debug logging, all by editing records and none of it requiring a code deployment.
 
 ### Accelerator, not a Product
 
-KernDX is consultant-owned IP, not a SaaS product:
+The outcome that matters here: you own what you adopt, and there are no recurring fees or vendor lock-in. KernDX is consultant-owned intellectual property, not a subscription product. In practice that means:
 
-- **Zero licensing fees** — no recurring costs, no per-user pricing
-- **Source publicly available under BSL 1.1** — the framework source is hosted on the public project repository, relicenses to Apache 2.0 after a four-year change date, and is
-  delivered as part of every consulting engagement
-- **Three exit paths:** continue managed package, deploy as source from the public repository, or repackage under client namespace
-- **No vendor lock-in** — standard Apex patterns (selectors, triggers, DTOs, builders) that any experienced developer already understands
+- **No licensing fees.** No recurring costs and no per-user pricing.
+- **Source is publicly available under the BSL 1.1 license.** The framework source lives on the public project repository, converts to the permissive Apache 2.0 license after a four-year change date, and is delivered as part of every consulting engagement.
+- **Three exit paths.** Keep running the managed package, deploy the source straight from the public repository, or repackage it under your own namespace.
+- **No vendor lock-in.** The code uses standard Apex patterns (selectors, triggers, small data-transfer classes, and builders) that any experienced developer already recognises.
 
-KernDX is designed to be adopted and then owned.
+The aim is for you to adopt KernDX and then own it.
 
-**Structural cost differences (qualitative — no specific dollar comparison):**
+**How the costs differ (described in plain terms, with no specific dollar figures):**
 
-This guide does not publish a per-product dollar comparison against AppExchange alternatives because AppExchange pricing varies widely by product, org size, contract terms, and
-negotiated discounts — any specific figure would be illustrative at best and misleading at worst. The structural differences that *do* hold across AppExchange product comparisons:
+This guide does not put a dollar figure next to AppExchange alternatives, because their pricing swings widely with product, org size, contract terms, and negotiated discounts. Any number we printed would be a guess at best and misleading at worst. What does hold across those comparisons are three structural differences:
 
-- **Recurring licensing.** AppExchange products typically carry recurring per-org, per-user, or per-transaction licensing fees. KernDX has zero recurring license fees during the
-  BSL 1.1 period and relicenses to Apache 2.0 after the four-year change date.
-- **Exit cost.** AppExchange products typically incur high exit cost: vendor lock-in, contractual end-of-term terms, data-migration effort, custom-code rewrite to switch vendors.
-  KernDX exit cost is zero in licensing terms — the source is publicly available under BSL 1.1, so the subscriber can continue using it independently of any vendor relationship;
-  consulting engagements include direct source delivery and handover support but are not a precondition for source access.
-- **Customisation ceiling.** AppExchange product customisation is bounded by the vendor's extension points and what the managed package exposes. KernDX customisation is bounded
-  only by what the subscriber chooses to modify after source-ownership transfer.
+- **Recurring licensing.** AppExchange products usually charge ongoing fees, per org, per user, or per transaction. KernDX charges no recurring license fee during the BSL 1.1 period, and converts to Apache 2.0 after the four-year change date.
+- **Cost to leave.** Switching away from an AppExchange product is usually expensive: vendor lock-in, end-of-contract terms, data migration, and rewriting custom code for a new vendor. Leaving KernDX costs nothing in licensing terms. The source is publicly available under BSL 1.1, so you can keep using it with or without any vendor relationship. Consulting engagements add direct source delivery and handover support, but they are not required to get the source.
+- **How far you can customise.** With an AppExchange product, you can only customise as far as the vendor's extension points allow. With KernDX, you can customise as far as you choose once you take ownership of the source.
 
-For a specific dollar comparison, run the cost numbers against the AppExchange product you are evaluating using your team's own implementation effort estimates; this guide cannot
-do that comparison on your behalf.
+For an actual dollar comparison, run the numbers against the specific AppExchange product you are weighing, using your own team's effort estimates. This guide cannot make that comparison for you.
 
 ### Integrated Stack
 
-The Salesforce ecosystem offers two viable full-stack approaches: **modular assembly** (mix of single-capability libraries) and **integrated frameworks** (KernDX). Both cover the
-same concerns. The difference is what happens *between* the components.
+There are two workable ways to cover all the plumbing a serious org needs. You can assemble a **modular stack** by picking one library per capability, or you can use an **integrated framework** like KernDX. Both cover the same concerns. The difference is what happens *between* the pieces.
 
-**What integration provides automatically (and what it costs):**
+**What you get for free when the pieces are integrated (and what it costs):**
 
-When a trigger action fails in KernDX, `LOG_Builder` automatically captures the error with trigger context, the correlation ID from the originating request, and performance timing.
-If that trigger action calls an API via `UTIL_HttpClient`, the correlation ID propagates to the outbound request header. If a query runs during that same transaction, `QRY_Builder`
-logs slow queries against the same correlation. If the entire feature needs to be disabled, a single `FeatureFlag__mdt` record prevents the trigger action from executing — which
-means the API call and queries never fire either.
+A worked example makes this concrete. When a trigger action fails in KernDX, `LOG_Builder` automatically records the error along with the trigger context, the correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts and jobs) from the originating request, and timing. If that same trigger action calls an API through `UTIL_HttpClient`, the correlation ID rides along in the outbound request header. If a query runs in the same transaction, `QRY_Builder` logs any slow query against the same correlation ID. And if you need to switch the whole feature off, a single `FeatureFlag__mdt` record stops the trigger action from running, which means the API call and the queries never fire either.
 
-When an async chain needs to call external APIs, `UTIL_AsyncChain.ApiStep` wraps any existing `API_Outbound` handler as a chain step with zero changes to the handler. The handler's
-full lifecycle — validation, callout, retry, circuit breaker, response parsing, DML, queue persistence — runs within the chain's Queueable transaction, with results flowing into a
-shared context for downstream steps (shared state passes between async transactions; finalizer hooks; emergency kill switch). In a modular stack, connecting an async chain library
-to an HTTP client library would require custom adapter code at every integration point.
+Here is a second example. When a background chain of steps needs to call external APIs, `UTIL_AsyncChain.ApiStep` wraps any existing `API_Outbound` handler as a step in the chain with no changes to the handler. The handler's full sequence (validation, callout, retry, circuit breaker, response parsing, save, and queue persistence) runs inside the chain's background transaction, and the results flow into a shared context for the steps that follow (state carries between background transactions; there are finalizer hooks and an emergency off-switch). In a modular stack, wiring a separate async-chain library to a separate HTTP-client library would mean writing custom adapter code at every connection point.
 
-In a modular stack, these integrations require explicit instrumentation at each boundary. However, this automatic coherence requires all code to flow through the framework —
-increasing coupling to a single vendor's conventions and release cycle. Coherence is best understood as an entropy management mechanism (see [Operational Entropy and Maintainability in Multi-Team Environments](Strategic%20Guide%20-%20Adoption.md#operational-entropy-and-maintainability-in-multi-team-environments)),
-not an inherent quality advantage.
+In a modular stack, integrations like these need you to wire each boundary by hand. The trade-off runs the other way too: getting this coherence for free requires all your code to flow through the framework, which ties you more tightly to one vendor's conventions and release cycle. The right way to read this coherence is as a way to slow the gradual drift toward inconsistent code as different teams pick different patterns (see [the related discussion in the Adoption guide](Strategic%20Guide%20-%20Adoption.md#operational-entropy-and-maintainability-in-multi-team-environments)). It is not, by itself, an inherent quality advantage.
 
 | Concern                              | Modular Stack (5+ Libraries)                                                                                                      | KernDX                                                                                                                                                                                | KernDX Trade-Off                                                 |
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
@@ -164,13 +136,9 @@ not an inherent quality advantage.
 | **Async → API bridge**               | Write custom adapter to wire async chain library to HTTP client; manage serialization, error mapping, result propagation manually | `ApiStep` wraps any `API_Outbound` handler as a chain step — zero glue code, full lifecycle preserved                                                                                 | Only possible because both frameworks are in the same package    |
 | **Cross-boundary error propagation** | Logger captures whatever context the developer manually provides                                                                  | Trigger context, API request/response, correlation ID, and stack trace captured in a single structured log entry                                                                      | Diagnostic detail dependent on framework version                 |
 
-**The trade-off:** KernDX installs all 363 classes as a managed package, but unused code is genuinely inert — it does not count against the 6 MB Apex code limit, does not appear in
-subscriber PMD scans or coverage reports, and consumes zero governor limits when not called. The modular stack gives control over what is *installed*, but in a managed package
-context this distinction is less significant than it appears. The real difference is convention coupling: KernDX requires all code to flow through one vendor's patterns, while
-modular stacks allow mixing approaches — at the cost of coherence discipline. Neither approach is categorically better — it depends on whether coherence or flexibility matters more
-to your team.
+**The trade-off:** KernDX installs all 363 classes as a managed package, but the code you do not use stays genuinely inert. It does not count against the 6 MB Apex code limit, does not show up in your own PMD scans or coverage reports, and uses zero governor limits unless it is called. A modular stack gives you control over what is *installed*, which is a real advantage. In a managed-package context, though, that distinction matters less than it first appears. The difference that does matter is convention coupling: KernDX asks all your code to flow through one vendor's patterns, while a modular stack lets you mix approaches, at the cost of keeping those approaches consistent. Neither approach is categorically better. It comes down to whether consistency or flexibility matters more to your team.
 
-**Worked example — Adding a new integration:**
+**Worked example: adding a new integration.**
 
 | Step                                                                               | Modular Stack                                                                                                         | KernDX                                                                        |
 |------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
@@ -184,37 +152,31 @@ to your team.
 | 8. Add to async chain                                                              | Write custom adapter to bridge async library and HTTP client; manage serialization, error mapping, result propagation | `.then(new UTIL_AsyncChain.ApiStep(API_MyService.class))` — zero adapter code |
 | **Total effort (illustrative — measure against your team's actual delivery data)** | **Several days per new integration**                                                                                  | **Half a day to one day per new integration**                                 |
 
-The specific day-counts above are illustrative — this guide does not measure per-step development time across stacks because that varies heavily with team experience, codebase
-context, and the specific integration. The structural difference *is* load-bearing: a modular stack offers more control per step at the cost of writing the integration glue, while
-KernDX offers faster delivery via configuration at the cost of all code flowing through the framework. For 10+ integrations the cumulative difference becomes material; subscribers
-should measure step time against their own delivery data. Step 8 is particularly telling: in a modular stack, connecting an async chain library to an HTTP client library requires
-custom adapter code per integration; in KernDX, the two frameworks already know about each other.
+The day-counts above are illustrative, not measured. This guide does not time each step across stacks, because that varies heavily with team experience, the surrounding codebase, and the specific integration. The structural difference is the load-bearing part: a modular stack gives you more control at each step in exchange for writing the connecting glue, while KernDX gives you faster delivery through configuration in exchange for all your code flowing through the framework. Across 10 or more integrations the gap adds up, so measure step time against your own delivery data. Step 8 is the clearest case: in a modular stack, connecting an async-chain library to an HTTP-client library needs custom adapter code for every integration, whereas in KernDX the two parts already know about each other.
 
-**Integration burden — amortized across capabilities.** KernDX bundles the 17 framework areas into one managed package with one namespace, one upgrade cadence, one security-review
-surface, and one bypass-audit signal. Subscribers picking individual open-source libraries to assemble equivalent coverage accept three carrying costs that the bundled framework
-amortizes: operational integration cost (configuring multiple libraries to coexist — namespace alignment, settings hierarchies, cross-library bypass coordination), security-review
-carrying cost (each library is its own review surface per upgrade), and upgrade / maintenance carrying cost (independent release cadences across the library set). Because every
-capability ships against the same shared framework infrastructure (trigger surface, logging, masking, bypass-audit signal), subscribers pay the integration cost once at framework
-adoption rather than per library for each capability added. The Category considerations — integration burden analysis section lays out the category-level framing; this section
-explains the architectural choice that makes the amortization possible.
+**You pay the integration work once, not per library.** KernDX bundles the 17 framework areas into one managed package: one namespace, one upgrade cadence, one security-review surface, and one place that records every safety-check bypass. Assembling the same coverage from separate open-source libraries means carrying three ongoing costs that the bundle absorbs once:
+
+- The work of making the libraries coexist (lining up namespaces, settings hierarchies, and bypass coordination across libraries).
+- A separate security review for each library on every upgrade.
+- Independent release schedules to track across the whole library set.
+
+Because every KernDX capability is built on the same shared foundation (the trigger surface, logging, masking, and the bypass-audit record), you do that integration work once when you adopt the framework, rather than again for each library you add. The Adoption guide frames this at the category level; this section explains the architectural choice that makes it possible.
 
 ### 100% Coverage or Nothing
 
-KernDX enforces 100% per-file Apex coverage on every production class and 95% statement/branch coverage on every LWC. This is not a quality badge — it is a managed package
-requirement.
+The outcome: bugs are far less likely to reach your org through a coverage gap. KernDX holds every production Apex class to 100% per-file test coverage and every Lightning (LWC) component to 95% statement and branch coverage. This is not a vanity badge. It is a practical requirement of shipping a managed package.
 
-Salesforce requires 75% coverage for production deployment and managed package upload. KernDX targets 100% because:
+Salesforce only requires 75% coverage to deploy to production or upload a managed package. KernDX targets 100%, for three reasons:
 
-- **Managed packages cannot be patched** — a bug in a released version requires a push upgrade to every subscriber org. Coverage gaps become production risks.
-- **Agent-driven modification requires test verification** — AI coding assistants validate changes via unit tests. Gaps in coverage mean gaps in AI safety.
-- **Coverage discipline prevents test debt** — the difference between 95% and 100% is usually the error handling and edge cases that cause production incidents.
+- **A released managed package cannot be quietly patched.** Fixing a bug means pushing an upgrade to every org that installed it, so any gap in coverage turns straight into production risk.
+- **AI coding assistants lean on the tests to check their own work.** When an AI tool changes the code, it verifies the change by running the unit tests. A gap in coverage is a gap in that safety net.
+- **Closing the last few percent is where the real risk lives.** The difference between 95% and 100% is usually the error handling and edge cases that cause production incidents.
 
-KernDX is the only Apex framework surveyed with a coverage gate enforced at every build (`coverage_gate_present = true`; `scripts/evaluate-coverage.js` enforces 100% Apex
-per-file + 95% LWC statements + 95% LWC branches + ≥ committed baseline). Other comparators report coverage but do not gate on it.
+KernDX is the only Apex framework surveyed with a coverage gate enforced at every build (`coverage_gate_present = true`; the `scripts/evaluate-coverage.js` gate requires 100% Apex per-file, 95% LWC statements, 95% LWC branches, and never below the committed baseline). Other frameworks we compared report their coverage but do not block a build on it.
 
 ### AI-First Documentation
 
-KernDX maintains three AI context files, each with a distinct purpose:
+The outcome: an AI coding assistant can write code that follows KernDX conventions from the very first prompt, because the framework ships the context those tools need. KernDX maintains three such context files, each with its own job:
 
 | File                                                    | Tokens | Location  | Purpose                                                                                                                                                  |
 |---------------------------------------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -222,22 +184,21 @@ KernDX maintains three AI context files, each with a distinct purpose:
 | `docs/Code Conventions - Guide.md`                      | ~12K   | `docs/`   | Canonical framework conventions, code patterns, critical rules for AI code generation                                                                    |
 | [`AI Agent Instructions`](AI%20Agent%20Instructions.md) | ~10K   | `docs/`   | Complete per-module framework reference for deep AI-assisted development — architecture, module inventory, conventions, worked examples                  |
 
-These files are not documentation afterthoughts — they are engineering artifacts that enable AI coding tools (Claude Code, Cursor, Cline, Agentforce Vibes) to generate
-convention-compliant code from day one.
+These are not documentation afterthoughts. They are engineering artifacts, written so AI coding tools (Claude Code, Cursor, Cline, Agentforce Vibes) generate code that matches the framework's conventions from day one.
 
-**Impact:** Standardised AI context files reduce ambiguity for AI code generation, improving convention compliance from the first interaction.
+**Why this matters for you:** standard, machine-readable context removes guesswork for AI code generation, so the code it produces follows your conventions from the first interaction instead of after several rounds of correction.
 
 ### Trade-offs
 
-KernDX is not the right choice for every situation:
+KernDX is not the right choice for every situation. Here are the honest costs and where a specialist tool goes deeper:
 
 | Trade-off                                                       | Context                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 |-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Single primary developer**                                    | Bus factor of 1. Mitigated by source ownership, the full documentation stack (see [Documentation Architecture](#documentation-architecture)), standard Apex patterns, and AI context files. Single-maintainer concentration is the norm across the comparable Apex frameworks surveyed — see [Bus Factor Mitigation](#bus-factor-mitigation) for the per-framework picture.                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **No public community yet**                                     | Cannot search Stack Overflow for KernDX errors. Mitigated by 26 developer documents (14 guides, 12 fast starts), 263 API references, and AI context.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **No public community yet**                                     | You cannot search Stack Overflow for KernDX errors yet. Offset by 26 developer documents (14 guides, 12 fast starts), 263 API references, and the AI context files.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **v1.0 — newly released, short public adoption history**        | First validated build packaged; testing-hardened (100% per-file Apex coverage gate, 95% LWC, 471 anon-Apex assertions in the subscriber e2e harness); publicly released under BSL 1.1 and promoted for production install, with one known external client engagement in active use at the snapshot date and public adoption still early. See [Adoption Signal Profile](#adoption-signal-profile) for what grows this track record, and [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier.                                                                                                                                                                                                                             |
 | **Full package deployment**                                     | Managed package installs all 363 classes. Unused code is genuinely inert — exempt from 6 MB limit, invisible to subscriber PMD/coverage, zero governor impact. The cost is namespace prefix on references and a single (larger) upgrade cycle, not deployed footprint.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Namespace verbosity**                                         | Subscriber code requires namespace prefix. Modern IDEs auto-complete this.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Namespace verbosity**                                         | Your code has to carry the namespace prefix. Modern editors auto-complete it for you.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **No pre-built log browser**                                    | [`nebula-logger`](https://github.com/jongpie/NebulaLogger) ships a dedicated historical log browser (mixed transport, seven log levels, historical browser, retention purge). KernDX provides real-time log monitoring via Streaming Event Monitor and persists logs to `LogEntry__c` for subscriber-built reports and dashboards. KernDX also ships operational UI components (Chain Monitor, Streaming Event Monitor, API Test Harness, Health Check, Org Limits) but no dedicated log search/browse interface. **This is the one substantive UI surface where a comparator covers more aspects than KernDX.**                                                                                                                                                                         |
 | **Deliberate non-goal: Domain / Service / Application pattern** | [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common) ships the canonical Domain / Service / Application factory pattern (four factory inner classes — UnitOfWorkFactory, ServiceFactory, SelectorFactory, DomainFactory — each with a dedicated interface contract). KernDX does not ship a Domain class hierarchy. `DML_Builder` surfaces the transactional Unit-of-Work aspect (parent-child chaining, partial success, async DML) but KernDX deliberately omits service factory and Application factory patterns. Teams whose architecture requires the Service / Application factory with type-bound Selector / Domain / Unit-of-Work should install `fflib` alongside KernDX (the two coexist — `fflib` for domain modelling, KernDX for infrastructure).       |
 | **Deliberate non-goal: Mockito-style mock DSL**                 | [`fflib-mocks`](https://github.com/apex-enterprise-patterns/fflib-apex-mocks) ships Mockito-style stub-and-verify (98 argument-matcher factories, verification modes `times/atLeast/atMost/between/never`, sequence verification). KernDX is absent by design on this aspect. KernDX's `TST_Mock.of(SObjectType).withOverride(field, value).build()` solves the day-one subscriber-test pain — DML-free testing without SOQL side effects — with zero learning curve. KernDX explicitly chose against shipping Mockito because the learning curve does not pay off for the small population of Apex developers who would use it, and an unused-but-shipping API surface is a maintenance liability. Teams already invested in Mockito-style mocking ship `fflib-mocks` alongside KernDX. |
@@ -246,8 +207,7 @@ KernDX is not the right choice for every situation:
 
 ### Modular in Practice
 
-A common misconception is that adopting KernDX means "learning the whole framework" upfront. In practice, KernDX modules can be adopted individually, just like individual libraries
-in a modular stack:
+People often assume that adopting KernDX means learning the whole framework before you can use any of it. That is not how it works. You can adopt one module at a time, the same way you would add one library at a time to a modular stack. Here is how quickly each module pays off on its own:
 
 | Feature                  | Core Class            | Time to First Use       | What You Learn                                               |
 |--------------------------|-----------------------|-------------------------|--------------------------------------------------------------|
@@ -267,15 +227,13 @@ in a modular stack:
 | Lightning Web Components | `ComponentBuilder`    | ~30 minutes             | Composable LWC modules instead of raw `LightningElement`     |
 | Full framework           | —                     | Adopt incrementally     | All modules, each building on the previous                   |
 
-Comparisons that measure total framework size against individual library size assume a developer learning *everything at once* — which no one does with modular stacks either. A
-developer adopting a five-library modular stack also spends 1-2 weeks learning that many APIs with that many different conventions.
+When someone compares the size of the whole framework against a single library, they are assuming a developer learns *everything at once*. No one does that, and no one does it with a modular stack either. A developer adopting a five-library modular stack also spends 1-2 weeks learning that many separate APIs, each with its own conventions.
 
-**The real comparison is per-module learning time, not total framework size.**
+**So the fair comparison is per-module learning time, not the total size of the framework.**
 
 ### Designed for the Subscriber
 
-Most open-source Salesforce libraries are shared by developers in their own style — the code works, but it wasn't designed with the installer's experience in mind. KernDX takes a
-different approach:
+Most open-source Salesforce libraries are shared by developers in their own style. The code works, but it was not built with the person installing it in mind. KernDX takes a different approach, and the table below shows what that looks like next to a typical open-source library:
 
 | Aspect                   | KernDX                                                                                                                       | Typical Open-Source Library                             |
 |--------------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
@@ -287,14 +245,13 @@ different approach:
 | **Code examples**        | Every guide includes copy-paste-ready examples following framework patterns                                                  | Varies                                                  |
 | **Onboarding path**      | Structured: "I want to build X" → Fast Start → Guide → Reference                                                             | Self-directed: read the README                          |
 
-When a new developer joins a team using KernDX, the path from "I've never seen this" to "I built my first trigger action" is documented. DORA research (2022) found that
-high-quality documentation dramatically amplifies the performance lift of technical practices —
-see [Build vs Buy: Cost Considerations](Strategic%20Guide%20-%20Adoption.md#build-vs-buy-cost-considerations) for the qualitative cost framing this implies.
+When a new developer joins a team that uses KernDX, the path from "I have never seen this" to "I built my first trigger action" is written down. DORA research (2022) found that high-quality documentation strongly amplifies the performance gains of good technical practices. See [Build vs Buy: Cost Considerations](Strategic%20Guide%20-%20Adoption.md#build-vs-buy-cost-considerations) for the cost picture this implies, described qualitatively.
 
-**Why this matters for subscriber orgs:** Source-distributed libraries without ApexDoc or with PMD violations become part of the subscriber's code analysis from day one. Every PMD
-violation in imported source becomes a violation in *your* org's analysis. A managed package encapsulates its code — it does not appear in the subscriber's code analysis.
+**Why this matters for your org:** when you pull in a source-distributed library that has no ApexDoc or carries PMD (static-analysis) violations, that code becomes part of your own code analysis from day one. Every PMD violation in the imported source shows up as a violation in *your* org. A managed package keeps its code sealed off, so it never appears in your code analysis at all.
 
 ### Managed Package vs Source Distribution
+
+KernDX ships as a managed package. Open-source libraries ship as source you install directly. The two delivery models behave very differently once they are in your org, so it helps to see them side by side. Each row credits the side that wins on that factor:
 
 | Factor                             | Managed Package (KernDX)                                                                                                                                                                                                                                                                            | Source Distribution (open-source libraries)                                                                                                                                                       |
 |------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -311,15 +268,17 @@ violation in imported source becomes a violation in *your* org's analysis. A man
 | **Community governance**           | Vendor-controlled roadmap                                                                                                                                                                                                                                                                           | Community-controlled roadmap                                                                                                                                                                      |
 | **Subscriber deployment impact**   | Near zero. The framework's tests do not run during subscriber deployments (managed package tests are isolated unless `RunAllTestsInOrg` is forced). Installing or upgrading a 2GP is comparable to heavy managed packages already standard in enterprise pipelines (Financial Services Cloud, CPQ). | Framework tests run alongside subscriber code on every deployment, inflating CI/CD windows. Adding 100+ framework test classes to a subscriber's `RunLocalTests` scope compounds with org growth. |
 
-**The trade-off:** Managed packages provide consistency, encapsulation, and simplified operations at the cost of customisability. Source distribution provides maximum flexibility
-at the cost of maintenance burden, code quality variability, and operational complexity. KernDX mitigates the customisability concern with publicly available source under BSL 1.1 —
-if you need to modify the framework, you can clone the public repository, modify per the licence, and repackage under your own namespace.
+**The trade-off:** a managed package gives you consistency, sealed-off code, and simpler operations, in exchange for less ability to customise. Source distribution gives you maximum flexibility, in exchange for the maintenance burden, the variation in code quality, and the operational complexity of carrying that code yourself. KernDX softens the customisability cost because its source is publicly available under BSL 1.1: if you need to change the framework, you can clone the public repository, modify it under the licence, and repackage it under your own namespace.
 
 ---
 
 ## Capabilities at a Glance
 
+This part of the guide is the at-a-glance inventory: what ships, how much of it, and the one-line example for each module. Skim it to see the breadth; the developer guides cover each module in depth.
+
 ### Module Inventory
+
+The table below lists every module, how many classes it contains, what it does, and the class you start from. The competitive depth notes (typed subselects, the inbound-REST surface, the pluggable feature-flag strategy, and so on) are facts about each module's reach.
 
 | Module                  | Classes | Purpose                                                                                                                                                                                                                                                                                                                    | Key Class                                                              |
 |-------------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
@@ -419,7 +378,7 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 
 ### Custom Metadata Topology
 
-KernDX's configuration-over-code approach is backed by 15 custom metadata types organized in a clear hierarchy:
+The configuration-over-code approach above rests on 15 custom metadata types (the configuration-record types admins edit). The diagram shows how those records are laid out and relate to each other:
 
 ```text
                     ┌─────────────────────────┐
@@ -472,6 +431,8 @@ KernDX's configuration-over-code approach is backed by 15 custom metadata types 
 
 ### Documentation Architecture
 
+The documentation is layered so you can enter at the right level for what you are doing, from a first-day walkthrough up to per-class API reference:
+
 | Layer              | Documents                                                                                                                                | Purpose                                                                                                |
 |--------------------|------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | **Onboarding**     | Start Here                                                                                                                               | First-day walkthrough building one implementation per module                                           |
@@ -487,14 +448,11 @@ KernDX's configuration-over-code approach is backed by 15 custom metadata types 
 
 ## Salesforce Well-Architected Alignment
 
-This section evaluates how KernDX aligns with the [Salesforce Well-Architected Framework](https://architect.salesforce.com/well-architected/overview) — Salesforce's prescriptive
-guidance for building solutions across the Trusted, Easy, and Adaptable pillars. This content is suitable for Architecture Review Boards and executive-level discussions.
+Salesforce publishes its own guidance for building solid solutions, the [Salesforce Well-Architected Framework](https://architect.salesforce.com/well-architected/overview), organised around three pillars: Trusted, Easy, and Adaptable. This section maps KernDX against that guidance so you can see where it helps and where it does not. It is written for Architecture Review Boards and executive-level discussions.
 
-> **Why This Matters:** Executives recognize the "Well-Architected" brand from AWS and Azure. Mapping KernDX to Salesforce's equivalent validates the architectural choice in
-> executive-level discussions and Architecture Review Boards.
+> **Why this matters:** executives already know the "Well-Architected" brand from AWS and Azure. Mapping KernDX to Salesforce's version of it gives you a recognised vocabulary for validating the architectural choice in front of an Architecture Review Board or a leadership team.
 
-> **Critical Distinction:** Well-Architected defines *outcomes* to pursue. KernDX provides *implementation patterns* that support those outcomes. Framework adoption accelerates
-> alignment — it does not replace architectural judgement.
+> **One important distinction:** Well-Architected describes the *outcomes* to aim for. KernDX provides *implementation patterns* that help you reach them. Adopting the framework speeds up that alignment. It does not replace architectural judgement.
 
 **Audience Guide:**
 
@@ -541,9 +499,11 @@ OVERALL: 6 of 8 behaviours ALIGNED │ 2 PARTIAL (Compliant by regulatory scope;
 
 ### Three Pillars: Detailed Analysis
 
+The tables below take each pillar in turn. For every Well-Architected requirement, they show what KernDX actually provides and how default-on that behaviour is. Where the framework does not cover something, the gap is stated plainly rather than glossed over.
+
 #### Pillar 1: Trusted
 
-**Secure — ALIGNED**
+**Secure: ALIGNED**
 
 | Well-Architected Requirement  | KernDX Implementation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Posture                                                                                                                                           |
 |-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -553,19 +513,11 @@ OVERALL: 6 of 8 behaviours ALIGNED │ 2 PARTIAL (Compliant by regulatory scope;
 | Prevent data exposure         | `MaskingRule__mdt` + `MaskingTarget__mdt` — runtime field redaction framework intercepting before-insert / before-update / before-publish on any SObject or platform event (masks via regex, Luhn for payment-card detection, literal-string, and JSON-key matching; four masking modes; three failure actions; 18 built-in masking rules; caller-class scoping). Sensitive content is rewritten in memory so the database never stores the raw value — redaction happens before persistence, distinct from `stripInaccessible` which filters after query. Ships with 18 masking-rule records (3 active by default plus 15 inactive templates) and twelve masking-target records wildcarded onto four high-risk package objects; admins extend coverage to their own org's objects via additional masking-target records. **Per-SObject opt-in is a deliberate design trade-off** — most subscribers do not push credit-card data through every log emit, and a default-on regex tax on every persistence path is paid by every subscriber regardless. This is not a default-on-versus-opt-in choice: KernDX masking is itself default-on — secret, payment-card and credit-card rules redact all four high-risk diagnostic objects, log events included, before persistence with no configuration. `nebula-logger`'s masking is likewise default-on but confined to its own log payload and cannot reach an arbitrary SObject. KernDX defaults to the universally-relevant rules (card numbers, secrets) and ships 15 more tested rules — spanning US and international identifiers — that activate on any object or field, so subscribers enable exactly what their jurisdiction and data warrant. The Data Masking Advisor scans your own custom objects for regulated fields that have no masking target and exports a regulated-field inventory, so the per-SObject opt-in is discoverable rather than silent. | default-on at the kill-switch level; per-SObject opt-in via `TriggerSetting.ApplyMasking__c`                                                      |
 | Audit bypass usage            | Every trigger-bypass call writes a structured audit log carrying the correlation ID so bypasses are traceable across triggers, async chains, and API calls (`bypass_audit_signal = event`; bypass works at four levels — per-object, per-action, per-flow, framework-wide). KernDX is one of two frameworks (alongside `rflib`) shipping built-in trigger bypass-audit emission. Per-builder toggles (`QRY_Builder.withSystemMode()`, `DML_Builder.bypassSharing()`) are calls subscribers write themselves in source — auditable via git + code review + source-grep — but do not yet emit runtime audit signals; extending audit emission to the per-builder layer is on the post-1.0 work plan.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | default-on at the trigger surface                                                                                                                 |
 
-**v1.0 security posture.** KernDX ships FLS/CRUD enforced by default on queries and DML, bypass audit logging at the trigger surface, idempotency body-hash returning HTTP 409 on
-inbound replay divergence (a capability KernDX uniquely ships surveyed), and a CI-blocking scanner rule on undeclared access modes. The per-selector system-mode hook is the
-documented opt-out for framework-internal read paths; metadata kill-switches are the emergency reversion (flip one record, no code deploy, to revert if a subscriber hits unexpected
-FLS blocks). Encryption, sharing (at class-declaration layer), and masking surfaces remain default-on where they ship.
+**v1.0 security posture.** Out of the box, KernDX enforces FLS and CRUD permissions by default on both queries and DML; writes a bypass audit log at the trigger surface; rejects an inbound request that replays an old one with changed content (it compares a hash of the body and returns HTTP 409, a capability KernDX uniquely ships among those surveyed); and blocks any build whose code leaves an access mode undeclared. For framework-internal read paths, the documented opt-out is a per-selector system-mode hook. The emergency reversion is a metadata kill-switch (a master off-switch you flip in one record, with no code deploy, if you hit unexpected permission blocks). Encryption, sharing at the class-declaration layer, and masking all stay default-on wherever they ship.
 
-**Security defaults across the comparable Apex frameworks surveyed.** On the four signals that drive defect rate (sharing default, access-mode default, bypass audit, inbound
-trust), KernDX defaults to the secure setting on all four. `rflib` covers more aspects of this dimension than any other Apex framework surveyed — partial bypass-audit emission and
-partial FLS-enforced reads, with no shipped surface on inbound trust or FLS-enforced DML — vs KernDX shipping a complete secure-default implementation on all four signals. One
-nuance remains: per-SObject masking is opt-in for custom objects (a deliberate performance trade-off, see *Prevent data exposure* row above) — the Data
-Masking Advisor flags your own custom objects that hold regulated data but have no masking target, so the opt-in is discoverable rather than silent. The
-repository ships a top-level `SECURITY.md` documenting the vulnerability-reporting process.
+**Security defaults across the comparable Apex frameworks surveyed.** Four settings tend to drive defect rate: the sharing default, the access-mode default, whether bypasses are audited, and whether inbound requests are trusted by default. KernDX defaults to the secure choice on all four. Among the frameworks surveyed, `rflib` covers more of this ground than any other: it ships partial bypass-audit and partial FLS-enforced reads, but no surface for inbound trust or FLS-enforced DML. KernDX ships a complete secure-default implementation across all four signals. One honest nuance remains: for your own custom objects, masking is opt-in (a deliberate performance trade-off, explained in the *Prevent data exposure* row above). The Data Masking Advisor flags any custom object that holds regulated data but has no masking target, so that opt-in is discoverable, not silent. The repository ships a top-level `SECURITY.md` documenting how to report a vulnerability.
 
-**Compliant — PARTIAL**
+**Compliant: PARTIAL**
 
 | Well-Architected Requirement | KernDX Implementation                                                                                                                                                                                                               | Gap                                                                                                                                                                                                                                |
 |------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -573,10 +525,9 @@ repository ships a top-level `SECURITY.md` documenting the vulnerability-reporti
 | Permission enforcement       | CRUD/FLS enforced by default on `QRY_Builder` / `DML_Builder`; `.stripInaccessible()` and feature flags for conditional access                                                                                                      | Regulatory compliance programmes (GDPR, PCI-DSS) are policy, not infrastructure.                                                                                                                                                   |
 | Data governance              | Field-level security enforcement default-on; runtime field redaction via the data masking framework (any SObject text field, declarative rules, in-memory rewrite before DML — default-on at kill-switch level, per-SObject opt-in) | Data classification, retention policies, right-to-erasure, and regulation-specific mapping of fields to rules (GDPR Art. 25, PCI-DSS Req. 3, HIPAA §164.514, CCPA/CPRA §1798.100(c)) are subscriber policy, not framework-provided |
 
-*Gap rationale:* Regulatory compliance requires domain-specific controls (data classification policies, retention rules, consent management) that no technical framework can provide
-generically. KernDX provides the infrastructure (audit logging, permission enforcement, encryption) on which compliance programmes are built.
+*Why the gap exists:* regulatory compliance needs domain-specific controls, such as data-classification policies, retention rules, and consent management, that no technical framework can provide generically. What KernDX gives you is the infrastructure that compliance programmes are built on: audit logging, permission enforcement, and encryption.
 
-**Reliable — ALIGNED**
+**Reliable: ALIGNED**
 
 | Well-Architected Requirement     | KernDX Implementation                                                                                               |
 |----------------------------------|---------------------------------------------------------------------------------------------------------------------|
@@ -588,7 +539,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 
 #### Pillar 2: Easy
 
-**Intentional — ALIGNED**
+**Intentional: ALIGNED**
 
 | Well-Architected Requirement | KernDX Implementation                                                                                                                                                                                                                            |
 |------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -597,7 +548,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 | Discoverable architecture    | 33 developer documents (18 guides, 15 fast starts), 263 API references; `AGENTS.md` + `docs/Code Conventions - Guide.md` (repo root) + [`AI Agent Instructions`](AI%20Agent%20Instructions.md) (framework reference) for AI-assisted development |
 | Metadata-driven behaviour    | 15 custom metadata types controlling triggers, post-trigger actions, validation, feature flags, web services, mocking, masking, async jobs, field sets                                                                                                                 |
 
-**Automated — ALIGNED**
+**Automated: ALIGNED**
 
 | Well-Architected Requirement   | KernDX Implementation                                                                                                              |
 |--------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
@@ -606,7 +557,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 | Enforce quality gates          | 100% per-file Apex coverage gate; PMD compliance; secret scanning in CI; no inline SOQL; no `System.debug`                                                |
 | Standardise testing            | `TST_Builder` (data creation), `TST_Mock` (query interception), `TST_Factory` (metadata records), `API_MockFactory` (HTTP mocking) |
 
-**Engaging — PARTIAL**
+**Engaging: PARTIAL**
 
 | Well-Architected Requirement | KernDX Implementation                                                                                                                                                                                                                                                          | Gap                                                                                        |
 |------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
@@ -615,7 +566,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 
 #### Pillar 3: Adaptable
 
-**Resilient — ALIGNED**
+**Resilient: ALIGNED**
 
 | Well-Architected Requirement | KernDX Implementation                                                                                  |
 |------------------------------|--------------------------------------------------------------------------------------------------------|
@@ -624,7 +575,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 | Continuity strategy          | Circuit breaker prevents cascading failures; dead letter queue preserves failed API calls for recovery |
 | Correlation tracking         | Transaction IDs across async boundaries; W3C `traceparent` for distributed tracing                     |
 
-**Composable — ALIGNED**
+**Composable: ALIGNED**
 
 | Well-Architected Requirement | KernDX Implementation                                                                                             |
 |------------------------------|-------------------------------------------------------------------------------------------------------------------|
@@ -634,7 +585,7 @@ generically. KernDX provides the infrastructure (audit logging, permission enfor
 
 ### Framework Scope Clarification
 
-KernDX provides infrastructure patterns. It does not replace organisational governance:
+It is worth being explicit about where the framework's job ends and yours begins. KernDX provides infrastructure patterns. It does not replace the governance your organisation has to run itself. The table shows that split, area by area:
 
 | Area                    | KernDX Provides                                                                | External Input Required                                                    |
 |-------------------------|--------------------------------------------------------------------------------|----------------------------------------------------------------------------|
@@ -646,6 +597,8 @@ KernDX provides infrastructure patterns. It does not replace organisational gove
 
 ### Well-Architected Risks and Considerations
 
+No framework is risk-free. The table below names the honest risks of adopting KernDX, how serious each one is, and what reduces it:
+
 | Risk                                                            | Impact | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |-----------------------------------------------------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Over-reliance on framework without governance                   | High   | Framework provides patterns, not policy. Establish Architecture Review Board and governance processes independently.                                                                                                                                                                                                                                                                                                                     |
@@ -655,6 +608,8 @@ KernDX provides infrastructure patterns. It does not replace organisational gove
 | Well-Architected alignment interpreted as certification         | Low    | "Aligned" means KernDX supports the prescribed outcomes. It does not constitute Salesforce certification or endorsement.                                                                                                                                                                                                                                                                                                                 |
 
 ### Well-Architected Decision Matrix
+
+Use this matrix to turn the analysis above into a decision. Find the question that matches your situation and follow the "If Yes" or "If No" column:
 
 | Your Question                                           | If Yes                                                                                                                                                                                                                                                                                                                                                          | If No                                           |
 |---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|
@@ -703,6 +658,8 @@ KernDX provides infrastructure patterns. It does not replace organisational gove
 
 ### Well-Architected Quick Reference
 
+If you want the one-table takeaway for each pillar, this is it: the main strength on the left, and the honest gap on the right.
+
 | Pillar        | KernDX Strength                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | KernDX Gap                                                                                         |
 |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | **Trusted**   | FLS/CRUD enforced by default on `QRY_Builder` AND `DML_Builder` (KernDX is the only Apex framework surveyed with FLS-by-default on read AND write —;); encryption default-on (AES256 with automatic key management); runtime masking on any SObject or platform event (four masking modes, 18 built-in rules, three failure actions, caller-class scoping); every trigger bypass writes an audit log; idempotent inbound REST with body-hash 409 (KernDX uniquely covers surveyed); sharing declared explicitly by convention. On the four signals that drive defect rate (sharing, access mode, bypass audit, inbound trust), KernDX defaults to the secure setting on all four. | Regulatory compliance policy is organisational, not framework; per-builder bypass audit is roadmap |
@@ -713,19 +670,11 @@ KernDX provides infrastructure patterns. It does not replace organisational gove
 
 ## Security Benchmark for Salesforce Alignment
 
-This section evaluates how KernDX aligns with the [Security Benchmark for Salesforce](https://github.com/Salesforce-Security-Benchmark) (SBS) — a
-practitioner-developed, CIS-style standard of **54 binary controls across 12 domains** (Foundations, OAuth Security, Integrations, Access Controls,
-Authentication, Code Security, Customer Portals, Data Security, Deployments, Security Configuration, File Security, and Event Monitoring), each rated
-Critical, High, or Moderate and tagged to regulatory frameworks (HIPAA, GDPR, NIST, CCPA/CPRA, SOC 2, ISO 27001). The benchmark is independent of both
-Salesforce and KernDX. This content is written for GRC teams, auditors, and Architecture Review Boards.
+The Security Benchmark for Salesforce (SBS) is an independent, practitioner-built security checklist for Salesforce orgs, modelled on the CIS style. It defines **54 yes-or-no controls across 12 domains** (Foundations, OAuth Security, Integrations, Access Controls, Authentication, Code Security, Customer Portals, Data Security, Deployments, Security Configuration, File Security, and Event Monitoring). Each control is rated Critical, High, or Moderate and tagged to regulatory frameworks (HIPAA, GDPR, NIST, CCPA/CPRA, SOC 2, ISO 27001). It is governed by neither Salesforce nor KernDX. This section maps KernDX against it, and is written for GRC teams, auditors, and Architecture Review Boards. The benchmark itself lives [on GitHub](https://github.com/Salesforce-Security-Benchmark).
 
-> **Why This Matters:** The SBS is the checklist a growing number of security teams and auditors run a Salesforce org against. Mapping KernDX to it shows,
-> control by control, exactly where the framework gives you a working mechanism or audit-ready evidence — and, just as importantly, where it does not, so
-> nobody mistakes a framework install for a compliant org.
+> **Why this matters:** the SBS is the checklist a growing number of security teams and auditors run an org against. Mapping KernDX to it shows you, control by control, exactly where the framework hands you a working mechanism or audit-ready evidence, and, just as importantly, where it does not, so no one mistakes installing a framework for having a compliant org.
 
-> **Critical Distinction:** The SBS audits *orgs*, not packages. KernDX ships mechanisms and evidence for specific controls; it **cannot make an org
-> compliant**, and most SBS controls remain your configuration and process. A posture that reads *"provides the mechanism for"* or *"provides evidence
-> for"* never means *"complies with"* — running the control, certifying it, and keeping it certified stay with you.
+> **One important distinction:** the SBS audits *orgs*, not packages. KernDX ships mechanisms and evidence for specific controls. It **cannot make an org compliant**, and most SBS controls stay your configuration and your process. A posture of *"provides the mechanism for"* or *"provides evidence for"* never means *"complies with"*. Running the control, certifying it, and keeping it certified all stay with you.
 
 **Audience Guide:**
 
@@ -738,11 +687,7 @@ Salesforce and KernDX. This content is written for GRC teams, auditors, and Arch
 
 ### SBS Alignment Scorecard
 
-KernDX provides a working mechanism or audit-ready evidence for **15 of the 54 controls**; the remaining **39 are org configuration and process** that no
-managed package can own on your behalf. Nothing here continuously monitors your org's security posture — KernDX surfaces problems about *its own* configuration or
-a KernDX capability and ships fixes (the masking engine, the durable logger, the pipeline gates). The one place it reaches into your own objects is the
-on-demand Data Masking Advisor scan and its inventory export, which you run. Org-wide posture monitoring is handed to the tools built
-for it: the native Salesforce Security Health Check, Salesforce Optimizer, Salesforce Shield / Event Monitoring, and AppOmni.
+KernDX provides a working mechanism or audit-ready evidence for **15 of the 54 controls**. The remaining **39 are org configuration and process** that no managed package can own for you. Nothing here continuously monitors your org's security posture. KernDX surfaces problems about *its own* configuration or a KernDX capability and ships the fixes (the masking engine, the durable logger, the pipeline gates). The one place it reaches into your own objects is the on-demand Data Masking Advisor scan and its inventory export, which you run yourself. Watching your org's overall posture is left to the tools built for that job: the native Salesforce Security Health Check, Salesforce Optimizer, Salesforce Shield / Event Monitoring, and AppOmni.
 
 | Domain                 | Controls | KernDX provides a mechanism / evidence for | Remains your configuration            |
 |------------------------|---------:|--------------------------------------------|---------------------------------------|
@@ -765,8 +710,7 @@ for it: the native Salesforce Security Health Check, Salesforce Optimizer, Sales
 
 ### Where KernDX Provides a Mechanism
 
-Posture is stated as *provides the mechanism for* (KernDX ships the working control), *provides evidence for* (KernDX produces an artifact your process
-consumes), or *provides guidance for* (KernDX documents the secure pattern). None of these mean *complies with*.
+Each row states a posture, which means one of three things. *Provides the mechanism for*: KernDX ships the working control. *Provides evidence for*: KernDX produces an artifact your process then uses. *Provides guidance for*: KernDX documents the secure pattern. None of the three means *complies with*.
 
 **Code Security**
 
@@ -810,8 +754,7 @@ consumes), or *provides guidance for* (KernDX documents the secure pattern). Non
 
 ### What Remains Yours
 
-These controls are org configuration and human process. A managed package cannot own your org's identity, configuration, backup, or deployment access — at
-most it points you at the native tool that does. Run this list as a checklist against your own org, not as a KernDX gap report.
+These controls are org configuration and human process. A managed package cannot own your org's identity, configuration, backup, or deployment access. At most it can point you at the native tool that does. Read this list as a checklist for your own org, not as a list of things KernDX is missing.
 
 | Domain                 | Controls you own                                                                                                                                                            | Where it lives                                                                                                                              |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
@@ -828,9 +771,7 @@ most it points you at the native tool that does. Run this list as a checklist ag
 
 ### SBS Summary Scorecard
 
-**Overall: KernDX provides a mechanism or evidence for 15 of the 54 SBS controls; the other 39 are org configuration and process.** The alignment is
-concentrated where a framework can legitimately help — your code, your build pipeline, and your data — and absent where the control is purely org identity or
-configuration. KernDX evidences these controls; it does not certify them, and an install is not a compliant org.
+**Overall: KernDX provides a mechanism or evidence for 15 of the 54 SBS controls; the other 39 are org configuration and process.** The help is concentrated exactly where a framework can legitimately help, namely your code, your build pipeline, and your data, and absent where the control is purely org identity or configuration. KernDX produces evidence for these controls. It does not certify them, and an install is not a compliant org.
 
 | Domain                 | KernDX posture                                                                         |
 |------------------------|----------------------------------------------------------------------------------------|
@@ -847,18 +788,17 @@ configuration. KernDX evidences these controls; it does not certify them, and an
 | File Security          | ⚪ Yours — public-link controls (org configuration)                                     |
 | Event Monitoring       | ⚪ Yours — Salesforce Shield / Event Monitoring                                         |
 
-**SBS edition mapped.** This mapping reflects the benchmark's current published control set — 54 controls across the 12 domains listed above. The Security
-Benchmark for Salesforce is pre-1.0 and still evolving; KernDX treats re-mapping on each benchmark release as a periodic review, the same way it audits for
-source-and-org drift.
+**Which edition this maps to.** This reflects the benchmark's current published control set: 54 controls across the 12 domains listed above. The Security Benchmark for Salesforce is still pre-1.0 and evolving, so KernDX treats re-mapping on each new benchmark release as a regular review, the same way it audits for drift between source and org.
 
 ---
 
 ## Open-Source Readiness
 
+This part of the guide answers the questions a review board asks about any open-source dependency: is the source really available, who maintains it, how mature is it, and what happens if the maintainer stops. It also compares KernDX honestly against the adoption and longevity of the open-source Apex libraries you might use instead.
+
 ### Current State
 
-KernDX is licensed under BSL 1.1 (Business Source License), which converts to Apache 2.0 after four years. The source is published publicly on GitHub under BSL 1.1. This section
-documents KernDX's open-source posture against the dimensions an architecture review board weighs.
+KernDX is published publicly on GitHub under the BSL 1.1 (Business Source License), which converts to the permissive Apache 2.0 license after four years. The table below checks KernDX against the standard markers a review board uses to judge an open-source project, with the open-source benchmark stated in the right-hand column:
 
 | Dimension               | KernDX                                                                                                                                                                                                                                        | Open-source benchmark                                                                                                                                                                                  |
 |-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -873,10 +813,7 @@ documents KernDX's open-source posture against the dimensions an architecture re
 
 ### Adoption Signal Profile
 
-KernDX is **v1.0** with the first validated build packaged and testing-hardened (100% per-file Apex coverage gate, 95% LWC, 471 anonymous-Apex assertions in the subscriber e2e
-harness, 158 `@IsTest` methods across 22 subscriber test classes, extended load suite, rolling perf-history baselines, drift-audit cycle). The honest adoption-history caveat:
-KernDX is publicly released under BSL 1.1 and promoted for production install, with one known external client engagement in active use at the snapshot date and public adoption
-still early. For the current build identifier and activity counts, see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot).
+KernDX is at **v1.0**: the first validated build is packaged and testing-hardened (a 100% per-file Apex coverage gate, 95% LWC, 471 anonymous-Apex assertions in the subscriber e2e harness, 158 `@IsTest` methods across 22 subscriber test classes, an extended load suite, rolling performance baselines, and a drift-audit cycle). The honest caveat on adoption history: KernDX is publicly released under BSL 1.1 and promoted for production install, with one known external client engagement in active use at the snapshot date and public adoption still early. For the current build identifier and activity counts, see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot).
 
 **KernDX adoption activity at the snapshot date**:
 
@@ -885,12 +822,9 @@ still early. For the current build identifier and activity counts, see [Metrics 
 | Published managed-package versions | 107          |
 | Contributors                       | 1            |
 
-KernDX adoption activity reflects two structural conditions: the public repository is newly published (so GitHub-stars history has not yet accumulated) and the framework ships with
-a single contributor. Adoption activity and per-capability coverage are reported separately throughout this guide — adoption activity is orthogonal to per-capability coverage and
-never caps a capability score.
+Those numbers reflect two facts about where KernDX is, not how good the code is. The public repository is newly published, so a history of GitHub stars has not had time to build up, and the framework currently ships with a single contributor. This guide keeps adoption activity and per-capability coverage as two separate measures on purpose: how widely something has been adopted is a different question from how well it covers a capability, and adoption activity never lowers a capability rating.
 
-**Capability coverage across the comparable Apex frameworks surveyed.** On the axes that drive defect rate — security defaults, framework integration, capability breadth — KernDX
-measures favourably against those alternatives:
+**Capability coverage across the comparable Apex frameworks surveyed.** Three things tend to drive defect rate: secure defaults, how well the pieces integrate, and how broad the capability coverage is. On those three, KernDX measures favourably against the alternatives surveyed. The "Cohort observation" column credits where competitors stand:
 
 | Axis                       | KernDX                                                                                                                                                                                                                                                                                                                                                                                                   | Cohort observation                                                                                                                                                                     |
 |----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -901,16 +835,13 @@ measures favourably against those alternatives:
 | Trigger bypass audit       | Every trigger-bypass call writes a structured audit log                                                                                                                                                                                                                                                                                                                                                  | Only `rflib` ships built-in bypass-audit on the trigger surface; every other comparator with bypass capability ships silent toggles.                                                   |
 | Threat model documentation | Bespoke 2,027-line Security Guide                                                                                                                                                                                                                                                                                                                                                                        | 11 of 21 comparators ship no `SECURITY.md` at all; 4 ship the same templated `SECURITY.md`.                                                                                            |
 
-**Trigger framework comparison.** `taf` and KernDX both ship declarative trigger registration. KernDX additionally ships bypass-audit emission that `taf` lacks — `taf`'s
-programmatic bypass surface writes no audit log. `rflib` also ships broad Trigger Framework coverage and matches KernDX on two pieces: recursion-control and per-event ordering.
-`taf` carries a longer accumulated tagged-release history; KernDX is newly released at v1.0 with at least one known external client engagement at the snapshot date.
+**Trigger framework comparison.** `taf` and KernDX both ship declarative trigger registration. On top of that, KernDX writes a bypass-audit log that `taf` does not: `taf`'s programmatic bypass surface writes no audit log at all. `rflib` also ships broad Trigger Framework coverage, and it matches KernDX on two specific pieces: recursion control and per-event ordering. One honest point in `taf`'s favour: `taf` carries a longer accumulated history of tagged releases, while KernDX is newly released at v1.0, with at least one known external client engagement at the snapshot date.
 
-**What closes the adoption-activity gap.** As production references accumulate over time — closed external user issues, downstream consumer adoption, or third-party references —
-adoption activity grows. Subscribers evaluating frameworks on capability-level readiness (security defaults, code quality, test depth, capability breadth, integration coherence)
-should weight broad capability coverage (see [Overview § Key Findings](Strategic%20Guide%20-%20Overview.md#key-findings)) over adoption activity. Subscribers evaluating frameworks
-on "history of being used by other orgs" should weight the libraries that have accumulated that history accordingly.
+**What closes the adoption-activity gap.** Adoption activity grows as production references build up over time: external user issues closed, downstream consumers adopting it, or third-party references. If you are judging a framework on capability-level readiness (secure defaults, code quality, test depth, breadth, and how well the pieces integrate), weight broad capability coverage (see [Overview § Key Findings](Strategic%20Guide%20-%20Overview.md#key-findings)) over adoption activity. If you are judging it specifically on "how many other orgs have used it in production," then weight the libraries that have actually accumulated that history accordingly.
 
 ### Comparison with Other Frameworks' Open-Source Journeys
+
+For context, here is where the well-known Apex libraries are on their own open-source journeys, alongside KernDX. The star counts and ages are facts about how long each has been building an audience:
 
 | Framework                | Open-Source Journey                                                                                                                                                                                                                                                                                            |
 |--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -921,43 +852,30 @@ on "history of being used by other orgs" should weight the libraries that have a
 
 ### Bus Factor Mitigation
 
-**Context — single-maintainer concentration is the norm across the open-source Apex framework ecosystem, not a KernDX outlier.** Most of the community libraries the team has
-surveyed are effectively single-maintainer. Only the `fflib` family has genuinely distributed maintainership across multiple contributors.
+**Context: one maintainer is the norm across open-source Apex frameworks, not something unusual to KernDX.** Most of the community libraries the team has surveyed are effectively run by a single maintainer. Only the `fflib` family has genuinely distributed maintainership across multiple contributors.
 
-What matters for risk in practice is (a) whether the maintainer is still shipping, (b) whether adopters can access source and documentation sufficient to self-maintain, and (c)
-whether the codebase is scoped and tested well enough to fork cleanly. KernDX addresses (b) and (c) structurally: source is publicly available under BSL 1.1 (relicensing to Apache
-2.0 after the four-year change date), 263 API references, 100% per-file Apex coverage, and AI-context files (`AGENTS.md` + `docs/Code Conventions - Guide.md`). Any team — engaged
-consulting subscriber or self-installer — can fork and self-maintain on the same source. The modular-OSS "distributed risk" argument is defensible at the portfolio level (a
-bus-factor event in one of several adopted libraries takes out a fraction of the stack, not all of it), but it does not mean individual components have multiple maintainers — for
-most community libraries outside the `fflib` family, they do not.
+What actually drives the risk is three things: whether the maintainer is still shipping releases; whether adopters can get enough source and documentation to maintain it themselves; and whether the codebase is scoped and tested well enough to fork cleanly. KernDX addresses the last two by design. The source is publicly available under BSL 1.1 (converting to Apache 2.0 after the four-year change date), backed by 263 API references, 100% per-file Apex coverage, and the AI-context files (`AGENTS.md` plus `docs/Code Conventions - Guide.md`). Any team, whether an engaged consulting client or a self-installer, can fork and maintain the same source. The modular open-source "distributed risk" argument is a fair point at the portfolio level: if one of several adopted libraries loses its maintainer, you lose a fraction of the stack, not all of it. But it does not mean the individual components each have multiple maintainers, and for most community libraries outside the `fflib` family, they do not.
 
-The single-developer risk below is therefore not a KernDX-specific weakness; it is the default posture for nearly every Apex library outside the `fflib` family. The mitigations
-that follow apply to any single-maintainer component KernDX included.
+So the single-developer risk described below is not a KernDX-specific weakness. It is the default for nearly every Apex library outside the `fflib` family, and the mitigations that follow apply to any single-maintainer component, KernDX included.
 
-1. **Source publicly available under BSL 1.1** — clients (and any other adopter) can maintain independently from the public repository; consulting engagements include direct source
-   delivery and handover support
-2. **Layered documentation** — 26 developer documents (14 guides, 12 fast starts), 263 API references
-3. **Standard Apex patterns** — selectors, triggers, DTOs, builders recognizable from `fflib`, `taf`, and `apex-fluently-soql`
-4. **AI context files** — `AGENTS.md` (~3K tokens, tool-neutral entry point) ships at repo root and points to `docs/Code Conventions - Guide.md` (~12K tokens, canonical
-   conventions); the per-module [`AI Agent Instructions`](AI%20Agent%20Instructions.md) reference (~10K tokens, in `docs/`) carries the deep framework walk-through. Together they
-   document conventions, patterns, critical rules, and architectural rationale. Developers using Claude Code, Cursor, Cline, or Agentforce Vibes can generate convention-compliant
-   code and diagnose framework internals without prior KernDX experience — which narrows (but does not eliminate) the tribal-knowledge gap of a single-developer framework.
-5. **Exit strategy** — three paths: managed package, source deploy, or repackage under client namespace. For teams equipped with agentic AI tooling loaded against the AI-context
-   files above, the deeply-adopted exit is routinely absorbable inside a single sprint (~1-2 days wall-clock) — the mitigation is concrete and AI-executable, not merely documented.
-   Teams without agentic tooling should expect the conventional 1-2 week human-only effort.
-6. **Metadata-driven isolation** — bypass mechanisms (`TRG_Base.bypassAction()`, `TriggerSetting__mdt.BypassExecution__c`, `FeatureFlag__mdt`) let subscribers disable problematic
-   handlers or feature paths without code changes or a vendor push upgrade (see [Technical Risks](Strategic%20Guide%20-%20Risks.md#technical-risks))
+1. **Source publicly available under BSL 1.1.** Clients, and any other adopter, can maintain the framework independently from the public repository. Consulting engagements add direct source delivery and handover support.
+2. **Layered documentation.** 26 developer documents (14 guides, 12 fast starts) and 263 API references.
+3. **Standard Apex patterns.** Selectors, triggers, small data-transfer classes, and builders, all recognisable from `fflib`, `taf`, and `apex-fluently-soql`, so the knowledge transfers.
+4. **AI context files.** `AGENTS.md` (~3K tokens, a tool-neutral entry point) ships at the repo root and points to `docs/Code Conventions - Guide.md` (~12K tokens, the canonical conventions). The per-module [`AI Agent Instructions`](AI%20Agent%20Instructions.md) reference (~10K tokens, in `docs/`) carries the deep framework walk-through. Together they document the conventions, patterns, critical rules, and design rationale. A developer using Claude Code, Cursor, Cline, or Agentforce Vibes can generate convention-compliant code and diagnose framework internals with no prior KernDX experience, which narrows (without eliminating) the tribal-knowledge gap of a single-developer framework.
+5. **Exit strategy.** Three paths: keep the managed package, deploy the source, or repackage under your own namespace. For teams equipped with AI agent tooling loaded against the context files above, even a deeply adopted exit usually fits inside a single sprint (about 1-2 days of wall-clock work), so the mitigation is something you can actually run, not just something documented. Teams without agent tooling should expect the conventional 1-2 week human-only effort.
+6. **Metadata-driven isolation.** The bypass mechanisms (`TRG_Base.bypassAction()`, `TriggerSetting__mdt.BypassExecution__c`, `FeatureFlag__mdt`) let you disable a problematic handler or feature path with no code change and no vendor push upgrade (see [Technical Risks](Strategic%20Guide%20-%20Risks.md#technical-risks)).
 
-**KernDX should never be adopted without a documented exit strategy.** Pre-adoption requirements to mitigate single-maintainer risk:
+**Never adopt KernDX without a documented exit strategy.** Before you commit, put these five things in place to reduce single-maintainer risk:
 
-1. **Architecture Decision Records (ADRs)** documenting why KernDX was chosen, what alternatives were evaluated, and under what conditions the decision should be revisited
-2. **Pattern documentation independent of framework** — document the architectural patterns (selectors, trigger handlers, DTOs) so knowledge survives framework removal
-3. **CI enforcement rules** that validate framework conventions (naming prefixes, test coverage, ApexDoc) — reducing reliance on tribal knowledge
-4. **Documented transition playbook** to a modular stack (reference [Migration Checklists](Strategic%20Guide%20-%20Operations.md#migration-checklists) for migration recipes)
-5. **Named secondary maintainer** or documented ownership of `AGENTS.md`, `docs/Code Conventions - Guide.md`, and the [`AI Agent Instructions`](AI%20Agent%20Instructions.md)
-   framework reference within the adopting organisation
+1. **Architecture Decision Records (ADRs).** Write down why KernDX was chosen, what alternatives you evaluated, and the conditions under which you would revisit the decision.
+2. **Pattern documentation that does not depend on the framework.** Document the architectural patterns (selectors, trigger handlers, data-transfer classes) so the knowledge survives even if you later remove the framework.
+3. **CI enforcement rules.** Have your build validate the framework conventions (naming prefixes, test coverage, ApexDoc) so the team relies on the rules, not on tribal knowledge.
+4. **A documented transition playbook** for moving to a modular stack (see [Migration Checklists](Strategic%20Guide%20-%20Operations.md#migration-checklists) for the recipes).
+5. **A named secondary maintainer,** or documented ownership inside your organisation of `AGENTS.md`, `docs/Code Conventions - Guide.md`, and the [`AI Agent Instructions`](AI%20Agent%20Instructions.md) framework reference.
 
 ### Licensing Considerations
+
+Different Apex libraries use different licenses, each with its own trade-offs. The table lays out the common ones, their pros and cons, and which frameworks use each, so you can weigh KernDX's BSL 1.1 choice in context:
 
 | License        | Pros                                                              | Cons                                                         | Frameworks Using                              |
 |----------------|-------------------------------------------------------------------|--------------------------------------------------------------|-----------------------------------------------|
@@ -966,12 +884,11 @@ that follow apply to any single-maintainer component KernDX included.
 | **BSD-3**      | Simple, permissive                                                | No patent grant                                              | `fflib`, `rflib`                              |
 | **BSL 1.1**    | Commercial-restriction window + guaranteed open-source conversion | Limits adoption until Change Date, community pushback common | KernDX (converts to Apache 2.0 after 4 years) |
 
-**Current state:** KernDX uses BSL 1.1 with a 4-year change date to Apache 2.0. This protects the commercial model while guaranteeing eventual open-source availability. After the
-change date, the code is Apache 2.0 licensed — permissive, with patent protection.
+**Where KernDX stands today:** it uses BSL 1.1 with a 4-year change date to Apache 2.0. That protects the commercial model while guaranteeing the code becomes fully open-source in time. After the change date, the code is Apache 2.0 licensed: permissive, and with patent protection.
 
 ### Community Building Strategy
 
-Open-source publishing is not just a license change — it requires deliberate community investment:
+Publishing source is only the start. Building an actual community takes deliberate, ongoing investment, and here is the staged plan for it:
 
 | Phase                 | Timeline  | Activities                                                                                      |
 |-----------------------|-----------|-------------------------------------------------------------------------------------------------|
@@ -982,13 +899,11 @@ Open-source publishing is not just a license change — it requires deliberate c
 
 **Success metrics:** GitHub stars (target: 100 in year 1), external contributors (target: 3 in year 1), Salesforce community mentions.
 
-**Comparative timeline (GitHub-star counts cited inline are recent-fetch values for the named external repositories — they will continue to drift as those projects accrue more
-stars, but the order-of-magnitude profile is what's load-bearing here):** `taf` accumulated several hundred stars over 4 years. `apex-fluently-soql` accumulated low hundreds of
-stars over 3 years. `nebula-logger` accumulated past eight hundred stars over 8 years. Realistic expectations for KernDX with active promotion: 50-150 stars in year 1.
+**A realistic timeline for comparison** (the GitHub-star counts below are recent-fetch values for the named external repositories; they will keep drifting as those projects gain more stars, so it is the rough order of magnitude that matters here, not the exact figure): `taf` accumulated several hundred stars over 4 years. `apex-fluently-soql` accumulated low hundreds of stars over 3 years. `nebula-logger` accumulated past eight hundred stars over 8 years. A realistic expectation for KernDX with active promotion is 50-150 stars in year 1.
 
 ### Open-Source Trade-offs
 
-Opening the source creates new dynamics that must be managed:
+Opening the source brings benefits, but each one comes with a risk to manage. The table pairs them:
 
 | Benefit                                                   | Risk                                    | Mitigation                                               |
 |-----------------------------------------------------------|-----------------------------------------|----------------------------------------------------------|
@@ -998,9 +913,7 @@ Opening the source creates new dynamics that must be managed:
 | Adoption drives documentation improvements                | Feature requests outpace capacity       | Public roadmap, "contributions welcome" labels           |
 | External validation (downstream-consumer adoption signal) | Dependencies on external CI systems     | Self-hosted CI fallback, minimal external dependencies   |
 
-**The single biggest risk of open-sourcing:** Maintainer burnout. The Salesforce Apex open-source projects with the longest sustained release cadence (`nebula-logger`, `taf`,
-`apex-fluently-soql`) are each maintained by one or two primary developers. KernDX's full documentation set and AI context files reduce contributor onboarding friction, but the
-framework's breadth (triggers + queries + web services + resilience + testing + LWC) means the surface area for community contributions is large.
+**The single biggest risk of open-sourcing is maintainer burnout.** The Salesforce Apex open-source projects with the longest sustained release cadence (`nebula-logger`, `taf`, and `apex-fluently-soql`) are each maintained by one or two primary developers. KernDX's full documentation set and AI context files lower the friction of onboarding a contributor, but the breadth of the framework (triggers, queries, web services, resilience, testing, and LWC) means there is a lot of surface area for the community to contribute against.
 
 ---
 

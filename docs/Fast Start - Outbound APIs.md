@@ -6,13 +6,13 @@ navOrder: 32
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-> Call external systems from Salesforce -- from one-liners to production-grade services.
+**What this is:** A way to call an external system (a payment gateway, a shipping API, any REST endpoint) from Salesforce, starting with a single line of Apex and growing into a fully tested, production-ready service. **Why it exists:** Hand-rolled HTTP callouts repeat the same plumbing every time (retries, timeouts, logging, error handling) and break in ways that are hard to trace. KernDX gives you that plumbing once, the same way every time. **Who should follow this:** developers building integrations, and tech leads who want callouts that are logged, tested, and consistent. **When to use it:** any time Salesforce needs to send data to, or fetch data from, another system.
 
 **Before you start:**
 
 - [ ] KernDX package installed in your org
-- [ ] Org configured post-install — verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify) — or just use the Developer Console
+- [ ] Org configured post-install. Verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
+- [ ] CLI authenticated (run `sf org open -o YourOrgAlias` to verify), or just use the Developer Console
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
@@ -20,14 +20,16 @@ navOrder: 32
 > `kern.SEL_Base`). Your own classes don't need a namespace prefix — the framework's Type Resolver handles
 > resolution automatically.
 
-**What you'll build:** A working outbound HTTP call to an external API -- from a one-liner to a
-production-grade service with typed DTOs, validation, and automated tests.
+**What you'll build:** A working outbound HTTP call to an external API. You start with a one-liner and
+finish with a production-ready service that has typed DTOs (small classes that hold exactly the fields you
+send and receive, and convert themselves to and from JSON), input validation, and automated tests.
 
 **Success looks like:** Your API call appears in the Kern app's **API Calls** tab with full request/response
 logging, and your test class has 100% code coverage.
 
-**In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();` --
-retry, circuit breaker, and logging built in.
+**In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();`
+That single call comes with automatic retries, a circuit breaker (after repeated failures the framework
+stops calling a failing system for a cool-off, then resumes), and logging already built in.
 
 ---
 
@@ -65,12 +67,15 @@ retry, circuit breaker, and logging built in.
 
 ## Tier 1: See It Work (~2 minutes)
 
-Use [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) for direct HTTP calls. No custom classes needed.
+The fastest way to prove a callout works is to make one with no setup at all. For quick calls and prototyping,
+you can fire an HTTP request straight from anonymous Apex, with no custom classes to write. The helper that
+does this is [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md).
 
 ### Check the Named Credential
 
-The package ships with **Example REST API** (`kern__API_ExampleRestApi`) pointing to
-[JSONPlaceholder](https://jsonplaceholder.typicode.com) -- a free, public fake API. No API keys needed.
+So you can try everything here without signing up for anything, the package ships with a ready-made
+connection called **Example REST API** (`kern__API_ExampleRestApi`). It points to
+[JSONPlaceholder](https://jsonplaceholder.typicode.com), a free, public fake API. No API keys needed.
 
 Go to **Setup > Named Credentials** and confirm you see it with endpoint `https://jsonplaceholder.typicode.com`
 and **Callout Status** `Enabled`.
@@ -124,7 +129,8 @@ Body: {"id": 101}
 
 ### Builder Features
 
-Chain methods on the builder:
+You configure each call with short chained method calls, then one final call (such as `.send()`) runs it
+and returns the result. Here are the common options you can add to any call:
 
 ```apex
 // Headers
@@ -156,8 +162,9 @@ kern.UTIL_HttpClient.post('kern__API_ExampleRestApi', '/posts')
 	.send();
 ```
 
-> **When to move to Tier 2:** When you need typed DTOs, input validation, test isolation with one-line
-> assertions, or declarative retry/circuit breaker config via metadata.
+> **When to move to Tier 2:** Move on once you need typed DTOs (the small request/response classes),
+> input validation, tests that run without real callouts and assert in one line, or retry and circuit
+> breaker settings managed as configuration records rather than in code.
 
 ---
 
@@ -167,17 +174,21 @@ kern.UTIL_HttpClient.post('kern__API_ExampleRestApi', '/posts')
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
 > and skip the `sf project deploy start` and `sf apex run test` commands.
 
-Build a production-grade API handler (`API_GetPost`) that fetches a post from JSONPlaceholder by ID, with
-typed DTOs, test coverage, and parameter validation.
+A one-liner is great for trying things out, but a real integration needs structure: known request and
+response shapes, validation, and tests. In this tier you build a reusable API handler class
+(`API_GetPost`) that fetches a post from JSONPlaceholder by ID. It comes with typed DTOs (the request and
+response classes), test coverage, and parameter validation.
 
 ### Step 1: Create the API Handler
 
-Create a new file named `API_GetPost.cls`. Copy the following code exactly as is -- do not modify the class
-name or `kern.*` namespace references.
+Create a new file named `API_GetPost.cls`. Copy the following code exactly as is. Do not modify the class
+name or the `kern.*` namespace references.
 
-> **Why `global`?** This lets the managed package resolve the class at runtime without additional setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class. The Kern home page health check
-> provides the code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+> **Why `global`?** This lets the managed package find and run your class at runtime without any extra setup.
+> If you prefer `public with sharing`, you instead point the framework at where your classes live (a Type
+> Resolver class: how the framework finds the Apex classes in your namespace, where you tell it where to
+> look). The Kern home page health check generates that code for you, or see
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
 /**
@@ -287,12 +298,13 @@ sf project deploy start -o YourOrgAlias -m "ApexClass:API_GetPost"
 
 ### Step 2: Register Metadata
 
-The framework needs two metadata records: an **ApiCredential** (which Named Credential to use) and an
-**ApiSetting** (how to run your handler).
+Your handler class is written, but the framework still needs to know how to run it. You tell it with two
+configuration records: an **ApiCredential** record (which Named Credential, that is, which connection, to
+use) and an **ApiSetting** record (how to run your handler).
 
 #### 2a. Create ApiCredential
 
-The ApiCredential tells the framework which Named Credential to use for HTTP calls.
+The ApiCredential record tells the framework which Named Credential (which connection) to use for HTTP calls.
 
 <details>
 <summary><strong>Windows (PowerShell)</strong></summary>
@@ -344,13 +356,13 @@ sf project deploy start -o YourOrgAlias \
 > **Prefer the UI?** Create this record in **Setup > Custom Metadata Types > ApiCredential > Manage Records > New**:
 > Label = `Example REST API`, Name = `API_ExampleRestApi`, NamedCredential__c = `kern__API_ExampleRestApi`.
 
-> **Why create this?** The package ships an `ApiCredential` record for the Example REST API, but it's
-> protected (internal to the package). Subscriber code needs its own `ApiCredential` record that points
-> to the same Named Credential.
+> **Why create this?** The package ships an `ApiCredential` record for the Example REST API, but it is
+> protected (kept internal to the package), so your code cannot reference it. Your org needs its own
+> `ApiCredential` record that points to the same Named Credential.
 
 #### 2b. Create ApiSetting
 
-The ApiSetting configures how your handler runs — class name, endpoint path, retry policy, and more.
+The ApiSetting record configures how your handler runs: its class name, endpoint path, retry policy, and more.
 
 <details>
 <summary><strong>Windows (PowerShell)</strong></summary>
@@ -467,15 +479,15 @@ sf project deploy start -o YourOrgAlias \
 > IsActive__c = checked, LogIssues__c = checked, MaxRetryCount__c = `3`, RetryBackoffSeconds__c = `5`,
 > CircuitBreakerEnabled__c = checked.
 
-> **ClassName__c** is the simple class name (`API_GetPost`), not namespace-prefixed. The framework's type
-> resolver handles namespace resolution automatically.
+> **ClassName__c** is the simple class name (`API_GetPost`), without a namespace prefix. The framework's
+> type resolver (how it finds your classes) handles the namespace for you.
 >
-> **ApiCredential__c** is a metadata relationship (lookup) to `ApiCredential__mdt`. Select the record you
+> **ApiCredential__c** is a lookup (a metadata relationship) to `ApiCredential__mdt`. Select the record you
 > created in step 2a.
 
-> **How the HTTP verb is set for outbound calls:** `getHttpMethod()` in your handler class is the
-> authoritative source. The framework reads it inside `setHeaders()` and applies it to the wire request.
-> The default (no override) is `POST` — override `getHttpMethod()` to use a different verb.
+> **How the HTTP verb is set for outbound calls:** `getHttpMethod()` in your handler class decides the verb.
+> The framework reads it inside `setHeaders()` and applies it to the request that goes over the wire. The
+> default (when you do not override it) is `POST`, so override `getHttpMethod()` to use a different verb.
 
 ### Step 3: Execute
 
@@ -559,14 +571,15 @@ sf apex run test -o YourOrgAlias -t API_GetPost_TEST --code-coverage --synchrono
 
 **Expected:** 2 tests passing, 100% coverage on `API_GetPost`.
 
-> **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
-> `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> suppresses a static analysis rule about `System.runAs()` -- fine for quick starts, but consider adding
-> `System.runAs()` in production tests to verify profile and permission set access.
+> **About the annotations:** `@IsTest(IsParallel=true)` lets tests run in parallel, which makes the run
+> faster. `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
+> turns off a code-scanner rule about `System.runAs()`. That is fine for a quick start, but in production
+> tests consider adding `System.runAs()` to verify profile and permission set access.
 
 ### Step 5: Add Validation
 
-Add business logic validation that runs before the HTTP call. Add this method to `API_GetPost.cls`
+Sometimes a request should be rejected before it ever leaves your org, for example when an input is the
+wrong shape. You can add your own checks that run before the HTTP call. Add this method to `API_GetPost.cls`
 after `getRequiredInputs()`:
 
 ```apex
@@ -633,7 +646,7 @@ Success: false
 Errors: (Post ID must be a numeric value)
 ```
 
-Check the **API Calls** tab -- you'll see an entry with status **Aborted** and the validation error logged.
+Check the **API Calls** tab. You'll see an entry with status **Aborted** and the validation error logged.
 
 ```apex
 // Valid post ID — should succeed
@@ -648,23 +661,24 @@ System.debug('Response: ' + handler.result.responseBody);
 
 ### Step 6: Understanding Mocks
 
-Your tests already work without calling the real API. Here's why and how to customise it.
+Your tests already passed without calling the real API. That matters because tests must not depend on a
+live external system. Here is why it works, and how to customise it.
 
-**The simple way — `defaultMockBody`:**
+**The simple way (`defaultMockBody`):**
 
-The `defaultMockBody` you set in `configure()` is the mock. When tests run, the framework intercepts
-the HTTP callout and returns that JSON instead of calling JSONPlaceholder. No extra setup, no
-`Test.setMock()` — the framework handles it.
+The `defaultMockBody` you set in `configure()` is the stand-in response. When tests run, the framework
+intercepts the HTTP callout and returns that JSON instead of calling JSONPlaceholder. There is no extra
+setup and no `Test.setMock()` to wire up: the framework handles it.
 
 ```apex
 // In configure() — this IS your test mock
 defaultMockBody = '{"userId": 1, "id": 1, "title": "Mock Post Title", "body": "Mock post body"}';
 ```
 
-**Custom mocks — `API_MockFactory`:**
+**Custom mocks (`API_MockFactory`):**
 
-When you need a different response for a specific test (e.g., error handling, edge cases), use
-`API_MockFactory`:
+Sometimes one test needs a different response, for example to check how your code handles an error or an
+edge case. For that, use `API_MockFactory`:
 
 ```apex
 // Return a custom response body
@@ -708,8 +722,9 @@ private static void shouldFailWhenApiReturnsError()
 
 ### From a Flow
 
-The package includes [`FLOW_CallApi`](reference/apex/FLOW_CallApi.md) -- an invocable action that calls any
-registered `API_Outbound` handler from a Flow.
+Not every callout starts in Apex. To let an admin trigger your handler from a screen flow without writing
+code, the package includes [`FLOW_CallApi`](reference/apex/FLOW_CallApi.md), an invocable action that calls
+any registered `API_Outbound` handler from a Flow.
 
 #### Build a Screen Flow (step-by-step)
 
@@ -743,8 +758,9 @@ The `inputs` field uses `key=value` format, comma-delimited for multiple paramet
 
 ### From Apex (Queue-Based)
 
-For async execution, create an `kern__ApiCall__c` record directly. The framework's record-triggered flow
-picks up the item, executes it asynchronously, and logs the result:
+For calls that should run in the background rather than while a user waits, create a `kern__ApiCall__c`
+record directly. A record-triggered flow in the framework picks up the item, runs the call asynchronously,
+and logs the result:
 
 ```apex
 kern__ApiCall__c queueItem = new kern__ApiCall__c(
@@ -779,18 +795,23 @@ for(kern__ApiCall__c apiCall : calls)
 
 ## Sensitive data is masked by default
 
-`ApiCall__c` records store the request body, response body, URL, and parameters captured from every outbound call. These fields are redacted through the data masking framework
-before persistence. Out of the box, two rules fire:
+Logging every call is useful, but you do not want secrets sitting in those logs. `ApiCall__c` records store
+the request body, response body, URL, and parameters captured from every outbound call, so before any of
+that is saved, it passes through the data masking framework and sensitive values are redacted. Out of the
+box, two rules fire:
 
-- **`MaskSecretKeys`** — redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
-  `refresh_token`).
-- **`MaskPaymentCard`** — redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
-  (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
+- **`MaskSecretKeys`** redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`,
+  `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`).
+- **`MaskPaymentCard`** redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
+  major card brands; the digits may be separated by spaces or hyphens. (This replaces the original
+  `MaskCreditCard` rule, which still ships for compatibility.)
 
-So if your outbound request body contains a `password` or a card number, the persisted `ApiCall__c.Request__c` will have them redacted — but the actual HTTP request going over the
-wire is unchanged. Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal
-address, free text, international phone) ship as inactive templates. Flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` wiring the rule to the
-field(s) that need it.
+So if your outbound request body contains a `password` or a card number, the saved `ApiCall__c.Request__c`
+has them redacted. The actual HTTP request going over the wire is unchanged: only the stored copy is masked.
+Fifteen more rules ship as inactive templates (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
+JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
+international phone). To switch one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a
+`kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it.
 
 ## Common Issues
 
@@ -801,10 +822,10 @@ field(s) that need it.
 | `No ApiSetting found`                        | Missing or mismatched metadata        | Check `ClassName__c` matches your simple class name (e.g., `API_GetPost`, not namespace-prefixed)                          |
 | `Required parameter missing`                 | Parameter not passed                  | Check `getRequiredInputs()` for required names                                                                             |
 | Named Credential not found                   | Wrong credential name                 | Use `kern__API_ExampleRestApi` (namespace-prefixed)                                                                        |
-| `no CustomMetadata named ApiCredential...`   | ApiCredential record missing          | Create your own `ApiCredential__mdt` record (step 2a) — the package's is protected                                         |
+| `no CustomMetadata named ApiCredential...`   | ApiCredential record missing          | Create your own `ApiCredential__mdt` record (step 2a); the package's is protected                                          |
 | `Uncommitted work pending`                   | DML during callout phase              | Move DML to `onSuccess()` using `DML_Builder`                                                                              |
 | `super.configure()` not called               | Missing `super` in override           | Always call `super.configure()` first                                                                                      |
-| Sensitive value not redacted on `ApiCall__c` | Field not covered by a masking target | Add a `kern__MaskingTarget__mdt` record — see Web Services Guide                                                           |
+| Sensitive value not redacted on `ApiCall__c` | Field not covered by a masking target | Add a `kern__MaskingTarget__mdt` record (see Web Services Guide)                                                           |
 
 ---
 
@@ -820,19 +841,19 @@ After completing this guide, you understand the **three ways** to make outbound 
 
 **Key patterns:**
 
-- **`configure()`** -- Set up DTOs and `defaultMockBody` (always call `super.configure()` first)
-- **`getRequiredInputs()`** -- Declare mandatory parameters; framework aborts if missing
-- **`getValidationErrors()`** -- Custom business validation before the HTTP call
-- **`getHttpMethod()`** -- Override if not POST (default)
-- **`getWebServiceEndPoint()`** -- Customize the URL path dynamically
-- **`onSuccess()`** -- Post-call DML using `DML_Builder`
-- **`@JsonAccess`** -- Required on all DTOs in a managed package context
-- **`defaultMockBody`** -- Enables test isolation without real HTTP callouts (the simple mock)
-- **`API_MockFactory`** -- Custom mocks for error paths, edge cases, and fault injection
-- **`API_OutboundTestHelper`** -- One-line test assertions for success, abort, and failure paths
-- **DML/Callout ordering** -- The framework handles the `Uncommitted work pending` problem automatically.
+- **`configure()`**: set up DTOs and `defaultMockBody` (always call `super.configure()` first)
+- **`getRequiredInputs()`**: declare mandatory parameters; the framework aborts the call if one is missing
+- **`getValidationErrors()`**: your own business validation, run before the HTTP call
+- **`getHttpMethod()`**: override this if the verb is not POST (the default)
+- **`getWebServiceEndPoint()`**: build the URL path dynamically
+- **`onSuccess()`**: run DML after the call, using `DML_Builder`
+- **`@JsonAccess`**: required on every DTO in a managed package context
+- **`defaultMockBody`**: the simple mock that lets tests run without real HTTP callouts
+- **`API_MockFactory`**: custom mocks for error paths, edge cases, and fault injection
+- **`API_OutboundTestHelper`**: one-line test assertions for the success, abort, and failure paths
+- **DML/Callout ordering**: the framework handles the `Uncommitted work pending` problem for you.
   `onSuccess()` runs after the callout completes, so DML and callouts never conflict.
-- **Kern Home Page / API Calls tab** -- Real-time visibility into all API call results
+- **Kern Home Page / API Calls tab**: live visibility into every API call result
 
 ---
 
