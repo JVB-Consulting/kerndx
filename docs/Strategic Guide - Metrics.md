@@ -21,16 +21,16 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 1. [Package Codebase](#package-codebase)
 2. [Org Apex Usage (Unmanaged)](#org-apex-usage-unmanaged)
 3. [Global API Surface](#global-api-surface)
-4. [Subscriber Extension Points](#subscriber-extension-points)
+4. [Extension Points (Where Your Code Connects)](#extension-points-where-your-code-connects)
 5. [LWC Components](#lwc-components)
 6. [Salesforce Metadata](#salesforce-metadata)
 7. [Documentation](#documentation)
 8. [Code Quality & Scanning](#code-quality--scanning)
-9. [Subscriber Release Testing](#subscriber-release-testing)
+9. [Release Testing](#release-testing)
 10. [E2E Tests (Playwright)](#e2e-tests-playwright)
 11. [Combined Test Coverage](#combined-test-coverage)
 12. [Activity Snapshot](#activity-snapshot)
-13. [Comparator Set](#comparator-set)
+13. [The Other Frameworks We Compared](#the-other-frameworks-we-compared)
 
 </details>
 
@@ -74,7 +74,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Global inner enums            |   ~16 |
 | Global methods                |  ~546 |
 
-## Subscriber Extension Points
+## Extension Points (Where Your Code Connects)
 
 > The points where your own code connects to the framework. The [Global API Surface](#global-api-surface) section above counts the raw symbols (classes, methods, and so on). This section is more useful day to day: it groups those connection points by *how* you use them, so you can tell at a glance whether a given extension needs configuration, Apex, or just clicks in Flow.
 
@@ -165,7 +165,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | PMD rules (KernDX custom)    |    25 |
 | ESLint rules (KernDX custom) |     6 |
 
-## Subscriber Release Testing
+## Release Testing
 
 | Metric                                | Count |
 |---------------------------------------|------:|
@@ -209,7 +209,7 @@ These figures describe how well-supported and ready-to-install the package is, m
 
 > KernDX is a single-maintainer project. Its readiness to install shows up in the 107 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
 
-## Comparator Set
+## The Other Frameworks We Compared
 
 When the guides rank or compare KernDX, they measure it against the same group of other Salesforce frameworks across the same capability areas, so every comparison is like-for-like. This page only points you to the detail rather than repeating it: the Adoption and Architecture guides walk through how each area is covered, and the Risks guide covers maintenance and the bus-factor question (what happens if the people who built it move on).
 

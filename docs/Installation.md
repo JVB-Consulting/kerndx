@@ -10,8 +10,8 @@
 1. [Path 1: Install the KernDX Managed Package](#path-1-install-the-kerndx-managed-package)
     - [Installation](#installation)
     - [Post-Install Configuration](#post-install-configuration)
-    - [Subscriber Integration Gotchas](#subscriber-integration-gotchas)
-    - [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission)
+    - [Integration Gotchas](#integration-gotchas)
+    - [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission)
     - [Upgrading](#upgrading)
     - [Release Testing](#release-testing)
 2. [Path 2: Repackage Under Your Own Namespace](#path-2-repackage-under-your-own-namespace)
@@ -105,12 +105,12 @@ What the Health Check looks for, and how to satisfy it:
 
    Add **Session** cache where you can. Kern keeps per-user data such as encryption keys there. Without it, that data falls back to Org Cache, which uses more of your org-cache allocation and slows down user-specific operations.
 2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org, for example pushing to streaming channels. If you use them, add a Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**). If you don't use those features, you can skip this step.
-3. **Class Type Resolver (optional).** You only need this if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global`. In that case Kern needs a small helper class (a Type Resolver) to find your classes across its namespace; in plain terms, you tell the framework where to look for your code. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you. See also [Subscriber Integration Gotchas](#subscriber-integration-gotchas) below.
+3. **Class Type Resolver (optional).** You only need this if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global`. In that case Kern needs a small helper class (a Type Resolver) to find your classes across its namespace; in plain terms, you tell the framework where to look for your code. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you. See also [Integration Gotchas](#integration-gotchas) below.
 
-To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User — Manage Flow Permission](#ci-integration-user--manage-flow-permission) below). For a full walkthrough of every check and what each result means,
+To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission) below). For a full walkthrough of every check and what each result means,
 see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.
 
-### Subscriber Integration Gotchas
+### Integration Gotchas
 
 Four details that catch most people on their first integration. Knowing them up front saves a confusing debugging session later.
 
@@ -129,7 +129,7 @@ Four details that catch most people on their first integration. Knowing them up 
 3. **Validation bypass takes a `String`, not an `SObjectType`.** When you turn off a validation rule for an object, pass the object name as text: `kern.UTIL_ValidationRule.bypassObject('Account')`. There is no `bypass(SObjectType)` version of the method. One more thing to know: validation bypasses are tracked separately from trigger (`TRG_Base`) bypasses, so calling `TRG_Base.clearAllActionBypasses()` does not clear them.
 4. **The current package does not include the `RequiredPermission__c` and `BypassPermission__c` fields** on `TriggerAction__mdt`, `TriggerSetting__mdt`, `ValidationRule__mdt`, or `ValidationRuleGroup__mdt`. If your own project ships configuration (CMDT) files that reference those fields, perhaps from an older install or in anticipation of a future release, remove the references before you deploy. Otherwise the deploy fails with a "No such column" error.
 
-### CI Integration User — Manage Flow Permission
+### CI Integration User: Manage Flow Permission
 
 If you run KernDX checks in a continuous-integration (CI) pipeline, the user that pipeline logs in as needs one specific permission, or a key safety check passes when it shouldn't.
 

@@ -210,9 +210,9 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 
 | Document                                                      | Description                                                                                     |
 |---------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| [AI Agent Instructions](AI%20Agent%20Instructions.md)         | Complete framework reference for AI agents, repackaging with custom namespace, subscriber setup |
+| [AI Agent Instructions](AI%20Agent%20Instructions.md)         | Complete framework reference for AI agents, repackaging with custom namespace, org setup |
 | [Code Conventions - Guide](Code%20Conventions%20-%20Guide.md) | Canonical Apex/LWC/JS coding conventions: naming, formatting, ApexDoc, anti-patterns           |
-| [Installation](Installation.md)                               | Subscriber org configuration, post-install steps, health check verification                     |
+| [Installation](Installation.md)                               | Your org configuration, post-install steps, health check verification                     |
 
 ### Strategic Guide (9 documents)
 
@@ -266,5 +266,5 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Write browser-based E2E tests                          | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)                             |
 | Enforce framework conventions in CI/CD                 | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)                         |
 | Build custom PMD rules or adopt scanning incrementally | [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md)                                     |
-| Design a comprehensive E2E test strategy               | [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md)                                         |
+| Design an E2E test strategy               | [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md)                                         |
 | Look up a specific class API                           | [API Reference](reference/apex/index.md)                                                    |

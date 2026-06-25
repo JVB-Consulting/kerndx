@@ -605,7 +605,7 @@ what you need, you save the whole build.
 - **`kern/featureFlag` is for UX shaping, not authorization.** It serves a cached flag result that can lag a
   permission-set change within a session. Gate hard authorization decisions in the Apex method that performs
   the protected operation, not on the client. See the
-  [LWC Guide](LWC%20-%20Guide.md#lds-cache-staleness--not-for-client-side-authorization).
+  [LWC Guide](LWC%20-%20Guide.md#lds-cache-staleness-not-for-client-side-authorization).
 - **Jest cannot resolve managed-package or platform imports on its own.** Every `kern/...`,
   `@salesforce/apex/...`, and `@salesforce/label/...` import must be virtual-mocked in your test.
 

@@ -15,6 +15,12 @@ navOrder: 36
 
 ---
 
+## In one paragraph
+
+Sometimes you want to ship a feature to production but keep it switched off, then turn it on for a few users, then for everyone, all without redeploying code. A feature flag does exactly that: it is a runtime on/off switch that your Apex, Flow, and Lightning component code reads to decide whether a piece of behaviour runs. You flip the switch by editing a record in Setup, and the next transaction sees the change. Read this guide if you build features that need a gradual rollout, an instant off-switch in an incident, or different behaviour for different user groups. Reach for it whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -23,7 +29,7 @@ navOrder: 36
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Escape Hatches](#escape-hatches)
+4. [How to opt out](#how-to-opt-out)
 5. [Architecture](#architecture)
     - [How a Flag Is Defined](#how-a-flag-is-defined)
     - [The Custom Metadata Behind a Flag](#the-custom-metadata-behind-a-flag)
@@ -77,8 +83,6 @@ navOrder: 36
 ---
 
 ## Overview
-
-**In one paragraph:** Sometimes you want to ship a feature to production but keep it switched off, then turn it on for a few users, then for everyone, all without redeploying code. A feature flag does exactly that: it is a runtime on/off switch that your Apex, Flow, and Lightning component code reads to decide whether a piece of behaviour runs. You flip the switch by editing a record in Setup, and the next transaction sees the change. Read this guide if you build features that need a gradual rollout, an instant off-switch in an incident, or different behaviour for different user groups. Reach for it whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
 
 The switch is stored as a Custom Metadata record. Your code asks the framework "is this feature enabled?" and branches on the answer. Because the answer comes from a record you can edit, not from compiled code, you change the behaviour without a deployment.
 
@@ -135,7 +139,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 You are never locked into the framework. Feature flags are opt-in: the `kern.UTIL_FeatureFlag.isEnabled(...)` call is a convenience over reading Custom Metadata yourself, and nothing forces you through it. When the framework does not fit your case, the plain Salesforce building blocks are always available, and the table below points you at the right one.
 

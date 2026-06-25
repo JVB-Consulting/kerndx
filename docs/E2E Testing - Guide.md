@@ -15,7 +15,9 @@ navOrder: 92
 
 ---
 
-**In short:** This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. Unit tests check one piece of code in isolation. End-to-end (E2E) tests drive a real browser through the whole journey, so they catch problems that only show up once everything is wired together, such as a page that renders wrong after a layout change or a toast message that never appears. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning. Read it if you build, design, or verify Lightning features. Use it whenever a unit test cannot prove that the user-facing result is correct.
+## In one paragraph
+
+This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. Unit tests check one piece of code in isolation. End-to-end (E2E) tests drive a real browser through the whole journey, so they catch problems that only show up once everything is wired together, such as a page that renders wrong after a layout change or a toast message that never appears. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning. Read it if you build, design, or verify Lightning features. Use it whenever a unit test cannot prove that the user-facing result is correct.
 
 ---
 

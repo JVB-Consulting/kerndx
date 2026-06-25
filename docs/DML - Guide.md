@@ -15,6 +15,12 @@ navOrder: 14
 
 ---
 
+## In one paragraph
+
+This guide covers KernDX's data layer: one consistent way to save records in Apex so every insert, update, and delete is safe, bulk-ready, and easy to test. It exists because four things routinely go wrong when you write data by hand: a multi-step save fails halfway and leaves orphaned records, a loop hits governor limits, code lets a user write data they should not, or test setup becomes a wall of boilerplate. You build up the changes you want, then run them in a single all-or-nothing transaction that enforces the running user's permissions by default. Developers read it to perform DML; architects read it to standardise transaction and security patterns. Reach for it whenever code writes data.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -29,29 +35,29 @@ navOrder: 14
     - [Layer 3: Sharing Proxy](#layer-3-sharing-proxy)
     - [Layer 4: FLOW_CheckObjectPermissions](#layer-4-flow_checkobjectpermissions)
 4. [Quick Start](#quick-start)
-5. [Escape Hatches](#escape-hatches)
+5. [How to opt out](#how-to-opt-out)
 6. [Transactional DML Pattern (DML_Builder)](#transactional-dml-pattern-dml_builder)
     - [Basic Usage](#basic-usage)
     - [Managing Dependencies](#managing-dependencies)
     - [Registering Relationships](#registering-relationships)
     - [Upsert with External ID](#upsert-with-external-id)
     - [Mixed Operations](#mixed-operations)
-6. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
+7. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
     - [Insert Operations](#insert-operations)
     - [Update Operations](#update-operations)
     - [Delete Operations](#delete-operations)
     - [Upsert Operations](#upsert-operations)
     - [Undelete Operations](#undelete-operations)
-7. [Sharing Enforcement](#sharing-enforcement)
+8. [Sharing Enforcement](#sharing-enforcement)
     - [Context-Driven Sharing](#context-driven-sharing)
     - [Operation-Level Sharing](#operation-level-sharing)
     - [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)
     - [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)
-8. [Permission Checking (FLOW_CheckObjectPermissions)](#permission-checking-flow_checkobjectpermissions)
+9. [Permission Checking (FLOW_CheckObjectPermissions)](#permission-checking-flow_checkobjectpermissions)
     - [Object-Level Permissions](#object-level-permissions)
     - [Before DML Checks](#before-dml-checks)
     - [Field-Level Security](#field-level-security)
-9. [Test Data Factory](#test-data-factory)
+10. [Test Data Factory](#test-data-factory)
     - [TST_Builder](#tst_builder)
     - [Basic Usage](#basic-usage-1)
     - [Field Overrides](#field-overrides)
@@ -75,15 +81,15 @@ navOrder: 14
         - [Custom Default Value Provider](#custom-default-value-provider)
         - [Custom Factory Provider](#custom-factory-provider)
     - [Complete Example](#complete-example)
-10. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
+11. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
     - [Bulk Field Updates](#bulk-field-updates)
     - [Purge Records (UTIL_PurgeRecords)](#purge-records-util_purgerecords)
     - [Deactivate Users](#deactivate-users)
     - [Batch Processing](#batch-processing)
-11. [Testing](#testing)
-12. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-13. [Anti-Patterns](#anti-patterns)
-14. [Best Practices](#best-practices)
+12. [Testing](#testing)
+13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+14. [Anti-Patterns](#anti-patterns)
+15. [Best Practices](#best-practices)
     - [Use Transactional DML for Complex Transactions](#use-transactional-dml-for-complex-transactions)
     - [Always Use DML_Builder for DML](#always-use-dml_builder-for-dml)
     - [Be Explicit About Sharing](#be-explicit-about-sharing)
@@ -98,7 +104,7 @@ navOrder: 14
     - [Use All-or-Nothing Appropriately](#use-all-or-nothing-appropriately)
     - [Reset Sharing After Operations](#reset-sharing-after-operations)
     - [Use Purge Utilities for Cleanup](#use-purge-utilities-for-cleanup)
-15. [Related Documentation](#related-documentation)
+16. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -366,7 +372,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 You are never locked in. The framework is opt-in, and for every common case the standard methods don't cover by default, there's a documented way to step outside on the same builder. When you need to skip the framework entirely, raw `Database.*` is always available.
 
@@ -775,7 +781,7 @@ Your DML calls default to `AccessLevel.USER_MODE`, which enforces the running us
 **Force a specific mode:**
 
 ```apex
-// Force USER_MODE (subscriber-reachable DML enforcing the running user's FLS)
+// Force USER_MODE (user-facing DML enforcing the running user's FLS)
 DML_Builder.newTransaction()
 	.withUserMode()
 	.doInsert(record)
@@ -788,7 +794,7 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Emergency kill-switch (a master off-switch you can flip in an incident without a deployment of code):** set `FeatureFlag.UserModeDml_Enabled.IsEnabledByDefault__c` to `false` with a metadata deploy. It takes effect on the next transaction, and from then on every call that doesn't explicitly use `.withUserMode()` or `.withSystemMode()` reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide, Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+**Emergency kill-switch (a master off-switch you can flip in an incident without a deployment of code):** set `FeatureFlag.UserModeDml_Enabled.IsEnabledByDefault__c` to `false` with a metadata deploy. It takes effect on the next transaction, and from then on every call that doesn't explicitly use `.withUserMode()` or `.withSystemMode()` reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default).
 
 **Example:**
 

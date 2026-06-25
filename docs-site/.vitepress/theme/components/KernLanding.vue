@@ -118,7 +118,7 @@
 				<p class="kl-headline">Your AI assistant gets the standards before it writes.</p>
 				<p class="kl-lead">KernDX ships its AI context as plain files in the public repo, with nothing to install, so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework (the naming, the secure defaults, the audited-bypass rule) instead of inventing their own.</p>
 				<div class="kl-agentic">
-					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API 67.0) covering trigger handling, secure queries and saves, structured logging, background-job orchestration, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
+					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API 67.0). It covers trigger handling, secure queries and saves, structured logging, background-job orchestration, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
 					<div class="kl-usage" data-spec-id="agentic-usage">
 						<p class="kl-usage-title">What ships, and how to wire it up</p>
 						<ol>

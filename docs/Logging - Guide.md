@@ -8,7 +8,7 @@ navOrder: 18
 **Package Type:** Managed Package
 **API Version:** 67.0
 
-> **Note for Subscriber Implementations:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`). See
+> **Note if your org uses a custom namespace:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`). See
 > the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
 
 **Target Audience:**
@@ -16,6 +16,15 @@ navOrder: 18
 - **Developers** - Implementing logging across Apex, LWC, and Flows
 - **Architects** - Designing observability and traceability patterns
 - **DevOps** - Monitoring and debugging production systems
+
+---
+
+## In one paragraph
+
+Salesforce's built-in `System.debug()` writes to debug logs that expire and that you cannot search or chart. This framework instead saves every log as a real
+record you can report on, filter, and keep, so when something fails in production the evidence is still there next week. You log the same way from Apex, screen flows, and Lightning
+components, and the framework can stitch a single user action together even when it spans a button click, a trigger, a callout, and a background job. Developers use it to capture
+errors, architects use it to design traceability, and DevOps uses it to monitor live systems. Reach for it whenever you would otherwise reach for `System.debug()`.
 
 ---
 
@@ -47,7 +56,7 @@ navOrder: 18
     - [Operation Context Stack](#operation-context-stack)
 8. [Performance Logging](#performance-logging)
     - [What Gets Automatically Timed](#what-gets-automatically-timed)
-    - [Custom Timing in Subscriber Code](#custom-timing-in-subscriber-code)
+    - [Custom Timing in Your Own Code](#custom-timing-in-your-own-code)
     - [Performance Configuration](#performance-configuration)
 9. [Log Buffering](#log-buffering)
 10. [LWC Client-Side Logging](#lwc-client-side-logging)
@@ -106,11 +115,6 @@ navOrder: 18
 ---
 
 ## Overview
-
-**In one paragraph:** Salesforce's built-in `System.debug()` writes to debug logs that expire and that you cannot search or chart. This framework instead saves every log as a real
-record you can report on, filter, and keep, so when something fails in production the evidence is still there next week. You log the same way from Apex, screen flows, and Lightning
-components, and the framework can stitch a single user action together even when it spans a button click, a trigger, a callout, and a background job. Developers use it to capture
-errors, architects use it to design traceability, and DevOps uses it to monitor live systems. Reach for it whenever you would otherwise reach for `System.debug()`.
 
 **How it works under the hood:** each log is published as a [platform event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm)
 (`LogEntryEvent__e`), then saved to a queryable custom object (`LogEntry__c`) you can run reports and SOQL against.
@@ -534,7 +538,7 @@ status, so you can see which integrations are slow.
 All of this performance logging is off by default and only fires once an operation crosses a threshold. You turn it on and set the thresholds in `LogSetting__c` (see
 [Performance Configuration](#performance-configuration) below).
 
-### Custom Timing in Subscriber Code
+### Custom Timing in Your Own Code
 
 When you want to time a piece of your own code (a custom batch step, a callout) the same way the framework times itself, wrap the work in a `LOG_Builder.scope()` block. The scope
 records when the work started and finished and emits a `LogEntryEvent__e` that joins the same correlation chain as the framework's automatic timers, so your custom timing shows up

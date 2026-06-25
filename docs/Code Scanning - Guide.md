@@ -7,7 +7,7 @@ navOrder: 90
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **Note for Subscriber Implementations:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`).
+> **Using KernDX under your own namespace:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`).
 > See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
 
 **Target Audience:**
@@ -15,6 +15,12 @@ navOrder: 90
 - **Developers** - Configuring scanners in IDE and CI/CD, understanding rule violations, suppressing false positives
 - **Architects** - Designing quality gates, selecting enforcement tiers, planning phased adoption
 - **DevOps** - Integrating scanners into deployment pipelines, configuring CI/CD tools
+
+---
+
+## In one paragraph
+
+A framework only helps if people actually use it. Nothing stops a developer from writing a plain `insert record;` or a raw `System.debug()` instead of the framework's safer equivalent, and on a busy team those shortcuts pile up until the framework's guarantees no longer hold. This guide describes the set of checkers (a "scanner") that watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly accumulating. You catch a problem either in your editor as you type, or in your build pipeline before the code reaches a Salesforce org. Developers use this guide to understand and fix a flagged violation; architects use it to plan a phased rollout; DevOps uses it to wire the checks into a deployment pipeline. Reach for it whenever you set up code quality gates or hit a rule you want to understand.
 
 ---
 
@@ -119,8 +125,6 @@ navOrder: 90
 ---
 
 ## Overview
-
-**In one paragraph:** A framework only helps if people actually use it. Nothing stops a developer from writing a plain `insert record;` or a raw `System.debug()` instead of the framework's safer equivalent, and on a busy team those shortcuts pile up until the framework's guarantees no longer hold. This guide describes the set of checkers (a "scanner") that watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly accumulating. You catch a problem either in your editor as you type, or in your build pipeline before the code reaches a Salesforce org. Developers use this guide to understand and fix a flagged violation; architects use it to plan a phased rollout; DevOps uses it to wire the checks into a deployment pipeline. Reach for it whenever you set up code quality gates or hit a rule you want to understand.
 
 **Why this matters in practice:** Take one example. A developer writes `insert record;` instead of `DML_Builder.newTransaction().doInsert(record).execute()`. The code compiles and works, so nothing looks wrong. But that one line quietly gives up four things the framework would have provided: an all-or-nothing transaction, the running user's own permissions and record sharing enforced, consistent error handling, and logging. The scanner flags that line the moment it is written, so the gap never reaches production.
 

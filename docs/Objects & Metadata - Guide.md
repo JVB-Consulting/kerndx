@@ -15,6 +15,12 @@ navOrder: 70
 
 ---
 
+## In one paragraph
+
+Every part of KernDX is steered by data you can see and change: configuration records that turn behaviour on, log records that capture what happened, and a handful of tracking objects that record API calls and background jobs. This guide is the map of all of them. It tells you which object or metadata type stores what, which field controls which behaviour, and how the objects connect across the framework. Reach for it when you need to look up a field, wire up a configuration record, or understand how one framework's data feeds another. Developers use it as a field reference; architects use it to see the whole data model; analysts use it to find the records they configure.
+
+---
+
 ## Table of Contents
 
 <details>
@@ -81,8 +87,6 @@ navOrder: 70
 ---
 
 ## Overview
-
-**In one paragraph:** Every part of KernDX is steered by data you can see and change: configuration records that turn behaviour on, log records that capture what happened, and a handful of tracking objects that record API calls and background jobs. This guide is the map of all of them. It tells you which object or metadata type stores what, which field controls which behaviour, and how the objects connect across the framework. Reach for it when you need to look up a field, wire up a configuration record, or understand how one framework's data feeds another. Developers use it as a field reference; architects use it to see the whole data model; analysts use it to find the records they configure.
 
 These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
 

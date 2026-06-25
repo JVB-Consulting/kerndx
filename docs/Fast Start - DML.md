@@ -492,7 +492,7 @@ enforced, rather than skipping those checks (the alternative, `SYSTEM_MODE`). In
 are both checked against the running user, and sharing rules are honoured. This safe default is controlled by the `UserModeDml_Enabled` feature flag, which ships set to `true`.
 You can override it on a single call with `.withSystemMode()` (which skips the CRUD and FLS checks), or be explicit and pass `.withUserMode()` even when the flag is on.
 `.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides.
-See [Security Guide — Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
 
 ```apex
 // Explicit USER_MODE (redundant when the flag is on, belt-and-braces otherwise)

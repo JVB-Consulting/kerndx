@@ -15,6 +15,10 @@ navOrder: 12
 
 ---
 
+## In one paragraph
+
+Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce's query language) across dozens of classes, where the same field list gets copied, typos slip through, and it is easy to accidentally show a user records they should not see. This framework gives you one consistent, type-checked way to query data, so a query reads cleanly, runs the right security checks by default, and lives in one place you can reuse. You write queries by chaining short method calls instead of building strings by hand. Developers use it for everyday queries; architects use it to standardise data access and security; analysts can read this guide to understand what sharing and access rules the queries enforce. Reach for it whenever your code reads records; skip it for a one-off throwaway query where inline SOQL is simpler.
+
 ## Table of Contents
 
 <details>
@@ -23,7 +27,7 @@ navOrder: 12
 1. [Quick Navigation](#quick-navigation)
 2. [Overview](#overview)
 3. [Quick Start](#quick-start)
-4. [Escape Hatches](#escape-hatches)
+4. [How to opt out](#how-to-opt-out)
 5. [Architecture](#architecture)
     - [KernDX vs OOTB: Selector Framework Comparison](#kerndx-vs-ootb-selector-framework-comparison)
         - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
@@ -31,7 +35,7 @@ navOrder: 12
         - [When to Use KernDX Selector Framework](#when-to-use-kerndx-selector-framework)
         - [When to Use OOTB Inline SOQL](#when-to-use-ootb-inline-soql)
         - [Example Comparison](#example-comparison)
-    - [Layer 1: QRY_Builder (Recommended Default for Subscriber Orgs)](#layer-1-qry_builder-recommended-default-for-subscriber-orgs)
+    - [Layer 1: QRY_Builder (Recommended Default for Your Org)](#layer-1-qry_builder-recommended-default-for-your-org)
     - [Layer 2: SEL_Base](#layer-2-sel_base)
     - [Layer 3: QRY_Condition](#layer-3-qry_condition)
 5. [Basic Queries](#basic-queries)
@@ -166,8 +170,6 @@ navOrder: 12
 
 ## Overview
 
-**In one paragraph:** Every Salesforce app reads data, and most teams scatter SOQL queries (Salesforce's query language) across dozens of classes, where the same field list gets copied, typos slip through, and it is easy to accidentally show a user records they should not see. This framework gives you one consistent, type-checked way to query data, so a query reads cleanly, runs the right security checks by default, and lives in one place you can reuse. You write queries by chaining short method calls instead of building strings by hand. Developers use it for everyday queries; architects use it to standardise data access and security; analysts can read this guide to understand what sharing and access rules the queries enforce. Reach for it whenever your code reads records; skip it for a one-off throwaway query where inline SOQL is simpler.
-
 **How it works under the hood:** queries flow through three small layers (a query engine, an optional reusable selector class per object, and low-level condition builders), all of which finally call Salesforce's standard `Database.query()`.
 
 **Managed Package Context:**
@@ -232,7 +234,7 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Escape Hatches
+## How to opt out
 
 The selector framework is opt-in, so you are never forced through it. Use `QRY_Builder` as your everyday default, and reach for a reusable `SEL_Base` selector for the roughly 5% of queries that you call from more than one place. When the framework does not fit, plain SOQL still works, and the framework's own Lightning components query through Salesforce's standard client-side caching directly.
 
@@ -444,7 +446,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 
 ---
 
-### Layer 1: [QRY_Builder](reference/apex/QRY_Builder.md) **(Recommended Default for Subscriber Orgs)**
+### Layer 1: [QRY_Builder](reference/apex/QRY_Builder.md) **(Recommended Default for Your Org)**
 
 **What it does:** Lets you build and run a [SOQL query](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm) by chaining short, readable method calls instead of assembling a string by hand. It also handles result caching, paging through large result sets, and sharing enforcement (which records each user is allowed to see).
 
@@ -495,7 +497,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 Two terms matter here. A query in **USER_MODE** runs with the current user's read/write permissions and record sharing enforced, so it only returns what that user is allowed to see. A query in **SYSTEM_MODE** skips all of those checks. The two acronyms below appear throughout: FLS is field-level security (which fields a user may read or edit), and CRUD is object create/read/update/delete permissions.
 
 - **Default access mode:** Your queries run in `AccessLevel.USER_MODE` by default (CRUD, FLS, and sharing enforced), controlled by the `UserModeQueries_Enabled` feature flag. The framework's own internal selectors opt into `AccessLevel.SYSTEM_MODE` by overriding the `systemModeRequired()` hook on `SEL_Base`.
-  See [Security Guide: Secure-by-Default Defaults](Security%20-%20Guide.md#secure-by-default-defaults).
+  See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
 - `withUserMode()` - Force `AccessLevel.USER_MODE` (enforces CRUD, FLS, and sharing at DB level) regardless of flag state
 - `withSystemMode()` - Force `AccessLevel.SYSTEM_MODE` (bypasses CRUD/FLS; typically paired with `.bypassSharing()` for framework-internal reads) regardless of flag state
 - `stripInaccessible()` - Remove inaccessible fields from results post-query
