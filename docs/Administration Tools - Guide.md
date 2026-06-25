@@ -6,9 +6,31 @@ title: "Administration Tools"
 
 # Administration Tools
 
-KernDX ships four operational consoles in the **Kern** app for exercising integrations, watching events and async work in real time, and finding sensitive data. They are for the admins, developers, and reviewers who run and troubleshoot a KernDX org day to day. Teams usually build or wire together this kind of tooling themselves. Here it comes with the package.
+## What problem does this solve?
 
-_These walkthroughs reflect the current released version of KernDX._
+Running and troubleshooting a Salesforce integration usually means cobbling together your own tooling: Postman for callouts, throwaway anonymous Apex, a CometD client to watch streaming events, and a hand-written audit to find sensitive fields. Most teams build or wire together that kit themselves, and then maintain it.
+
+KernDX gives you four ready-made consoles in the **Kern** app instead. You fire inbound and outbound API calls from a form, watch events and async jobs arrive on a live timeline, and scan your objects for sensitive data, all without leaving the org.
+
+They are for the admins, developers, and reviewers who run and troubleshoot a KernDX org day to day. Turn to them when you want to exercise or observe something that is normally invisible or fiddly to set up by hand.
+
+## Mental model
+
+Think of these consoles as the instrument panel on a dashboard. The engine (your integrations, events, and async jobs) runs the same with or without them, but the panel lets you see what is happening and prod it safely: send a test signal, watch a reading move, and find the warning lights, all without opening the bonnet.
+
+## Use this when
+- You want to test a real Apex callout or inbound endpoint without Postman, throwaway anonymous Apex, or leftover test data.
+- You need to watch platform events, Change Data Capture, or a custom channel arrive live, with the full payload, rather than standing up your own streaming client.
+- A multi-step async job has failed and you need to see which step broke and how far it got.
+- You want to find likely-sensitive fields and turn them into a deployable masking configuration, instead of auditing by hand.
+
+## Don't use this when
+- The built-in Salesforce tools already cover your need. For a quick one-off callout the Developer Console or a REST client is enough, and the platform's Streaming Monitor and standard debug logs handle simple cases. Use the native option when it is sufficient; it is less to learn.
+- You are not running a KernDX org. These consoles observe and exercise KernDX integrations, events, and async chains.
+
+## The four consoles
+
+These walkthroughs reflect the current released version of KernDX.
 
 <div class="admin-tools-glance">
 <a href="#api-test-harness">API Test Harness</a>

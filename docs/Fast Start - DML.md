@@ -6,7 +6,7 @@ navOrder: 14
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction. **Why it matters:** That single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate. **Who should follow it:** any developer who writes Apex that saves data. **When to use it:** any time your code creates, changes, or removes records.
+**What this is:** A safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction. **Why it matters:** That single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate. **Who should follow it:** any developer who writes Apex that saves data. **When to use it:** any time your code creates, changes, or removes records. A bare `insert` of a single record with no related children is fine on its own; the benefit of the builder shows once you have parent-child links, partial-success handling, or want consistent error logging across your codebase.
 
 **Before you start:**
 
@@ -539,7 +539,7 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 | **`DML_Builder`**                     | One builder for all DML operations; it replaces direct `insert`/`update`/`delete`   |
 | **`.doInsert(child, field, parent)`** | Auto-populates foreign keys after parent insert                                     |
 | **`.execute()`**                      | Commits all operations atomically: parents before children                          |
-| **`TransactionResult`**               | Inspection API: `isSuccess()`, `getInsertedIds()`, `getErrors()`, counts            |
+| **`TransactionResult`**               | Tells you what happened after a save: `isSuccess()`, `getInsertedIds()`, `getErrors()`, counts            |
 
 **Key patterns:**
 

@@ -6,7 +6,7 @@ navOrder: 34
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to build a Salesforce REST endpoint that receives data from an outside system (a website form, a partner system, another app), checks the data, saves a record, and returns a clean response. **Why it matters:** Hand-rolled REST endpoints usually scatter logging, validation, and error handling across each one, so they drift apart and break differently. Here those are built in, so every endpoint behaves the same. **Who should follow this:** developers building integrations, and tech leads who want consistent, testable inbound APIs. **When to reach for it:** any time an external system needs to send data into Salesforce.
+**What this is:** A way to build a Salesforce REST endpoint that receives data from an outside system (a website form, a partner system, another app), checks the data, saves a record, and returns a clean response. **Why it matters:** Hand-rolled REST endpoints usually scatter logging, validation, and error handling across each one, so they drift apart and break differently. Here those are built in, so every endpoint behaves the same. **Who should follow this:** developers building integrations, and tech leads who want consistent, testable inbound APIs. **When to use it:** any time an external system needs to send data into Salesforce. If you only need a single, one-off endpoint with no logging or validation, a plain `@RestResource` class is simpler; the framework earns its keep once you have several endpoints that should all behave the same way.
 
 **Before you start:**
 
@@ -716,4 +716,4 @@ After completing this guide, you understand the **inbound API architecture** in 
 - [Building Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md)
 - [Feature Flag Gating](Fast%20Start%20-%20Feature%20Flags.md)
 - [Complete Web Services Guide](Web%20Services%20-%20Guide.md)
-- [Data Masking](Web%20Services%20-%20Guide.md#advanced-features)
+- [Data Masking](Web%20Services%20-%20Guide.md#what-else-can-it-do)

@@ -484,7 +484,7 @@ PASS  force-app/main/default/lwc/accountCard/__tests__/accountCard.test.js
 | Extend the factory     | `extends ComponentBuilder('notification', ...)`         | Inherits framework helpers; never extend `LightningElement`     |
 | Import from `kern/`    | `from 'kern/componentBuilder'`                          | The base class lives in the managed package, not your namespace |
 | Call Apex via module   | `this.callControllerMethod(apexMethod, {params})`       | Framework error handling and consistent calling convention      |
-| Toast from a `catch`   | `this.showErrorToast(error)`                            | Normalises Apex / LDS / UI API error shapes automatically       |
+| Toast from a `catch`   | `this.showErrorToast(error)`                            | Turns a raw Apex, Lightning Data Service, or UI API error into a readable message for you |
 | Custom Labels for text | `@salesforce/label/c.AccountCard_LoadFailed`            | Translatable, overridable: never hardcode user-facing strings   |
 | Virtual-mock the base  | `jest.mock('kern/componentBuilder', …, {virtual:true})` | Resolves the managed-package import inside Jest                 |
 

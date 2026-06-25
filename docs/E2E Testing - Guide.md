@@ -15,9 +15,42 @@ navOrder: 92
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. Unit tests check one piece of code in isolation. End-to-end (E2E) tests drive a real browser through the whole journey, so they catch problems that only show up once everything is wired together, such as a page that renders wrong after a layout change or a toast message that never appears. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning. Read it if you build, design, or verify Lightning features. Use it whenever a unit test cannot prove that the user-facing result is correct.
+Some failures only show up once a real person clicks through your app. A unit test (Apex `@IsTest`, LWC Jest) checks one piece of code on its own, so it never sees a page that renders wrong after a layout change, or a toast message that never appears.
+
+This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning.
+
+Read it if you build, design, or verify Lightning features (developers, architects, and QA engineers). Use it whenever a unit test cannot prove that the user-facing result is correct.
+
+---
+
+## Mental model
+
+Think of an end-to-end test as a robot stand-in for one of your users. It opens a browser, signs in, walks through the same screens a person would, and checks that the right things appear. The helpers in this guide are the parts of that journey Salesforce always makes awkward (waiting for a page to settle, finding an element inside a Lightning component, catching a toast before it vanishes) packaged up so you do not write them every time.
+
+---
+
+## Use this when
+
+- You need to confirm a real user sees the right result: a field renders, a toast appears, a validation error blocks a save.
+- A trigger action, custom validation, or LWC only proves itself once it runs inside a live Lightning page.
+- You want to catch problems that only surface when everything is wired together: layout, components, and data loading at once.
+- You are verifying a KernDX feature in the browser (the Streaming Event Monitor, log entries, API call records).
+
+## Don't use this when
+
+- A unit test can already prove the result. Apex `@IsTest` and LWC Jest tests are faster and steadier; use them first and keep E2E for what they cannot reach.
+- You would be testing Salesforce's own platform behaviour rather than your custom features. That wastes time and breaks on platform updates.
+- You only need to set up or check data. Do that through the `sf` CLI or anonymous Apex, not the browser. Drive the browser only for the thing you are actually verifying.
+
+## Quick start
+
+The fastest way in is the companion [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md), which gets three tests passing in about 25 minutes. In short, the path is:
+
+1. Create an `e2e/` folder beside your `force-app/` source and install Playwright (see [How do I set up the project?](#how-do-i-set-up-the-project)).
+2. Point the suite at your org by its alias and let global setup log in for you once (see [Authentication](#authentication)).
+3. Write your first spec using the navigation and wait helpers, so the test waits for Lightning to settle instead of guessing (see [Helper Library Reference](#helper-library-reference)).
 
 ---
 
@@ -26,25 +59,30 @@ This guide shows you how to test a real Salesforce screen end to end: log in, cl
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [Why test in the browser at all?](#why-test-in-the-browser-at-all)
     - [Why E2E Testing for Salesforce?](#why-e2e-testing-for-salesforce)
     - [Why Playwright?](#why-playwright)
-    - [Architecture](#architecture)
+    - [How does it work?](#how-does-it-work)
     - [Key Design Decisions](#key-design-decisions)
-3. [Project Setup](#project-setup)
+8. [How do I set up the project?](#how-do-i-set-up-the-project)
     - [Directory Structure](#directory-structure)
     - [Dependencies](#dependencies)
     - [Configuration Deep Dive](#configuration-deep-dive)
     - [Org Alias](#org-alias)
-4. [Authentication](#authentication)
+9. [Authentication](#authentication)
     - [How Frontdoor URL Works](#how-frontdoor-url-works)
     - [Global Setup Flow](#global-setup-flow)
     - [Session State Reuse](#session-state-reuse)
     - [Re-authentication Mid-Test](#re-authentication-mid-test)
     - [Expired Sessions](#expired-sessions)
     - [Package Upgrade in E2E Context](#package-upgrade-in-e2e-context)
-5. [Salesforce Lightning Challenges](#salesforce-lightning-challenges)
+10. [Salesforce Lightning Challenges](#salesforce-lightning-challenges)
     - [Shadow DOM](#shadow-dom)
     - [Spinners and Loading States](#spinners-and-loading-states)
     - [Toasts](#toasts)
@@ -53,13 +91,13 @@ This guide shows you how to test a real Salesforce screen end to end: log in, cl
     - [Record Pages](#record-pages)
     - [Modals](#modals)
     - [Combobox and Picklist](#combobox-and-picklist)
-6. [Helper Library Reference](#helper-library-reference)
+11. [Helper Library Reference](#helper-library-reference)
     - [sf-auth.js](#sf-authjs)
     - [sf-cli.js](#sf-clijs)
     - [sf-navigation.js](#sf-navigationjs)
     - [wait-helpers.js](#wait-helpersjs)
     - [sf-selectors.js](#sf-selectorsjs)
-7. [Page Object Patterns](#page-object-patterns)
+12. [Page Object Patterns](#page-object-patterns)
     - [Why Page Objects for Salesforce](#why-page-objects-for-salesforce)
     - [Base Structure](#base-structure)
     - [Locator Strategies](#locator-strategies)
@@ -67,7 +105,7 @@ This guide shows you how to test a real Salesforce screen end to end: log in, cl
     - [Example: List View Page](#example-list-view-page)
     - [Example: Record Page](#example-record-page)
     - [Example: Custom LWC Page](#example-custom-lwc-page)
-8. [Testing Common Salesforce Features](#testing-common-salesforce-features)
+13. [Testing Common Salesforce Features](#testing-common-salesforce-features)
     - [Record CRUD and Field Verification](#record-crud-and-field-verification)
     - [Trigger Side Effects](#trigger-side-effects)
     - [Validation Error Messages](#validation-error-messages)
@@ -80,28 +118,28 @@ This guide shows you how to test a real Salesforce screen end to end: log in, cl
     - [API Call Verification](#api-call-verification)
     - [Streaming and Change Data Capture Monitor](#streaming-and-change-data-capture-monitor)
     - [Event Usage Metrics](#event-usage-metrics)
-9. [Data Management](#data-management)
+14. [Data Management](#data-management)
     - [Creating Test Data](#creating-test-data)
     - [SOQL Queries with Namespace](#soql-queries-with-namespace)
     - [Cleanup Patterns](#cleanup-patterns)
     - [Deploying Metadata](#deploying-metadata)
     - [Custom Metadata States](#custom-metadata-states)
-10. [Debugging](#debugging)
+15. [Debugging](#debugging)
     - [Headed Mode](#headed-mode)
     - [Debug Mode](#debug-mode)
     - [Trace Viewer](#trace-viewer)
     - [Screenshots and Video](#screenshots-and-video)
     - [Browser Console](#browser-console)
     - [Lightning DOM Inspection](#lightning-dom-inspection)
-11. [CI/CD Integration](#cicd-integration)
+16. [CI/CD Integration](#cicd-integration)
     - [GitHub Actions Workflow](#github-actions-workflow)
     - [Scratch Org Lifecycle](#scratch-org-lifecycle)
     - [Session Management in CI](#session-management-in-ci)
     - [Artifact Collection](#artifact-collection)
-12. [Best Practices](#best-practices)
-13. [Anti-Patterns](#anti-patterns)
-14. [Troubleshooting](#troubleshooting)
-15. [Related Documentation](#related-documentation)
+17. [Best Practices](#best-practices)
+18. [Anti-Patterns](#anti-patterns)
+19. [Troubleshooting](#troubleshooting)
+20. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -123,7 +161,7 @@ This guide shows you how to test a real Salesforce screen end to end: log in, cl
 
 ---
 
-## Overview
+## Why test in the browser at all?
 
 ### Why E2E Testing for Salesforce?
 
@@ -135,7 +173,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 - Trigger side effects visible in the UI after record creation
 - Cross-component interactions on record pages
 - Toast messages and validation errors shown to users
-- Custom LWC behavior when embedded in Lightning pages
+- Custom LWC behaviour when embedded in Lightning pages
 - Navigation flows across multiple pages
 
 ### Why Playwright?
@@ -149,7 +187,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 | Cross-browser                                                    | Chromium, Firefox, WebKit (Chromium recommended for Salesforce) |
 | [Network interception](https://playwright.dev/docs/network)      | Mock or monitor Salesforce API calls                            |
 
-### Architecture
+### How does it work?
 
 ```text
 ┌─────────────────────────────────────────────────────┐
@@ -204,7 +242,7 @@ A few choices shape how this setup runs. Knowing the reasoning saves you from "f
 
 ---
 
-## Project Setup
+## How do I set up the project?
 
 ### Directory Structure
 
@@ -284,6 +322,9 @@ module.exports = defineConfig({
 });
 ```
 
+<details>
+<summary>Every config setting and why it is set</summary>
+
 | Setting             | Value                 | Why                                                                                          |
 |---------------------|-----------------------|----------------------------------------------------------------------------------------------|
 | `testDir`           | `specs/`              | Separates test files from helpers and pages                                                  |
@@ -301,6 +342,8 @@ module.exports = defineConfig({
 | `video`             | `'retain-on-failure'` | Video recording for failed tests                                                             |
 | `navigationTimeout` | `30_000`              | Page.goto and waitForURL timeout                                                             |
 | `actionTimeout`     | `15_000`              | Click, fill, and other action timeouts                                                       |
+
+</details>
 
 ### Org Alias
 
@@ -368,7 +411,7 @@ module.exports = globalSetup;
 **Why navigate to Lightning home after frontdoor?** The frontdoor URL only establishes the session. Navigating
 to Lightning home forces the browser to load Lightning's JavaScript bundles and set additional cookies and local
 storage entries that Lightning requires. Without this step, the first test would need to wait for Lightning to
-initialize, adding 30+ seconds.
+initialise, adding 30+ seconds.
 
 ### Session State Reuse
 
@@ -809,6 +852,9 @@ Reusable CSS selectors for Lightning UI components. Import individual selectors:
 const {TOAST, SPINNER, NAV_BAR, RECORD_HEADER} = require('../helpers/sf-selectors');
 ```
 
+<details>
+<summary>Every selector constant</summary>
+
 | Constant            | Selector                | Matches                      |
 |---------------------|-------------------------|------------------------------|
 | `TOAST`             | Toast container icons   | Any toast notification       |
@@ -828,6 +874,8 @@ const {TOAST, SPINNER, NAV_BAR, RECORD_HEADER} = require('../helpers/sf-selector
 | `NAV_BAR_ITEM`      | Navigation tab items    | Individual nav tabs          |
 | `COMBOBOX_OPTION`   | Combobox dropdown items | Picklist/combobox options    |
 | `DATATABLE_ROW`     | Data table rows         | Rows in lightning-datatable  |
+
+</details>
 
 ---
 
@@ -1665,7 +1713,7 @@ Artifacts include screenshots, videos (for failures), and trace files.
 - Don't retry flaky tests; fix the root cause in the wait logic
 - Don't hardcode record IDs; create records in setup and reference them by variable
 - Don't rely on CSS class names, because SLDS classes change between Salesforce releases
-- Don't test Salesforce platform behavior; focus on your custom features
+- Don't test Salesforce platform behaviour; focus on your custom features
 
 **Scaling beyond serial execution:** Running one test at a time works well until the suite gets large. A typical serial suite hits a ceiling around 100+ tests, which is roughly a 30 minute feedback loop at about 20 seconds per test. The reason you cannot simply run them in parallel is the shared `sid` session cookie: parallel workers reusing the one cookie generate conflicting CSRF and Aura security tokens.
 
@@ -1681,7 +1729,7 @@ The way around it is to give each worker its own login. Authenticate several dis
 | **Missing auth checks**: navigating without `ensureAuthenticated()`     | Random failures when session expires         | Use navigation helpers that call `ensureAuthenticated()` automatically |
 | **Empty list view assertions**: asserting immediately after navigation  | List data loads asynchronously               | Use `waitForListView()` then assert on rows                            |
 | **Deployment propagation**: testing immediately after metadata deploy   | Metadata may not be active yet               | Add a short wait or verify via SOQL after deployment                   |
-| **Testing platform internals**: verifying Salesforce standard behavior  | Wastes time, breaks on platform updates      | Focus on your custom trigger actions, LWC, and API integrations        |
+| **Testing platform internals**: verifying Salesforce standard behaviour  | Wastes time, breaks on platform updates      | Focus on your custom trigger actions, LWC, and API integrations        |
 | **Browser-based data creation**: filling forms for test setup           | Slow, flaky, depends on page layout          | Use `createRecord()` or `executeAnonymousApex()` via CLI               |
 | **Shared state between tests**: relying on data from previous test      | One failure cascades to all subsequent tests | Each test creates its own data, cleans up in `afterAll`                |
 
@@ -1698,7 +1746,7 @@ The way around it is to give each worker its own login. Authenticate several dis
 | `ECONNREFUSED`                               | Chromium not installed             | Run `npx playwright install chromium`                                                            |
 | Tests pass locally, fail in CI               | Different timing, missing deps     | Add `--with-deps` to Chromium install, increase timeouts                                         |
 | SOQL returns empty array                     | Missing namespace prefix           | Use `kern__ObjectName__c` and `kern__FieldName__c`                                               |
-| `JSON.parse` error on CLI output             | ANSI color codes in output         | Helpers strip ANSI automatically; use `soqlQuery()` not raw `execSync`                           |
+| `JSON.parse` error on CLI output             | ANSI colour codes in output        | Helpers strip ANSI automatically; use `soqlQuery()` not raw `execSync`                           |
 | Record page shows "Loading..."               | Record not yet committed           | Use `await waitForRecordPage(page)` after navigation (Best Practices bans bare `waitForTimeout`) |
 | Toast assertion fails                        | Toast already dismissed            | Use `waitForToastMessage()` which waits for toast to appear                                      |
 | Session expired mid-test                     | Long-running test suite            | Call `reauthenticate(page)` in `test.beforeEach`                                                 |

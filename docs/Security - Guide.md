@@ -18,9 +18,64 @@ navOrder: 16
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Every Salesforce app has to answer the same questions on every read and write: can this user see this object and field, can they see this particular record, and is any sensitive value about to be written down in plain text. Getting one of those wrong is how data leaks reach a security review. This guide shows you how KernDX answers them for you. By default, queries and saves run with the current user's read/write permissions and record sharing enforced (Salesforce calls this `USER_MODE`), sensitive values can be masked before they ever hit the database, and short-lived secrets can be encrypted in memory. Read this if you write Apex that reads or writes data, design security patterns for an org, or need to show an auditor where access is enforced. Reach for it whenever code touches records that not every user should see.
+Every Salesforce app has to answer the same questions on every read and write: can this user see this object and field, can they see this particular record, and is any sensitive value about to be written down in plain text. Getting one of those wrong is how data leaks reach a security review.
+
+This guide shows you how KernDX answers them for you. By default, queries and saves run with the current user's read/write permissions and record sharing enforced (Salesforce calls this `USER_MODE`), sensitive values can be masked before they ever hit the database, and short-lived secrets can be encrypted in memory.
+
+Read this if you write Apex that reads or writes data, design security patterns for an org, or need to show an auditor where access is enforced. Use it whenever code touches records that not every user should see.
+
+---
+
+## Mental model
+
+Think of KernDX security as a checkpoint that every query and save passes through on its way to the database. By default the checkpoint asks "is this user allowed to do this?" and turns away anything they have no permission for: a field they cannot read, a record they cannot see, an object they cannot change. You can wave a specific operation through the checkpoint on purpose (a system batch that must touch every record), and each time you do, the checkpoint writes down what was waved through and why.
+
+Encryption and masking are separate tools at the same checkpoint: encryption scrambles a value you need back later, and masking redacts a value that should never be stored readable in the first place.
+
+---
+
+## Use this when
+
+- You write Apex that reads or writes records and want the current user's permissions and record sharing enforced without hand-coding the checks.
+- You need to choose at run time whether a query or save respects sharing rules, so the same logic can run for a UI user and for a system batch.
+- You want to redact secrets or personal data on records before they are saved, configured in metadata rather than code.
+- You need to encrypt a short-lived value (a token passed between wizard steps, for example) without managing keys yourself.
+- You have to show an auditor where access is enforced, and where it is deliberately bypassed.
+
+## Don't use this when
+
+- The native Salesforce control already does what you need. Plain `with sharing` Apex enforces sharing without the framework; `WITH USER_MODE` SOQL enforces permissions inline. Choose KernDX when you want that behaviour decided at run time, or applied consistently in one place.
+- You need long-term encrypted storage or compliance-grade key management. `UTIL_SessionEncryption` keys expire within 8 hours and are lost if the cache clears; use [Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/security_pe_overview.htm) or external key management instead.
+- You want org-wide security monitoring, config-drift detection, backup, or login-anomaly alerts. KernDX gives you mechanisms inside your own code, not an org-security monitor; see [What KernDX Does Not Monitor](#what-kerndx-does-not-monitor).
+
+---
+
+## Quick Start
+
+You want to read records but only the ones, and only the fields, that the current user is allowed to see. That is the most common security need, and it takes one method. Here is the simplest form:
+
+```apex
+// Enforce CRUD, FLS, and sharing in a single query
+List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+	.fields(new List<String>{'Name', 'Industry'})
+	.withUserMode()
+	.toList();
+```
+
+If you need sharing enforced but not field-level security (a query running in SYSTEM_MODE), use the sharing controls instead:
+
+```apex
+// Enforce sharing and strip inaccessible fields
+List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+	.fields(new List<String>{'Name', 'Industry'})
+	.withSharing()
+	.stripInaccessible()
+	.toList();
+```
+
+For more detail, keep reading the sections below.
 
 ---
 
@@ -29,26 +84,29 @@ Every Salesforce app has to answer the same questions on every read and write: c
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when) / [Don't use this when](#dont-use-this-when)
+4. [Quick Start](#quick-start)
+5. [Quick Navigation](#quick-navigation)
+6. [What is the Security framework?](#what-is-the-security-framework)
     - [Key Concepts](#key-concepts)
     - [Framework Philosophy](#framework-philosophy)
-3. [Architecture](#architecture)
+7. [How does it work?](#how-does-it-work)
     - [Architecture Diagram](#architecture-diagram)
-4. [Safe by Default](#safe-by-default)
-5. [Quick Start](#quick-start)
-6. [How to opt out](#how-to-opt-out)
-7. [Data Encryption & Decryption (UTIL_SessionEncryption)](#data-encryption--decryption-util_sessionencryption)
-    - [Overview](#overview-1)
+8. [Safe by Default](#safe-by-default)
+9. [How to opt out](#how-to-opt-out)
+10. [Data Encryption & Decryption (UTIL_SessionEncryption)](#data-encryption--decryption-util_sessionencryption)
+    - [What it does](#what-it-does)
         - [CRITICAL ARCHITECTURAL WARNING](#critical-architectural-warning)
-    - [KernDX vs OOTB: Encryption Comparison](#kerndx-vs-ootb-encryption-comparison)
+    - [How does it compare to native Salesforce encryption?](#how-does-it-compare-to-native-salesforce-encryption)
         - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
         - [Pros & Cons Comparison](#pros--cons-comparison)
         - [When to Use KernDX UTIL_SessionEncryption](#when-to-use-kerndx-util_sessionencryption)
         - [When to Use OOTB Encryption](#when-to-use-ootb-encryption)
         - [Example Comparison](#example-comparison)
         - [Critical Warning: Data Loss Risk](#critical-warning-data-loss-risk)
-    - [Why Use This Utility?](#why-use-this-utility)
+    - [Why choose this over the built-in Crypto class?](#why-choose-this-over-the-built-in-crypto-class)
     - [Encryption Methods](#encryption-methods)
         - [Encrypt Plain Text](#encrypt-plain-text)
         - [Decrypt Encrypted Text](#decrypt-encrypted-text)
@@ -58,12 +116,12 @@ Every Salesforce app has to answer the same questions on every read and write: c
         - [Temporary OAuth Token Caching](#temporary-oauth-token-caching)
         - [Secure Parameter Passing via Platform Events](#secure-parameter-passing-via-platform-events)
     - [Important Considerations](#important-considerations)
-8. [Data Masking](#data-masking)
+11. [Data Masking](#data-masking)
     - [What Data Masking Does](#what-data-masking-does)
     - [What Masking Is Not](#what-masking-is-not)
     - [Configuring Masking](#configuring-masking)
     - [Secret Scanning in CI](#secret-scanning-in-ci)
-9. [Record Sharing](#record-sharing)
+12. [Record Sharing](#record-sharing)
     - [Sharing Architecture](#sharing-architecture)
         - [Sharing Control Points](#sharing-control-points)
         - [Class Hierarchy](#class-hierarchy)
@@ -93,7 +151,7 @@ Every Salesforce app has to answer the same questions on every read and write: c
     - [Testing Sharing Behavior](#testing-sharing-behavior)
         - [Testing with Different Users](#testing-with-different-users)
         - [Verifying Sharing Enforcement](#verifying-sharing-enforcement)
-10. [Sharing Rules & Access](#sharing-rules--access)
+13. [Sharing Rules & Access](#sharing-rules--access)
     - [Security vs Sharing](#security-vs-sharing)
         - [Field-Level Security (FLS)](#field-level-security-fls)
         - [Object-Level Security (CRUD)](#object-level-security-crud)
@@ -109,17 +167,17 @@ Every Salesforce app has to answer the same questions on every read and write: c
         - [When to Bypass Sharing](#when-to-bypass-sharing)
         - [When to Enforce Sharing](#when-to-enforce-sharing)
         - [Cache Security](#cache-security)
-11. [Security Governance Evidence](#security-governance-evidence)
+14. [Security Governance Evidence](#security-governance-evidence)
     - [Masking Configuration as a Version-Controlled Record](#masking-configuration-as-a-version-controlled-record)
     - [Access-Review Primitives](#access-review-primitives)
-12. [Security Boundaries and Portal Hardening](#security-boundaries-and-portal-hardening)
+15. [Security Boundaries and Portal Hardening](#security-boundaries-and-portal-hardening)
     - [Parameter-Based Record Access in Portals](#parameter-based-record-access-in-portals)
     - [Flow Input-Variable Hygiene](#flow-input-variable-hygiene)
     - [What KernDX Does Not Monitor](#what-kerndx-does-not-monitor)
-13. [Testing](#testing)
-14. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-15. [Anti-Patterns](#anti-patterns)
-16. [Best Practices](#best-practices)
+16. [Testing](#testing)
+17. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+18. [Anti-Patterns](#anti-patterns)
+19. [Best Practices](#best-practices)
     - [Always Enforce CRUD/FLS in User-Facing Code](#always-enforce-crudfls-in-user-facing-code)
     - [Handle Security Exceptions Gracefully](#handle-security-exceptions-gracefully)
     - [Encrypt Sensitive Data in Transit](#encrypt-sensitive-data-in-transit)
@@ -134,11 +192,11 @@ Every Salesforce app has to answer the same questions on every read and write: c
     - [Combine Sharing with FLS/CRUD Checks](#combine-sharing-with-flscrud-checks)
     - [Test Sharing Behavior](#test-sharing-behavior)
     - [Audit Sharing Bypasses](#audit-sharing-bypasses)
-17. [Quick Reference](#quick-reference)
+20. [Quick Reference](#quick-reference)
     - [Encryption/Decryption](#encryptiondecryption)
     - [Sharing Reference Table](#sharing-reference-table)
     - [Common Patterns](#common-patterns)
-18. [Related Documentation](#related-documentation)
+21. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -148,7 +206,7 @@ Every Salesforce app has to answer the same questions on every read and write: c
 
 | I am a...     | I need to...                    | Go to...                                                                            |
 |---------------|---------------------------------|-------------------------------------------------------------------------------------|
-| **Architect** | Design security patterns        | [Architecture](#architecture)                                                       |
+| **Architect** | Design security patterns        | [How does it work?](#how-does-it-work)                                              |
 | **Architect** | Plan sharing enforcement        | [Record Sharing](#record-sharing)                                                   |
 | **Developer** | Enforce CRUD/FLS via queries    | [Quick Start](#quick-start)                                                         |
 | **Developer** | Encrypt sensitive data          | [Data Encryption & Decryption](#data-encryption--decryption-util_sessionencryption) |
@@ -159,7 +217,7 @@ Every Salesforce app has to answer the same questions on every read and write: c
 
 ---
 
-## Overview
+## What is the Security framework?
 
 This guide covers all of the security capabilities KernDX provides: data encryption, record-level sharing, and the patterns that enforce field, object, and record permissions. Together they help you follow Salesforce security best practice, protect sensitive data, and control who can reach which records.
 
@@ -196,7 +254,7 @@ Four ideas shape how KernDX handles security. Each one exists to prevent a commo
 
 ---
 
-## Architecture
+## How does it work?
 
 ### Architecture Diagram
 
@@ -306,33 +364,6 @@ Go to Setup, then Custom Metadata Types, then FeatureFlag, edit `UserModeQueries
 
 ---
 
-## Quick Start
-
-You want to read records but only the ones, and only the fields, that the current user is allowed to see. That is the most common security need, and it takes one method. Here is the simplest form:
-
-```apex
-// Enforce CRUD, FLS, and sharing in a single query
-List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
-	.fields(new List<String>{'Name', 'Industry'})
-	.withUserMode()
-	.toList();
-```
-
-If you need sharing enforced but not field-level security (a query running in SYSTEM_MODE), use the sharing controls instead:
-
-```apex
-// Enforce sharing and strip inaccessible fields
-List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
-	.fields(new List<String>{'Name', 'Industry'})
-	.withSharing()
-	.stripInaccessible()
-	.toList();
-```
-
-For more detail, keep reading the sections below.
-
----
-
 ## How to opt out
 
 Sometimes the secure default is not what you want, and you need to step outside it for a single call. Every protection here is opt-in per layer and controllable right where you call it: you choose the sharing behaviour, the access mode (`AccessLevel`), and whether object and field permissions are enforced, all on the same line. Nothing is hidden in framework internals. The framework's own classes default to `inherited sharing` (176 of 185 production classes), so the caller's sharing context always flows through unchanged.
@@ -353,7 +384,7 @@ Sharing control is decided where you call it, not buried in framework internals.
 
 ## Data Encryption & Decryption ([`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md))
 
-### Overview
+### What it does
 
 You want to protect a sensitive value for a short while, for example a token you pass between two steps of a wizard, without managing encryption keys yourself. That is what [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) does: it encrypts and decrypts values using AES256 with HMAC-SHA256 (the Encrypt-then-MAC pattern, which also detects tampering) and manages the key for you. The trade-off, and it is a sharp one, is in the warning below: this is for short-lived data only.
 
@@ -386,7 +417,7 @@ The key is **NOT saved to the database**. If the cache expires, is flushed, or t
 
 ---
 
-### KernDX vs OOTB: Encryption Comparison
+### How does it compare to native Salesforce encryption?
 
 #### Salesforce Out-of-the-Box Alternatives
 
@@ -397,6 +428,11 @@ Before reaching for the KernDX utility, know that Salesforce already offers nati
 3. **Crypto.encryptWithManagedIV() / Crypto.decryptWithManagedIV():** Salesforce manages the initialization vector for you.
 
 #### Pros & Cons Comparison
+
+In short: `UTIL_SessionEncryption` manages keys, the initialization vector, and tamper detection for you, but only for short-lived data. Native Salesforce encryption asks more of you up front (or a Shield licence) but handles long-term, compliance-grade storage. The full side-by-side:
+
+<details>
+<summary>Full feature-by-feature comparison</summary>
 
 | Feature               | KernDX [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) | Salesforce OOTB                                                                                                                                                       |
 |-----------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -412,6 +448,8 @@ Before reaching for the KernDX utility, know that Salesforce already offers nati
 | **Key Storage**       | Platform Cache (ephemeral)                                                  | Shield stores keys securely with HSM                                                                                                                                  |
 | **Performance**       | Slight overhead from cache lookups                                          | Direct encryption, no cache dependency                                                                                                                                |
 | **Compliance**        | Not suitable for compliance requirements                                    | Shield meets HIPAA, PCI-DSS, etc.                                                                                                                                     |
+
+</details>
 
 #### When to Use KernDX UTIL_SessionEncryption
 
@@ -515,7 +553,7 @@ use [Shield Platform Encryption](https://developer.salesforce.com/docs/atlas.en-
 
 ---
 
-### Why Use This Utility?
+### Why choose this over the built-in Crypto class?
 
 The native [`Crypto.encrypt()` and `Crypto.decrypt()`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_crypto.htm) work, but they leave key management to you, which is the part that is easy to get wrong. [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) takes that off your plate:
 
@@ -991,7 +1029,7 @@ So the same query can run in different security contexts without you editing the
 
 #### Org-Wide Access Mode Override
 
-There is **no single per-transaction flag** that flips every query between `with` and `without` sharing at once. When you want consistent behaviour across many queries, reach for one of the three approaches below.
+There is **no single per-transaction flag** that flips every query between `with` and `without` sharing at once. When you want consistent behaviour across many queries, use one of the three approaches below.
 
 **1. Per call on each query.** Chain `.withSharing()` / `.bypassSharing()` on individual `QRY_Builder` calls, or `.withUserMode()` / `.withSystemMode()` to also control object and field permissions.
 
@@ -1238,7 +1276,7 @@ global with sharing class UTIL_SessionEncryption
 ```
 
 - Manages session-based encryption and decryption
-- Enforces sharing to ensure only authorized users can access encrypted data
+- Enforces sharing to ensure only authorised users can access encrypted data
 
 #### Inherited Sharing Classes
 
@@ -1521,7 +1559,7 @@ public with sharing class SecureAccountController
 
 Community and portal users should only see records they are entitled to. Enforce sharing in the controller so every operation respects the user's permissions.
 
-**Why enforce sharing here?** External users reaching your app through [Experience Cloud](https://developer.salesforce.com/docs/atlas.en-us.communities_dev.meta/communities_dev/communities_dev_intro.htm) or a public site must never see records belonging to other users or organizations. Even when the Organization-Wide Default (OWD) is set correctly, enforcing sharing explicitly gives you a second line of defence.
+**Why enforce sharing here?** External users reaching your app through [Experience Cloud](https://developer.salesforce.com/docs/atlas.en-us.communities_dev.meta/communities_dev/communities_dev_intro.htm) or a public site must never see records belonging to other users or organisations. Even when the Organization-Wide Default (OWD) is set correctly, enforcing sharing explicitly gives you a second line of defence.
 
 ```apex
 public with sharing class CommunityAccountController
@@ -1550,7 +1588,7 @@ public with sharing class CommunityAccountController
 
 #### System Batch Processing
 
-A batch job often needs to process every record of an object, whatever the running user can see. This is common for data maintenance, synchronization, and cleanup.
+A batch job often needs to process every record of an object, whatever the running user can see. This is common for data maintenance, synchronisation, and cleanup.
 
 **Why bypass sharing here?** A batch job runs as a specific user, usually a service account or whoever scheduled it. If you do not bypass sharing, the job only processes the records that user can see, and the rest go untouched. For a system-level job you want the whole dataset.
 
@@ -1677,7 +1715,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 ## Security Governance Evidence
 
-KernDX is a framework, not a governance system. It does not store approvals, sign-offs, or decision history, and it is **not your security system of record**. What it does provide is durable, version-controlled *evidence* that feeds the governance process you already run. The payoff: the artifacts an auditor asks for come out of source control and reporting, not out of someone's memory.
+KernDX is a framework, not a governance system. It does not store approvals, sign-offs, or decision history, and it is **not your security system of record**. What it does provide is durable, version-controlled *evidence* that feeds the governance process you already run. The benefit: the artifacts an auditor asks for come out of source control and reporting, not out of someone's memory.
 
 ### Masking Configuration as a Version-Controlled Record
 
@@ -1701,8 +1739,8 @@ what state, and as of which deployment. They are **inputs to** your security sys
 not the system of record itself. A metadata record cannot tell you *who* decided to enable or disable
 masking on a field, *under whose authority*, or *who approved the exception*, and you should not treat it
 as if it can. On most teams the name on a commit belongs to whoever ran the deployment tool, not whoever
-made or authorized the decision, and many pipelines commit under a single service account. Attributable,
-authorized decisions (with separation between the person who requests a change and the person who
+made or authorised the decision, and many pipelines commit under a single service account. Attributable,
+authorised decisions (with separation between the person who requests a change and the person who
 approves it) belong in your change-management approval gates or your governance, risk, and compliance
 (GRC) system. KernDX feeds those systems; it does not replace them.
 
@@ -1716,7 +1754,7 @@ to source promptly.
 ### Access-Review Primitives
 
 Confirming that each user's access is still appropriate, certified by a business owner with stale access
-removed, is a process your organization owns. KernDX does not run that review or store its sign-offs. It
+removed, is a process your organisation owns. KernDX does not run that review or store its sign-offs. It
 gives you two building blocks that supply the *evidence* and the *remediation* the review depends on:
 
 - **Login-activity reporting (Login Frequency).** A scheduled processor rolls each user's login

@@ -18,9 +18,52 @@ navOrder: 90
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-A framework only helps if people actually use it. Nothing stops a developer from writing a plain `insert record;` or a raw `System.debug()` instead of the framework's safer equivalent, and on a busy team those shortcuts pile up until the framework's guarantees no longer hold. This guide describes the set of checkers (a "scanner") that watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly accumulating. You catch a problem either in your editor as you type, or in your build pipeline before the code reaches a Salesforce org. Developers use this guide to understand and fix a flagged violation; architects use it to plan a phased rollout; DevOps uses it to wire the checks into a deployment pipeline. Reach for it whenever you set up code quality gates or hit a rule you want to understand.
+A framework only helps if people actually use it. Nothing stops a developer from writing a plain `insert record;` or a raw `System.debug()` instead of the framework's safer equivalent, and on a busy team those shortcuts pile up until the framework's guarantees no longer hold.
+
+This guide describes the set of checkers (a "scanner") that watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly accumulating. You catch a problem either in your editor as you type, or in your build pipeline before the code reaches a Salesforce org.
+
+Developers use this guide to understand and fix a flagged violation; architects use it to plan a phased rollout; DevOps uses it to wire the checks into a deployment pipeline. Turn to it whenever you set up code quality gates or hit a rule you want to understand.
+
+---
+
+## Mental model
+
+Think of the scanner as a spell-checker for your code, but one that knows your house style. A spell-checker underlines a misspelt word as you type and flags the rest in one pass before you publish. This works the same way: it underlines a framework shortcut in your editor as you write, and catches any that slip through in the build before the code reaches an org. It does not rewrite your code for you; it points at the line and tells you the safer phrasing to use instead.
+
+---
+
+## Use this when
+
+- You want the framework's safer patterns (one query layer, transactional DML, structured logging) to hold across a team, not just when each developer remembers them.
+- You are setting up code quality gates in CI/CD and want them to fail a build before a risky pattern reaches an org.
+- You want violations underlined in your editor as you type, so they are cheap to fix.
+- You are rolling out KernDX over an existing codebase and need a staged way to bring it into line.
+- You want your own org's Flow, Object, Apex, and LWC naming conventions enforced automatically.
+
+## Don't use this when
+
+- You are not using KernDX patterns at all. These rules check for framework shortcuts (inline SOQL instead of a selector, raw DML instead of `DML_Builder`, and so on). If a file does not use the framework, there is nothing here for it to enforce.
+- You only need generic code-quality checks (cyclomatic complexity, unused variables, and the like) with no KernDX framework involved. The standard PMD and ESLint rulesets that ship with Salesforce Code Analyzer cover those without these custom rules.
+- You want a tool that fixes violations for you. This reports and explains; it does not auto-rewrite. You make the change.
+
+## Quick start
+
+If you just want a first scan running, start with the short walkthrough in **Fast Start - Code Scanning.md**. The three commands below run each checker once over `force-app`:
+
+```bash
+# Apex (PMD via Salesforce Code Analyzer v5)
+sf code-analyzer run --target force-app/ --view detail --config-file code-analyzer.yml
+
+# LWC JavaScript (ESLint)
+npm run lint
+
+# Flow & Custom Object naming (Node script)
+node scanner/validate-naming.js force-app
+```
+
+This guide is the full reference behind those commands: every rule, every way to suppress one, and every integration option.
 
 ---
 
@@ -30,10 +73,10 @@ A framework only helps if people actually use it. Nothing stops a developer from
 <summary>Expand</summary>
 
 1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Architecture](#architecture)
-    - [Enforcement Layers](#enforcement-layers)
-    - [File Listing](#file-listing)
+2. [Why use this over plain Salesforce?](#why-use-this-over-plain-salesforce)
+3. [How does it work?](#how-does-it-work)
+    - [What each checker covers](#what-each-checker-covers)
+    - [The scanner files](#the-scanner-files)
 4. [PMD Rule Reference](#pmd-rule-reference)
     - [Priority 1 Blockers](#priority-1-blockers)
         - [KernTriggerMustDelegate](#kerntriggermustdelegate)
@@ -73,9 +116,9 @@ A framework only helps if people actually use it. Nothing stops a developer from
     - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
     - [ESLint Setup](#eslint-setup)
 6. [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects)
-    - [Configuration](#configuration)
+    - [How do I configure it?](#how-do-i-configure-it)
     - [Running the Validator](#running-the-validator)
-    - [Customizing for Your Org](#customizing-for-your-org)
+    - [How do I adapt it to my org?](#how-do-i-adapt-it-to-my-org)
 7. [Secret Scanning](#secret-scanning)
 8. [Deploy-Time Scanners](#deploy-time-scanners)
     - [Access-Mode Scanner](#access-mode-scanner)
@@ -124,9 +167,13 @@ A framework only helps if people actually use it. Nothing stops a developer from
 
 ---
 
-## Overview
+## Why use this over plain Salesforce?
 
-**Why this matters in practice:** Take one example. A developer writes `insert record;` instead of `DML_Builder.newTransaction().doInsert(record).execute()`. The code compiles and works, so nothing looks wrong. But that one line quietly gives up four things the framework would have provided: an all-or-nothing transaction, the running user's own permissions and record sharing enforced, consistent error handling, and logging. The scanner flags that line the moment it is written, so the gap never reaches production.
+Salesforce will happily compile a plain `insert record;`. The compiler checks syntax, not whether you used the framework's safer pattern, and a normal code review cannot reliably catch every shortcut by hand on a busy team. What you get from this scanner:
+
+- **The gap never reaches production.** Take one example. A developer writes `insert record;` instead of `DML_Builder.newTransaction().doInsert(record).execute()`. The code compiles and works, so nothing looks wrong. But that one line quietly gives up four things the framework would have provided: an all-or-nothing transaction, the running user's own permissions and record sharing enforced, consistent error handling, and logging. The scanner flags that line the moment it is written.
+- **One consistent house style across the team.** Everyone is held to the same patterns automatically, so the framework's guarantees hold even as people come and go.
+- **Coverage of metadata the compiler ignores.** The checks reach Flows, Custom Objects, and LWC naming, not just Apex syntax.
 
 **The three checkers.** Salesforce code comes in different shapes, and no single tool can read all of them, so the scanner uses three complementary checkers, each matched to what it reads best. They live in the `scanner/` directory.
 
@@ -134,13 +181,11 @@ A framework only helps if people actually use it. Nothing stops a developer from
 2. **ESLint plugin** checks your Lightning Web Component (LWC) JavaScript: the shared base class, blocking raw `console` output, naming, and Jest test-quality gates.
 3. **Naming validator** is a Node.js script that checks declarative metadata the first two tools cannot read (Flows and Custom Objects).
 
-> **Companion Document:** If you just want to get a first scan running, start with the quick walkthrough in **Fast Start - Code Scanning.md**. This guide is the full reference instead: it covers every rule, every way to suppress one, and every integration option.
-
 ---
 
-## Architecture
+## How does it work?
 
-### Enforcement Layers
+### What each checker covers
 
 Each of the three checkers reads a different kind of file, using the tool best suited to that file type. The diagram below shows what each one covers and where it runs (in your editor and in the build pipeline).
 
@@ -163,7 +208,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 **How the layers fit together:** The three checkers run independently and do not overlap. PMD handles Apex, ESLint handles JavaScript, and the naming validator handles the XML and directory-based metadata neither of the others can read. Because none of them duplicates another's coverage, you run all three to check the whole project.
 
-### File Listing
+### The scanner files
 
 | File                                | Scope                             | Purpose                                                                                                                                                                        |
 |-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -700,6 +745,9 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 
 ### PMD Rule Summary Table
 
+<details>
+<summary>All 25 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
+
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body                                                                           | `new TRG_Dispatcher().run()`                                    | 1        |
@@ -727,6 +775,8 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                           | `UTIL_FeatureFlag.isEnabled()`                                  | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown` try/catch pattern                                                     | `Assert.fail` + `Assert.isInstanceOfType`                       | 5        |
 | `KernSecurityBypassCallSite`       | Security-bypass call sites (`withSystemMode`, `bypassSharing`, `bypassAction`, …)               | Acknowledge with `@SuppressWarnings`/`// NOPMD` + reason        | 5        |
+
+</details>
 
 ---
 
@@ -804,7 +854,7 @@ this.consoleError('Failed to save');
 
 **What the rule detects:**
 
-- Component folder names that do not start with a recognized domain prefix.
+- Component folder names that do not start with a recognised domain prefix.
 - Component folder names longer than 40 characters.
 - Folder names starting with `__` are skipped (that is an internal LWC convention).
 
@@ -828,7 +878,7 @@ export default class OrdReturnWizard extends ComponentBuilder('notification') {}
 export default class SvcLexWarrantyTimeline extends ComponentBuilder('navigation') {}
 ```
 
-**Customizing:** Edit the `DOMAINS` and `BRANDS` arrays at the top of `scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js` to match your organization's naming
+**Customising:** Edit the `DOMAINS` and `BRANDS` arrays at the top of `scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js` to match your organisation's naming
 convention. The `MAX_LENGTH` constant (default 40) can also be adjusted.
 
 ### kerndx/no-coverage-exempt-without-reason
@@ -956,7 +1006,7 @@ ESLint violations appear inline in VS Code when the ESLint extension is installe
 
 Flows and Custom Objects are not Apex or JavaScript, so neither PMD nor ESLint can read them. The `validate-naming.js` script fills that gap: it checks naming conventions for Flows (which are XML metadata) and Custom Objects (which are directory-based metadata). It is a standalone Node.js script, and you tailor it to your own org's naming convention.
 
-### Configuration
+### How do I configure it?
 
 You drive the script with three configuration arrays at the top of the file:
 
@@ -993,12 +1043,12 @@ The script reports:
 - Violations, grouped by category, each shown with the pattern it expected.
 - An exit code your pipeline can act on: 0 when clean, 1 when it found violations.
 
-### Customizing for Your Org
+### How do I adapt it to my org?
 
 Adapt the configuration arrays to your own naming convention:
 
 1. Open `scanner/validate-naming.js`
-2. Edit `DOMAINS` to match your organizational domains (e.g., `['FIN', 'HR', 'OPS', 'CMN']`)
+2. Edit `DOMAINS` to match your organisational domains (e.g., `['FIN', 'HR', 'OPS', 'CMN']`)
 3. Edit `BRANDS` to match your brand codes (e.g., `['PRO', 'ENT']`) or set to `[]` if not used
 4. Edit `FLOW_TYPES` to match your flow type abbreviations
 5. Adjust `CHARACTER_LIMITS` if your org uses different limits
@@ -1382,11 +1432,11 @@ Create or update a combined ruleset that references both the framework rules and
 </ruleset>
 ```
 
-**Step 4: Customize the naming validator**
+**Step 4: Customise the naming validator**
 
 Edit the `DOMAINS`, `BRANDS`, and `FLOW_TYPES` arrays in `scanner/validate-naming.js` to match your org's naming convention for Flows and Custom Objects.
 
-**Step 5: Customize LWC naming**
+**Step 5: Customise LWC naming**
 
 Edit the `DOMAINS` and `BRANDS` arrays in `scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js` to match your LWC naming convention.
 
@@ -1467,6 +1517,9 @@ If your tooling is still on **PMD 6** (for example, an older `sfdx-scanner`), ch
 net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
 ```
 
+<details>
+<summary>PMD version per CI/CD tool, and whether the ruleset works as-is</summary>
+
 | Tool                                     | PMD Version | Ruleset Compatible                             |
 |------------------------------------------|-------------|------------------------------------------------|
 | SF Code Analyzer v5 (`sf code-analyzer`) | PMD 7       | Yes (default)                                  |
@@ -1477,6 +1530,8 @@ net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
 | AutoRABIT                                | Varies      | Check version, change class attribute if PMD 6 |
 | CodeScan                                 | PMD 7       | Yes (default)                                  |
 | Legacy `sfdx-scanner` (v4)               | PMD 6       | Requires class attribute change                |
+
+</details>
 
 ---
 

@@ -7,7 +7,7 @@ navOrder: 60
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **Note for Client Implementations:** When using KernDX in a subscriber org, prefix framework class references with your organization's namespace (e.g.,
+> **Note for Client Implementations:** When using KernDX in a subscriber org, prefix framework class references with your organisation's namespace (e.g.,
 `AcmeLib.UTIL_ValidationRule`). See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
 
 **Target Audience:**
@@ -18,187 +18,36 @@ navOrder: 60
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-This is a way to stop bad data from being saved when a plain Salesforce validation rule cannot do the job. You write the check as a formula, but store it as a configuration record rather than code, so you can query related records, run the same rule from Apex and from Flow, roll a rule out quietly before it starts blocking, and turn rules off in a controlled way. Read this if you enforce data quality and you have hit the limits of standard validation rules: checks that span more than one object, checks that need to add up child records, or rules you want to test in production first. Reach for a standard Salesforce validation rule whenever it is enough; reach for this when it is not.
+Sometimes bad data gets saved that a plain Salesforce validation rule cannot catch. A standard rule only sees the one record being saved, so it cannot look across objects or add up related records. The check you need, "an Account must have at least one Contact before it becomes a Customer", is out of its reach.
 
----
+This framework fills that gap. You still write the check as a formula in the same language you already know from Flow entry criteria, but you store it as a configuration record rather than code. That gives you four things a standard rule cannot: a rule can query related records, the same rule runs from both Apex and Flow, you can roll a rule out quietly before it starts blocking saves, and you can turn rules off in a controlled, audited way.
 
-## Table of Contents
+Read this if you enforce data quality and you have hit the limits of standard validation rules: checks that span more than one object, checks that need to add up child records, or rules you want to test in production first.
 
-<details>
-<summary>Expand</summary>
+## Mental model
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-    - [What is the Validation Framework?](#what-is-the-validation-framework)
-    - [Key Benefits](#key-benefits)
-    - [KernDX vs OOTB: Validation Comparison](#kerndx-vs-ootb-validation-comparison)
-        - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
-        - [Pros & Cons Comparison](#pros--cons-comparison)
-        - [When to Use KernDX Validation Framework](#when-to-use-kerndx-validation-framework)
-        - [When to Use Standard Validation Rules](#when-to-use-standard-validation-rules)
-3. [Quick Start](#quick-start)
-4. [Architecture](#architecture)
-    - [Architecture Diagram](#architecture-diagram)
-    - [Component Overview](#component-overview)
-    - [Bypass Hierarchy](#bypass-hierarchy)
-    - [Execution Strategies](#execution-strategies)
-    - [Rule Ordering Across Groups](#rule-ordering-across-groups)
-5. [Custom Metadata Configuration](#custom-metadata-configuration)
-    - [ValidationRuleGroup__mdt](#validationrulegroup__mdt)
-        - [Timing + Operations Examples](#timing--operations-examples)
-    - [ValidationRule__mdt](#validationrule__mdt)
-6. [Context Classes](#context-classes)
-    - [Built-in Context Classes](#built-in-context-classes)
-    - [Creating Custom Context Classes](#creating-custom-context-classes)
-    - [Bulk Context Pattern](#bulk-context-pattern)
-        - [Usage in Formula](#usage-in-formula)
-7. [Formula Syntax](#formula-syntax)
-    - [Supported Functions](#supported-functions)
-    - [Accessing Context Properties](#accessing-context-properties)
-        - [Change Detection](#change-detection)
-    - [Error Message Merge Fields](#error-message-merge-fields)
-8. [Flow Integration](#flow-integration)
-    - [Validating Records in Flow](#validating-records-in-flow)
-    - [Bypassing Validation in Flow](#bypassing-validation-in-flow)
-    - [Displaying Errors in Screen Flows](#displaying-errors-in-screen-flows)
-9. [Programmatic Usage](#programmatic-usage)
-    - [Bypass Methods](#bypass-methods)
-        - [Bypass Audit Trail](#bypass-audit-trail)
-    - [Direct Validation](#direct-validation)
-10. [Testing](#testing)
-    - [Using UTIL_ValidationTestHelper](#using-util_validationtesthelper)
-    - [Testing Best Practices](#testing-best-practices)
-11. [Advanced Features](#advanced-features)
-    - [Shadow Mode](#shadow-mode)
-        - [Querying Shadow Violations](#querying-shadow-violations)
-    - [Severity Levels](#severity-levels)
-    - [Multi-Language Support](#multi-language-support)
-        - [Example Setup](#example-setup)
-12. [Anti-Patterns](#anti-patterns)
-13. [Best Practices](#best-practices)
-    - [Subscriber-shipped demo rules](#subscriber-shipped-demo-rules)
-    - [Bulk Data Load Considerations](#bulk-data-load-considerations)
-        - [Bypass Options for Bulk Loads](#bypass-options-for-bulk-loads)
-14. [Troubleshooting](#troubleshooting)
-    - [Common Issues](#common-issues)
-    - [Enabling Performance Monitoring](#enabling-performance-monitoring)
-    - [Debugging Tips](#debugging-tips)
-15. [Related Documentation](#related-documentation)
+Think of the framework as a nightclub bouncer with a clipboard. A plain Salesforce validation rule is a doorman who only checks the one ID in front of him. This bouncer does more: he checks the VIP list (a cross-object query to related records), counts how many people are already at the table (an aggregate of child records), and can flag the dress code without turning the guest away (a Warning that logs the issue versus an Error that blocks the save). He can also work in watch-only mode for a night, noting who he would have stopped without actually stopping anyone (shadow mode).
 
-</details>
+## Use this when
 
----
+- the check needs a query to **related records** (for example, "Account must have at least one Contact")
+- the check is an **aggregate**: a total, count, or sum of child records against a parent limit
+- you want a rule that **warns** and logs a data-quality issue without stopping the save
+- you want to **try a new rule in production first**, watch-only, before it starts blocking (shadow mode)
+- a rule should be **skipped on a condition**, based on user permissions or feature flags
+- you want to **manage rules in one place** across many objects, and run the same rule from a trigger and from a Flow
 
-## Quick Navigation
+## Don't use this when
 
-| I am a...     | I need to...                       | Go to...                                                        |
-|---------------|------------------------------------|-----------------------------------------------------------------|
-| **Architect** | Understand validation architecture | [Architecture](#architecture)                                   |
-| **Architect** | Plan bypass strategies             | [Bypass Hierarchy](#bypass-hierarchy)                           |
-| **Developer** | Create a validation rule           | [Quick Start](#quick-start)                                     |
-| **Developer** | Write custom context classes       | [Context Classes](#context-classes)                             |
-| **Developer** | Test validations                   | [Testing](#testing)                                             |
-| **Analyst**   | Configure validation rules         | [Custom Metadata Configuration](#custom-metadata-configuration) |
-| **Analyst**   | Integrate validations in Flows     | [Flow Integration](#flow-integration)                           |
+A standard Salesforce validation rule is enough when the check is simple and self-contained. Use it, and skip this framework, for:
 
----
+- **simple field-level checks** (required, format, range) that standard validation rules already handle
+- **single-object checks** with formulas under 5,000 characters and no bypass requirement
+- **duplicate detection**, which Salesforce Duplicate Rules handle directly
 
-## Overview
-
-### What is the Validation Framework?
-
-You want to enforce a data-quality rule that a standard Salesforce validation rule cannot express, for example "an Account must have at least one Contact before it becomes a Customer". A standard rule only sees the one record being saved, so it cannot look across objects or add up related records.
-
-This framework fills that gap. You still write the check as a formula, the same kind of formula language you already know from Flow entry criteria, but the framework runs it at save time with access to data you have loaded for it. Under the hood it uses Salesforce's [`FormulaEval` namespace](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_namespace_formulaeval.htm) (the same engine behind Flow entry criteria) to evaluate your formula at runtime. Plain Salesforce [validation rules](https://help.salesforce.com/s/articleView?id=sf.fields_defining_field_validation_rules.htm&language=en_US&type=5) remain the right tool for simple single-record checks; this framework is for the advanced cases they cannot reach.
-
-What you can do with it:
-
-- **Validate across objects** when the check needs a query, for example "Account must have at least one Contact"
-- **Validate on totals**, for example "the total of child records must not exceed a parent limit"
-- **Skip a rule on a condition**, based on user permissions or feature flags
-- **Roll a rule out quietly first** (shadow mode): it logs what it would have blocked, in production, without actually blocking saves
-- **Warn instead of block**: a rule can log a data-quality issue without stopping the save
-- **Manage rules in one place** across many objects
-
-> **What this framework does and does not do:** It evaluates rules and reports the errors they find. It does not save records, change field values, or hold business logic beyond deciding pass or fail. When a rule needs extra data to make its decision (such as a cross-object lookup), that data is loaded in a context class, described later in this guide.
-
-> **When to reach for a standard validation rule instead:**
-> - Simple field-level checks (required, format, range) that standard validation rules already handle
-> - Single-object checks with formulas under 5,000 characters and no bypass requirement
-> - Duplicate detection, which Salesforce Duplicate Rules handle directly
-
-### Key Benefits
-
-| Benefit                       | What it means for you                                                                                 |
-|-------------------------------|-------------------------------------------------------------------------------------------------------|
-| **Declarative Configuration** | Rules live in custom metadata. Changing a rule is a configuration change, not a code deployment.      |
-| **Cross-Object Queries**      | A bulk context pattern lets a rule use related data efficiently, without a query inside a loop.        |
-| **Three-Level Bypass**        | Turn rules off at three levels (object, then group, then rule), tied into permissions and feature flags. |
-| **Shadow Mode**               | Try a rule in production without blocking saves; the violations it would raise are logged for review.  |
-| **Flow Integration**          | Invocable actions plus a `validationErrors` component let you validate inside Screen Flows.            |
-| **Execution Strategies**      | Choose whether to collect every error (Accumulate) or stop on the first one (Fail Fast).              |
-| **Warning Severity**          | Flag a data-quality issue without stopping the save.                                                  |
-| **Test Utilities**            | [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md) tests rules from your own org. |
-
-> **What is in scope:** Formula-driven rules that run on Salesforce's `FormulaEval` engine, configured through the `ValidationRule__mdt` and `ValidationRuleGroup__mdt` custom metadata types. That scope includes Flow integration, shadow mode, and the three-level bypass hierarchy.
-
----
-
-### KernDX vs OOTB: Validation Comparison
-
-#### Salesforce Out-of-the-Box Alternatives
-
-Before reaching for this framework, know what Salesforce already gives you natively. It often has the simpler answer:
-
-1. **[Validation Rules](https://help.salesforce.com/s/articleView?id=sf.fields_defining_field_validation_rules.htm&language=en_US&type=5)**: formula-based rules on a single object (Setup, then the object, then Validation Rules)
-2. **[Flow Decision Elements](https://help.salesforce.com/s/articleView?id=sf.flow_ref_elements_decision.htm&language=en_US&type=5)**: validate inside a Flow using Decision elements and Fault paths
-3. **Apex Trigger Validation**: your own `addError()` calls in a trigger handler
-4. **[Duplicate Rules](https://help.salesforce.com/s/articleView?id=sf.duplicate_rules_overview.htm&language=en_US&type=5)**: prevent duplicate records by matching against existing ones
-
-#### Pros & Cons Comparison
-
-| Feature                    | KernDX Validation Framework                                                | Standard Validation Rules | Apex Trigger Validation  |
-|----------------------------|----------------------------------------------------------------------------|---------------------------|--------------------------|
-| **Code Required**          | Context class for custom objects                                           | No code (formula only)    | Full Apex implementation |
-| **Cross-Object Queries**   | Via bulk context pattern                                                   | Not supported             | Manual SOQL              |
-| **Aggregate Validation**   | Via context properties                                                     | Not supported             | Manual implementation    |
-| **Conditional Bypass**     | Permission/Feature Flag based                                              | Manual formula conditions | Manual implementation    |
-| **Shadow Mode**            | Built-in logging without blocking                                          | Not available             | Manual implementation    |
-| **Warning Severity**       | Log-only option                                                            | Always blocks             | Manual implementation    |
-| **Flow Integration**       | Invocable actions + LWC                                                    | Triggers on DML only      | Invocables required      |
-| **Centralized Management** | All rules in custom metadata                                               | Scattered per object      | Scattered in code        |
-| **Test Utilities**         | [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md) | Test via DML only         | Manual test setup        |
-| **Execution Control**      | Accumulate or Fail Fast                                                    | Always accumulates        | Manual implementation    |
-| **Error Display**          | Field-level or record-level                                                | Field-level               | Field-level              |
-| **Formula Engine**         | FormulaEval with globals                                                   | Standard formula          | N/A                      |
-| **Setup Complexity**       | Metadata + trigger action                                                  | UI-based only             | Code deployment          |
-
-#### When to Use KernDX Validation Framework
-
-Reach for this framework when the check is more than a standard rule can express:
-
-- **Cross-object validation** requiring queries to related records
-- **Aggregate validation** checking totals, counts, or sums
-- **Conditional bypass** based on Feature Flags
-- **Shadow mode testing** for new rules in production
-- **Warning-level validations** for data quality monitoring
-- **Flow-based validation** with error display in Screen Flows
-- **Centralized rule management** across multiple objects
-- **Execution strategy control** (fail fast vs accumulate)
-
-#### When to Use Standard Validation Rules
-
-Stay with a standard Salesforce validation rule when the check is simple and self-contained:
-
-- **Simple field validations** (required, format, range)
-- **Single-object validation** without cross-object queries
-- **Formulas under 5000 characters** without complex logic
-- **No bypass requirements** beyond standard profile/permission controls
-- **Quick implementation** without custom metadata setup
-
----
+Being honest about the boundary matters: these rules run in Apex, which costs more processing time per record than a native rule, so a standard rule is both simpler and cheaper when it can do the job.
 
 ## Quick Start
 
@@ -220,7 +69,160 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Architecture
+## Table of Contents
+
+<details>
+<summary>Expand</summary>
+
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [Why choose this over standard validation rules?](#why-choose-this-over-standard-validation-rules)
+    - [What you can do with it](#what-you-can-do-with-it)
+    - [What it does and does not do](#what-it-does-and-does-not-do)
+    - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
+    - [Pros & Cons Comparison](#pros--cons-comparison)
+8. [How does it work?](#how-does-it-work)
+    - [Architecture Diagram](#architecture-diagram)
+    - [What are the moving parts?](#what-are-the-moving-parts)
+    - [Bypass Hierarchy](#bypass-hierarchy)
+    - [Execution Strategies](#execution-strategies)
+    - [Rule Ordering Across Groups](#rule-ordering-across-groups)
+9. [How do I configure this?](#how-do-i-configure-this)
+    - [ValidationRuleGroup__mdt](#validationrulegroup__mdt)
+        - [Timing + Operations Examples](#timing--operations-examples)
+    - [ValidationRule__mdt](#validationrule__mdt)
+10. [How do I access related data?](#how-do-i-access-related-data)
+    - [Built-in Context Classes](#built-in-context-classes)
+    - [Creating Custom Context Classes](#creating-custom-context-classes)
+    - [Bulk Context Pattern](#bulk-context-pattern)
+        - [Usage in Formula](#usage-in-formula)
+11. [Formula Syntax](#formula-syntax)
+    - [Supported Functions](#supported-functions)
+    - [Accessing Context Properties](#accessing-context-properties)
+        - [Change Detection](#change-detection)
+    - [Error Message Merge Fields](#error-message-merge-fields)
+12. [How do I connect it to a Flow?](#how-do-i-connect-it-to-a-flow)
+    - [Validating Records in Flow](#validating-records-in-flow)
+    - [Bypassing Validation in Flow](#bypassing-validation-in-flow)
+    - [Displaying Errors in Screen Flows](#displaying-errors-in-screen-flows)
+13. [How do I run it from Apex?](#how-do-i-run-it-from-apex)
+    - [Bypass Methods](#bypass-methods)
+        - [Bypass Audit Trail](#bypass-audit-trail)
+    - [Direct Validation](#direct-validation)
+14. [How do I test rules?](#how-do-i-test-rules)
+    - [Using UTIL_ValidationTestHelper](#using-util_validationtesthelper)
+    - [Testing Best Practices](#testing-best-practices)
+15. [What else can it do?](#what-else-can-it-do)
+    - [Shadow Mode](#shadow-mode)
+        - [Querying Shadow Violations](#querying-shadow-violations)
+    - [Severity Levels](#severity-levels)
+    - [Multi-Language Support](#multi-language-support)
+        - [Example Setup](#example-setup)
+16. [Anti-Patterns](#anti-patterns)
+17. [Best Practices](#best-practices)
+    - [Subscriber-shipped demo rules](#subscriber-shipped-demo-rules)
+    - [Bulk Data Load Considerations](#bulk-data-load-considerations)
+        - [Bypass Options for Bulk Loads](#bypass-options-for-bulk-loads)
+18. [Troubleshooting](#troubleshooting)
+    - [Common Issues](#common-issues)
+    - [Enabling Performance Monitoring](#enabling-performance-monitoring)
+    - [Debugging Tips](#debugging-tips)
+19. [Related Documentation](#related-documentation)
+
+</details>
+
+---
+
+## Quick Navigation
+
+| I am a...     | I need to...                       | Go to...                                                        |
+|---------------|------------------------------------|-----------------------------------------------------------------|
+| **Architect** | Understand how it works            | [How does it work?](#how-does-it-work)                          |
+| **Architect** | Plan bypass strategies             | [Bypass Hierarchy](#bypass-hierarchy)                           |
+| **Developer** | Create a validation rule           | [Quick Start](#quick-start)                                     |
+| **Developer** | Write custom context classes       | [How do I access related data?](#how-do-i-access-related-data)  |
+| **Developer** | Test validations                   | [How do I test rules?](#how-do-i-test-rules)                    |
+| **Analyst**   | Configure validation rules         | [How do I configure this?](#how-do-i-configure-this)            |
+| **Analyst**   | Integrate validations in Flows     | [How do I connect it to a Flow?](#how-do-i-connect-it-to-a-flow)|
+
+---
+
+## Why choose this over standard validation rules?
+
+### What you can do with it
+
+A standard rule only sees the one record being saved, so it cannot look across objects or add up related records. This framework fills that gap. You still write the check as a formula, the same kind of formula language you already know from Flow entry criteria, but the framework runs it at save time with access to data you have loaded for it. Under the hood it uses Salesforce's [`FormulaEval` namespace](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_namespace_formulaeval.htm) (the same engine behind Flow entry criteria) to evaluate your formula at runtime. Plain Salesforce [validation rules](https://help.salesforce.com/s/articleView?id=sf.fields_defining_field_validation_rules.htm&language=en_US&type=5) remain the right tool for simple single-record checks; this framework is for the advanced cases they cannot reach.
+
+Here is what each capability gets you:
+
+- **Catch problems a single record can't see.** Validate across objects when the check needs a query, for example "Account must have at least one Contact".
+- **Enforce a limit on the children.** Validate on totals, for example "the total of child records must not exceed a parent limit".
+- **Let the right people through.** Skip a rule on a condition, based on user permissions or feature flags.
+- **See the impact before you enforce.** Roll a rule out quietly first (shadow mode): it logs what it would have blocked, in production, without actually blocking saves.
+- **Nudge without stopping the save.** Warn instead of block: a rule can log a data-quality issue without stopping the save.
+- **Keep every rule in one place** across many objects, run from both a trigger and a Flow.
+- **Show every error at once, or stop at the first.** Choose whether to collect every error (Accumulate) or stop on the first one (Fail Fast).
+- **Test a rule without saving a record.** [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md) tests rules from your own org.
+
+### What it does and does not do
+
+It evaluates rules and reports the errors they find. It does not save records, change field values, or hold business logic beyond deciding pass or fail. When a rule needs extra data to make its decision (such as a cross-object lookup), that data is loaded in a context class, described later in this guide.
+
+The scope is formula-driven rules that run on Salesforce's `FormulaEval` engine, configured through the `ValidationRule__mdt` and `ValidationRuleGroup__mdt` custom metadata types. That scope includes Flow integration, shadow mode, and the three-level bypass hierarchy.
+
+#### Salesforce Out-of-the-Box Alternatives
+
+Before you turn to this framework, know what Salesforce already gives you natively. It often has the simpler answer:
+
+1. **[Validation Rules](https://help.salesforce.com/s/articleView?id=sf.fields_defining_field_validation_rules.htm&language=en_US&type=5)**: formula-based rules on a single object (Setup, then the object, then Validation Rules)
+2. **[Flow Decision Elements](https://help.salesforce.com/s/articleView?id=sf.flow_ref_elements_decision.htm&language=en_US&type=5)**: validate inside a Flow using Decision elements and Fault paths
+3. **Apex Trigger Validation**: your own `addError()` calls in a trigger handler
+4. **[Duplicate Rules](https://help.salesforce.com/s/articleView?id=sf.duplicate_rules_overview.htm&language=en_US&type=5)**: prevent duplicate records by matching against existing ones
+
+#### Pros & Cons Comparison
+
+| Feature                    | KernDX Validation Framework                                                | Standard Validation Rules | Apex Trigger Validation  |
+|----------------------------|----------------------------------------------------------------------------|---------------------------|--------------------------|
+| **Code Required**          | Context class for custom objects                                           | No code (formula only)    | Full Apex implementation |
+| **Cross-Object Queries**   | Via bulk context pattern                                                   | Not supported             | Manual SOQL              |
+| **Aggregate Validation**   | Via context properties                                                     | Not supported             | Manual implementation    |
+| **Conditional Bypass**     | Permission/Feature Flag based                                              | Manual formula conditions | Manual implementation    |
+| **Shadow Mode**            | Built-in logging without blocking                                          | Not available             | Manual implementation    |
+| **Warning Severity**       | Log-only option                                                            | Always blocks             | Manual implementation    |
+| **Flow Integration**       | Invocable actions + LWC                                                    | Triggers on DML only      | Invocables required      |
+| **Centralised Management** | All rules in custom metadata                                               | Scattered per object      | Scattered in code        |
+| **Test Utilities**         | [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md) | Test via DML only         | Manual test setup        |
+| **Execution Control**      | Accumulate or Fail Fast                                                    | Always accumulates        | Manual implementation    |
+| **Error Display**          | Field-level or record-level                                                | Field-level               | Field-level              |
+| **Formula Engine**         | FormulaEval with globals                                                   | Standard formula          | N/A                      |
+| **Setup Complexity**       | Metadata + trigger action                                                  | UI-based only             | Code deployment          |
+
+The [Use this when](#use-this-when) and [Don't use this when](#dont-use-this-when) sections above give the short decision. For the longer form, choose this framework when the check is more than a standard rule can express:
+
+- **Cross-object validation** requiring queries to related records
+- **Aggregate validation** checking totals, counts, or sums
+- **Conditional bypass** based on Feature Flags
+- **Shadow mode testing** for new rules in production
+- **Warning-level validations** for data quality monitoring
+- **Flow-based validation** with error display in Screen Flows
+- **Centralised rule management** across multiple objects
+- **Execution strategy control** (fail fast vs accumulate)
+
+Stay with a standard Salesforce validation rule when the check is simple and self-contained:
+
+- **Simple field validations** (required, format, range)
+- **Single-object validation** without cross-object queries
+- **Formulas under 5000 characters** without complex logic
+- **No bypass requirements** beyond standard profile/permission controls
+- **Quick implementation** without custom metadata setup
+
+---
+
+## How does it work?
 
 It helps to see how the parts fit before configuring anything. There are three layers: you write rules as configuration records, the framework evaluates them in Apex, and three entry points (a trigger, Flow actions, and a screen component) feed records in and show the results. The diagram below maps those layers, and the tables that follow name each piece.
 
@@ -302,7 +304,7 @@ It helps to see how the parts fit before configuring anything. There are three l
 +-------------------------------------------------------------------------+
 ```
 
-### Component Overview
+### What are the moving parts?
 
 You only touch a few of these directly: the two metadata types when you author rules, and the test helper when you write tests. The rest are the moving parts the framework runs for you. Each row below says what the piece is for.
 
@@ -313,7 +315,7 @@ You only touch a few of these directly: the two metadata types when you author r
 | [`UTIL_ValidationRule`](reference/apex/UTIL_ValidationRule.md)                                                     | Apex Class      | Core validation engine with bypass methods                  |
 | [`UTIL_ValidationRule.ValidationResult`](reference/apex/UTIL_ValidationRule.ValidationResult.md)                   | Inner Class     | Result object containing errors and validity status         |
 | [`UTIL_ValidationRule.ValidationError`](reference/apex/UTIL_ValidationRule.ValidationError.md)                     | Inner Class     | Error details with @AuraEnabled for LWC                     |
-| [`UTIL_ValidationRule.INT_BulkValidationContext`](reference/apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Interface       | Interface for bulk query optimization                       |
+| [`UTIL_ValidationRule.INT_BulkValidationContext`](reference/apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Interface       | Interface for bulk query optimisation                       |
 | [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md)                                         | Apex Class      | Global test utility for subscriber orgs                     |
 | `SEL_ValidationRules`                                                                                              | Apex Class      | Internal selector with rule caching                         |
 | [`TRG_ExecuteValidationRules`](reference/apex/TRG_ExecuteValidationRules.md)                                       | Apex Class      | Pre-built trigger action                                    |
@@ -343,7 +345,7 @@ You have three ways to trigger a bypass at any level:
 
 When a record breaks several rules, you decide whether the user sees every problem at once or just the first. That choice is the execution strategy:
 
-| Strategy                 | Behavior                                        | Use Case                                      |
+| Strategy                 | Behaviour                                       | Use Case                                      |
 |--------------------------|-------------------------------------------------|-----------------------------------------------|
 | **Accumulate** (default) | Collects all validation errors before returning | Friendlier for users: shows every issue at once |
 | **Fail Fast**            | Stops after the first error per record          | Faster: rejects invalid data without running the rest |
@@ -386,13 +388,16 @@ So you can interleave lightweight and expensive validations no matter which grou
 
 ---
 
-## Custom Metadata Configuration
+## How do I configure this?
 
-You configure validation with two metadata types. A group says which object and when (the trigger context) a set of rules applies to, and a rule is the individual check. The two tables below list every field on each, when it is required, and what it does.
+You configure validation with two metadata types. A group says which object and when (the trigger context) a set of rules applies to, and a rule is the individual check. The two tables below list every field on each, when it is required, and what it does. Both are collapsed: open the one you need.
 
 ### [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)
 
 A group ties a set of rules to one object and one trigger context (for example, Account on before-insert).
+
+<details>
+<summary>Every <code>ValidationRuleGroup__mdt</code> field</summary>
 
 | Field                  | Type                                   | Required | Description                                                     |
 |------------------------|----------------------------------------|----------|-----------------------------------------------------------------|
@@ -406,6 +411,8 @@ A group ties a set of rules to one object and one trigger context (for example, 
 | BypassFeatureFlag__c   | MetadataRelationship(FeatureFlag__mdt) | No       | Feature Flag that bypasses all rules in this group when enabled |
 | RequiredFeatureFlag__c | MetadataRelationship(FeatureFlag__mdt) | No       | Feature Flag required for rules to execute                      |
 
+</details>
+
 #### Timing + Operations Examples
 
 | Timing       | Operations           | Result                                   |
@@ -417,6 +424,9 @@ A group ties a set of rules to one object and one trigger context (for example, 
 ### [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md)
 
 A rule is the individual check: the formula, the message, where to show the error, and how the rule behaves.
+
+<details>
+<summary>Every <code>ValidationRule__mdt</code> field</summary>
 
 | Field                  | Type                                   | Required | Description                                              |
 |------------------------|----------------------------------------|----------|----------------------------------------------------------|
@@ -433,9 +443,11 @@ A rule is the individual check: the formula, the message, where to show the erro
 | BypassFeatureFlag__c   | MetadataRelationship(FeatureFlag__mdt) | No       | Feature Flag that bypasses this rule when enabled        |
 | RequiredFeatureFlag__c | MetadataRelationship(FeatureFlag__mdt) | No       | Feature Flag required for this rule to execute           |
 
+</details>
+
 ---
 
-## Context Classes
+## How do I access related data?
 
 A formula can only check data it can see. A context class is what makes data visible to the formula: it holds the record being saved (and its previous version), plus any extra values you have looked up, and exposes them as named properties the formula can reference. For a simple single-object rule the framework supplies the context for you; you write a context class only when you need a custom object or extra data.
 
@@ -588,7 +600,7 @@ The good news for anyone who has written a Salesforce formula before: this is th
 
 Your rule formulas run on Salesforce's [`FormulaEval` namespace](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_namespace_formulaeval.htm), so the functions are the standard Salesforce formula functions. For background on the engine itself, see [Formula Evaluation in Apex](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_formulaeval.htm).
 
-These are the functions you will reach for most:
+These are the functions you will use most:
 
 | Category   | Functions                                                                 |
 |------------|---------------------------------------------------------------------------|
@@ -664,7 +676,7 @@ Account {!newRecord.Name} requires at least one contact before converting to Cus
 
 ---
 
-## Flow Integration
+## How do I connect it to a Flow?
 
 The same rules you run from a trigger can run from a Flow, with no extra Apex. The framework ships ready-made Flow actions to run validation, to turn it off, to turn it back on, and a screen component to show the results to the user. This keeps one set of rules in one place, whether the save comes through a trigger or a screen.
 
@@ -728,7 +740,7 @@ To show a user what went wrong, add the `validationErrors` component to a Screen
 
 ---
 
-## Programmatic Usage
+## How do I run it from Apex?
 
 Sometimes you need to drive validation from Apex directly: turn rules off inside a batch job, or run the rules yourself and handle the results. This section covers both.
 
@@ -800,7 +812,7 @@ UTIL_ValidationRule.applyErrors(accounts, results);
 
 ---
 
-## Testing
+## How do I test rules?
 
 A rule you cannot test is a rule you cannot trust. The good news: you test these rules in plain Apex tests, without saving a record. You build a sample record in memory and assert that a named rule passes or fails on it, which is fast and keeps each test focused on one rule.
 
@@ -911,7 +923,7 @@ private class AccountValidation_TEST
 
 ---
 
-## Advanced Features
+## What else can it do?
 
 ### Shadow Mode
 
@@ -949,7 +961,7 @@ List<LogEntry__c> shadowViolations = QRY_Builder.selectFrom(LogEntry__c.SObjectT
 
 Not every data problem should stop a save. A rule's severity decides whether a failure blocks the user (Error) or just records a note for you to follow up on (Warning):
 
-| Severity    | Behavior                                                                                                              |
+| Severity    | Behaviour                                                                                                             |
 |-------------|-----------------------------------------------------------------------------------------------------------------------|
 | **Error**   | Blocks save, adds error to record via `record.addError()`                                                             |
 | **Warning** | Logs to LogEntry__c via [`LOG_Builder`](reference/apex/LOG_Builder.md)`.build().warn().emitAt()`, does NOT block save |
@@ -1031,7 +1043,7 @@ These are the common mistakes (anti-patterns) people make with this framework, w
 
 8. **Use appropriate severity:** reserve "Error" for issues that should block a save
 
-9. **Leverage bypass hierarchy:** use an object or group bypass for bulk operations
+9. **Use bypass hierarchy:** use an object or group bypass for bulk operations
 
 10. **Monitor performance:** check LogEntry__c for slow validation rules
 

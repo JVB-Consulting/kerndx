@@ -70,7 +70,7 @@ gives you retry, backoff, and a circuit breaker, with no boilerplate.
 
 ## When to reach for each tool
 
-Retry and circuit breaker solve different problems. Most real integrations use both together.
+Retry and circuit breaker solve different problems. Most real integrations use both together. If your callout almost never fails and a rare error is fine to let through, a plain callout is simpler and you may not need either: add resilience once the dependency starts costing you timeouts or wasted callouts.
 
 | Tool                   | Problem it solves                                                    | Use when                                                       |
 |------------------------|----------------------------------------------------------------------|----------------------------------------------------------------|
@@ -461,7 +461,7 @@ Boolean retry = denylisted.shouldRetry(context);
 
 A breaker moves through three states automatically:
 
-| State         | Behavior                                           | Transitions out                                           |
+| State         | Behaviour                                          | Transitions out                                           |
 |---------------|----------------------------------------------------|-----------------------------------------------------------|
 | **CLOSED**    | Normal: calls pass through                         | → OPEN when failures reach the failure threshold          |
 | **OPEN**      | Fails fast: `allowRequest()` returns `false`       | → HALF_OPEN after the timeout elapses                     |
@@ -589,7 +589,7 @@ Resilience tools manage *failure*, they don't erase it. Know these boundaries be
   integrations layer both.
 - **Backoff and thresholds are guesses until you measure.** The defaults are sensible starting points, not
   tuned values. Watch the state transitions in **Log Entries** and adjust thresholds and timeouts to your
-  dependency's real behavior.
+  dependency's real behaviour.
 
 ---
 

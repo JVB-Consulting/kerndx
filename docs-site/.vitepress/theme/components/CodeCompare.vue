@@ -31,7 +31,7 @@
 		</div>
 		<div v-if="$slots.ledger" class="kl-ledger">
 			<div class="kl-ledger-head">
-				<p class="kl-ledger-eyebrow">The depth ledger</p>
+				<p class="kl-ledger-eyebrow">What you also get</p>
 				<p class="kl-metric">
 					<template v-if="writeLead">
 						<span class="n">{{ writeLead.num }}</span><span class="u">{{ writeLead.unit }}</span>

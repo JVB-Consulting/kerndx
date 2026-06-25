@@ -6,7 +6,7 @@ navOrder: 64
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A way to redact card numbers, secrets, and personal data on a record *before it is ever saved*, using configuration records instead of Apex code. **Why it matters:** Sensitive values that slip into a free-text note or an integration payload are a compliance and breach risk; here the readable value never reaches the database. **Who should follow it:** developers and admins protecting regulated data, and tech leads who want data-protection rules that are version-controlled and reviewable. **When to reach for it:** any time a field could capture data you don't want stored in the clear.
+**What this is:** A way to redact card numbers, secrets, and personal data on a record *before it is ever saved*, using configuration records instead of Apex code. **Why it matters:** Sensitive values that slip into a free-text note or an integration payload are a compliance and breach risk; here the readable value never reaches the database. **Who should follow it:** developers and admins protecting regulated data, and tech leads who want data-protection rules that are version-controlled and reviewable. **When to use it:** any time a field could capture data you don't want stored in the clear.
 
 **Before you start:**
 
@@ -76,7 +76,7 @@ kern__ApiCall__c stored = [SELECT kern__Request__c FROM kern__ApiCall__c WHERE I
 System.debug(stored.kern__Request__c);
 ```
 
-The debug log shows the **stored** value, already redacted. (The framework re-serializes the JSON, so the
+The debug log shows the **stored** value, already redacted. (The framework re-serialises the JSON, so the
 keys come back in a different order. Only the redacted values matter.)
 
 ```text
@@ -318,7 +318,7 @@ gate before you promote the configuration.
 
 ## What Masking Is Not
 
-Knowing the boundaries keeps you from reaching for masking where a different control belongs:
+Knowing the boundaries keeps you from using masking where a different control belongs:
 
 - **It is write-time, not retroactive.** Masking redacts records as they are inserted or updated. It does not
   scan or rewrite rows already stored. To clean up existing data, re-save it through a one-off batch.
@@ -348,13 +348,13 @@ Knowing the boundaries keeps you from reaching for masking where a different con
 
 | Concept                                                       | What it does                                                              |
 |---------------------------------------------------------------|---------------------------------------------------------------------------|
-| `kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled')` | The supported, global probe for masking state                             |
+| `kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled')` | The supported, global way to check whether masking is switched on         |
 | `before insert` / `before update` masking pass                | Redacts text-shaped fields on the record before it is written             |
 | `kern__MaskingRule__mdt`                                      | A reusable redaction recipe: pattern, replacement, mode, failure action   |
 | `kern__MaskingTarget__mdt`                                    | Wires a rule to an object (and optionally a field and caller)             |
 | `kern__TriggerSetting__mdt.kern__ApplyMasking__c`             | The per-object switch that opts an object into masking                    |
 | Data Masking Advisor                                          | No-code review and a deployable export; never writes to your org          |
-| `kern.TST_Mock`                                               | The global seam for injecting a mock masking target in a test             |
+| `kern.TST_Mock`                                               | The global way to inject a mock masking target in a test                  |
 
 **Key patterns:**
 

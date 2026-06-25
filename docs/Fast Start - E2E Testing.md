@@ -6,7 +6,7 @@ navOrder: 92
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end: you write an Apex class, deploy it, run its tests, and watch them pass. **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live org," which is where most release surprises come from. **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle. **When to reach for it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with Playwright is an optional add-on at the end.
+**What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end: you write an Apex class, deploy it, run its tests, and watch them pass. **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live org," which is where most release surprises come from. **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle. **When to use it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with Playwright is an optional add-on at the end.
 
 **Before you start:**
 
@@ -60,7 +60,9 @@ work?" The other asks "does the screen the user sees work?" KernDX covers both, 
 
 This Fast Start focuses on the Apex layer first, because that is where most teams start: write a class,
 deploy it, and prove it works with a `_TEST` class (a companion test class). Browser testing with
-Playwright sits on top of that, and you'll set it up in Tier 3. The full reference, with every helper
+Playwright sits on top of that, and you'll set it up in Tier 3. If your change is pure business logic with
+no screen of its own, the Apex layer alone is usually enough; add Playwright when a user-facing page is what
+you need to protect. The full reference, with every helper
 script, is the runbook at [`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md).
 
 ---

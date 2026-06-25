@@ -15,149 +15,30 @@ navOrder: 70
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Every part of KernDX is steered by data you can see and change: configuration records that turn behaviour on, log records that capture what happened, and a handful of tracking objects that record API calls and background jobs. This guide is the map of all of them. It tells you which object or metadata type stores what, which field controls which behaviour, and how the objects connect across the framework. Reach for it when you need to look up a field, wire up a configuration record, or understand how one framework's data feeds another. Developers use it as a field reference; architects use it to see the whole data model; analysts use it to find the records they configure.
+Every part of KernDX is steered by data you can see and change: configuration records that turn behaviour on, log records that capture what happened, and a handful of tracking objects that record API calls and background jobs. When you need to wire something up or look something up, you need to know which record holds it.
 
----
+This guide is the map of all that data. It tells you which object or metadata type stores what, which field controls which behaviour, and how the objects connect across the framework.
 
-## Table of Contents
+Use it when you need to look up a field, wire up a configuration record, or understand how one framework's data feeds another. Developers use it as a field reference; architects use it to see the whole data model; analysts use it to find the records they configure.
 
-<details>
-<summary>Expand</summary>
+## Mental model
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Architecture](#architecture)
-    - [Custom Objects](#custom-objects)
-    - [Custom Settings](#custom-settings)
-    - [Platform Events](#platform-events)
-    - [Custom Metadata Types](#custom-metadata-types)
-4. [Quick Start](#quick-start)
-5. [Framework Documentation](#framework-documentation)
-    - [Logging Framework](#logging-framework)
-        - [Architecture Diagram](#architecture-diagram)
-        - [Objects](#objects)
-    - [Trigger Action Framework](#trigger-action-framework)
-        - [Architecture Diagram](#architecture-diagram-1)
-        - [Objects](#objects-1)
-    - [Validation Framework](#validation-framework)
-        - [Objects](#objects-2)
-    - [Web Service Framework](#web-service-framework)
-        - [Architecture Diagram](#architecture-diagram-2)
-        - [Objects](#objects-3)
-    - [Feature Management Framework](#feature-management-framework)
-        - [Architecture Diagram](#architecture-diagram-3)
-        - [Objects](#objects-4)
-    - [Asynchronous Operations Framework](#asynchronous-operations-framework)
-        - [Architecture Diagram](#architecture-diagram-4)
-        - [Objects](#objects-5)
-    - [Data Management & Configuration](#data-management--configuration)
-        - [Objects](#objects-6)
-6. [Cross-Framework Relationships](#cross-framework-relationships)
-    - [Framework Integration Points](#framework-integration-points)
-    - [Key Integration Patterns](#key-integration-patterns)
-7. [Usage Patterns](#usage-patterns)
-    - [Pattern 1: Metadata-Driven Trigger with Logging](#pattern-1-metadata-driven-trigger-with-logging)
-    - [Pattern 2: API Integration with Retry Logic](#pattern-2-api-integration-with-retry-logic)
-    - [Pattern 3: Feature Flag with Multiple Strategies](#pattern-3-feature-flag-with-multiple-strategies)
-8. [Testing](#testing)
-9. [Anti-Patterns](#anti-patterns)
-10. [Best Practices](#best-practices)
-11. [Related Documentation](#related-documentation)
-12. [Appendix A: Mermaid ERD](#appendix-a-mermaid-erd)
+Think of these records as the framework's control panel and flight recorder. The custom metadata and custom settings are the dials and switches you turn to change how the framework behaves; the custom objects are the recorders that capture what happened (every log line, every API call, every background job). You change behaviour by editing a record, not by editing code, and you read back what the framework did by querying a record.
 
-</details>
+## Use this when
 
----
+- You need to configure the framework: register a trigger action, add a validation rule, set up an API endpoint, or define a feature flag. All of these are records, not code.
+- You want to look up an exact field name, type, or default before you write a query or build a record.
+- You are mapping how the frameworks connect, for example how a failed API call becomes a retry record, or how every framework feeds the same log object.
+- You want an audit trail you can query: which API calls ran, what was logged, which background jobs executed.
 
-## Quick Navigation
+## Don't use this when
 
-| I am a...     | I need to...                      | Go to...                                                        |
-|---------------|-----------------------------------|-----------------------------------------------------------------|
-| **Architect** | Understand the data model         | [Architecture](#architecture)                                   |
-| **Architect** | See cross-framework relationships | [Cross-Framework Relationships](#cross-framework-relationships) |
-| **Developer** | Find object field references      | [Framework Documentation](#framework-documentation)             |
-| **Developer** | See integration patterns          | [Usage Patterns](#usage-patterns)                               |
-| **Analyst**   | Configure trigger settings        | [Trigger Action Framework](#trigger-action-framework)           |
-| **Analyst**   | Configure validation rules        | [Validation Framework](#validation-framework)                   |
-| **Analyst**   | Configure API settings            | [Web Service Framework](#web-service-framework)                 |
-| **Analyst**   | Configure feature flags           | [Feature Management Framework](#feature-management-framework)   |
-
----
-
-## Overview
-
-These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
-
-> **Package Data Model:** 10 custom objects, 15 custom metadata types, 57 pre-built metadata records, and 1 platform event.
-> These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
-
-> For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
-
-The package groups its data into four kinds of building block. Each kind plays a different role:
-
-- **Custom Objects** store data that needs to persist and be queried: logs, configuration, and operational records.
-- **Custom Settings** hold runtime configuration and feature toggles, which you can set per user, per profile, or org-wide.
-- **Platform Events** carry messages between parts of the system so work can happen in the background instead of slowing the user down.
-- **Custom Metadata Types** hold declarative configuration: you change framework behaviour by editing a record, not by editing code.
-
-Together these objects power six integrated frameworks: Logging, Trigger Actions, Web Services, Feature Management, Asynchronous Operations, and
-Data Management. If you are new to the underlying Salesforce concepts, the official Salesforce documentation explains
-[Custom Metadata Types](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/custommetadatatypes_overview.htm),
-[Custom Objects](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_custom_objects.htm), and
-[Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm).
-
----
-
-## Architecture
-
-### Custom Objects
-
-| Object                                                                  | Purpose                            | Key Features                                                        |
-|-------------------------------------------------------------------------|------------------------------------|---------------------------------------------------------------------|
-| [`LogEntry__c`](reference/objects/LogEntry__c.md)                       | Persistent log storage             | Severity levels, stack traces, record associations, correlation IDs |
-| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)               | Scheduled job management           | Cron expressions, execution history, active/inactive control        |
-| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)           | User login analytics               | Tracks monthly login counts per user                                |
-| [`ApiCall__c`](reference/objects/ApiCall__c.md)                         | API orchestration & tracking       | Request/response logging, retry logic, performance metrics          |
-| [`ApiIssue__c`](reference/objects/ApiIssue__c.md)                       | Failed API retry management        | Error details, retry status, parameter hashing                      |
-| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Step progress, duration, correlation IDs, context data              |
-
-### Custom Settings
-
-| Custom Setting                                                    | Type      | Purpose                                                                         |
-|-------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------|
-| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | A master off-switch you can flip in an incident without a deployment (kill-switch): disable all APIs per user, profile, or org |
-| [`LogSetting__c`](reference/objects/LogSetting__c.md)             | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
-| [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md)   | List      | Runtime state for scheduled jobs (last run time)                                |
-
-### Platform Events
-
-| Event                                                      | Purpose                     | Consumed By                         |
-|------------------------------------------------------------|-----------------------------|-------------------------------------|
-| [`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) | Asynchronous log publishing | `TRG_LogEntryEvent` trigger handler |
-
-### Custom Metadata Types
-
-| Metadata Type                                                                      | Purpose                                              | Parent/Child Relationships                                                                                                                                |
-|------------------------------------------------------------------------------------|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md) | Asynchronous job configuration                       | -                                                                                                                                                         |
-| [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md)           | Class name resolution                                | -                                                                                                                                                         |
-| [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                       | Feature flag definitions                             | Parent of [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)                                                                    |
-| [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)       | Feature flag evaluation rules                        | Child of [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                                                                                     |
-| [`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md)                   | Field set grouping                                   | -                                                                                                                                                         |
-| [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                       | Data masking rule definitions (what to mask and how) | Parent of [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                                                                                |
-| [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                   | Rule-to-field wirings (where to apply each rule)     | Child of [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                                                                                     |
-| [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                   | Trigger action definitions                           | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                                       |
-| [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md)                 | Per-object trigger configuration                     | Parent of [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                                                                                |
-| [`PostTriggerAction__mdt`](reference/metadata/PostTriggerAction__mdt.md)           | Actions run once at end of the trigger transaction   | Optional child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                               |
-| [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                   | API credentials                                      | Parent of [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                                                                                      |
-| [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md)                               | API mock response configuration                      | -                                                                                                                                                         |
-| [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                         | API endpoint configuration                           | Child of [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                                                                                 |
-| [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)       | Validation rule grouping per object                  | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md), parent of [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) |
-| [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md)                 | Individual validation rule configuration             | Child of [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)                                                                     |
-
----
+- A plain Salesforce validation rule or formula already does the check you need. The custom validation objects here earn their place when you need cross-object checks, field-to-field comparisons, or a rule you can switch off under a condition; for a single-field rule on one object, the built-in feature is simpler.
+- You only need a one-off scheduled job and never plan to change it declaratively. Salesforce's own scheduling is enough; `ScheduledJob__c` earns its place when you want admins to manage schedules as records.
+- You are looking for the behaviour itself rather than where it is stored. The logic lives in the Apex classes documented in the per-framework guides; this guide is the data-model reference those guides point back to.
 
 ## Quick Start
 
@@ -197,7 +78,154 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
-## Framework Documentation
+## Table of Contents
+
+<details>
+<summary>Expand</summary>
+
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [What are the building blocks?](#what-are-the-building-blocks)
+8. [How is the data model laid out?](#how-is-the-data-model-laid-out)
+    - [Custom Objects](#custom-objects)
+    - [Custom Settings](#custom-settings)
+    - [Platform Events](#platform-events)
+    - [Custom Metadata Types](#custom-metadata-types)
+9. [What does each framework store?](#what-does-each-framework-store)
+    - [Logging Framework](#logging-framework)
+        - [Architecture Diagram](#architecture-diagram)
+        - [Objects](#objects)
+    - [Trigger Action Framework](#trigger-action-framework)
+        - [Architecture Diagram](#architecture-diagram-1)
+        - [Objects](#objects-1)
+    - [Validation Framework](#validation-framework)
+        - [Objects](#objects-2)
+    - [Web Service Framework](#web-service-framework)
+        - [Architecture Diagram](#architecture-diagram-2)
+        - [Objects](#objects-3)
+    - [Feature Management Framework](#feature-management-framework)
+        - [Architecture Diagram](#architecture-diagram-3)
+        - [Objects](#objects-4)
+    - [Asynchronous Operations Framework](#asynchronous-operations-framework)
+        - [Architecture Diagram](#architecture-diagram-4)
+        - [Objects](#objects-5)
+    - [Data Management & Configuration](#data-management--configuration)
+        - [Objects](#objects-6)
+10. [How do the frameworks connect?](#how-do-the-frameworks-connect)
+    - [Framework Integration Points](#framework-integration-points)
+    - [Key Integration Patterns](#key-integration-patterns)
+11. [How do these objects work together?](#how-do-these-objects-work-together)
+    - [Pattern 1: Metadata-Driven Trigger with Logging](#pattern-1-metadata-driven-trigger-with-logging)
+    - [Pattern 2: API Integration with Retry Logic](#pattern-2-api-integration-with-retry-logic)
+    - [Pattern 3: Feature Flag with Multiple Strategies](#pattern-3-feature-flag-with-multiple-strategies)
+12. [How do I test this?](#how-do-i-test-this)
+13. [What mistakes should I avoid?](#what-mistakes-should-i-avoid)
+14. [What are the recommended practices?](#what-are-the-recommended-practices)
+15. [Related Documentation](#related-documentation)
+16. [Appendix A: Mermaid ERD](#appendix-a-mermaid-erd)
+
+</details>
+
+---
+
+## Quick Navigation
+
+| I am a...     | I need to...                      | Go to...                                                        |
+|---------------|-----------------------------------|-----------------------------------------------------------------|
+| **Architect** | Understand the data model         | [How is the data model laid out?](#how-is-the-data-model-laid-out) |
+| **Architect** | See cross-framework relationships | [How do the frameworks connect?](#how-do-the-frameworks-connect) |
+| **Developer** | Find object field references      | [What does each framework store?](#what-does-each-framework-store) |
+| **Developer** | See integration patterns          | [How do these objects work together?](#how-do-these-objects-work-together) |
+| **Analyst**   | Configure trigger settings        | [Trigger Action Framework](#trigger-action-framework)           |
+| **Analyst**   | Configure validation rules        | [Validation Framework](#validation-framework)                   |
+| **Analyst**   | Configure API settings            | [Web Service Framework](#web-service-framework)                 |
+| **Analyst**   | Configure feature flags           | [Feature Management Framework](#feature-management-framework)   |
+
+---
+
+## What are the building blocks?
+
+These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
+
+> **Package Data Model:** 10 custom objects, 15 custom metadata types, 57 pre-built metadata records, and 1 platform event.
+> These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
+
+> For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
+
+The package groups its data into four kinds of building block. Each kind plays a different role:
+
+- **Custom Objects** store data that needs to persist and be queried: logs, configuration, and operational records.
+- **Custom Settings** hold runtime configuration and feature toggles, which you can set per user, per profile, or org-wide.
+- **Platform Events** carry messages between parts of the system so work can happen in the background instead of slowing the user down.
+- **Custom Metadata Types** hold declarative configuration: you change framework behaviour by editing a record, not by editing code.
+
+Together these objects power six integrated frameworks: Logging, Trigger Actions, Web Services, Feature Management, Asynchronous Operations, and
+Data Management. If you are new to the underlying Salesforce concepts, the official Salesforce documentation explains
+[Custom Metadata Types](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/custommetadatatypes_overview.htm),
+[Custom Objects](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_custom_objects.htm), and
+[Platform Events](https://developer.salesforce.com/docs/platform/platform-events/guide/platform-events-intro.htm).
+
+---
+
+## How is the data model laid out?
+
+### Custom Objects
+
+| Object                                                                  | Purpose                            | Key Features                                                        |
+|-------------------------------------------------------------------------|------------------------------------|---------------------------------------------------------------------|
+| [`LogEntry__c`](reference/objects/LogEntry__c.md)                       | Persistent log storage             | Severity levels, stack traces, record associations, correlation IDs |
+| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)               | Scheduled job management           | Cron expressions, execution history, active/inactive control        |
+| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)           | User login analytics               | Tracks monthly login counts per user                                |
+| [`ApiCall__c`](reference/objects/ApiCall__c.md)                         | API orchestration & tracking       | Request/response logging, retry logic, performance metrics          |
+| [`ApiIssue__c`](reference/objects/ApiIssue__c.md)                       | Failed API retry management        | Error details, retry status, parameter hashing                      |
+| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Step progress, duration, correlation IDs, context data              |
+
+### Custom Settings
+
+| Custom Setting                                                    | Type      | Purpose                                                                         |
+|-------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------|
+| [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | A master off-switch you can flip in an incident without a deployment (kill-switch): disable all APIs per user, profile, or org |
+| [`LogSetting__c`](reference/objects/LogSetting__c.md)             | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
+| [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md)   | List      | Runtime state for scheduled jobs (last run time)                                |
+
+### Platform Events
+
+| Event                                                      | Purpose                     | Consumed By                         |
+|------------------------------------------------------------|-----------------------------|-------------------------------------|
+| [`LogEntryEvent__e`](reference/events/LogEntryEvent__e.md) | Asynchronous log publishing | `TRG_LogEntryEvent` trigger handler |
+
+### Custom Metadata Types
+
+<details>
+<summary>All 15 custom metadata types and how they relate</summary>
+
+| Metadata Type                                                                      | Purpose                                              | Parent/Child Relationships                                                                                                                                |
+|------------------------------------------------------------------------------------|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md) | Asynchronous job configuration                       | -                                                                                                                                                         |
+| [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md)           | Class name resolution                                | -                                                                                                                                                         |
+| [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                       | Feature flag definitions                             | Parent of [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)                                                                    |
+| [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)       | Feature flag evaluation rules                        | Child of [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)                                                                                     |
+| [`FieldSetGroup__mdt`](reference/metadata/FieldSetGroup__mdt.md)                   | Field set grouping                                   | -                                                                                                                                                         |
+| [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                       | Data masking rule definitions (what to mask and how) | Parent of [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                                                                                |
+| [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)                   | Rule-to-field wirings (where to apply each rule)     | Child of [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md)                                                                                     |
+| [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                   | Trigger action definitions                           | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                                       |
+| [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md)                 | Per-object trigger configuration                     | Parent of [`TriggerAction__mdt`](reference/metadata/TriggerAction__mdt.md)                                                                                |
+| [`PostTriggerAction__mdt`](reference/metadata/PostTriggerAction__mdt.md)           | Actions run once at end of the trigger transaction   | Optional child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md) via `TriggerSetting__c`                                               |
+| [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                   | API credentials                                      | Parent of [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                                                                                      |
+| [`ApiMock__mdt`](reference/metadata/ApiMock__mdt.md)                               | API mock response configuration                      | -                                                                                                                                                         |
+| [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md)                         | API endpoint configuration                           | Child of [`ApiCredential__mdt`](reference/metadata/ApiCredential__mdt.md)                                                                                 |
+| [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)       | Validation rule grouping per object                  | Child of [`TriggerSetting__mdt`](reference/metadata/TriggerSetting__mdt.md), parent of [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md) |
+| [`ValidationRule__mdt`](reference/metadata/ValidationRule__mdt.md)                 | Individual validation rule configuration             | Child of [`ValidationRuleGroup__mdt`](reference/metadata/ValidationRuleGroup__mdt.md)                                                                     |
+
+</details>
+
+---
+
+## What does each framework store?
 
 ### Logging Framework
 
@@ -497,6 +525,9 @@ Create one TriggerSetting__mdt record per SObject:
 
 **Fields**:
 
+<details>
+<summary>All TriggerAction__mdt fields</summary>
+
 | Field                              | Type                                                 | Description                                                                                                          |
 |------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | `ApexClassName__c`                 | Text(100) (Required)                                 | Fully qualified action class name                                                                                    |
@@ -514,6 +545,8 @@ Create one TriggerSetting__mdt record per SObject:
 | `ForcePerformanceLogging__c`       | Checkbox                                             | Always log performance for this action                                                                               |
 | `SuppressPerformanceLogging__c`    | Checkbox                                             | Never log performance for this action                                                                                |
 | `PerformanceThresholdMs__c`        | Number(8,0)                                          | Log if duration exceeds threshold (ms)                                                                               |
+
+</details>
 
 **Relationships**:
 
@@ -721,6 +754,9 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
+<details>
+<summary>All ApiCall__c fields</summary>
+
 | Field                    | Type                   | Description                                                                                       |
 |--------------------------|------------------------|---------------------------------------------------------------------------------------------------|
 | `ServiceName__c`         | Text(100)              | Fully qualified name of the API service handler class                                             |
@@ -749,7 +785,9 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 | `TotalDurationMs__c`     | Number(6,0)            | Total processing time (milliseconds)                                                              |
 | `TriggeringRecordId__c`  | Text(80)               | ID of record that triggered the call                                                              |
 | `TriggeringRecordUrl__c` | Formula(Text)          | Hyperlink to triggering record                                                                    |
-| `LoggerContext__c`       | Long Text Area(32768)  | Serialized logger context for async correlation                                                   |
+| `LoggerContext__c`       | Long Text Area(32768)  | Serialised logger context for async correlation                                                   |
+
+</details>
 
 **Relationships**:
 
@@ -918,6 +956,9 @@ Example Mock Configuration:
 
 **Fields**:
 
+<details>
+<summary>All MaskingRule__mdt fields</summary>
+
 | Field                     | Type           | Description                                                                                                                                                                                    |
 |---------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Mode__c`                 | Picklist       | `Regex`, `JsonKey` (label "JSON by Key"), `ExactMatch`, or `CreditCard` (the pattern match plus a Luhn checksum)                                                                               |
@@ -932,6 +973,8 @@ Example Mock Configuration:
 | `Replaces__c`             | Text(40)       | On a shipped replacement rule: the developer name of the older rule it replaces. While both still carry their shipped values, the newer rule does the work wherever both are wired. Managed by the package |
 | `ReplacesFingerprint__c`  | Text(64)       | Fingerprint of the replaced rule's original shipped values. If you customise the older rule, it keeps running. Managed by the package                                                          |
 | `ShippedFingerprint__c`   | Text(64)       | Fingerprint of this rule's own shipped values. If you customise the replacement rule, the takeover turns off and both rules run. Managed by the package                                        |
+
+</details>
 
 **Relationships**:
 
@@ -1191,7 +1234,7 @@ Example Configuration:
 | `ClassName__c`      | Text(255) (Required)   | Schedulable class name                                                                     |
 | `CronExpression__c` | Text(255) (Required)   | Cron expression for scheduling                                                             |
 | `Description__c`    | Text Area              | Description of scheduled job                                                               |
-| `Parameters__c`     | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs passed to the scheduled class |
+| `Parameters__c`     | Long Text Area(131072) | JSON-serialised `DTO_NameValues` containing name/value pairs passed to the scheduled class |
 | `ScheduledJobId__c` | Text(18)               | Salesforce CronTrigger ID                                                                  |
 
 **Usage**:
@@ -1240,7 +1283,7 @@ insert job;
 | `DurationMs__c`      | Number(10,0)                  | Wall-clock duration in milliseconds from start to terminal state              |
 | `ErrorMessage__c`    | Long Text Area(32768)         | Error details if failed; non-fatal failure summaries if completed with issues |
 | `StepLog__c`         | Long Text Area(131072)        | JSON array of step definitions enriched with runtime outcomes                 |
-| `ContextData__c`     | Long Text Area(131072)        | Serialized shared chain context (JSON)                                        |
+| `ContextData__c`     | Long Text Area(131072)        | Serialised shared chain context (JSON)                                        |
 | `CorrelationId__c`   | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries                      |
 
 **Field history tracking** is enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and `CompletedAt__c`.
@@ -1367,7 +1410,7 @@ Example Configuration:
 
 ---
 
-## Cross-Framework Relationships
+## How do the frameworks connect?
 
 ### Framework Integration Points
 
@@ -1437,7 +1480,7 @@ A few patterns repeat across the whole framework. Recognising them helps you see
 
 ---
 
-## Usage Patterns
+## How do these objects work together?
 
 The three examples below show how these objects work together end to end. Each starts with the Apex you write, then the configuration records that wire it up, then what happens automatically at runtime.
 
@@ -1543,7 +1586,7 @@ if(isAdvancedReportingEnabled)
 
 ---
 
-## Testing
+## How do I test this?
 
 You don't test these objects and metadata types on their own. You test the behaviour they configure, by running the
 framework end to end. With `kern.TST_Builder`, build (and insert) a record, then check that the configured effect happened.
@@ -1592,7 +1635,7 @@ unseeded: an unseeded flag is treated as off.
 
 ---
 
-## Anti-Patterns
+## What mistakes should I avoid?
 
 These are common mistakes (anti-patterns) when working with the framework's objects and metadata, with what to do instead:
 
@@ -1606,7 +1649,7 @@ These are common mistakes (anti-patterns) when working with the framework's obje
 
 ---
 
-## Best Practices
+## What are the recommended practices?
 
 - **Use custom metadata over custom settings** for configuration that should be deployable. Custom metadata
   records deploy with change sets and packages; custom settings require post-deployment data loading.
@@ -1624,7 +1667,7 @@ These are common mistakes (anti-patterns) when working with the framework's obje
 - **Review `LogEntry__c` retention** regularly. Configure `SCHED_PurgeRecords` via `ScheduledJob__c` to prevent
   storage growth from log accumulation.
 - **Test with `@IsTest(SeeAllData=false)`** to ensure tests do not depend on org-specific metadata records. Drive
-  metadata-configured behavior through `kern.TST_Builder` and assert the outcome; seed feature-flag state with the
+  metadata-configured behaviour through `kern.TST_Builder` and assert the outcome; seed feature-flag state with the
   global `kern.TST_Factory.newFeatureFlag(...)` helper.
 
 ---

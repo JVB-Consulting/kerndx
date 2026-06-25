@@ -6,7 +6,7 @@ navOrder: 18
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to write logs that you can search, report on, and keep, instead of Salesforce's built-in `System.debug()` output, which expires and can't be queried. **Why it matters:** when something fails in production, the evidence is still there days later, linked to the records and the single user action that triggered it. **Who should follow this:** developers capturing errors, plus tech leads and DevOps who need traceability in live systems. **When to use it:** any time you'd otherwise reach for `System.debug()`.
+**What this is:** A way to write logs that you can search, report on, and keep, instead of Salesforce's built-in `System.debug()` output, which expires and can't be queried. **Why it matters:** when something fails in production, the evidence is still there days later, linked to the records and the single user action that triggered it. **Who should follow this:** developers capturing errors, plus tech leads and DevOps who need traceability in live systems. **When to use it:** any time you'd otherwise use `System.debug()`. For a one-off value you only need while developing, plain `System.debug()` is still fine; switch to persistent logging when you need the evidence to survive into production.
 
 > What you'll get working: persistent, queryable logging that adds no database writes to your own transaction and survives rollbacks.
 
@@ -380,7 +380,7 @@ Failing          0
 
 | Pattern                  | Example                                   | Why                                                                    |
 |--------------------------|-------------------------------------------|------------------------------------------------------------------------|
-| Scope batching           | `LOG_Builder.scope()` + try/finally       | Prevents PE governor hit; groups entries under one Correlation ID      |
+| Scope batching           | `LOG_Builder.scope()` + try/finally       | Keeps you under the platform-event publish limit; groups entries under one Correlation ID |
 | Log at method boundaries | `.info('started')` + `.info('completed')` | Trace execution flow in production                                     |
 | Per-record context       | `.forRecord(account.Id)`                  | All logs for one record queryable together                             |
 | Debug inside loops       | `.debug('Processing account')`            | Filtered in production; visible in sandbox                             |
@@ -616,7 +616,7 @@ to the fields that need it.
 | `Variable does not exist: kern__LogEntry__c`   | Missing namespace prefix                                   | Use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for SObjects and fields                                                                               |
 | `.error(error.getMessage())` loses stack trace | Passing String instead of Exception                        | Use `.error(error)` to pass the Exception object directly                                                                                                                  |
 | Logs have no method context                    | Missing `.at()` or `.emitAt()`                             | Always include `.emitAt('Class.method')` or `.at('Class.method')`                                                                                                          |
-| PE governor error after many emits             | >150 `PublishImmediate` events in one transaction          | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush                                                                                             |
+| Platform-event limit error after many emits    | >150 `PublishImmediate` events in one transaction          | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush                                                                                             |
 | `Test.getEventBus()` not found                 | Running outside `@IsTest` context                          | `Test.getEventBus().deliver()` only works inside test methods                                                                                                              |
 | Sensitive value appears raw in a log           | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard). See [Logging Guide](Logging%20-%20Guide.md)              |
 
@@ -634,14 +634,14 @@ to the fields that need it.
 | `.withSummary(message)`                         | Sets a short searchable summary on the entry                         |
 | `.emitAt('Class.method')`                       | Shorthand for `.at().emit()`                                         |
 | `.emit()`                                       | Publishes the log as a platform event                                |
-| `LOG_Builder.scope()`                           | Batches all emits under one Correlation ID; prevents PE governor hit |
+| `LOG_Builder.scope()`                           | Batches all emits under one Correlation ID; keeps you under the platform-event publish limit |
 | `ignoreTestMode = true`                         | Enables logging in test context                                      |
 | `Test.getEventBus().deliver()`                  | Delivers platform events synchronously in tests                      |
 | `kern__UserId__c`                               | The field to filter on when querying log entries (NOT `CreatedById`) |
 
 **Key patterns:**
 
-- Wrap bulk logging in `LOG_Builder.scope()` + try/finally (batches emits, prevents governor hit)
+- Wrap bulk logging in `LOG_Builder.scope()` + try/finally (batches emits, keeps you under the platform-event publish limit)
 - Log at method boundaries (entry + exit) for execution tracing
 - Always pass `Exception` objects, not `.getMessage()` strings
 - Use `.forRecord()` on every log call to enable record-level filtering

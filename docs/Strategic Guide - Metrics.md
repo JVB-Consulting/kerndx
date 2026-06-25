@@ -61,7 +61,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Apex character limit   | 10,000,000 |
 | Percent of limit used  |       ~10% |
 
-> You can see this yourself in Setup → Apex Classes → view limit bar. The ~990K figure is approximate and was last measured against an earlier 1.0.0-x build (the current build has 363 Apex classes total). The count includes all Apex classes and triggers defined in the org, excluding comments and `@IsTest` annotated classes. Managed package code does not count toward this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
+> You can see this yourself in Setup → Apex Classes → view limit bar. The ~990K figure is approximate and was last measured against an earlier 1.0.0-x build (the current build has 363 Apex classes total). The count includes all Apex classes and triggers defined in the org, excluding comments and `@IsTest` annotated classes. Managed package code does not count towards this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
 
 ## Global API Surface
 

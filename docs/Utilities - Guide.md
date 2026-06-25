@@ -15,47 +15,90 @@ navOrder: 72
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. KernDX ships ready-made, tested versions of those everyday helpers, so you reach for a proven method instead of hand-rolling one where a null-pointer or off-by-one bug can hide. Read it when you want a quick way to do a common task in Apex, or to expose a framework capability to a Flow. Developers use it as a day-to-day reference, architects to see what already exists before building, and business analysts to skim what the framework offers for data formatting, validation, and Flow actions.
+Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. Written by hand, each one is a place a null-pointer or off-by-one bug can hide.
+
+KernDX ships ready-made, tested versions of those everyday helpers, so you call a proven method instead of hand-rolling one.
+
+Read this when you want a quick way to do a common task in Apex, or to expose a framework capability to a Flow. Developers use it as a day-to-day reference; architects use it to see what already exists before building something new; business analysts can skim what the framework offers for data formatting, validation, and Flow actions. You do not need prior KernDX knowledge to follow along.
+
+## Mental model
+
+Think of these utilities as a pre-stocked Swiss Army knife. Instead of forging a new blade every time you need to parse a date, check a cache, or split a string, you pull out a tool that has already been built and stress-tested. Each tool does one job: you pass data in, it hands a result back.
+
+## Use this when
+
+- you have a common Apex task (string, date, collection, JSON, describe) and a tested helper already exists for it
+- you want to expose a framework capability (logging, email) to a Flow without writing your own Apex action
+
+## Don't use this when
+
+- a helper already exists for the job: look here first rather than writing your own
+- it is a one-liner you will never reuse, where a plain inline call is simpler and clearer
+- the native Salesforce method already covers your case cleanly: these helpers add null-safety and convenience, not replacements for what the platform already does well
+
+## Quick Start
+
+The most commonly used utilities are string validation, date arithmetic, and collection operations. Here are the patterns you will use most often:
+
+```apex
+// String validation
+Boolean hasValue = String.isNotBlank(inputValue);
+Id validId = UTIL_SObject.validateId(idString);
+
+// Date arithmetic
+Date nextBusinessDay = UTIL_Date.addBusinessDays(Date.today(), 5);
+Boolean isWeekend = UTIL_Date.isWeekend(Date.today());
+
+// Collection operations
+List<List<SObject>> chunks = UTIL_List.partition(largeList, 200);
+accounts.sort(new RevenueComparator()); // see "Sorting" below for the Comparator<SObject> pattern
+```
+
+For deeper coverage, continue reading the sections below.
 
 ## Table of Contents
 
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Architecture](#architecture)
-4. [Quick Start](#quick-start)
-5. [String Utilities](#string-utilities)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [Overview](#overview)
+8. [How does it work?](#how-does-it-work)
+9. [String Utilities](#string-utilities)
     - [UTIL_String](#util_string)
         - [ID Validation](#id-validation)
         - [String Manipulation](#string-manipulation)
         - [String Replacement](#string-replacement)
         - [String Splitting & Joining](#string-splitting--joining)
-6. [Date & Time Utilities](#date--time-utilities)
+10. [Date & Time Utilities](#date--time-utilities)
     - [UTIL_Date](#util_date)
         - [Weekend & Weekday Detection](#weekend--weekday-detection)
         - [Business Day Arithmetic](#business-day-arithmetic)
         - [ISO 8601 Conversion](#iso-8601-conversion)
         - [Date Formatting](#date-formatting)
         - [Cron Expressions](#cron-expressions)
-7. [Character Utilities](#character-utilities)
+11. [Character Utilities](#character-utilities)
     - [UTIL_Character](#util_character)
-8. [Collection Utilities](#collection-utilities)
+12. [Collection Utilities](#collection-utilities)
     - [UTIL_List](#util_list)
     - [UTIL_Map](#util_map)
     - [UTIL_Set](#util_set)
     - [Sorting](#sorting)
-9. [System & Reflection](#system--reflection)
+13. [System & Reflection](#system--reflection)
     - [UTIL_System](#util_system)
         - [Type Resolution](#type-resolution)
         - [Namespace & Environment](#namespace--environment)
     - [UTIL_Exceptions](#util_exceptions)
-10. [Data Processing](#data-processing)
+14. [Data Processing](#data-processing)
     - [UTIL_JsonPath](#util_jsonpath)
-11. [Specialized Utilities](#specialized-utilities)
+15. [Specialised Utilities](#specialised-utilities)
     - [UTIL_Email](#util_email)
         - [Email Validation](#email-validation)
         - [Check Email Deliverability](#check-email-deliverability)
@@ -66,14 +109,14 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
     - [UTIL_BulkUpdates](#util_bulkupdates)
     - [UTIL_PurgeRecords](#util_purgerecords)
     - [UTIL_Limits](#util_limits)
-12. [Quick Reference Tables](#quick-reference-tables)
+16. [Quick Reference Tables](#quick-reference-tables)
     - [String Validation Quick Reference](#string-validation-quick-reference)
     - [Date Calculation Quick Reference](#date-calculation-quick-reference)
     - [Collection Operations Quick Reference](#collection-operations-quick-reference)
-13. [Retry Strategy Framework (UTIL_Retry)](#retry-strategy-framework-util_retry)
-14. [Circuit Breaker Framework (UTIL_CircuitBreaker)](#circuit-breaker-framework-util_circuitbreaker)
-15. [Platform Cache Framework (UTIL_Cache)](#platform-cache-framework-util_cache)
-    - [Architecture](#architecture-1)
+17. [Retry Strategy Framework (UTIL_Retry)](#retry-strategy-framework-util_retry)
+18. [Circuit Breaker Framework (UTIL_CircuitBreaker)](#circuit-breaker-framework-util_circuitbreaker)
+19. [Platform Cache Framework (UTIL_Cache)](#platform-cache-framework-util_cache)
+    - [Architecture](#architecture)
     - [KernDX vs OOTB: Platform Cache Comparison](#kerndx-vs-ootb-platform-cache-comparison)
         - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
         - [Pros & Cons Comparison](#pros--cons-comparison)
@@ -111,18 +154,18 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
     - [Testing with Platform Cache](#testing-with-platform-cache)
         - [Testing Cache Availability](#testing-cache-availability)
         - [Testing Cache Functionality](#testing-cache-functionality)
-16. [Type Resolution (UTIL_TypeResolver)](#type-resolution-util_typeresolver)
-    - [Architecture](#architecture-2)
+20. [Type Resolution (UTIL_TypeResolver)](#type-resolution-util_typeresolver)
+    - [Architecture](#architecture-1)
     - [Basic Usage](#basic-usage-1)
     - [Implementing a Custom Resolver](#implementing-a-custom-resolver)
     - [Registering Custom Resolvers](#registering-custom-resolvers)
     - [Testing the Custom Resolver](#testing-the-custom-resolver)
-17. [Random Data Generation (UTIL_Random)](#random-data-generation-util_random)
-    - [Architecture](#architecture-3)
+21. [Random Data Generation (UTIL_Random)](#random-data-generation-util_random)
+    - [Architecture](#architecture-2)
     - [Basic Random Generation](#basic-random-generation)
     - [Salesforce ID Generation](#salesforce-id-generation)
-18. [Advanced Data Indexing (MAP_SObject)](#advanced-data-indexing-map_sobject)
-    - [Architecture](#architecture-4)
+22. [Advanced Data Indexing (MAP_SObject)](#advanced-data-indexing-map_sobject)
+    - [Architecture](#architecture-3)
     - [Internal Architecture](#internal-architecture)
         - [Tree Structure Design](#tree-structure-design)
         - [Performance Characteristics](#performance-characteristics)
@@ -131,8 +174,8 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
     - [Case-Insensitive Indexing](#case-insensitive-indexing)
     - [Reference Field Traversal](#reference-field-traversal)
     - [Advanced Operations](#advanced-operations)
-19. [Metadata Introspection (UTIL_SObjectDescribe)](#metadata-introspection-util_sobjectdescribe)
-    - [Architecture](#architecture-5)
+23. [Metadata Introspection (UTIL_SObjectDescribe)](#metadata-introspection-util_sobjectdescribe)
+    - [Architecture](#architecture-4)
     - [Basic Usage](#basic-usage-2)
     - [Field Operations](#field-operations)
     - [Field Set Operations](#field-set-operations)
@@ -142,24 +185,24 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
     - [Cache Management](#cache-management)
     - [Advanced Patterns](#advanced-patterns-1)
     - [Best Practices](#best-practices-1)
-20. [Feature Flag Management (UTIL_FeatureFlag)](#feature-flag-management-util_featureflag)
-21. [Logging Framework (LOG_Builder)](#logging-framework-log_builder)
+24. [Feature Flag Management (UTIL_FeatureFlag)](#feature-flag-management-util_featureflag)
+25. [Logging Framework (LOG_Builder)](#logging-framework-log_builder)
     - [Quick Reference](#quick-reference)
-22. [Omnistudio Integration (SVC_Omnistudio)](#omnistudio-integration-svc_omnistudio)
-    - [Architecture](#architecture-6)
+26. [Omnistudio Integration (SVC_Omnistudio)](#omnistudio-integration-svc_omnistudio)
+    - [Architecture](#architecture-5)
     - [Implementing Callable Classes](#implementing-callable-classes)
     - [Omnistudio Configuration](#omnistudio-configuration)
-23. [Invocable Methods for Flows](#invocable-methods-for-flows)
+27. [Invocable Methods for Flows](#invocable-methods-for-flows)
     - [Logging from Flows (FLOW_WriteLog)](#logging-from-flows-flow_writelog)
     - [Email from Flows (FLOW_SendEmail)](#email-from-flows-flow_sendemail)
-24. [Health Check](#health-check)
+28. [Health Check](#health-check)
     - [Opening the Kern app](#opening-the-kern-app)
     - [Reading the results](#reading-the-results)
     - [What it checks](#what-it-checks)
     - [Built-in fixes](#built-in-fixes)
     - [Administration Tools](#administration-tools)
-25. [Anti-Patterns](#anti-patterns)
-26. [Best Practices](#best-practices-2)
+29. [Anti-Patterns](#anti-patterns)
+30. [Best Practices](#best-practices-2)
     - [Type Resolution](#type-resolution-1)
     - [Random Data Generation](#random-data-generation)
     - [SObject Indexing](#sobject-indexing)
@@ -168,8 +211,8 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
     - [Logging](#logging)
     - [Omnistudio Integration](#omnistudio-integration)
     - [Invocable Methods](#invocable-methods)
-27. [Testing](#testing)
-28. [Related Documentation](#related-documentation)
+31. [Testing](#testing)
+32. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -180,7 +223,7 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
 | I am a...     | I need to...                    | Go to...                                                                    |
 |---------------|---------------------------------|-----------------------------------------------------------------------------|
 | **Admin**     | Verify my org is configured     | [Health Check](#health-check)                                               |
-| **Architect** | Understand utility architecture | [Architecture](#architecture)                                               |
+| **Architect** | Understand how the utilities fit together | [How does it work?](#how-does-it-work)                            |
 | **Architect** | Design fault tolerance patterns | [Circuit Breaker Framework](#circuit-breaker-framework-util_circuitbreaker) |
 | **Developer** | Use common utilities            | [Quick Start](#quick-start)                                                 |
 | **Developer** | Implement retry strategies      | [Retry Strategy Framework](#retry-strategy-framework-util_retry)            |
@@ -191,10 +234,6 @@ Every Salesforce project re-writes the same small helpers: trimming a string to 
 ---
 
 ## Overview
-
-Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. Written by hand, each one is a place a null-pointer or an off-by-one bug can hide. This guide covers KernDX's ready-made, tested versions of those everyday helpers, so you reach for a proven method instead of writing one again.
-
-Read it when you want a quick way to do a common task in Apex (or to expose a framework capability to a Flow). Developers use it as a day-to-day reference; architects use it to see which capabilities already exist before building something new; business analysts can skim it to understand what the framework offers for data formatting, validation, and Flow actions. You do not need prior KernDX knowledge to follow along.
 
 The utility classes here are stateless helpers: you call them by name (for example `UTIL_String.abbreviate(...)`), they transform the data you pass in, and they hand back a result.
 
@@ -226,7 +265,7 @@ The utility classes here are stateless helpers: you call them by name (for examp
 
 ---
 
-## Architecture
+## How does it work?
 
 To make the right ones easy to find, the utilities split into two groups by how much they do for you.
 
@@ -238,33 +277,11 @@ You call most of these directly by class name, without creating an instance firs
 
 ---
 
-## Quick Start
-
-The most commonly used utilities are string validation, date arithmetic, and collection operations. Here are the patterns you will use most often:
-
-```apex
-// String validation
-Boolean hasValue = String.isNotBlank(inputValue);
-Id validId = UTIL_SObject.validateId(idString);
-
-// Date arithmetic
-Date nextBusinessDay = UTIL_Date.addBusinessDays(Date.today(), 5);
-Boolean isWeekend = UTIL_Date.isWeekend(Date.today());
-
-// Collection operations
-List<List<SObject>> chunks = UTIL_List.partition(largeList, 200);
-accounts.sort(new RevenueComparator()); // see "Sorting" below for the Comparator<SObject> pattern
-```
-
-For deeper coverage, continue reading the sections below.
-
----
-
 ## String Utilities
 
 ### [`UTIL_String`](reference/apex/UTIL_String.md)
 
-You want to manipulate, validate, or transform text without writing your own null checks every time. [`UTIL_String`](reference/apex/UTIL_String.md) does that: it adds null-safe string methods on top of the standard Apex [`String`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) class, so a null input returns a sensible result instead of throwing.
+To manipulate, validate, or transform text without writing your own null checks every time, use [`UTIL_String`](reference/apex/UTIL_String.md). It adds null-safe string methods on top of the standard Apex [`String`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) class, so a null input returns a sensible result instead of throwing.
 
 #### ID Validation
 
@@ -427,7 +444,7 @@ UTIL_Character.validateChar('A');  // no exception
 
 ### [`UTIL_List`](reference/apex/UTIL_List.md)
 
-When you need to know whether a list is empty without first null-checking it, or to break a large list into save-sized chunks, reach for [`UTIL_List`](reference/apex/UTIL_List.md). It adds null-safe helpers on top of the standard Apex [`List`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) class.
+When you need to know whether a list is empty without first null-checking it, or to break a large list into save-sized chunks, use [`UTIL_List`](reference/apex/UTIL_List.md). It adds null-safe helpers on top of the standard Apex [`List`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) class.
 
 ```apex
 // Check if list is empty (null-safe)
@@ -577,7 +594,7 @@ Integer firstId = jpArray.get('[0].id').getIntegerValue();  // 1
 
 ---
 
-## Specialized Utilities
+## Specialised Utilities
 
 ### [`UTIL_Email`](reference/apex/UTIL_Email.md)
 
@@ -661,7 +678,7 @@ UTIL_Email.sendEmail(
 
 ### `UTIL_StopWatch`
 
-You want to know how long a piece of code took, so you can spot what's slow. `UTIL_StopWatch` is the framework-internal base class behind the three built-in performance timers (`UTIL_PerformanceTimer`, `UTIL_QueryPerformanceTimer`, `UTIL_TriggerPerformanceTimer`). It is internal plumbing (declared `public`, not `global`), so you don't instantiate it yourself.
+To know how long a piece of code took, so you can spot what's slow, use the built-in timers. `UTIL_StopWatch` is the framework-internal base class behind the three built-in performance timers (`UTIL_PerformanceTimer`, `UTIL_QueryPerformanceTimer`, `UTIL_TriggerPerformanceTimer`). It is internal plumbing (declared `public`, not `global`), so you don't instantiate it yourself.
 
 You get most timing for free: setting `TriggerSetting__mdt.EnablePerformanceLogging__c` times trigger actions, `ApiSetting__mdt` times API calls, and `UTIL_AsyncChain.ChainContext` carries timing through chain steps.
 
@@ -681,7 +698,7 @@ finally
 
 ### [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md)
 
-You want to keep "which records should this run for?" as a formula (the kind an admin can read and change) rather than hard-coding the condition in Apex. [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md) takes a boolean formula like `Name = "Acme" && Industry = "Technology"` and returns just the records that match it. It is built on Salesforce's `FormulaEval` engine and is handy for filtering the records in a trigger.
+To keep "which records should this run for?" as a formula (the kind an admin can read and change) rather than hard-coding the condition in Apex, use [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md). It takes a boolean formula like `Name = "Acme" && Industry = "Technology"` and returns just the records that match it. It is built on Salesforce's `FormulaEval` engine and is handy for filtering the records in a trigger.
 
 ```apex
 // Create a formula filter with a process name, context class, and formula expression
@@ -826,7 +843,7 @@ If an external system keeps failing, hammering it with more calls just wastes ti
 
 ### Architecture
 
-You want to keep frequently-read data (configuration, picklist values, a computed result) in fast memory so you don't re-query or re-compute it on every request. Salesforce provides Platform Cache for this, but using it directly means handling missing partitions, size limits, and time-to-live rules yourself. ("Time to live", or TTL, is how long an entry stays in the cache before it expires.)
+To keep frequently-read data (configuration, picklist values, a computed result) in fast memory so you don't re-query or re-compute it on every request, use a cache. Salesforce provides Platform Cache for this, but using it directly means handling missing partitions, size limits, and time-to-live rules yourself. ("Time to live", or TTL, is how long an entry stays in the cache before it expires.)
 
 [`UTIL_Cache`](reference/apex/UTIL_Cache.md) wraps Platform Cache and handles those details for you: it compresses large entries automatically, falls back gracefully when the cache is unavailable, enforces valid TTLs, and returns a clear result instead of throwing.
 
@@ -867,6 +884,11 @@ Salesforce provides **Platform Cache** with direct API access:
 
 #### Pros & Cons Comparison
 
+The short version: `UTIL_Cache` does the bookkeeping (compression, fallback, TTL validation, key safety) so you do not, while the raw OOTB API gives you direct, wrapper-free access and full control. The full row-by-row breakdown is below.
+
+<details>
+<summary>Full feature comparison</summary>
+
 | Feature                      | KernDX [`UTIL_Cache`](reference/apex/UTIL_Cache.md)                       | Salesforce OOTB Cache API                            |
 |------------------------------|---------------------------------------------------------------------------|------------------------------------------------------|
 | **Automatic Compression**    | ✅ Auto-compresses payloads >4KB (ZIP), saves 80-90% cache space           | ❌ No compression, full payload cached                |
@@ -879,11 +901,13 @@ Salesforce provides **Platform Cache** with direct API access:
 | **User Scoping**             | ✅ `withUserScope(true)` for user-specific keys                            | ❌ Must manually prefix keys with userId              |
 | **Bulk Operations**          | ✅ `putAll()` and `getAll()` for batch operations                          | ❌ Must loop manually for multiple keys               |
 | **Partition Auto-Detection** | ✅ Automatically finds default partition                                   | ❌ Must hardcode partition names                      |
-| **Key Safety**               | ✅ Auto-sanitizes keys (hashes long keys, handles special chars)           | ⚠️ Manual key sanitization required                  |
+| **Key Safety**               | ✅ Auto-sanitises keys (hashes long keys, handles special chars)           | ⚠️ Manual key sanitisation required                  |
 | **Usage Complexity**         | ✅ Same simple put/get API as OOTB                                         | ✅ Simple put/get API                                 |
 | **Setup**                    | ⚠️ Requires Platform Cache partition creation                             | ⚠️ Requires Platform Cache partition creation        |
 | **Performance**              | ⚠️ Overhead from compression + validation (CPU for cache space trade-off) | ✅ Direct cache access, no wrapper layer in between   |
 | **Flexibility**              | ⚠️ Opinionated patterns (e.g., forced compression >4KB)                   | ✅ Full control over cache operations                 |
+
+</details>
 
 #### When to Use KernDX UTIL_Cache
 
@@ -899,7 +923,7 @@ Salesforce provides **Platform Cache** with direct API access:
 
 - ✅ Maximum performance is critical (no wrapper overhead)
 - ✅ Simple caching needs with known partition names
-- ✅ You want complete control over cache behavior
+- ✅ You want complete control over cache behaviour
 - ✅ Building low-level cache utilities or frameworks
 - ✅ You don't need fallback or error handling logic
 
@@ -1085,7 +1109,7 @@ cache.put('Key', 'Value'); // Uses platform default TTL
 
 ### Automatic Compression
 
-The framework **automatically compresses large payloads** to optimize cache space utilization, which is typically more constrained than CPU resources in Salesforce.
+The framework **automatically compresses large payloads** to optimise cache space utilisation, which is typically more constrained than CPU resources in Salesforce.
 
 #### How Compression Works
 
@@ -2610,7 +2634,7 @@ List<SObject> results = Database.query(query);
 
 ### Best Practices
 
-1. **Use Caching** - Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to leverage caching
+1. **Use Caching** - Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to make use of caching
 2. **Namespace Handling** - Use the default `implyNamespace=true` parameter for managed package compatibility
 3. **Relationship Fields** - Use relationship names (e.g., `Account`) and let the utility resolve to ID fields automatically
 4. **Global Describe** - Use the wrapped `GlobalDescribeMap` for namespace-aware global describe operations
@@ -2673,7 +2697,7 @@ For detailed usage including LWC logging, Flow integration, and performance time
 
 ### Architecture
 
-You want to run your own Apex from an Omnistudio component (an OmniScript or Integration Procedure) without writing a separate bridge class for each one. [`SVC_Omnistudio`](reference/apex/SVC_Omnistudio.md) is that bridge: you point Omnistudio at it once, tell it which of your classes to run, and it passes the inputs in and your outputs back. (It does this through Salesforce's [`Callable`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_callable.htm) interface, the standard way to invoke Apex dynamically. Omnistudio was formerly called Vlocity.)
+To run your own Apex from an Omnistudio component (an OmniScript or Integration Procedure) without writing a separate bridge class for each one, use [`SVC_Omnistudio`](reference/apex/SVC_Omnistudio.md). It is that bridge: you point Omnistudio at it once, tell it which of your classes to run, and it passes the inputs in and your outputs back. (It does this through Salesforce's [`Callable`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_callable.htm) interface, the standard way to invoke Apex dynamically. Omnistudio was formerly called Vlocity.)
 
 **Key Components:**
 
@@ -3021,13 +3045,13 @@ Below the Health Check, the Home tab provides quick-launch cards for the framewo
 
 ### Metadata Introspection
 
-1. Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to leverage caching
+1. Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to make use of caching
 2. Use the default `implyNamespace=true` parameter for managed package compatibility
 3. Use relationship names (e.g., `Account`) and let the utility resolve to ID fields automatically
 4. Only flush cache when absolutely necessary (e.g., after metadata changes in tests)
 5. Use field sets for dynamic forms instead of hardcoding field lists
 6. Always check `isPersonAccountEnabled()` before accessing Person Account-specific fields
-7. Leverage the wrapped `FieldsMap` and `GlobalDescribeMap` for namespace-aware operations
+7. Use the wrapped `FieldsMap` and `GlobalDescribeMap` for namespace-aware operations
 8. Use deferred loading pattern - getting a describe instance is lightweight
 
 ### Feature Flags

@@ -15,15 +15,38 @@ navOrder: 68
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
 Every Apex unit test needs example records to run against, and setting them up by hand is slow and
-fragile: you fill in fields the test does not care about, that setup breaks every time a field is
-renamed, and saving many records inside a loop quickly hits Salesforce's safety limits. This layer
-builds those records for you. You name only the fields your test actually checks, and it fills in
-the rest, then either saves the records or keeps them in memory. Developers use it for every test
-that needs data; architects use it to give the whole team one consistent way to set up tests. Reach
-for it whenever a test needs records, and skip it when a single plain `new Account(...)` would do.
+fragile. You fill in fields the test does not care about, that setup breaks every time a field is
+renamed, and saving many records inside a loop quickly hits Salesforce's safety limits.
+
+This layer builds those records for you. You name only the fields your test actually checks, and it
+fills in the rest, then either saves the records or keeps them in memory.
+
+Developers use it for every test that needs data. Architects use it to give the whole team one
+consistent way to set up tests. Use it whenever a test needs records, and skip it when a single
+plain `new Account(...)` would do.
+
+## Mental model
+
+Think of it as ordering a coffee. You say what you actually care about (a flat white, oat milk),
+and the barista fills in everything else (cup, lid, water, machine settings) to defaults so the
+order is complete. The builder works the same way: you name the few fields your test asserts on,
+and it supplies valid values for the rest so the record saves.
+
+## Use this when
+
+- a test needs records and you only care about a handful of fields on them
+- you need many records at once, saved in a single statement, to stay within Salesforce's limits
+- you want records in memory (with or without an Id) so the test never touches the database
+- you need a parent and its children built and saved together as one all-or-nothing unit
+- the whole team should set up the same kind of record (a user on a profile, an active flag) the same way
+
+## Don't use this when
+
+- a single throwaway record in one test is all you need: a plain `new Account(...)` then `insert` is simpler and familiar to everyone (Salesforce has no built-in test-data factory, so this is the standard approach)
+- you need an `AggregateResult`: it has no public constructor and cannot be built or mocked, so insert real records and run the real aggregate query instead
 
 ---
 
@@ -33,11 +56,12 @@ for it whenever a test needs records, and skip it when a single plain `new Accou
 <summary>Expand</summary>
 
 1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Quick Start](#quick-start)
-4. [How to opt out](#how-to-opt-out)
-5. [Architecture](#architecture)
-    - [KernDX vs OOTB: Test Data Comparison](#kerndx-vs-ootb-test-data-comparison)
+2. [Quick Start](#quick-start)
+3. [How to opt out](#how-to-opt-out)
+4. [What is it?](#what-is-it)
+    - [Why choose this over hand-written records?](#why-choose-this-over-hand-written-records)
+5. [How does it work?](#how-does-it-work)
+    - [How it compares to hand-written records](#how-it-compares-to-hand-written-records)
     - [Layer 1: TST_Builder](#layer-1-tst_builder)
     - [Layer 2: TST_Factory](#layer-2-tst_factory)
 6. [Building Records](#building-records)
@@ -62,7 +86,7 @@ for it whenever a test needs records, and skip it when a single plain `new Accou
     - [Explicit Relationship Names](#explicit-relationship-names)
     - [Mock Ids Across a Graph](#mock-ids-across-a-graph)
 10. [The Factory Pattern](#the-factory-pattern)
-    - [Why a Factory](#why-a-factory)
+    - [Why use a factory?](#why-use-a-factory)
     - [Users and Permission Sets](#users-and-permission-sets)
     - [Feature Flags](#feature-flags)
     - [Framework Metadata: Triggers and Validations](#framework-metadata-triggers-and-validations)
@@ -103,56 +127,6 @@ for it whenever a test needs records, and skip it when a single plain `new Accou
 
 ---
 
-## Overview
-
-The Test Data layer builds the example records your Apex unit tests run against, and it keeps the
-setup short. You name the kind of record you want and override only the fields the test actually
-cares about. The framework fills in the rest of the required fields, saves the record (or keeps it
-in memory), and hands it back. So your test stays focused on what it is checking, not on the
-plumbing of constructing a valid record.
-
-**Managed Package Context:**
-
-This framework is exposed as `global` classes in a managed package. When calling these classes from
-your org's Apex, use the `kern.` namespace prefix, for example `kern.TST_Builder` and
-`kern.TST_Factory`. The framework source is also available if you build and manage the package
-yourself.
-
-The layer has two classes that work together:
-
-1. **[`TST_Builder`](reference/apex/TST_Builder.md)** is the primary tool. You configure it with short
-   chained calls, then one call builds the record and returns it. It works for any SObject and
-   handles overrides, bulk creation, cycling values across records, parent-child relationships, and
-   three ways of saving (or not saving) the record.
-2. **[`TST_Factory`](reference/apex/TST_Factory.md)** is a convenience layer on top. It offers ready-made
-   builders for records nearly every test needs (users, permission set assignments, feature flags),
-   plus helpers for the framework's own configuration records (trigger settings, validation rules,
-   custom metadata).
-
-> **Scope:** This guide is the deep reference for the test-data layer. There is also a way to feed
-> in-memory records to a query without touching the database, so `kern.QRY_Builder` returns them as
-> if it had run a real query. That is handled by `TST_Mock`, which shares the same chained build
-> calls as `TST_Builder`; the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) covers it end to
-> end.
-
-> **Responsibilities:** This layer only builds records (and optionally saves them) for tests. It does
-> not run production business logic, and most of it is meant to be called from test code (`@IsTest`).
-> `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from a subscriber
-> `@IsTest` class. To set up framework configuration records (trigger settings, validation rules,
-> masking) for your tests, deploy the relevant `CustomMetadata` records via XML (see
-> [Framework Metadata](#framework-metadata-triggers-and-validations)).
-
-**Key Benefits:**
-
-- **Less setup code.** Override only what matters; required fields are filled in for you.
-- **Type safety.** Passing the field as a token (`SObjectField`) lets the compiler catch field-name typos before the test ever runs.
-- **Bulk in one statement.** `withCount(n).buildList()` creates many records with a single save, so you stay within Salesforce's per-transaction limits.
-- **Build without saving.** Build records in memory, with or without mock Ids, for fast tests that never touch the database.
-- **Relationships.** Build a parent and its children together and save them as one all-or-nothing unit: they all commit, or none do (a Unit of Work).
-- **Consistency.** `TST_Factory` keeps the setup every test class would otherwise repeat in one place.
-
----
-
 ## Quick Start
 
 Use [`TST_Builder`](reference/apex/TST_Builder.md) directly. No custom class is required.
@@ -190,12 +164,64 @@ framework gets in the way.
 | **Aggregate-query test data**                                             | Insert real records via `TST_Builder`. `AggregateResult` cannot be mocked (platform limitation).   | [Anti-Patterns](#anti-patterns)                           |
 | **Custom default values for a field type**                                | Extend `kern.TST_Builder.DefaultValueProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
 
-The builder saves you time; it does not lock you in. Reach for it when its features pay off, and
+The builder saves you time; it does not lock you in. Use it when its features earn their keep, and
 skip it when they don't.
 
 ---
 
-## Architecture
+## What is it?
+
+The Test Data layer builds the example records your Apex unit tests run against, and it keeps the
+setup short. You name the kind of record you want and override only the fields the test actually
+cares about. The framework fills in the rest of the required fields, saves the record (or keeps it
+in memory), and hands it back. So your test stays focused on what it is checking, not on the
+plumbing of constructing a valid record.
+
+**Calling it from your org:**
+
+This framework is exposed as `global` classes in a managed package. When calling these classes from
+your org's Apex, use the `kern.` namespace prefix, for example `kern.TST_Builder` and
+`kern.TST_Factory`. The framework source is also available if you build and manage the package
+yourself.
+
+The layer has two classes that work together:
+
+1. **[`TST_Builder`](reference/apex/TST_Builder.md)** is the primary tool. You configure it with short
+   chained calls, then one call builds the record and returns it. It works for any SObject and
+   handles overrides, bulk creation, cycling values across records, parent-child relationships, and
+   three ways of saving (or not saving) the record.
+2. **[`TST_Factory`](reference/apex/TST_Factory.md)** is a convenience layer on top. It offers ready-made
+   builders for records nearly every test needs (users, permission set assignments, feature flags),
+   plus helpers for the framework's own configuration records (trigger settings, validation rules,
+   custom metadata).
+
+> **Scope:** This guide is the deep reference for the test-data layer. There is also a way to feed
+> in-memory records to a query without touching the database, so `kern.QRY_Builder` returns them as
+> if it had run a real query. That is handled by `TST_Mock`, which shares the same chained build
+> calls as `TST_Builder`; the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) covers it end to
+> end.
+
+> **Responsibilities:** This layer only builds records (and optionally saves them) for tests. It does
+> not run production business logic, and most of it is meant to be called from test code (`@IsTest`).
+> `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from a subscriber
+> `@IsTest` class. To set up framework configuration records (trigger settings, validation rules,
+> masking) for your tests, deploy the relevant `CustomMetadata` records via XML (see
+> [Framework Metadata](#framework-metadata-triggers-and-validations)).
+
+### Why choose this over hand-written records?
+
+Each point below is what you get, and why it helps:
+
+- **Write less setup code.** Override only what matters; required fields are filled in for you, so the test reads as what it is checking.
+- **Catch field typos at compile time.** Pass the field as a token (`SObjectField`) and the compiler flags a misspelled or renamed field before the test ever runs.
+- **Stay within Salesforce's limits in bulk.** `withCount(n).buildList()` creates many records with a single save, so a large data set doesn't blow the per-transaction limits.
+- **Skip the database when you don't need it.** Build records in memory, with or without mock Ids, for fast tests that never touch the database.
+- **Build a parent and its children in one go.** They save as one all-or-nothing unit: they all commit, or none do (register related records, save them together; a Unit of Work).
+- **Set the team's shared setup up once.** `TST_Factory` keeps the setup every test class would otherwise repeat in one place.
+
+---
+
+## How does it work?
 
 If you want to know how the pieces fit before using them, here is the shape. Your test code calls
 either the convenience layer (`TST_Factory`) or the builder directly (`TST_Builder`); the builder
@@ -232,7 +258,7 @@ diagram below shows that flow, top to bottom.
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### KernDX vs OOTB: Test Data Comparison
+### How it compares to hand-written records
 
 Salesforce has no built-in test-data factory. The standard approach is to hand-construct records:
 
@@ -240,6 +266,12 @@ Salesforce has no built-in test-data factory. The standard approach is to hand-c
 Account account = new Account(Name = 'Test', Industry = 'Technology');
 insert account;
 ```
+
+That works, and for a single throwaway record it is the simplest thing to do. The builder earns its
+keep once you need bulk records, relationships, in-memory builds, or shared team setup.
+
+<details>
+<summary>Side-by-side comparison</summary>
 
 | Feature                       | KernDX Test Data Layer                                             | Hand-Written Test Data                                      |
 |-------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------|
@@ -252,8 +284,10 @@ insert account;
 | **Consistency across a team** | ✅ `TST_Factory` centralises shared setup                           | ⚠️ Each test class repeats its own boilerplate              |
 | **Simplicity for one field**  | ⚠️ Builder API to learn                                            | ✅ A single `new` expression is familiar to everyone         |
 
-Use the builder when its features pay off (bulk, relationships, no-DML, shared setup). For a single
-throwaway record in one test, a plain `new` expression is perfectly fine.
+</details>
+
+Use the builder when its features earn their keep (bulk, relationships, no-DML, shared setup). For a
+single throwaway record in one test, a plain `new` expression is perfectly fine.
 
 ### Layer 1: [TST_Builder](reference/apex/TST_Builder.md)
 
@@ -369,7 +403,7 @@ Account stringForm = (Account)kern.TST_Builder.of(Account.SObjectType)
 ```
 
 > Prefer the `SObjectField` token overloads in hand-written tests so the compiler catches renamed or
-> deleted fields. Reach for the `String` overloads only when the field name genuinely varies at
+> deleted fields. Use the `String` overloads only when the field name genuinely varies at
 > runtime.
 
 ### Building by API Name
@@ -620,7 +654,7 @@ Assert.areEqual(account.Id, account.Contacts[0].AccountId, 'Child foreign key re
 
 ## The Factory Pattern
 
-### Why a Factory
+### Why use a factory?
 
 Some records need the same multi-field setup in test after test: a `User` on a specific profile, a
 permission set assignment, an active feature flag, or the framework's own configuration metadata.
@@ -891,7 +925,7 @@ Always create many records with `withCount(n).buildList()`, never a loop of `bui
 
 ### Use Mock Ids Only When the Code Needs an Id
 
-Reach for `withoutInsertion(true)` when logic checks `Id != null`, keys a map by Id, or registers a
+Choose `withoutInsertion(true)` when logic checks `Id != null`, keys a map by Id, or registers a
 query mock. Otherwise use `withoutInsertion()`.
 
 ### Build Relationships With `withChildren`

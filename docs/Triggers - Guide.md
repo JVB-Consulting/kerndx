@@ -11,13 +11,65 @@ navOrder: 10
 
 - **Developers** - Implementing trigger logic with modular, metadata-driven actions
 - **Architects** - Designing scalable trigger frameworks with proper separation of concerns
-- **Business Analysts** - Understanding trigger behavior and configuration options
+- **Business Analysts** - Understanding trigger behaviour and configuration options
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Salesforce gives you triggers but no structure for organising what they do, so most orgs end up with one large trigger file per object that nobody wants to touch. This framework lets you break that logic into small, single-purpose classes (called trigger actions), then control their run order, turn them on or off, and add conditions, all through configuration records rather than code changes. The payoff: each piece of logic is testable on its own, safe to reorder, and can be switched off in production without a deployment. Developers write the small action classes; architects design the run order and separation of concerns; admins and analysts manage settings without touching Apex. Reach for it whenever an object needs more than a trivial trigger, and you want that logic to stay readable, testable, and changeable over time.
+Salesforce gives you triggers but no structure for organising what they do. Most orgs end up with one large trigger file per object that nobody wants to touch, because every change risks breaking unrelated logic buried in the same file.
+
+This framework lets you break that logic into small, single-purpose classes called trigger actions. Configuration records, not code, then decide the run order, turn each action on or off, and add conditions.
+
+The benefit: each piece of logic is testable on its own, safe to reorder, and can be switched off in production without a deployment.
+
+Different roles get different value from it. Developers write the small action classes. Architects design the run order and the separation of concerns. Admins and analysts manage settings without touching Apex.
+
+Use it whenever an object needs more than a trivial trigger and you want that logic to stay readable, testable, and changeable over time.
+
+## Mental model
+
+Think of the framework as a playlist. Each trigger action is a song, the configuration records decide the running order, and the dispatcher presses play. You can reorder the songs, or skip one, without rewriting the music: change a configuration record, and the same small action classes run in a new order or sit out entirely.
+
+## Use this when
+
+- An object needs more than a trivial trigger, and you want the logic split into pieces you can reorder, disable, or test on their own.
+- More than one developer works on the same object's triggers and you want them to stop colliding in one file.
+- You need to turn a piece of trigger logic off in production (a data load, a migration, an incident) without shipping code.
+- The same validation or defaulting logic should run on more than one object.
+- You want to gate or roll out trigger logic to a chosen group of users without a deployment.
+
+## Don't use this when
+
+- A formula field or a record-triggered Flow already handles the change declaratively. Use that; it is less to maintain.
+- It is a one-time data fix or migration script that runs outside normal transaction flow.
+- The logic applies in a single context and will never be reused or reordered. A plain handler class is simpler.
+- Raw performance is critical and you cannot spend the small framework overhead (metadata queries and reflection) on each run.
+
+## Quick Start
+
+To add one piece of logic to an object's trigger, write a small class that extends `TRG_Base` and implements one `IF_Trigger` context interface (one interface per trigger event, such as before-insert). That class is a trigger action, and the framework runs it for you based on a configuration record.
+
+> **Step-by-step walkthrough:** [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) covers implementation,
+> testing, and common pitfalls.
+
+```apex
+public inherited sharing class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
+{
+	public void beforeInsert(List<SObject> newRecords)
+	{
+		for(SObject newRecord : newRecords)
+		{
+			if(newRecord.get('Status__c') == null)
+			{
+				newRecord.put('Status__c', 'New');
+			}
+		}
+	}
+}
+```
+
+For deeper coverage, continue reading the sections below.
 
 ---
 
@@ -26,10 +78,14 @@ Salesforce gives you triggers but no structure for organising what they do, so m
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-    - [Framework Benefits](#framework-benefits)
-    - [Architecture](#architecture)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [Why choose this over standard Salesforce triggers?](#why-choose-this-over-standard-salesforce-triggers)
+    - [How does it work?](#how-does-it-work)
     - [KernDX vs OOTB: Trigger Patterns Comparison](#kerndx-vs-ootb-trigger-patterns-comparison)
         - [Salesforce Out-of-the-Box Approach](#salesforce-out-of-the-box-approach)
         - [Pros & Cons Comparison](#pros--cons-comparison)
@@ -37,8 +93,7 @@ Salesforce gives you triggers but no structure for organising what they do, so m
         - [When to Use OOTB Trigger Patterns](#when-to-use-ootb-trigger-patterns)
         - [Example Comparison](#example-comparison)
     - [Legacy Handler Pattern](#legacy-handler-pattern)
-3. [Quick Start](#quick-start)
-4. [Architecture Components](#architecture-components)
+8. [What are the moving parts?](#what-are-the-moving-parts)
     - [Core Classes](#core-classes)
         - [TRG_Base](#trg_base)
         - [TRG_Dispatcher](#trg_dispatcher)
@@ -47,7 +102,7 @@ Salesforce gives you triggers but no structure for organising what they do, so m
     - [Custom Metadata Types](#custom-metadata-types)
         - [TriggerSetting__mdt](#triggersetting__mdt)
         - [TriggerAction__mdt](#triggeraction__mdt)
-5. [Custom Metadata Configuration](#custom-metadata-configuration)
+9. [How do I configure this?](#how-do-i-configure-this)
     - [TriggerSetting__mdt Field Reference](#triggersetting__mdt-field-reference)
         - [SObjectType__c (Required)](#sobjecttype__c-required)
         - [BypassExecution__c (Subscriber Controlled)](#bypassexecution__c-subscriber-controlled)
@@ -66,7 +121,7 @@ Salesforce gives you triggers but no structure for organising what they do, so m
         - [BypassExecution__c (Subscriber Controlled)](#bypassexecution__c-subscriber-controlled-1)
         - [Entry Criteria Fields (Developer Controlled)](#entry-criteria-fields-developer-controlled)
         - [Description__c (Required)](#description__c-required)
-6. [Flow as a Trigger Action](#flow-as-a-trigger-action)
+10. [Flow as a Trigger Action](#flow-as-a-trigger-action)
     - [TriggerAction__mdt fields used by flow actions](#triggeraction__mdt-fields-used-by-flow-actions)
     - [Variable contract on the registered flow](#variable-contract-on-the-registered-flow)
     - [LogSetting__c volume gate](#logsetting__c-volume-gate)
@@ -78,18 +133,18 @@ Salesforce gives you triggers but no structure for organising what they do, so m
     - [Audit volume control](#audit-volume-control)
     - [Bypass and rollback](#bypass-and-rollback)
     - [Migrating from TAF to KernDX](#migrating-from-taf-to-kerndx)
-7. [Change Data Capture Actions](#change-data-capture-actions)
+11. [Change Data Capture Actions](#change-data-capture-actions)
     - [The Change Event trigger](#the-change-event-trigger)
     - [Registering a Change Event action](#registering-a-change-event-action)
     - [Reading the change header](#reading-the-change-header)
     - [Block DML is unavailable for Change Data Capture](#block-dml-is-unavailable-for-change-data-capture)
-8. [Post-Trigger Actions](#post-trigger-actions)
+12. [Post-Trigger Actions](#post-trigger-actions)
     - [When post-trigger actions fire](#when-post-trigger-actions-fire)
     - [The no-DML contract](#the-no-dml-contract)
     - [Intended uses and anti-patterns](#intended-uses-and-anti-patterns)
     - [Writing a post-trigger action](#writing-a-post-trigger-action)
     - [Registering a post-trigger action](#registering-a-post-trigger-action)
-9. [Trigger Action Interfaces](#trigger-action-interfaces)
+13. [Trigger Action Interfaces](#trigger-action-interfaces)
     - [IF_Trigger.BeforeInsert](#if_triggerbeforeinsert)
     - [IF_Trigger.AfterInsert](#if_triggerafterinsert)
     - [IF_Trigger.BeforeUpdate](#if_triggerbeforeupdate)
@@ -97,13 +152,13 @@ Salesforce gives you triggers but no structure for organising what they do, so m
     - [IF_Trigger.BeforeDelete](#if_triggerbeforedelete)
     - [IF_Trigger.AfterDelete](#if_triggerafterdelete)
     - [IF_Trigger.AfterUndelete](#if_triggerafterundelete)
-10. [Caching with Trigger Actions](#caching-with-trigger-actions)
+14. [Caching with Trigger Actions](#caching-with-trigger-actions)
 - [Caching Pattern Overview](#caching-pattern-overview)
 - [Implementation Pattern](#implementation-pattern)
 - [Execution Flow](#execution-flow)
 - [Best Practices for Caching](#best-practices-for-caching)
 - [Testing Cached Actions](#testing-cached-actions)
-11. [Function-Like Coordination](#function-like-coordination)
+15. [How do I link actions together?](#how-do-i-link-actions-together)
 - [Coordination Patterns](#coordination-patterns)
     - [Pattern 1: Sequential Processing](#pattern-1-sequential-processing)
     - [Pattern 2: Data Preparation - Processing](#pattern-2-data-preparation---processing)
@@ -111,7 +166,7 @@ Salesforce gives you triggers but no structure for organising what they do, so m
     - [Pattern 4: Progressive Enhancement](#pattern-4-progressive-enhancement)
     - [Pattern 5: Functional Composition](#pattern-5-functional-composition)
 - [Real-World Coordination Example](#real-world-coordination-example)
-12. [Advanced Features](#advanced-features)
+16. [What else can it do?](#what-else-can-it-do)
     - [Recursion Prevention](#recursion-prevention)
     - [Self-Initiated Control](#self-initiated-control)
     - [Bypass Mechanisms](#bypass-mechanisms)
@@ -125,27 +180,27 @@ Salesforce gives you triggers but no structure for organising what they do, so m
     - [Entry Criteria Formulas](#entry-criteria-formulas)
         - [Simple Entry Criteria](#simple-entry-criteria)
         - [Complex Entry Criteria](#complex-entry-criteria)
-13. [Common Patterns](#common-patterns)
+17. [Common Patterns](#common-patterns)
     - [Validation Pattern](#validation-pattern)
     - [Field Population Pattern](#field-population-pattern)
     - [Related Record Creation Pattern](#related-record-creation-pattern)
     - [Cascade Update Pattern](#cascade-update-pattern)
     - [Audit Trail Pattern](#audit-trail-pattern)
-14. [Testing](#testing)
+18. [Testing](#testing)
     - [Testing Individual Actions](#testing-individual-actions)
     - [Testing with Bypass](#testing-with-bypass)
     - [Testing Action Coordination](#testing-action-coordination)
     - [Testing Multiple Actions in Order](#testing-multiple-actions-in-order)
     - [Testing Entry Criteria](#testing-entry-criteria)
-15. [Performance Logging](#performance-logging)
+19. [Performance Logging](#performance-logging)
     - [Performance Logging Overview](#performance-logging-overview)
     - [Configuration Hierarchy](#configuration-hierarchy)
     - [How Performance Logging Works](#how-performance-logging-works)
     - [Viewing Performance Logs](#viewing-performance-logs)
-16. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-17. [Anti-Patterns](#anti-patterns)
-18. [Best Practices](#best-practices)
-19. [Troubleshooting](#troubleshooting)
+20. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+21. [Anti-Patterns](#anti-patterns)
+22. [Best Practices](#best-practices)
+23. [Troubleshooting](#troubleshooting)
     - [Common Issues](#common-issues)
         - [Issue: Action Not Executing](#issue-action-not-executing)
         - [Issue: Wrong Execution Order](#issue-wrong-execution-order)
@@ -158,7 +213,7 @@ Salesforce gives you triggers but no structure for organising what they do, so m
         - [Add Strategic Log Statements](#add-strategic-log-statements)
         - [Test in Isolation](#test-in-isolation)
         - [Query Metadata Configuration](#query-metadata-configuration)
-20. [Related Documentation](#related-documentation)
+24. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -166,30 +221,30 @@ Salesforce gives you triggers but no structure for organising what they do, so m
 
 ## Quick Navigation
 
-| I am a...     | I need to...                     | Go to...                                                    |
-|---------------|----------------------------------|-------------------------------------------------------------|
-| **Architect** | Understand trigger architecture  | [Architecture Components](#architecture-components)         |
-| **Architect** | Design coordination patterns     | [Function-Like Coordination](#function-like-coordination)   |
-| **Developer** | Create a trigger action          | [Quick Start](#quick-start)                                 |
-| **Developer** | Test trigger actions             | [Testing](#testing)                                         |
-| **Developer** | Use bypass mechanisms            | [Advanced Features](#advanced-features)                     |
-| **Developer** | React to committed changes (CDC) | [Change Data Capture Actions](#change-data-capture-actions) |
-| **Developer** | Run logic once per transaction   | [Post-Trigger Actions](#post-trigger-actions)               |
-| **Analyst**   | Configure trigger settings       | [Capability Matrix](#capability-matrix-for-analysts)        |
-| **Analyst**   | Monitor trigger performance      | [Performance Logging](#performance-logging)                 |
+| I am a...     | I need to...                     | Go to...                                                          |
+|---------------|----------------------------------|-------------------------------------------------------------------|
+| **Architect** | Understand trigger architecture  | [What are the moving parts?](#what-are-the-moving-parts)          |
+| **Architect** | Design coordination patterns     | [How do I link actions together?](#how-do-i-link-actions-together)|
+| **Developer** | Create a trigger action          | [Quick Start](#quick-start)                                       |
+| **Developer** | Test trigger actions             | [Testing](#testing)                                               |
+| **Developer** | Use bypass mechanisms            | [What else can it do?](#what-else-can-it-do)                      |
+| **Developer** | React to committed changes (CDC) | [Change Data Capture Actions](#change-data-capture-actions)       |
+| **Developer** | Run logic once per transaction   | [Post-Trigger Actions](#post-trigger-actions)                     |
+| **Analyst**   | Configure trigger settings       | [Capability Matrix](#capability-matrix-for-analysts)              |
+| **Analyst**   | Monitor trigger performance      | [Performance Logging](#performance-logging)                       |
 
 ---
 
-## Overview
+## Why choose this over standard Salesforce triggers?
 
-The goal is to keep trigger logic small, testable, and easy to change without redeploying code. KernDX does this with a **metadata-driven Trigger Action Framework**: instead of one big [trigger](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers.htm) file, you write small, focused classes (trigger actions) that each handle one piece of business logic. Configuration records, not code, then decide how those actions behave. Each action can be:
+The goal is to keep trigger logic small, testable, and easy to change without redeploying code. KernDX does this with a **metadata-driven Trigger Action Framework**: instead of one big [trigger](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers.htm) file, you write small, focused classes (trigger actions) that each handle one piece of business logic. Configuration records, not code, then decide how those actions behave. With this framework, each action gives you:
 
-- **Ordered**: Execute in a specific sequence via metadata configuration
-- **Coordinated**: Act like functions that can be composed and orchestrated
-- **Cached**: Share data between actions using proper ordering
-- **Conditional**: Execute only when entry criteria formulas evaluate to true
-- **Bypassed**: Disabled at runtime without code changes
-- **Reusable**: Applied to multiple objects via metadata
+- **Control over the exact run order.** Set which action runs first, second, third in a configuration field.
+- **Composition instead of one big method.** Small actions chain together like function calls, so complex behaviour is built from simple parts.
+- **One query shared across actions.** An early action caches data that later actions read, so you don't repeat the same SOQL.
+- **Per-record conditions without filtering code.** An entry-criteria formula decides which records reach the action.
+- **An off-switch with no deployment.** Disable an action at runtime during a load or an incident, then switch it back on.
+- **The same logic on more than one object.** Point a single action class at several objects through configuration.
 
 > **Trigger Framework Scope:** 7 `TRG_*` handler classes and 6 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`, `TRG_AsyncChainExecution`, `TRG_Foobar`, `TRG_LogEntryEvent`,
 `TRG_ScheduledJob`). All of it is driven by `TriggerSetting__mdt`
@@ -204,18 +259,18 @@ The goal is to keep trigger logic small, testable, and easy to change without re
 > - One-time data fixes or migration scripts that run outside normal transaction flow
 > - Logic that only applies in a single context and will never be reused or reordered
 
-### Framework Benefits
+In short, the framework gives you:
 
-- **Metadata-Driven**: Configure trigger behavior without code deployment
-- **Modular**: Small, focused actions with single responsibilities
-- **Coordinated**: Actions execute in order like function calls
-- **Cacheable**: Early actions cache data for later actions
-- **Testable**: Each action can be tested independently
-- **Reusable**: Same action class works on multiple objects
-- **Bulkified**: Built-in support for processing records in bulk
-- **Safe**: Automatic recursion prevention and bypass mechanisms
+- **Behaviour changes without a deployment.** Configuration records drive trigger behaviour, so you adjust it without shipping code.
+- **Logic you can actually maintain.** Small, focused actions with single responsibilities replace one monolithic file.
+- **Composable execution.** Actions execute in order, like function calls, so you build complex behaviour from simple pieces.
+- **Shared data between actions.** Early actions cache data for later actions to read.
+- **Independent tests.** Each action can be tested on its own.
+- **Reuse across objects.** The same action class works on multiple objects.
+- **Bulk-safe processing.** Built-in support for processing records in bulk.
+- **Built-in guardrails.** Automatic recursion prevention and bypass mechanisms keep runaway logic in check.
 
-### Architecture
+### How does it work?
 
 ```text
 +---------------------------------------------------------------------------+
@@ -266,7 +321,7 @@ The goal is to keep trigger logic small, testable, and easy to change without re
 #### Salesforce Out-of-the-Box Approach
 
 Salesforce provides [triggers](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers.htm) as a platform feature, but does not include a framework
-for organizing trigger logic. Developers typically use one of these patterns:
+for organising trigger logic. Developers typically use one of these patterns:
 
 1. **Monolithic Trigger** - All logic in the trigger file
 2. **Helper Class Pattern** - Trigger calls static helper methods
@@ -301,7 +356,7 @@ trigger AccountTrigger on Account (before insert, after update) {
 |--------------------------|----------------------------------------------------------------------------------------------|-----------------------------------------------------------|
 | **Execution Order**      | Metadata-controlled via `Order__c` field                                                     | Manual control with if/else ordering or method calls      |
 | **Modular Actions**      | Small, focused classes implementing interfaces                                               | Manually create helper/handler classes                    |
-| **Configuration**        | Enable/disable actions via metadata without deployment                                       | Requires code deployment to change behavior               |
+| **Configuration**        | Enable/disable actions via metadata without deployment                                       | Requires code deployment to change behaviour               |
 | **Bypass Control**       | Global, object-level, and action-level bypass                                                | Must manually implement bypass logic (static flags)       |
 | **Recursion Prevention** | Built-in. `TRG_Dispatcher` tracks the execution stack and short-circuits re-entrant actions | Must manually implement recursion tracking (static flags) |
 | **Entry Criteria**       | Declarative formula evaluation per action                                                    | Must code all conditional logic in if statements          |
@@ -317,7 +372,7 @@ trigger AccountTrigger on Account (before insert, after update) {
 
 - **Enterprise orgs** with multiple trigger requirements
 - **Complex trigger logic** requiring ordered execution
-- **Frequent changes** to trigger behavior without deployments
+- **Frequent changes** to trigger behaviour without deployments
 - **Multiple developers** working on same object triggers
 - **Reusable validation** logic across multiple objects
 - **Bypass requirements** for data loads, integrations, testing
@@ -455,34 +510,7 @@ If you see older `TRH_*` handler classes in the package, they are kept only so e
 
 ---
 
-## Quick Start
-
-You want to add one piece of logic to an object's trigger. Write a small class that extends `TRG_Base` and implements one `IF_Trigger` context interface (one interface per trigger event, such as before-insert). That class is a trigger action, and the framework runs it for you based on a configuration record.
-
-> **Step-by-step walkthrough:** [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) covers implementation,
-> testing, and common pitfalls.
-
-```apex
-public inherited sharing class TRG_SetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
-{
-	public void beforeInsert(List<SObject> newRecords)
-	{
-		for(SObject newRecord : newRecords)
-		{
-			if(newRecord.get('Status__c') == null)
-			{
-				newRecord.put('Status__c', 'New');
-			}
-		}
-	}
-}
-```
-
-For deeper coverage, continue reading the sections below.
-
----
-
-## Architecture Components
+## What are the moving parts?
 
 ### Core Classes
 
@@ -584,6 +612,9 @@ global interface AfterUndelete { void afterUndelete(List<SObject> newRecords); }
 
 One record per object you want the framework to manage. It is the switchboard for that object: it turns the framework on, and sets org-wide options such as bypass and masking that apply to every action on the object.
 
+<details>
+<summary>Every TriggerSetting__mdt field</summary>
+
 | Field                    | Type                                   | Purpose                                             |
 |--------------------------|----------------------------------------|-----------------------------------------------------|
 | `SObjectType__c`         | MetadataRelationship(EntityDefinition) | The SObject this trigger setting applies to         |
@@ -592,9 +623,14 @@ One record per object you want the framework to manage. It is the switchboard fo
 | `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for actions to run            |
 | `ApplyMasking__c`        | Checkbox                               | Mask configured sensitive fields before actions run |
 
+</details>
+
 #### TriggerAction__mdt
 
 One record per piece of logic. Each row points at an action (an Apex class or a flow), says which trigger event it runs in, sets its run order, and carries its own options such as conditions and bypass:
+
+<details>
+<summary>Every TriggerAction__mdt field</summary>
 
 | Field                              | Type                                      | Purpose                                                                                                                                                                                                                               |
 |------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -616,12 +652,14 @@ One record per piece of logic. Each row points at an action (an Apex class or a 
 | `SuppressPerformanceLogging__c`    | Checkbox                                  | Never log performance for this action                                                                                                                                                                                                 |
 | `PerformanceThresholdMs__c`        | Number(8,0)                               | Log if duration exceeds threshold (ms)                                                                                                                                                                                                |
 
+</details>
+
 > **Validation rule:** `MutuallyExclusiveTarget` requires exactly one of `(ApexClassName__c, FlowName__c)` to be populated. A row with both populated is ambiguous; a row
 > with neither has nothing to run. The deploy fails if either rule is broken.
 
 ---
 
-## Custom Metadata Configuration
+## How do I configure this?
 
 ### TriggerSetting__mdt Field Reference
 
@@ -716,7 +754,7 @@ Required Feature Flag: Enable_Account_Validation
 **When to Use:**
 
 - Monitor trigger performance for high-volume objects
-- Identify slow actions during optimization efforts
+- Identify slow actions during optimisation efforts
 - Stricter monitoring than global settings
 
 **Example:**
@@ -2176,13 +2214,13 @@ private class TRG_ValidatePremiumAccountContacts_TEST
 
 ---
 
-## Function-Like Coordination
+## How do I link actions together?
 
 Because each action is small and runs in a known order, you can build complex behaviour by composing several simple actions rather than writing one large one. Think of the actions as **functions in a pipeline**, where:
 
 - Each action has a **single, focused responsibility**
 - Actions execute in a **defined order** (like function calls)
-- Actions can be **composed** to create complex behavior
+- Actions can be **composed** to create complex behaviour
 - Data flows through actions via **shared caches or DML results**
 
 ### Coordination Patterns
@@ -2337,7 +2375,7 @@ TRG_NotifyReviewers:
 
 ---
 
-## Advanced Features
+## What else can it do?
 
 ### Recursion Prevention
 
@@ -3482,7 +3520,7 @@ Create a report on `LogEntry__c` with:
 
 - Filter: `ShortMessage__c` contains "Trigger Performance"
 - Group by: `ShortMessage__c` (action name)
-- Summarize: `AVG(DurationMs__c)`, `MAX(DurationMs__c)`, `COUNT(Id)`
+- Summarise: `AVG(DurationMs__c)`, `MAX(DurationMs__c)`, `COUNT(Id)`
 
 **Best Practices:**
 
@@ -3512,7 +3550,7 @@ If you configure triggers without writing Apex, this table is your map: each row
 | Action-level bypass    | `TriggerAction__mdt`  | `BypassExecution__c`                             | Disables a single trigger action                                                                                                                                                                          |
 | Execution ordering     | `TriggerAction__mdt`  | `Order__c`                                       | Controls execution sequence within an event                                                                                                                                                               |
 | Recursion control      | `TriggerAction__mdt`  | `AllowRecursion__c`                              | Allows re-execution in the same transaction                                                                                                                                                               |
-| Self-initiated control | `TriggerAction__mdt`  | `AllowNonSelfInitiated__c`                       | Controls behavior for framework-initiated DML                                                                                                                                                             |
+| Self-initiated control | `TriggerAction__mdt`  | `AllowNonSelfInitiated__c`                       | Controls behaviour for framework-initiated DML                                                                                                                                                             |
 | Entry criteria         | `TriggerAction__mdt`  | `EntryCriteriaFormula__c`                        | Formula-based conditional execution                                                                                                                                                                       |
 | Bypass audit trail     | Platform event        | `LogEntryEvent__e` tagged `category=BypassEvent` | Every programmatic bypass call across trigger / query / DML / validation surfaces emits a WARN log with user, action, surface, target, and optional reason; `BypassAudit_Enabled` flag is the kill-switch |
 
@@ -3549,7 +3587,7 @@ These are the common mistakes that make trigger logic hard to maintain. Each row
 5. **Use entry criteria to reduce processing** - Configure `EntryCriteriaFormula__c` on `TriggerAction__mdt` to skip actions when records do
    not meet conditions. This avoids unnecessary class instantiation and execution for irrelevant records.
 
-6. **Leverage caching actions for shared queries** - When multiple actions need the same related data, create a dedicated caching action with a
+6. **Use caching actions for shared queries** - When multiple actions need the same related data, create a dedicated caching action with a
    low `Order__c` value that queries once and stores results in a static variable. Subsequent actions read from the cache instead of re-querying.
 
 7. **Do not bypass triggers in production without a plan** - Use `BypassExecution__c` or `BypassFeatureFlag__c` sparingly. Document why a bypass

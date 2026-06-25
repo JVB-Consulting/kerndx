@@ -15,104 +15,33 @@ navOrder: 36
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Sometimes you want to ship a feature to production but keep it switched off, then turn it on for a few users, then for everyone, all without redeploying code. A feature flag does exactly that: it is a runtime on/off switch that your Apex, Flow, and Lightning component code reads to decide whether a piece of behaviour runs. You flip the switch by editing a record in Setup, and the next transaction sees the change. Read this guide if you build features that need a gradual rollout, an instant off-switch in an incident, or different behaviour for different user groups. Reach for it whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
+Sometimes you want to ship a feature to production but keep it switched off, then turn it on for a few users, then for everyone, all without redeploying code.
 
----
+A feature flag does exactly that: it is a runtime on/off switch that your Apex, Flow, and Lightning component code reads to decide whether a piece of behaviour runs. You flip the switch by editing a record in Setup, and the next transaction sees the change.
 
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-3. [Quick Start](#quick-start)
-4. [How to opt out](#how-to-opt-out)
-5. [Architecture](#architecture)
-    - [How a Flag Is Defined](#how-a-flag-is-defined)
-    - [The Custom Metadata Behind a Flag](#the-custom-metadata-behind-a-flag)
-    - [Evaluation Order](#evaluation-order)
-6. [Defining a Flag](#defining-a-flag)
-    - [FeatureFlag__mdt Fields](#featureflag__mdt-fields)
-    - [Create a Flag with the CLI](#create-a-flag-with-the-cli)
-    - [Create a Flag in Setup](#create-a-flag-in-setup)
-7. [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)
-    - [Running-User Check](#running-user-check)
-    - [Specific-User Check](#specific-user-check)
-    - [Check by Username](#check-by-username)
-8. [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies)
-    - [FeatureFlagStrategy__mdt Fields](#featureflagstrategy__mdt-fields)
-    - [Strategy Types](#strategy-types)
-    - [ExpectedValue and the Three Outcomes](#expectedvalue-and-the-three-outcomes)
-    - [Custom Permission Target Formats](#custom-permission-target-formats)
-    - [Multiple Strategies and Order](#multiple-strategies-and-order)
-9. [Custom Strategy Handlers](#custom-strategy-handlers)
-    - [INT_FeatureFlagStrategy](#int_featureflagstrategy)
-    - [INT_UserAwareFeatureFlagStrategy](#int_userawarefeatureflagstrategy)
-    - [Wiring a Handler to a Flag](#wiring-a-handler-to-a-flag)
-10. [Evaluating a Flag in Flows](#evaluating-a-flag-in-flows)
-11. [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)
-12. [Framework-Owned Flags](#framework-owned-flags)
-13. [Performance and SOQL Cost](#performance-and-soql-cost)
-14. [Testing Flags](#testing-flags)
-    - [Seeding a Flag In-Memory](#seeding-a-flag-in-memory)
-    - [Testing the Disabled Path](#testing-the-disabled-path)
-    - [Testing a Custom Handler](#testing-a-custom-handler)
-15. [Best Practices](#best-practices)
-16. [Common Pitfalls](#common-pitfalls)
-17. [Related Documentation](#related-documentation)
-
-</details>
+Read this guide if you build features that need a gradual rollout, an instant off-switch in an incident, or different behaviour for different user groups. It is for you whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
 
 ---
 
-## Quick Navigation
+## Mental model
 
-| I am a...     | I need to...                            | Go to...                                                          |
-|---------------|-----------------------------------------|-------------------------------------------------------------------|
-| **Developer** | Branch code on a flag                   | [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)           |
-| **Developer** | Target a feature to specific users      | [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies) |
-| **Developer** | Write custom targeting logic            | [Custom Strategy Handlers](#custom-strategy-handlers)             |
-| **Developer** | Test both flag paths                    | [Testing Flags](#testing-flags)                                   |
-| **Architect** | Understand the evaluation model         | [Architecture](#architecture)                                     |
-| **Architect** | Keep flag checks cheap in loops/batches | [Performance and SOQL Cost](#performance-and-soql-cost)           |
-| **Analyst**   | Toggle a feature without code           | [Defining a Flag](#defining-a-flag)                               |
+Think of a feature flag as a light switch wired into your code. The wiring (your Apex, Flow, or component) is already in place; the switch decides whether the light comes on. You move the switch by editing a record in Setup, not by rewiring. A strategy is like a dimmer or a motion sensor on that switch: it lets the light come on for some people or in some conditions rather than for the whole room at once.
 
 ---
 
-## Overview
+## Use this when
 
-The switch is stored as a Custom Metadata record. Your code asks the framework "is this feature enabled?" and branches on the answer. Because the answer comes from a record you can edit, not from compiled code, you change the behaviour without a deployment.
+- You want to ship a feature dark and turn it on later, without a redeploy.
+- You need an instant off-switch for a feature during an incident.
+- You want to roll a feature out gradually: one team, one profile, or a beta group first, then everyone.
+- The same "should this run?" decision needs the same answer in Apex, Flows, and Lightning components.
 
-When you call the framework from your own org, use the `kern` namespace prefix exactly as shown throughout this guide (for example, [`kern.UTIL_FeatureFlag.isEnabled(...)`](reference/apex/UTIL_FeatureFlag.md)). The framework is delivered as a managed package, and that prefix is how your code reaches it.
+## Don't use this when
 
-The system has two pieces of Custom Metadata and one entry-point class:
-
-1. **[`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)** - Defines the flag and its default behaviour.
-2. **[`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)** - Optional child records that
-   target the flag to specific users, profiles, permissions, groups, or configuration values.
-3. **[`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md)** - The class your code calls. Its `isEnabled(...)`
-   methods read the metadata and return a `Boolean`.
-
-> **Step-by-step walkthrough:** [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) builds a working
-> pricing service that branches on a flag, with tests for both paths, in about 25 minutes. This Guide is the deep
-> reference behind that Fast Start.
-
-**Key Benefits:**
-
-- **No deployment to toggle.** Flip a Custom Metadata record in Setup and the next transaction sees the change, so you can react in minutes instead of waiting for a release.
-- **Safe by default.** A flag that does not exist returns `false`, so your code never breaks because a flag has not been created yet.
-- **Targeted rollout.** Strategies enable a feature for one profile, permission set, public group, or any logic you write, instead of for everyone at once, so you can pilot before going wide.
-- **One source of truth.** Apex, Flows, and LWC all resolve the same flag through the same evaluation path, so a flag means the same thing everywhere.
-- **Kill switches.** A kill switch is a master off-switch you can flip in an incident without a deployment. Deactivate a flag to disable a feature instantly across the whole org.
-
-> **Responsibilities:** Feature flags decide *whether* a code path runs. They do not contain the feature logic itself, query data, or perform DML (database create/read/update/delete). That work belongs in your service classes, trigger actions, or DML operations. A flag is a switch, not a behaviour.
-
-> **When NOT to use this pattern:**
-> - Hard authorization gates that must enforce on the server. A flag shapes behaviour; it is not a substitute for object and field permission checks (CRUD/FLS), record sharing, or permission checks on a protected operation.
-> - Static configuration that never changes at runtime. A plain Custom Metadata or Custom Setting record is simpler when there is no on/off decision to make.
+- You need a hard authorisation gate that must enforce on the server. A flag shapes behaviour; it is not a substitute for object and field permission checks (CRUD/FLS), record sharing, or permission checks on a protected operation.
+- The configuration never changes at runtime. When there is no on/off decision to make, a plain Custom Metadata or Custom Setting record is simpler.
 
 ---
 
@@ -139,6 +68,96 @@ For deeper coverage, continue reading the sections below.
 
 ---
 
+## Table of Contents
+
+<details>
+<summary>Expand</summary>
+
+1. [Quick Navigation](#quick-navigation)
+2. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
+3. [How to opt out](#how-to-opt-out)
+4. [How does it work?](#how-does-it-work)
+    - [How a Flag Is Defined](#how-a-flag-is-defined)
+    - [The Custom Metadata Behind a Flag](#the-custom-metadata-behind-a-flag)
+    - [Evaluation Order](#evaluation-order)
+5. [Defining a Flag](#defining-a-flag)
+    - [FeatureFlag__mdt Fields](#featureflag__mdt-fields)
+    - [Create a Flag with the CLI](#create-a-flag-with-the-cli)
+    - [Create a Flag in Setup](#create-a-flag-in-setup)
+6. [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)
+    - [Running-User Check](#running-user-check)
+    - [Specific-User Check](#specific-user-check)
+    - [Check by Username](#check-by-username)
+7. [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies)
+    - [FeatureFlagStrategy__mdt Fields](#featureflagstrategy__mdt-fields)
+    - [Strategy Types](#strategy-types)
+    - [ExpectedValue and the Three Outcomes](#expectedvalue-and-the-three-outcomes)
+    - [Custom Permission Target Formats](#custom-permission-target-formats)
+    - [Multiple Strategies and Order](#multiple-strategies-and-order)
+8. [Custom Strategy Handlers](#custom-strategy-handlers)
+    - [INT_FeatureFlagStrategy](#int_featureflagstrategy)
+    - [INT_UserAwareFeatureFlagStrategy](#int_userawarefeatureflagstrategy)
+    - [Wiring a Handler to a Flag](#wiring-a-handler-to-a-flag)
+9. [Evaluating a Flag in Flows](#evaluating-a-flag-in-flows)
+10. [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)
+11. [Framework-Owned Flags](#framework-owned-flags)
+12. [Performance and SOQL Cost](#performance-and-soql-cost)
+13. [Testing Flags](#testing-flags)
+    - [Seeding a Flag In-Memory](#seeding-a-flag-in-memory)
+    - [Testing the Disabled Path](#testing-the-disabled-path)
+    - [Testing a Custom Handler](#testing-a-custom-handler)
+14. [Best Practices](#best-practices)
+15. [Common Pitfalls](#common-pitfalls)
+16. [Related Documentation](#related-documentation)
+
+</details>
+
+---
+
+## Quick Navigation
+
+| I am a...     | I need to...                            | Go to...                                                          |
+|---------------|-----------------------------------------|-------------------------------------------------------------------|
+| **Developer** | Branch code on a flag                   | [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)           |
+| **Developer** | Target a feature to specific users      | [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies) |
+| **Developer** | Write custom targeting logic            | [Custom Strategy Handlers](#custom-strategy-handlers)             |
+| **Developer** | Test both flag paths                    | [Testing Flags](#testing-flags)                                   |
+| **Architect** | Understand the evaluation model         | [How does it work?](#how-does-it-work)                            |
+| **Architect** | Keep flag checks cheap in loops/batches | [Performance and SOQL Cost](#performance-and-soql-cost)           |
+| **Analyst**   | Toggle a feature without code           | [Defining a Flag](#defining-a-flag)                               |
+
+---
+
+## Why choose this over the built-in option?
+
+You could read a `Boolean` field from your own Custom Metadata or Custom Setting yourself and skip the framework entirely. That works for a plain on/off value. The framework earns its place once you want more than that, and here is what it gives you that a hand-rolled check does not:
+
+- **No deployment to toggle.** Flip a Custom Metadata record in Setup and the next transaction sees the change, so you can react in minutes instead of waiting for a release.
+- **Safe by default.** A flag that does not exist returns `false`, so your code never breaks because a flag has not been created yet.
+- **Targeted rollout.** Strategies enable a feature for one profile, permission set, public group, or any logic you write, instead of for everyone at once, so you can pilot before going wide.
+- **One source of truth.** Apex, Flows, and LWC all resolve the same flag through the same evaluation path, so a flag means the same thing everywhere.
+- **Kill switches.** A kill switch is a master off-switch you can flip in an incident without a deployment. Deactivate a flag to disable a feature instantly across the whole org.
+
+The switch is stored as a Custom Metadata record. Your code asks the framework "is this feature enabled?" and branches on the answer. Because the answer comes from a record you can edit, not from compiled code, you change the behaviour without a deployment.
+
+When you call the framework from your own org, use the `kern` namespace prefix exactly as shown throughout this guide (for example, [`kern.UTIL_FeatureFlag.isEnabled(...)`](reference/apex/UTIL_FeatureFlag.md)). The framework is delivered as a managed package, and that prefix is how your code reaches it.
+
+The system has two pieces of Custom Metadata and one entry-point class:
+
+1. **[`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md)** - Defines the flag and its default behaviour.
+2. **[`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md)** - Optional child records that
+   target the flag to specific users, profiles, permissions, groups, or configuration values.
+3. **[`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md)** - The class your code calls. Its `isEnabled(...)`
+   methods read the metadata and return a `Boolean`.
+
+> **Step-by-step walkthrough:** [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) builds a working
+> pricing service that branches on a flag, with tests for both paths, in about 25 minutes. This Guide is the deep
+> reference behind that Fast Start.
+
+> **Responsibilities:** Feature flags decide *whether* a code path runs. They do not contain the feature logic itself, query data, or perform DML (database create/read/update/delete). That work belongs in your service classes, trigger actions, or DML operations. A flag is a switch, not a behaviour.
+
+---
+
 ## How to opt out
 
 You are never locked into the framework. Feature flags are opt-in: the `kern.UTIL_FeatureFlag.isEnabled(...)` call is a convenience over reading Custom Metadata yourself, and nothing forces you through it. When the framework does not fit your case, the plain Salesforce building blocks are always available, and the table below points you at the right one.
@@ -148,13 +167,13 @@ You are never locked into the framework. Feature flags are opt-in: the `kern.UTI
 | **A plain on/off value with no targeting**   | A `Boolean` field on your own `FeatureFlag__mdt` record read directly, or your own Custom Metadata / Custom Setting.       | [How a Flag Is Defined](#how-a-flag-is-defined)                       |
 | **Zero-SOQL config reads in a tight loop**   | A `CustomHandler__c` strategy that calls your typed `MyCS__c.getInstance(...)`. This reads from the platform cache, so it costs no SOQL.                 | [Performance and SOQL Cost](#performance-and-soql-cost)               |
 | **A package-permission check, nothing else** | `FeatureManagement.checkPermission('YourPermission')` directly. This is the platform API the framework uses for the running user. | [Custom Permission Target Formats](#custom-permission-target-formats) |
-| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `c/featureFlag` (UX-shaping only, not authorization).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
+| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `c/featureFlag` (UX-shaping only, not authorisation).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
 
-The flag layer is a productivity convenience, not a wall. Reach for it when its features pay off, and skip it when they do not.
+The flag layer is a productivity convenience, not a wall. Use it when its features earn their keep, and skip it when they do not.
 
 ---
 
-## Architecture
+## How does it work?
 
 ### How a Flag Is Defined
 
@@ -351,6 +370,9 @@ You rarely want a feature on for absolutely everyone the moment you turn it on. 
 
 The framework ships seven built-in strategy types. The `Type__c` value is the exact string in the second column.
 
+<details>
+<summary>The seven built-in strategy types</summary>
+
 | Strategy                    | `Type__c` value               | `Target__c` example                   | Use case                        |
 |-----------------------------|-------------------------------|---------------------------------------|---------------------------------|
 | Custom Permission           | `Custom Permission`           | `Edit_Confidential_Records`           | Permission-based rollout        |
@@ -360,6 +382,8 @@ The framework ships seven built-in strategy types. The `Type__c` value is the ex
 | Hierarchical Custom Setting | `Hierarchical Custom Setting` | `My_Settings__c.Enable_Feature__c`    | Org / profile / user precedence |
 | List Custom Setting         | `List Custom Setting`         | `My_Settings__c.RecordName.Enable__c` | Named configuration record      |
 | Custom Metadata             | `Custom Metadata`             | `My_Config__mdt.RecordName.Enable__c` | Configuration-driven flags      |
+
+</details>
 
 For the Custom Metadata, List Custom Setting, and Hierarchical Custom Setting strategies, `Target__c` is a dotted path that points at a field. The framework reads that field's value and compares it against `ExpectedValue__c`. The Hierarchical Custom Setting strategy follows the standard Salesforce precedence when picking the value: a user-level setting wins over a profile-level one, which wins over the org-level default.
 
@@ -547,7 +571,7 @@ export default class MyComponent extends ComponentBuilder('notification')
 
 Any text the component renders should come from a Custom Label, not a hardcoded string. Import labels with `import LABEL_NAME from '@salesforce/label/c.Label_Name';` so the copy stays translatable.
 
-> **Not for client-side authorization.** `CTRL_FeatureFlag.isEnabled` is marked `@AuraEnabled(cacheable=true)`, so Salesforce may keep serving a cached result after an admin assigns or revokes a permission set that would flip the flag for that user. The cache clears on a full page reload, but not when the same wire re-fires. So use the bridge for shaping the experience (which panel to show, whether a hint is visible). For a real authorization decision, evaluate the flag inside the Apex method that performs the protected operation, where no cache can get stale. See [LWC - Guide → featureFlag Bridge](LWC%20-%20Guide.md#featureflag---feature-flag-bridge).
+> **Not for client-side authorisation.** `CTRL_FeatureFlag.isEnabled` is marked `@AuraEnabled(cacheable=true)`, so Salesforce may keep serving a cached result after an admin assigns or revokes a permission set that would flip the flag for that user. The cache clears on a full page reload, but not when the same wire re-fires. So use the bridge for shaping the experience (which panel to show, whether a hint is visible). For a real authorisation decision, evaluate the flag inside the Apex method that performs the protected operation, where no cache can get stale. See [LWC - Guide → featureFlag Bridge](LWC%20-%20Guide.md#featureflag---feature-flag-bridge).
 
 ---
 
@@ -557,6 +581,9 @@ KernDX uses feature flags on itself. A small set of `FeatureFlag__mdt` records s
 
 Two terms appear in the table below. A flag that runs in **USER_MODE** enforces the current user's read/write permissions and record sharing; **SYSTEM_MODE** skips all of those checks. A kill switch is the master off-switch described earlier: flip it in an incident with no deployment.
 
+<details>
+<summary>The framework-owned flags and their defaults</summary>
+
 | Flag                                                                  | Purpose                                                                                                                          | Default |
 |-----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|---------|
 | `UserModeQueries_Enabled`                                             | Controls the default access mode on selector queries. `true` enforces CRUD/FLS/sharing (USER_MODE); `false` runs in SYSTEM_MODE. | `true`  |
@@ -565,6 +592,8 @@ Two terms appear in the table below. A flag that runs in **USER_MODE** enforces 
 | `AsyncChain`                                                          | Kill switch for async chain orchestration. `true` runs chains; `false` short-circuits them.                                      | `true`  |
 | `DisableAllAPIs` / `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` | Runtime kill switches for the web-services framework.                                                                            | `false` |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles for the web-services framework.                                                                                | `false` |
+
+</details>
 
 To roll one back in an emergency, edit the `FeatureFlag__mdt` record in Setup and flip `IsEnabledByDefault__c`, or uncheck `IsActive__c` to disable it entirely. The framework reads these flags itself, so your own code never references them. For how `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with the per-query `withUserMode()` and `withSystemMode()` overrides, see [Selectors - Guide → Sharing Enforcement](Selectors%20-%20Guide.md#sharing-enforcement).
 
@@ -582,6 +611,9 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 
 **Per-call SOQL cost by strategy type:**
 
+<details>
+<summary>SOQL cost per strategy type, running user vs other user</summary>
+
 | Strategy                                                   | Running user | Other user                | Notes                                                                                              |
 |------------------------------------------------------------|--------------|---------------------------|----------------------------------------------------------------------------------------------------|
 | Custom Permission, namespaced (`pkg__Name`) or `core.Name` | 0            | 1                         | Running user uses `FeatureManagement.checkPermission()`.                                           |
@@ -593,6 +625,8 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 | List Custom Setting                                        | 1            | 1                         | Single-record lookup by Name.                                                                      |
 | Custom Metadata                                            | 1            | 1                         | Single-record lookup by DeveloperName.                                                             |
 | Custom Handler                                             | depends      | depends                   | Whatever your handler does.                                                                        |
+
+</details>
 
 **Zero-SOQL short-circuits.** Some checks cost nothing at all: a strategy whose `Target__c` is blank or cannot be parsed; a flag with no strategies (it just returns `IsEnabledByDefault__c`); and a strategy with `CustomHandler__c` set, where the built-in type lookup is skipped and only your handler runs.
 
@@ -675,8 +709,8 @@ Test your handler through `isEnabled(...)`, just as production calls it, and cov
 5. **Document the flag.** Fill in `Description__c` so the next person knows what the flag controls.
 6. **Retire flags after rollout.** Once a feature is fully on, remove the flag and the branch it gated. A flag left
    behind after its rollout is dead weight that future readers have to puzzle over.
-7. **Do not gate authorization on the LWC bridge.** Use `c/featureFlag` to shape the experience, and enforce real
-   authorization in Apex.
+7. **Do not gate authorisation on the LWC bridge.** Use `c/featureFlag` to shape the experience, and enforce real
+   authorisation in Apex.
 8. **Keep flag checks out of tight loops.** Hoist the boolean or use a `getInstance()`-based custom handler (see
    [Performance and SOQL Cost](#performance-and-soql-cost)).
 

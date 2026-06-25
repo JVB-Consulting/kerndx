@@ -15,9 +15,35 @@ navOrder: 64
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Sensitive values (a credit-card number, an API secret, a Social Security number) have a way of leaking into places they should never be stored: debug logs, saved API request bodies, background-job records, or a free-text field on a record. Data masking replaces those values with a harmless marker so the real data is never written down. KernDX does this two ways: it redacts secrets in its own logs and integration records with no setup from you, and, for any object you choose, it blanks a sensitive field on the record just before it is saved. Admins and security reviewers configure all of this through a point-and-click console, no Apex required. Read this guide when you need to keep sensitive data out of logs and stored records, prove what is covered for an audit, or mask a field on one of your own objects. One thing to set expectations: masking is one-way redaction, not encryption and not access control, so it sits alongside Salesforce Shield and field-level security rather than replacing them.
+Sensitive values (a credit-card number, an API secret, a Social Security number) have a way of leaking into places they should never be stored: debug logs, saved API request bodies, background-job records, or a free-text field on a record.
+
+Data masking replaces those values with a harmless marker so the real data is never written down. KernDX does this two ways. It redacts secrets in its own logs and integration records with no setup from you, and, for any object you choose, it blanks a sensitive field on the record just before it is saved. Admins and security reviewers configure all of this through a point-and-click console, with no Apex required.
+
+Read this guide when you need to keep sensitive data out of logs and stored records, prove what is covered for an audit, or mask a field on one of your own objects. One thing to set expectations: masking is one-way redaction, not encryption and not access control, so it sits alongside Salesforce Shield and field-level security rather than replacing them.
+
+---
+
+## Mental model
+
+Think of masking as a black marker held over a value on its way to being written down. As the value passes through one of the framework's own paths (a log, an outbound call, a background job), or as a record is about to be saved, the marker strikes out the sensitive part and leaves a harmless placeholder in its place. The pen only works at the moment of writing, it does not go back over pages already filed, and once a value is struck out there is no way to read what was underneath.
+
+---
+
+## Use this when
+
+- You want secrets kept out of the framework's own logs, callout records, and background-job records. This is already on, with nothing to configure.
+- You want a known-sensitive field on one of your own objects (an SSN, a bank account) blanked the moment a record is saved.
+- You need to show an auditor which fields hold regulated data and which of them are protected today.
+- You want admins or security reviewers to manage coverage through a point-and-click console rather than Apex.
+
+## Don't use this when
+
+- You need to control *who can see* a field. That is field-level security and sharing, not masking. A masked field is still visible to anyone whose permissions let them read it.
+- You need the original value back. Masking is one-way with no decrypt path. For reversible, at-rest protection, use Shield Platform Encryption.
+- You need to scrub data that is *already stored*. Masking only acts at write time. For a one-off clean-up of existing rows, use a batch tool such as the `mask-sobject` open-source library.
+- You need to mask a number, date, picklist, or other non-text field. Only text-shaped fields can be masked.
 
 ---
 
@@ -27,11 +53,10 @@ Sensitive values (a credit-card number, an API secret, a Social Security number)
 <summary>Expand</summary>
 
 1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
-    - [What Masking Does](#what-masking-does)
+2. [Quick Start](#quick-start)
+3. [What does masking do?](#what-does-masking-do)
     - [What Masking Is Not](#what-masking-is-not)
-    - [Architecture](#architecture)
-3. [Quick Start](#quick-start)
+    - [How does it work?](#how-does-it-work)
 4. [What Ships Masked by Default](#what-ships-masked-by-default)
 5. [Masking Rules](#masking-rules)
     - [Modes](#modes)
@@ -80,9 +105,31 @@ Sensitive values (a credit-card number, an API secret, a Social Security number)
 
 ---
 
-## Overview
+## Quick Start
 
-### What Masking Does
+**See the default redaction (no setup).** Emit a log entry whose message carries a secret-bearing JSON key, then read the stored entry. The value is already redacted for you:
+
+```apex
+kern.LOG_Builder.build()
+    .info('{"user":"alice","api_key":"sk-live-9f8e7d6c5b4a"}')
+    .at('Demo.maskingQuickStart')
+    .emit();
+// The persisted LogEntry message reads: {"user":"alice","api_key":"***SECRET***"}
+```
+
+**Confirm masking is enabled** from anywhere (your own Apex, anonymous Apex, a test):
+
+```apex
+Boolean maskingOn = kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled'); // true by default
+```
+
+**Mask a field on your own object.** The recommended path is the Data Masking Advisor. Open **Data Masking Advisor** from the App Launcher, pick your object,
+assign a rule to the sensitive field, and click **Export** to download a ready-to-deploy configuration. The Advisor writes the metadata for you, and you deploy it. See
+[The Coverage Workflow](#the-coverage-workflow).
+
+---
+
+## What does masking do?
 
 The goal is simple: stop sensitive values from being written somewhere you do not want them. KernDX masking replaces a sensitive value with a harmless marker before it is stored. It does this in **two ways**:
 
@@ -109,10 +156,10 @@ Masking is one-way redaction, and that is all it is. Knowing these boundaries ke
 | **Access control**       | A masked field is still visible to anyone whose field-level security lets them read it. Masking changes the stored or emitted *value*, not *who can see it*.       | Field-Level Security, sharing                |
 | **For non-text fields**  | Only text-shaped fields can be masked (see [What Record-Value Masking Does Not Do](#what-record-value-masking-does-not-do)).                              | A validation rule or a different field type  |
 
-For scrubbing **existing** data on a schedule (a sandbox refresh, or periodic anonymisation), reach for a batch tool such as the `mask-sobject` open-source library.
+For scrubbing **existing** data on a schedule (a sandbox refresh, or periodic anonymisation), use a batch tool such as the `mask-sobject` open-source library.
 That is a different job than this framework's in-flight redaction.
 
-### Architecture
+### How does it work?
 
 The whole subsystem comes down to three moving parts plus a console to manage them:
 
@@ -136,30 +183,6 @@ The whole subsystem comes down to three moving parts plus a console to manage th
 ```
 
 Read the three parts as *what*, *where*, and *do it*. A **rule** says *what* a sensitive value looks like and *how* to redact it. A **target** says *where* to apply a rule: an object, optionally a specific field, optionally a specific calling class. The **engine** does the work, applying every active target on the paths shown above. The **Advisor** sitting above them is a point-and-click console for reviewing coverage and producing a configuration you can deploy; on its own it never changes your org.
-
----
-
-## Quick Start
-
-**See the default redaction (no setup).** Emit a log entry whose message carries a secret-bearing JSON key, then read the stored entry. The value is already redacted for you:
-
-```apex
-kern.LOG_Builder.build()
-    .info('{"user":"alice","api_key":"sk-live-9f8e7d6c5b4a"}')
-    .at('Demo.maskingQuickStart')
-    .emit();
-// The persisted LogEntry message reads: {"user":"alice","api_key":"***SECRET***"}
-```
-
-**Confirm masking is enabled** from anywhere (your own Apex, anonymous Apex, a test):
-
-```apex
-Boolean maskingOn = kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled'); // true by default
-```
-
-**Mask a field on your own object.** The recommended path is the Data Masking Advisor. Open **Data Masking Advisor** from the App Launcher, pick your object,
-assign a rule to the sensitive field, and click **Export** to download a ready-to-deploy configuration. The Advisor writes the metadata for you, and you deploy it. See
-[The Coverage Workflow](#the-coverage-workflow).
 
 ---
 
@@ -228,6 +251,9 @@ the failure on the masking result it returns internally.
 You do not have to write rules for common sensitive values; the framework already includes them. KernDX ships **18 rules**. Three are **active** (wired to the framework objects above). The other **15 are dormant templates**: ready-made patterns you switch on when you need them. Activating a template takes two things: an active target that references it, and (because it is one of the dormant rules) setting the rule's own
 `IsActive__c` to true.
 
+<details>
+<summary>All 18 shipped rules</summary>
+
 | Rule                        | Mode       | Active | Redacts                                                            |
 |-----------------------------|------------|--------|-------------------------------------------------------------------|
 | `MaskPaymentCard`           | CreditCard | Yes    | 13–19 digit Luhn-valid card numbers → `[CARD_REDACTED]`           |
@@ -249,6 +275,8 @@ You do not have to write rules for common sensitive values; the framework alread
 | `MaskSwiftBic`              | Regex      | No     | 8/11-character SWIFT/BIC codes                                    |
 | `MaskUrlBasicAuth`          | Regex      | No     | `user:password@` credentials embedded in URLs                     |
 
+</details>
+
 > **A note on the whole-field redactors.** `MaskAddress`, `MaskFreeText`, and `MaskPhoneInternational` use the pattern `(?s).+`, which redacts the *entire field
 > value*. They are named for the kind of field you would point them at, not for a value-shaped pattern they detect. They are the natural choice for record-value
 > masking, where you want a known-sensitive field blanked rather than just a substring scrubbed out of free text. `MaskPhoneUS`, by contrast, detects US phone-number
@@ -257,6 +285,9 @@ You do not have to write rules for common sensitive values; the framework alread
 ### Rule Fields
 
 When you create or tune a rule, these are the fields you set. Each `MaskingRule__mdt` carries the following:
+
+<details>
+<summary>Every rule field</summary>
 
 | Field                      | Purpose                                                                                                                      |
 |----------------------------|-----------------------------------------------------------------------------------------------------------------------------|
@@ -273,6 +304,8 @@ When you create or tune a rule, these are the fields you set. Each `MaskingRule_
 | `Replaces__c`              | On a shipped replacement rule: the developer name of the older rule it replaces. While both rules still carry their original shipped values, the newer rule does the work wherever both are wired to the same object. Managed by the package, so leave it blank on your own rules. |
 | `ReplacesFingerprint__c`   | Fingerprint of the replaced rule's original shipped values. Any customisation you make to the older rule keeps it running. Managed by the package. |
 | `ShippedFingerprint__c`    | Fingerprint of this rule's own shipped values. Customising the replacement rule turns the takeover off, so both rules then run. Managed by the package. |
+
+</details>
 
 ### Naming Your Own Rules
 
@@ -496,7 +529,7 @@ catch (kern.UTIL_Exceptions.MaskingBlockedException e)
 ```
 
 **Redact an ad-hoc string.** For the occasional case where you need to scrub a string in your own code (not record or framework masking), `kern.UTIL_String`
-exposes string helpers such as `maskString` and `abbreviate`. These are general-purpose string utilities, not the masking engine, so reach for configuration-driven
+exposes string helpers such as `maskString` and `abbreviate`. These are general-purpose string utilities, not the masking engine, so use configuration-driven
 masking for anything that should be governed by your rule catalogue.
 
 > The right way to mask a field you own is a `MaskingTarget__mdt` plus `ApplyMasking__c`, reviewed in the Advisor, rather than an Apex call. That keeps masking

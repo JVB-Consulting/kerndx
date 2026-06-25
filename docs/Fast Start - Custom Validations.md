@@ -6,7 +6,7 @@ navOrder: 60
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to stop bad data from being saved (required fields, conditional rules, cross-field checks) by writing formula rules as configuration records instead of Apex code. **Why it exists:** Standard Salesforce validation rules live one-per-object and are hard to test, bypass, or roll out gradually. KernDX rules are grouped, unit-testable without saving a record, and can run in a log-only "shadow" mode first. **Who should care:** developers and admins enforcing data quality, plus tech leads who want validation logic that is version-controlled and tested. **When to use it:** any time you would reach for a Salesforce validation rule but want testability, gradual rollout, and a single place to manage the rules for an object.
+**What this is:** A way to stop bad data from being saved (required fields, conditional rules, cross-field checks) by writing formula rules as configuration records instead of Apex code. **Why it exists:** Standard Salesforce validation rules live one-per-object and are hard to test, bypass, or roll out gradually. KernDX rules are grouped, unit-testable without saving a record, and can run in a log-only "shadow" mode first. **Who should care:** developers and admins enforcing data quality, plus tech leads who want validation logic that is version-controlled and tested. **When to use it:** any time you would otherwise write a Salesforce validation rule but want testability, gradual rollout, and a single place to manage the rules for an object. If a single rule on one object is all you need and you'll never test or stage it, a standard Salesforce validation rule is simpler. Choose KernDX once you want any of those three things.
 
 **Before you start:**
 
@@ -203,9 +203,9 @@ Valid: true — Errors: 0
 > File > New > Apex Class) and run it from there (Test > New Run). Paste the code, save, and skip the
 > `sf project deploy start` and `sf apex run test` commands.
 
-You want confidence that each rule does what you think: it blocks an invalid record and lets a valid one
+A test gives you confidence that each rule does what you think: it blocks an invalid record and lets a valid one
 through. Because the rules are configuration rather than your own Apex, there is no code of yours to cover,
-but you still want a test that proves the behaviour and fails loudly if someone later breaks a rule.
+but a test still proves the behaviour and fails loudly if someone later breaks a rule.
 `kern.UTIL_ValidationTestHelper` evaluates a single deployed rule against a record in memory, with nothing
 saved and no trigger involved. Both helpers are `global`, so you can call them from your own `@IsTest` class.
 

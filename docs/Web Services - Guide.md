@@ -15,9 +15,54 @@ navOrder: 32
 
 ---
 
-## In one paragraph
+## What problem does this solve?
 
-Connecting Salesforce to an outside system in Apex means writing the same plumbing every time: build the request, send it, parse the response, log what happened, retry on failure, hide sensitive data, and make sure the callout runs before you save any records. This framework writes that plumbing once. You extend a base class, fill in the parts unique to your integration (the URL, the body, what to do with the answer), and the framework runs the rest. It handles both directions: calls Salesforce makes to other systems (**outbound**) and calls other systems make into Salesforce (**inbound**). Developers use it to build REST integrations; architects use it to standardise how every integration logs, retries, and protects data; analysts use it to monitor API health and configure behaviour without code. Reach for it whenever code calls an external API or exposes an endpoint. Skip it for a single throwaway callout in a script.
+Connecting Salesforce to an outside system in Apex means writing the same plumbing every time: build the request, send it, parse the response, log what happened, retry on failure, hide sensitive data, and make sure the callout runs before you save any records. Written by hand, that plumbing is repeated in every integration and drifts out of step.
+
+This framework writes that plumbing once. You extend a base class, fill in the parts unique to your integration (the URL, the body, what to do with the answer), and the framework runs the rest. It handles both directions: calls Salesforce makes to other systems (**outbound**) and calls other systems make into Salesforce (**inbound**).
+
+Developers use it to build REST integrations. Architects use it to standardise how every integration logs, retries, and protects data. Analysts use it to monitor API health and change behaviour without touching code. Use it whenever your code calls an external API or exposes an endpoint, and skip it for a single throwaway callout in a script.
+
+## Mental model
+
+Think of the framework as a shipping department for your integrations. You write the contents of the parcel (the request body and what to do with the reply); the department handles the rest the same way every time: it stamps and addresses each parcel (endpoint, headers, credentials), keeps a copy of everything sent and received (the audit log), re-sends when delivery fails (retries), stops sending to an address that keeps bouncing (the circuit breaker), and blacks out anything sensitive on the copy it files (data masking). You decide what goes in the box; the department guarantees how it ships.
+
+## Use this when
+
+- The integration has to survive in production: failures must be logged and retried, not lost.
+- Sensitive data (cards, tokens, personal details) must be kept out of your logs automatically.
+- Several developers build integrations and you want them all to follow the same patterns.
+- An admin needs to call an API from a Flow, or turn an integration off during an incident, without writing or deploying code.
+- A callout has to run from a trigger, where the callout must happen before any record is saved.
+
+## Don't use this when
+
+- It is a one-off callout in anonymous Apex or a data-migration script: the plain `Http` / `HttpRequest` classes are simpler and lighter, and the logging, retry, and masking would be more than the job needs.
+- The integration is Salesforce-to-Salesforce and a Named Credential or External Services alone already covers it: use those.
+- A Workflow Rule, outbound message, or Platform Event can handle the outbound notification declaratively: stay with the built-in tool.
+- The API publishes an OpenAPI spec and you want admins to wire it into Flows with no Apex at all: Salesforce External Services is the better fit (see the comparison below).
+
+## Quick Start
+
+Here is the fastest way to see the framework work. You write a small class that says what is unique about your integration, and the framework handles logging every call, retrying on failure, and tracking errors for you. You start from one of two base classes, depending on direction: `API_Outbound` for calls Salesforce makes out to another system, `API_Inbound` for calls another system makes into Salesforce.
+
+> **Step-by-step walkthroughs:** [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) and
+> [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md) cover implementation, testing, and common pitfalls.
+
+```apex
+public inherited sharing class API_GetWeather extends API_Outbound
+{
+	public override void configure()
+	{
+		super.configure();
+		requestPayload = new DTO_Request();
+		responsePayload = new DTO_Response();
+		defaultMockBody = '{"temperature": 72, "conditions": "Sunny"}';
+	}
+}
+```
+
+That is the whole shape of it: extend a base class, fill in the parts specific to your call, and the rest runs for you. The sections below go deeper on each piece.
 
 ---
 
@@ -26,10 +71,15 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
 <details>
 <summary>Expand</summary>
 
-1. [Quick Navigation](#quick-navigation)
-2. [Overview](#overview)
+1. [What problem does this solve?](#what-problem-does-this-solve)
+2. [Mental model](#mental-model)
+3. [Use this when](#use-this-when)
+4. [Don't use this when](#dont-use-this-when)
+5. [Quick Start](#quick-start)
+6. [Quick Navigation](#quick-navigation)
+7. [What is it?](#what-is-it)
     - [What is the Web Services Framework?](#what-is-the-web-services-framework)
-    - [Key Benefits](#key-benefits)
+    - [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
     - [UTIL_HttpClient (Fluent HTTP Client)](#util_httpclient-fluent-http-client)
     - [KernDX vs OOTB: Web Services Comparison](#kerndx-vs-ootb-web-services-comparison)
         - [Salesforce Out-of-the-Box Alternatives](#salesforce-out-of-the-box-alternatives)
@@ -38,24 +88,23 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
         - [When to Use OOTB HttpRequest/Response](#when-to-use-ootb-httprequestresponse)
         - [When to Use External Services](#when-to-use-external-services)
     - [Framework Orchestration Pattern](#framework-orchestration-pattern)
-3. [Quick Start](#quick-start)
-4. [Architecture](#architecture)
+8. [How does it work?](#how-does-it-work)
     - [Architecture Diagram](#architecture-diagram)
     - [Class Hierarchy](#class-hierarchy)
     - [Key Design Patterns](#key-design-patterns)
     - [The Orchestration Pattern Explained](#the-orchestration-pattern-explained)
-5. [Core Components](#core-components)
+9. [What are the moving parts?](#what-are-the-moving-parts)
     - [ApiCall__c (Custom Object)](#apicall__c-custom-object)
     - [ApiSetting__mdt (Custom Metadata Type)](#apisetting__mdt-custom-metadata-type)
     - [MaskingRule__mdt + MaskingTarget__mdt](#maskingrule__mdt--maskingtarget__mdt)
     - [ApiRuntimeSwitch__c (Hierarchy Custom Setting)](#apiruntimeswitch__c-hierarchy-custom-setting)
     - [Named Credentials](#named-credentials)
-6. [Working with a Managed Package](#working-with-a-managed-package)
+10. [How do I use it in a managed package?](#how-do-i-use-it-in-a-managed-package)
     - [CRITICAL Requirements for Managed Package Usage](#critical-requirements-for-managed-package-usage)
         - [Complete Example with Namespace](#complete-example-with-namespace)
     - [Calling Framework Methods](#calling-framework-methods)
     - [API Dispatcher Usage](#api-dispatcher-usage)
-7. [Building Outbound APIs](#building-outbound-apis)
+11. [Building Outbound APIs](#building-outbound-apis)
     - [Step 1: Choose Your Base Class](#step-1-choose-your-base-class)
     - [Step 2: Override Virtual Methods](#step-2-override-virtual-methods)
         - [Minimal Implementation](#minimal-implementation)
@@ -63,20 +112,20 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
     - [Complete Real-World Example: REST POST with DML](#complete-real-world-example-rest-post-with-dml)
     - [Step 3: Create ApiSetting__mdt Record](#step-3-create-apisetting__mdt-record)
     - [Step 4: Execute Your API](#step-4-execute-your-api)
-8. [Building Inbound APIs](#building-inbound-apis)
+12. [Building Inbound APIs](#building-inbound-apis)
     - [Architecture Overview](#architecture-overview)
     - [Minimal Inbound Example](#minimal-inbound-example)
     - [Advanced Example: Multiple Operations on One URL](#advanced-example-multiple-operations-on-one-url)
     - [Multi-method routing](#multi-method-routing)
     - [Naming Conventions for Inbound APIs](#naming-conventions-for-inbound-apis)
-9. [Intra-Org API Calls](#intra-org-api-calls)
-    - [Overview](#overview-1)
-    - [Key Features](#key-features)
+13. [Intra-Org API Calls](#intra-org-api-calls)
+    - [What is it for?](#what-is-it-for)
+    - [What you get](#what-you-get)
     - [When to Use](#when-to-use)
     - [Basic Usage](#basic-usage)
     - [How It Works](#how-it-works)
-    - [Configuration](#configuration)
-10. [Virtual Methods Reference](#virtual-methods-reference)
+    - [How do I configure this?](#how-do-i-configure-this)
+14. [Virtual Methods Reference](#virtual-methods-reference)
     - [Common Base Methods (API_Base)](#common-base-methods-api_base)
         - [getValidationErrors()](#getvalidationerrors)
         - [getBody()](#getbody)
@@ -100,7 +149,7 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
         - [updateCallResult()](#updatecallresult)
         - [updateResponseDTO()](#updateresponsedto)
         - [writeResponse()](#writeresponse)
-11. [Advanced Features](#advanced-features)
+15. [What else can it do?](#what-else-can-it-do)
     - [Automatic Retries](#automatic-retries)
         - [Custom Retry Strategies](#custom-retry-strategies)
     - [Circuit Breaker Pattern](#circuit-breaker-pattern)
@@ -134,7 +183,7 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
         - [Replay behaviour](#replay-behaviour)
         - [Handling 409 in callers](#handling-409-in-callers)
         - [Backward compatibility](#backward-compatibility)
-12. [Integration with Flows](#integration-with-flows)
+16. [How do I call it from a Flow?](#how-do-i-call-it-from-a-flow)
     - [Understanding Synchronous vs Asynchronous Callouts](#understanding-synchronous-vs-asynchronous-callouts)
         - [When to Use Synchronous Callouts](#when-to-use-synchronous-callouts)
         - [When to Use Asynchronous Callouts](#when-to-use-asynchronous-callouts)
@@ -147,12 +196,12 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
     - [Testing Flow Callouts](#testing-flow-callouts)
         - [Test Synchronous Flow Callout](#test-synchronous-flow-callout)
         - [Test Asynchronous Flow Callout](#test-asynchronous-flow-callout)
-13. [Logging and Monitoring](#logging-and-monitoring)
+17. [Logging and Monitoring](#logging-and-monitoring)
     - [Where Things Are Logged](#where-things-are-logged)
     - [Automatic Web Service Context](#automatic-web-service-context)
     - [Monitoring API Health](#monitoring-api-health)
     - [Accessing Large Payloads](#accessing-large-payloads)
-14. [Testing](#testing)
+18. [Testing](#testing)
     - [Overview of Test Helper Classes](#overview-of-test-helper-classes)
     - [Testing Outbound APIs](#testing-outbound-apis)
         - [Using API_OutboundTestHelper](#using-api_outboundtesthelper)
@@ -164,9 +213,9 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
         - [Using SEL_ApiCall for Assertions](#using-sel_apicall-for-assertions)
     - [Testing Best Practices](#testing-best-practices)
     - [Common Test Patterns](#common-test-patterns)
-15. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-16. [Anti-Patterns](#anti-patterns)
-17. [Best Practices](#best-practices-1)
+19. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+20. [Anti-Patterns](#anti-patterns)
+21. [Best Practices](#best-practices-1)
     - [Code Standards](#code-standards)
     - [Naming Conventions](#naming-conventions)
     - [Override Only What You Need](#override-only-what-you-need)
@@ -176,12 +225,12 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
     - [Security Considerations](#security-considerations)
     - [Performance Optimization](#performance-optimization)
     - [Understanding the Orchestration](#understanding-the-orchestration)
-18. [Troubleshooting](#troubleshooting-1)
+22. [Troubleshooting](#troubleshooting-1)
     - [Common Issues](#common-issues)
-19. [Support and Resources](#support-and-resources)
+23. [Support and Resources](#support-and-resources)
     - [Code Examples in Framework](#code-examples-in-framework)
     - [Getting Help](#getting-help)
-20. [Related Documentation](#related-documentation)
+24. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -191,8 +240,8 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
 
 | I am a...     | I need to...                | Go to...                                             |
 |---------------|-----------------------------|------------------------------------------------------|
-| **Architect** | Understand API architecture | [Architecture](#architecture)                        |
-| **Architect** | Review advanced features    | [Advanced Features](#advanced-features)              |
+| **Architect** | Understand API architecture | [How does it work?](#how-does-it-work)               |
+| **Architect** | Review advanced features    | [What else can it do?](#what-else-can-it-do)         |
 | **Developer** | Build my first API          | [Quick Start](#quick-start)                          |
 | **Developer** | Build outbound APIs         | [Building Outbound APIs](#building-outbound-apis)    |
 | **Developer** | Build inbound APIs          | [Building Inbound APIs](#building-inbound-apis)      |
@@ -201,22 +250,22 @@ Connecting Salesforce to an outside system in Apex means writing the same plumbi
 
 ---
 
-## Overview
+## What is it?
 
 ### What is the Web Services Framework?
 
-The Web Services Framework gives you one consistent way to handle both **inbound** (receiving) and **outbound** (sending) API integrations in Salesforce. Instead of re-solving the same problems in every integration, you get them solved once:
+The Web Services Framework gives you one consistent way to handle both **inbound** (receiving) and **outbound** (sending) API integrations in Salesforce. Instead of re-solving the same problems in every integration, you solve them once and reuse them. Here is what that gives you, and why each one matters:
 
-- **Standardized patterns** for REST web services
-- **Automatic logging** of all API calls to [`ApiCall__c`](reference/objects/ApiCall__c.md)
-- **Built-in retry mechanisms** with configurable strategies (linear, exponential, custom)
-- **Data masking** for sensitive information
-- **Mock support** for testing and development
-- **Flow integration** for low-code/no-code API calls
-- **Error handling** and failure tracking
-- **Performance monitoring** with timing metrics
-- **Managed package distribution** for reusable architecture
-- **Intra-org API support** for calling Salesforce APIs from within the same org
+- **One shape for every REST integration**, so a developer who learns one can read any other.
+- **A kept record of every call** in [`ApiCall__c`](reference/objects/ApiCall__c.md), so a production failure leaves evidence to investigate instead of an expired debug log.
+- **Retries that recover on their own** (linear, exponential, or custom backoff), so a brief outage at the other end does not fail the user.
+- **Sensitive data hidden before it is logged**, so cards, tokens, and personal details never sit in plain text.
+- **Fake responses for tests and demos**, so you exercise integration logic without making real network calls.
+- **Flow actions for admins**, so an API can be called with no Apex.
+- **Failure tracking**, so repeated problems surface rather than passing unnoticed.
+- **Per-stage timing on every call**, so you can see which integrations are slow and where the time goes.
+- **Reusable architecture you can distribute** as a managed package across orgs.
+- **Calls back into your own org**, so Composite, Tooling, and custom REST endpoints work through the same pipeline.
 
 > **Web Services Framework Scope:** 16 `API_*` classes (4 extending `API_Outbound`), 10 `DTO_*` classes, 2 named credentials,
 > and full lifecycle tracking via `ApiCall__c` and `ApiIssue__c`. Includes `UTIL_HttpClient` for zero-boilerplate callouts with automatic retry,
@@ -231,7 +280,7 @@ The Web Services Framework gives you one consistent way to handle both **inbound
 > - Salesforce-to-Salesforce integrations where External Services or Named Credentials alone suffice
 > - Outbound messages that a Workflow Rule or Platform Event can handle declaratively
 
-### Key Benefits
+### Why choose this over the built-in option?
 
 What you get, and why it matters to you:
 
@@ -323,6 +372,9 @@ Before reaching for the framework, it helps to know what Salesforce already give
 
 This table lines up the three approaches feature by feature, so you can scan down a row to see whether something you need is built in, has to be hand-coded, or isn't available. A ✅ means the capability is provided for you, a ⚠️ means it works with caveats, and a ❌ means you'd build it yourself.
 
+<details>
+<summary>Full feature-by-feature comparison (17 rows)</summary>
+
 | Feature                       | KernDX Web Services Framework                                                                                                                                      | OOTB HttpRequest/Response      | OOTB External Services             |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|------------------------------------|
 | **Code Required**             | ⚠️ Apex class extending base class                                                                                                                                 | ⚠️ Full Apex implementation    | ✅ No code (OpenAPI import only)    |
@@ -343,9 +395,11 @@ This table lines up the three approaches feature by feature, so you can scan dow
 | **Flexibility**               | ✅ Full control over logic                                                                                                                                          | ✅ Full control                 | ⚠️ Limited to OpenAPI operations   |
 | **Performance**               | ⚠️ Framework overhead                                                                                                                                              | ✅ Low overhead                 | ✅ Platform-optimized               |
 
+</details>
+
 #### When to Use KernDX Web Services Framework
 
-Reach for the framework when the integration has to survive in production: when failures must be logged and retried, sensitive data masked, or several developers need to follow the same patterns.
+Use the framework when the integration has to survive in production: when failures must be logged and retried, sensitive data masked, or several developers need to follow the same patterns.
 
 - ✅ **Integrations that need detailed logging and monitoring**
 - ✅ **Production systems** needing automatic retry and error handling
@@ -393,31 +447,7 @@ Because callouts always run before any record is saved, you never hit that "unco
 
 ---
 
-## Quick Start
-
-Here is the fastest way to see the framework work. You write a small class that says what is unique about your integration, and the framework handles logging every call, retrying on failure, and tracking errors for you. You start from one of two base classes, depending on direction: `API_Outbound` for calls Salesforce makes out to another system, `API_Inbound` for calls another system makes into Salesforce.
-
-> **Step-by-step walkthroughs:** [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) and
-> [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md) cover implementation, testing, and common pitfalls.
-
-```apex
-public inherited sharing class API_GetWeather extends API_Outbound
-{
-	public override void configure()
-	{
-		super.configure();
-		requestPayload = new DTO_Request();
-		responsePayload = new DTO_Response();
-		defaultMockBody = '{"temperature": 72, "conditions": "Sunny"}';
-	}
-}
-```
-
-That is the whole shape of it: extend a base class, fill in the parts specific to your call, and the rest runs for you. The sections below go deeper on each piece.
-
----
-
-## Architecture
+## How does it work?
 
 ### Architecture Diagram
 
@@ -505,7 +535,7 @@ API_Base (Abstract Base)
 
 ### Key Design Patterns
 
-How the design works in plain terms: the base classes run the whole call for you and only ask your class to fill in the parts that are specific to your integration: the URL, the body, what to do on success. Any records you want to save are collected and written together as one all-or-nothing batch (either every record commits, or if anything fails the whole set rolls back), and that save happens *after* the callout finishes, never before it. That ordering is the key payoff: callouts always run first, so you never hit the "uncommitted work pending" error Salesforce throws when database work happens before a callout.
+How the design works in plain terms: the base classes run the whole call for you and only ask your class to fill in the parts that are specific to your integration: the URL, the body, what to do on success. Any records you want to save are collected and written together as one all-or-nothing batch (either every record commits, or if anything fails the whole set rolls back), and that save happens *after* the callout finishes, never before it. That ordering is the key benefit: callouts always run first, so you never hit the "uncommitted work pending" error Salesforce throws when database work happens before a callout.
 
 For readers who recognise the patterns by name, here is how those plain-English behaviours map to the classic names:
 
@@ -548,11 +578,14 @@ This two-phase approach ensures:
 
 ---
 
-## Core Components
+## What are the moving parts?
 
 ### [ApiCall__c](reference/objects/ApiCall__c.md) (Custom Object)
 
 Every API call leaves a record here, so when an integration misbehaves in production you have the request, the response, the timing, and the outcome on hand instead of a debug log that has already expired. Key fields:
+
+<details>
+<summary>All ApiCall__c fields</summary>
 
 | Field                   | Description                                                                |
 |-------------------------|----------------------------------------------------------------------------|
@@ -575,6 +608,8 @@ Every API call leaves a record here, so when an integration misbehaves in produc
 | `TotalDurationMs__c`    | Total end-to-end time                                                      |
 | `LoggerContext__c`      | Serialized logger context for transaction correlation                      |
 
+</details>
+
 **Scope: what `ApiCall__c` does and does not log.** Know its boundary up front, so you don't expect it to answer a question it was never meant to. `ApiCall__c` records callouts that flow through the KernDX Web Services framework: outbound calls via
 `API_Outbound` / `UTIL_HttpClient` / `API_Dispatcher`, and inbound calls handled by `API_Inbound`. It is **not** an org-wide API-usage log. Direct
 `Http` / `HttpRequest` callouts, managed-package callouts, and platform API consumption never reach it. For org-wide API, login, and limit monitoring, use
@@ -586,7 +621,7 @@ Salesforce Event Monitoring rather than `ApiCall__c`.
 `TST_Factory.newOutboundApiCall()` or `newInboundApiCall()`, the current logger context (correlation ID, transaction ID, global context) is automatically captured.
 
 When `API_Dispatcher.execute()` processes the queue item asynchronously, it hydrates this context, ensuring all logs in the async transaction share the same correlation ID as the
-originating transaction. The payoff: you can trace one user action end to end with no extra work, since this requires **zero code changes** in subscriber orgs.
+originating transaction. The benefit: you can trace one user action end to end with no extra work, since this requires **zero code changes** in subscriber orgs.
 
 ### [ApiSetting__mdt](reference/metadata/ApiSetting__mdt.md) (Custom Metadata Type)
 
@@ -685,7 +720,7 @@ credentials for you.
 
 ---
 
-## Working with a Managed Package
+## How do I use it in a managed package?
 
 ### CRITICAL Requirements for Managed Package Usage
 
@@ -1677,18 +1712,18 @@ You create one `ApiSetting__mdt` record per handler, and its `ClassName__c` fiel
 
 ## Intra-Org API Calls
 
-### Overview
+### What is it for?
 
 Sometimes the system you need to call is your own org. You might want to run several record changes in one Composite API request, read schema through the Tooling API, or hit a custom REST endpoint you built. Doing this by hand means looking up your org's URL, fetching a session ID, and formatting the authorization header every time.
 
 [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) is a base class that handles all of that for you. You extend it to make API calls **back into the same Salesforce org**, and it works out the org URL and authenticates as the current user automatically, so you write only the call itself.
 
-### Key Features
+### What you get
 
-- **Dynamic URL Resolution**: Works out your org's base URL at runtime via `URL.getOrgDomainURL()`, so you do not hardcode it or set up a Named Credential (a stored, reusable connection definition)
-- **Automatic Session ID Management**: Authenticates as the current user using their session ID, so the call runs with exactly the permissions that user has
-- **Bearer Token Authentication**: Builds the Authorization header in the correct Bearer token format for you
-- **Inherits All Outbound Features**: You still get the logging, retries, mocking, and error handling that every outbound call gets
+- **No hardcoded org URL.** It works out your org's base URL at runtime via `URL.getOrgDomainURL()`, so you do not hardcode it or set up a Named Credential (a stored, reusable connection definition).
+- **Runs as the current user.** It authenticates with the current user's session ID, so the call runs with exactly the permissions that user has.
+- **The auth header is built for you.** It puts the Authorization header in the correct Bearer token format.
+- **Everything an outbound call gets.** You still get the logging, retries, mocking, and error handling that every outbound call gets.
 
 ### When to Use
 
@@ -1811,7 +1846,7 @@ global protected virtual override String getWebServiceEndPoint()
 }
 ```
 
-### Configuration
+### How do I configure this?
 
 In your `ApiSetting__mdt` record:
 
@@ -2456,7 +2491,7 @@ public override void writeResponse()
 
 ---
 
-## Advanced Features
+## What else can it do?
 
 ### Automatic Retries
 
@@ -2731,7 +2766,7 @@ if(queueItem.Status__c == 'Aborted' && queueItem.ErrorMessages__c.contains('Circ
 
 #### Advanced: Custom Circuit Breaker Configuration
 
-Circuit breaker behavior is configured per service via `ApiSetting__mdt`. For standalone use outside the web services framework, use the `UTIL_CircuitBreaker` API directly:
+Circuit breaker behaviour is configured per service via `ApiSetting__mdt`. For standalone use outside the web services framework, use the `UTIL_CircuitBreaker` API directly:
 
 ```apex
 // Standalone circuit breaker with custom thresholds
@@ -3049,7 +3084,7 @@ finally
 
 #### Use Cases
 
-- **Debugging failed APIs**: replay a request with Safe Mode to inspect behavior without side effects
+- **Debugging failed APIs**: replay a request with Safe Mode to inspect behaviour without side effects
 - **Validating new API handlers**: test end-to-end flow before enabling in production
 - **Demo environments**: execute APIs without creating real records
 - **Test Harness**: the `apiTestHarnessForm` LWC uses Safe Mode by default
@@ -3183,7 +3218,7 @@ List<kern__ApiCall__c> legacyRecords = [
 
 ---
 
-## Integration with Flows
+## How do I call it from a Flow?
 
 Admins build integrations in Flow without writing Apex. The framework gives Flow two ready-made actions for calling an API, so a screen flow or a record-triggered flow can reach an external system the same way your Apex does, with the same logging and retry behind it. One action waits for the answer (**synchronous**, an immediate response); the other hands the work off to run in the background (**asynchronous**, background processing). The rest of this section shows when to pick each one and how to wire it up.
 
@@ -3676,7 +3711,7 @@ Testing a web service by hand means a lot of setup: building the request, creati
 - ✅ Reduce test code by 60-80%
 - ✅ Consistent testing patterns across all APIs
 - ✅ Automatic queue item creation and assertion
-- ✅ Built-in validation of framework behavior
+- ✅ Built-in validation of framework behaviour
 - ✅ Cleaner, more maintainable tests
 
 ---
@@ -3816,7 +3851,7 @@ private class API_PostExample_TEST
 
 #### Using TST_Factory for Queue Items
 
-When you need to build the queue item yourself rather than let a helper do it, reach for the factory. It lets you set exactly the service name, triggering record, and parameters your test needs:
+When you need to build the queue item yourself rather than let a helper do it, use the factory. It lets you set exactly the service name, triggering record, and parameters your test needs:
 
 ```apex
 /**
