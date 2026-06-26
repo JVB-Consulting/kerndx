@@ -275,7 +275,7 @@ catch(Exception error)
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/logging-guide#architecture"><span class="kl-chip-t">Rollback-proof</span><span class="kl-chip-d">Published as a platform event, so the saved log outlives the rollback that erases the payment.</span></a>
+<a class="kl-ledger-chip hero" href="/logging-guide#how-does-it-work"><span class="kl-chip-t">Rollback-proof</span><span class="kl-chip-d">Published as a platform event, so the saved log outlives the rollback that erases the payment.</span></a>
 <a class="kl-ledger-chip" href="/logging-guide#log-buffering"><span class="kl-chip-t">ERROR flushes early</span><span class="kl-chip-d">An ERROR-level entry is never held in the suspended-save buffer; it flushes before the re-throw.</span></a>
 </div>
 
@@ -459,7 +459,7 @@ kern.UTIL_AsyncChain.newChain('OrderSync')
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="observability">Observability</p>
-<a class="kl-ledger-chip" href="/async-processing-guide#overview"><span class="kl-chip-t">Real-time Chain Monitor</span><span class="kl-chip-d">A live UI surfaces running and failed chains without writing a query.</span></a>
+<a class="kl-ledger-chip" href="/async-processing-guide#what-problem-does-this-solve"><span class="kl-chip-t">Real-time Chain Monitor</span><span class="kl-chip-d">A live UI surfaces running and failed chains without writing a query.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Queryable status</span><span class="kl-chip-d">Status persists to an AsyncChainExecution__c row at every transition (Running → Completed/Failed/Aborted).</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#log-correlation"><span class="kl-chip-t">Shared correlation id</span><span class="kl-chip-d">Logs inside a step share the chain's id, so one filter traces the whole multi-transaction run.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Field-history audit</span><span class="kl-chip-d">Status__c, CompletedSteps__c, CurrentStepName__c, and CompletedAt__c carry field-history, giving a step-by-step trail.</span></a>

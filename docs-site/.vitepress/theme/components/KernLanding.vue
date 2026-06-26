@@ -5,11 +5,12 @@
      code examples are NOT in this component: they're authored as ```apex fences in home.md
      and passed in via the #examples slot (so they get the site's shiki Apex highlighting +
      a Copy button). Positioning: KernDX is a LIBRARY OF FRAMEWORKS for Apex & LWC, not a single
-     framework. Metrics are the verified counts (95 global API classes, 189 production
-     classes, 63 LWC components, 3,742 tests, 100%/95% coverage). Keep these in lockstep
-     with docs/Strategic Guide - Metrics.md (the canonical source). -->
+     framework. The credibility strip below shows the verified counts (global API classes,
+     production classes, LWC components, Apex test count, plus the 100%/95% coverage policy).
+     Keep the strip numbers in lockstep with docs/Strategic Guide - Metrics.md (the canonical
+     source); scripts/validate-landing-metrics.js enforces this on npm run docs:validate. -->
 <template>
-	<div class="kern-landing">
+	<main class="kern-landing">
 
 		<!-- Hero -->
 		<header class="kl-hero">
@@ -141,12 +142,12 @@
 				<p class="kl-headline">Worth reading even if you never adopt KernDX.</p>
 				<p class="kl-lead">These are design decisions, not feature names, so take the ideas with you. Each links to the guide that explains the thinking. The source is public (BSL 1.1, becoming Apache 2.0).</p>
 				<div class="kl-cards">
-					<a class="kl-card" href="/fast-start-inbound-apis#idempotency" data-spec-id="steal-idempotency"><h4>Why a &lsquo;safe to retry&rsquo; key isn't enough</h4><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/logging-guide#logging-inside-platform-event-change-event-triggers" data-spec-id="steal-self-trigger-log"><h4>Why a logging tool must avoid logging about itself</h4><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/selectors-guide#handle-null-and-empty-collections" data-spec-id="steal-empty-filter"><h4>Why an empty filter should match nothing, not everything</h4><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h4>Why hiding card numbers takes more than pattern-matching</h4><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h4>Why the framework looks for your version of a class first</h4><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customise behaviour, with nothing to register.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h4>Why feature flags decide like an access list</h4><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/fast-start-inbound-apis#idempotency" data-spec-id="steal-idempotency"><h3>Why a &lsquo;safe to retry&rsquo; key isn't enough</h3><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/logging-guide#logging-inside-platform-event-change-event-triggers" data-spec-id="steal-self-trigger-log"><h3>Why a logging tool must avoid logging about itself</h3><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/selectors-guide#handle-null-and-empty-collections" data-spec-id="steal-empty-filter"><h3>Why an empty filter should match nothing, not everything</h3><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h3>Why hiding card numbers takes more than pattern-matching</h3><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h3>Why the framework looks for your version of a class first</h3><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customise behaviour, with nothing to register.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h3>Why feature flags decide like an access list</h3><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
 				</div>
 			</div>
 		</section>
@@ -218,7 +219,7 @@
 				<p class="kl-headline">Not all-or-nothing.</p>
 				<p class="kl-lead">No rip-and-replace, and nothing you take all at once, which is what makes it low-risk to bring into an existing program. A typical path in: the query library first, then secure DML, then the trigger framework, adding async, masking, and the AI standards whenever you reach for them. Each layer stands alone, so adoption stays incremental and reversible.</p>
 				<div class="kl-assess" data-spec-id="self-assessment">
-						<div class="kl-col yes" data-spec-id="assess-worth"><h4>A fit if…</h4>
+						<div class="kl-col yes" data-spec-id="assess-worth"><h3>A fit if…</h3>
 							<ul>
 								<li>more than one developer works in the org</li>
 								<li>AI is writing more of your Apex</li>
@@ -227,7 +228,7 @@
 								<li>you need security you can show a reviewer</li>
 							</ul>
 						</div>
-						<div class="kl-col maybe" data-spec-id="assess-more-than-you-need"><h4>Maybe more than you need if…</h4>
+						<div class="kl-col maybe" data-spec-id="assess-more-than-you-need"><h3>Maybe more than you need if…</h3>
 							<ul>
 								<li>a throwaway or greenfield org with no Apex and no near-term plans</li>
 								<li>you already run a framework you're happy with</li>
@@ -254,7 +255,7 @@
 		<!-- Sticky install CTA -->
 		<a class="kl-sticky" href="/installation" data-spec-id="sticky-install">Install KernDX <span>v1.1.0-11</span></a>
 
-	</div>
+	</main>
 </template>
 
 <style scoped>
@@ -325,7 +326,7 @@
 .kl-cards{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .kl-card{ border: 1px solid var(--vp-c-divider); border-left: 3px solid var(--vp-c-brand-1); border-radius: 10px; background: var(--vp-c-bg-soft); padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--vp-c-text-1); }
 .kl-card:hover{ background: var(--vp-c-brand-soft); }
-.kl-card h4{ margin: 0; font-size: 1rem; }
+.kl-card h3{ margin: 0; font-size: 1rem; }
 .kl-card p{ margin: 0; color: var(--vp-c-text-2); font-size: .9rem; }
 .kl-card .go{ margin-top: auto; font-size: .8rem; font-weight: 600; color: var(--vp-c-brand-1); }
 
@@ -370,7 +371,7 @@
 .kl-col{ border: 1px solid var(--vp-c-divider); border-radius: 12px; padding: 20px 22px; background: var(--vp-c-bg-soft); }
 .kl-col.yes{ border-top: 3px solid var(--kl-green); }
 .kl-col.maybe{ border-top: 3px solid var(--vp-c-text-3); }
-.kl-col h4{ margin: 0 0 12px; font-size: 1.02rem; }
+.kl-col h3{ margin: 0 0 12px; font-size: 1.02rem; }
 .kl-col ul{ margin: 0; padding-left: 1.05rem; }
 .kl-col li{ margin: .4rem 0; color: var(--vp-c-text-2); font-size: .92rem; }
 

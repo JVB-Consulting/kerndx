@@ -8,7 +8,7 @@ navOrder: 34
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-06-13 (drift reconciliation against the post-Kern 1.1.0-11 dev tree)
+**Last verified:** 2026-06-25 (drift reconciliation against the post-Kern 1.1.0-11 dev tree)
 **Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
 
 ---
@@ -57,11 +57,11 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                 |      Value |
 |------------------------|-----------:|
-| Apex characters in use |      ~990K |
+| Apex characters in use |  1,148,837 |
 | Apex character limit   | 10,000,000 |
-| Percent of limit used  |       ~10% |
+| Percent of limit used  |     11.49% |
 
-> You can see this yourself in Setup → Apex Classes → view limit bar. The ~990K figure is approximate and was last measured against an earlier 1.0.0-x build (the current build has 363 Apex classes total). The count includes all Apex classes and triggers defined in the org, excluding comments and `@IsTest` annotated classes. Managed package code does not count towards this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
+> You can see this figure yourself in Setup → System Overview. The count includes every Apex class and trigger defined in the org, excluding comments and test classes (those annotated `@IsTest`). Managed package code does not count towards this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
 
 ## Global API Surface
 
@@ -96,6 +96,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | `ClassTypeResolver__mdt`         |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `AsynchronousJobSetting__mdt`    |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `FieldSetGroup__mdt`             |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
+| `PostTriggerAction__mdt`         |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | **Total pre-built CMDT records** |  **62** |                                                                                                              |
 
 ### Code-Level (extend or implement)
@@ -131,16 +132,20 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | LWC components (total) |                           63 | `force-app/main/default/lwc/**/`                                  |
 | Jest test files        |                           65 | counted from `force-app/main/default/lwc/**/*.test.js`            |
 | Jest test cases        |                       ~2,660 | counted across all Jest test files                                |
-| Jest test coverage     | 100% statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
+| Jest test coverage     | 95%+ statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
 
 ## Salesforce Metadata
 
-| Metric                          |                  Count |
-|---------------------------------|-----------------------:|
-| Custom objects (`__c`)          |                     10 |
-| Custom metadata types (`__mdt`) |                     14 |
-| Platform events (`__e`)         | 1 (`LogEntryEvent__e`) |
-| Pre-built CMDT records          |                     62 |
+| Metric                          | Count |
+|---------------------------------|------:|
+| Custom objects (`__c`)          |    10 |
+| Custom metadata types (`__mdt`) |    15 |
+| Platform events (`__e`)         |     1 |
+| Custom fields (total)           |   266 |
+| — on custom objects             |   127 |
+| — on custom metadata types      |   122 |
+| — on platform events            |    17 |
+| Pre-built CMDT records          |    62 |
 
 ## Documentation
 
@@ -155,8 +160,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | API reference pages (events)                  |     2 |                                                                                                                             |
 | API reference pages (total)                   |   268 | sum of all reference categories                                                                                             |
 | Total documentation files (developer-focused) |    46 | 21 developer guides + 16 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
+| Security Guide (lines)                        | 2,326 | bespoke threat-model guide; counted from `docs/Security - Guide.md`                                                         |
 
-> The headline figure quoted in companion docs is 37 developer documents (21 guides + 16 Fast Starts) plus 263 API reference pages. The 263 figure counts the 262 categorised reference pages plus the Security Guide (which is tracked separately, at 2,027 lines).
+> The headline figure quoted in companion docs is 37 developer documents (21 guides + 16 Fast Starts) plus 268 API reference pages, matching the per-category totals above.
 
 ## Code Quality & Scanning
 
@@ -164,6 +170,8 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 |------------------------------|------:|
 | PMD rules (KernDX custom)    |    25 |
 | ESLint rules (KernDX custom) |     6 |
+| Node validators              |     4 |
+| Total scanner checks         |    35 |
 
 ## Release Testing
 
@@ -190,12 +198,12 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Layer                       |         Tests |  Assertions |
 |-----------------------------|--------------:|------------:|
-| Package Apex tests          | 3,390 methods |      ~6,076 |
-| Package Jest tests          |  ~2,282 cases |      ~3,591 |
-| Subscriber Apex tests       |   166 methods |        ~203 |
+| Package Apex tests          | 3,742 methods |      ~6,076 |
+| Package Jest tests          |  ~2,660 cases |      ~3,591 |
+| Subscriber Apex tests       |   175 methods |        ~203 |
 | Subscriber anonymous Apex   |   71 sections |         350 |
 | Subscriber E2E (Playwright) |      57 cases |        ~163 |
-| **Total**                   |    **~5,966** | **~10,383** |
+| **Total**                   |    **~6,705** | **~10,383** |
 
 ## Activity Snapshot
 

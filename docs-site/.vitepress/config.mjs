@@ -47,8 +47,16 @@ function apexScopeRules(p)
 	];
 }
 
-const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...githubLight.tokenColors, ...apexScopeRules(APEX_LIGHT)]};
-const apexDarkTheme = {...githubDark, name: 'kerndx-apex-dark', tokenColors: [...githubDark.tokenColors, ...apexScopeRules(APEX_DARK)]};
+// GitHub's bundled themes color code comments #6a737d in BOTH light and dark, which fails
+// WCAG AA contrast on the code-block backgrounds (~3.7:1 on the dark surface). CSS cannot
+// reach these tokens (VitePress emits per-token inline --shiki-light/--shiki-dark with no
+// comment-specific selector), so override the comment scope at the theme-token level. The
+// chosen hexes are GitHub's own fg.muted tokens — still muted, but >=4.5:1 on both surfaces.
+// Appended AFTER the apex rules so they win, and orthogonal to the apex method/type/modifier/
+// param scopes, which are untouched.
+const commentRule = (foreground) => ({scope: ['comment', 'punctuation.definition.comment', 'string.comment'], settings: {foreground}});
+const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...githubLight.tokenColors, ...apexScopeRules(APEX_LIGHT), commentRule('#57606a')]};
+const apexDarkTheme = {...githubDark, name: 'kerndx-apex-dark', tokenColors: [...githubDark.tokenColors, ...apexScopeRules(APEX_DARK), commentRule('#8b949e')]};
 
 export default withMermaid(defineConfig({
 	title: 'KernDX',
@@ -180,5 +188,21 @@ export default withMermaid(defineConfig({
 		// Social-share image (absolute https), OG site metadata, and schema.org
 		// JSON-LD (Organization + WebSite sitewide, per-page TechArticle).
 		pageData.frontmatter.head.push(...seoHeadEntries({title, description: desc, url, hostname: HOSTNAME, isHome}));
+	},
+	// withMermaid registers <Mermaid> globally, so mermaid's ~25 lazy diagram chunks + dagre +
+	// katex land in the app chunk's dynamicImports and VitePress bakes a <link rel="modulepreload">
+	// for each into EVERY page head — even though a ```mermaid fence appears on exactly one page and
+	// no page on the critical path uses math. That eagerly pulls ~345 KB of unused JS on first paint
+	// (the dominant cause of slow mobile FCP/LCP). The preload is only a fetch hint: the one diagram
+	// page still renders because <Mermaid> dynamically imports its chunk at mount. Strip those hints
+	// from the built HTML (the runtime import() path is untouched, so behaviour is unchanged). After
+	// any mermaid/vitepress upgrade, rebuild and confirm only framework/theme/<page>.lean.js preloads
+	// remain — a new eco chunk whose filename lacks these tokens would slip through.
+	transformHtml(code)
+	{
+		return code.replace(
+			/\n?[ \t]*<link rel="modulepreload" href="[^"]*\/assets\/chunks\/(?:katex|dagre|cytoscape|(?:virtual_)?mermaid|[a-z0-9-]*diagram[a-z0-9-]*|mindmap-definition|kanban-definition|timeline-definition)[^"]*">/gi,
+			''
+		);
 	}
 }));

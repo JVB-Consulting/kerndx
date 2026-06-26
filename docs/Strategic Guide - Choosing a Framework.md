@@ -24,7 +24,7 @@ navOrder: 16
     - [vs. nebula-logger](#vs-nebula-logger)
     - [vs. the Apex Fluently libraries](#vs-the-apex-fluently-libraries)
     - [vs. fflib-mocks](#vs-fflib-mocks)
-- [Specialty libraries at a glance](#specialty-libraries-at-a-glance)
+- [Other specialty libraries](#other-specialty-libraries)
 - [Organisational fit](#organisational-fit)
 - [Spotted something wrong?](#spotted-something-wrong)
 
@@ -117,7 +117,7 @@ Got a specific need? This is the fast lookup. The "Consider an alternative when�
 |--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Trigger framework**          | Configuration-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, a searchable record of what each trigger actually did (execution observability), reacting to record-change events (Change Data Capture, with the change header available to Flow and Apex actions), and follow-up work that runs after the transaction commits (post-trigger finalizers) | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
 | **Query builder**              | A fluent SOQL API with no string concatenation, FLS/CRUD enforced by default, an audit log on every bypass, and a subclassable builder                                                                                                                                                                                           | `apex-fluently-soql` if a standalone fluent-DSL is all you want and developer-managed access control is acceptable                              |
-| **DML**                        | Transactional batching, FLS/CRUD enforced on writes by default, audited bypass, async DML, and multi-level dependency-graph resolution with cycle detection                                                                                                                                                                      | `apex-fluently-dml` if you prefer its record-builder relationship DSL. Both resolve multi-level graphs; the difference is API shape, not depth |
+| **DML**                        | Transactional batching, FLS/CRUD enforced on writes by default, audited bypass, async DML, and saves related records in the right multi-level order (parents before children), catching impossible loops                                                                                                                                                                      | `apex-fluently-dml` if you prefer its record-builder relationship DSL. Both resolve multi-level graphs; the difference is API shape, not depth |
 | **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, small response classes that convert themselves to and from JSON (DTO marshalling), validation hooks, and a paired test harness                                                                                                                        | No framework alternative among those compared: hand-roll the dispatcher per endpoint, or adopt KernDX                                           |
 | **Outbound HTTP**              | Production callouts with retry/backoff, a circuit breaker (after repeated failures it stops calling the failing system for a cool-off, then resumes), idempotency keys (the same request arriving twice returns the first result instead of re-running), a dead-letter queue (messages that fail after all retries are set aside for inspection, not lost), named-credential resolution, and a mock library | `apex-fluently-httpmock` ties on the *mock* surface only; it ships no production callout path                                                   |
 | **Logging**                    | A lean Apex/LWC/Flow logging API that writes log records in the background by default, integrated with triggers/query/DML/async                                                                                                                                                                                                   | `nebula-logger` if you need multi-transport selection, all seven platform log levels, per-record retention, or a historical log-browser UI      |
@@ -159,7 +159,7 @@ rough migration effort. The migration-complexity rating measures how much of you
 ### vs. fflib
 
 **The library.** `fflib` ("Apex Enterprise Patterns" / `fflib-apex-common`) is the canonical implementation of the Service / Selector / Domain / Unit-of-Work pattern in Apex (Unit of Work means you register related records and save them together: all commit or all roll back). It is the
-framework that established that architectural style on the platform. License: BSD 3-Clause. Mature, in maintenance mode (no release in several years).
+framework that established that architectural style on the platform. Licence: BSD 3-Clause. Mature, in maintenance mode (no release in several years).
 
 **Where it wins.** You specifically want the Application/Service factory pattern (`fflib_Application`), your team is already trained on it, and you accept hand-rolling the surfaces
 it doesn't cover.
@@ -176,11 +176,11 @@ DML, outbound, async, security, and masking.
 
 ### vs. taf
 
-**The library.** `taf` ("Trigger Actions Framework") is a single-capability trigger framework that uses metadata-driven registration. It scopes to triggers only. License: Apache 2.0.
+**The library.** `taf` ("Trigger Actions Framework") is a single-capability trigger framework that uses metadata-driven registration. It scopes to triggers only. Licence: Apache 2.0.
 
 **Where it wins.** Little over KernDX on capability. KernDX covers everything `taf` does, including Change Data Capture dispatch and post-trigger finalizers, and adds bypass
 auditing, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There are two honest cases for `taf`. First, you already run it and want triggers
-only, so a migration isn't worth the churn. Second, the licence case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 licence matters to you. (Under BSL 1.1, ordinary subscribers and the consultants
+only, so a migration isn't worth the churn. Second, the licence case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 licence matters to you. (Under BSL 1.1, ordinary teams and the consultants
 deploying for them keep full production-use rights, and it converts to Apache 2.0 four years after publication.)
 
 **The KernDX divergence.** `taf` bypasses run unaudited: no log, no platform event, no signal. You cannot plug your own registration logic into it, and it ships no coverage
@@ -200,7 +200,7 @@ one.
 ### vs. apex-libra
 
 **The library.** `apex-libra` is a multi-capability framework covering trigger registration, DML, logging, resilience, security, testing, and utilities. Of the frameworks here, it is the closest single-package
-alternative to KernDX by breadth. License: MIT.
+alternative to KernDX by breadth. Licence: MIT.
 
 **Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (A permissive licence rarely
 decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
@@ -218,7 +218,7 @@ every bypass, and suppresses recursion automatically.
 
 ### vs. rflib
 
-**The library.** `rflib` is a multi-capability framework focused on logging, trigger orchestration, feature switches, and a few utilities. Of the multi-capability alternatives here, it is the most actively maintained. License: BSD 3-Clause.
+**The library.** `rflib` is a multi-capability framework focused on logging, trigger orchestration, feature switches, and a few utilities. Of the multi-capability alternatives here, it is the most actively maintained. Licence: BSD 3-Clause.
 
 **Where it wins.** You want a simple hierarchical feature-switch (user → group → profile → global) with no need for pluggable strategies; or its historical log-browser LWC; or its
 admin per-row declarative-bypass shape.
@@ -236,7 +236,7 @@ viewer.)
 
 ### vs. nebula-logger
 
-**The library.** `nebula-logger` is a single-capability logging framework, and by surface area it is the deepest dedicated Salesforce logging implementation. License: Apache 2.0. Long,
+**The library.** `nebula-logger` is a single-capability logging framework, and by surface area it is the deepest dedicated Salesforce logging implementation. Licence: Apache 2.0. Long,
 mature release history.
 
 **Where it wins.** Maximum logging depth: selectable transport (event bus / queueable / REST / synchronous), all seven platform log levels, per-record and per-scenario retention
@@ -257,7 +257,7 @@ logging is not wired into a trigger/query/DML bypass-audit or async status signa
 ### vs. the Apex Fluently libraries
 
 **The library.** A family of eight focused single-purpose libraries ([`-soql`](https://github.com/beyond-the-cloud-dev/soql-lib), [`-dml`](https://github.com/beyond-the-cloud-dev/dml-lib), [`-cache`](https://github.com/beyond-the-cloud-dev/cache-manager), [`-async`](https://github.com/beyond-the-cloud-dev/async-lib), [`-httpmock`](https://github.com/beyond-the-cloud-dev/http-mock-lib), [`-consts`](https://github.com/beyond-the-cloud-dev/apex-consts), [`-test`](https://github.com/beyond-the-cloud-dev/test-lib), [`-lwc`](https://github.com/beyond-the-cloud-dev/lwc-utils)): a "pick what you need" collection of fluent-DSL libraries, generally actively maintained, with `-soql` and `-dml` at
-the highest cadence. License: MIT across the family.
+the highest cadence. Licence: MIT across the family.
 
 **Where it wins.** You want a single capability without a bundled framework footprint, or you prefer a specific library's DSL ergonomics (for example, `apex-fluently-dml`'s record-builder
 relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (A permissive licence
@@ -279,7 +279,7 @@ requirement.
 ### vs. fflib-mocks
 
 **The library.** [`fflib-mocks`](https://github.com/apex-enterprise-patterns/fflib-apex-mocks) (`fflib-apex-mocks`) is the canonical Mockito-style mocking library for Apex:
-behaviour-verification mocking via stubs, argument matchers, and verification modes. License: BSD 3-Clause. Long-established, lightly maintained now.
+behaviour-verification mocking via stubs, argument matchers, and verification modes. Licence: BSD 3-Clause. Long-established, lightly maintained now.
 
 **Where it wins.** You need Mockito-style behaviour verification: rich argument matchers, `times`/`atLeast`/`atMost`/`between`/`never` verification modes, sequence verification,
 argument capture. **KernDX has no equivalent.**
@@ -295,7 +295,7 @@ assertions: a different and complementary surface.
 
 ---
 
-## Specialty libraries at a glance
+## Other specialty libraries
 
 Beyond the seven above, these single-purpose libraries each cover one specialty surface. In most cases KernDX already covers the same ground as part of its integrated scope; the table flags the exceptions where a specialty library is still worth reaching for.
 
