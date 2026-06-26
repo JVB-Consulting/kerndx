@@ -51,7 +51,7 @@ also: [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20P
     - [Operational Ownership Model](#operational-ownership-model)
     - [Success Metrics](#success-metrics)
 - [Conclusion](#conclusion)
-    - [Summary](#summary)
+    - [Which approach to choose](#which-approach-to-choose)
     - [What Comes Next](#what-comes-next)
     - [Decision Framework](#decision-framework)
     - [Decision Summary Matrix](#decision-summary-matrix)
@@ -114,7 +114,7 @@ Each KernDX module has a dedicated **Fast Start guide** that walks through three
 | E2E testing             | Playwright: ~25 min                         | N/A                 | N/A                  | N/A                                   |
 | **Full stack (all 12)** | **~5.5 hours of Fast Starts to productive** | N/A (triggers only) | N/A (queries only)   | N/A (logging only)                    |
 
-**Competitor onboarding times** are based on each library's documentation as observed in the comparator workspace:
+**Competitor onboarding times** are based on each library's documentation as observed across the libraries we compared against:
 
 - **[`taf`](https://github.com/mitchspano/apex-trigger-actions-framework):** The README is 30 lines linking to the maintainer's docs site, which has about 4,400 words across 9 focused
   pages. Strong ApexDoc (the API documentation shown in the IDE) on all core classes. A developer reads the getting-started page and creates a trigger plus a custom metadata record, an action class, and a test in about 2-4 hours. There is no structured learning path; the docs are reference-style, not guided.
@@ -133,7 +133,7 @@ learning path, and their documentation quality varies.
 
 **Key Factors:**
 
-- **Documentation depth:** KernDX ships 21 developer guides, 16 Fast Start guides, 263 API reference pages, a detailed Security Guide and a top-level `SECURITY.md`, a release-testing runbook (471
+- **Documentation depth:** KernDX ships 21 developer guides, 16 Fast Start guides, 268 API reference pages, a detailed Security Guide and a top-level `SECURITY.md`, a release-testing runbook (471
   anonymous-Apex assertions across 71 sections), drift-audit cycle, `AGENTS.md` + `docs/Code Conventions - Guide.md` at repo root
   plus [AI Agent Instructions](AI%20Agent%20Instructions.md) for AI tooling. `taf`: 9 docs pages + ApexDoc. `apex-fluently-soql`: 49 docs pages but zero ApexDoc per repo-level
   exclusion. `nebula-logger`: README + GitHub Wiki (migration in progress) + ApexDoc. Across the comparable Apex frameworks surveyed, most ship no SECURITY.md at all; the 4
@@ -215,7 +215,7 @@ What you need from a framework depends heavily on the kind of org you are. A sma
 | **Mid-Market (200-1000)**  | + web services + resilience                 | Full KernDX adoption                                                                                                                                                                                                                                          | `taf` + `apex-fluently-soql` + `nebula-logger` + `apex-fluently-dml` + `apex-fluently-httpmock` + custom resilience                                                                                                                                                                                       |
 | **Enterprise (1000+)**     | Full stack + governance                     | Full KernDX, where metadata enforces conventions                                                                                                                                                                                                                   | `taf` + Apex Fluently libraries (`apex-fluently-soql`, `apex-fluently-dml`, `apex-fluently-async`, `apex-fluently-httpmock`, `apex-fluently-cache`, `apex-fluently-test`, `apex-fluently-lwc`, `apex-fluently-consts`, each installed independently) + `nebula-logger`, where discipline enforces conventions |
 | **ISV (AppExchange)**      | Package quality + namespace isolation       | KernDX (designed for managed packages)                                                                                                                                                                                                                        | `taf` + zero-dep (or Apex Fluently source)                                                                                                                                                                                                                                                                |
-| **Integration-heavy**      | Retry, circuit breaker, outbox, idempotency | KernDX: built-in outbound retry, circuit breaker, transactional outbox, idempotency keys, dead-letter queues. KernDX covers more aspects of the Outbound family than any other Apex framework surveyed; `rflib` is competitive on the safe-mode surface | Build custom resilience patterns. Note that `apex-chainable` ships a reflective-execution dispatcher, unsuitable for managed-package distribution                                                                                                                                                             |
+| **Integration-heavy**      | Retry, circuit breaker, outbox, idempotency | KernDX: built-in outbound retry, circuit breaker, transactional outbox, idempotency keys, dead-letter queues. KernDX covers more aspects of the Outbound family than any other Apex framework surveyed; `rflib` is competitive on the safe-mode surface | Build custom resilience patterns. Note that `apex-chainable` ships a dispatcher that resolves classes by name at runtime (reflection), unsuitable for managed-package distribution                                                                                                                                                             |
 | **Government / regulated** | Compliance + audit logging                  | KernDX (any-SObject masking, pre-emit log masking, session encryption, payload signing) + `nebula-logger` if a pre-built log browser is required                                                                                                              | `taf` + `apex-fluently-soql` + `nebula-logger` (`USER_MODE` default on the query path; no integrated session encryption or signing)                                                                                                                                                                       |
 | **Domain-complex**         | Business logic isolation                    | KernDX + custom domain layer (KernDX does not ship a Domain layer by design; `fflib` covers more aspects of the Domain Patterns family than any other Apex framework surveyed)                                                                                | `fflib` or `at4dx` (Domain / Service / Unit-of-Work patterns; `fflib` ships as source deploy with one tag in the last 12 months)                                                                                                                                                                          |
 
@@ -252,12 +252,12 @@ baseline, so what follows is a directional comparison built on the qualitative r
 **What the research does support, qualitatively:**
 
 - Production bugs cost 10-100x more than development-phase bugs (IBM/NIST/NASA). Frameworks with enforced coverage gates, ApexDoc requirements, and scanner enforcement reduce
-  production-defect rates relative to a no-framework or unenforced-standards baseline. KernDX's 100% per-file Apex coverage gate and 36 scanner rules are concrete enforcement
+  production-defect rates relative to a no-framework or unenforced-standards baseline. KernDX's 100% per-file Apex coverage gate and [35 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, 4 Node scanners) are concrete enforcement
   mechanisms that move this metric in your direction.
 - Developers waste roughly 23% of their time on technical debt (Besker, Martini & Bosch 2018, IEEE, replicated 2019); McKinsey 2020 found 10-20% of new-product budget is diverted
   to debt resolution. Framework-enforced conventions reduce the inconsistent-pattern flavour of debt, but they do not eliminate it.
 - Quality documentation strengthens the lift from technical practices (DORA 2022 *Accelerate State of DevOps* report). KernDX's documentation depth (21 developer guides, 16 Fast
-  Starts, 263 API reference pages, `AGENTS.md` + `docs/Code Conventions - Guide.md` AI context, the detailed Security Guide, the release-testing runbook) materially reduces the
+  Starts, 268 API reference pages, `AGENTS.md` + `docs/Code Conventions - Guide.md` AI context, the detailed Security Guide, the release-testing runbook) materially reduces the
   per-new-hire ramp curve, a metric you can measure directly against your team's own historical baseline.
 
 **What the research does not support:** a specific dollar comparison of "KernDX costs $X over 3 years vs Modular at $Y" without measuring against your team's actual delivery data.
@@ -267,7 +267,7 @@ See [Success Metrics](#success-metrics) for the metric set most enterprises trac
 **Cost considerations that do not need a model:**
 
 - **Licensing.** Native Apex, KernDX, `fflib`, `taf`, `apex-fluently-*`, `nebula-logger`, `rflib`, and [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library) all
-  carry zero recurring license fees.
+  carry zero recurring licence fees.
 - **Initial adoption ramp.** `fflib` requires internalising Domain-Driven Design, which is a paradigm shift, not just an API change, so it is a meaningful ramp investment. KernDX and modular
   stacks have comparable per-module learning time (see [Onboarding Time Comparison](#onboarding-time-comparison)). The total framework footprint differs: KernDX covers more
   capability areas, while a modular stack covers fewer but is layered in incrementally.
@@ -337,7 +337,7 @@ without that discipline will see these costs compound over time.
 
 ### Code Drift in Multi-Team Environments
 
-#### Problem Statement
+#### What drives long-term maintainability
 
 Here is the central point of this section: in large Salesforce implementations, whether your code stays maintainable over the years depends far more on how you organise delivery than on whether your framework is open source or integrated.
 
@@ -456,7 +456,7 @@ authority forces everyone toward the same patterns. Integrated frameworks reduce
 ownership).
 
 **Level 2, the controlled enterprise:** A central architecture function exists, and framework standards are enforced through pull-request reviews and CI pipelines. KernDX ships a
-ready-to-use [Framework Compliance Scanner](Code%20Scanning%20-%20Guide.md): 36 rules (PMD + Node + ESLint) that enforce use of the framework's abstractions (no inline SOQL, no direct
+ready-to-use [Framework Compliance Scanner](Code%20Scanning%20-%20Guide.md): [35 checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, 4 Node scanners) that enforce use of the framework's abstractions (no inline SOQL, no direct
 DML, no `System.debug()`, and so on). Upload the rulesets to your CI/CD tool (Gearset, Copado, AutoRABIT, CodeScan) and enforcement is automatic. Mixed modular stacks are viable at this
 level because the governance mechanisms catch divergence before it compounds, but teams have to build their own linting rules. Integrated frameworks with built-in scanners add
 guard-rails with zero custom tooling.
@@ -805,7 +805,7 @@ any of your existing code.
 
 **What this is NOT:**
 
-- NOT a minimal install. The package deploys all 183 production Apex classes, 168 test classes, and 53 LWC bundles. Unused classes are inert (no governor impact, exempt from the 6 MB
+- NOT a minimal install. The package deploys all [189 production Apex classes, 174 test classes](Strategic%20Guide%20-%20Metrics.md#package-codebase), and [63 LWC bundles](Strategic%20Guide%20-%20Metrics.md#lwc-components). Unused classes are inert (no governor impact, exempt from the 6 MB
   managed package limit), but the namespace prefix and single upgrade cycle still apply.
 - NOT a way to adopt logging without the framework's broader posture. The `with sharing` defaults and the `USER_MODE` defaults on `QRY_Builder` / `DML_Builder`, and so on, all apply to the
   installed classes whether or not you actively use them.
@@ -814,7 +814,7 @@ any of your existing code.
 
 | Weeks | Activity                                                                                                                                                                                                     | Effort        | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |-------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1-2   | **Adopt trigger framework.** Choose `taf` or KernDX `TRG_*`. Select highest-value trigger (most defects, most business rules, most frequently changed). Migrate to framework pattern. Achieve 100% coverage. | 3-5 dev-days  | `taf`: configure `TriggerAction__mdt`. KernDX: configure `TriggerAction__mdt` + `TriggerSetting__mdt`. Comparison summary: `taf` is the most-established comparator on declarative trigger registration, handler ordering, and Flow-as-trigger-action; KernDX matches on dispatcher substance and adds bypass audit emission (every bypass writes a structured event), performance monitoring with metadata-driven thresholds, and W3C distributed tracing. |
+| 1-2   | **Adopt trigger framework.** Choose `taf` or KernDX `TRG_*`. Select highest-value trigger (most defects, most business rules, most frequently changed). Migrate to framework pattern. Achieve 100% coverage. | 3-5 dev-days  | `taf`: configure `TriggerAction__mdt`. KernDX: configure `TriggerAction__mdt` + `TriggerSetting__mdt`. Comparison summary: `taf` is the most-established of the frameworks we compared on declarative trigger registration, handler ordering, and Flow-as-trigger-action; KernDX matches on dispatcher substance and adds bypass audit emission (every bypass writes a structured event), performance monitoring with metadata-driven thresholds, and W3C distributed tracing. |
 | 3-4   | **Standardise trigger pattern.** Migrate 2-3 additional triggers. Establish coding standards (bypass mechanisms, recursion handling, test patterns). Document migration playbook.                            | 5-10 dev-days | Train team on metadata-driven configuration                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 5-6   | **Adopt query framework.** Choose `apex-fluently-soql` or KernDX `QRY_Builder`. Refactor 5-10 high-complexity queries. Focus on queries with multiple filters, dynamic conditions, or caching needs.         | 3-5 dev-days  | Measure query performance before/after. Both `apex-fluently-soql` and KernDX `QRY_Builder` default to `USER_MODE` on the read path. Document any framework-internal `SYSTEM_MODE` opt-outs via `SEL_Base.systemModeRequired()` (KernDX) or `.systemMode()` call sites (`apex-fluently-soql`) for code review.                                                                                                                                               |
 | 7-8   | **Standardise query pattern.** Build reusable query methods for common patterns. Establish coding standards (security modes, caching policies). Document migration playbook.                                 | 5-8 dev-days  | Explore complementary libraries (`apex-fluently-dml`, `apex-fluently-async`; each Apex Fluently library installs independently from its own GitHub repo)                                                                                                                                                                                                                                                                                                   |
@@ -826,8 +826,8 @@ classes) will trend toward the lower bound; a larger codebase (200+ classes) or 
 
 ### Migration Narratives
 
-Moving from one framework to another is rarely a gear-for-gear swap: you keep some things, give up others, and gain new ones. The summary below sets out the honest trade for five common migration paths, grounded in the
-per-comparator decision trees, so you can see exactly what each move costs and buys.
+Moving from one framework to another is rarely a gear-for-gear swap: you keep some things, give up others, and gain new ones. The summary below sets out the honest trade for five common migration paths, grounded in a
+per-framework analysis, so you can see exactly what each move costs and buys.
 
 **From `taf` to KernDX**
 
@@ -861,11 +861,11 @@ per-comparator decision trees, so you can see exactly what each move costs and b
   `fflib` in place or pair KernDX with a custom domain layer.
 - **Gain:** Metadata-driven triggers with bypass audit; per-action performance monitoring (KernDX-only); W3C distributed tracing; feature flags; circuit breaker (KernDX-only);
   inbound REST routing with body-hash idempotency (KernDX-only); any-SObject masking (four rule modes: regex, JSON-key, exact-match, credit-card-with-Luhn; enabling on a given
-  SObject still requires `TriggerSetting.ApplyMasking__c = true`); pre-emit log masking; auto-topological DML sorting with `.allowPartial()`; async chain orchestration.
+  SObject still requires `TriggerSetting.ApplyMasking__c = true`); pre-emit log masking; automatic save-order sorting (parents saved before children) with `.allowPartial()`; async chain orchestration.
 - **Install note:** `fflib` distribution is source deploy ([`apex-enterprise-patterns/fflib-apex-common`](https://github.com/apex-enterprise-patterns/fflib-apex-common)), with ~16
   commits and 1 tag in the last 12 months, so plan for in-org source maintenance.
 - **Net gain on query security:** `fflib`'s `newQueryFactory().setCondition(String)` accepts arbitrary WHERE strings, `fflib` has no `USER_MODE` default, and the static-Boolean
-  off-switch consulted at every check method is silent. So `fflib`'s query and DML layers ship without a security-by-default posture. KernDX `QRY_Builder` and `DML_Builder` default
+  off-switch consulted at every check method is silent. So `fflib`'s query and DML layers don't make the safe behaviour the default; you have to opt in to it. KernDX `QRY_Builder` and `DML_Builder` default
   to `USER_MODE` on read AND write, with the toggle methods explicit and any write-time toggles audit-traceable. Migrating the query / DML layer off `fflib` is one of the
   larger security gains this path delivers.
 
@@ -918,8 +918,8 @@ per-comparator decision trees, so you can see exactly what each move costs and b
   READMEs).
 - **Install note:** You don't have to pick one or the other. Most Apex Fluently libraries can be kept alongside KernDX; the cost is two sets of conventions and two maintenance
   calendars per library you keep. [`apex-fluently-async`](https://github.com/beyond-the-cloud-dev/async-lib) and `UTIL_AsyncChain` overlap in scope, so pick one for chain
-  orchestration. [`apex-chainable`](https://github.com/rsoesemann/apex-chainable) should not be added to a KernDX-plus-`apex-fluently-async` stack, because its dispatcher ships a
-  reflective-execution path.
+  orchestration. [`apex-chainable`](https://github.com/rsoesemann/apex-chainable) should not be added to a KernDX-plus-`apex-fluently-async` stack, because its dispatcher resolves
+  classes by name at runtime (reflection).
 
 ### Organisational Readiness
 
@@ -1011,7 +1011,7 @@ Measure framework adoption impact with concrete, team-agnostic metrics:
 
 ## Conclusion
 
-### Summary
+### Which approach to choose
 
 The Salesforce framework ecosystem now has two viable full-stack approaches: **Apex Fluently** (modular open-source, 8 independent MIT libraries, each installed from its own
 GitHub repo) and **KernDX** (one integrated managed package). Both cover triggers (the announced Apex Fluently Trigger Lib is not yet released, so teams use `taf` today), queries, DML,
@@ -1027,10 +1027,10 @@ surveyed. The choice between them depends on whether your team prioritises **est
 | Integrated stack covering every core Salesforce capability (broader than the comparable Apex frameworks surveyed)                                                                                                                                                          | Full package deployment (unused code is inert: exempt from 6 MB, invisible to your code-quality tools, and zero governor impact, but the namespace prefix and single upgrade cycle still apply)                                                                                                                                                                                                          |
 | You can see what your code actually did in production (a searchable, kept record) across triggers and API calls, with related entries tied together by a shared tracking ID; only KernDX and `rflib` ship built-in bypass-audit emission across comparable Apex frameworks                                                                                       | Single vendor dependency                                                                                                                                                                                                                                                                                                                                                                      |
 | 100% per-file Apex coverage gate + 95% statement/branch LWC, enforced at every release build; full ApexDoc; zero real-issue scanner findings                                                                                                                               | Higher initial development cost                                                                                                                                                                                                                                                                                                                                                               |
-| Five-tier documentation architecture (21 guides + 16 Fast Starts + 263 reference pages + 2,027-line Security Guide + AI-context bundle)                                                                                                                                    | Single developer authored it                                                                                                                                                                                                                                                                                                                                                                  |
-| Managed package (1 install, 1 upgrade, exempt from 6 MB); 107 distinct package version IDs in `sfdx-project.json`                                                                                                                                                          | Cannot modify managed source directly                                                                                                                                                                                                                                                                                                                                                         |
+| Five-tier documentation architecture ([21 guides + 16 Fast Starts + 268 reference pages](Strategic%20Guide%20-%20Metrics.md#documentation) + 2,326-line Security Guide + AI-context bundle)                                                                                                                                    | Single developer authored it                                                                                                                                                                                                                                                                                                                                                                  |
+| Managed package (1 install, 1 upgrade, exempt from 6 MB); [107 distinct package version IDs](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) in `sfdx-project.json`                                                                                                                                                          | Cannot modify managed source directly                                                                                                                                                                                                                                                                                                                                                         |
 | Zero licensing fees; source publicly available under BSL 1.1 (relicenses to Apache 2.0 after the four-year change date); broader capability coverage than the comparable Apex frameworks surveyed (see [Overview § Headline Finding](Strategic%20Guide%20-%20Overview.md)) | Newly public framework: at least one known external client engagement at the snapshot date and a short public production track record so far. Broader production references will accumulate as more teams install the public release. If you weight accumulated activity history as a primary criterion, weigh that against KernDX's framework-wide capability footprint |
-| Designed around what you receive: a release-testing harness with 471 anonymous-Apex assertions across 71 sections, 151 test methods across 22 subscriber test classes; a load-testing suite; rolling perf-history baselines; a release runbook; and a drift-audit cycle                        | No public community yet, so discoverability remains low                                                                                                                                                                                                                                                                                                                                       |
+| Designed around what you receive: a [release-testing harness](Strategic%20Guide%20-%20Metrics.md#release-testing) with 471 anonymous-Apex assertions across 71 sections, 175 test methods across 39 subscriber test classes; a load-testing suite; rolling perf-history baselines; a release runbook; and a drift-audit cycle                        | No public community yet, so discoverability remains low                                                                                                                                                                                                                                                                                                                                       |
 
 KernDX's trigger framework was adapted from `taf`. `UTIL_Security` originally descended from `fflib` but was replaced by platform-native `QRY_Builder.withUserMode()` and
 `.stripInaccessible()`. `rflib` adopted `apex-fluently-soql`. Frameworks learn from each other, so choose based on your actual constraints.
@@ -1039,10 +1039,10 @@ KernDX's trigger framework was adapted from `taf`. `UTIL_Security` originally de
 
 | Milestone                    | Status                  | Impact                                |
 |------------------------------|-------------------------|---------------------------------------|
-| **1.0 package release**      | In progress             | First GA version                      |
-| **Open-source publishing**   | Planned                 | Community access, external validation |
+| **1.0 package release**      | Released                | First GA version                      |
+| **Open-source publishing**   | Shipped                 | Community access, external validation |
 | **AppExchange listing**      | Planned                 | Enterprise distribution channel       |
-| **Apex Cursors integration** | Planned (Spring '26 GA) | 50M-row processing capability         |
+| **Apex Cursors integration** | Shipped                 | 50M-row processing capability         |
 | **Named Query API support**  | Evaluating              | REST exposure without custom Apex     |
 
 ### Decision Framework
@@ -1052,7 +1052,7 @@ KernDX's trigger framework was adapted from `taf`. `UTIL_Security` originally de
 | Building a managed package                      | Strong fit: designed for the 2GP lifecycle                                                                                                                                                                                                                                                                           | Viable: source distribution, no namespace isolation                                                                                                                                                                                                                                                                                                                                        |
 | Coordinated resilience patterns needed          | Strong fit: retry, circuit breaker, and outbox built in                                                                                                                                                                                                                                                              | Requires custom engineering per pattern                                                                                                                                                                                                                                                                                                                                                     |
 | Centralised governance exists                   | Strong fit: the framework encapsulates conventions                                                                                                                                                                                                                                                                   | Strong fit: architectural discipline enforces standards                                                                                                                                                                                                                                                                                                                                    |
-| OSI-approved licensing required at install time | Weaker fit: BSL 1.1 with a four-year change date to Apache 2.0, and single-maintainer (this is the norm; most comparable Apex frameworks are also single-maintainer; see [Risks: Bus Factor Reframe](Strategic%20Guide%20-%20Risks.md#bus-factor-reframe--institutional-knowledge-survival-via-documentation-depth)) | Strong fit on license: MIT-licensed, public GitHub repos. Multi-contributor maintainership lives mostly in the `fflib` family.                                                                                                                                                                                                                                                             |
+| OSI-approved licensing required at install time | Weaker fit: BSL 1.1 with a four-year change date to Apache 2.0, and single-maintainer (this is the norm; most comparable Apex frameworks are also single-maintainer; see [Risks: Bus Factor Reframe](Strategic%20Guide%20-%20Risks.md#bus-factor-reframe--institutional-knowledge-survival-via-documentation-depth)) | Strong fit on licence: MIT-licensed, public GitHub repos. Multi-contributor maintainership lives mostly in the `fflib` family.                                                                                                                                                                                                                                                             |
 | Incremental per-library adoption preferred      | Moderate fit: per-module adoption is possible                                                                                                                                                                                                                                                                       | Strong fit: install only what you need                                                                                                                                                                                                                                                                                                                                                     |
 | Architecture board requires public governance   | Weaker fit: private CI, internal contribution model, BSL 1.1 license                                                                                                                                                                                                                                             | Strong fit on CI visibility: public GitHub Actions. Most modular alternatives are still single-maintainer projects, so "community governance" is largely "one maintainer plus public CI" rather than a multi-contributor governance model; see [Risks: Bus Factor Reframe](Strategic%20Guide%20-%20Risks.md#bus-factor-reframe--institutional-knowledge-survival-via-documentation-depth) |
 

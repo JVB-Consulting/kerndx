@@ -17,7 +17,7 @@ also: [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20P
 
 ---
 
-**In short:** This guide covers what life looks like after you install KernDX, a pre-built foundation layer for Salesforce orgs. It answers four practical questions: how the
+This guide covers what life looks like after you install KernDX, a pre-built foundation layer for Salesforce orgs. It answers four practical questions: how the
 package is delivered and kept up to date, how you would unwind it if your org's direction changed, who fixes a deep bug long after handover, and what the framework costs you in
 Salesforce's runtime limits. Read it when you are weighing the long-term ownership and operating cost of adopting KernDX, not just its features. Architects and operations leads
 will get the most from it, but delivery managers and executives can read the support-model and exit sections for the business picture without touching code.
@@ -59,7 +59,7 @@ you can install a managed package, which is the model KernDX uses. The table bel
 | **Isolation**            | No namespace isolation: the source lives directly in your org                                                                                                                                                                                                                                                                                                                                                                  | Namespace isolation prevents conflicts                                                                                                                                                                                                                                                                                                                |
 | **Org code limit**       | Counts against 6 MB Apex code limit                                                                                                                                                                                                                                                                                                                                                                                      | Exempt from 6 MB limit                                                                                                                                                                                                                                                                                                                                |
 | **Code quality in org**  | Library source becomes part of your own code analysis (PMD, ApexDoc)                                                                                                                                                                                                                                                                                                                                                 | Encapsulated: you never see the internal implementation                                                                                                                                                                                                                                                                                          |
-| **CI/CD test execution** | The library's tests become part of your test surface. Your day-to-day CI can be scoped to just the relevant tests, but the gates Salesforce enforces cannot: production deploys run every test in your namespace, and so do full-suite coverage checks. The result is that production deployments take materially longer, and you have less headroom against platform test-execution limits (for example, the 120-minute synchronous-test ceiling). | The package's tests run only during package version validation on the publisher's Dev Hub, so your CI/CD is unaffected at every gate. For KernDX specifically, the entire test suite (166 Apex test classes, ≈3,443 `@IsTest` methods, plus the LWC Jest suite) stays inside the package boundary, gated at 100% per-file Apex and 95% statement and branch LWC. |
+| **CI/CD test execution** | The library's tests become part of your test surface. Your day-to-day CI can be scoped to just the relevant tests, but the gates Salesforce enforces cannot: production deploys run every test in your namespace, and so do full-suite coverage checks. The result is that production deployments take materially longer, and you have less headroom against platform test-execution limits (for example, the 120-minute synchronous-test ceiling). | The package's tests run only during package version validation on the publisher's Dev Hub, so your CI/CD is unaffected at every gate. For KernDX specifically, the entire test suite ([174 Apex test classes](Strategic%20Guide%20-%20Metrics.md#package-codebase), ≈3,742 `@IsTest` methods, plus the LWC Jest suite) stays inside the package boundary, gated at 100% per-file Apex and 95% statement and branch LWC. |
 | **DevOps velocity**      | Deploy thousands of individual source files across multiple libraries                                                                                                                                                                                                                                                                                                                                                    | Promote a single version number through DevOps pipelines                                                                                                                                                                                                                                                                                              |
 | **AI context**           | 5-8 separate README files per library                                                                                                                                                                                                                                                                                                                                                                                    | 1 set of conventions (`AGENTS.md` + `docs/Code Conventions - Guide.md`) covering all modules                                                                                                                                                                                                                                                          |
 
@@ -81,7 +81,7 @@ review the release notes, test in a sandbox, and promote it when you are ready. 
 A fair question before you adopt any framework is: what does it cost to leave, and who controls the code if the relationship ends? With KernDX the answer is that you own what you
 deploy, and there are no licensing fees under BSL 1.1. The source is available, you can change it, and you can deploy it yourself. You can self-install from the public repository under
 the BSL 1.1 license, or receive the source directly through a consulting engagement. After a four-year change date, the source automatically switches to the Apache 2.0 license, one of
-the most permissive open-source licenses there is.
+the most permissive open-source licences there is.
 
 You have **three ways to take ownership of the framework**, from doing nothing to running it entirely under your own name:
 
@@ -110,11 +110,11 @@ You have **three ways to take ownership of the framework**, from doing nothing t
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    EXIT STRATEGY DECISION TREE                              │
 │                                                                             │
-│                    Subscriber lifecycle: What happens next?                 │
+│                    Your org's lifecycle: What happens next?                 │
 │                              │                                              │
 │                              ▼                                              │
 │              ┌───────────────────────────────┐                              │
-│              │  Does subscriber want to own  │                              │
+│              │  Do you want to own           │                              │
 │              │  the framework source code?   │                              │
 │              └───────────────┬───────────────┘                              │
 │                     ┌────────┴────────┐                                     │
@@ -124,8 +124,8 @@ You have **three ways to take ownership of the framework**, from doing nothing t
 │                     │                 │                                     │
 │                     ▼                 ▼                                     │
 │    ┌─────────────────────┐   ┌────────────────────────┐                     │
-│    │ OPTION 1: Continue  │   │ Does subscriber want a │                     │
-│    │ using managed pkg   │   │ subscriber-owned NS?   │                     │
+│    │ OPTION 1: Continue  │   │ Do you want a          │                     │
+│    │ using managed pkg   │   │ self-owned NS?         │                     │
 │    │                     │   └───────────┬────────────┘                     │
 │    │ Effort: Zero        │         ┌─────┴─────┐                            │
 │    │ Maintainer updates  │         │           │                            │
@@ -135,7 +135,7 @@ You have **three ways to take ownership of the framework**, from doing nothing t
 │                                    ▼           ▼                            │
 │                   ┌────────────────────┐  ┌─────────────────────────┐       │
 │                   │ OPTION 2: Deploy   │  │ OPTION 3: Repackage     │       │
-│                   │ as Unlocked Pkg    │  │ with subscriber NS      │       │
+│                   │ as Unlocked Pkg    │  │ under your own NS       │       │
 │                   │                    │  │                         │       │
 │                   │ Effort: 2-4 hours  │  │ Effort: 4-8 hours       │       │
 │                   │ Full source, no NS │  │ Complete independence   │       │
@@ -303,7 +303,7 @@ consulting agreement, or, if you self-installed, before your first P1 production
 
 **Tier 1: Self-Maintenance (default, no cost).** *How feasible self-maintenance is comes from internal scenario modelling; it has not been benchmarked against a real external
 take-over.* Here, your own team fixes framework bugs in place, using the materials in the public repository (and also delivered at handover for consulting-engagement orgs). Those
-materials are the full source under the BSL 1.1 license, 18 guides, 15 Fast Starts, 263 API reference pages, 100% per-file Apex test coverage that acts as a safety net against
+materials are the full source under the BSL 1.1 license, 21 guides, 16 Fast Starts, 268 API reference pages, 100% per-file Apex test coverage that acts as a safety net against
 regressions, and an AI-context bundle (`AGENTS.md`, `docs/Code Conventions - Guide.md`, and the AI Agent Instructions reference, about 20K tokens in total) that documents the
 conventions, patterns, and design rationale. Once those context files are loaded, a developer new to the framework can diagnose a deep infrastructure bug using an AI coding tool
 such as Claude Code, Cursor, Cline, or Agentforce Vibes. Two things make this realistic: every module lives behind a single name prefix (`TRG_*`, `QRY_*`, `DML_*`, `LOG_*`,
@@ -354,14 +354,14 @@ A common worry is that a framework adds overhead and eats into Salesforce's stri
 
 **Deployment Footprint: "All-or-Nothing" Is Not What It Sounds Like:**
 
-A common concern is that installing KernDX deploys all 183 production classes even if all you need is triggers. If KernDX shipped as source code you deploy yourself, that would
+A common concern is that installing KernDX deploys all [189 production classes](Strategic%20Guide%20-%20Metrics.md#package-codebase) even if all you need is triggers. If KernDX shipped as source code you deploy yourself, that would
 indeed be wasteful. As a managed package it is not, because managed packages behave differently. The table below shows why the classes you do not use cost you nothing.
 
 | Concern                  | Managed Package (KernDX)                                                                                                                                                                                       | Source-Distributed (modular)                              |
 |--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
 | **Org code size limit**  | Exempt: does not count against the 6 MB Apex limit                                                                                                                                                                | Counts against the 6 MB limit                                 |
 | **PMD / quality scans**  | Encapsulated: classes you don't use are invisible to your own scans and reports                                                                                                                                        | All source is visible in your quality tooling          |
-| **Test coverage**        | Self-contained: 166 Apex test classes (≈3,443 `@IsTest` methods) plus the LWC Jest suite run on their own, gated at 100% per-file Apex and 95% statement and branch LWC, and they do not affect your coverage metrics | Library coverage mixes with your coverage           |
+| **Test coverage**        | Self-contained: [174 Apex test classes](Strategic%20Guide%20-%20Metrics.md#package-codebase) (≈3,742 `@IsTest` methods) plus the LWC Jest suite run on their own, gated at 100% per-file Apex and 95% statement and branch LWC, and they do not affect your coverage metrics | Library coverage mixes with your coverage           |
 | **Governor limits**      | Classes you don't use consume zero CPU, SOQL, DML, or heap: code that is never called is inert                                                                                                                          | Same: unused library code is inert                       |
 | **Learning requirement** | Use only what you need: `TRG_Dispatcher` works without you knowing `API_Outbound` exists                                                                                                                          | Same: install `taf` without knowing `apex-fluently-soql` |
 
@@ -370,7 +370,7 @@ inert. The real costs of installing the full package are the namespace prefix on
 
 **Security & Compliance Posture:**
 
-- **Internal code scanning:** The package runs 36 scanner rules (PMD + Node + ESLint) on every build, plus Salesforce Code Analyzer; current builds pass with zero critical
+- **Internal code scanning:** The package runs [35 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, and 4 Node scanners) on every build, plus Salesforce Code Analyzer; current builds pass with zero critical
   findings. See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for the ruleset contents.
 - **Security posture and code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
   documented compensating-control rationale. On security posture: reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =
@@ -378,7 +378,7 @@ inert. The real costs of installing the full package are the namespace prefix on
   shipped; every time a safety check is bypassed the framework writes a structured audit event; and the repository ships a top-level `SECURITY.md` reporting channel. One nuance
   remains: per-SObject masking is opt-in for custom objects, and the Data Masking Advisor surfaces the custom objects that need it. This is a matter of discoverability, not a gap
   in runtime enforcement.
-- **License:** BSL 1.1 today, switching to Apache 2.0 after the 4-year change date. There are no third-party dependencies beyond the Salesforce platform itself.
+- **Licence:** BSL 1.1 today, switching to Apache 2.0 after the 4-year change date. There are no third-party dependencies beyond the Salesforce platform itself.
 - **Production usage:** Deployed on internal delivery engagements. KernDX is NOT AppExchange-listed and has NOT been through AppExchange security review (see the note below).
 
 **Important Note:** KernDX is a 2GP managed package that has NOT been through AppExchange security review. Only AppExchange-certified packages receive separate per-transaction

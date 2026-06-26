@@ -6,7 +6,7 @@ navOrder: 10
 
 A self-assessment of the KernDX Salesforce framework, its design philosophy, and how it compares to alternatives in the Salesforce framework ecosystem, authored by the KernDX team. Where another framework covers an area more thoroughly than KernDX, this guide names that framework and explains the trade-off.
 
-**In one paragraph.** KernDX is a Salesforce managed-package framework, a single installable package that gives your org ready-made, tested building blocks for the work almost every serious org needs: trigger handling, database queries and writes, web-service integrations, background jobs, validation, logging, data masking, and security checks. **Why it exists:** most teams build these themselves over three to five years; KernDX ships them up front so you skip the rebuild. **Who should read this:** executives sizing up the framework, architects and tech leads choosing one, developers who will use it day to day, delivery managers weighing cost and risk, and ISVs building managed packages. **When to use it:** when you want broad, consistent coverage of these areas in one package, and you want to know honestly where a specialist library still goes deeper. **Where to start:** read this overview, then follow the reading path for your role in the [Who should read what](#who-should-read-what) table at the end.
+**What it is:** KernDX is a Salesforce managed-package framework, a single installable package that gives your org ready-made, tested building blocks for the work almost every serious org needs: trigger handling, database queries and writes, web-service integrations, background jobs, validation, logging, data masking, and security checks. **Why it exists:** most teams build these themselves over three to five years; KernDX ships them up front so you skip the rebuild. **Who should read this:** executives sizing up the framework, architects and tech leads choosing one, developers who will use it day to day, delivery managers weighing cost and risk, and ISVs building managed packages. **When to use it:** when you want broad, consistent coverage of these areas in one package, and you want to know honestly where a specialist library still goes deeper. **Where to start:** read this overview, then follow the reading path for your role in the [Who should read what](#who-should-read-what) table at the end.
 
 KernDX is one architectural approach in a maturing Salesforce framework ecosystem. It is a managed-package alternative built for enterprise delivery, managed-package development, and integration-heavy environments. It is not intended to replace open-source frameworks in every case. This guide compares KernDX against the alternative Salesforce frameworks the team has surveyed, and it acknowledges that different team constraints lead to different best choices.
 
@@ -85,7 +85,7 @@ Production-ready, end-to-end implementations across all of these areas:
 | Testing (mock library) | KernDX ships a `MOCK_*` family for stubbing HTTP, Selectors, and DML; pair with fflib-mocks when you specifically need Mockito-style behaviour-verification mocking. |
 | Domain Patterns | KernDX ships light on the Domain layer; pair with fflib + at4dx if you need the Service / Application factory pattern. |
 
-**One-sentence guidance**
+**When to adopt KernDX**
 
 "Adopt KernDX when you need broad coverage across Trigger, Query, DML, Inbound REST, Resilience, Security, Data Masking, LWC, Async, Utilities, Health, Outbound, and CI tooling in a single managed package; mix in nebula-logger for logging-surface depth, fflib-mocks for behaviour-verification mocking, or fflib + at4dx for the Service / Application factory pattern."
 
@@ -133,7 +133,7 @@ Production-ready, end-to-end implementations across all of these areas:
 
 ---
 
-### The short version
+### What KernDX is and how it compares
 
 **What KernDX is built on.** KernDX follows five design principles (the full design narrative is in the [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md) doc):
 
@@ -225,7 +225,7 @@ features* are what make the difference in the comparison:
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
 - **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a seven-dimension self-diagnostic with
   actionable results.
-- **CI / Tooling.** Decisive features: 25 PMD scanner rules + a 6-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
+- **CI / Tooling.** Decisive features: [25 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 6-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
   against `force-app/**`, and a secret-scanning gate that blocks committed credentials) plus 2 branch-rule templates + 6 CI-tool adapters, all via `kerndx init`.
 - **Web Services — Outbound.** KernDX ships the broadest implementation of this area among the Apex libraries surveyed. On the mock-library piece, KernDX matches

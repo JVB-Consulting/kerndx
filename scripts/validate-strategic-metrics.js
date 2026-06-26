@@ -25,6 +25,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const counts = require('./lib/metrics-counts');
+
 const REPO_ROOT = path.resolve(__dirname, '..');
 const METRICS_FILE = path.join(REPO_ROOT, 'docs', 'Strategic Guide - Metrics.md');
 
@@ -165,6 +167,11 @@ function computeExpected(repoRoot)
 
 	const e2eSpecFiles = countFiles(path.join(repoRoot, 'release-testing', 'e2e'), f => f.endsWith('.spec.js'));
 
+	const customObjects = counts.countCustomObjects(repoRoot);
+	const cmdtTypes = counts.countCmdtTypes(repoRoot);
+	const platformEvents = counts.countPlatformEvents(repoRoot);
+	const customFields = counts.countCustomFields(repoRoot);
+
 	return {
 		apexProduction,
 		apexTest,
@@ -184,7 +191,11 @@ function computeExpected(repoRoot)
 		subscriberApexProduction,
 		subscriberApexTest,
 		subscriberTestMethods,
-		e2eSpecFiles
+		e2eSpecFiles,
+		customObjects,
+		cmdtTypes,
+		platformEvents,
+		customFieldsTotal: customFields.total
 	};
 }
 
@@ -234,6 +245,12 @@ function parseDocClaims(content)
 		if(labelLc === 'apex test methods')
 		{
 			setIfMissing('apexTestMethods', value, i + 1);
+		}
+		// Parsed for the public README badge synthesizer (not source-validated:
+		// the global top-level count is maintained by hand in the Metrics doc).
+		if(labelLc === 'global classes (top-level)')
+		{
+			setIfMissing('globalClasses', value, i + 1);
 		}
 		if(labelLc === 'lwc components (total)')
 		{
@@ -294,6 +311,25 @@ function parseDocClaims(content)
 		if(labelLc === 'spec files')
 		{
 			setIfMissing('e2eSpecFiles', value, i + 1);
+		}
+		// Salesforce Metadata section. parseDocClaims strips backticks and
+		// underscores from the label, so `__c` -> "c", `__mdt` -> "mdt",
+		// `__e` -> "e".
+		if(labelLc === 'custom objects (c)')
+		{
+			setIfMissing('customObjects', value, i + 1);
+		}
+		if(labelLc === 'custom metadata types (mdt)')
+		{
+			setIfMissing('cmdtTypes', value, i + 1);
+		}
+		if(labelLc === 'platform events (e)')
+		{
+			setIfMissing('platformEvents', value, i + 1);
+		}
+		if(labelLc === 'custom fields (total)')
+		{
+			setIfMissing('customFieldsTotal', value, i + 1);
 		}
 	}
 	return claims;
