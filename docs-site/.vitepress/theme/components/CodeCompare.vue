@@ -93,6 +93,9 @@ const writeLead = computed(() =>
 .kl-pill{ font-size: .58rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--vp-c-divider); }
 .kl-pill.manual{ color: var(--vp-c-red-1); background: transparent; }
 .kl-pill.incl{ color: var(--vp-c-green-1); background: var(--vp-c-brand-soft); border-color: transparent; }
+/* Light mode only: the green on the bronze-soft pill fill is a hair under WCAG AA; deepen it
+   slightly (dark already clears it). */
+html:not(.dark) .kl-pill.incl{ color: #15704a; }
 .kl-slot{ flex: 1; display: flex; flex-direction: column; }
 .kl-slot :deep(div[class*="language-"]){ margin: 0; border-radius: 8px; flex: 1; }
 .kl-slot :deep(div[class*="language-"] pre){ padding: 14px 16px; height: 100%; }
@@ -141,6 +144,9 @@ const writeLead = computed(() =>
 .kl-cats :deep(.kl-ledger-chip.hero){ background: var(--vp-c-brand-soft); border-radius: 9px; padding: 8px 11px; margin: 1px 0 5px; border-bottom: 0; }
 .kl-cats :deep(.kl-ledger-chip.hero)::before{ content: "★"; color: var(--vp-c-brand-1); font-size: .95rem; }
 .kl-cats :deep(.kl-ledger-chip.hero .kl-chip-t){ font-size: .85rem; }
+/* The hero chip's bronze-soft fill drops its muted (text-2) description just under WCAG AA;
+   use the primary text colour on the highlighted chip only. */
+.kl-cats :deep(.kl-ledger-chip.hero .kl-chip-d){ color: var(--vp-c-text-1); }
 
 /* ── "What's actually happening" — collapsed on desktop AND mobile ── */
 .kl-why{ border-top: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-alt); }
