@@ -347,6 +347,10 @@
 .kl-flow-foot{ color: var(--vp-c-text-2); font-style: italic; margin: 20px 0 0; max-width: 66ch; }
 .kl-core-parts{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .kl-core-parts span{ font-size: .8rem; font-weight: 600; padding: .3rem .6rem; border-radius: 7px; background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1); }
+/* Light mode only: brand-1 bronze on the bronze-soft badge backgrounds sits just under WCAG AA;
+   deepen to brand-2 in light (dark already clears it, and brand-2 is the lighter accent there). */
+html:not(.dark) .kl-kernid,
+html:not(.dark) .kl-core-parts span{ color: var(--vp-c-brand-2); }
 
 /* "What you get on day one" — capability chips */
 .kl-stack{ display: flex; flex-wrap: wrap; gap: 10px; }
@@ -399,7 +403,7 @@
 
 /* Sticky install CTA */
 .kl-sticky{ position: fixed; bottom: 22px; right: 22px; z-index: 20; display: inline-flex; align-items: center; gap: .45rem; font-weight: 700; font-size: .9rem; padding: .65rem 1.05rem; border-radius: 999px; background: var(--vp-c-brand-1); color: var(--vp-c-white); text-decoration: none; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
-.kl-sticky span{ font-weight: 500; opacity: .85; font-size: .8rem; }
+.kl-sticky span{ font-weight: 500; opacity: .92; font-size: .8rem; }
 .kl-sticky:hover{ background: var(--vp-c-brand-2); }
 
 /* Dark mode: the brand bronze is LIGHT there (#d6a875 — tuned for links/accents), so white

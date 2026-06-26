@@ -34,7 +34,7 @@ catch
 // bronze-bold, types blue, modifiers red (no italic), parameters orange. Every other
 // language keeps the stock GitHub palette. Scope aliases (the non-`.apex` forms) are
 // defensive against grammar drift.
-const APEX_LIGHT = {method: '#8a623c', type: '#1f6feb', modifier: '#cf222e', param: '#953800'};
+const APEX_LIGHT = {method: '#8a623c', type: '#1668d6', modifier: '#cf222e', param: '#953800'};
 const APEX_DARK = {method: '#e0a064', type: '#79c0ff', modifier: '#ff7b72', param: '#ffa657'};
 
 function apexScopeRules(p)
@@ -55,7 +55,16 @@ function apexScopeRules(p)
 // Appended AFTER the apex rules so they win, and orthogonal to the apex method/type/modifier/
 // param scopes, which are untouched.
 const commentRule = (foreground) => ({scope: ['comment', 'punctuation.definition.comment', 'string.comment'], settings: {foreground}});
-const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...githubLight.tokenColors, ...apexScopeRules(APEX_LIGHT), commentRule('#57606a')]};
+// Raise the GitHub-light keyword red (#d73a49) that falls just under WCAG AA on the light code
+// background to #cf222e — the same red already used for the Apex modifier scope, so the palette
+// stays consistent. Light theme only; the dark theme already clears AA.
+const recolorForeground = (tokenColors, swaps) => tokenColors.map((tc) =>
+{
+	const fg = tc.settings && tc.settings.foreground;
+	const key = fg && fg.toLowerCase();
+	return (key && swaps[key]) ? {...tc, settings: {...tc.settings, foreground: swaps[key]}} : tc;
+});
+const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...recolorForeground(githubLight.tokenColors, {'#d73a49': '#cf222e'}), ...apexScopeRules(APEX_LIGHT), commentRule('#57606a')]};
 const apexDarkTheme = {...githubDark, name: 'kerndx-apex-dark', tokenColors: [...githubDark.tokenColors, ...apexScopeRules(APEX_DARK), commentRule('#8b949e')]};
 
 export default withMermaid(defineConfig({
