@@ -7,6 +7,7 @@ import Breadcrumb from './Breadcrumb.vue';
 import KernLanding from './components/KernLanding.vue';
 import CodeCompare from './components/CodeCompare.vue';
 import HeroLoop from './components/HeroLoop.vue';
+import StillShot from './components/StillShot.vue';
 
 // Reference-page render-layer enhancement: a method whose name heading is followed
 // by more than one `.apex-member` card has overloads. We tag the heading with the
@@ -59,6 +60,7 @@ export default {
 		app.component('KernLanding', KernLanding);
 		app.component('CodeCompare', CodeCompare);
 		app.component('HeroLoop', HeroLoop);
+		app.component('StillShot', StillShot);
 		if(typeof window === 'undefined')
 		{
 			return;

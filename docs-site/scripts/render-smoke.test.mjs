@@ -85,9 +85,11 @@ try
 
 	// 6. In-page anchors resolve: every same-page #fragment link in the doc body points at a
 	// real element id. Covers the trickiest pages — a numbered TOC + a generic method anchor
-	// on web-services-guide, and the 30 `__c` field anchors on a reference object page.
+	// on web-services-guide, the 30 `__c` field anchors on a reference object page, and the
+	// admin-tools tour's raw-`<a href="#…">` jump-list chips (authored as HTML, so they bypass
+	// the build's markdown anchor-rewrite and are only caught by a runtime DOM check like this).
 	await page.setViewportSize({width: 1280, height: 800});
-	for(const route of ['/web-services-guide', '/reference/objects/apicall-c'])
+	for(const route of ['/web-services-guide', '/reference/objects/apicall-c', '/administration-tools-guide'])
 	{
 		await page.goto(`${BASE}${route}`, {waitUntil: 'networkidle'});
 		const dead = await page.evaluate(() =>
@@ -199,6 +201,20 @@ try
 		const gres = await page.request.get(new URL(l.guide.replace(/\/$/, '') + '.html', page.url()).href);
 		assert(gres.status() === 200, `hero loop guide link resolves 200: ${l.guide}`);
 		console.log(`ok: hero loop ${l.poster} (webm+mp4, poster, guide ${l.guide})`);
+	}
+
+	// 11. Admin-tools tour stills: every embedded /stills/ screenshot resolves (HTTP 200). These are
+	//     plain markdown images served from /public — nothing in the build gates a missing one, so
+	//     verify them at render time the way the hero-loop sources are verified above.
+	const stills = await page.evaluate(() =>
+		Array.from(document.querySelectorAll('.vp-doc img'))
+		.map(img => img.getAttribute('src'))
+		.filter(src => src && src.includes('/stills/')));
+	assert(stills.length >= 7, `tour page embeds >=7 stills (got ${stills.length})`);
+	for(const src of stills)
+	{
+		const sres = await page.request.get(new URL(src, page.url()).href);
+		assert(sres.status() === 200, `tour still resolves 200: ${src}`);
 	}
 
 	console.log('render smoke-test PASSED');

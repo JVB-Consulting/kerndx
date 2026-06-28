@@ -148,7 +148,7 @@ onBeforeUnmount(() =>
 		</div>
 		<figcaption v-if="caption || guide" class="hero-loop__meta" :class="{'has-guide': !!guide}">
 			<span v-if="caption" class="hero-loop__cap">{{ caption }}</span>
-			<a v-if="guide" class="hero-loop__guide" :href="withBase(guide)">Read the full guide →<span v-if="guideLabel" class="hero-loop__guide-tgt"> ({{ guideLabel }})</span></a>
+			<a v-if="guide" class="hero-loop__guide" :href="withBase(guide)">Read the full write-up →<span v-if="guideLabel" class="hero-loop__guide-tgt"> ({{ guideLabel }})</span></a>
 		</figcaption>
 
 		<Teleport to="body">

@@ -6,7 +6,7 @@
 // blocks verbatim (VitePress applies v-pre), keeps angle brackets in inline code spans
 // (they render fine), and keeps a small allowlist of real HTML tags used in docs.
 
-const ALLOWED = /<\/?(?:br|hr|img|a|sub|sup|kbd|code|em|strong|b|i|u|small|mark|del|ins|div|span|p|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6]|details|summary|blockquote|pre|HeroLoop)\b(?:"[^"]*"|'[^']*'|[^<>])*>/gi;
+const ALLOWED = /<\/?(?:br|hr|img|a|sub|sup|kbd|code|em|strong|b|i|u|small|mark|del|ins|div|span|p|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6]|details|summary|blockquote|pre|HeroLoop|StillShot)\b(?:"[^"]*"|'[^']*'|[^<>])*>/gi;
 const SENTINEL = String.fromCharCode(0);
 const BLOCKQUOTE = String.fromCharCode(1);
 
