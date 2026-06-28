@@ -19,3 +19,15 @@ rules:
   flow:
     SameRecordFieldUpdates:
       severity: Info
+  regex:
+    # `regex:NoMixedIndentation` (added to the `Recommended` set in a recent
+    # Code Analyzer release) flags any line whose leading whitespace mixes tabs
+    # and spaces. Our Apex is tab-indented and ApexDoc continuation lines align
+    # the `*` with a single leading space (`\t *`, the standard Javadoc/ApexDoc
+    # convention the IDE formatter emits), so the rule fires on essentially
+    # every doc comment. Its actual concern — mixed indentation breaking the
+    # dedent of `'''` multiline string literals — never applies here, since the
+    # package does not use `'''` text blocks. Empty `tags` removes it from every
+    # tag selector so it is not run.
+    NoMixedIndentation:
+      tags: []

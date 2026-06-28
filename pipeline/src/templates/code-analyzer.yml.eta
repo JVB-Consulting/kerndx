@@ -21,3 +21,13 @@ rules:
   flow:
     SameRecordFieldUpdates:
       severity: Info
+  regex:
+    # `NoMixedIndentation` flags any line whose leading indentation mixes tabs
+    # and spaces. If your Apex is tab-indented and your ApexDoc comments align
+    # the `*` with a leading space (the standard layout most formatters apply),
+    # it fires on nearly every doc comment. The rule guards mixed indentation
+    # inside `'''` multiline strings, so disable it only if you do not rely on
+    # that check. Empty `tags` removes it from every selector; delete this block
+    # to re-enable the rule.
+    NoMixedIndentation:
+      tags: []

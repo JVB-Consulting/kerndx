@@ -29,3 +29,10 @@ test('code-analyzer.yml.eta preserves SameRecordFieldUpdates Info-severity overr
 	assert.match(rendered, /SameRecordFieldUpdates/);
 	assert.match(rendered, /severity: Info/);
 });
+
+test('code-analyzer.yml.eta preserves NoMixedIndentation tag-disable override', () =>
+{
+	const rendered = renderTemplate(TPL, {});
+	assert.match(rendered, /NoMixedIndentation/);
+	assert.match(rendered, /tags: \[\]/);
+});
