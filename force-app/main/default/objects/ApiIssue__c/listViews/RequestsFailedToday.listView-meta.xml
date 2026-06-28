@@ -17,7 +17,7 @@
     <filters>
         <field>Status__c</field>
         <operation>equals</operation>
-        <value>Failed</value>
+        <value>Open</value>
     </filters>
     <label>Requests Failed Today</label>
 </ListView>

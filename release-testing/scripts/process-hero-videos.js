@@ -19,7 +19,15 @@ const TOOLS = [
 	{key: 'api-harness', title: 'api-harness'},
 	{key: 'streaming-monitor', title: 'streaming-monitor'},
 	{key: 'chain-monitor', title: 'chain-monitor'},
-	{key: 'masking-advisor', title: 'masking-advisor'}
+	{key: 'masking-advisor', title: 'masking-advisor'},
+	{key: 'scheduled-jobs', title: 'scheduled-jobs'},
+	// health-check's poster is taken from a hand-grabbed screenshot of the not-yet-healthy state
+	// (the readiness banner flagging a problem), not the all-green final dwell — the still a reader
+	// sees before pressing play should show the check catching what isn't configured, not "all clear".
+	{key: 'health-check', title: 'health-check', posterFromShot: true},
+	// class-type-resolver's final dwell (the generated class + copied state) is the representative
+	// still, so the default last-frame poster is correct here.
+	{key: 'class-type-resolver', title: 'class-type-resolver'}
 ];
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -90,6 +98,14 @@ function extractPoster(input, output)
 	execFileSync('ffmpeg', ['-y', '-sseof', '-1.5', '-i', input, '-frames:v', '1', '-update', '1', '-vf', 'scale=1280:-2', '-q:v', '4', output], {stdio: 'inherit'});
 }
 
+function posterFromScreenshot(input, output)
+{
+	// Convert a hand-grabbed full-viewport screenshot (e.g. the not-yet-healthy readiness banner)
+	// into a poster matching the video posters: 1280-wide JPEG, audio-irrelevant. Used when the
+	// representative still is a specific choreography moment rather than the clip's final frame.
+	execFileSync('ffmpeg', ['-y', '-i', input, '-frames:v', '1', '-update', '1', '-vf', 'scale=1280:-2', '-q:v', '4', output], {stdio: 'inherit'});
+}
+
 function checkBudget(file, max, label)
 {
 	const bytes = fs.statSync(file).size;
@@ -108,12 +124,19 @@ function warnIfOverPreferred(bytes, label)
 	}
 }
 
-function processAll()
+function processAll(only)
 {
 	preflightFfmpeg();
 	fs.mkdirSync(OUT_DIR, {recursive: true});
+	// Optional allow-list of tool keys: process only those (e.g. when adding a new loop without
+	// re-encoding the already-committed ones, which would change their bytes non-deterministically).
+	const selected = (only && only.length) ? TOOLS.filter(t => only.includes(t.key)) : TOOLS;
+	if(only && only.length && selected.length !== only.length)
+	{
+		throw new Error(`Unknown tool key(s) in ${JSON.stringify(only)} — known keys: ${TOOLS.map(t => t.key).join(', ')}`);
+	}
 	const summary = [];
-	for(const tool of TOOLS)
+	for(const tool of selected)
 	{
 		const raw = findRawWebm(tool.title);
 		if(!raw)
@@ -125,7 +148,15 @@ function processAll()
 		const poster = path.join(OUT_DIR, `${tool.key}-poster.jpg`);
 		encodeWebm(raw, webm);
 		encodeMp4(raw, mp4);
-		extractPoster(webm, poster);
+		const shot = path.join(path.dirname(raw), 'problem-poster.png');
+		if(tool.posterFromShot && fs.existsSync(shot))
+		{
+			posterFromScreenshot(shot, poster);
+		}
+		else
+		{
+			extractPoster(webm, poster);
+		}
 		const wb = checkBudget(webm, MAX_CLIP_BYTES, `${tool.key}.webm`);
 		warnIfOverPreferred(wb, `${tool.key}.webm`);
 		const mb = checkBudget(mp4, MAX_CLIP_BYTES, `${tool.key}.mp4`);
@@ -143,7 +174,7 @@ function processAll()
 
 if(require.main === module)
 {
-	processAll();
+	processAll(process.argv.slice(2));
 }
 
 module.exports = {processAll, checkBudget, warnIfOverPreferred, findRawWebm, preflightFfmpeg, PREFERRED_BYTES, MAX_CLIP_BYTES, MAX_POSTER_BYTES, OUT_DIR, TOOLS};

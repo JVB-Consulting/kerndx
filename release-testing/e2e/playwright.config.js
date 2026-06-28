@@ -43,7 +43,10 @@ module.exports = defineConfig({
 			name: 'streaming-serial', testMatch: streamingMatch, fullyParallel: false, workers: 1, retries: 0, dependencies: ['independent'], use: sharedUse
 		},
 		{
-			name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, use: {...sharedUse, video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
+			name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, use: {...sharedUse, permissions: ['clipboard-read', 'clipboard-write'], video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
+		},
+		{
+			name: 'stills', testMatch: /capture-stills\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, use: {...sharedUse, video: 'off', trace: 'off'}
 		}
 	]
 });

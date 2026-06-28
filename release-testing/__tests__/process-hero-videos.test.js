@@ -37,9 +37,9 @@ describe('process-hero-videos helpers', () =>
 		}
 	});
 
-	test('TOOLS covers the four admin tools with neutral keys', () =>
+	test('TOOLS covers the admin tools with neutral keys', () =>
 	{
 		const keys = TOOLS.map(t => t.key).sort();
-		expect(keys).toEqual(['api-harness', 'chain-monitor', 'masking-advisor', 'streaming-monitor']);
+		expect(keys).toEqual(['api-harness', 'chain-monitor', 'health-check', 'masking-advisor', 'scheduled-jobs', 'streaming-monitor']);
 	});
 });
