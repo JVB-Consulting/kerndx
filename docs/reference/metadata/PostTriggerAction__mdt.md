@@ -36,7 +36,7 @@ Registers a single post-trigger action: one Apex class that runs once at the end
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [EntryCriteriaContextClassName__c](#entrycriteriacontextclassname__c) | Optional. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | Controls how this post-trigger action handles unhandled Apex exceptions. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, execution time is always logged for this post-action regardless of whether it exceeds the threshold. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Determines execution sequence relative to other post-trigger actions in the same transaction. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Controls the order post-trigger actions run in within the same transaction, lowest first. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Optional. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
@@ -184,7 +184,7 @@ When checked, execution time is always logged for this post-action regardless of
 global Decimal Order__c
 ```
 
-Determines execution sequence relative to other post-trigger actions in the same transaction. Lower numbers execute first. Actions sharing the same order value have no guaranteed sequence. Subscriber-controlled to allow reordering without package upgrades.
+Controls the order post-trigger actions run in within the same transaction, lowest first. Actions that share the same order value run in a stable, predictable sequence (ordered by their developer name), so the order does not change between deployments. You can change this in your org to reorder actions without a package upgrade.
 
 **Field Attributes:**
 

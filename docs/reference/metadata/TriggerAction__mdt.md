@@ -41,7 +41,7 @@ Registers a single trigger action: one Apex class bound to one trigger event (e.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | Controls how this trigger action handles unhandled errors raised during dispatch — flow runtime faults for flow actions, uncaught Apex exceptions for Apex actions. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FlowName__c](#flowname__c) | API name of the active flow that runs as this trigger action. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, execution time is always logged for this action regardless of whether it exceeds the threshold. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Determines execution sequence relative to other actions on the same object and event. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Controls the order trigger actions run in on the same object and event, lowest first. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Action-level performance threshold in milliseconds. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
@@ -275,7 +275,7 @@ When checked, execution time is always logged for this action regardless of whet
 global Decimal Order__c
 ```
 
-Determines execution sequence relative to other actions on the same object and event. Lower numbers execute first. Actions sharing the same order value have no guaranteed sequence. Subscriber-controlled to allow reordering without package upgrades.
+Controls the order trigger actions run in on the same object and event, lowest first. Actions that share the same order value run in a stable, predictable sequence (ordered by their developer name), so the order does not change between deployments. You can change this in your org to reorder actions without a package upgrade.
 
 **Field Attributes:**
 

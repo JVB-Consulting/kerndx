@@ -423,47 +423,53 @@ private class SEL_TriggerAction_TEST
 	}
 
 	/**
-	 * @description Verifies that sortByOrder sorts trigger actions by Order__c ascending.
+	 * @description Verifies that sortByOrder orders rows by Order__c ascending and breaks an Order__c
+	 * tie by DeveloperName ascending in a single pass. Rows are supplied out of order, including a pair
+	 * sharing an Order__c value in reverse DeveloperName order, so the result proves both the primary
+	 * Order__c key and the DeveloperName tiebreak are applied through the reusable UTIL_Comparators
+	 * sort chain.
 	 *
 	 * @see SEL_TriggerAction.sortByOrder
 	 */
 	@IsTest
-	private static void sortByOrderSortsActionsAscending()
+	private static void sortByOrderSortsByOrderThenDeveloperNameAscending()
 	{
-		TriggerAction__mdt actionOrder3 = new TriggerAction__mdt(DeveloperName = 'Third', Order__c = 3);
-		TriggerAction__mdt actionOrder1 = new TriggerAction__mdt(DeveloperName = 'First', Order__c = 1);
-		TriggerAction__mdt actionOrder2 = new TriggerAction__mdt(DeveloperName = 'Second', Order__c = 2);
+		TriggerAction__mdt order2Zeta = new TriggerAction__mdt(DeveloperName = 'Zeta', Order__c = 2);
+		TriggerAction__mdt order1Solo = new TriggerAction__mdt(DeveloperName = 'Solo', Order__c = 1);
+		TriggerAction__mdt order2Alpha = new TriggerAction__mdt(DeveloperName = 'Alpha', Order__c = 2);
 
-		List<TriggerAction__mdt> unsorted = new List<TriggerAction__mdt> {actionOrder3, actionOrder1, actionOrder2};
+		List<TriggerAction__mdt> unsorted = new List<TriggerAction__mdt> {order2Zeta, order1Solo, order2Alpha};
 
 		Test.startTest();
 		List<TriggerAction__mdt> sorted = SEL_TriggerAction.sortByOrder(unsorted);
 		Test.stopTest();
 
-		Assert.areEqual('First', sorted[0].DeveloperName, 'First action should have Order 1');
-		Assert.areEqual('Second', sorted[1].DeveloperName, 'Second action should have Order 2');
-		Assert.areEqual('Third', sorted[2].DeveloperName, 'Third action should have Order 3');
+		Assert.areEqual('Solo', sorted[0].DeveloperName, 'Order__c 1 must sort ahead of Order__c 2');
+		Assert.areEqual('Alpha', sorted[1].DeveloperName, 'A tied Order__c 2 must break ascending by DeveloperName (Alpha before Zeta)');
+		Assert.areEqual('Zeta', sorted[2].DeveloperName, 'A tied Order__c 2 must break ascending by DeveloperName (Zeta after Alpha)');
 	}
 
 	/**
-	 * @description Verifies that sortByOrder treats null Order__c as 0 (first position).
+	 * @description Verifies that a null Order__c sorts ahead of any numbered action, guarding the
+	 * sortByOrder contract that an unset order is treated as the lowest. Exercises the null path
+	 * through the reusable UTIL_Comparators sort chain at the selector level.
 	 *
 	 * @see SEL_TriggerAction.sortByOrder
 	 */
 	@IsTest
-	private static void sortByOrderTreatsNullAsZero()
+	private static void sortByOrderPlacesNullOrderFirst()
 	{
-		TriggerAction__mdt actionOrder1 = new TriggerAction__mdt(DeveloperName = 'Explicit', Order__c = 1);
-		TriggerAction__mdt actionNullOrder = new TriggerAction__mdt(DeveloperName = 'NullOrder');
+		TriggerAction__mdt nullOrder = new TriggerAction__mdt(DeveloperName = 'NullOrder');
+		TriggerAction__mdt order1 = new TriggerAction__mdt(DeveloperName = 'Explicit', Order__c = 1);
 
-		List<TriggerAction__mdt> unsorted = new List<TriggerAction__mdt> {actionOrder1, actionNullOrder};
+		List<TriggerAction__mdt> unsorted = new List<TriggerAction__mdt> {order1, nullOrder};
 
 		Test.startTest();
 		List<TriggerAction__mdt> sorted = SEL_TriggerAction.sortByOrder(unsorted);
 		Test.stopTest();
 
-		Assert.areEqual('NullOrder', sorted[0].DeveloperName, 'Null Order__c should be treated as 0 and come first');
-		Assert.areEqual('Explicit', sorted[1].DeveloperName, 'Order 1 should come after null/0');
+		Assert.areEqual('NullOrder', sorted[0].DeveloperName, 'A null Order__c must sort ahead of a numbered action');
+		Assert.areEqual('Explicit', sorted[1].DeveloperName, 'A numbered action must sort after a null Order__c');
 	}
 
 	/**

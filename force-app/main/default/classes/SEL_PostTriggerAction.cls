@@ -83,7 +83,8 @@ public inherited sharing class SEL_PostTriggerAction
 
 	/**
 	 * @description Returns active `PostTriggerAction__mdt` rows (bypassed rows excluded
-	 * at the SOQL level) sorted by `Order__c` ascending — null `Order__c` sorts first,
+	 * at the SOQL level) sorted by `Order__c` ascending, with equal-Order rows broken
+	 * deterministically by `DeveloperName` ascending. Null `Order__c` sorts first,
 	 * before any non-null value. The SOQL result is cached per transaction (see
 	 * `cachedActiveRows`) so the per-dispatch hook does not re-query on every invocation.
 	 *
@@ -94,7 +95,8 @@ public inherited sharing class SEL_PostTriggerAction
 	 * and the two feature-flag `DeveloperName`s. See `queriedFieldNames()` for the
 	 * authoritative projection.
 	 *
-	 * @return A list of active `PostTriggerAction__mdt` rows sorted by `Order__c` ascending.
+	 * @return A list of active `PostTriggerAction__mdt` rows sorted by `Order__c` ascending, with
+	 * equal-Order rows broken deterministically by `DeveloperName` ascending.
 	 */
 	public static List<PostTriggerAction__mdt> findActiveOrdered()
 	{
@@ -135,19 +137,22 @@ public inherited sharing class SEL_PostTriggerAction
 	}
 
 	/**
-	 * @description Sorts the supplied rows by `Order__c` ascending via the framework
-	 * `SObjectFieldComparator`. Apex-side sort is required because Salesforce Known
-	 * Issue W-8877088 makes CMDT SOQL `ORDER BY` unreliable in some configurations.
-	 * Null `Order__c` sorts before any non-null value (Comparator semantics).
+	 * @description Sorts the supplied rows by `Order__c` ascending, breaking ties on `DeveloperName`
+	 * ascending so two actions sharing an `Order__c` value always run in the same sequence. Delegates
+	 * to the reusable fluent `UTIL_Comparators` sort chain (`Order__c` first, then `DeveloperName`,
+	 * both ascending). Apex-side sort is required because Salesforce Known Issue W-8877088 makes CMDT
+	 * SOQL `ORDER BY` unreliable in some configurations. Null `Order__c` sorts first, before any
+	 * non-null value (Comparator semantics).
 	 *
 	 * @param rows The list of rows to sort
 	 *
-	 * @return A new list sorted by `Order__c` ascending
+	 * @return A new list sorted by `Order__c` ascending, with equal-Order rows broken deterministically
+	 * by `DeveloperName` ascending
 	 */
 	private static List<PostTriggerAction__mdt> sortByOrder(List<PostTriggerAction__mdt> rows)
 	{
 		List<PostTriggerAction__mdt> sorted = new List<PostTriggerAction__mdt>(rows);
-		sorted.sort(new UTIL_Comparators.SObjectFieldComparator(UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.Order__c), true));
+		sorted.sort(UTIL_Comparators.orderBy(PostTriggerAction__mdt.Order__c).thenBy(PostTriggerAction__mdt.DeveloperName));
 		return sorted;
 	}
 }

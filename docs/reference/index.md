@@ -38,12 +38,12 @@
 
 ## Overview
 
-This reference contains **264 documented items** across the following categories:
+This reference contains **265 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
 | **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
-| **Apex Classes** | 238 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
+| **Apex Classes** | 239 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
 | **Custom Objects** | 10 | Custom SObjects in the package | [Browse All](objects/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
@@ -82,7 +82,7 @@ Fluent SOQL builder, bind registry, conditions, and query engine. Use `QRY_Build
 | [QRY_Builder](apex/QRY_Builder.md) | Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. |
 | [QRY_Condition](apex/QRY_Condition.md) | Condition infrastructure for building complex SOQL WHERE clauses. |
 | [IF_Queryable](apex/IF_Queryable.md) | Interface for any object that can execute a query. |
-| [QRY_Function](apex/QRY_Function.md) | Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder... |
+| [QRY_Function](apex/QRY_Function.md) | Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE and ORDER BY clauses: the date... |
 
 ### Selectors
 
@@ -367,6 +367,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [UTIL_AsyncChain.ApiStep](apex/UTIL_AsyncChain.ApiStep.md) | Chain step adapter that executes any API_Outbound handler as part of an async chain. |
 | [UTIL_AsyncChain.ChainBuilder](apex/UTIL_AsyncChain.ChainBuilder.md) | Fluent builder for configuring and executing an async chain. |
 | [UTIL_AsyncChain.ChainContext](apex/UTIL_AsyncChain.ChainContext.md) | Shared state container passed between chain steps. |
+| [UTIL_AsyncChain.ChainStatus](apex/UTIL_AsyncChain.ChainStatus.md) | Typed, read-only snapshot of a chain execution returned by getChainStatus. |
 | [UTIL_AsyncChain.ChainStep](apex/UTIL_AsyncChain.ChainStep.md) | Abstract base class for individual steps in an async chain. |
 | [UTIL_AsyncChain.StepResult](apex/UTIL_AsyncChain.StepResult.md) | Immutable result object returned by each ChainStep to indicate success or failure. |
 | [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](apex/UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) | Request object for initiating an asynchronous process. |

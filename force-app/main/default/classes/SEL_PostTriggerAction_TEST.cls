@@ -64,6 +64,31 @@ private class SEL_PostTriggerAction_TEST
 	}
 
 	/**
+	 * @description Verifies that rows sharing an `Order__c` value break the tie deterministically by
+	 * `DeveloperName` ascending, so post-trigger actions with equal order always run in the same
+	 * sequence. A tied pair is supplied in reverse DeveloperName order to prove the tiebreak is applied.
+	 */
+	@IsTest
+	private static void findActiveOrderedBreaksTiesByDeveloperNameAscending()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				buildRow('Zeta', 20),
+				buildRow('Solo', 10),
+				buildRow('Alpha', 20)
+		};
+
+		Test.startTest();
+		List<PostTriggerAction__mdt> rows = SEL_PostTriggerAction.findActiveOrdered();
+		Test.stopTest();
+
+		Assert.areEqual(3, rows.size(), 'All 3 override rows should be returned');
+		Assert.areEqual('Solo', rows[0].DeveloperName, 'Order=10 must sort ahead of Order=20');
+		Assert.areEqual('Alpha', rows[1].DeveloperName, 'A tied Order=20 must break ascending by DeveloperName (Alpha before Zeta)');
+		Assert.areEqual('Zeta', rows[2].DeveloperName, 'A tied Order=20 must break ascending by DeveloperName (Zeta after Alpha)');
+	}
+
+	/**
 	 * @description Verifies that an empty override list returns an empty result without
 	 * touching the SOQL path.
 	 */

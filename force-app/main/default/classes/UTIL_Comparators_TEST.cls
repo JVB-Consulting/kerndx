@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date 2012, May 2026
+ * @date 2012, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -23,6 +23,8 @@ private class UTIL_Comparators_TEST
 	private static final Integer LESS = -1;
 	private static final String FIELD_NAME = SEL_Foobar.FIELD_NAME;
 	private static final String FIELD_NUMBER = SEL_Foobar.FIELD_DECIMAL;
+	private static final SObjectField FIELD_NAME_TOKEN = Foobar__c.Name;
+	private static final SObjectField FIELD_NUMBER_TOKEN = Foobar__c.NumberDecimal__c;
 	private static final String MSG_EXPECTED_EXCEPTION = 'Expected IllegalArgumentException for invalid input: {0}';
 	private static final String MSG_WRONG_COMPARISON = 'Expected comparison result {0} for {1} vs {2}, but found {3}';
 	private static final String MSG_WRONG_SORT = 'Expected {0} at index {1} to be {2}, but found {3}';
@@ -378,6 +380,97 @@ private class UTIL_Comparators_TEST
 		List<SObject> sorted = comparator.sortSObjects(unsorted, FIELD_NUMBER, false);
 
 		assertSortedList(sorted, FIELD_NUMBER, new List<Object> {3, 2, 1, 0});
+	}
+
+	/**
+	 * @description Verifies the fluent sort chain lets the first (highest priority) key decide the
+	 * order even when a later key would rank the records the other way.
+	 *
+	 * @see UTIL_Comparators.SObjectFieldChainComparator
+	 */
+	@IsTest
+	private static void chainComparatorFirstKeyDecides()
+	{
+		Foobar__c a1 = newFoobarWithNameAndDecimal('Z', 1);
+		Foobar__c a2 = newFoobarWithNameAndDecimal('A', 2);
+		UTIL_Comparators.SObjectFieldChainComparator comparator =
+				UTIL_Comparators.orderBy(FIELD_NUMBER_TOKEN).thenBy(FIELD_NAME_TOKEN);
+
+		assertSObjectComparison(comparator, a1, a2, LESS);
+		assertSObjectComparison(comparator, a2, a1, GREATER);
+	}
+
+	/**
+	 * @description Verifies the fluent sort chain falls through to the next key only when the first key
+	 * ties, then orders by that next ascending key.
+	 *
+	 * @see UTIL_Comparators.SObjectFieldChainComparator
+	 */
+	@IsTest
+	private static void chainComparatorTieOnFirstKeyFallsThroughToThenBy()
+	{
+		Foobar__c a1 = newFoobarWithNameAndDecimal('abc', 5);
+		Foobar__c a2 = newFoobarWithNameAndDecimal('efg', 5);
+		UTIL_Comparators.SObjectFieldChainComparator comparator =
+				UTIL_Comparators.orderBy(FIELD_NUMBER_TOKEN).thenBy(FIELD_NAME_TOKEN);
+
+		assertSObjectComparison(comparator, a1, a2, LESS);
+		assertSObjectComparison(comparator, a2, a1, GREATER);
+	}
+
+	/**
+	 * @description Verifies that thenByDescending reverses the direction of a tie-break key: when the
+	 * first key ties, the descending second key sorts the larger value first.
+	 *
+	 * @see UTIL_Comparators.SObjectFieldChainComparator
+	 */
+	@IsTest
+	private static void chainComparatorThenByDescendingReversesDirection()
+	{
+		Foobar__c a1 = newFoobarWithNameAndDecimal('abc', 5);
+		Foobar__c a2 = newFoobarWithNameAndDecimal('efg', 5);
+		UTIL_Comparators.SObjectFieldChainComparator comparator =
+				UTIL_Comparators.orderBy(FIELD_NUMBER_TOKEN).thenByDescending(FIELD_NAME_TOKEN);
+
+		assertSObjectComparison(comparator, a1, a2, GREATER);
+		assertSObjectComparison(comparator, a2, a1, LESS);
+	}
+
+	/**
+	 * @description Verifies that byDescending seeds the chain with a descending first key, and that a
+	 * following ascending key breaks a first-key tie.
+	 *
+	 * @see UTIL_Comparators.SObjectFieldChainComparator
+	 */
+	@IsTest
+	private static void chainComparatorByDescendingStart()
+	{
+		UTIL_Comparators.SObjectFieldChainComparator comparator =
+				UTIL_Comparators.orderByDescending(FIELD_NUMBER_TOKEN).thenBy(FIELD_NAME_TOKEN);
+
+		Foobar__c lowNumber = newFoobarWithNameAndDecimal('x', 1);
+		Foobar__c highNumber = newFoobarWithNameAndDecimal('y', 2);
+		assertSObjectComparison(comparator, lowNumber, highNumber, GREATER);
+
+		Foobar__c tiedAbc = newFoobarWithNameAndDecimal('abc', 5);
+		Foobar__c tiedEfg = newFoobarWithNameAndDecimal('efg', 5);
+		assertSObjectComparison(comparator, tiedAbc, tiedEfg, LESS);
+	}
+
+	/**
+	 * @description Verifies the fluent sort chain returns 0 when every configured key ties.
+	 *
+	 * @see UTIL_Comparators.SObjectFieldChainComparator
+	 */
+	@IsTest
+	private static void chainComparatorAllKeysEqualReturnsZero()
+	{
+		Foobar__c a1 = newFoobarWithNameAndDecimal('same', 3);
+		Foobar__c a2 = newFoobarWithNameAndDecimal('same', 3);
+		UTIL_Comparators.SObjectFieldChainComparator comparator =
+				UTIL_Comparators.orderBy(FIELD_NUMBER_TOKEN).thenBy(FIELD_NAME_TOKEN);
+
+		assertSObjectComparison(comparator, a1, a2, EQUAL);
 	}
 
 	/**

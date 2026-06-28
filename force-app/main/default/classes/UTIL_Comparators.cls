@@ -14,7 +14,7 @@
  *
  * @group Utilities
  *
- * @date 2012, May 2026
+ * @date 2012, June 2026
  */
 @SuppressWarnings('PMD.ExcessivePublicCount,PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class UTIL_Comparators
@@ -627,6 +627,188 @@ public inherited sharing class UTIL_Comparators
 			}
 
 			return UTIL_List.sort(sObjectList, new SObjectFieldComparator(sortFieldName, isSortAscending));
+		}
+	}
+
+	/**
+	 * @description Starts a fluent, type-safe sort chain with an ascending first key. Add further
+	 * tie-break keys with `thenBy` or
+	 * `thenByDescending`. The returned chain is itself a
+	 * `System.Comparator<SObject>`, so it can be passed straight to `List.sort`.
+	 *
+	 * @param field The field token for the highest-priority sort key; resolved to its namespace-safe
+	 * API name.
+	 *
+	 * @return SObjectFieldChainComparator A new chain seeded with the given field, ascending.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * contacts.sort(UTIL_Comparators.orderBy(Contact.LastName).thenBy(Contact.FirstName));
+	 * ```
+	 */
+	public static SObjectFieldChainComparator orderBy(SObjectField field)
+	{
+		return new SObjectFieldChainComparator().thenBy(field);
+	}
+
+	/**
+	 * @description Starts a fluent, type-safe sort chain with a descending first key. Add further
+	 * tie-break keys with `thenBy` or
+	 * `thenByDescending`. The returned chain is itself a
+	 * `System.Comparator<SObject>`, so it can be passed straight to `List.sort`.
+	 *
+	 * @param field The field token for the highest-priority sort key; resolved to its namespace-safe
+	 * API name.
+	 *
+	 * @return SObjectFieldChainComparator A new chain seeded with the given field, descending.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * opportunities.sort(UTIL_Comparators.orderByDescending(Opportunity.Amount).thenBy(Opportunity.Name));
+	 * ```
+	 */
+	public static SObjectFieldChainComparator orderByDescending(SObjectField field)
+	{
+		return new SObjectFieldChainComparator().thenByDescending(field);
+	}
+
+	/**
+	 * @description Fluent, type-safe comparator that sorts an SObject collection by several fields in
+	 * priority order. Start a chain with `orderBy` or
+	 * `orderByDescending`, then add further tie-break keys with `thenBy` or
+	 * `thenByDescending`. Each key delegates to a `SObjectFieldComparator`, so the null
+	 * handling and ascending/descending semantics are identical to single-field sorting. When two
+	 * records compare equal on a key, the next key in the chain decides; the first key that produces a
+	 * non-zero result wins, and records that tie on every key are treated as equal. Because the chain
+	 * is itself a `SObjectComparator` (and therefore a `System.Comparator<SObject>`), it drops
+	 * straight into `List.sort`.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * accounts.sort(
+	 *     UTIL_Comparators.orderBy(Account.Industry)
+	 *         .thenByDescending(Account.AnnualRevenue)
+	 *         .thenBy(Account.Name));
+	 * ```
+	 */
+	public inherited sharing class SObjectFieldChainComparator extends SObjectComparator
+	{
+		/**
+		 * @description The ordered sort keys, each a single-field comparator, evaluated in priority order.
+		 */
+		private final List<SObjectFieldComparator> keyComparators;
+
+		/**
+		 * @description Constructs an empty chain. Seed it with a first key through
+		 * `orderBy` or `orderByDescending` rather than constructing
+		 * it directly.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * UTIL_Comparators.SObjectFieldChainComparator chain = UTIL_Comparators.orderBy(Account.Name);
+		 * ```
+		 */
+		private SObjectFieldChainComparator()
+		{
+			super();
+			keyComparators = new List<SObjectFieldComparator>();
+		}
+
+		/**
+		 * @description Appends an ascending sort key and returns this chain so calls can be chained.
+		 *
+		 * @param field The field token to sort by; resolved to its namespace-safe API name.
+		 *
+		 * @return SObjectFieldChainComparator This chain, with the ascending key appended.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * UTIL_Comparators.orderBy(Account.Industry).thenBy(Account.Name);
+		 * ```
+		 */
+		public SObjectFieldChainComparator thenBy(SObjectField field)
+		{
+			return addKey(field, true);
+		}
+
+		/**
+		 * @description Appends a descending sort key and returns this chain so calls can be chained.
+		 *
+		 * @param field The field token to sort by; resolved to its namespace-safe API name.
+		 *
+		 * @return SObjectFieldChainComparator This chain, with the descending key appended.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * UTIL_Comparators.orderBy(Account.Industry).thenByDescending(Account.AnnualRevenue);
+		 * ```
+		 */
+		public SObjectFieldChainComparator thenByDescending(SObjectField field)
+		{
+			return addKey(field, false);
+		}
+
+		/**
+		 * @description Appends a single sort key for the given field and direction, resolving the field
+		 * token to its namespace-safe API name via UTIL_SObjectDescribe.getCachedFieldName.
+		 *
+		 * @param field The field token to sort by.
+		 * @param isAscending The sort direction for this key (true ascending, false descending).
+		 *
+		 * @return SObjectFieldChainComparator This chain, with the key appended.
+		 *
+		 * @since 1.2
+		 */
+		private SObjectFieldChainComparator addKey(SObjectField field, Boolean isAscending)
+		{
+			keyComparators.add(new SObjectFieldComparator(UTIL_SObjectDescribe.getCachedFieldName(field), isAscending));
+			return this;
+		}
+
+		/**
+		 * @description Compares two SObject records across the chain's keys in priority order, returning
+		 * the first non-zero key comparison, or 0 when every key ties.
+		 *
+		 * @param firstRecord The first SObject record to compare.
+		 * @param secondRecord The second SObject record to compare.
+		 *
+		 * @return Integer Returns 0 when all keys are equal, a positive number when firstRecord sorts
+		 * after secondRecord, or a negative number when it sorts before.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * Integer order = UTIL_Comparators.orderBy(Account.Industry)
+		 *     .thenBy(Account.Name)
+		 *     .compare(firstAccount, secondAccount);
+		 * ```
+		 */
+		public override Integer compare(SObject firstRecord, SObject secondRecord)
+		{
+			for(SObjectFieldComparator keyComparator : keyComparators)
+			{
+				Integer keyResult = keyComparator.compare(firstRecord, secondRecord);
+
+				if(keyResult != 0)
+				{
+					return keyResult;
+				}
+			}
+
+			return 0;
 		}
 	}
 

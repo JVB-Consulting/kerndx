@@ -416,7 +416,11 @@ public inherited sharing class SEL_TriggerAction
 	}
 
 	/**
-	 * @description Sorts trigger actions by Order__c ascending.
+	 * @description Sorts trigger actions by Order__c ascending, breaking ties on DeveloperName
+	 * ascending so two actions sharing an Order__c value always dispatch in the same sequence.
+	 * Delegates the ordering to the reusable fluent `UTIL_Comparators` sort chain
+	 * (Order__c first, then DeveloperName, both ascending) so the null and direction semantics match
+	 * the rest of the framework's field sorting.
 	 * Required because CMDT parent-child subselect ORDER BY silently drops child records.
 	 * Salesforce Known Issues:
 	 * - W-8877088 (ORDER BY in subquery does not return all records)
@@ -424,13 +428,14 @@ public inherited sharing class SEL_TriggerAction
 	 *
 	 * @param actions The trigger actions to sort
 	 *
-	 * @return A new list sorted by Order__c ascending (nulls treated as 0)
+	 * @return A new list sorted by Order__c ascending (a null Order__c sorts first, ahead of any
+	 * numbered action), with equal-Order rows broken deterministically by DeveloperName ascending
 	 */
 	@TestVisible
 	private static List<TriggerAction__mdt> sortByOrder(List<TriggerAction__mdt> actions)
 	{
 		List<TriggerAction__mdt> sorted = new List<TriggerAction__mdt>(actions);
-		sorted.sort(new UTIL_Comparators.SObjectFieldComparator(UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Order__c), true));
+		sorted.sort(UTIL_Comparators.orderBy(TriggerAction__mdt.Order__c).thenBy(TriggerAction__mdt.DeveloperName));
 		return sorted;
 	}
 

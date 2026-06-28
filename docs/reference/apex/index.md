@@ -2,7 +2,7 @@
 
 > Core Apex classes, utilities, and services
 
-**238 items** in this category.
+**239 items** in this category.
 
 ---
 
@@ -101,7 +101,7 @@
 | [IF_Queryable](IF_Queryable.md) | Interface for any object that can execute a query. Implemented by QRY_Builder.Builder and SEL_Base.  |
 | [QRY_Builder](QRY_Builder.md) | Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. P |
 | [QRY_Condition](QRY_Condition.md) | Condition infrastructure for building complex SOQL WHERE clauses. Use these classes with QRY_Builder |
-| [QRY_Function](QRY_Function.md) | Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in  |
+| [QRY_Function](QRY_Function.md) | Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE and ORDER BY  |
 
 ## Resilience
 
@@ -306,6 +306,7 @@
 | [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) | Chain step adapter that executes any API_Outbound handler as part of an async chain. Wraps the full  |
 | [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) | Fluent builder for configuring and executing an async chain. Provides methods for adding steps, sett |
 | [UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) | Shared state container passed between chain steps. Provides key-value storage for inter-step communi |
+| [UTIL_AsyncChain.ChainStatus](UTIL_AsyncChain.ChainStatus.md) | Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative  |
 | [UTIL_AsyncChain.ChainStep](UTIL_AsyncChain.ChainStep.md) | Abstract base class for individual steps in an async chain. Each step runs in its own Queueable tran |
 | [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) | Immutable result object returned by each ChainStep to indicate success or failure. Use the static fa |
 | [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) | Request object for initiating an asynchronous process. |
