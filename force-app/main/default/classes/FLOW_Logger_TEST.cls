@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -206,6 +206,33 @@ private class FLOW_Logger_TEST
 
 		List<LogEntry__c> logs = new SEL_LogEntry().getAll();
 		Assert.isFalse(logs.isEmpty(), 'Should create a log entry');
+	}
+
+	/**
+	 * @description Tests that a record ID supplied to the Log Flow Event action is
+	 * written to the resulting log entry's RecordId__c.
+	 */
+	@IsTest
+	private static void shouldLogFlowEventWithRecordId()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		String correlationId = LOG_Engine.startCorrelation();
+		Id recordId = UTIL_Random.randomId(Foobar__c.SObjectType);
+
+		FLOW_LoggerLog.DTO_Request input = new FLOW_LoggerLog.DTO_Request();
+		input.correlationId = correlationId;
+		input.message = 'Message with record';
+		input.logLevel = 'INFO';
+		input.recordId = recordId;
+
+		Test.startTest();
+		FLOW_LoggerLog.execute(new List<FLOW_LoggerLog.DTO_Request> {input});
+		Test.stopTest();
+
+		List<LogEntry__c> logs = new SEL_LogEntry().getAll();
+		Assert.isFalse(logs.isEmpty(), 'Should create a log entry');
+		Assert.areEqual(recordId, logs[0].RecordId__c, 'recordId from the Flow input must land on LogEntry__c.RecordId__c');
 	}
 
 	/**

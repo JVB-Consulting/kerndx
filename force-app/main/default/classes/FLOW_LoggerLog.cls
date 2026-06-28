@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, June 2026
  *
  * @since 1.0
  *
@@ -69,7 +69,14 @@ global inherited sharing class FLOW_LoggerLog
 				String classMethod = 'Flow/' + (String.isNotBlank(input.flowStep) ? input.flowStep : 'action');
 				String formattedMessage = '[Flow] ' + input.message;
 
-				LOG_Builder.build(input.logLevel, formattedMessage).at(classMethod).emit();
+				LOG_Builder.LogEntry entry = LOG_Builder.build(input.logLevel, formattedMessage).at(classMethod);
+
+				if(input.recordId != null)
+				{
+					entry.forRecord(input.recordId);
+				}
+
+				entry.emit();
 			}
 			finally
 			{
@@ -149,5 +156,20 @@ global inherited sharing class FLOW_LoggerLog
 		 */
 		@InvocableVariable(Label='Additional Context' Description='Additional context to include with the log entry')
 		global String additionalContext;
+
+		/**
+		 * @description Optional record to associate with this log entry. When set, the
+		 * record is linked to the log entry so every log for that record can be filtered
+		 * and reported on together. Leave blank when the log is not about a specific record.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * Id value = instance.recordId;
+		 * ```
+		 */
+		@InvocableVariable(Label='Record ID' Description='Optional record to associate with this log entry')
+		global Id recordId;
 	}
 }

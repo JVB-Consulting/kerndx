@@ -540,6 +540,7 @@ Use invocable actions to log from Flows. This creates correlated log entries vis
     - Set **correlationId** to `{!correlationId}`
     - Set **message** to a description (e.g., `Account created successfully`)
     - Set **Log Level** (input name `logLevel`) to `INFO`, `WARN`, or `ERROR`
+    - Optionally set **Record ID** (input name `recordId`) to the record this log is about (e.g., `{!$Record.Id}`) so every log for that record can be filtered together
 4. At the end of the Flow, add an **Action** element:
     - Search for **End Flow Correlation**
     - Set **flowName** to the same Flow name used in step 2

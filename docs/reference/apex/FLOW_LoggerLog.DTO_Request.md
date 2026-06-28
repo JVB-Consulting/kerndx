@@ -32,6 +32,7 @@ Input parameters for logging a Flow event.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowStep](#flowstep) | Current step/screen name for context |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | DEBUG, INFO, WARN, or ERROR (default: INFO) |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Log message |
+| global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [recordId](#recordid) | Optional record to associate with this log entry. |
 
 ### additionalContext
 
@@ -111,5 +112,23 @@ Log message
 
 ```apex
 String value = instance.message;
+```
+
+### recordId
+
+```apex
+@InvocableVariable(description='Optional record to associate with this log entry' label='Record ID') global Id recordId
+```
+
+**Type:** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)
+
+Optional record to associate with this log entry. When set, the
+record is linked to the log entry so every log for that record can be filtered
+and reported on together. Leave blank when the log is not about a specific record.
+
+**Example**
+
+```apex
+Id value = instance.recordId;
 ```
 
