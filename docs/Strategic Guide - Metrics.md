@@ -8,7 +8,7 @@ navOrder: 34
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-06-25 (drift reconciliation against the post-Kern 1.1.0-11 dev tree)
+**Last verified:** 2026-06-27 (drift reconciliation against the post-Kern 1.2.0-1 dev tree)
 **Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
 
 ---
@@ -43,7 +43,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Apex classes (total)            |                  363 | sum of production + test                                                                                                                           |
 | Apex production classes         |                  189 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
 | Apex test classes               |                  174 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
-| Apex test methods               |                3,742 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
+| Apex test methods               |                3,773 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
 | Apex test coverage              |        100% per-file | enforced at every release build by `scripts/evaluate-coverage.js`                                                                                  |
 | Lines of code (production Apex) |                 ~81K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
 | Lines of code (test Apex)       |                 ~79K | counted from `force-app/main/default/classes/*_TEST.cls`                                                                                           |
@@ -154,11 +154,11 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Developer guides                              |    21 | Excluding the Strategic Guide series; counted from `docs/*%20-%20Guide.md`                                                  |
 | Fast Start guides                             |    16 |                                                                                                                             |
 | Strategic Guide documents                     |     9 | Overview + Architecture & Philosophy + Adoption + Operations + Risks + Glossary + Personas + Metrics + Choosing a Framework |
-| API reference pages (Apex)                    |   239 |                                                                                                                             |
+| API reference pages (Apex)                    |   240 |                                                                                                                             |
 | API reference pages (metadata)                |    16 |                                                                                                                             |
 | API reference pages (objects)                 |    11 |                                                                                                                             |
 | API reference pages (events)                  |     2 |                                                                                                                             |
-| API reference pages (total)                   |   268 | sum of all reference categories                                                                                             |
+| API reference pages (total)                   |   269 | sum of all reference categories                                                                                             |
 | Total documentation files (developer-focused) |    46 | 21 developer guides + 16 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
 | Security Guide (lines)                        | 2,326 | bespoke threat-model guide; counted from `docs/Security - Guide.md`                                                         |
 
@@ -177,9 +177,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                                | Count |
 |---------------------------------------|------:|
-| Subscriber Apex classes (production)  |    56 |
-| Subscriber test classes               |    39 |
-| Subscriber test methods               |   175 |
+| Subscriber Apex classes (production)  |    59 |
+| Subscriber test classes               |    41 |
+| Subscriber test methods               |   186 |
 | Anonymous Apex test sections          |    71 |
 | Anonymous Apex assertions (`PASS:`)   |   350 |
 | Anonymous Apex assertions (`Assert.`) |   471 |
@@ -188,7 +188,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric              | Count |
 |---------------------|------:|
-| Spec files          |    10 |
+| Spec files          |    11 |
 | Test cases          |    57 |
 | Page objects        |    12 |
 | Helper modules      |     6 |
@@ -211,7 +211,7 @@ These figures describe how well-supported and ready-to-install the package is, m
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
-| Published managed-package versions |                  107 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000KesXAAS` |
+| Published managed-package versions |                  107 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000LXH7AAO` |
 | Latest packaged version            | 1.1.0-11 (released) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 

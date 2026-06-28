@@ -591,7 +591,7 @@ UTIL_AsyncChain.newChain('DataMigration')
 
 **IF_Chain.Step:** `StepResult work(ChainContext context)` — implement this interface or extend `ChainStep` (abstract, adds `stepName` property).
 **ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
-**ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`
+**ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`/`.idempotencyKey()`/`.idempotencyKey(recordId)`/`.idempotencyKey(grain)`
 **StepResult:** `UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)` — properties: `success`, `message`, `data`, `error`
 **ApiStep:** Wraps `API_Outbound` handler as a chain step.
 `new UTIL_AsyncChain.ApiStep(API_SendEmail.class).credential('Gateway').withParameter(k, v).withParameterFrom(param, contextKey).triggeringRecord(id).triggeringRecordFrom(contextKey)`

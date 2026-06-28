@@ -40,7 +40,7 @@
 					<div class="m" data-spec-id="strip-global"><b>95</b><span>global API classes</span></div>
 					<div class="m" data-spec-id="strip-classes"><b>189</b><span>production classes</span></div>
 					<div class="m" data-spec-id="strip-lwc"><b>63</b><span>LWC components</span></div>
-					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · 3,742 tests</span></div>
+					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · 3,773 tests</span></div>
 				</div>
 			</div>
 		</section>
