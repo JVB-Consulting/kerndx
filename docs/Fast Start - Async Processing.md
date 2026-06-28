@@ -374,6 +374,12 @@ kern.UTIL_AsyncChain.newChain('MultiStep')
 	.execute();
 ```
 
+**Re-run a bulk step safely:** if a step loops over many records, derive a per-record key with
+`context.idempotencyKey(record.Id)` and store it on the external-id field you `upsert` against. A replay after a partial
+failure then only reprocesses the rows that did not finish the first time. See
+[Safe to run twice (idempotency)](Async%20Processing%20-%20Guide.md#step-design-guidance) in the guide for the
+step-level and custom-grain forms too.
+
 See the [Async Processing Guide](Async%20Processing%20-%20Guide.md) for delayed start, retry strategies, finalizer recovery.
 
 ---

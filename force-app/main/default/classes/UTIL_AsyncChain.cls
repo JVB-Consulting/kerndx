@@ -22,7 +22,7 @@
  *     .execute();
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.ExcessiveParameterList,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.ExcessiveParameterList,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 global inherited sharing class UTIL_AsyncChain
 {
 	/**
@@ -34,6 +34,17 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Default maximum serialized context size in characters.
 	 */
 	private static final Integer DEFAULT_MAX_CONTEXT_SIZE = 32768;
+
+	/**
+	 * @description Platform ceiling for a Queueable enqueue delay, in minutes. System.enqueueJob only
+	 * accepts a delay of 0 to 10 minutes, so withDelayMinutes clamps to this range.
+	 */
+	private static final Integer MAX_QUEUEABLE_DELAY_MINUTES = 10;
+
+	/**
+	 * @description Floor for a Queueable enqueue delay, in minutes.
+	 */
+	private static final Integer MIN_QUEUEABLE_DELAY_MINUTES = 0;
 
 	/**
 	 * @description Reserved context key for persisting the previous step result across async transactions.
@@ -133,6 +144,267 @@ global inherited sharing class UTIL_AsyncChain
 				'completedSteps' => execution.CompletedSteps__c,
 				'errorMessage' => execution.ErrorMessage__c
 		};
+	}
+
+	/**
+	 * @description Retrieves the current status of a chain execution as a typed ChainStatus value
+	 * object — the structured alternative to the untyped getStatus(Id) map. ChainStatus exposes every
+	 * tracked field (chain name, status, current step, correlation ID, step counts, error message,
+	 * timing) plus the convenience predicates isRunning(), isTerminal() and isFailed().
+	 *
+	 * Reads through the same sharing-respecting selector path as getStatus(Id): a caller only sees
+	 * chains they have access to. For an org-wide observability view of every chain, use the Chain
+	 * Monitor console instead. For per-step detail, parse the Chain Monitor's step DTOs — ChainStatus
+	 * is a single-record summary and intentionally carries no step list.
+	 *
+	 * @param chainExecutionId The ID of the AsyncChainExecution__c record to query.
+	 *
+	 * @return A ChainStatus describing the execution, or null if the record is not found or not visible.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(executionId);
+	 * if(status != null && status.isFailed())
+	 * {
+	 *     String reason = status.errorMessage;
+	 * }
+	 * ```
+	 */
+	global static ChainStatus getChainStatus(Id chainExecutionId)
+	{
+		AsyncChainExecution__c execution = (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(chainExecutionId);
+		return execution == null ? null : toChainStatus(execution);
+	}
+
+	/**
+	 * @description Bulk variant of getChainStatus — resolves a set of execution IDs to ChainStatus
+	 * objects in a single query, so it is safe to call from within a loop budget. IDs that do not
+	 * resolve to a visible record are simply absent from the returned map. Uses the same
+	 * sharing-respecting selector path as getChainStatus, so a caller only sees chains they can access.
+	 *
+	 * @param chainExecutionIds The IDs of the AsyncChainExecution__c records to query.
+	 *
+	 * @return A map of execution ID to ChainStatus for every record found; empty when nothing resolves.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * Map<Id, UTIL_AsyncChain.ChainStatus> statuses = UTIL_AsyncChain.getChainStatuses(executionIds);
+	 * ```
+	 */
+	global static Map<Id, ChainStatus> getChainStatuses(Set<Id> chainExecutionIds)
+	{
+		Map<Id, ChainStatus> results = new Map<Id, ChainStatus>();
+
+		for(SObject record : new SEL_AsyncChainExecution().findById(chainExecutionIds))
+		{
+			AsyncChainExecution__c execution = (AsyncChainExecution__c)record;
+			results.put(execution.Id, toChainStatus(execution));
+		}
+
+		return results;
+	}
+
+	/**
+	 * @description Maps an AsyncChainExecution__c row onto a typed ChainStatus. Replicates the Chain
+	 * Monitor's live-duration rule (CTRL_ChainMonitor.toChainDetail) so the typed accessor and the
+	 * console report the same elapsed time: when DurationMs__c is not yet persisted but the chain is
+	 * still Running, the elapsed time is computed live from StartedAt__c.
+	 *
+	 * @param execution The execution record to map.
+	 *
+	 * @return A populated ChainStatus.
+	 */
+	private static ChainStatus toChainStatus(AsyncChainExecution__c execution)
+	{
+		ChainStatus status = new ChainStatus();
+
+		status.executionId = execution.Id;
+		status.chainName = execution.ChainName__c;
+		status.status = execution.Status__c;
+		status.currentStepName = execution.CurrentStepName__c;
+		status.correlationId = execution.CorrelationId__c;
+		status.totalSteps = execution.TotalSteps__c != null ? execution.TotalSteps__c.intValue() : 0;
+		status.completedSteps = execution.CompletedSteps__c != null ? execution.CompletedSteps__c.intValue() : 0;
+		status.errorMessage = execution.ErrorMessage__c;
+		status.startedAt = execution.StartedAt__c;
+		status.completedAt = execution.CompletedAt__c;
+
+		if(execution.DurationMs__c != null)
+		{
+			status.durationMs = execution.DurationMs__c.longValue();
+		}
+		else if(execution.StartedAt__c != null && execution.Status__c == SEL_AsyncChainExecution.STATUS_RUNNING)
+		{
+			status.durationMs = Datetime.now().getTime() - execution.StartedAt__c.getTime();
+		}
+
+		status.durationLabel = UTIL_Date.formatDuration(status.durationMs);
+
+		return status;
+	}
+
+	/**
+	 * @description Typed, read-only snapshot of a chain execution returned by getChainStatus. A
+	 * structured alternative to the getStatus(Id) map: each tracked field is a named property and the
+	 * lifecycle is queryable through isRunning(), isTerminal() and isFailed(). Holds no step list and
+	 * performs no queries — it is a plain value object built from a single AsyncChainExecution__c row.
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(executionId);
+	 * Boolean stillRunning = status.isRunning();
+	 * Integer done = status.completedSteps;
+	 * ```
+	 */
+	global inherited sharing class ChainStatus
+	{
+		/**
+		 * @description The AsyncChainExecution__c record ID.
+		 *
+		 * @since 1.2
+		 */
+		global Id executionId;
+
+		/**
+		 * @description The descriptive chain name supplied to newChain(...).
+		 *
+		 * @since 1.2
+		 */
+		global String chainName;
+
+		/**
+		 * @description The lifecycle status: one of Running, Completed, Failed, Aborted, Delayed or
+		 * Stalled. Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
+		 *
+		 * @since 1.2
+		 */
+		global String status;
+
+		/**
+		 * @description The name of the step currently executing (or last executed), if recorded.
+		 *
+		 * @since 1.2
+		 */
+		global String currentStepName;
+
+		/**
+		 * @description The correlation ID that ties this chain's log entries together.
+		 *
+		 * @since 1.2
+		 */
+		global String correlationId;
+
+		/**
+		 * @description The total number of steps in the chain.
+		 *
+		 * @since 1.2
+		 */
+		global Integer totalSteps;
+
+		/**
+		 * @description The number of steps completed so far.
+		 *
+		 * @since 1.2
+		 */
+		global Integer completedSteps;
+
+		/**
+		 * @description The failure message, when the chain has failed; otherwise null.
+		 *
+		 * @since 1.2
+		 */
+		global String errorMessage;
+
+		/**
+		 * @description When the chain started executing.
+		 *
+		 * @since 1.2
+		 */
+		global Datetime startedAt;
+
+		/**
+		 * @description When the chain reached a terminal state; null while still in flight.
+		 *
+		 * @since 1.2
+		 */
+		global Datetime completedAt;
+
+		/**
+		 * @description Elapsed run time in milliseconds. For a still-Running chain with no persisted
+		 * duration, this is computed live from startedAt, matching the Chain Monitor console.
+		 *
+		 * @since 1.2
+		 */
+		global Long durationMs;
+
+		/**
+		 * @description A compact, human-readable form of durationMs (for example "1m 30s"); null when
+		 * no duration is available.
+		 *
+		 * @since 1.2
+		 */
+		global String durationLabel;
+
+		/**
+		 * @description Whether the chain is currently running. Delayed and Stalled are reported as
+		 * neither running nor terminal.
+		 *
+		 * @return true when the status is Running.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * if(status.isRunning()) { return; }
+		 * ```
+		 */
+		global Boolean isRunning()
+		{
+			return status == SEL_AsyncChainExecution.STATUS_RUNNING;
+		}
+
+		/**
+		 * @description Whether the chain has reached a terminal state from which it will not advance —
+		 * Completed, Failed or Aborted.
+		 *
+		 * @return true when the status is Completed, Failed or Aborted.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * if(status.isTerminal()) { notifyDone(status); }
+		 * ```
+		 */
+		global Boolean isTerminal()
+		{
+			return status == SEL_AsyncChainExecution.STATUS_COMPLETED
+					|| status == SEL_AsyncChainExecution.STATUS_FAILED
+					|| status == SEL_AsyncChainExecution.STATUS_ABORTED;
+		}
+
+		/**
+		 * @description Whether the chain failed.
+		 *
+		 * @return true when the status is Failed.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * if(status.isFailed()) { escalate(status.errorMessage); }
+		 * ```
+		 */
+		global Boolean isFailed()
+		{
+			return status == SEL_AsyncChainExecution.STATUS_FAILED;
+		}
 	}
 
 	/**
@@ -622,7 +894,8 @@ global inherited sharing class UTIL_AsyncChain
 
 		/**
 		 * @description Returns the zero-based index of the currently executing step.
-		 * Useful for building idempotency keys (e.g., executionId + stepIndex).
+		 * To build a replay-safe key for this step, call context.idempotencyKey() rather than composing
+		 * the execution id and step index by hand.
 		 *
 		 * @return The current step index, or null for contexts not yet assigned to a step.
 		 *
@@ -630,12 +903,92 @@ global inherited sharing class UTIL_AsyncChain
 		 *
 		 * @example
 		 * ```apex
-		 * String idempotencyKey = context.getChainExecutionId() + '-' + context.getCurrentStepIndex();
+		 * String key = context.idempotencyKey();
+		 * String rowKey = context.idempotencyKey(recordId);
 		 * ```
 		 */
 		global Integer getCurrentStepIndex()
 		{
 			return currentStepIndex;
+		}
+
+		/**
+		 * @description Returns the step-level idempotency key for the currently executing step: the
+		 * chain execution id joined to the step index. The key stays identical when the same step
+		 * replays, so a step that does one logical unit of work can store this key on an external-id
+		 * field and upsert (a replay updates the same record instead of creating a duplicate), or stamp
+		 * it on a marker for a side effect that cannot be upserted (a callout, an email) and skip when
+		 * the marker is already present. Treat the result as an opaque token: compare it or store it
+		 * whole, and do not split it to read back the run or step (use getChainExecutionId() and
+		 * getCurrentStepIndex() for those). Call it from within a step's work(context), where the step
+		 * index is always assigned.
+		 *
+		 * @return The step-level key, the execution id + "-" + step index.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * String key = context.idempotencyKey();
+		 * ```
+		 */
+		global String idempotencyKey()
+		{
+			return getChainExecutionId() + '-' + String.valueOf(getCurrentStepIndex());
+		}
+
+		/**
+		 * @description Returns the record-grain idempotency key for a step that fans out over many
+		 * records: the step-level key joined to the given record id. Use it so a replay after a
+		 * partial failure only reprocesses the rows that did not complete the first time, instead of
+		 * re-running or skipping the whole step. A null recordId falls back to the bare step-level key.
+		 * An 18-character Id keeps the whole key well under the 255-character external-id limit, so this
+		 * overload needs no length caveat. Treat the result as an opaque token. Pass a literal null as a
+		 * typed variable or a cast ((Id) null), because a bare idempotencyKey(null) is ambiguous between
+		 * this overload and the String overload.
+		 *
+		 * @param recordId The record being processed, used as the per-record grain.
+		 *
+		 * @return The step-level key + "-" + recordId, or the bare step-level key when recordId is null.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * String rowKey = context.idempotencyKey(record.Id);
+		 * ```
+		 */
+		global String idempotencyKey(Id recordId)
+		{
+			return recordId == null ? idempotencyKey() : idempotencyKey() + '-' + recordId;
+		}
+
+		/**
+		 * @description Returns a custom-grain idempotency key for a step that fans out over a unit that
+		 * is not a record id (for example a line number or an external key): the step-level key joined
+		 * to the given grain. A null or blank grain falls back to the bare step-level key. The grain
+		 * passes through verbatim, so the helper never hashes or truncates it. The composed key is
+		 * typically stored on a Text external-id field capped at 255 characters; an over-long key fails
+		 * loudly at upsert with a STRING_TOO_LONG DmlException (not silent truncation), so it surfaces
+		 * in your own test. If you need a long composite grain, shorten it yourself (a one-line hash of
+		 * just the grain) before passing it. Treat the result as an opaque token. Pass a literal null as
+		 * a typed variable or a cast ((String) null), because a bare idempotencyKey(null) is ambiguous
+		 * between this overload and the Id overload.
+		 *
+		 * @param grain The stable fan-out token, kept short, that does not change between attempts.
+		 *
+		 * @return The step-level key + "-" + grain, or the bare step-level key when grain is blank.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * String lineKey = context.idempotencyKey('orderLine-' + lineNumber);
+		 * ```
+		 */
+		global String idempotencyKey(String grain)
+		{
+			return String.isNotBlank(grain) ? idempotencyKey() + '-' + grain : idempotencyKey();
 		}
 
 		/**
@@ -745,6 +1098,13 @@ global inherited sharing class UTIL_AsyncChain
 		private AsyncOptions asyncOptions;
 
 		/**
+		 * @description Best-effort delay in minutes before the chain's first step is enqueued. Null or
+		 * zero means no delay. Set via withDelayMinutes and applied only to the first enqueue.
+		 */
+		@TestVisible
+		private Integer firstStepDelayMinutes;
+
+		/**
 		 * @description Guards against accidental double-execution of the same builder.
 		 */
 		private Boolean executed = false;
@@ -811,6 +1171,7 @@ global inherited sharing class UTIL_AsyncChain
 		 *     .execute();
 		 * ```
 		 */
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 		global ChainBuilder then(IF_Chain.Step step, Boolean continueOnError)
 		{
 			validateStepCapacity();
@@ -945,6 +1306,41 @@ global inherited sharing class UTIL_AsyncChain
 		global ChainBuilder withAsyncOptions(AsyncOptions options)
 		{
 			this.asyncOptions = options;
+			return this;
+		}
+
+		/**
+		 * @description Defers the chain's first step by the given number of minutes. This is best-effort:
+		 * the platform enqueues the first step with a Queueable delay, so the chain shows as Running with
+		 * zero completed steps in the Chain Monitor until the delay elapses, and the delay degrades to
+		 * immediate if the org has disabled Queueable delay. The value is clamped to the platform range
+		 * of 0 to 10 minutes; a null or zero delay is a no-op. Only the first step is delayed; every later
+		 * step runs as soon as its predecessor finishes.
+		 *
+		 * @param minutes The delay before the first step, in minutes (clamped to 0 to 10). Null is a no-op.
+		 *
+		 * @return This ChainBuilder for method chaining.
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * UTIL_AsyncChain.newChain('NightlyRollup')
+		 *     .then(new AggregateStep())
+		 *     .withDelayMinutes(5)
+		 *     .execute();
+		 * ```
+		 */
+		global ChainBuilder withDelayMinutes(Integer minutes)
+		{
+			if(minutes == null)
+			{
+				this.firstStepDelayMinutes = null;
+			}
+			else
+			{
+				this.firstStepDelayMinutes = Math.max(MIN_QUEUEABLE_DELAY_MINUTES, Math.min(MAX_QUEUEABLE_DELAY_MINUTES, minutes));
+			}
 			return this;
 		}
 
@@ -1089,7 +1485,11 @@ global inherited sharing class UTIL_AsyncChain
 
 			ChainExecutor executor = new ChainExecutor(execution.Id, 0, maxSteps, maxContextSize, errorHandler, completionHandler, options);
 
-			if(asyncOptions != null)
+			if(firstStepDelayMinutes != null && firstStepDelayMinutes > 0)
+			{
+				System.enqueueJob(executor, firstStepDelayMinutes);
+			}
+			else if(asyncOptions != null)
 			{
 				System.enqueueJob(executor, options);
 			}

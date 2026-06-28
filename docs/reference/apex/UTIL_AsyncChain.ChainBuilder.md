@@ -46,6 +46,7 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [then](#then)([IF_Chain.Step](IF_Chain.Step.md) step) | Appends a step to the end of the chain. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [then](#then)([IF_Chain.Step](IF_Chain.Step.md) step, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) continueOnError) | Appends a step to the chain with explicit control over error continuation. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withAsyncOptions](#withasyncoptions)([AsyncOptions](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_AsyncOptions.htm) options) | Sets the AsyncOptions controlling queueable stack depth. |
+| global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withDelayMinutes](#withdelayminutes)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minutes) | Defers the chain's first step by the given number of minutes. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withInitialContext](#withinitialcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Seeds the chain context with an initial key-value pair before execution begins. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxContextSize](#withmaxcontextsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSize) | Sets the maximum serialized context size in characters. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxSteps](#withmaxsteps)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSteps) | Sets the maximum number of steps the chain is allowed to execute. |
@@ -259,6 +260,40 @@ options.maximumQueueableStackDepth = 4;
 UTIL_AsyncChain.newChain('MyChain')
     .then(new Step1()).then(new Step2()).then(new Step3())
     .withAsyncOptions(options)
+    .execute();
+```
+
+</div>
+
+### withDelayMinutes
+
+<div class="apex-member">
+
+```apex
+global UTIL_AsyncChain.ChainBuilder withDelayMinutes(Integer minutes)
+```
+
+Defers the chain's first step by the given number of minutes. This is best-effort:
+the platform enqueues the first step with a Queueable delay, so the chain shows as Running with
+zero completed steps in the Chain Monitor until the delay elapses, and the delay degrades to
+immediate if the org has disabled Queueable delay. The value is clamped to the platform range
+of 0 to 10 minutes; a null or zero delay is a no-op. Only the first step is delayed; every later
+step runs as soon as its predecessor finishes.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `minutes` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The delay before the first step, in minutes (clamped to 0 to 10). Null is a no-op. |
+
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This ChainBuilder for method chaining.
+
+**Example**
+
+```apex
+UTIL_AsyncChain.newChain('NightlyRollup')
+    .then(new AggregateStep())
+    .withDelayMinutes(5)
     .execute();
 ```
 

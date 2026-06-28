@@ -11,7 +11,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -149,6 +149,353 @@ private class UTIL_AsyncChain_TEST
 
 			Map<String, Object> status = UTIL_AsyncChain.getStatus(dummy.Id);
 			Assert.isNull(status, 'Status should be null for deleted record');
+		}
+	}
+
+	/**
+	 * @description Verifies that getChainStatus maps every scalar of a persisted execution onto the
+	 * typed ChainStatus value object, and that a Completed chain reports terminal (not running, not failed).
+	 */
+	@IsTest
+	private static void shouldReturnTypedChainStatusForExistingExecution()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String correlationId = UTIL_Random.randomUUID();
+			Datetime startedAt = Datetime.newInstanceGmt(2026, 6, 26, 10, 0, 0);
+			Datetime completedAt = Datetime.newInstanceGmt(2026, 6, 26, 10, 0, 5);
+
+			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
+					CurrentStepName__c = 'FinalStep',
+					CorrelationId__c = correlationId,
+					TotalSteps__c = 3,
+					CompletedSteps__c = 3,
+					ErrorMessage__c = null,
+					StartedAt__c = startedAt,
+					CompletedAt__c = completedAt,
+					DurationMs__c = 4200
+			));
+
+			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
+
+			Assert.isNotNull(status, 'ChainStatus should not be null for an existing execution');
+			Assert.areEqual(record.Id, status.executionId, 'executionId should map');
+			Assert.areEqual(TEST_CHAIN_NAME, status.chainName, 'chainName should map');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, status.status, 'status should map');
+			Assert.areEqual('FinalStep', status.currentStepName, 'currentStepName should map');
+			Assert.areEqual(correlationId, status.correlationId, 'correlationId should map');
+			Assert.areEqual(3, status.totalSteps, 'totalSteps should map');
+			Assert.areEqual(3, status.completedSteps, 'completedSteps should map');
+			Assert.isNull(status.errorMessage, 'errorMessage should be null for a Completed chain');
+			Assert.areEqual(startedAt, status.startedAt, 'startedAt should map');
+			Assert.areEqual(completedAt, status.completedAt, 'completedAt should map');
+			Assert.areEqual(4200L, status.durationMs, 'durationMs should map the stored value');
+			Assert.areEqual(UTIL_Date.formatDuration(4200L), status.durationLabel, 'durationLabel should derive from durationMs');
+			Assert.isTrue(status.isTerminal(), 'A Completed chain is terminal');
+			Assert.isFalse(status.isRunning(), 'A Completed chain is not running');
+			Assert.isFalse(status.isFailed(), 'A Completed chain is not failed');
+		}
+	}
+
+	/**
+	 * @description Verifies that getChainStatus computes a live duration for a Running chain whose
+	 * DurationMs__c is not yet persisted, mirroring the Chain Monitor's live-duration rule.
+	 */
+	@IsTest
+	private static void shouldComputeLiveDurationForRunningChainStatus()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 3,
+					CompletedSteps__c = 1,
+					StartedAt__c = Datetime.now().addMinutes(-2),
+					DurationMs__c = null
+			));
+
+			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
+
+			Assert.isNotNull(status, 'ChainStatus should not be null for a Running execution');
+			Assert.isNotNull(status.durationMs, 'A Running chain with no stored duration should report a live duration');
+			Assert.isTrue(status.durationMs >= 0, 'Live duration should be non-negative');
+			Assert.isNotNull(status.durationLabel, 'durationLabel should be derived from the live duration');
+			Assert.isTrue(status.isRunning(), 'A Running chain reports running');
+			Assert.isFalse(status.isTerminal(), 'A Running chain is not terminal');
+			Assert.isFalse(status.isFailed(), 'A Running chain is not failed');
+		}
+	}
+
+	/**
+	 * @description Verifies that getChainStatus reflects a Failed chain through the helper predicates
+	 * and maps the error message.
+	 */
+	@IsTest
+	private static void shouldReflectFailedStatusInChainStatusHelpers()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_FAILED,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 3,
+					CompletedSteps__c = 1,
+					ErrorMessage__c = 'Step 2 blew up',
+					StartedAt__c = Datetime.now().addMinutes(-1),
+					DurationMs__c = 60000
+			));
+
+			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
+
+			Assert.isNotNull(status, 'ChainStatus should not be null for a Failed execution');
+			Assert.areEqual('Step 2 blew up', status.errorMessage, 'errorMessage should map');
+			Assert.isTrue(status.isFailed(), 'A Failed chain reports failed');
+			Assert.isTrue(status.isTerminal(), 'A Failed chain is terminal');
+			Assert.isFalse(status.isRunning(), 'A Failed chain is not running');
+		}
+	}
+
+	/**
+	 * @description Verifies that getChainStatus returns null for a nonexistent execution ID.
+	 */
+	@IsTest
+	private static void shouldReturnNullChainStatusForMissingId()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c dummy = new AsyncChainExecution__c(
+					ChainName__c = 'Dummy',
+					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
+					TotalSteps__c = 0,
+					CompletedSteps__c = 0,
+					CorrelationId__c = UTIL_Random.randomUUID()
+			);
+			DML_Builder.newTransaction().doInsert(dummy).execute();
+			DML_Builder.newTransaction().doDelete(dummy).execute();
+
+			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(dummy.Id);
+			Assert.isNull(status, 'ChainStatus should be null for a deleted record');
+		}
+	}
+
+	/**
+	 * @description Regression lock: getChainStatus must not change the frozen getStatus(Id) map — it
+	 * still returns exactly the six documented keys with matching values.
+	 */
+	@IsTest
+	private static void shouldLeaveGetStatusMapUnchanged()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 2,
+					CompletedSteps__c = 2,
+					ErrorMessage__c = null
+			));
+
+			Map<String, Object> status = UTIL_AsyncChain.getStatus(record.Id);
+
+			Assert.areEqual(6, status.size(), 'getStatus must still return exactly six keys');
+			Assert.areEqual(record.Id, status.get('executionId'), 'executionId key unchanged');
+			Assert.areEqual(TEST_CHAIN_NAME, status.get('chainName'), 'chainName key unchanged');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, status.get('status'), 'status key unchanged');
+			Assert.areEqual(2, status.get('totalSteps'), 'totalSteps key unchanged');
+			Assert.areEqual(2, status.get('completedSteps'), 'completedSteps key unchanged');
+			Assert.isTrue(status.containsKey('errorMessage'), 'errorMessage key unchanged');
+		}
+	}
+
+	/**
+	 * @description Sharing parity with getStatus: a non-owner must not read another user's Private-OWD
+	 * chain via getChainStatus. The admin owns the row; a low-privilege non-owner reads null.
+	 */
+	@IsTest
+	private static void shouldNotLeakOtherUsersChainViaGetChainStatus()
+	{
+		AsyncChainExecution__c record;
+
+		System.runAs(getTestAdmin())
+		{
+			record = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 1,
+					CompletedSteps__c = 0,
+					StartedAt__c = Datetime.now()
+			));
+		}
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
+			Assert.isNull(status, 'A non-owner must not read another user\'s Private-OWD chain via getChainStatus');
+		}
+	}
+
+	/**
+	 * @description Verifies that the bulk getChainStatuses accessor maps a set of IDs to ChainStatus
+	 * objects in a single query, omitting IDs that do not resolve to a record.
+	 */
+	@IsTest
+	private static void shouldReturnChainStatusesForBulkIds()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c first = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 1,
+					CompletedSteps__c = 1
+			));
+			AsyncChainExecution__c second = persistExecution(new AsyncChainExecution__c(
+					ChainName__c = TEST_CHAIN_NAME,
+					Status__c = SEL_AsyncChainExecution.STATUS_FAILED,
+					CorrelationId__c = UTIL_Random.randomUUID(),
+					TotalSteps__c = 2,
+					CompletedSteps__c = 1,
+					ErrorMessage__c = 'boom'
+			));
+			AsyncChainExecution__c removed = new AsyncChainExecution__c(
+					ChainName__c = 'Removed',
+					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
+					TotalSteps__c = 0,
+					CompletedSteps__c = 0,
+					CorrelationId__c = UTIL_Random.randomUUID()
+			);
+			DML_Builder.newTransaction().doInsert(removed).execute();
+			Id missingId = removed.Id;
+			DML_Builder.newTransaction().doDelete(removed).execute();
+
+			Map<Id, UTIL_AsyncChain.ChainStatus> statuses =
+					UTIL_AsyncChain.getChainStatuses(new Set<Id> {first.Id, second.Id, missingId});
+
+			Assert.areEqual(2, statuses.size(), 'Only the two existing executions should resolve');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, statuses.get(first.Id).status, 'first status should map');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, statuses.get(second.Id).status, 'second status should map');
+			Assert.isFalse(statuses.containsKey(missingId), 'A missing ID should be absent from the result map');
+		}
+	}
+
+	/**
+	 * @description Verifies that withDelayMinutes clamps to the platform Queueable-delay range (0-10):
+	 * a negative value clamps to 0, an above-ceiling value clamps to 10, an in-range value is stored
+	 * verbatim, and null is a no-op.
+	 */
+	@IsTest
+	private static void shouldClampWithDelayMinutesToPlatformRange()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainBuilder builder = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME);
+
+			builder.withDelayMinutes(-5);
+			Assert.areEqual(0, builder.firstStepDelayMinutes, 'A negative delay clamps to 0');
+
+			builder.withDelayMinutes(20);
+			Assert.areEqual(10, builder.firstStepDelayMinutes, 'A delay above the platform ceiling clamps to 10');
+
+			builder.withDelayMinutes(7);
+			Assert.areEqual(7, builder.firstStepDelayMinutes, 'An in-range delay is stored verbatim');
+
+			builder.withDelayMinutes(null);
+			Assert.isNull(builder.firstStepDelayMinutes, 'A null delay is a no-op');
+		}
+	}
+
+	/**
+	 * @description Verifies that withDelayMinutes(0) runs and completes through the existing
+	 * immediate-enqueue path, exactly as a chain with no delay (0 and unset take the same code branch).
+	 */
+	@IsTest
+	private static void shouldExecuteImmediatelyWhenDelayZero()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withDelayMinutes(0)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A zero delay behaves exactly as today');
+			Assert.areEqual(1, execution.CompletedSteps__c, 'The step still completes');
+		}
+	}
+
+	/**
+	 * @description Verifies that a chain with a first-step delay still completes Running to Completed
+	 * within a test, where the platform runs the delayed Queueable at Test.stopTest().
+	 */
+	@IsTest
+	private static void shouldCompleteDelayedChainWithinTestContext()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withDelayMinutes(5)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A delayed chain still completes under Test.stopTest()');
+			Assert.areEqual(1, execution.CompletedSteps__c, 'The delayed first step completes');
+		}
+	}
+
+	/**
+	 * @description Verifies the delay applies only to the first enqueue and never contaminates the
+	 * shared AsyncOptions the Finalizer reuses to re-enqueue later steps. Asserts directly that the
+	 * AsyncOptions instance is left unmutated after execute() (no delay stamped on it, stack depth
+	 * unchanged), so a regression that wrote the delay onto the shared options would be caught at source
+	 * rather than relying on chain completion (the platform ignores enqueue delays under Test.stopTest).
+	 */
+	@IsTest
+	private static void shouldDelayOnlyTheFirstEnqueue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncOptions sharedOptions = createAsyncOptions(4);
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withDelayMinutes(5)
+					.withAsyncOptions(sharedOptions)
+					.execute();
+			Test.stopTest();
+
+			Assert.isNull(sharedOptions.minimumQueueableDelayInMinutes,
+					'The first-step delay must never be stamped on the shared AsyncOptions the Finalizer reuses for later steps');
+			Assert.areEqual(4, sharedOptions.maximumQueueableStackDepth, 'execute() must not mutate the shared AsyncOptions');
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Later steps run normally after a delayed first step');
+			Assert.areEqual(3, execution.TotalSteps__c, 'All three steps are present');
+			Assert.areEqual(3, execution.CompletedSteps__c, 'All three steps complete');
 		}
 	}
 
@@ -496,6 +843,139 @@ private class UTIL_AsyncChain_TEST
 
 			context.currentStepIndex = 2;
 			Assert.areEqual(2, context.getCurrentStepIndex(), 'Should return assigned index');
+		}
+	}
+
+	/**
+	 * @description Verifies that idempotencyKey() derives the step-level key as executionId + "-" +
+	 * stepIndex, and that the same context derives the same key on repeated calls (stability).
+	 */
+	@IsTest
+	private static void shouldDeriveStepLevelIdempotencyKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			context.currentStepIndex = 2;
+
+			String key = context.idempotencyKey();
+
+			Assert.areEqual('test-exec-id-2', key, 'Step-level key should be executionId + "-" + stepIndex');
+			Assert.areEqual(key, context.idempotencyKey(), 'The same context must derive the same step-level key on every call');
+		}
+	}
+
+	/**
+	 * @description Verifies that idempotencyKey(Id) composes the step key + "-" + recordId, that the
+	 * same record Id reproduces the same key (the replay-safety property), and that different record
+	 * Ids produce different keys.
+	 */
+	@IsTest
+	private static void shouldDeriveRecordGrainIdempotencyKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			context.currentStepIndex = 2;
+			Set<Id> distinctIds = new Set<Id>();
+			while(distinctIds.size() < 2)
+			{
+				distinctIds.add(UTIL_Random.randomId(Foobar__c.SObjectType));
+			}
+			List<Id> recordIds = new List<Id>(distinctIds);
+			Id firstRecordId = recordIds[0];
+			Id secondRecordId = recordIds[1];
+
+			String firstKey = context.idempotencyKey(firstRecordId);
+
+			Assert.areEqual('test-exec-id-2-' + firstRecordId, firstKey, 'Record-grain key should be the step key + "-" + recordId');
+			Assert.areEqual(firstKey, context.idempotencyKey(firstRecordId), 'The same record Id must reproduce the same key (replay-safety)');
+			Assert.areNotEqual(firstKey, context.idempotencyKey(secondRecordId), 'Different record Ids must produce different keys');
+		}
+	}
+
+	/**
+	 * @description Verifies that idempotencyKey(String) composes the step key + "-" + grain, and that
+	 * a long grain passes through verbatim with no hashing or truncation (the opaque-token contract).
+	 */
+	@IsTest
+	private static void shouldDeriveStringGrainIdempotencyKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			context.currentStepIndex = 2;
+
+			Assert.areEqual('test-exec-id-2-orderLine-7', context.idempotencyKey('orderLine-7'),
+					'String-grain key should compose the step key + "-" + grain');
+
+			String longGrain = 'x'.repeat(500);
+			Assert.areEqual('test-exec-id-2-' + longGrain, context.idempotencyKey(longGrain),
+					'A long grain must pass through verbatim — the helper never hashes or truncates');
+		}
+	}
+
+	/**
+	 * @description Verifies the null-handling contract: a null record Id, a null String grain, and a
+	 * blank/whitespace String grain all fall back to the bare step-level key (no trailing delimiter,
+	 * no "null" literal). Typed locals disambiguate the overloads (a bare null literal is a compile
+	 * error — Ambiguous method signature).
+	 */
+	@IsTest
+	private static void shouldFallBackToStepKeyForNullOrBlankGrain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			context.currentStepIndex = 2;
+			Id nullRecordId = null;
+			String nullGrain = null;
+
+			Assert.areEqual('test-exec-id-2', context.idempotencyKey(nullRecordId),
+					'A null record Id must fall back to the bare step-level key');
+			Assert.areEqual('test-exec-id-2', context.idempotencyKey(nullGrain),
+					'A null String grain must fall back to the bare step-level key');
+			Assert.areEqual('test-exec-id-2', context.idempotencyKey('   '),
+					'A blank/whitespace String grain must fall back to the bare step-level key');
+		}
+	}
+
+	/**
+	 * @description Proves the record-grain helper is safe to call once per record in a fan-out loop:
+	 * deriving keys for several records issues no SOQL and no DML (a zero-delta snapshot of getQueries
+	 * and getDmlStatements), and distinct records yield distinct, exactly-composed keys. The derivation
+	 * is pure string composition with no hashing or truncation, so a handful of records is sufficient —
+	 * no large volume is needed to demonstrate the no-collision and zero-cost properties. (Single-record
+	 * composition, reproducibility, and the null/blank fallbacks are covered by the focused tests above.)
+	 */
+	@IsTest
+	private static void shouldDeriveRecordGrainKeysInALoopWithoutGovernorCost()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			context.currentStepIndex = 2;
+
+			Set<Id> recordIds = new Set<Id>();
+			while(recordIds.size() < 5)
+			{
+				recordIds.add(UTIL_Random.randomId(Foobar__c.SObjectType));
+			}
+
+			Integer queriesBefore = Limits.getQueries();
+			Integer dmlBefore = Limits.getDmlStatements();
+
+			Set<String> keys = new Set<String>();
+			for(Id recordId : recordIds)
+			{
+				String key = context.idempotencyKey(recordId);
+				Assert.areEqual('test-exec-id-2-' + recordId, key, 'Each record-grain key must be the step key + "-" + recordId');
+				keys.add(key);
+			}
+
+			Assert.areEqual(recordIds.size(), keys.size(), 'Distinct record Ids must yield the same number of distinct keys (no collision)');
+			Assert.areEqual(queriesBefore, Limits.getQueries(), 'Deriving keys must issue no SOQL (zero query cost)');
+			Assert.areEqual(dmlBefore, Limits.getDmlStatements(), 'Deriving keys must issue no DML (zero DML cost)');
 		}
 	}
 
@@ -2265,6 +2745,20 @@ private class UTIL_AsyncChain_TEST
 	private static AsyncChainExecution__c queryExecution(String executionId)
 	{
 		return (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
+	}
+
+	/**
+	 * @description Inserts a pre-populated AsyncChainExecution__c row (owned by the running user) so
+	 * the typed getChainStatus tests can assert deterministic field mappings without running a chain.
+	 *
+	 * @param record The execution record to persist.
+	 *
+	 * @return The same record with its Id populated.
+	 */
+	private static AsyncChainExecution__c persistExecution(AsyncChainExecution__c record)
+	{
+		DML_Builder.newTransaction().doInsert(record).execute();
+		return record;
 	}
 
 	/**

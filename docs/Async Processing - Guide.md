@@ -951,11 +951,30 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | `.then(IF_Chain.Step, Boolean)`   | Appends a step with explicit `continueOnError` control                            |
 | `.withInitialContext(key, value)` | Seeds the context with a key-value pair (additive)                                |
 | `.withMaxSteps(Integer)`          | Maximum steps allowed (default: 50)                                               |
+| `.withDelayMinutes(Integer)`      | Delays the first step by 0 to 10 minutes, best-effort (see below)                 |
 | `.withAsyncOptions(AsyncOptions)` | Sets queueable stack depth (for tests)                                            |
 | `.onError(IF_Chain.Step)`         | Registers a handler that runs when a step fails                                   |
 | `.onComplete(IF_Chain.Step)`      | Registers a handler that runs after all steps succeed                             |
 | `.execute()`                      | Persists config, enqueues the first step, returns the `AsyncChainExecution__c` ID |
 | `.execute(correlationId)`         | Same as above with a caller-supplied correlation ID                               |
+
+**Delaying the first step.** `withDelayMinutes` holds the chain's first step back for a few minutes, which is useful
+for spacing work out or giving an upstream system a moment to settle. Treat it as "about N minutes" rather than a
+precise timer, and keep these limits in mind:
+
+- The delay is capped at 0 to 10 minutes, the platform's own ceiling. A value outside that range is clamped, and 0 or
+  no value starts the chain immediately, exactly as before.
+- Only the first step waits. Every later step still runs as soon as the one before it finishes.
+- If your org has turned the platform's queued-job delay off, the chain simply starts straight away.
+- While it waits, the Chain Monitor shows the chain as Running with 0 of N steps done. It has not stalled; it is
+  waiting to begin.
+
+```apex
+UTIL_AsyncChain.newChain('NightlyRollup')
+	.then(new AggregateStep())
+	.withDelayMinutes(5)
+	.execute();
+```
 
 ### Context Sharing
 
@@ -1047,12 +1066,38 @@ Decimal completedSteps = (Decimal)status.get('completedSteps');
 Decimal totalSteps = (Decimal)status.get('totalSteps');
 ```
 
+The map is handy for a quick read, but you have to know each key's name and cast every value yourself. When you would
+rather work with a typed object, use `getChainStatus` instead. It returns a `ChainStatus` with every field named and
+typed, plus three ready-made checks so you never compare status strings by hand:
+
+```apex
+UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(executionId);
+
+if(status != null && status.isFailed())
+{
+	String reason = status.errorMessage;
+}
+
+Integer done = status.completedSteps;   // already an Integer, no casting
+String elapsed = status.durationLabel;  // for example "1m 30s"
+```
+
+`isRunning()`, `isTerminal()` (Completed, Failed, or Aborted), and `isFailed()` answer the common questions directly.
+The raw `status` is still there as a String if you need it, and it can also read `Delayed` or `Stalled` for a chain that
+is waiting or has stopped making progress. For a chain that is still running, `durationMs` is filled in live from its
+start time, so it matches what the Chain Monitor shows.
+
+A `ChainStatus` is a single-record summary and deliberately carries no per-step list. When you need step-by-step detail,
+open the chain in the Chain Monitor. To look up several chains at once, `getChainStatuses(Set<Id>)` returns a map of Id
+to `ChainStatus` in one query, so it is safe to call inside a loop. Both accessors return only the chains you have access
+to, exactly as `getStatus` does.
+
 **AsyncChainExecution__c fields:**
 
 | Field                | Description                                                                          |
 |----------------------|--------------------------------------------------------------------------------------|
 | `ChainName__c`       | Descriptive name from `newChain()`                                                   |
-| `Status__c`          | Running, Completed, Failed, or Aborted                                               |
+| `Status__c`          | Running, Completed, Failed, Aborted, Delayed, or Stalled                             |
 | `TotalSteps__c`      | Number of steps in the chain                                                         |
 | `CompletedSteps__c`  | Steps that succeeded (failed steps are not counted)                                  |
 | `CurrentStepName__c` | Name of the currently executing step                                                 |
@@ -1120,11 +1165,59 @@ context.put('CreateAccount.accountId', account.Id);
 context.put('SendEmail.messageId', response.messageId);
 ```
 
-**Safe to run twice (idempotency):** A step is idempotent when running it a second time produces the same end state as
-running it once, with no duplicate side effects. The framework does not guarantee this for you; it is the step author's
-job. Steps that change data or call out to other systems should be safe to run more than once, because manual
-reprocessing, multiple entry points, or a partial failure followed by a re-run can all cause a step to fire again. Use
-upsert with external IDs, check before you insert, or call downstream APIs that are themselves safe to repeat.
+**Safe to run twice (idempotency):** A step is *idempotent* when running it a second time produces the same end state as
+running it once, with no duplicate side effects, so running the same step twice does not double-process anything. The
+framework does not do this for you; it is the step author's job, because manual reprocessing, multiple entry points, or
+a partial failure followed by a re-run can all make a step fire again.
+
+What makes a step safe to re-run is a key that stays *identical* every time the same step replays. Never build that key
+from a value that changes between attempts, such as a fresh timestamp or a new job id, or the protection silently
+disappears. The context hands you the right key so you cannot get this subtly wrong.
+
+**The default: one key per step.** For a step that does a single unit of work, call `context.idempotencyKey()`. Put the
+returned value on an external-id field (a field you mark as an external id so a record can be matched by it) and *upsert*
+(insert-or-update in one call), so a replay updates the same record instead of creating a duplicate:
+
+```apex
+Invoice__c invoice = new Invoice__c(
+	IdempotencyKey__c = context.idempotencyKey(),
+	Amount__c = 100
+);
+upsert invoice IdempotencyKey__c;
+```
+
+For a side effect you cannot upsert, such as a callout or an email, stamp that same key on a marker record first and
+skip the work when the marker is already there.
+
+**For a step that loops over many records: one key per record.** Pass the record id with
+`context.idempotencyKey(recordId)`. This matters when a bulk step dies halfway and replays: with a single step-level key
+you would have to re-run every record or skip them all, whereas a per-record key means the replay only touches the rows
+that did not make it the first time.
+
+```apex
+List<Invoice__c> invoices = new List<Invoice__c>();
+for(Account account : accounts)
+{
+	invoices.add(new Invoice__c(
+		IdempotencyKey__c = context.idempotencyKey(account.Id),
+		Account__c = account.Id
+	));
+}
+upsert invoices IdempotencyKey__c;
+```
+
+**Treat the key as opaque** (use it whole; do not pull it apart). Compare it, or store it as your external-id value, but
+do not split it to read back the run or the record. If you need those, you already have them: the record id you passed
+in, and the values the context exposes.
+
+**Keep a custom grain short.** When the fan-out unit is not a record id, pass your own short, stable token with
+`context.idempotencyKey('orderLine-7')`. An external-id field holds up to 255 characters, so keep the token short; if you
+ever need a long one, shorten it yourself first (a one-line hash of just your token) while keeping the readable
+run-and-step prefix. An over-long key does not pass silently: the save fails with a clear "value too large" error, so you
+find out immediately.
+
+In one line: the chain run is the namespace, the step is the unit of replay, and the record is the grain when a step is
+bulk.
 
 ### Kill Switch
 
