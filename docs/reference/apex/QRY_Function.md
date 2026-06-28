@@ -2,7 +2,7 @@
 title: "QRY_Function"
 type: class
 pageClass: reference
-description: "Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder's SELECT, GROUP BY and ORDER BY clauses. One static factory per function; the retu"
+description: "Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE and ORDER BY clauses: the date-part functions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) and the geoloca"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
 date: "June 2026"
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class QRY_Function
 ```
 
-Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) for use in the query builder's SELECT, GROUP BY and ORDER BY clauses. One static factory per function; the returned value is an immutable carrier that resolves its wrapped field name once and renders to a finished SOQL expression, so the builder can project, group and sort by the same date part from a single source without hand-spelling raw SOQL. Use the factories with the matching QRY_Builder.Builder overloads — addField, groupBy and orderBy — to bucket records by a date part for reporting.
+Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE and ORDER BY clauses: the date-part functions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) and the geolocation DISTANCE function. One static factory per function; the returned value is an immutable carrier that resolves its wrapped field name once and renders to a finished SOQL expression, so the builder can project, group, filter and sort by the same expression from a single source without hand-spelling raw SOQL. Use the factories with the matching QRY_Builder.Builder overloads: addField, groupBy and orderBy to bucket records by a date part for reporting, and condition (WHERE) together with the geolocation distance factories for proximity filtering and nearest-first ordering.
 
 **Example**
 
@@ -55,6 +55,10 @@ for(QRY_Builder.AggregateRow row : rows)
 | global static [QRY_Function](QRY_Function.md) [dayInWeek](#dayinweek)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in DAY_IN_WEEK (1 for Sunday through 7 for Saturday). |
 | global static [QRY_Function](QRY_Function.md) [dayInYear](#dayinyear)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in DAY_IN_YEAR (1–366). |
 | global static [QRY_Function](QRY_Function.md) [dayOnly](#dayonly)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a datetime field in DAY_ONLY, returning the date with the time component dropped. |
+| global static [QRY_Function](QRY_Function.md) [distanceInKilometers](#distanceinkilometers)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) latitude, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) longitude) | Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring the straight-line distance in kilometres from each record to a fixed reference point. |
+| global static [QRY_Function](QRY_Function.md) [distanceInKilometers](#distanceinkilometers)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [System.Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) location) | Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring the straight-line distance in kilometres to a System.Location reference point. |
+| global static [QRY_Function](QRY_Function.md) [distanceInMiles](#distanceinmiles)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) latitude, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) longitude) | Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring the straight-line distance in statute miles from each record to a fixed reference point. |
+| global static [QRY_Function](QRY_Function.md) [distanceInMiles](#distanceinmiles)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [System.Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) location) | Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring the straight-line distance in statute miles to a System.Location reference point. |
 | global static [QRY_Function](QRY_Function.md) [fiscalMonth](#fiscalmonth)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in FISCAL_MONTH (1–12 within the org's fiscal year). |
 | global static [QRY_Function](QRY_Function.md) [fiscalQuarter](#fiscalquarter)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in FISCAL_QUARTER (1–4 within the org's fiscal year). |
 | global static [QRY_Function](QRY_Function.md) [fiscalYear](#fiscalyear)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Wraps a date/datetime field in FISCAL_YEAR (the org's fiscal year). |
@@ -243,6 +247,138 @@ Date, unlike the other date functions which yield an Integer date part.
 ```apex
 .addField(QRY_Function.dayOnly(Opportunity.CreatedDate), 'createdOn')
 // ... row.getDate('createdOn')
+```
+
+</div>
+
+### distanceInKilometers
+
+<div class="apex-member">
+
+```apex
+global static QRY_Function distanceInKilometers(SObjectField field, Decimal latitude, Decimal longitude)
+```
+
+Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+the straight-line distance in kilometres from each record to a fixed reference point. Use it for
+proximity filtering and nearest-first ordering (field service, store locator, dispatch). Renders
+DISTANCE(field, GEOLOCATION(latitude,longitude), 'km'). Place it on the WHERE side with
+`QRY_Builder.Builder.condition(QRY_Function)` and on the sort side with the existing
+`orderBy(QRY_Function)` overload (ascending is nearest-first).
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The geolocation (or compound address) field to measure from. |
+| `latitude` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The latitude of the reference point, in degrees. |
+| `longitude` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The longitude of the reference point, in degrees. |
+
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'km').
+
+**Example**
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).lessThan(16)
+    .orderBy(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).ascending()
+    .toList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static QRY_Function distanceInKilometers(SObjectField field, System.Location location)
+```
+
+Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+the straight-line distance in kilometres to a `System.Location` reference point. Convenience
+overload of `distanceInKilometers(SObjectField, Decimal, Decimal)` for callers that already hold a
+Location (for example a user's current position). Renders the identical
+DISTANCE(field, GEOLOCATION(latitude,longitude), 'km') form.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The geolocation (or compound address) field to measure from. |
+| `location` | [System.Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) | The reference point to measure distance to. |
+
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'km').
+
+**Example**
+
+```apex
+System.Location origin = System.Location.newInstance(37.775, -122.418);
+QRY_Function nearest = QRY_Function.distanceInKilometers(Account.BillingAddress, origin);
+```
+
+</div>
+
+### distanceInMiles
+
+<div class="apex-member">
+
+```apex
+global static QRY_Function distanceInMiles(SObjectField field, Decimal latitude, Decimal longitude)
+```
+
+Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+the straight-line distance in statute miles from each record to a fixed reference point. Use it for
+proximity filtering and nearest-first ordering (field service, store locator, dispatch). Renders
+DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi'). Place it on the WHERE side with
+`QRY_Builder.Builder.condition(QRY_Function)` and on the sort side with the existing
+`orderBy(QRY_Function)` overload (ascending is nearest-first).
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The geolocation (or compound address) field to measure from. |
+| `latitude` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The latitude of the reference point, in degrees. |
+| `longitude` | [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) | The longitude of the reference point, in degrees. |
+
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi').
+
+**Example**
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+    .orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).ascending()
+    .toList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static QRY_Function distanceInMiles(SObjectField field, System.Location location)
+```
+
+Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+the straight-line distance in statute miles to a `System.Location` reference point. Convenience
+overload of `distanceInMiles(SObjectField, Decimal, Decimal)` for callers that already hold a Location
+(for example a user's current position). Renders the identical
+DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi') form.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The geolocation (or compound address) field to measure from. |
+| `location` | [System.Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) | The reference point to measure distance to. |
+
+**Returns** [QRY_Function](QRY_Function.md) — A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi').
+
+**Example**
+
+```apex
+System.Location origin = System.Location.newInstance(37.775, -122.418);
+QRY_Function nearest = QRY_Function.distanceInMiles(Account.BillingAddress, origin);
 ```
 
 </div>

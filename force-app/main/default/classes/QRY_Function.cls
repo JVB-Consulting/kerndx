@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Typed SOQL date-function expressions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...)
- * for use in the query builder's SELECT, GROUP BY and ORDER BY clauses. One static factory per
- * function; the returned value is an immutable carrier that resolves its wrapped field name once and
- * renders to a finished SOQL expression, so the builder can project, group and sort by the same date
- * part from a single source without hand-spelling raw SOQL.
+ * @description Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE
+ * and ORDER BY clauses: the date-part functions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) and
+ * the geolocation DISTANCE function. One static factory per function; the returned value is an immutable
+ * carrier that resolves its wrapped field name once and renders to a finished SOQL expression, so the
+ * builder can project, group, filter and sort by the same expression from a single source without
+ * hand-spelling raw SOQL.
  *
- * Use the factories with the matching `QRY_Builder.Builder` overloads — `addField`, `groupBy` and
- * `orderBy` — to bucket records by a date part for reporting.
+ * Use the factories with the matching `QRY_Builder.Builder` overloads: `addField`, `groupBy` and
+ * `orderBy` to bucket records by a date part for reporting, and `condition` (WHERE) together with the
+ * geolocation distance factories for proximity filtering and nearest-first ordering.
  *
  * @see QRY_Builder
  *
@@ -53,6 +55,23 @@ global inherited sharing class QRY_Function
 	private QRY_Function(String soqlToken, SObjectField field)
 	{
 		this.expression = soqlToken + '(' + UTIL_SObjectDescribe.getCachedFieldName(field) + ')';
+	}
+
+	/**
+	 * @description Single private helper that composes a geolocation DISTANCE expression for a fixed
+	 * unit literal, resolving the field's API name exactly once (so a namespaced custom geolocation
+	 * field renders one identical expression in WHERE and ORDER BY) and rendering the SOQL
+	 * DISTANCE(field, GEOLOCATION(lat,lon), 'unit') form. Each named factory passes its own hardcoded
+	 * unit, so the supplied literal is always one SOQL accepts and no runtime validation is needed.
+	 *
+	 * @param field The geolocation or compound address field to measure distance from.
+	 * @param latitude The latitude of the reference point.
+	 * @param longitude The longitude of the reference point.
+	 * @param unit The distance unit literal supplied by the named factory ('mi' or 'km').
+	 */
+	private QRY_Function(SObjectField field, Decimal latitude, Decimal longitude, String unit)
+	{
+		this.expression = 'DISTANCE(' + UTIL_SObjectDescribe.getCachedFieldName(field) + ', GEOLOCATION(' + latitude + ',' + longitude + '), \'' + unit + '\')';
 	}
 
 	/**
@@ -306,9 +325,118 @@ global inherited sharing class QRY_Function
 	}
 
 	/**
-	 * @description Returns the finished SOQL date-function expression with no alias
-	 * (e.g. CALENDAR_MONTH(CloseDate)). Package-visible: consumed by `QRY_Builder` when rendering the
-	 * function into the SELECT, GROUP BY and ORDER BY clauses; intentionally not part of the global API.
+	 * @description Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+	 * the straight-line distance in statute miles from each record to a fixed reference point. Use it for
+	 * proximity filtering and nearest-first ordering (field service, store locator, dispatch). Renders
+	 * DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi'). Place it on the WHERE side with
+	 * `QRY_Builder.Builder.condition(QRY_Function)` and on the sort side with the existing
+	 * `orderBy(QRY_Function)` overload (ascending is nearest-first).
+	 *
+	 * @param field The geolocation (or compound address) field to measure from.
+	 * @param latitude The latitude of the reference point, in degrees.
+	 * @param longitude The longitude of the reference point, in degrees.
+	 *
+	 * @return A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi').
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+	 *     .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+	 *     .orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).ascending()
+	 *     .toList();
+	 * ```
+	 */
+	global static QRY_Function distanceInMiles(SObjectField field, Decimal latitude, Decimal longitude)
+	{
+		return new QRY_Function(field, latitude, longitude, 'mi');
+	}
+
+	/**
+	 * @description Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+	 * the straight-line distance in statute miles to a `System.Location` reference point. Convenience
+	 * overload of `distanceInMiles(SObjectField, Decimal, Decimal)` for callers that already hold a Location
+	 * (for example a user's current position). Renders the identical
+	 * DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi') form.
+	 *
+	 * @param field The geolocation (or compound address) field to measure from.
+	 * @param location The reference point to measure distance to.
+	 *
+	 * @return A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'mi').
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * System.Location origin = System.Location.newInstance(37.775, -122.418);
+	 * QRY_Function nearest = QRY_Function.distanceInMiles(Account.BillingAddress, origin);
+	 * ```
+	 */
+	global static QRY_Function distanceInMiles(SObjectField field, System.Location location)
+	{
+		return distanceInMiles(field, location.getLatitude(), location.getLongitude());
+	}
+
+	/**
+	 * @description Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+	 * the straight-line distance in kilometres from each record to a fixed reference point. Use it for
+	 * proximity filtering and nearest-first ordering (field service, store locator, dispatch). Renders
+	 * DISTANCE(field, GEOLOCATION(latitude,longitude), 'km'). Place it on the WHERE side with
+	 * `QRY_Builder.Builder.condition(QRY_Function)` and on the sort side with the existing
+	 * `orderBy(QRY_Function)` overload (ascending is nearest-first).
+	 *
+	 * @param field The geolocation (or compound address) field to measure from.
+	 * @param latitude The latitude of the reference point, in degrees.
+	 * @param longitude The longitude of the reference point, in degrees.
+	 *
+	 * @return A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'km').
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+	 *     .condition(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).lessThan(16)
+	 *     .orderBy(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).ascending()
+	 *     .toList();
+	 * ```
+	 */
+	global static QRY_Function distanceInKilometers(SObjectField field, Decimal latitude, Decimal longitude)
+	{
+		return new QRY_Function(field, latitude, longitude, 'km');
+	}
+
+	/**
+	 * @description Wraps a geolocation or compound address field in the SOQL DISTANCE function, measuring
+	 * the straight-line distance in kilometres to a `System.Location` reference point. Convenience
+	 * overload of `distanceInKilometers(SObjectField, Decimal, Decimal)` for callers that already hold a
+	 * Location (for example a user's current position). Renders the identical
+	 * DISTANCE(field, GEOLOCATION(latitude,longitude), 'km') form.
+	 *
+	 * @param field The geolocation (or compound address) field to measure from.
+	 * @param location The reference point to measure distance to.
+	 *
+	 * @return A QRY_Function carrying DISTANCE(field, GEOLOCATION(latitude,longitude), 'km').
+	 *
+	 * @since 1.2
+	 *
+	 * @example
+	 * ```apex
+	 * System.Location origin = System.Location.newInstance(37.775, -122.418);
+	 * QRY_Function nearest = QRY_Function.distanceInKilometers(Account.BillingAddress, origin);
+	 * ```
+	 */
+	global static QRY_Function distanceInKilometers(SObjectField field, System.Location location)
+	{
+		return distanceInKilometers(field, location.getLatitude(), location.getLongitude());
+	}
+
+	/**
+	 * @description Returns the finished SOQL function expression with no alias (e.g.
+	 * CALENDAR_MONTH(CloseDate) or DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), 'mi')).
+	 * Package-visible: consumed by `QRY_Builder` when rendering the function into the SELECT, GROUP BY,
+	 * WHERE and ORDER BY clauses; intentionally not part of the global API.
 	 *
 	 * @return The SOQL expression string.
 	 */

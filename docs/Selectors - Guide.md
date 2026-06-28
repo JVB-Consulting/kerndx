@@ -1911,6 +1911,32 @@ When the field name is only known at runtime, the raw-string form still works
 (`.addField('CALENDAR_MONTH(' + fieldName + ')')`); the typed factories are the safe, autocompleting path for
 the common case.
 
+#### Proximity Filtering and Nearest-First Ordering
+
+When you need the nearest stores, the closest field engineers, or every account within ten miles of a point, you are asking a proximity question. `QRY_Function` answers it with two helpers, `distanceInMiles(...)` and `distanceInKilometers(...)`. Each one wraps the SOQL `DISTANCE` function (which returns the straight-line distance between two geolocation points) so you can both filter and sort records by how far each one sits from a fixed location, without hand-writing the raw expression.
+
+You choose the unit by the helper you call, so there is no unit string to mistype. Give the helper a geolocation or compound address field and a reference latitude and longitude, filter on the result with `.condition(...)`, and sort nearest-first with `.orderBy(...).ascending()`:
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+	.condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+	.orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).ascending()
+	.toList();
+```
+
+That reads as "accounts whose billing address is within 10 miles of the point, closest first". Swap `.ascending()` for `.descending()` to sort farthest-first instead, and call `distanceInKilometers(...)` in place of `distanceInMiles(...)` when you want kilometres.
+
+If you already hold the origin as a `System.Location`, for example the running user's current position, pass it straight in. Both helpers also take a `System.Location`:
+
+```apex
+System.Location origin = System.Location.newInstance(37.775, -122.418);
+
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+	.condition(QRY_Function.distanceInKilometers(Account.BillingAddress, origin)).lessThan(25)
+	.orderBy(QRY_Function.distanceInKilometers(Account.BillingAddress, origin)).ascending()
+	.toList();
+```
+
 #### toLabel (Picklist Translation)
 
 ```apex

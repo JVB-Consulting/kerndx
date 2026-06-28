@@ -72,4 +72,79 @@ private class QRY_Function_TEST
 						'Two carriers for the same field render the identical expression, so SELECT and GROUP BY cannot desync'
 				);
 	}
+
+	/**
+	 * @description Asserts the lat/lon distanceInMiles factory renders the SOQL DISTANCE function
+	 * wrapping a GEOLOCATION reference point and the hardcoded 'mi' unit, in the exact form SOQL expects
+	 * for a compound address field.
+	 */
+	@IsTest
+	private static void distanceInMilesRendersGeolocationExpression()
+	{
+		QRY_Function functionField = QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418);
+
+		Assert.areEqual
+				(
+						'DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'mi\')',
+						functionField.toExpression(),
+						'distanceInMiles must render the SOQL DISTANCE/GEOLOCATION form with the \'mi\' unit'
+				);
+	}
+
+	/**
+	 * @description Asserts the System.Location distanceInMiles overload renders the identical
+	 * DISTANCE/GEOLOCATION expression, reading the reference point's latitude and longitude from the
+	 * Location and hardcoding the 'mi' unit.
+	 */
+	@IsTest
+	private static void distanceInMilesFromLocationRendersGeolocationExpression()
+	{
+		System.Location origin = System.Location.newInstance(37.775, -122.418);
+
+		QRY_Function functionField = QRY_Function.distanceInMiles(Account.BillingAddress, origin);
+
+		Assert.areEqual
+				(
+						'DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'mi\')',
+						functionField.toExpression(),
+						'The distanceInMiles System.Location overload must render the same DISTANCE/GEOLOCATION form'
+				);
+	}
+
+	/**
+	 * @description Asserts the lat/lon distanceInKilometers factory renders the SOQL DISTANCE function
+	 * wrapping a GEOLOCATION reference point and the hardcoded 'km' unit.
+	 */
+	@IsTest
+	private static void distanceInKilometersRendersGeolocationExpression()
+	{
+		QRY_Function functionField = QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418);
+
+		Assert.areEqual
+				(
+						'DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'km\')',
+						functionField.toExpression(),
+						'distanceInKilometers must render the SOQL DISTANCE/GEOLOCATION form with the \'km\' unit'
+				);
+	}
+
+	/**
+	 * @description Asserts the System.Location distanceInKilometers overload renders the identical
+	 * DISTANCE/GEOLOCATION expression, reading the reference point's latitude and longitude from the
+	 * Location and hardcoding the 'km' unit.
+	 */
+	@IsTest
+	private static void distanceInKilometersFromLocationRendersGeolocationExpression()
+	{
+		System.Location origin = System.Location.newInstance(37.775, -122.418);
+
+		QRY_Function functionField = QRY_Function.distanceInKilometers(Account.BillingAddress, origin);
+
+		Assert.areEqual
+				(
+						'DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'km\')',
+						functionField.toExpression(),
+						'The distanceInKilometers System.Location overload must render the same DISTANCE/GEOLOCATION form'
+				);
+	}
 }

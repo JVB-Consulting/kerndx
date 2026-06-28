@@ -3519,6 +3519,80 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
+		 * @description Starts a WHERE condition whose left-hand side is a SOQL function expression
+		 * (for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`), so you can filter on
+		 * the function result: `.lessThan(10)` renders `DISTANCE(...) < 10`. Mirrors `condition(SObjectField)`
+		 * but seats the rendered function expression on the comparison left-hand side.
+		 *
+		 * @param functionField The function expression, from a QRY_Function factory
+		 *
+		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+		 *     .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+		 *     .toList();
+		 * ```
+		 */
+		global virtual ConditionBuilder condition(QRY_Function functionField)
+		{
+			return new ConditionBuilder(this, functionField.toExpression());
+		}
+
+		/**
+		 * @description Starts an AND condition whose left-hand side is a SOQL function expression
+		 * (for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`). Mirrors
+		 * `andCondition(SObjectField)` for function expressions.
+		 *
+		 * @param functionField The function expression, from a QRY_Function factory
+		 *
+		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+		 *     .condition(Account.Industry).equals('Technology')
+		 *     .andCondition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+		 *     .toList();
+		 * ```
+		 */
+		global virtual ConditionBuilder andCondition(QRY_Function functionField)
+		{
+			nextIsOr = false;
+			return andCondition(functionField.toExpression());
+		}
+
+		/**
+		 * @description Starts an OR condition whose left-hand side is a SOQL function expression
+		 * (for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`). Mirrors
+		 * `orCondition(SObjectField)` for function expressions.
+		 *
+		 * @param functionField The function expression, from a QRY_Function factory
+		 *
+		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @since 1.2
+		 *
+		 * @example
+		 * ```apex
+		 * List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+		 *     .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+		 *     .orCondition(QRY_Function.distanceInMiles(Account.ShippingAddress, 37.775, -122.418)).lessThan(10)
+		 *     .toList();
+		 * ```
+		 */
+		global virtual ConditionBuilder orCondition(QRY_Function functionField)
+		{
+			nextIsOr = true;
+			return orCondition(functionField.toExpression());
+		}
+
+		/**
 		 * @description Adds a pre-built condition to the query.
 		 * Use this for complex condition groups that cannot be expressed with the fluent API.
 		 *

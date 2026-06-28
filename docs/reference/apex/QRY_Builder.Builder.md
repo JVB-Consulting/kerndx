@@ -49,6 +49,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addFieldSet](#addfieldset)([FieldSet](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fieldsets_describe.htm) aFieldset) | Adds fields from a FieldSet token without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addFieldSet](#addfieldset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldSetName) | Adds fields from a FieldSet without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [allRows](#allrows)() | Includes deleted and archived records (ALL ROWS). |
+| global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [andCondition](#andcondition)([QRY_Function](QRY_Function.md) functionField) | Starts an AND condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles). |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [andCondition](#andcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Starts an AND condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [andCondition](#andcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts an AND condition on a field using its API name. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [ascending](#ascending)() | Sets the last ORDER BY clause to ASCENDING. |
@@ -69,6 +70,7 @@ List<Account> accounts = query.toList();
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies an AVG aggregate function. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules using a without sharing proxy class. |
+| global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([QRY_Function](QRY_Function.md) functionField) | Starts a WHERE condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles), so you can filter on the function result: .lessThan(10) renders DISTANCE(...) < 10. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Starts a WHERE condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts a WHERE condition on a field using its API name. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [count](#count)() | Returns the number of records that match the query criteria. |
@@ -109,6 +111,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [min](#min)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a MIN aggregate function. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [nullsFirst](#nullsfirst)() | Sets the last ORDER BY clause to NULLS FIRST. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [nullsLast](#nullslast)() | Sets the last ORDER BY clause to NULLS LAST. |
+| global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([QRY_Function](QRY_Function.md) functionField) | Starts an OR condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles). |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Starts an OR condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts an OR condition on a field using its API name. |
 | global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([QRY_Function](QRY_Function.md) functionField) | Orders by a SOQL date-function expression, ascending (e.g. |
@@ -393,6 +396,35 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 </div>
 
 ### andCondition
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.ConditionBuilder andCondition(QRY_Function functionField)
+```
+
+Starts an AND condition whose left-hand side is a SOQL function expression
+(for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`). Mirrors
+`andCondition(SObjectField)` for function expressions.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `functionField` | [QRY_Function](QRY_Function.md) | The function expression, from a QRY_Function factory |
+
+**Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Example**
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(Account.Industry).equals('Technology')
+    .andCondition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+    .toList();
+```
+
+</div>
 
 <div class="apex-member">
 
@@ -932,6 +964,35 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 </div>
 
 ### condition
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.ConditionBuilder condition(QRY_Function functionField)
+```
+
+Starts a WHERE condition whose left-hand side is a SOQL function expression
+(for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`), so you can filter on
+the function result: `.lessThan(10)` renders `DISTANCE(...) < 10`. Mirrors `condition(SObjectField)`
+but seats the rendered function expression on the comparison left-hand side.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `functionField` | [QRY_Function](QRY_Function.md) | The function expression, from a QRY_Function factory |
+
+**Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Example**
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+    .toList();
+```
+
+</div>
 
 <div class="apex-member">
 
@@ -1984,6 +2045,35 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 </div>
 
 ### orCondition
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.ConditionBuilder orCondition(QRY_Function functionField)
+```
+
+Starts an OR condition whose left-hand side is a SOQL function expression
+(for example a geolocation DISTANCE from `QRY_Function.distanceInMiles`). Mirrors
+`orCondition(SObjectField)` for function expressions.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `functionField` | [QRY_Function](QRY_Function.md) | The function expression, from a QRY_Function factory |
+
+**Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Example**
+
+```apex
+List<Account> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+    .orCondition(QRY_Function.distanceInMiles(Account.ShippingAddress, 37.775, -122.418)).lessThan(10)
+    .toList();
+```
+
+</div>
 
 <div class="apex-member">
 

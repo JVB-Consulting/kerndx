@@ -4854,4 +4854,102 @@ private class QRY_Builder_TEST
 			Assert.areEqual(6, rows[1].getInteger('bucket'), 'Second bucket should be June');
 		}
 	}
+
+	/**
+	 * @description Asserts condition(QRY_Function) seats a geolocation DISTANCE expression on the
+	 * left-hand side of a WHERE comparison, so a proximity filter renders DISTANCE(...) < 5.
+	 */
+	@IsTest
+	private static void proximityConditionRendersDistanceOnWhereLhs()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Account.SObjectType)
+					.condition(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).lessThan(5)
+					.toSoql();
+
+			Assert.isTrue
+					(
+							soql.containsIgnoreCase('DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'km\') < 5'),
+							'WHERE clause should place the DISTANCE function on the LHS of the comparison'
+					);
+		}
+	}
+
+	/**
+	 * @description Locks the zero-builder-change ORDER BY claim: the new distance factory routes
+	 * through the existing orderBy(QRY_Function) overload, so nearest-first ordering renders
+	 * ORDER BY DISTANCE(...) ASC using only pre-existing builder methods.
+	 */
+	@IsTest
+	private static void proximityOrderByRendersNearestFirst()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Account.SObjectType)
+					.orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).ascending()
+					.toSoql();
+
+			Assert.isTrue
+					(
+							soql.containsIgnoreCase('ORDER BY DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'mi\') ASC'),
+							'orderBy(QRY_Function) should render nearest-first with no builder change'
+					);
+		}
+	}
+
+	/**
+	 * @description Asserts the andCondition/orCondition function overloads mirror the SObjectField
+	 * parity path, seating additional DISTANCE expressions on the LHS of AND and OR comparisons.
+	 */
+	@IsTest
+	private static void proximityConditionsChainWithAndOrParity()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Account.SObjectType)
+					.condition(QRY_Function.distanceInKilometers(Account.BillingAddress, 37.775, -122.418)).lessThan(5)
+					.andCondition(QRY_Function.distanceInKilometers(Account.ShippingAddress, 40.7, -73.9)).greaterThan(1)
+					.orCondition(QRY_Function.distanceInMiles(Account.BillingAddress, 51.5, -0.12)).lessThan(10)
+					.toSoql();
+
+			Assert.isTrue
+					(
+							soql.containsIgnoreCase('DISTANCE(BillingAddress, GEOLOCATION(37.775,-122.418), \'km\') < 5'),
+							'condition(QRY_Function) seats the first DISTANCE on the WHERE LHS'
+					);
+			Assert.isTrue
+					(
+							soql.containsIgnoreCase('DISTANCE(ShippingAddress, GEOLOCATION(40.7,-73.9), \'km\') > 1'),
+							'andCondition(QRY_Function) should seat its DISTANCE on the LHS'
+					);
+			Assert.isTrue
+					(
+							soql.containsIgnoreCase('DISTANCE(BillingAddress, GEOLOCATION(51.5,-0.12), \'mi\') < 10'),
+							'orCondition(QRY_Function) should seat its DISTANCE on the LHS'
+					);
+			Assert.isTrue(soql.containsIgnoreCase(' OR '), 'orCondition(QRY_Function) should introduce an OR');
+		}
+	}
+
+	/**
+	 * @description Executes a proximity query end-to-end through toList() so the bind-registry render
+	 * path (DISTANCE(...) < :bind) is proven to be valid, executable SOQL rather than only the literal
+	 * toSoql() form. Runs without security so the assertion is about SOQL executability, not field-level
+	 * access, and asserts an empty result in the data-free test context.
+	 */
+	@IsTest
+	private static void proximityConditionExecutesAsValidSoql()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<SObject> nearby = QRY_Builder.selectFrom(Account.SObjectType)
+					.withoutSecurity()
+					.condition(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).lessThan(10)
+					.orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, 37.775, -122.418)).ascending()
+					.toList();
+
+			Assert.areEqual(0, nearby.size(), 'The bind-rendered DISTANCE query must execute as valid SOQL and return no rows in the data-free test context');
+		}
+	}
 }
