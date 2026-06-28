@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, May 2026, June 2026
  */
 public with sharing class SubscriberChainSteps
 {
@@ -42,6 +42,34 @@ public with sharing class SubscriberChainSteps
 	 * @description Size in characters of the random payload each WriteContextStep writes to context.
 	 */
 	public static final Integer WRITE_CONTEXT_PAYLOAD_SIZE = 1024;
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records the step's chain execution Id.
+	 */
+	public static final String KEY_IDEMPOTENCY_EXECUTION_ID = 'idempotencyExecutionId';
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records the step index as a String.
+	 */
+	public static final String KEY_IDEMPOTENCY_STEP_INDEX = 'idempotencyStepIndex';
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records the record Id passed to the grained overload.
+	 */
+	public static final String KEY_IDEMPOTENCY_RECORD_ID = 'idempotencyRecordId';
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records the bare idempotencyKey().
+	 */
+	public static final String KEY_IDEMPOTENCY_BASE = 'idempotencyBase';
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records idempotencyKey(recordId).
+	 */
+	public static final String KEY_IDEMPOTENCY_RECORD = 'idempotencyRecord';
+	/**
+	 * @description Context key under which CaptureIdempotencyKeyStep records idempotencyKey(grain).
+	 */
+	public static final String KEY_IDEMPOTENCY_GRAIN = 'idempotencyGrain';
+	/**
+	 * @description Fixed grain string CaptureIdempotencyKeyStep feeds to the String overload of idempotencyKey.
+	 */
+	public static final String IDEMPOTENCY_GRAIN = 'unit-00042';
 
 	/**
 	 * @description Creates a Foobar__c record and stores the ID in context.
@@ -259,6 +287,31 @@ public with sharing class SubscriberChainSteps
 		public override kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)
 		{
 			return kern.UTIL_AsyncChain.succeeded('No-op step at ' + context.getCurrentStepIndex());
+		}
+	}
+
+	/**
+	 * @description Exercises the 1.2 per-step idempotency-key API from subscriber context.
+	 * Inserts a record to obtain a real grain Id, then records the three global overloads
+	 * — idempotencyKey(), idempotencyKey(Id) and idempotencyKey(String) — into context
+	 * alongside the chain execution Id and step index, so the test can assert the documented
+	 * key shape (executionId-stepIndex, then -grain) without depending on the absolute index.
+	 */
+	public class CaptureIdempotencyKeyStep extends kern.UTIL_AsyncChain.ChainStep
+	{
+		public override kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)
+		{
+			kern__Foobar__c record = new kern__Foobar__c(Name = 'Idempotency Probe ' + Datetime.now().getTime());
+			kern.DML_Builder.newTransaction().doInsert(record).execute();
+
+			context.put(KEY_IDEMPOTENCY_EXECUTION_ID, String.valueOf(context.getChainExecutionId()));
+			context.put(KEY_IDEMPOTENCY_STEP_INDEX, String.valueOf(context.getCurrentStepIndex()));
+			context.put(KEY_IDEMPOTENCY_RECORD_ID, String.valueOf(record.Id));
+			context.put(KEY_IDEMPOTENCY_BASE, context.idempotencyKey());
+			context.put(KEY_IDEMPOTENCY_RECORD, context.idempotencyKey(record.Id));
+			context.put(KEY_IDEMPOTENCY_GRAIN, context.idempotencyKey(IDEMPOTENCY_GRAIN));
+
+			return kern.UTIL_AsyncChain.succeeded('Captured idempotency keys at step ' + context.getCurrentStepIndex());
 		}
 	}
 }

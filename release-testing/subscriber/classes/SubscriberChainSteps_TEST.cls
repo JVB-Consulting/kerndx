@@ -9,7 +9,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026
+ * @date April 2026, May 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false)
@@ -576,6 +576,161 @@ private class SubscriberChainSteps_TEST
 		Assert.areEqual('Failed', execution.kern__Status__c, 'Chain should fail when prior payload key absent');
 		Assert.isTrue(execution.kern__ErrorMessage__c.contains('Prior payload missing'),
 				'Error should mention missing prior payload; got: ' + execution.kern__ErrorMessage__c);
+	}
+
+	/**
+	 * @description Verifies the 1.2 typed getChainStatus accessor returns a populated
+	 * ChainStatus value object for a completed chain, with the terminal / running / failed
+	 * predicates reading as plain code.
+	 */
+	@IsTest
+	private static void shouldReturnTypedChainStatusForCompletedChain()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.CreateFoobarStep())
+				.execute();
+		Test.stopTest();
+
+		kern.UTIL_AsyncChain.ChainStatus status = kern.UTIL_AsyncChain.getChainStatus(executionId);
+
+		Assert.isNotNull(status, 'getChainStatus should return a ChainStatus for a known execution Id');
+		Assert.areEqual(executionId, String.valueOf(status.executionId), 'ChainStatus.executionId should match the launched chain');
+		Assert.areEqual(CHAIN_NAME, status.chainName, 'ChainStatus.chainName should match newChain()');
+		Assert.areEqual('Completed', status.status, 'ChainStatus.status should be Completed');
+		Assert.areEqual(1, status.totalSteps, 'ChainStatus.totalSteps should be 1');
+		Assert.areEqual(1, status.completedSteps, 'ChainStatus.completedSteps should be 1');
+		Assert.isTrue(status.isTerminal(), 'A completed chain should be terminal');
+		Assert.isFalse(status.isRunning(), 'A completed chain should not be running');
+		Assert.isFalse(status.isFailed(), 'A completed chain should not be failed');
+		Assert.isNotNull(status.startedAt, 'ChainStatus.startedAt should be set');
+		Assert.isNotNull(status.completedAt, 'ChainStatus.completedAt should be set for a terminal chain');
+	}
+
+	/**
+	 * @description Verifies the typed getChainStatus accessor reports a failed chain via
+	 * isFailed() and carries the failing step's error message.
+	 */
+	@IsTest
+	private static void shouldReturnFailedTypedChainStatus()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.FailingStep())
+				.execute();
+		Test.stopTest();
+
+		kern.UTIL_AsyncChain.ChainStatus status = kern.UTIL_AsyncChain.getChainStatus(executionId);
+
+		Assert.isNotNull(status, 'getChainStatus should return a ChainStatus for a failed chain');
+		Assert.areEqual('Failed', status.status, 'ChainStatus.status should be Failed');
+		Assert.isTrue(status.isFailed(), 'isFailed() should be true for a failed chain');
+		Assert.isTrue(status.isTerminal(), 'A failed chain should be terminal');
+		Assert.isFalse(status.isRunning(), 'A failed chain should not be running');
+		Assert.isTrue(status.errorMessage.contains('Deliberate subscriber failure'),
+				'ChainStatus.errorMessage should carry the failing step message; got: ' + status.errorMessage);
+	}
+
+	/**
+	 * @description Verifies getChainStatus returns null for an execution Id that does not
+	 * resolve to a visible AsyncChainExecution record (the documented not-found contract).
+	 */
+	@IsTest
+	private static void shouldReturnNullTypedStatusForUnknownId()
+	{
+		Id unknownId = fakeExecutionId();
+
+		Test.startTest();
+		kern.UTIL_AsyncChain.ChainStatus status = kern.UTIL_AsyncChain.getChainStatus(unknownId);
+		Test.stopTest();
+
+		Assert.isNull(status, 'getChainStatus should return null for an unknown execution Id');
+	}
+
+	/**
+	 * @description Verifies the 1.2 first-step delay (withDelayMinutes) is reachable from a
+	 * subscriber, accepts an over-range value without throwing, and does not stop the chain
+	 * from completing. The Queueable delay is zeroed in Apex test context, so this proves
+	 * reachability and completion only — the 0-10 minute clamp itself is not observable from a
+	 * subscriber @IsTest and is covered by the package's own unit tests.
+	 */
+	@IsTest
+	private static void shouldCompleteChainWithFirstStepDelay()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withDelayMinutes(15)
+				.then(new SubscriberChainSteps.CreateFoobarStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Completed', execution.kern__Status__c, 'A chain with a first-step delay should still complete');
+		Assert.areEqual(1, execution.kern__CompletedSteps__c, 'The single step should complete after the delayed first enqueue');
+	}
+
+	/**
+	 * @description Verifies withDelayMinutes(0) is an accepted no-op and the chain completes.
+	 */
+	@IsTest
+	private static void shouldTreatZeroFirstStepDelayAsNoOp()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withDelayMinutes(0)
+				.then(new SubscriberChainSteps.CreateFoobarStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Completed', execution.kern__Status__c, 'A zero first-step delay should be a no-op and the chain should complete');
+	}
+
+	/**
+	 * @description Verifies the 1.2 per-step idempotency-key overloads are reachable from
+	 * inside a chain step and produce the documented composite shape: the bare key is
+	 * executionId-stepIndex, and the Id / String grained overloads append the grain.
+	 */
+	@IsTest
+	private static void shouldExposeIdempotencyKeyOverloadsToStep()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.CaptureIdempotencyKeyStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Completed', execution.kern__Status__c, 'Idempotency-capture chain should complete');
+
+		Map<String, Object> contextData = parseContext(execution);
+		String capturedExecutionId = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_EXECUTION_ID);
+		String capturedStepIndex = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_STEP_INDEX);
+		String capturedRecordId = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_RECORD_ID);
+		String baseKey = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_BASE);
+		String recordKey = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_RECORD);
+		String grainKey = (String)contextData.get(SubscriberChainSteps.KEY_IDEMPOTENCY_GRAIN);
+
+		Assert.areEqual(executionId, capturedExecutionId, 'The step should observe the chain execution Id');
+		Assert.areEqual(capturedExecutionId + '-' + capturedStepIndex, baseKey,
+				'idempotencyKey() should be executionId-stepIndex; got: ' + baseKey);
+		Assert.areEqual(baseKey + '-' + capturedRecordId, recordKey,
+				'idempotencyKey(Id) should append the record Id; got: ' + recordKey);
+		Assert.areEqual(baseKey + '-' + SubscriberChainSteps.IDEMPOTENCY_GRAIN, grainKey,
+				'idempotencyKey(String) should append the grain; got: ' + grainKey);
+	}
+
+	/**
+	 * @description Builds a syntactically valid but non-existent AsyncChainExecution Id for the
+	 * not-found getChainStatus path. Raw describe is an acceptable independent oracle in a
+	 * _TEST class.
+	 *
+	 * @return An Id of the AsyncChainExecution key prefix that resolves to no record.
+	 */
+	private static Id fakeExecutionId()
+	{
+		String keyPrefix = kern__AsyncChainExecution__c.SObjectType.getDescribe().getKeyPrefix();
+		return Id.valueOf(keyPrefix + '000000000001');
 	}
 
 	/**

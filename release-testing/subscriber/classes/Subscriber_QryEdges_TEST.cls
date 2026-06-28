@@ -15,13 +15,14 @@
  *    properly-namespaced SOQL strings for packaged objects.
  *
  * @see kern.QRY_Builder
+ * @see kern.QRY_Function
  * @see kern.UTIL_FeatureFlag
  *
  * @author Jason van Beukering
  *
  * @group Selectors
  *
- * @date May 2026
+ * @date May 2026, June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -110,6 +111,89 @@ private class Subscriber_QryEdges_TEST
 		Assert.isNotNull(soql, '.toSoql() should return a non-null SOQL string');
 		Assert.isTrue(soql.contains(NAMESPACE_PREFIX + 'Foobar__c'), 'Generated SOQL FROM clause should include the kern__ namespace prefix on the packaged object. Got: ' + soql);
 		Assert.isTrue(soql.contains(NAMESPACE_PREFIX + 'Text__c'), 'Generated SOQL field list should include the kern__ namespace prefix on packaged fields. Got: ' + soql);
+	}
+
+	/**
+	 * @description Reference latitude (San Francisco) used by the 1.2 geolocation distance tests.
+	 */
+	private static final Decimal REFERENCE_LATITUDE = 37.7749;
+
+	/**
+	 * @description Reference longitude (San Francisco) used by the 1.2 geolocation distance tests.
+	 */
+	private static final Decimal REFERENCE_LONGITUDE = -122.4194;
+
+	/**
+	 * @description The 1.2 geolocation distance functions on `QRY_Function` must emit a
+	 * `DISTANCE(... GEOLOCATION(...) ...)` SOQL expression when fed into the builder's WHERE and
+	 * ORDER BY overloads, across both the Decimal-coordinate and `System.Location` factories and
+	 * both the mile and kilometre units. This shape test proves the global factories and the
+	 * builder integration are subscriber-reachable and render the documented SOQL, independent of
+	 * any stored geolocation data.
+	 */
+	@IsTest
+	private static void shouldEmitDistanceExpressionInGeneratedSoql()
+	{
+		Test.startTest();
+
+		String soql = kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.condition(kern.QRY_Function.distanceInMiles(Account.BillingAddress, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)).lessThan(50)
+				.orderBy(kern.QRY_Function.distanceInKilometers(Account.BillingAddress, System.Location.newInstance(REFERENCE_LATITUDE, REFERENCE_LONGITUDE))).ascending()
+				.toSoql();
+
+		Test.stopTest();
+
+		Assert.isNotNull(soql, '.toSoql() should return a non-null SOQL string');
+		Assert.isTrue(soql.contains('DISTANCE('), 'Generated SOQL should include the DISTANCE() function. Got: ' + soql);
+		Assert.isTrue(soql.contains('GEOLOCATION('), 'Generated SOQL should include the GEOLOCATION() function. Got: ' + soql);
+		Assert.isTrue(soql.contains('\'mi\''), 'The miles factory should render the \'mi\' unit. Got: ' + soql);
+		Assert.isTrue(soql.contains('\'km\''), 'The kilometres factory should render the \'km\' unit. Got: ' + soql);
+	}
+
+	/**
+	 * @description End-to-end proof that the 1.2 distance functions filter and sort real records
+	 * by proximity. Three Accounts are seeded with billing geolocation at known distances from a
+	 * San Francisco reference point; a single fluent query then keeps those within fifty miles and
+	 * orders them nearest-first, returning the two local Accounts in order and excluding the
+	 * cross-country one. The Accounts are deliberately inserted in an order that differs from the
+	 * distance order (Mid before Near), so a missing or broken ORDER BY DISTANCE would fail the
+	 * sequence assertion rather than pass by coincidence of insertion order.
+	 */
+	@IsTest
+	private static void shouldFilterAndOrderRecordsByGeolocationDistance()
+	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
+
+		kern.TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, 'Geo Mid')
+				.withOverride(Account.BillingLatitude, 37.8044)
+				.withOverride(Account.BillingLongitude, -122.2712)
+				.build();
+		kern.TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, 'Geo Near')
+				.withOverride(Account.BillingLatitude, REFERENCE_LATITUDE)
+				.withOverride(Account.BillingLongitude, REFERENCE_LONGITUDE)
+				.build();
+		kern.TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, 'Geo Far')
+				.withOverride(Account.BillingLatitude, 40.7128)
+				.withOverride(Account.BillingLongitude, -74.0060)
+				.build();
+
+		Test.startTest();
+
+		List<Account> nearby = (List<Account>)kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.condition(kern.QRY_Function.distanceInMiles(Account.BillingAddress, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)).lessThan(50)
+				.orderBy(kern.QRY_Function.distanceInMiles(Account.BillingAddress, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)).ascending()
+				.toList();
+
+		Test.stopTest();
+
+		Assert.areEqual(2, nearby.size(), 'Only the two Accounts within fifty miles should be returned (the cross-country one is excluded)');
+		Assert.areEqual('Geo Near', nearby[0].Name, 'The nearest Account should sort first');
+		Assert.areEqual('Geo Mid', nearby[1].Name, 'The second-nearest Account should sort second');
 	}
 
 	/**

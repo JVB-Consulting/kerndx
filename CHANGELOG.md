@@ -13,6 +13,12 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.2.0-1] — 2026-06-27
+
+**Subscriber package version id:** `04tfj000000LXH7AAO`
+
+A purely additive release that hardens the async-chain framework and adds three smaller quick wins. Headlines: per-step idempotency keys so a chain step is safe to re-run without acting twice on an outbound call, a typed `getChainStatus()` accessor that returns a `ChainStatus` value object, and a first-step delay of up to ten minutes. Alongside those: deterministic ordering for trigger actions that share an order value, a record-id input on the Flow logging action, and fluent geolocation distance filtering in the query builder. Every change adds new surface, so upgrading from 1.1 is the standard package upgrade with no migration steps. For the full capability tour, see [Kern 1.2 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.2.md).
+
 ## [1.1.0-11] — 2026-06-15
 
 **Subscriber package version id:** `04tfj000000KesXAAS`
@@ -27,3 +33,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 
 [1.0.0-121]: https://github.com/JVB-Consulting/kerndx/tree/v1.0.0-121
 [1.1.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.1.0-11
+[1.2.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.2.0-1
