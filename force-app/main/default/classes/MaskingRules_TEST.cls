@@ -173,7 +173,12 @@ private class MaskingRules_TEST
 	@IsTest
 	private static void shouldShipSwiftBicWithBlockDmlFailureAction()
 	{
-		Assert.areEqual(SEL_MaskingRule.FAILURE_BLOCK_DML, findShippedRule(SEL_MaskingRule.RULE_MASK_SWIFT_BIC).FailureAction__c, 'MaskSwiftBic must ship with FailureAction = BlockDml');
+		Assert.areEqual
+				(
+						SEL_MaskingRule.FAILURE_BLOCK_DML,
+						findShippedRule(SEL_MaskingRule.RULE_MASK_SWIFT_BIC).FailureAction__c,
+						'MaskSwiftBic must ship with FailureAction = BlockDml'
+				);
 	}
 
 	/**

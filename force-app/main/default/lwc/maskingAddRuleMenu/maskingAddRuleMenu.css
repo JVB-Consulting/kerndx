@@ -63,11 +63,11 @@
 
 .menu__item-superseded
 {
-	color       : #444444;
-	display     : block;
-	font-size   : 0.71875rem;
-	font-style  : italic;
-	margin-top  : 0.125rem;
+	color      : #444444;
+	display    : block;
+	font-size  : 0.71875rem;
+	font-style : italic;
+	margin-top : 0.125rem;
 }
 
 .menu__item-add

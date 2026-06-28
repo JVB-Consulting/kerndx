@@ -1992,7 +1992,12 @@ private class UTIL_FrameworkMasker_TEST
 
 			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forRecord(record).apply();
 
-			Assert.areEqual(PREDECESSOR_TOKEN + ' ' + SUCCESSOR_REPLACEMENT, record.Name, 'The successor must mask its surface while the suppressed predecessor leaves its token untouched');
+			Assert.areEqual
+					(
+							PREDECESSOR_TOKEN + ' ' + SUCCESSOR_REPLACEMENT,
+							record.Name,
+							'The successor must mask its surface while the suppressed predecessor leaves its token untouched'
+					);
 			Assert.isTrue(result.matchedRuleDeveloperNames.contains(SUCCESSOR_RULE_NAME), 'The successor rule must run on the mirrored surface');
 			Assert.isFalse(result.matchedRuleDeveloperNames.contains(PREDECESSOR_RULE_NAME), 'The suppressed predecessor rule must never run on the mirrored surface');
 		}
@@ -2056,7 +2061,12 @@ private class UTIL_FrameworkMasker_TEST
 
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
-			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_TOKEN, record.Name, 'A tuned successor must not evict its predecessor — the predecessor still masks the surface');
+			Assert.areEqual
+					(
+							PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_TOKEN,
+							record.Name,
+							'A tuned successor must not evict its predecessor — the predecessor still masks the surface'
+					);
 		}
 	}
 

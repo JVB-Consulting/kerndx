@@ -14,12 +14,13 @@
 		<p class="dma-inv__format-note slds-text-body_small slds-text-color_weak slds-m-top_xx-small" data-testid="inventory-export-format-note">{labels.formatNote}</p>
 
 		<template lwc:if={canFilterSensitive}>
-			<lightning-input class="dma-inv__sensitive-only slds-m-top_x-small" type="checkbox" data-testid="inventory-export-sensitive-only" label={labels.sensitiveOnly}
-			                 checked={sensitiveOnly} onchange={handleSensitiveOnlyChange}></lightning-input>
+			<lightning-input checked={sensitiveOnly} class="dma-inv__sensitive-only slds-m-top_x-small" data-testid="inventory-export-sensitive-only" label={labels.sensitiveOnly}
+			                 onchange={handleSensitiveOnlyChange} type="checkbox"></lightning-input>
 		</template>
 
 		<template lwc:if={showMaskedScopeNote}>
-			<p class="dma-inv__masked-note slds-text-body_small slds-text-color_weak slds-m-top_x-small" data-testid="inventory-export-masked-scope-note">{labels.maskedScopeNote}</p>
+			<p class="dma-inv__masked-note slds-text-body_small slds-text-color_weak slds-m-top_x-small" data-testid="inventory-export-masked-scope-note">
+				{labels.maskedScopeNote}</p>
 		</template>
 
 		<template lwc:if={needsConfirm}>
@@ -44,7 +45,8 @@
 		</template>
 
 		<template lwc:if={isFilteredEmpty}>
-			<div class="dma-inv__empty slds-box slds-box_small slds-theme_default slds-text-align_center slds-m-top_medium" data-testid="inventory-export-filtered-empty" role="status">
+			<div class="dma-inv__empty slds-box slds-box_small slds-theme_default slds-text-align_center slds-m-top_medium" data-testid="inventory-export-filtered-empty"
+			     role="status">
 				{labels.filteredEmptyState}
 			</div>
 		</template>
@@ -54,20 +56,20 @@
 			<div class="dma-inv__preview slds-scrollable_x">
 				<table class="slds-table slds-table_bordered slds-table_fixed-layout" data-testid="inventory-export-columns">
 					<thead>
-						<tr>
-							<template for:each={columnHeaders} for:item="column">
-								<th key={column.key} scope="col"><span title={column.label}>{column.label}</span></th>
-							</template>
-						</tr>
+					<tr>
+						<template for:each={columnHeaders} for:item="column">
+							<th key={column.key} scope="col"><span title={column.label}>{column.label}</span></th>
+						</template>
+					</tr>
 					</thead>
 					<tbody>
-						<template for:each={previewRows} for:item="row">
-							<tr data-testid="inventory-export-preview-row" key={row.key}>
-								<template for:each={row.cells} for:item="cell">
-									<td key={cell.key}><span title={cell.value}>{cell.value}</span></td>
-								</template>
-							</tr>
-						</template>
+					<template for:each={previewRows} for:item="row">
+						<tr data-testid="inventory-export-preview-row" key={row.key}>
+							<template for:each={row.cells} for:item="cell">
+								<td key={cell.key}><span title={cell.value}>{cell.value}</span></td>
+							</template>
+						</tr>
+					</template>
 					</tbody>
 				</table>
 			</div>
@@ -78,8 +80,7 @@
 
 		<template lwc:if={hasPartialFailure}>
 			<p class="dma-inv__partial slds-text-body_small slds-text-color_error slds-m-top_x-small" data-testid="inventory-export-partial-failure" role="status">
-				{partialFailureText}
-			</p>
+				{partialFailureText} </p>
 		</template>
 	</lightning-modal-body>
 	<lightning-modal-footer>

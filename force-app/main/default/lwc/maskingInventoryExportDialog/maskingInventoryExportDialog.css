@@ -6,11 +6,11 @@
 
 .dma-inv__k
 {
-	color         : var(--slds-g-color-neutral-base-30, #5C5C5C);
-	font-size     : 0.75rem;
-	font-weight   : 700;
+	color          : var(--slds-g-color-neutral-base-30, #5C5C5C);
+	font-size      : 0.75rem;
+	font-weight    : 700;
 	letter-spacing : 0.05em;
-	margin-bottom : 4px;
+	margin-bottom  : 4px;
 	text-transform : uppercase;
 }
 
