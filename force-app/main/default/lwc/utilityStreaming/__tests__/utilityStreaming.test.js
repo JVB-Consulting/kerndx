@@ -11,8 +11,8 @@
 
 import {
 	CHANNEL_ALL_CDC, EVT_CDC, EVT_CUSTOM_CHANNEL_CDC, EVT_CUSTOM_CHANNEL_PE, EVT_GENERIC, EVT_MONITORING, EVT_PLATFORM_EVENT, EVT_PUSH_TOPIC, EVT_STD_PLATFORM_EVENT, FILTER_ALL,
-	FILTER_CUSTOM, EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, getCompactTimeLabel, formatCount, channelSort, timestampSort,
-	toTitleCase
+	FILTER_CUSTOM, EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, getCompactTimeLabel, formatCount,
+	channelSort, timestampSort, toTitleCase
 } from 'c/utilityStreaming';
 
 describe('utilityStreaming', () =>
@@ -93,13 +93,23 @@ describe('utilityStreaming', () =>
 		it('should export PUBLISHABLE_EVENT_TYPES containing only the manually publishable types', () =>
 		{
 			expect(PUBLISHABLE_EVENT_TYPES).toBeInstanceOf(Array);
-			expect(PUBLISHABLE_EVENT_TYPES.map((eventType) => eventType.value)).toEqual([EVT_GENERIC, EVT_PLATFORM_EVENT]);
+			expect(PUBLISHABLE_EVENT_TYPES.map((eventType) => eventType.value)).toEqual([
+				EVT_GENERIC,
+				EVT_PLATFORM_EVENT
+			]);
 		});
 
 		it('should exclude platform-published and record-change event types from PUBLISHABLE_EVENT_TYPES', () =>
 		{
 			const publishableValues = PUBLISHABLE_EVENT_TYPES.map((eventType) => eventType.value);
-			[EVT_STD_PLATFORM_EVENT, EVT_CDC, EVT_PUSH_TOPIC, EVT_MONITORING, EVT_CUSTOM_CHANNEL_PE, EVT_CUSTOM_CHANNEL_CDC].forEach((value) =>
+			[
+				EVT_STD_PLATFORM_EVENT,
+				EVT_CDC,
+				EVT_PUSH_TOPIC,
+				EVT_MONITORING,
+				EVT_CUSTOM_CHANNEL_PE,
+				EVT_CUSTOM_CHANNEL_CDC
+			].forEach((value) =>
 			{
 				expect(publishableValues).not.toContain(value);
 			});

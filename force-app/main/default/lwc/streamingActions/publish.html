@@ -11,8 +11,8 @@
 			<lightning-combobox data-testid="event-type" label="Event type" onchange={handlePubEventTypeChange} options={publishEventTypes} placeholder="Select type"
 			                    value={pubEventType}></lightning-combobox>
 			<template lwc:if={pubEventType}>
-				<lightning-combobox data-testid="event-name" disabled={isPublishEventNameDisabled} label="Event name" onchange={handlePubEventNameChange}
-				                    options={pubEventNames} placeholder={pubEventNamePlaceholder} value={publishEventName}></lightning-combobox>
+				<lightning-combobox data-testid="event-name" disabled={isPublishEventNameDisabled} label="Event name" onchange={handlePubEventNameChange} options={pubEventNames}
+				                    placeholder={pubEventNamePlaceholder} value={publishEventName}></lightning-combobox>
 				<lightning-input disabled label="Streaming channel" value={publishChannel}></lightning-input>
 				<lightning-textarea data-testid="publish-payload" disabled={isPublishDisabled} field-level-help={publishPayloadHelp} label="Event payload"
 				                    onchange={handlePubPayloadChange} value={publishPayload}></lightning-textarea>

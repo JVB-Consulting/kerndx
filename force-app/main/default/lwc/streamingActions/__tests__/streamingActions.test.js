@@ -714,7 +714,10 @@ describe('c-streaming-actions', () =>
 
 			const eventTypeCombobox = element.shadowRoot.querySelector('lightning-combobox');
 			const optionValues = eventTypeCombobox.options.map((option) => option.value);
-			expect(optionValues).toEqual(['GenericEvent', 'PlatformEvent']);
+			expect(optionValues).toEqual([
+				'GenericEvent',
+				'PlatformEvent'
+			]);
 			expect(optionValues).not.toContain('ChangeDataCaptureEvent');
 			expect(optionValues).not.toContain('StandardPlatformEvent');
 		});
@@ -1271,7 +1274,10 @@ describe('c-streaming-actions', () =>
 
 			const eventTypeCombobox = element.shadowRoot.querySelector('lightning-combobox');
 			expect(eventTypeCombobox.options.length).toBe(2);
-			expect(eventTypeCombobox.options.map((option) => option.value)).toEqual(['GenericEvent', 'PlatformEvent']);
+			expect(eventTypeCombobox.options.map((option) => option.value)).toEqual([
+				'GenericEvent',
+				'PlatformEvent'
+			]);
 		});
 
 		it('regEventTypes returns all event types', async() =>
