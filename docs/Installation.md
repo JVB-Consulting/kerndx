@@ -57,12 +57,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.2.0-1):** `04tfj000000LXH7AAO`
+**Current SubscriberPackageVersionId (1.3.0-3):** `04tfj000000M0ZFAA0`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000KesXAAS)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000KesXAAS)
+[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000M0ZFAA0)
+[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000M0ZFAA0)
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -71,13 +71,13 @@ The same buttons appear on every entry of the [Releases page](https://github.com
 **CLI install**, in production:
 
 ```bash
-sf package install --package 04tfj000000LXH7AAO --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000M0ZFAA0 --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install**, in a sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000LXH7AAO --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000M0ZFAA0 --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
 **Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and
@@ -95,7 +95,7 @@ Installing the package is only step one. A few org-level settings still need att
 
 The tool that does this is the **Health Check** built into the **Kern** app. If you installed the package as a System Administrator, the app is already available to you: open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. Its **Home** tab runs the Health Check automatically.
 
-The Health Check verifies the configuration listed below and sorts anything outstanding to the top, in three groups: **Action required** for hard prerequisites, **Review recommended** for optional settings, and **Passing** for everything already set. Where it can, it fixes things in place for you. That includes a **Class Type Resolver** generator (it writes a resolver class and its test for you, explained below) and a one-click **Data Retention** scheduler. The Home tab also gives you quick-launch **Administration Tools**: the API Test Harness, the Streaming Event Monitor, and the Chain Monitor.
+The Health Check verifies the configuration listed below and sorts anything outstanding to the top, in three groups: **Action required** for hard prerequisites, **Review recommended** for optional settings, and **Passing** for everything already set. Where it can, it fixes things in place for you. That includes a **Class Type Resolver** generator (it writes a resolver class and its test for you, explained below) and a one-click **Data Retention** scheduler. The Home tab also gives you quick-launch **Administration Tools**: the API Test Harness, the Streaming Event Monitor, the Chain Monitor, the Data Masking Advisor, and the Log Console.
 
 What the Health Check looks for, and how to satisfy it:
 

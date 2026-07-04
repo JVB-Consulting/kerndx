@@ -1860,7 +1860,7 @@ UTIL_BulkUpdates.updateOwner('Account', 'Support Rep', 'jane.smith@example.com',
 // Update any field with search conditions
 // Archive all Closed Won opportunities with Status__c = 'Archived'
 QRY_Condition.Evaluable searchConditions = new QRY_Condition.AndCondition()
-	.add(new QRY_Condition.FieldCondition('StageName').equals('Closed Won'));
+	.add(new QRY_Condition.FieldCondition('StageName', QRY_Condition.Operator.EQUALS, 'Closed Won'));
 
 UTIL_BulkUpdates.updateField(
 	'Opportunity',

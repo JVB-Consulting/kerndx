@@ -304,8 +304,10 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 **Ordering:** `.orderBy(field)` → `.ascending()` / `.descending()` / `.nullsFirst()` / `.nullsLast()` | `.orderBy(field, sortDescending)` |
 `.orderBy(field, sortDescending, nullsLast)`
 
-**Aggregates:** `.groupBy(field)` | `.sum()` / `.avg()` / `.min()` / `.max()` / `.count(String)` / `.countDistinct()` | `.havingSumOf()` / `.havingCount()` etc. | Terminal:
-`.toAggregateList()` → `List<QRY_Builder.AggregateRow>` (NOT `AggregateResult`)
+**Aggregates:** `.groupBy(field)` | `.sum()` / `.avg()` / `.min()` / `.max()` / `.count(String)` / `.countDistinct()` | Aliased multi-aggregate overloads:
+`.sum(field, alias)` / `.avg(field, alias)` / `.min(field, alias)` / `.max(field, alias)` / `.count(field, alias)` / `.countDistinct(field, alias)` (several aggregates in one
+query; read back via `AggregateRow.get(alias)`; alias must be a bare identifier) | `.orderByCount(field, sortDescending)` (ORDER BY COUNT for top-N groups with `.withLimit()`) |
+`.havingSumOf()` / `.havingCount()` etc. | Terminal: `.toAggregateList()` → `List<QRY_Builder.AggregateRow>` (NOT `AggregateResult`)
 
 **Limit/Cache/Scope:** `.withLimit()` | `.withOffset()` | `.withCache(seconds)` | `.usingScope(QRY_Builder.Scope)` | `.forUpdate()` | `.allRows()`
 
@@ -346,6 +348,8 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.addCondition(statusGroup)
 	.toList();
 ```
+
+**LIKE-contains leaf** (field-only constructor + `contains()`, wildcards handled for you): `new kern.QRY_Condition.FieldCondition(Account.Name).contains('Acme')` → `Name LIKE '%Acme%'`
 
 ### Date Literals
 

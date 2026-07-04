@@ -152,7 +152,7 @@ In-depth reference guides. Open one of these when you want the complete picture 
 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) | Adaptive async processing, chain orchestration with shared context, ApiStep web service bridge, Chain Monitor UI, scheduling |
 | [Web Services - Guide](Web%20Services%20-%20Guide.md)         | Outbound/inbound REST, named credentials, retry logic, Flow integration                                                      |
 | [Resilience - Guide](Resilience%20-%20Guide.md)               | Retry strategies, exponential/linear backoff, jitter, circuit breaker states, declarative resilience on registered handlers  |
-| [Logging - Guide](Logging%20-%20Guide.md)                     | Application logging, async log publishing, log filtering, monitoring                                                         |
+| [Logging - Guide](Logging%20-%20Guide.md)                     | Application logging, async log publishing, log filtering, and the Log Console for browsing and diagnosing what was logged                                                         |
 | [Feature Flags - Guide](Feature%20Flags%20-%20Guide.md)       | Metadata-driven flags, targeting strategies, custom strategy handlers, Apex/Flow/LWC checks                                  |
 
 ### Data & Security
@@ -166,9 +166,10 @@ In-depth reference guides. Open one of these when you want the complete picture 
 
 ### UI
 
-| Name                              | Description                                                                   |
-|-----------------------------------|-------------------------------------------------------------------------------|
-| [LWC - Guide](LWC%20-%20Guide.md) | ComponentBuilder pattern, utility modules, pre-built components, Jest testing |
+| Name                                                                    | Description                                                                                                              |
+|-------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [LWC - Guide](LWC%20-%20Guide.md)                                       | ComponentBuilder pattern, utility modules, pre-built components, Jest testing                                             |
+| [Administration Tools - Guide](Administration%20Tools%20-%20Guide.md)   | Kern Home and the built-in tools: API Test Harness, Streaming Event Monitor, Chain Monitor, Data Masking Advisor, Log Console |
 
 ### Utilities
 
@@ -247,6 +248,8 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Orchestrate multi-step async workflows                 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) (Chain Orchestration section) |
 | Chain outbound API calls in sequence                   | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) (ApiStep section)             |
 | Add logging to my code                                 | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                                       |
+| Browse and diagnose production logs                    | [Logging - Guide](Logging%20-%20Guide.md#the-log-console) (The Log Console section)         |
+| Monitor integrations, jobs, and logs from one place    | [Administration Tools - Guide](Administration%20Tools%20-%20Guide.md)                       |
 | Toggle features on and off                             | [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)                         |
 | Make a flaky callout resilient (retry, circuit breaker) | [Fast Start - Resilience](Fast%20Start%20-%20Resilience.md)                                |
 | Enforce CRUD/FLS on every read and write (USER_MODE)   | [Fast Start - Security](Fast%20Start%20-%20Security.md)                                     |

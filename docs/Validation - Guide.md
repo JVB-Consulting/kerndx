@@ -691,6 +691,8 @@ To run your rules inside a Flow, drop in the **Execute Validation Rules** invoca
 | oldRecords | SObject Collection | No | Old versions (for update context) |
 | triggerContext | Text | No | Override context: `BEFORE_INSERT`, `BEFORE_UPDATE`, etc. |
 
+Flow Builder offers the `triggerContext` values as a picklist in the action's property panel, so you pick a context rather than typing the raw value.
+
 **Output Variables:**
 | Variable | Type | Description |
 |----------|------|-------------|
@@ -709,6 +711,8 @@ When a Flow needs to update records without tripping validation (a bulk fix, say
 |----------|------|----------|-------------|
 | bypassType | Text | No | `OBJECT_NAME` (default), `GROUP_NAME`, or `RULE_NAME` |
 | name | Text | Yes | API name to bypass |
+
+Flow Builder offers the `bypassType` values as a picklist in the action's property panel.
 
 To turn validation back on, use the **Clear Validation Bypass** invocable action ([`FLOW_ClearValidationBypass`](reference/apex/FLOW_ClearValidationBypass.md)). Always pair a bypass with a clear, so validation does not stay off by accident:
 

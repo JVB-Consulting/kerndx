@@ -3004,6 +3004,8 @@ Below the Health Check, the Home tab provides quick-launch cards for the framewo
 - **API Test Harness:** test inbound and outbound API calls with Safe Mode and mocking control.
 - **Streaming Event Monitor:** monitor platform events, change data capture, and custom streaming channels in real time.
 - **Chain Monitor:** monitor async chain executions, view step timelines, and diagnose failures in real time.
+- **Data Masking Advisor:** scan your objects for likely-sensitive fields and build a deployable masking configuration.
+- **Log Console:** browse log entries grouped into recurring problems and drill into a correlated run on one timeline.
 
 ---
 

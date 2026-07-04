@@ -205,7 +205,7 @@ Turning on every rule at once in an existing codebase floods you with violations
 
 ### Priority tiers
 
-The rules are not all equally urgent, so the 25 KernDX PMD rules are grouped into three priority levels. Fix the most important first and add the rest over time:
+The rules are not all equally urgent, so the 25 KernDX-authored PMD rules are grouped into three priority levels. (The ruleset file also bundles one standard PMD rule, `InvocableClassNoArgConstructor`, at Priority 3; it flags Flow-invocable classes missing a zero-argument constructor.) Fix the most important first and add the rest over time:
 
 | Tier          | Priority | Count | Approach                                                             |
 |---------------|----------|-------|----------------------------------------------------------------------|
@@ -217,7 +217,7 @@ The rules are not all equally urgent, so the 25 KernDX PMD rules are grouped int
 
 ### PMD rule reference
 
-All 25 KernDX PMD rules:
+All 25 KernDX-authored PMD rules:
 
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
@@ -337,7 +337,7 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 
 | Problem                                                    | Cause                                                                          | Fix                                                                                                                                                          |
 |------------------------------------------------------------|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| "Rule not found" or "Class not found" error                | PMD version mismatch (v7 vs v6)                                                | Change the `class` attribute on each rule. PMD 7: `net.sourceforge.pmd.lang.rule.xpath.XPathRule`. PMD 6: `net.sourceforge.pmd.lang.apex.rule.ApexXPathRule` |
+| "Rule not found" or "Class not found" error                | PMD Apex module older than 7.26.0 (the ruleset bundles a standard rule PMD added in that release) | Upgrade your scanner so its PMD Apex module is 7.26.0 or newer (for Salesforce Code Analyzer, update the `code-analyzer` plugin); PMD 6 is not supported |
 | Too many violations on first scan                          | Existing codebase predates framework adoption                                  | Adopt the rules in stages: start with the Priority 1 blockers only, then expand to Priority 3 and Priority 5 over time                                       |
 | False positive in framework infrastructure class           | Rule correctly flags the pattern, but the class intentionally uses the raw API | Suppress with `@SuppressWarnings('PMD.RuleName')` and add a comment explaining why                                                                           |
 | Apex PMD extension not showing violations                  | Ruleset path not set or extension not installed                                | Verify `.vscode/settings.json` has `apexPMD.rulesets` pointing to `scanner/kerndx-pmd-ruleset.xml`                                                           |
@@ -350,7 +350,7 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`   | 25 PMD rules enforcing KernDX framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
+| `kerndx-pmd-ruleset.xml`   | 26 PMD rules enforcing KernDX framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.): 25 KernDX-authored plus 1 bundled standard PMD rule                                                                 |
 | `eslint-plugin-kerndx`     | 6 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, and no mutating a fixture shared across tests |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |
 | Priority tiers (1/3/5)     | A staged adoption order: start with blockers, expand to should-fix, then informational                                                                                              |

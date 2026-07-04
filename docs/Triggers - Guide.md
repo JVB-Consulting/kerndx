@@ -415,7 +415,7 @@ trigger AccountTrigger on Account (before insert, before update, after insert, a
 
             // Field population
             for(Account acc : Trigger.new) {
-                acc.AccountNumber = generateAccountNumber();
+                acc.Description = generateAccountReference();
             }
         }
 
@@ -479,7 +479,7 @@ public inherited sharing class TRG_AccountPopulateNumber extends TRG_Base
 	{
 		for(Account account : newAccounts)
 		{
-			account.AccountNumber = generateAccountNumber();
+			account.Description = generateAccountReference();
 		}
 	}
 }
@@ -2585,7 +2585,9 @@ bypassed which action, when, and why?" without requiring every bypass call-site 
 Declarative orgs can toggle bypasses from Flow without Apex. The `FLOW_BypassTrigger` invocable accepts a
 `DTO_Request` with `action` (`BYPASS` / `CLEAR` / `CLEAR_ALL`), `bypassType` (`OBJECT_NAME` / `CLASS_NAME`),
 and `name` (the SObject API name or action class name). The companion `FLOW_CheckTriggerBypassed` invocable
-reports whether a bypass is currently in effect. Both emit the same `BypassEvent`-category audit log as the
+reports whether a bypass is currently in effect. Flow Builder offers the `action` and `bypassType` values as
+picklists in the action's property panel (for both invocables), so you pick them rather than typing the raw
+values. Both emit the same `BypassEvent`-category audit log as the
 Apex API, so Flow-driven bypasses show up in the same audit trail.
 
 #### Feature Flag Bypass
@@ -2963,9 +2965,9 @@ public inherited sharing class TRG_PopulateAccountFields extends TRG_Base implem
 			}
 
 			// Generate account number
-			if(String.isBlank(account.AccountNumber))
+			if(String.isBlank(account.Description))
 			{
-				account.AccountNumber = 'ACC-' + String.valueOf(System.now().getTime());
+				account.Description = 'ACC-' + String.valueOf(System.now().getTime());
 			}
 
 			// Set tier based on revenue

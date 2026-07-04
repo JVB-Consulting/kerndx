@@ -195,7 +195,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  25 XPath rules, PMD 7           |     |  6 ESLint rules                  |     |  Node.js script, org-specific    |
+|  26 rules, PMD >= 7.26.0         |     |  6 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -212,7 +212,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 | File                                | Scope                             | Purpose                                                                                                                                                                        |
 |-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 25 XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
+| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 26 PMD rules: 25 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.) plus 1 bundled standard PMD rule                                          |
 | `subscriber-naming-pmd-ruleset.xml` | Your org (example)                | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
 | `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>`, for tools that accept only one ruleset file                                                                              |
 | `eslint-plugin-kerndx/`             | Any KernDX org                    | 6 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention |
@@ -222,7 +222,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 ## PMD Rule Reference
 
-This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 25 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`. Under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
+This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 26 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`. Twenty-five are KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The twenty-sixth, `InvocableClassNoArgConstructor`, is a standard PMD rule bundled by reference from PMD's own catalogue; it needs the PMD Apex module 7.26.0 or newer (see [PMD Version Compatibility](#pmd-version-compatibility)). The rules are sorted into three priority tiers so you know which ones to fix first.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -746,7 +746,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 ### PMD Rule Summary Table
 
 <details>
-<summary>All 25 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
+<summary>All 26 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
 
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
@@ -765,6 +765,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                             | `UTIL_Email`                                                    | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                           | `REST_*` + `API_Dispatcher`                                     | 3        |
 | `KernNoInlineDmlInTests`           | Raw `insert`/`update`/`delete` inside `@IsTest` classes                                         | `TST_Builder` or `DML_Builder`                                  | 3        |
+| `InvocableClassNoArgConstructor`   | Classes with `@InvocableVariable` properties but no visible zero-argument constructor (standard PMD rule, bundled by reference) | Declare an explicit public no-arg constructor                   | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                              | `Assert.*`                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                              | `TST_Builder`                                                   | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                                | `UTIL_Cache`                                                    | 5        |
@@ -1505,31 +1506,29 @@ Record the violation count per priority tier in a spreadsheet or dashboard. A re
 
 ## PMD Version Compatibility
 
-The KernDX PMD rulesets are written for **PMD 7**, which uses this rule class:
+The KernDX PMD rulesets require the **PMD Apex module 7.26.0 or newer**. The ruleset bundles the standard PMD rule `InvocableClassNoArgConstructor` by reference, and PMD added that rule to its own catalogue in 7.26.0; on anything older, the reference cannot be resolved and the whole ruleset fails to load. The pipeline surfaces this for you: `kerndx doctor` and `kerndx scan` check the installed PMD Apex module and warn when it sits below the floor.
+
+The KernDX-authored rules use PMD 7's XPath rule class:
 
 ```text
 net.sourceforge.pmd.lang.rule.xpath.XPathRule
 ```
 
-If your tooling is still on **PMD 6** (for example, an older `sfdx-scanner`), change the `class` attribute on each `<rule>` element to this older form:
-
-```text
-net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
-```
+**PMD 6 is not supported.** Swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) does not help: the bundled standard-rule reference has no PMD 6 equivalent, so the ruleset still fails to load. If your CI/CD tool pins PMD 6 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
 
 <details>
 <summary>PMD version per CI/CD tool, and whether the ruleset works as-is</summary>
 
-| Tool                                     | PMD Version | Ruleset Compatible                             |
-|------------------------------------------|-------------|------------------------------------------------|
-| SF Code Analyzer v5 (`sf code-analyzer`) | PMD 7       | Yes (default)                                  |
-| VS Code Apex PMD extension               | PMD 7       | Yes (default)                                  |
-| Illuminated Cloud (IntelliJ)             | PMD 7       | Yes (default)                                  |
-| Gearset                                  | PMD 7       | Yes (default)                                  |
-| Copado                                   | Varies      | Check version, change class attribute if PMD 6 |
-| AutoRABIT                                | Varies      | Check version, change class attribute if PMD 6 |
-| CodeScan                                 | PMD 7       | Yes (default)                                  |
-| Legacy `sfdx-scanner` (v4)               | PMD 6       | Requires class attribute change                |
+| Tool                                     | PMD Version | Ruleset Compatible                                          |
+|------------------------------------------|-------------|--------------------------------------------------------------|
+| SF Code Analyzer v5 (`sf code-analyzer`) | PMD 7       | Yes, when its PMD Apex module is 7.26.0 or newer            |
+| VS Code Apex PMD extension               | PMD 7       | Yes, when its PMD Apex module is 7.26.0 or newer            |
+| Illuminated Cloud (IntelliJ)             | PMD 7       | Yes, when its PMD Apex module is 7.26.0 or newer            |
+| Gearset                                  | PMD 7       | Yes, when its PMD Apex module is 7.26.0 or newer            |
+| Copado                                   | Varies      | Check the version; requires PMD Apex module 7.26.0 or newer |
+| AutoRABIT                                | Varies      | Check the version; requires PMD Apex module 7.26.0 or newer |
+| CodeScan                                 | PMD 7       | Yes, when its PMD Apex module is 7.26.0 or newer            |
+| Legacy `sfdx-scanner` (v4)               | PMD 6       | No: upgrade to Salesforce Code Analyzer v5                  |
 
 </details>
 

@@ -121,6 +121,7 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
     - [UI Support Components](#ui-support-components)
     - [Streaming Monitor Components](#streaming-monitor-components)
     - [Chain Monitor Components](#chain-monitor-components)
+    - [Log Console Components](#log-console-components)
 11. [Demo Components](#demo-components)
 12. [Testing](#testing)
     - [Jest Test Setup](#jest-test-setup)
@@ -163,6 +164,7 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
         - [Internal UI Components (9 components)](#internal-ui-components-9-components)
         - [Streaming Monitor Internals (9 components)](#streaming-monitor-internals-9-components)
         - [Chain Monitor (4 components)](#chain-monitor-4-components)
+        - [Log Console (4 components)](#log-console-4-components)
         - [Data Masking Advisor (10 components)](#data-masking-advisor-10-components)
         - [Demo Components (1 component)](#demo-components-1-component)
     - [Test Coverage Summary](#test-coverage-summary)
@@ -214,8 +216,8 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 > **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
 
-> **What's in this part of KernDX:** 63 components, made up of 7 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
-> data masking advisor components, and admin components. Every one is covered by tests: 65 Jest test files holding ~2,640 test cases (~38K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
+> **What's in this part of KernDX:** 67 components, made up of 7 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
+> data masking advisor components, log console components, and admin components. Every one is covered by tests: 68 Jest test files holding ~2,750 test cases (~40K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -483,7 +485,7 @@ You don't have to send logs to the server yourself. The framework flushes them t
 - when the in-memory buffer fills up, and
 - when the page unloads (on a best-effort basis).
 
-On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The benefit: when you investigate a problem later, the client and server halves of the same action are already stitched together.
+On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The context object you pass is kept on the entry (`ContextData__c`), and when you log an `Error` its JavaScript stack trace is kept too (`StackTrace__c`), so the [Log Console](Logging%20-%20Guide.md#the-log-console) detail drawer shows exactly what the client saw. The benefit: when you investigate a problem later, the client and server halves of the same action are already stitched together.
 
 ---
 
@@ -1437,7 +1439,7 @@ These are the building blocks KernDX uses inside its own components. You don't p
 | `streamingEventsHeader`  | Header action buttons                                   |
 | `streamingUsageMetrics`  | Usage metrics charts                                    |
 | `streamingUsageFilters`  | Metrics filter controls                                 |
-| `orgLimits`              | Org limits bar chart                                    |
+| `orgLimits`              | Org limits card grid (worst-first, per-limit usage bars) |
 | `streamingSubscriptions` | Active subscription management                          |
 | `streamingSidebar`       | Toggleable sidebar navigation for the Streaming Monitor |
 
@@ -1467,13 +1469,52 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
 - **Hover popovers:** `chainStepTimeline` shows a CSS-only SLDS tooltip popover on hover, with class
   name, status, duration, continueOnError flag, and error message.
 - **URL column:** the Chain Name links directly to the `AsyncChainExecution__c` record page.
+- **View logs cross-link:** `chainMonitorDetail` includes a **View logs** button that opens the Log Console
+  pre-filtered to the run's correlation ID, so you jump from a failed step straight to everything that run logged.
 
 | Component            | Purpose                                                                               |
 |----------------------|---------------------------------------------------------------------------------------|
 | `chainMonitor`       | Split-panel container with empApi subscription                                        |
 | `chainMonitorList`   | Datatable with collapsible status filters, search, sorting, pagination                |
-| `chainMonitorDetail` | Status icon, progress bar, step timeline, timing grid, error section                  |
+| `chainMonitorDetail` | Status icon, progress bar, step timeline, timing grid, error section, View logs link  |
 | `chainStepTimeline`  | SLDS timeline blueprint with hover popovers; dual mode (@api steps or @api recordId) |
+
+### Log Console Components
+
+The Log Console is where you browse and diagnose what your code logged: repeated events grouped into problems, a summary ribbon over the current window, and a detail drawer that lays the whole correlated run out as a timeline. You launch it from Kern Home or the App Launcher; the [Logging Guide](Logging%20-%20Guide.md#the-log-console) has the full walkthrough.
+
+**Component tree:**
+
+```text
+logConsole (AppPage container — filters, two list views, ribbon, endless scroll)
+├── logConsoleTable (datatable with a colour-coded severity badge cell)
+└── logConsoleDetail (tabbed drawer: Overview / Stack trace / Context / Timeline)
+
+logConsoleContext (shared service module — readable execution-context names)
+```
+
+**Key patterns:**
+
+- **Two list views, one container:** `logConsole` owns the filter state and switches between a **Problem summary**
+  view (distinct problems with occurrence counts) and an **Individual entries** view (the flat rows), both read
+  through `CTRL_LogConsole`.
+- **Debounced search and endless scroll:** the search box waits briefly after you stop typing before querying,
+  and both tables load more rows as you scroll instead of paging.
+- **Correlation deep links:** the console reads `c__correlationId` from the page state, so other tools (such as the
+  Chain Monitor's **View logs** button) can open it pre-filtered to one correlated run; the detail drawer links back
+  the other way into the Chain Monitor for async steps.
+- **Custom severity cell:** `logConsoleTable` extends `LightningDatatable` with a `logLevel` column type that renders
+  each row's level as a colour-coded badge.
+- **Shared context names:** `logConsoleContext` maps raw execution-context values (the platform's record of how a
+  transaction started: batch, queueable, REST, and so on) to Custom Label display names, one source for both the list
+  and the timeline so the two never drift.
+
+| Component           | Purpose                                                                       |
+|---------------------|-------------------------------------------------------------------------------|
+| `logConsole`        | Container: filters, Problem summary and Individual entries views, ribbon, drawer |
+| `logConsoleTable`   | Datatable extension with the colour-coded severity badge column               |
+| `logConsoleDetail`  | Tabbed detail drawer with the correlated execution timeline                   |
+| `logConsoleContext` | Service module mapping execution-context values to readable names             |
 
 ---
 
@@ -2120,6 +2161,7 @@ and Friday at 9:30 AM").
 | healthCheck          |      -      |    -     |      -      |    Yes    |     -     |
 | chainMonitor         |      -      |   Yes    |      -      |     -     |     -     |
 | chainStepTimeline    |      -      |    -     |     Yes     |     -     |     -     |
+| logConsole           |      -      |   Yes    |      -      |     -     |     -     |
 
 > **Code Only:** These components are exposed for use within custom LWC code but cannot be placed directly via Lightning App Builder.
 
@@ -2127,7 +2169,7 @@ and Friday at 9:30 AM").
 
 ### Complete Component Inventory
 
-All 63 LWC components in the KernDX framework with their category, exposure status, and test coverage.
+All 67 LWC components in the KernDX framework with their category, exposure status, and test coverage.
 
 <details>
 <summary>Expand the full 63-component inventory</summary>
@@ -2201,7 +2243,7 @@ All 63 LWC components in the KernDX framework with their category, exposure stat
 | `streamingEventsHeader`  |    -    |    Yes     | Event header actions                                    |
 | `streamingUsageMetrics`  |    -    |    Yes     | Usage metrics charts                                    |
 | `streamingUsageFilters`  |    -    |    Yes     | Metrics filter controls                                 |
-| `orgLimits`              |    -    |    Yes     | Org limits bar chart                                    |
+| `orgLimits`              |    -    |    Yes     | Org limits card grid (worst-first, per-limit usage bars) |
 | `streamingSubscriptions` |    -    |    Yes     | Active subscription management                          |
 | `streamingSidebar`       |    -    |    Yes     | Toggleable sidebar navigation for the Streaming Monitor |
 
@@ -2211,8 +2253,22 @@ All 63 LWC components in the KernDX framework with their category, exposure stat
 |----------------------|:-------:|:----------:|-----------------------------------------------------------------------------------------------|
 | `chainMonitor`       |   Yes   |    Yes     | Full-page split-panel container with empApi subscription for live refresh                     |
 | `chainMonitorList`   |    -    |    Yes     | Paginated datatable with filters, sorting, smart row selection, URL links to records          |
-| `chainMonitorDetail` |    -    |    Yes     | Accordion layout: header with status icon, progress bar, step timeline, timing, error section |
+| `chainMonitorDetail` |    -    |    Yes     | Accordion layout: status icon, progress bar, step timeline, timing, error section, View logs cross-link to the Log Console |
 | `chainStepTimeline`  |   Yes   |    Yes     | SLDS timeline with hover popovers showing class, status, duration, continueOnError            |
+
+#### Log Console (4 components)
+
+The browsing and diagnosis surface for captured log entries (see [Logging Guide, The Log Console](Logging%20-%20Guide.md#the-log-console)). Only the
+`logConsole` page component is exposed; the rest are internal building blocks.
+
+| Component           | Exposed | Jest Tests | Purpose                                                                       |
+|---------------------|:-------:|:----------:|-------------------------------------------------------------------------------|
+| `logConsole`        |   Yes   |    Yes     | Container: filters, Problem summary and Individual entries views, ribbon, drawer |
+| `logConsoleTable`   |    -    |    Yes     | Datatable extension with the colour-coded severity badge column               |
+| `logConsoleDetail`  |    -    |    Yes     | Tabbed detail drawer with the correlated execution timeline                   |
+| `logConsoleContext` |    -    |     -*     | Service module mapping execution-context values to readable names             |
+
+*`logConsoleContext` has no dedicated test file; it is covered to 100% through the other console components' Jest suites.
 
 #### Data Masking Advisor (10 components)
 
@@ -2252,12 +2308,13 @@ The console and dialogs behind the **Data Masking Advisor** (see [Security Guide
 | Internal UI         |     9      |        9        |   100%   |
 | Streaming Internals |     9      |        9        |   100%   |
 | Chain Monitor       |     4      |        4        |   100%   |
+| Log Console         |     4      |        3        |   100%   |
 | Data Masking Advisor |    10     |       10        |   100%   |
 | Demo Components     |     1      |        1        |   100%   |
-| **TOTAL**           |   **63**   |     **63**      | **100%** |
+| **TOTAL**           |   **67**   |     **66**      | **100%** |
 
-> **Note:** All 63 LWC components have Jest unit tests. Run `npm run test:unit -- --coverage` to verify coverage.
+> **Note:** Every LWC component is held at 100% Jest coverage (`logConsoleContext` is covered through the other Log Console components' test suites rather than a dedicated test file). Run `npm run test:unit -- --coverage` to verify coverage.
 
 ---
 
-*Last Updated: April 2026*
+*Last Updated: July 2026*

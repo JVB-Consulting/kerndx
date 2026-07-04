@@ -213,7 +213,7 @@ can do at once.) What the framework adds is this:
 - **An existing outbound integration becomes a chain step unchanged.** `ApiStep` wraps any `API_Outbound` handler with no
   edits to that handler.
 - **You can watch a run happen.** The Chain Monitor UI shows live updates, a step-by-step timeline, and error detail
-  panels.
+  panels, with a **View logs** button that jumps to the run's correlated logs in the Log Console.
 - **Admins change a job's parameters without touching code.** Configurable schedulers read their settings from a record.
 - **Errors and logs look the same everywhere.** One consistent pattern across every async strategy, instead of one per
   mechanism.
@@ -1861,7 +1861,10 @@ List<AsyncChainExecution__c> failedChains = [
 ];
 ```
 
-Use each row's `CorrelationId__c` to pull the full correlated trace from `LogEntry__c`. The chain
+Use each row's `CorrelationId__c` to pull the full correlated trace from `LogEntry__c`. Or skip the query
+entirely: the Chain Monitor's detail panel has a **View logs** button that opens the Log Console already
+filtered to that chain's correlation ID, laying the whole run out as a timeline (see
+[The Log Console](Logging%20-%20Guide.md#the-log-console) in the Logging Guide). The chain
 [Monitoring](#monitoring) section above lists every `AsyncChainExecution__c` field, and the
 [Logging Strategy](#logging-strategy) table records the exact events the framework logs. If you already hold a single
 chain's Id, `UTIL_AsyncChain.getStatus(executionId)` returns its live status without running a query.

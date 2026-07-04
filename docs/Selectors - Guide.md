@@ -76,6 +76,8 @@ Think of a selector as a recipe card for one object. The card lists the fields y
     - [SELECT and FROM](#select-and-from)
     - [WHERE Conditions](#where-conditions)
     - [Aggregate Functions](#aggregate-functions)
+        - [Several aggregates in one query](#several-aggregates-in-one-query)
+        - [Ranking groups by size](#ranking-groups-by-size)
     - [GROUP BY](#group-by)
 13. [Sharing Enforcement](#sharing-enforcement)
     - [Enforcing Sharing](#enforcing-sharing)
@@ -514,7 +516,8 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 
 **Aggregates & Grouping:**
 
-- `sum()` / `avg()` / `min()` / `max()` / `count()` - Aggregate functions
+- `sum()` / `avg()` / `min()` / `max()` / `count()` / `countDistinct()` - Aggregate functions (one aggregate per query)
+- `sum(field, alias)` / `avg(field, alias)` / `min(field, alias)` / `max(field, alias)` / `count(field, alias)` / `countDistinct(field, alias)` - Aliased aggregates; each call adds one more selection, so a single query returns several aggregates and you read each back by its alias on the `AggregateRow` (see [Several aggregates in one query](#several-aggregates-in-one-query))
 - `groupBy()` - Group by a field (`String` or `SObjectField`); call multiple times for multi-field grouping
 - `havingSumOf()` / `havingAvgOf()` / `havingMinOf()` / `havingMaxOf()` / `havingCountOf()` / `havingCount()` - HAVING conditions
 
@@ -522,6 +525,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 
 - `orderBy()` then `ascending()` / `descending()` / `nullsFirst()` / `nullsLast()` - Define sorting
 - `orderBy(field, sortDescending)` / `orderBy(field, sortDescending, nullsLast)` - Dynamic sorting with booleans
+- `orderByCount(field, sortDescending)` - Order grouped rows by COUNT of a field; pair with `withLimit()` to read the top N groups (see [Ranking groups by size](#ranking-groups-by-size))
 - `withLimit()` / `withOffset()` - Control result sets
 
 **Security & Performance:**
@@ -681,9 +685,9 @@ List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Techn
 
 **Key Features:**
 
-- Condition builders: `equals()`, `notEquals()`, `greaterThan()`, `lessThan()`, `likeX()`
+- `FieldCondition` built from a field, a `QRY_Condition.Operator` value (`EQUALS`, `NOT_EQUALS`, `GREATER_THAN`, `LESS_THAN`, `LIKE_X` and friends), and a comparison value
+- `FieldCondition` built from just the field, completed with `contains()` for a text match anywhere in the field (the wildcards are handled for you)
 - Nestable conditions: `AndCondition`, `OrCondition`
-- Field conditions with type-safe operators
 - `OrderBy` for sorting specifications
 
 **Example:**
@@ -706,11 +710,20 @@ List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Techn
 public static QRY_Condition.OrCondition buildAccountCondition(String industry, String type)
 {
 QRY_Condition.OrCondition orCondition = new QRY_Condition.OrCondition();
-orCondition.add(new QRY_Condition.FieldCondition(Account.Industry).equals(industry));
-orCondition.add(new QRY_Condition.FieldCondition(Account.Type).equals(type));
+orCondition.add(new QRY_Condition.FieldCondition(Account.Industry, QRY_Condition.Operator.EQUALS, industry));
+orCondition.add(new QRY_Condition.FieldCondition(Account.Type, QRY_Condition.Operator.EQUALS, type));
 return orCondition;
 }
 
+```
+
+For a contains-style text match, construct the `FieldCondition` with only the field and complete it with `contains()`, which wraps your value in leading and trailing `%` wildcards so you never assemble `'%' + value + '%'` patterns by hand:
+
+```apex
+// Name LIKE '%Acme%' OR Website LIKE '%acme%'
+QRY_Condition.OrCondition textMatch = new QRY_Condition.OrCondition();
+textMatch.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme'));
+textMatch.add(new QRY_Condition.FieldCondition(Account.Website).contains('acme'));
 ```
 
 ---
@@ -956,6 +969,43 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Account.SObjectT
 	.groupBy(Account.Industry)
 	.toAggregateList();
 ```
+
+#### Several aggregates in one query
+
+The single-argument overloads above apply one aggregate per query. To fold several aggregates into one query, use the aliased overloads: pass the field plus a result alias, and each call adds one more selection. Read each value back by its alias on the `AggregateRow`:
+
+```apex
+// Count rows and find the earliest record per stage, in one query
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
+	.groupBy(Opportunity.StageName)
+	.count(Opportunity.Id, 'rowTotal')
+	.min(Opportunity.CreatedDate, 'firstSeen')
+	.toAggregateList();
+
+for(QRY_Builder.AggregateRow row : rows)
+{
+	Object total = row.get('rowTotal');
+	Object earliest = row.get('firstSeen');
+}
+```
+
+The alias must be a bare identifier (a letter followed by letters, digits or underscores); anything else fails fast with an `IllegalArgumentException`, and a duplicate alias is rejected when the query builds. All six aggregate functions have an aliased form: `count()`, `countDistinct()`, `sum()`, `avg()`, `min()` and `max()`.
+
+#### Ranking groups by size
+
+`orderByCount()` orders the grouped rows by how many records each group holds (the SOQL `ORDER BY COUNT(field)` form). Combine it with `withLimit()` to read the top N groups:
+
+```apex
+// The three stages holding the most opportunities
+List<QRY_Builder.AggregateRow> topStages = QRY_Builder.selectFrom(Opportunity.SObjectType)
+	.groupBy(Opportunity.StageName)
+	.count(Opportunity.Id, 'rowTotal')
+	.orderByCount(Opportunity.Id, true)
+	.withLimit(3)
+	.toAggregateList();
+```
+
+Passing `true` sorts descending (largest groups first); `false` sorts ascending.
 
 ### GROUP BY
 
@@ -1451,8 +1501,8 @@ public static List<Account> findActiveTechAccounts()
 {
 	// Build the OR group for status
 	QRY_Condition.OrCondition statusGroup = new QRY_Condition.OrCondition();
-	statusGroup.add(new QRY_Condition.FieldCondition('Status__c').equals('Active'));
-	statusGroup.add(new QRY_Condition.FieldCondition('Status__c').equals('Pending'));
+	statusGroup.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
+	statusGroup.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Pending'));
 
 	return QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<String>{'Name', 'Industry', 'Status__c'})
@@ -1463,6 +1513,8 @@ public static List<Account> findActiveTechAccounts()
 ```
 
 > **Note:** Without explicit grouping, conditions follow standard SQL precedence where AND binds tighter than OR. For example, `A AND B OR C` evaluates as `(A AND B) OR C`.
+
+Inside a hand-built group, a text match works the same way as in the builder: construct the `FieldCondition` with only the field, then complete it with `contains()`. See [Layer 3: QRY_Condition](#layer-3-qry_condition) for an example.
 
 ### Advanced Filtering
 
@@ -2403,7 +2455,7 @@ public inherited sharing class AccountSelector extends QRY_Builder.Builder
 	 */
 	public override QRY_Condition.Evaluable getBaseCondition()
 	{
-		return new QRY_Condition.FieldCondition(Account.IsDeleted).notEquals(true);
+		return new QRY_Condition.FieldCondition(Account.IsDeleted, QRY_Condition.Operator.NOT_EQUALS, true);
 	}
 
 	/**

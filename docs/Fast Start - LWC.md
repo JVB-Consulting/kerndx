@@ -552,8 +552,11 @@ this.consoleLog('User clicked save', {recordId: this.recordId});
 this.consoleError(error, 'accountCard.handleSave');
 ```
 
-These write to the browser console. For **persistent, queryable** server-side logging that survives the
-transaction, call `kern.LOG_Builder` from your Apex controller method. See
+These write to the browser console. When you want the client's story **kept and searchable**, import the
+`kern/utilityLogger` module: its `debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex
+automatically and saved as `kern__LogEntry__c` rows, and an `Error` passed to `error()` keeps its JavaScript
+stack trace and context data on the entry. For logging from your Apex controller method itself, call
+`kern.LOG_Builder`. See
 [Fast Start - Logging](Fast%20Start%20-%20Logging.md). To tie a client interaction to the Apex it triggers
 under one tracking ID that follows a single user action across triggers, queries, callouts and jobs (a
 correlation ID), the [LWC Guide](LWC%20-%20Guide.md#utilitylogger---client-side-logging) covers the
