@@ -43,3 +43,45 @@ export function resolvePackageVersion(sfdx)
 	});
 	return {version: numbered[0].version, subscriberPackageVersionId: numbered[0].id};
 }
+
+// The "latest" docs tree at / is the highest PROMOTED/released package line — the one that
+// has actually been pushed to the mirror that serves the site — NOT the in-development
+// versionNumber. The mirror only ever holds released content, so a version is "latest" only
+// once it is promoted and synced (e.g. while master is on 1.3.0.NEXT but only 1.2 is
+// released, latest is "1.2"; "1.3" appears here only after 1.3 ships). The highest Kern@
+// alias is the build-time proxy for "latest released" (the release dance adds the alias as
+// part of promoting + pushing). Throws (via resolvePackageVersion) when no alias exists.
+export function latestDocLine(sfdx)
+{
+	const {version} = resolvePackageVersion(sfdx);   // highest Kern@X.Y.Z-N alias, e.g. "1.2.0-1"
+	const m = version.match(/^(\d+)\.(\d+)\./);
+	return `${m[1]}.${m[2]}`;
+}
+
+// Newer minor line first (1.3 before 1.2 before 1.1). Inputs are validated "X.Y" strings.
+function compareLinesDescending(a, b)
+{
+	const [aMajor, aMinor] = a.split('.').map(Number);
+	const [bMajor, bMinor] = b.split('.').map(Number);
+	return (bMajor - aMajor) || (bMinor - aMinor);
+}
+
+// Build the version-switcher list. The latest line (from versionNumber) always heads the
+// list at base "/"; each frozen line that has a committed snapshot follows under "/X.Y/",
+// newest first. frozenLines is the set of docs-versions/<line>/ directories that exist
+// (Phase 1 has none → the list is just [latest]; Phase 2 adds 1.2 and 1.1). The frozen set,
+// not the package aliases, is the deploy-truth: a line only appears once a tree is built for
+// it, so the switcher can never offer a 404. Pre-release "-N" build numbers never appear.
+export function resolveVersionList(sfdx, frozenLines = [])
+{
+	const latest = latestDocLine(sfdx);
+	const list = [{line: latest, label: latest, base: '/', latest: true}];
+	const frozen = [...new Set(frozenLines)]
+	.filter(line => /^\d+\.\d+$/.test(line) && line !== latest);
+	frozen.sort(compareLinesDescending);
+	for(const line of frozen)
+	{
+		list.push({line, label: line, base: `/${line}/`, latest: false});
+	}
+	return list;
+}

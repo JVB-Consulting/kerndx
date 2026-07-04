@@ -3,6 +3,7 @@ import {h} from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import './custom.css';
 import VersionSwitcher from './VersionSwitcher.vue';
+import VersionBanner from './VersionBanner.vue';
 import Breadcrumb from './Breadcrumb.vue';
 import KernLanding from './components/KernLanding.vue';
 import CodeCompare from './components/CodeCompare.vue';
@@ -49,7 +50,12 @@ export default {
 	Layout()
 	{
 		return h(DefaultTheme.Layout, null, {
-			'sidebar-nav-before': () => h(VersionSwitcher),
+			// Top nav (not the sidebar) so the switcher shows on every page including the
+			// sidebar-less landing — one consistent location.
+			'nav-bar-content-after': () => h(VersionSwitcher),
+			// Above the whole layout so the "older version" notice shows on every page of a
+			// frozen tree (the banner self-gates: it renders nothing on the latest tree).
+			'layout-top': () => h(VersionBanner),
 			'doc-before': () => h(Breadcrumb)
 		});
 	},

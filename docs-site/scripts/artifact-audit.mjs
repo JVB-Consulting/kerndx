@@ -15,7 +15,10 @@ async function walk(dir) {
   const out = []
   for (const e of await readdir(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name)
-    if (e.isDirectory()) { if (e.name === 'assets') continue; out.push(...await walk(p)) }
+    // Skip assets and frozen version subtrees (/1.x/): the site-wide duplicate-description
+    // and cross-tree anchor checks are latest-only — a frozen page legitimately repeats its
+    // latest counterpart's description (PLAN-105 blocker #5).
+    if (e.isDirectory()) { if (e.name === 'assets' || /^\d+\.\d+$/.test(e.name)) continue; out.push(...await walk(p)) }
     else if (e.name.endsWith('.html')) out.push(p)
   }
   return out

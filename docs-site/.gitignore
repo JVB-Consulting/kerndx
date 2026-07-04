@@ -2,5 +2,10 @@ node_modules/
 src/
 .vitepress/dist/
 .vitepress/cache/
+.vitepress/.temp/
 .vitepress/sidebar.generated.mjs
 .vitepress/lastmod.generated.json
+.vitepress/versions.generated.mjs
+.vitepress/landing.generated.mjs
+.vitepress/latest-routes.generated.json
+.vitepress/frozen-cache/

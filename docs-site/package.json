@@ -7,6 +7,7 @@
   "scripts": {
     "prepare:src": "node scripts/prepare.mjs",
     "build": "npm run prepare:src && vitepress build",
+    "build:versions": "node scripts/build-versions.mjs",
     "dev": "npm run prepare:src && vitepress dev",
     "preview": "vitepress preview --port 4173",
     "test:unit": "node --test \"scripts/!(render-smoke).test.mjs\"",
@@ -15,9 +16,9 @@
     "test:sweep": "node scripts/full-corpus-sweep.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "mermaid": "11.16.0",
     "vitepress": "1.6.4",
-    "vitepress-plugin-mermaid": "2.0.17",
-    "mermaid": "11.6.0",
-    "@playwright/test": "1.55.0"
+    "vitepress-plugin-mermaid": "2.0.17"
   }
 }

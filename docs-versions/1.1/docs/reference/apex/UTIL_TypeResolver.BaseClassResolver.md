@@ -1,0 +1,89 @@
+---
+title: "UTIL_TypeResolver.BaseClassResolver"
+type: class
+description: "Abstract base class for implementing custom type resolvers, typically registered via custom metadata."
+since: "1.0"
+category: apex
+---
+
+# UTIL_TypeResolver.BaseClassResolver
+
+**Class**
+
+```apex
+global abstract class UTIL_TypeResolver.BaseClassResolver implements UTIL_TypeResolver.INT_ClassTypeResolver
+```
+
+**Implements:** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md)
+
+**Known Derived Types:** [UTIL_TypeResolver.INT_ClassTypeResolver.resolveType(String)](UTIL_TypeResolver.INT_ClassTypeResolver.md#resolvetype)
+
+Abstract base class for implementing custom type resolvers, typically registered via custom metadata.
+
+**Since:** 1.0
+
+**See Also:** [ClassTypeResolver__mdt](../metadata/ClassTypeResolver__mdt.md)
+
+---
+
+## Fields
+
+| Field | Description |
+|-------|-------------|
+| global [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) [nextResolver](#nextresolver) | Holds the reference to the next resolver in the chain. |
+
+## Methods
+
+| Method | Description |
+|--------|-------------|
+| global abstract [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [resolveType](#resolvetype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) typeName) | Resolves a Type object from a class name. |
+
+---
+
+## Method Details
+
+### resolveType
+
+```apex
+global abstract Type resolveType(String typeName)
+```
+
+Resolves a Type object from a class name.
+
+**Parameters:**
+
+- `typeName` ([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)) - The name of the class to resolve.
+
+**Returns:** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) - The resolved Type object, or null if not found.
+
+**Since:** 1.0
+
+**Example:**
+
+```apex
+BaseClassResolver resolver = new PackageClassResolver();
+Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+```
+
+---
+
+## Field Details
+
+### nextResolver
+
+```apex
+global UTIL_TypeResolver.INT_ClassTypeResolver nextResolver
+```
+
+**Type:** [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md)
+
+Holds the reference to the next resolver in the chain.
+
+**Since:** 1.0
+
+**Example:**
+
+```apex
+INT_ClassTypeResolver value = instance.nextResolver;
+```
+

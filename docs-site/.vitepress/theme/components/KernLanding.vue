@@ -7,8 +7,25 @@
      a Copy button). Positioning: KernDX is a LIBRARY OF FRAMEWORKS for Apex & LWC, not a single
      framework. The credibility strip below shows the verified counts (global API classes,
      production classes, LWC components, Apex test count, plus the 100%/95% coverage policy).
-     Keep the strip numbers in lockstep with docs/Strategic Guide - Metrics.md (the canonical
-     source); scripts/validate-landing-metrics.js enforces this on npm run docs:validate. -->
+     The strip numbers and the version badge are data-driven: scripts/prepare.mjs reads them
+     from THIS tree's docs/Strategic Guide - Metrics.md and emits them as
+     .vitepress/landing.generated.mjs, so the latest landing shows the live figures and a
+     frozen version line shows the numbers it shipped with. scripts/validate-landing-metrics.js
+     guards that the Metrics doc still exposes those rows on npm run docs:validate. -->
+<script setup>
+// Per-build landing facts — version label + credibility-strip figures — emitted by
+// scripts/prepare.mjs from this version tree's Metrics doc. See the header comment above.
+// resolve() makes an internal link base-aware for THIS version tree (so a frozen line stays
+// in its own tree, not the latest one) and applies the build-time fallback in landing.links
+// (absent page → home, absent anchor → page top) so the shared landing never points an older
+// version at content it never had. Wrap every internal landing link with the resolve helper
+// (see the install and fast-start links in the template below).
+import {withBase} from 'vitepress';
+import landing from '../../landing.generated.mjs';
+
+const resolve = (href) => withBase(landing.links?.[href] ?? href);
+</script>
+
 <template>
 	<main class="kern-landing">
 
@@ -16,7 +33,7 @@
 		<header class="kl-hero">
 			<div class="kl-wrap">
 				<div class="kl-badges">
-					<span class="kl-badge brand" data-spec-id="badge-version">v1.1.0-11</span>
+					<span class="kl-badge brand" data-spec-id="badge-version">{{ landing.version }}</span>
 					<span class="kl-badge" data-spec-id="badge-license">BSL 1.1 → Apache 2.0</span>
 					<span class="kl-badge" data-spec-id="badge-api">API 67.0</span>
 				</div>
@@ -25,10 +42,10 @@
 				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't: security by default, with logging, performance, and traceability built in.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
-					<a class="kl-cta primary" href="/installation" data-spec-id="cta-install">Install KernDX →</a>
-					<a class="kl-cta ghost" href="/fast-starts" data-spec-id="cta-fast-starts">Browse the Fast Starts</a>
-					<a class="kl-cta ghost" href="/ai-agent-instructions" data-spec-id="cta-ai-assistant">AI context</a>
-					<a class="kl-cta ghost" href="/administration-tools-guide" data-spec-id="cta-admin-tools">See the admin tools in action →</a>
+					<a class="kl-cta primary" :href="resolve('/installation')" data-spec-id="cta-install">Install KernDX →</a>
+					<a class="kl-cta ghost" :href="resolve('/fast-starts')" data-spec-id="cta-fast-starts">Browse the Fast Starts</a>
+					<a class="kl-cta ghost" :href="resolve('/ai-agent-instructions')" data-spec-id="cta-ai-assistant">AI context</a>
+					<a class="kl-cta ghost" :href="resolve('/administration-tools-guide')" data-spec-id="cta-admin-tools">See the admin tools in action →</a>
 				</div>
 			</div>
 		</header>
@@ -37,10 +54,10 @@
 		<section class="kl-strip-section">
 			<div class="kl-wrap">
 				<div class="kl-strip" data-spec-id="credibility-strip">
-					<div class="m" data-spec-id="strip-global"><b>95</b><span>global API classes</span></div>
-					<div class="m" data-spec-id="strip-classes"><b>189</b><span>production classes</span></div>
-					<div class="m" data-spec-id="strip-lwc"><b>63</b><span>LWC components</span></div>
-					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · 3,773 tests</span></div>
+					<div class="m" data-spec-id="strip-global"><b>{{ landing.globalApiClasses }}</b><span>global API classes</span></div>
+					<div class="m" data-spec-id="strip-classes"><b>{{ landing.productionClasses }}</b><span>production classes</span></div>
+					<div class="m" data-spec-id="strip-lwc"><b>{{ landing.lwcComponents }}</b><span>LWC components</span></div>
+					<div class="m" data-spec-id="strip-coverage"><b>100%</b><span>Apex coverage · {{ landing.apexTestsLabel }} tests</span></div>
 				</div>
 			</div>
 		</section>
@@ -81,19 +98,19 @@
 					<p class="kl-headline">One install. The whole stack.</p>
 					<p class="kl-lead">Nothing to assemble. Every layer ships in the one package, each one ready to switch on when you reach for it.</p>
 					<div class="kl-stack" data-spec-id="day-one">
-						<a href="/fast-start-trigger-actions#tier-1-build-it-5-minutes" data-spec-id="day-one-triggers">Trigger framework</a>
-						<a href="/fast-start-selectors#tier-1-see-it-work-2-minutes" data-spec-id="day-one-selectors">Selectors &amp; queries</a>
-						<a href="/fast-start-dml#tier-1-see-it-work-2-minutes" data-spec-id="day-one-dml">Secure DML &amp; transactions</a>
-						<a href="/fast-start-logging#tier-1-see-it-work-2-minutes" data-spec-id="day-one-logging">Rollback-safe logging</a>
-						<a href="/fast-start-async-processing#tier-1-see-it-work-2-minutes" data-spec-id="day-one-async">Async orchestration</a>
-						<a href="/fast-start-inbound-apis#tier-1-see-it-work-2-minutes" data-spec-id="day-one-inbound">Inbound REST</a>
-						<a href="/fast-start-outbound-apis#tier-1-see-it-work-2-minutes" data-spec-id="day-one-outbound">Outbound HTTP client</a>
-						<a href="/fast-start-feature-flags#tier-1-see-it-work-2-minutes" data-spec-id="day-one-flags">Feature flags</a>
-						<a href="/fast-start-custom-validations#tier-1-see-it-work-5-minutes" data-spec-id="day-one-validation">Validation framework</a>
-						<a href="/fast-start-data-masking#rule-modes" data-spec-id="day-one-masking">Data masking</a>
-						<a href="/fast-start-code-scanning#pmd-rule-reference" data-spec-id="day-one-pmd">PMD rulesets</a>
-						<a href="/fast-start-code-scanning#eslint-rule-reference" data-spec-id="day-one-eslint">ESLint plugin</a>
-						<a href="/ai-agent-instructions#coding-standards" data-spec-id="day-one-ai">AI coding standards</a>
+						<a :href="resolve('/fast-start-trigger-actions#tier-1-build-it-5-minutes')" data-spec-id="day-one-triggers">Trigger framework</a>
+						<a :href="resolve('/fast-start-selectors#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-selectors">Selectors &amp; queries</a>
+						<a :href="resolve('/fast-start-dml#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-dml">Secure DML &amp; transactions</a>
+						<a :href="resolve('/fast-start-logging#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-logging">Rollback-safe logging</a>
+						<a :href="resolve('/fast-start-async-processing#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-async">Async orchestration</a>
+						<a :href="resolve('/fast-start-inbound-apis#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-inbound">Inbound REST</a>
+						<a :href="resolve('/fast-start-outbound-apis#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-outbound">Outbound HTTP client</a>
+						<a :href="resolve('/fast-start-feature-flags#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-flags">Feature flags</a>
+						<a :href="resolve('/fast-start-custom-validations#tier-1-see-it-work-5-minutes')" data-spec-id="day-one-validation">Validation framework</a>
+						<a :href="resolve('/fast-start-data-masking#rule-modes')" data-spec-id="day-one-masking">Data masking</a>
+						<a :href="resolve('/fast-start-code-scanning#pmd-rule-reference')" data-spec-id="day-one-pmd">PMD rulesets</a>
+						<a :href="resolve('/fast-start-code-scanning#eslint-rule-reference')" data-spec-id="day-one-eslint">ESLint plugin</a>
+						<a :href="resolve('/ai-agent-instructions#coding-standards')" data-spec-id="day-one-ai">AI coding standards</a>
 					</div>
 				</div>
 			</section>
@@ -123,14 +140,14 @@
 					<div class="kl-usage" data-spec-id="agentic-usage">
 						<p class="kl-usage-title">What ships, and how to wire it up</p>
 						<ol>
-							<li><a href="/agents"><strong>AGENTS.md</strong></a> sits at the repo root: the tool-neutral on-ramp that Claude Code, Cursor, Codex, and Cline read first. It orients your assistant and points it at the conventions and the full reference.</li>
-							<li><a href="/ai-agent-instructions"><strong>AI Agent Instructions</strong></a> is the complete code-generation reference. Copy it into the rules file your tool auto-loads (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, or <code>.cursorrules</code>), or reference it so a <code>git pull</code> keeps it current.</li>
+							<li><a :href="resolve('/agents')"><strong>AGENTS.md</strong></a> sits at the repo root: the tool-neutral on-ramp that Claude Code, Cursor, Codex, and Cline read first. It orients your assistant and points it at the conventions and the full reference.</li>
+							<li><a :href="resolve('/ai-agent-instructions')"><strong>AI Agent Instructions</strong></a> is the complete code-generation reference. Copy it into the rules file your tool auto-loads (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, or <code>.cursorrules</code>), or reference it so a <code>git pull</code> keeps it current.</li>
 							<li>From then on your assistant writes framework-correct Apex and LWC: the right namespace prefix, FLS-enforced reads and writes, the naming rules, and the audited-bypass pattern, instead of reinventing them.</li>
 						</ol>
 					</div>
 					<p class="kl-files" data-spec-id="agentic-llms">AGENTS.md · /llms.txt · Code Conventions Guide · PMD + ESLint rules</p>
 					<p class="kl-foot-note" data-spec-id="agentic-enforcement">Those same standards ship as PMD rulesets and an ESLint plugin, so what the assistant follows is also enforced where you already work: inline in VS Code or IntelliJ / Illuminated Cloud, and gated on every pull request in CI.</p>
-					<a class="kl-cta primary" href="/ai-agent-instructions" data-spec-id="agentic-cta">Open the AI Agent Instructions →</a>
+					<a class="kl-cta primary" :href="resolve('/ai-agent-instructions')" data-spec-id="agentic-cta">Open the AI Agent Instructions →</a>
 				</div>
 			</div>
 		</section>
@@ -142,12 +159,12 @@
 				<p class="kl-headline">Worth reading even if you never adopt KernDX.</p>
 				<p class="kl-lead">These are design decisions, not feature names, so take the ideas with you. Each links to the guide that explains the thinking. The source is public (BSL 1.1, becoming Apache 2.0).</p>
 				<div class="kl-cards">
-					<a class="kl-card" href="/fast-start-inbound-apis#idempotency" data-spec-id="steal-idempotency"><h3>Why a &lsquo;safe to retry&rsquo; key isn't enough</h3><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/logging-guide#logging-inside-platform-event-change-event-triggers" data-spec-id="steal-self-trigger-log"><h3>Why a logging tool must avoid logging about itself</h3><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/selectors-guide#handle-null-and-empty-collections" data-spec-id="steal-empty-filter"><h3>Why an empty filter should match nothing, not everything</h3><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/data-masking-guide#modes" data-spec-id="steal-luhn-mask"><h3>Why hiding card numbers takes more than pattern-matching</h3><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/code-conventions-guide#type-resolution" data-spec-id="steal-type-resolution"><h3>Why the framework looks for your version of a class first</h3><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customise behaviour, with nothing to register.</p><span class="go">Read the decision →</span></a>
-					<a class="kl-card" href="/feature-flags-guide#evaluation-order" data-spec-id="steal-flag-firewall"><h3>Why feature flags decide like an access list</h3><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/fast-start-inbound-apis#idempotency')" data-spec-id="steal-idempotency"><h3>Why a &lsquo;safe to retry&rsquo; key isn't enough</h3><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/logging-guide#logging-inside-platform-event-change-event-triggers')" data-spec-id="steal-self-trigger-log"><h3>Why a logging tool must avoid logging about itself</h3><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/selectors-guide#handle-null-and-empty-collections')" data-spec-id="steal-empty-filter"><h3>Why an empty filter should match nothing, not everything</h3><p>An empty &ldquo;only include these&rdquo; list should return nothing; an empty &ldquo;exclude these&rdquo; list, everything. Getting that right stops a filter bug from quietly scanning your whole table.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/data-masking-guide#modes')" data-spec-id="steal-luhn-mask"><h3>Why hiding card numbers takes more than pattern-matching</h3><p>Plenty of 16-digit numbers aren't credit cards. KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/code-conventions-guide#type-resolution')" data-spec-id="steal-type-resolution"><h3>Why the framework looks for your version of a class first</h3><p>It checks your project for a class before falling back to its own, so &ldquo;write your own and it wins&rdquo; becomes a built-in way to customise behaviour, with nothing to register.</p><span class="go">Read the decision →</span></a>
+					<a class="kl-card" :href="resolve('/feature-flags-guide#evaluation-order')" data-spec-id="steal-flag-firewall"><h3>Why feature flags decide like an access list</h3><p>Each rule can answer yes, no, or &ldquo;not my call&rdquo;, and that third answer is what lets you stack &ldquo;block these, then allow those&rdquo; rules in order without them fighting.</p><span class="go">Read the decision →</span></a>
 				</div>
 			</div>
 		</section>
@@ -206,7 +223,7 @@
 						<li><strong>One integrated package</strong>: triggers, queries, transactions, logging, REST, async, and masking share one model, instead of you wiring separate libraries together.</li>
 						<li><strong>100% Apex coverage and PMD-clean</strong>, enforced on every build, not aspirational.</li>
 					</ul>
-					<a class="kl-cta ghost" href="/strategic-guide-choosing-a-framework" data-spec-id="by-default-link">Full capability-by-capability comparison →</a>
+					<a class="kl-cta ghost" :href="resolve('/strategic-guide-choosing-a-framework')" data-spec-id="by-default-link">Full capability-by-capability comparison →</a>
 				</div>
 				<p class="kl-foot-note" data-spec-id="by-default-honesty">Honest about scope: a logging-only library can go deeper on logging, and a mocking library on mocking. The guide says so, capability by capability.</p>
 			</div>
@@ -245,15 +262,15 @@
 				<h2 class="kl-eyebrow" id="get-started">Get started</h2>
 				<p class="kl-headline">Three ways in.</p>
 				<div class="kl-paths" data-spec-id="install-paths">
-					<a class="kl-path" href="/installation" data-spec-id="path-install"><b>Install the package</b><span>Add <code>kern</code> at v1.1.0-11 to your org. Swap it in within days.</span></a>
-					<a class="kl-path" href="/installation" data-spec-id="path-repackage"><b>Repackage under your own name</b><span>Build KernDX into your own package, as your code.</span></a>
-					<a class="kl-path" href="/installation" data-spec-id="path-ci"><b>CI tooling only</b><span>PMD rulesets + ESLint plugin that flag violations inline in VS Code or IntelliJ / Illuminated Cloud and gate them in CI, with no framework code.</span></a>
+					<a class="kl-path" :href="resolve('/installation')" data-spec-id="path-install"><b>Install the package</b><span>Add <code>kern</code> at {{ landing.version }} to your org. Swap it in within days.</span></a>
+					<a class="kl-path" :href="resolve('/installation')" data-spec-id="path-repackage"><b>Repackage under your own name</b><span>Build KernDX into your own package, as your code.</span></a>
+					<a class="kl-path" :href="resolve('/installation')" data-spec-id="path-ci"><b>CI tooling only</b><span>PMD rulesets + ESLint plugin that flag violations inline in VS Code or IntelliJ / Illuminated Cloud and gate them in CI, with no framework code.</span></a>
 				</div>
 			</div>
 		</section>
 
 		<!-- Sticky install CTA -->
-		<a class="kl-sticky" href="/installation" data-spec-id="sticky-install">Install KernDX <span>v1.1.0-11</span></a>
+		<a class="kl-sticky" :href="resolve('/installation')" data-spec-id="sticky-install">Install KernDX <span>{{ landing.version }}</span></a>
 
 	</main>
 </template>

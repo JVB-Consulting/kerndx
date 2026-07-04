@@ -110,50 +110,54 @@
 	color : var(--vp-c-brand-1);
 }
 
-/* ── Sidebar version selector (top of sidebar, mirrors the prototype) ─────────── */
+/* ── Documentation version selector (top nav, mirrors the validated prototype) ──── */
 .version-switcher
 {
-	display       : flex;
-	align-items   : center;
-	gap           : 0.5rem;
-	padding       : 0.75rem 0 0.85rem;
-	margin-bottom : 0.25rem;
-	border-bottom : 1px solid var(--vp-c-divider);
-}
-
-.version-switcher__caption
-{
-	font-size      : 0.7rem;
-	font-weight    : 600;
-	letter-spacing : 0.04em;
-	text-transform : uppercase;
-	color          : var(--vp-c-text-3);
-}
-
-.version-switcher__chip
-{
+	position    : relative;
 	display     : inline-flex;
 	align-items : center;
-	gap         : 0.4rem;
+	margin-left : 8px;
 }
 
-.version-switcher__select
+.version-switcher__trigger,
+.version-switcher__static
 {
-	appearance        : none;
-	-webkit-appearance: none;
-	background        : var(--vp-c-bg-soft);
-	border            : 1px solid var(--vp-c-divider);
-	border-radius     : 6px;
-	color             : var(--vp-c-text-1);
-	font-size         : 0.82rem;
-	font-weight       : 600;
-	padding           : 0.2rem 1.4rem 0.2rem 0.55rem;
-	cursor            : pointer;
-	/* chevron affordance */
-	background-image    : linear-gradient(45deg, transparent 50%, var(--vp-c-text-3) 50%), linear-gradient(135deg, var(--vp-c-text-3) 50%, transparent 50%);
-	background-position : calc(100% - 12px) 55%, calc(100% - 8px) 55%;
-	background-size     : 4px 4px, 4px 4px;
-	background-repeat   : no-repeat;
+	display       : inline-flex;
+	align-items   : center;
+	gap           : 0.4rem;
+	background    : var(--vp-c-bg-soft);
+	border        : 1px solid var(--vp-c-divider);
+	border-radius : 6px;
+	color         : var(--vp-c-text-1);
+	font-size     : 0.82rem;
+	font-weight   : 600;
+	line-height   : 1.2;
+	padding       : 0.25rem 0.55rem;
+}
+
+.version-switcher__trigger
+{
+	cursor : pointer;
+}
+
+.version-switcher__trigger:hover
+{
+	border-color : var(--vp-c-brand-1);
+}
+
+.version-switcher__chevron
+{
+	width        : 0;
+	height       : 0;
+	border-left  : 4px solid transparent;
+	border-right : 4px solid transparent;
+	border-top   : 5px solid var(--vp-c-text-3);
+	transition   : transform 0.15s ease;
+}
+
+.version-switcher--open .version-switcher__chevron
+{
+	transform : rotate(180deg);
 }
 
 .version-switcher__badge
@@ -165,6 +169,76 @@
 	background     : var(--vp-c-brand-soft);
 	border-radius  : 4px;
 	padding        : 0.1rem 0.35rem;
+}
+
+.version-switcher__menu
+{
+	position      : absolute;
+	top           : calc(100% + 6px);
+	right         : 0;
+	z-index       : 60;
+	min-width     : 180px;
+	margin        : 0;
+	padding       : 5px;
+	list-style    : none;
+	background    : var(--vp-c-bg);
+	border        : 1px solid var(--vp-c-divider);
+	border-radius : 8px;
+	box-shadow    : 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.version-switcher__option
+{
+	display         : flex;
+	align-items     : center;
+	justify-content : space-between;
+	gap             : 10px;
+	padding         : 0.45rem 0.55rem;
+	border-radius   : 6px;
+	font-size       : 0.84rem;
+	color           : var(--vp-c-text-1);
+	cursor          : pointer;
+}
+
+.version-switcher__option:hover,
+.version-switcher__option:focus-visible
+{
+	background : var(--vp-c-bg-soft);
+	outline    : none;
+}
+
+.version-switcher__option.is-selected
+{
+	color       : var(--vp-c-brand-1);
+	font-weight : 700;
+}
+
+.version-switcher__option-label
+{
+	display     : inline-flex;
+	align-items : center;
+	gap         : 0.4rem;
+}
+
+.version-switcher__check
+{
+	color   : var(--vp-c-brand-1);
+	opacity : 0;
+}
+
+.version-switcher__option.is-selected .version-switcher__check
+{
+	opacity : 1;
+}
+
+/* On a phone the nav collapses; keep the chip tight by dropping the LATEST badge. */
+@media (max-width: 640px)
+{
+	.version-switcher__trigger .version-switcher__badge,
+	.version-switcher__static .version-switcher__badge
+	{
+		display : none;
+	}
 }
 
 /* ── Reference breadcrumb (above H1 on reference pages) ───────────────────────── */

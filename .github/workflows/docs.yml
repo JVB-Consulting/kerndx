@@ -24,6 +24,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - 'docs-versions/**'
       - '.github/workflows/docs.yml'
       - 'README.md'
       - 'AGENTS.md'
@@ -35,6 +36,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs-site/**'
+      - 'docs-versions/**'
       - '.github/workflows/docs.yml'
       - 'README.md'
       - 'AGENTS.md'
@@ -89,9 +91,11 @@ jobs:
         working-directory: docs-site
         run: npm run test:unit
 
-      - name: Build (strict dead-link gate)
+      - name: Build all versions (latest + frozen trees, strict dead-link gate)
         working-directory: docs-site
-        run: npm run build
+        # Builds latest at / and every committed docs-versions/<X.Y>/ line under /X.Y/ into one
+        # dist/. Latest-only repos (no docs-versions/) get exactly the previous single-tree build.
+        run: npm run build:versions
 
       - name: Markdown lint (advisory, non-blocking)
         working-directory: docs-site

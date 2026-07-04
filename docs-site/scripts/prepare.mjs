@@ -12,7 +12,7 @@ import {escapeAngles} from './markdown-safety.mjs';
 import {rewriteLinks} from './link-normalizer.mjs';
 import {extractHeadingIds, rewriteAnchors} from './anchor-normalizer.mjs';
 import {rewriteHomeLinks} from './home.mjs';
-import {resolvePackageVersion} from './package-version.mjs';
+import {resolveVersionList} from './package-version.mjs';
 import {cleanMetaDescription} from './meta-description.mjs';
 import {parseFrontmatter, stringifyFrontmatter} from './frontmatter.mjs';
 import {diffSlugs, loadLock} from './slug-lock.mjs';
@@ -20,8 +20,17 @@ import {sourceRepoRelForPage} from './sitemap-lastmod.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');   // docs-site/
 const REPO = path.resolve(ROOT, '..');                                          // repo root
-const DOCS = path.join(REPO, 'docs');
-const RELEASE_NOTES = path.join(REPO, 'release-notes');
+// Source roots are env-overridable so a frozen version build reads from docs-versions/<X.Y>/
+// instead of the live tree. Defaults reproduce the latest (current) build exactly.
+const DOCS = process.env.DOCS_SRC ? path.resolve(REPO, process.env.DOCS_SRC) : path.join(REPO, 'docs');
+const RELEASE_NOTES = process.env.RELEASE_NOTES_SRC ? path.resolve(REPO, process.env.RELEASE_NOTES_SRC) : path.join(REPO, 'release-notes');
+const HOME = process.env.HOME_SRC ? path.resolve(REPO, process.env.HOME_SRC) : path.join(ROOT, 'home.md');
+// A frozen snapshot is immutable, so the URL-stability (slug-lock) gate — which guards the
+// LIVE tree against silently dropping a published slug — does not apply to it.
+const FROZEN = process.env.DOCS_FROZEN === '1';
+// The deploy base for this build ('/' for latest, '/X.Y/' for a frozen tree) — mirrors
+// config.mjs. Used to base-prefix the landing's raw HTML links (see resolveLandingLinks).
+const BASE = process.env.DOCS_BASE || '/';
 const SRC = path.join(ROOT, 'src');
 // Committed static assets (robots.txt, og-image, favicon) — src/ is gitignored +
 // mirror-blacklisted, so these are sourced from docs-site/assets/ and copied into
@@ -29,6 +38,70 @@ const SRC = path.join(ROOT, 'src');
 // site root, so they land at dist root (e.g. /robots.txt, /og-image.png).
 const ASSETS = path.join(ROOT, 'assets');
 const MANIFEST = path.join(REPO, 'distribution', 'public-mirror-manifest.json');
+const SFDX_PROJECT = path.join(REPO, 'sfdx-project.json');
+const DOCS_VERSIONS = path.join(REPO, 'docs-versions');
+
+// The landing credibility strip + version badge are data-driven per build: their numbers
+// come from THIS tree's Strategic Guide - Metrics.md, so a frozen line shows its own figures.
+// One extraction path is shared with the docs:validate guard (canonicalFigures).
+const nodeRequire = createRequire(import.meta.url);
+const {canonicalFigures} = nodeRequire(path.join(REPO, 'scripts', 'validate-landing-metrics.js'));
+
+/**
+ * @description Base-prefixes and resolves the internal links in the landing home body — the
+ * raw `<a href="/…">` ledger chips and `<CodeCompare link="/…">` props. The landing is emitted
+ * verbatim (a `layout: page` component body), and VitePress base-rewrites neither raw HTML
+ * hrefs nor component props, so on a frozen tree (DOCS_BASE=/X.Y/) these would otherwise leak
+ * to the latest tree. Resolution matches the component's resolve(): a page this tree never had
+ * → tree home; a missing anchor → page top; otherwise unchanged. The result is prefixed with
+ * the tree base so 1.1's landing stays inside /1.1/.
+ *
+ * @param {string} body
+ * @param {Map<string, Set<string>>} idsBySlug
+ * @return {string}
+ */
+function resolveLandingLinks(body, idsBySlug)
+{
+	const prefix = BASE.replace(/\/$/, '');
+	return body.replace(/\b(href|link)="(\/[^"]*)"/g, (whole, attr, href) =>
+	{
+		if(href.startsWith('//'))
+		{
+			return whole;                               // protocol-relative — leave alone
+		}
+		const [slug, anchor] = href.slice(1).split('#');
+		let resolved;
+		if(slug && !idsBySlug.has(slug))
+		{
+			resolved = '/';                             // page absent in this tree → home
+		}
+		else if(anchor && !idsBySlug.get(slug).has(anchor))
+		{
+			resolved = `/${slug}`;                      // anchor absent → page top
+		}
+		else
+		{
+			resolved = href;
+		}
+		return `${attr}="${prefix}${resolved}"`;
+	});
+}
+
+// The frozen documentation lines that have a committed snapshot under docs-versions/<X.Y>/.
+// Phase 1 has none (→ the switcher lists only "latest"); the freeze step adds 1.1 and 1.2.
+// Directory presence is the deploy-truth: a line is only offered once a tree exists for it.
+async function listFrozenDocLines()
+{
+	try
+	{
+		const entries = await readdir(DOCS_VERSIONS, {withFileTypes: true});
+		return entries.filter(e => e.isDirectory() && /^\d+\.\d+$/.test(e.name)).map(e => e.name);
+	}
+	catch
+	{
+		return [];
+	}
+}
 
 async function walk(dir, base = dir)
 {
@@ -298,7 +371,7 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		const {data: homeData, content: homeBody} = parseFrontmatter(readme);
 		if(homeData.layout)
 		{
-			register('', 'index.md', stringifyFrontmatter(homeData), homeBody);
+			register('', 'index.md', stringifyFrontmatter(homeData), resolveLandingLinks(homeBody, idsBySlug));
 		}
 		else
 		{
@@ -366,7 +439,7 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 	const currentSlugs = [...new Set(pages.map(p => p.slug))];
 	const slugDiff = diffSlugs(locked, currentSlugs, redirects);
 
-	return {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, currentSlugs};
+	return {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, currentSlugs, idsBySlug};
 }
 
 // The docs-site home is the landing tour, authored as a real markdown file at
@@ -380,7 +453,7 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 // GitHub README is synthesized separately by the mirror synthesizer.
 async function buildDocsHome()
 {
-	return readFile(path.join(ROOT, 'home.md'), 'utf8');
+	return readFile(HOME, 'utf8');
 }
 
 async function loadReleaseNotes()
@@ -472,7 +545,7 @@ async function main()
 	const releaseNotes = await loadReleaseNotes();
 	const {locked, redirects} = await loadLock(path.join(ROOT, 'slugs.lock.json'), path.join(ROOT, 'redirects.json'));
 
-	const {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff} = buildSitePlan({
+	const {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, idsBySlug} = buildSitePlan({
 		docInputs, readme, agents, releaseNotes, mirrorExcluded, locked, redirects
 	});
 
@@ -517,9 +590,87 @@ async function main()
 	await writeFile(path.join(ROOT, '.vitepress', 'lastmod.generated.json'), JSON.stringify(lastmodMap, null, 2) + '\n');
 	console.log(`lastmod map: ${Object.keys(lastmodMap).length}/${pages.length + 1} pages dated.`);
 
-	// URL-stability gate.
+	// Emit the version-switcher manifest (mirrors sidebar.generated.mjs): the latest line at
+	// "/" plus any frozen docs-versions/<X.Y>/ trees. VersionSwitcher.vue imports this.
+	const sfdx = JSON.parse(await readFile(SFDX_PROJECT, 'utf8'));
+	const versionList = resolveVersionList(sfdx, await listFrozenDocLines());
+	await writeFile(path.join(ROOT, '.vitepress', 'versions.generated.mjs'),
+			`// AUTO-GENERATED by scripts/prepare.mjs — do not edit.\nexport default ${JSON.stringify(versionList, null, 2)};\n`);
+	console.log(`versions: ${versionList.map(v => v.label + (v.latest ? ' (latest)' : '')).join(', ')}`);
+
+	// Emit this build's landing facts (version label + the four credibility-strip figures).
+	// KernLanding.vue imports this. Figures come from THIS tree's Metrics doc, so the latest
+	// landing shows the live numbers and a frozen line shows the numbers it shipped with;
+	// canonicalFigures throws if a required row is missing, failing the build loudly. The
+	// version label is the line being built — DOCS_VERSION for a frozen tree, else the latest.
+	const figures = canonicalFigures(await readFile(path.join(DOCS, 'Strategic Guide - Metrics.md'), 'utf8'));
+	const currentLabel = FROZEN ? process.env.DOCS_VERSION : (versionList.find(v => v.latest)?.label ?? versionList[0]?.label);
+	const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+	// Resolve the landing's internal links against THIS tree's pages + heading ids, so the
+	// shared (latest) landing never deep-links a frozen version to a page or anchor it never
+	// had. Absent page → tree home; absent anchor → page top; otherwise unchanged. withBase is
+	// applied in the component. The component wraps each resolvable link as resolve('/path'),
+	// so this scans for those — a new landing link needs no change here.
+	const landingVue = await readFile(path.join(ROOT, '.vitepress', 'theme', 'components', 'KernLanding.vue'), 'utf8');
+	const links = {};
+	for(const [, href] of landingVue.matchAll(/resolve\('([^']+)'\)/g))
+	{
+		if(!href.startsWith('/') || links[href])
+		{
+			continue;
+		}
+		const [slug, anchor] = href.slice(1).split('#');
+		if(slug && !idsBySlug.has(slug))
+		{
+			links[href] = '/';
+		}
+		else if(anchor && !idsBySlug.get(slug).has(anchor))
+		{
+			links[href] = `/${slug}`;
+		}
+		else
+		{
+			links[href] = href;
+		}
+	}
+	const redirected = Object.entries(links).filter(([k, v]) => k !== v);
+
+	const landing = {
+		version: `v${currentLabel}`,
+		globalApiClasses: figures.globalApiClasses,
+		productionClasses: figures.productionClasses,
+		lwcComponents: figures.lwcComponents,
+		apexTests: figures.apexTests,
+		apexTestsLabel: thousands(figures.apexTests),
+		links
+	};
+	await writeFile(path.join(ROOT, '.vitepress', 'landing.generated.mjs'),
+			`// AUTO-GENERATED by scripts/prepare.mjs — do not edit.\nexport default ${JSON.stringify(landing, null, 2)};\n`);
+	console.log(`landing: ${landing.version} — ${landing.globalApiClasses} global / ${landing.productionClasses} classes / ${landing.lwcComponents} LWC / ${landing.apexTestsLabel} tests`);
+	if(redirected.length)
+	{
+		console.log(`landing links: ${redirected.length} re-pointed for this tree → ${redirected.map(([k, v]) => `${k}→${v}`).join(', ')}`);
+	}
+
+	// Emit this tree's route list to dist root (served at ${base}routes.json). The switcher
+	// fetches the TARGET version's routes.json to decide whether the current page exists there,
+	// preserving the page on switch or falling back to that tree's home. Logical slugs only
+	// (home '' is implicit and always exists).
+	const routeSlugs = [...new Set(pages.map(p => p.slug))].filter(Boolean).sort();
+	await mkdir(path.join(SRC, 'public'), {recursive: true});
+	await writeFile(path.join(SRC, 'public', 'routes.json'), JSON.stringify(routeSlugs) + '\n');
+	console.log(`routes.json: ${routeSlugs.length} routes for cross-version switching.`);
+
+	// URL-stability gate — skipped for a frozen snapshot (it is immutable, and its slug set
+	// legitimately differs from the live tree's lock; see blocker #2).
 	const {added, removedWithoutRedirect} = slugDiff;
 	const currentSlugs = [...new Set(pages.map(p => p.slug))];
+	if(FROZEN)
+	{
+		console.log(`prepare:src complete — ${pages.length} frozen pages materialized into src/.`);
+		return;
+	}
 	if(removedWithoutRedirect.length)
 	{
 		console.error('URL-stability gate FAILED — these published slugs disappeared without a redirects.json entry:');

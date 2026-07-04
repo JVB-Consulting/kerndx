@@ -3,15 +3,20 @@
 'use strict';
 
 /**
- * @description Drift guard for the docs-site landing-page credibility strip.
- *              The strip in KernLanding.vue is hand-authored Vue (not generated
- *              from the Metrics doc the way the public README badge is), so it
- *              can silently drift. This check reads the canonical figures from
- *              docs/Strategic Guide - Metrics.md and fails if the four strip
- *              numbers (global API classes, production classes, LWC components,
- *              Apex test count) no longer match.
+ * @description Source guard for the docs-site landing-page credibility strip.
+ *              The strip and version badge in KernLanding.vue are data-driven:
+ *              scripts/prepare.mjs reads the four figures (global API classes,
+ *              production classes, LWC components, Apex test count) from each
+ *              version tree's docs/Strategic Guide - Metrics.md and emits them as
+ *              .vitepress/landing.generated.mjs, which the component renders. That
+ *              makes hand-authored drift impossible, but it also means a renamed or
+ *              removed Metrics-doc row would break the landing build. This guard
+ *              fails early (before a build) if the canonical Metrics doc no longer
+ *              exposes one of those four rows, and exports the shared extractor
+ *              (canonicalFigures) that prepare.mjs uses so there is one
+ *              implementation of "which rows the landing reads".
  *
- *              Wired into npm run docs:validate. Exits non-zero on any drift.
+ *              Wired into npm run docs:validate. Exits non-zero on any missing row.
  *
  * @author Kern Framework
  * @date June 2026
@@ -24,10 +29,19 @@ const {parseDocClaims} = require('./validate-strategic-metrics');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const METRICS_FILE = path.join(REPO_ROOT, 'docs', 'Strategic Guide - Metrics.md');
-const LANDING_FILE = path.join(REPO_ROOT, 'docs-site', '.vitepress', 'theme', 'components', 'KernLanding.vue');
+
+// The four landing-strip figures, each mapped to the Metrics-doc claim key it reads.
+const REQUIRED_FIGURES = [
+	{field: 'globalApiClasses', key: 'globalClasses', label: 'Global classes (top-level)'},
+	{field: 'productionClasses', key: 'apexProduction', label: 'Apex production classes'},
+	{field: 'lwcComponents', key: 'lwcDirs', label: 'LWC components (total)'},
+	{field: 'apexTests', key: 'apexTestMethods', label: 'Apex test methods'}
+];
 
 /**
- * @description Reads the canonical strip figures from the Metrics doc.
+ * @description Reads the four landing figures from a Metrics doc. Throws if any
+ * required row is absent — the same failure prepare.mjs surfaces at build time, so
+ * the two stay in lockstep.
  *
  * @param {string} metricsContent
  * @return {{globalApiClasses: number, productionClasses: number, lwcComponents: number, apexTests: number}}
@@ -35,87 +49,55 @@ const LANDING_FILE = path.join(REPO_ROOT, 'docs-site', '.vitepress', 'theme', 'c
 function canonicalFigures(metricsContent)
 {
 	const claims = parseDocClaims(metricsContent);
-	function need(key, label)
+	const figures = {};
+	for(const {field, key, label} of REQUIRED_FIGURES)
 	{
 		const claim = claims.get(key);
 		if(!claim)
 		{
-			throw new Error(`landing drift guard: Metrics doc is missing the "${label}" row`);
+			throw new Error(`landing metrics guard: Metrics doc is missing the "${label}" row`);
 		}
-		return claim.value;
+		figures[field] = claim.value;
 	}
-	return {
-		globalApiClasses: need('globalClasses', 'Global classes (top-level)'),
-		productionClasses: need('apexProduction', 'Apex production classes'),
-		lwcComponents: need('lwcDirs', 'LWC components (total)'),
-		apexTests: need('apexTestMethods', 'Apex test methods')
-	};
+	return figures;
 }
 
 /**
- * @description Extracts the four landing-strip numbers, keyed by their
- * `data-spec-id`. Returns null for any field the strip markup no longer matches
- * (a structural change the guard should surface rather than silently pass).
- *
- * @param {string} landingContent
- * @return {{globalApiClasses: (number|null), productionClasses: (number|null), lwcComponents: (number|null), apexTests: (number|null)}}
- */
-function landingFigures(landingContent)
-{
-	function bold(specId)
-	{
-		const m = landingContent.match(new RegExp(`data-spec-id="${specId}"><b>([\\d,]+)`));
-		return m ? Number(m[1].replace(/,/g, '')) : null;
-	}
-	function testsCount()
-	{
-		const m = landingContent.match(/data-spec-id="strip-coverage">[\s\S]*?([\d,]+)\s*tests/);
-		return m ? Number(m[1].replace(/,/g, '')) : null;
-	}
-	return {
-		globalApiClasses: bold('strip-global'),
-		productionClasses: bold('strip-classes'),
-		lwcComponents: bold('strip-lwc'),
-		apexTests: testsCount()
-	};
-}
-
-/**
- * @description Compares the landing strip against the Metrics canonical figures.
+ * @description Returns the landing figures the Metrics doc fails to expose (missing
+ * row, or a non-numeric value). Empty array means the data-driven landing build has
+ * every row it needs.
  *
  * @param {string} metricsContent
- * @param {string} landingContent
- * @return {Array<{field: string, expected: number, found: (number|null)}>}
+ * @return {Array<{field: string, label: string}>}
  */
-function validate(metricsContent, landingContent)
+function missingFigures(metricsContent)
 {
-	const expected = canonicalFigures(metricsContent);
-	const found = landingFigures(landingContent);
-	const violations = [];
-	for(const field of Object.keys(expected))
+	const claims = parseDocClaims(metricsContent);
+	return REQUIRED_FIGURES
+	.filter(({key}) =>
 	{
-		if(found[field] !== expected[field])
-		{
-			violations.push({field, expected: expected[field], found: found[field]});
-		}
-	}
-	return violations;
+		const claim = claims.get(key);
+		return !claim || !Number.isFinite(claim.value);
+	})
+	.map(({field, label}) => ({field, label}));
 }
 
-module.exports = {canonicalFigures, landingFigures, validate, METRICS_FILE, LANDING_FILE};
+module.exports = {canonicalFigures, missingFigures, REQUIRED_FIGURES, METRICS_FILE};
 
 if(require.main === module)
 {
-	const violations = validate(fs.readFileSync(METRICS_FILE, 'utf-8'), fs.readFileSync(LANDING_FILE, 'utf-8'));
-	if(violations.length === 0)
+	const content = fs.readFileSync(METRICS_FILE, 'utf-8');
+	const missing = missingFigures(content);
+	if(missing.length === 0)
 	{
-		console.log('[validate-landing-metrics] PASS (landing strip matches Metrics canonical figures)');
+		const f = canonicalFigures(content);
+		console.log(`[validate-landing-metrics] PASS (Metrics doc exposes all four landing figures: ${f.globalApiClasses} global, ${f.productionClasses} classes, ${f.lwcComponents} LWC, ${f.apexTests} tests)`);
 		process.exit(0);
 	}
-	console.error(`[validate-landing-metrics] FAIL — ${violations.length} drift(s) vs docs/Strategic Guide - Metrics.md:`);
-	for(const v of violations)
+	console.error(`[validate-landing-metrics] FAIL — Metrics doc is missing ${missing.length} landing figure row(s) the data-driven landing reads:`);
+	for(const m of missing)
 	{
-		console.error(`  KernLanding.vue ${v.field}: found ${v.found}, expected ${v.expected}`);
+		console.error(`  ${m.label} (${m.field})`);
 	}
 	process.exit(1);
 }
