@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  *
  * @example
  * ```javascript
@@ -25,9 +25,13 @@ public inherited sharing class CTRL_Logger
 {
 	/**
 	 * @description Persists LWC logs to the logging framework. Accepts a JSON string because LWC
-	 * does not support inner class or Map deserialization for @AuraEnabled parameters.
+	 * does not support inner class or Map deserialization for @AuraEnabled parameters. Each
+	 * entry's client context is persisted into `ContextData__c` and a client JavaScript error
+	 * stack, when present, becomes the entry's stack trace.
 	 *
 	 * @param entriesJson JSON-serialized List of DTO_ClientLogEntry objects to persist.
+	 *
+	 * @date July 2026
 	 */
 	@AuraEnabled
 	public static void persistLogs(String entriesJson)
@@ -56,6 +60,8 @@ public inherited sharing class CTRL_Logger
 				String classMethod = LOG_Engine.OperationType.LWC.name() + '/' + ((String)contextMap?.get(LOG_Engine.CONTEXT_ACTION_NAME) ?? 'unknown');
 				LOG_Builder.LogEntry entry = LOG_Builder.build().at(classMethod);
 
+				attachClientContext(entry, contextMap);
+
 				switch on dtoClientLogEntry.level
 				{
 					when ERROR
@@ -78,6 +84,45 @@ public inherited sharing class CTRL_Logger
 			}
 
 			LOG_Engine.popOperationContext();
+		}
+	}
+
+	/**
+	 * @description Carries the client-supplied context payload onto the log entry so it persists
+	 * into `ContextData__c`, and promotes the client-side JavaScript error stack into the entry's
+	 * stack trace (the synthetic Apex trace for an LWC entry holds only framework plumbing). The
+	 * action name is excluded because it is already promoted into the classMethod label; the error
+	 * stack is excluded from context only when it was actually promoted into `StackTrace__c` — a
+	 * non-string or blank value cannot be promoted and stays in context so no client data is lost.
+	 *
+	 * @param entry The builder entry being assembled for one client log line.
+	 * @param contextMap The deserialized client context, or null when the client sent none.
+	 *
+	 * @date July 2026
+	 */
+	private static void attachClientContext(LOG_Builder.LogEntry entry, Map<String, Object> contextMap)
+	{
+		if(contextMap == null || contextMap.isEmpty())
+		{
+			return;
+		}
+
+		Object clientStackTrace = contextMap.get(LOG_Engine.CONTEXT_ERROR_STACK);
+		Boolean stackPromoted = clientStackTrace instanceof String && String.isNotBlank((String)clientStackTrace);
+
+		if(stackPromoted)
+		{
+			entry.withStackTraceInternal((String)clientStackTrace);
+		}
+
+		for(String key : contextMap.keySet())
+		{
+			Boolean promotedKey = key == LOG_Engine.CONTEXT_ACTION_NAME || (key == LOG_Engine.CONTEXT_ERROR_STACK && stackPromoted);
+
+			if(!promotedKey)
+			{
+				entry.withContext(key, contextMap.get(key));
+			}
 		}
 	}
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Shared execution-context (Quiddity) display mapping for the Log Console list and chain strip.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Log Console Context</masterLabel>
+</LightningComponentBundle>

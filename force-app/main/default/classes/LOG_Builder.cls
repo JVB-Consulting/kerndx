@@ -78,7 +78,7 @@
  *
  * @group Logging
  *
- * @date October 2024, June 2026
+ * @date October 2024, July 2026
  *
  * @since 1.0
  *
@@ -646,6 +646,12 @@ global inherited sharing class LOG_Builder
 		private String fingerprintKey;
 
 		/**
+		 * @description Caller-supplied stack trace persisted instead of the synthetic Apex trace,
+		 * or null to let the engine calculate one. Ignored when an exception is logged.
+		 */
+		private String stackTrace;
+
+		/**
 		 * @description Sets the log level to DEBUG with the given message.
 		 *
 		 * @param message The debug message
@@ -897,6 +903,26 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
+		 * @description Framework-internal variant that persists a caller-supplied stack trace
+		 * instead of the synthetic Apex trace calculated at emit time. Used by `CTRL_Logger` to
+		 * carry the client-side JavaScript stack of LWC-originated entries, whose Apex call stack
+		 * holds only framework plumbing. Ignored when the entry logs a real exception — the
+		 * exception's own trace always wins. Public-but-not-global so subscribers cannot bind to
+		 * it; subscriber Apex logs its own call stack (or an exception) through the global surface.
+		 *
+		 * @param stackTrace The stack trace text to persist; blank values are ignored.
+		 *
+		 * @return This LogEntry for chaining
+		 *
+		 * @date July 2026
+		 */
+		public LogEntry withStackTraceInternal(String stackTrace)
+		{
+			this.stackTrace = stackTrace;
+			return this;
+		}
+
+		/**
 		 * @description Adds a context key-value pair to this log entry.
 		 * Context is scoped to this entry only and does not affect other logs.
 		 *
@@ -983,7 +1009,8 @@ global inherited sharing class LOG_Builder
 		 * entry through either the application-log path (`LOG_Engine.log`) or the audit-log path
 		 * (`LOG_Engine.logAudit`) depending on `isAudit`. Per-entry context is temporarily set as
 		 * global context for the duration of the log call, then cleaned up to prevent leaking
-		 * into subsequent logs.
+		 * into subsequent logs; the per-emit fingerprint and stack-trace channels follow the same
+		 * set-then-clear lifecycle.
 		 *
 		 * @param isAudit `true` to route to the audit buffer; `false` for the application buffer.
 		 */
@@ -1000,6 +1027,11 @@ global inherited sharing class LOG_Builder
 			if(String.isNotBlank(fingerprintKey))
 			{
 				LOG_Engine.setCurrentFingerprint(fingerprintKey);
+			}
+
+			if(String.isNotBlank(stackTrace))
+			{
+				LOG_Engine.setCurrentStackTrace(stackTrace);
 			}
 
 			try
@@ -1036,6 +1068,7 @@ global inherited sharing class LOG_Builder
 				}
 
 				LOG_Engine.clearCurrentFingerprint();
+				LOG_Engine.clearCurrentStackTrace();
 			}
 		}
 	}

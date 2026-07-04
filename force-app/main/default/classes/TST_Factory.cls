@@ -1683,6 +1683,53 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Builds and inserts a single LogEntry__c row with the given field overrides, so test
+	 * classes seed forensic and rollup log rows through one place instead of repeating the builder chain.
+	 *
+	 * @param fieldValues The field overrides to apply to the row.
+	 *
+	 * @return The inserted LogEntry__c row, with its Id populated.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c row = TST_Factory.seedLogEntry(new Map<SObjectField, Object> {LogEntry__c.LogLevel__c => 'ERROR'});
+	 * ```
+	 */
+	@TestVisible
+	private static LogEntry__c seedLogEntry(Map<SObjectField, Object> fieldValues)
+	{
+		return (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverrides(fieldValues).build();
+	}
+
+	/**
+	 * @description Builds and inserts a rollup: counter LogEntry__c row for a base fingerprint and UTC day
+	 * bucket, mirroring the production flood-control rollup key shape, so the rollup builder lives in one
+	 * place rather than being repeated across the Log Console tests.
+	 *
+	 * @param base The base fingerprint (without the rollup: prefix or the day suffix).
+	 * @param dayBucket The yyyyMMdd UTC day bucket.
+	 * @param level The log level for the rollup row.
+	 * @param occurrenceCount The OccurrenceCount__c carried by the rollup row.
+	 *
+	 * @return The inserted rollup LogEntry__c row, with its Id populated.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c rollup = TST_Factory.seedLogRollup('NullPointer:MyClass.method', '20260626', 'ERROR', 9);
+	 * ```
+	 */
+	@TestVisible
+	private static LogEntry__c seedLogRollup(String base, String dayBucket, String level, Integer occurrenceCount)
+	{
+		return seedLogEntry(new Map<SObjectField, Object>
+		{
+				LogEntry__c.Fingerprint__c => 'rollup:' + base + ':' + dayBucket,
+				LogEntry__c.LogLevel__c => level,
+				LogEntry__c.OccurrenceCount__c => occurrenceCount
+		});
+	}
+
+	/**
 	 * @description Creates a pre-configured SObjectBuilder for Foobar__c with common fields.
 	 *
 	 * @return A TST_Builder.Builder instance.
