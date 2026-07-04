@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-06-09T20:58:09.197Z",
+  "capturedAt": "2026-07-02T18:53:26.321Z",
   "apex": {
-    "totalWallClockSeconds": 688.06,
+    "totalWallClockSeconds": 41.938,
     "testSetupClasses": [
       "API_Dispatcher_TEST",
       "API_GetPwndPasswords_TEST",
@@ -178,15 +178,21 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "CTRL_LogConsole": {
+        "percentage": 100,
+        "coveredLines": 416,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "CTRL_Logger": {
         "percentage": 100,
-        "coveredLines": 25,
+        "coveredLines": 38,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "CTRL_MaskingAdvisor": {
         "percentage": 100,
-        "coveredLines": 766,
+        "coveredLines": 794,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -210,7 +216,7 @@
       },
       "CTRL_Search": {
         "percentage": 100,
-        "coveredLines": 30,
+        "coveredLines": 33,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -222,7 +228,7 @@
       },
       "DML_Builder": {
         "percentage": 100,
-        "coveredLines": 271,
+        "coveredLines": 296,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -372,7 +378,7 @@
       },
       "FLOW_LoggerLog": {
         "percentage": 100,
-        "coveredLines": 17,
+        "coveredLines": 20,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -420,13 +426,13 @@
       },
       "LOG_Builder": {
         "percentage": 100,
-        "coveredLines": 158,
+        "coveredLines": 164,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "LOG_Engine": {
         "percentage": 100,
-        "coveredLines": 473,
+        "coveredLines": 499,
         "uncoveredLines": 0,
         "exemptLines": 2
       },
@@ -462,13 +468,13 @@
       },
       "QRY_Builder": {
         "percentage": 100,
-        "coveredLines": 921,
+        "coveredLines": 965,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "QRY_Condition": {
         "percentage": 100,
-        "coveredLines": 403,
+        "coveredLines": 405,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -486,13 +492,13 @@
       },
       "QRY_Function": {
         "percentage": 100,
-        "coveredLines": 30,
+        "coveredLines": 40,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "QRY_Generator": {
         "percentage": 100,
-        "coveredLines": 358,
+        "coveredLines": 384,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -564,7 +570,7 @@
       },
       "SEL_AsyncChainExecution": {
         "percentage": 100,
-        "coveredLines": 26,
+        "coveredLines": 31,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -654,7 +660,7 @@
       },
       "SEL_LogEntry": {
         "percentage": 100,
-        "coveredLines": 35,
+        "coveredLines": 276,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -672,13 +678,13 @@
       },
       "SEL_MaskingRule": {
         "percentage": 100,
-        "coveredLines": 6,
+        "coveredLines": 69,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "SEL_MaskingTarget": {
         "percentage": 100,
-        "coveredLines": 83,
+        "coveredLines": 169,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -864,9 +870,9 @@
       },
       "TRG_PersistLogEntry": {
         "percentage": 100,
-        "coveredLines": 105,
+        "coveredLines": 103,
         "uncoveredLines": 0,
-        "exemptLines": 0
+        "exemptLines": 4
       },
       "TRG_ScheduleJob": {
         "percentage": 100,
@@ -894,13 +900,13 @@
       },
       "TST_BuilderInternal": {
         "percentage": 100,
-        "coveredLines": 356,
+        "coveredLines": 366,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
       "TST_Factory": {
         "percentage": 100,
-        "coveredLines": 497,
+        "coveredLines": 504,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -924,7 +930,7 @@
       },
       "UTIL_AsyncChain": {
         "percentage": 100,
-        "coveredLines": 517,
+        "coveredLines": 568,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -948,7 +954,7 @@
       },
       "UTIL_BypassAudit": {
         "percentage": 100,
-        "coveredLines": 57,
+        "coveredLines": 83,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -972,7 +978,7 @@
       },
       "UTIL_Comparators": {
         "percentage": 100,
-        "coveredLines": 123,
+        "coveredLines": 144,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1026,7 +1032,7 @@
       },
       "UTIL_FrameworkMasker": {
         "percentage": 100,
-        "coveredLines": 448,
+        "coveredLines": 475,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1158,7 +1164,7 @@
       },
       "UTIL_System": {
         "percentage": 100,
-        "coveredLines": 123,
+        "coveredLines": 125,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1224,7 +1230,7 @@
       "force-app/main/default/lwc/chainMonitorDetail/chainMonitorDetail.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 93.3,
+        "functions": 94.1,
         "lines": 100
       },
       "force-app/main/default/lwc/chainMonitorList/chainMonitorList.js": {
@@ -1289,7 +1295,7 @@
       },
       "force-app/main/default/lwc/dataMaskingAdvisor/dataMaskingAdvisor.js": {
         "statements": 100,
-        "branches": 98.2,
+        "branches": 98.4,
         "functions": 99.6,
         "lines": 100
       },
@@ -1324,6 +1330,30 @@
         "lines": 96.9
       },
       "force-app/main/default/lwc/kernHome/kernHome.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/logConsole/logConsole.js": {
+        "statements": 99.7,
+        "branches": 89.3,
+        "functions": 97.4,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/logConsoleContext/logConsoleContext.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/logConsoleDetail/logConsoleDetail.js": {
+        "statements": 100,
+        "branches": 97.7,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/logConsoleTable/logConsoleTable.js": {
         "statements": 100,
         "branches": 100,
         "functions": 100,
@@ -1420,10 +1450,10 @@
         "lines": 100
       },
       "force-app/main/default/lwc/orgLimits/orgLimits.js": {
-        "statements": 97.5,
+        "statements": 100,
         "branches": 100,
-        "functions": 95.5,
-        "lines": 98.7
+        "functions": 100,
+        "lines": 100
       },
       "force-app/main/default/lwc/paginatedTable/paginatedTable.js": {
         "statements": 100,

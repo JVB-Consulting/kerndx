@@ -74,6 +74,33 @@ private class CTRL_Search_TEST
 	}
 
 	/**
+	 * @description Tests that a search whose object name does not resolve through the describe returns an
+	 * empty list and never assembles a SOSL statement from the unresolved name.
+	 *
+	 * @see CTRL_Search.findSObjectBySearchTerm
+	 */
+	@IsTest
+	private static void shouldReturnEmptyWhenObjectNameDoesNotResolve()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+
+			Map<String, Object> params = new Map<String, Object>
+			{
+					CTRL_Search.PARAMETER_OBJECT_NAME => 'NotAReal__Object',
+					CTRL_Search.PARAMETER_MAXIMUM_NUMBER_OF_RESULTS => LIMIT_TO_ONE_RESULT
+			};
+
+			List<SObject> foundObjects = (List<SObject>)CTRL_Search.search('anything', params);
+
+			Test.stopTest();
+
+			Assert.areEqual(0, foundObjects.size(), 'An unresolved object name should yield no results');
+		}
+	}
+
+	/**
 	 * @description Will return the default foobar fields as a comma separated string
 	 *
 	 * @return The separated list of fields

@@ -33,11 +33,12 @@
  *     SEL_ApiSetting selector via TST_Mock. This script verifies the half that
  *     IS testable: that the framework sees the Idempotency-Key request header.
  *   - Scenario 6.3 #7 (same idempotency key + different body → 409 conflict):
- *     framework gap. The current API_Inbound.checkIdempotency() returns the cached
- *     response unconditionally without comparing request bodies — there is no
- *     409 conflict-detection path. FRAMEWORK FOLLOW-UP: spec expects a 409 on
- *     body-divergence; consider adding body-hash comparison in checkIdempotency()
- *     before returning the cached response.
+ *     IMPLEMENTED in the framework since the A5 idempotency hardening —
+ *     API_Inbound.checkIdempotency() compares the request body's SHA-256 hash
+ *     against the original call's IdempotencyKeyBodyHash__c and returns HTTP 409
+ *     on divergence. Exercising it end-to-end still requires an ApiSetting__mdt
+ *     record with IdempotencyEnabled__c = true (same CMDT constraint as #6), so
+ *     the probe lives with the replay assertions, not in this anon-Apex script.
  *
  * Run-isolation: self-contained — does not depend on prior section state. Cleanup
  * deletes Lead records created today by the running user, plus ApiCall__c rows

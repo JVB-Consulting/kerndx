@@ -116,10 +116,23 @@ function runScript(scriptPath)
 	});
 }
 
+const FAILURE_LOG_DIR = path.join(__dirname, '..', 'test-results', 'phase2-failures');
+
+// Keep the raw sf output of a failed attempt on disk — the score alone (e.g. 0/4)
+// cannot distinguish a genuine regression from a timeout or a row-lock collision.
+function captureFailureOutput(section, result, isRetry)
+{
+	fs.mkdirSync(FAILURE_LOG_DIR, {recursive: true});
+	const fileName = isRetry ? `section-${section}-retry.log` : `section-${section}.log`;
+	const body = (result.error ? `error: ${result.error}\n\n` : '') + (result.raw || '');
+	fs.writeFileSync(path.join(FAILURE_LOG_DIR, fileName), body, 'utf8');
+}
+
 async function runBatch(scripts, concurrent)
 {
 	const results = {};
 	const queue = [...scripts];
+	const failedScripts = [];
 
 	async function worker()
 	{
@@ -135,11 +148,38 @@ async function runBatch(scripts, concurrent)
 			};
 			const status = results[key].result === 'PASS' ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
 			console.log(`  Section ${script.section}: ${status} (${result.pass}/${script.expected})`);
+			if(results[key].result === 'FAIL')
+			{
+				captureFailureOutput(script.section, result, false);
+				failedScripts.push(script);
+			}
 		}
 	}
 
 	const workers = Array.from({length: concurrent}, () => worker());
 	await Promise.all(workers);
+
+	// Concurrency flakes (sections 54 and 65 both hit them) fail inside the parallel
+	// worker pool but pass in isolation, so each failure gets ONE serial retry on the
+	// drained org. A retried result carries `retried: true` — a flake that recovered
+	// is still visible in the recorded run, and a persistent failure keeps both logs.
+	for(const script of failedScripts)
+	{
+		const key = `section-${script.section}`;
+		console.log(`  Section ${script.section}: retrying serially after concurrent-batch FAIL...`);
+		const retry = await runScript(path.join(SCRIPTS_DIR, script.file));
+		const passed = retry.pass === script.expected && retry.fail === 0;
+		results[key] = {
+			result: passed ? 'PASS' : 'FAIL', score: `${retry.pass}/${script.expected}`, retried: true
+		};
+		if(!passed)
+		{
+			captureFailureOutput(script.section, retry, true);
+		}
+		const status = passed ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
+		console.log(`  Section ${script.section} (retry): ${status} (${retry.pass}/${script.expected})`);
+	}
+
 	return results;
 }
 

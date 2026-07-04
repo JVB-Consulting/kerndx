@@ -863,3 +863,119 @@ describe('runBatch', () =>
 		expect(maxConcurrent).toBeLessThanOrEqual(3);
 	});
 });
+
+describe('runBatch serial retry of concurrent-batch failures', () =>
+{
+	// Concurrency flakes (sections 54 and 65 both hit them) fail inside the parallel
+	// worker pool but pass in isolation. After the pool drains, runBatch retries each
+	// failed section ONCE, serially, and captures the raw sf output of every failed
+	// attempt under release-testing/test-results/phase2-failures/ for diagnosis —
+	// the pre-retry runner discarded the raw output, leaving 0/N scores unexplainable.
+	const fs = require('fs');
+	let writeSpy;
+	let mkdirSpy;
+
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => undefined);
+		mkdirSpy = jest.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined);
+	});
+
+	afterEach(() =>
+	{
+		writeSpy.mockRestore();
+		mkdirSpy.mockRestore();
+	});
+
+	function mockPerScriptAttempts(attemptOutputsByFile)
+	{
+		const attemptCounts = {};
+		exec.mockImplementation((cmd, opts, callback) =>
+		{
+			const file = Object.keys(attemptOutputsByFile).find(f => cmd.includes(f));
+			const attempt = attemptCounts[file] || 0;
+			attemptCounts[file] = attempt + 1;
+			const outputs = attemptOutputsByFile[file];
+			callback(null, outputs[Math.min(attempt, outputs.length - 1)]);
+		});
+	}
+
+	it('retries a failed section serially and records the recovered PASS with a retried flag', async() =>
+	{
+		mockPerScriptAttempts({
+			'test-1.apex': [
+				'',
+				'USER_DEBUG [5]|DEBUG|1a PASS: recovered'
+			],
+			'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
+		});
+
+		const scripts = [
+			{section: 1, file: 'test-1.apex', expected: 1},
+			{section: 2, file: 'test-2.apex', expected: 1}
+		];
+
+		const results = await runBatch(scripts, 2);
+
+		expect(results['section-1'].result).toBe('PASS');
+		expect(results['section-1'].score).toBe('1/1');
+		expect(results['section-1'].retried).toBe(true);
+		expect(results['section-2'].retried).toBeUndefined();
+		expect(exec).toHaveBeenCalledTimes(3);
+	});
+
+	it('keeps FAIL when the serial retry also fails', async() =>
+	{
+		mockPerScriptAttempts({
+			'test-1.apex': [
+				'',
+				''
+			]
+		});
+
+		const scripts = [{section: 1, file: 'test-1.apex', expected: 4}];
+		const results = await runBatch(scripts, 1);
+
+		expect(results['section-1'].result).toBe('FAIL');
+		expect(results['section-1'].score).toBe('0/4');
+		expect(results['section-1'].retried).toBe(true);
+		expect(exec).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not retry sections that passed on the first attempt', async() =>
+	{
+		mockPerScriptAttempts({
+			'test-1.apex': ['USER_DEBUG [5]|DEBUG|1a PASS: test'],
+			'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
+		});
+
+		const scripts = [
+			{section: 1, file: 'test-1.apex', expected: 1},
+			{section: 2, file: 'test-2.apex', expected: 1}
+		];
+
+		await runBatch(scripts, 2);
+
+		expect(exec).toHaveBeenCalledTimes(2);
+	});
+
+	it('captures the raw output of every failed attempt under phase2-failures', async() =>
+	{
+		mockPerScriptAttempts({
+			'test-1.apex': [
+				'USER_DEBUG [5]|DEBUG|1a FAIL: broken on attempt one',
+				'USER_DEBUG [5]|DEBUG|1a FAIL: broken on attempt two'
+			]
+		});
+
+		const scripts = [{section: 1, file: 'test-1.apex', expected: 1}];
+		await runBatch(scripts, 1);
+
+		const writtenPaths = writeSpy.mock.calls.map(call => call[0]);
+		expect(writtenPaths.some(p => p.includes('phase2-failures') && p.endsWith('section-1.log'))).toBe(true);
+		expect(writtenPaths.some(p => p.includes('phase2-failures') && p.endsWith('section-1-retry.log'))).toBe(true);
+		const firstAttemptWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-1.log'));
+		expect(firstAttemptWrite[1]).toContain('broken on attempt one');
+	});
+});

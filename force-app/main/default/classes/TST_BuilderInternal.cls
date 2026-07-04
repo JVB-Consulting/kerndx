@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class TST_BuilderInternal
@@ -35,6 +35,17 @@ public inherited sharing class TST_BuilderInternal
 	 * This flag is set by TST_Builder.buildList() and consumed here.
 	 */
 	public static Boolean globalGenerateMockIds = false;
+
+	/**
+	 * @description System audit fields that are always registered as read-only overrides without
+	 * attempting a direct write. A user holding the CreateAuditFields permission makes these fields
+	 * insert-writable, so the put()-throws detection in putField/putSObject would silently write mock
+	 * audit values to the database instead of registering them for in-memory mocking.
+	 */
+	private static final Set<String> AUDIT_FIELD_NAMES = new Set<String>
+	{
+			'createdbyid', 'createddate', 'lastmodifiedbyid', 'lastmodifieddate', 'systemmodstamp'
+	};
 
 	/**
 	 * @description Provides unique mock IDs for each record when building without insertion.
@@ -550,6 +561,19 @@ public inherited sharing class TST_BuilderInternal
 						+ UTIL_SObjectDescribe.RELATIONSHIP_SUFFIX;
 			}
 
+			// Audit relationships become insert-writable for users holding CreateAuditFields, so the
+			// read-only detection below would silently link mock audit values into real DML.
+			if(AUDIT_FIELD_NAMES.contains(fieldDescribe.getName().toLowerCase()))
+			{
+				objectManager.registerReadOnlyOverride(recordIndex, errorMessageMergeValue, resolvedRelationshipName, sObjectValue);
+				if(sObjectValue.Id != null)
+				{
+					objectManager.registerReadOnlyOverride(recordIndex, errorMessageMergeValue, fieldDescribe.getName(), sObjectValue.Id);
+				}
+
+				return sObj;
+			}
+
 			// Apex allows setting lookup fields in memory even if FLS is read-only.
 			// DML will enforce system read-only constraints, which we handle via exceptions if they occur.
 			if(doInsert)
@@ -628,6 +652,15 @@ public inherited sharing class TST_BuilderInternal
 
 			DescribeFieldResult fieldDescribe = sObjDescribe.getFieldDescribe(objectField);
 
+			// Audit fields become insert-writable for users holding CreateAuditFields, so the
+			// put()-throws detection below would silently send mock audit values to real DML.
+			if(AUDIT_FIELD_NAMES.contains(fieldDescribe.name.toLowerCase()))
+			{
+				objectManager.registerReadOnlyOverride(recordIndex, errorMessageMergeValue, fieldDescribe.name, fieldValue);
+
+				return sObj;
+			}
+
 			// Don't overwrite an existing Id with null (preserves mock IDs set by getRelatedSObjectInstance)
 			if(!fieldDescribe.name.equalsIgnoreCase('Id') || sObj.Id == null)
 			{
@@ -636,7 +669,7 @@ public inherited sharing class TST_BuilderInternal
 					// Use the describe's name for sObj.put() as it is case-sensitive for some fields
 					// Note: We do NOT check isCreateable() here.
 					// 1. Apex ignores FLS on put(), so we can set 'Status__c' even if the user can't see it.
-					// 2. If it is a REAL system read-only field (like CreatedById), put() will throw an SObjectException.
+					// 2. If it is a REAL system read-only field (like a formula), put() will throw an SObjectException.
 					sObj.put(fieldDescribe.name, fieldValue);
 				}
 				catch(Exception error)

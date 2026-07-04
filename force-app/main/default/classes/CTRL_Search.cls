@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, June 2026
  */
 public inherited sharing class CTRL_Search implements IF_Search
 {
@@ -112,9 +112,16 @@ public inherited sharing class CTRL_Search implements IF_Search
 	 */
 	private static List<SObject> findSObjectBySearchTerm(String objectName, String searchTerm, Set<String> selectFields, Integer maximumNumberOfResults)
 	{
+		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectName);
+
+		if(objectType == null)
+		{
+			return new List<SObject>();
+		}
+
 		String fieldList = UTIL_String.join(selectFields, UTIL_String.COMMA) ?? 'Id';
 		String query = 'FIND :searchTerm IN NAME FIELDS RETURNING '
-				+ objectName + ' (' + fieldList + ' LIMIT ' + maximumNumberOfResults + ' OFFSET 0)';
+				+ UTIL_SObjectDescribe.getObjectNameFromType(objectType) + ' (' + fieldList + ' LIMIT ' + maximumNumberOfResults + ' OFFSET 0)';
 
 		List<List<SObject>> searchResults = Search.query(query, AccessLevel.USER_MODE);
 		return searchResults.isEmpty() ? new List<SObject>() : searchResults.iterator().next();
