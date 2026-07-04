@@ -48,7 +48,12 @@ test.describe('admin-tool stills', () =>
 		await page.goto(`${getInstanceUrl()}/lightning/app/kern__Kern`, {waitUntil: 'domcontentloaded'});
 		await waitForSpinnerGone(page);
 		await page.locator('[data-testid="kern-home-root"]').first().waitFor({state: 'visible', timeout: 30000});
-		// Let the readiness banner finish running its checks (it renders Action required / Review
+		// Wait for the readiness banner itself, not just the shell: on a cold fresh install its checks
+		// run behind first-use Apex compilation and can land well after the launch cards, and a shot
+		// without the banner contradicts the guide caption. Best-effort bound — this is a still, not a
+		// gate. (`c-health-check` inside kernHome; `kern-health-check` covered for safety.)
+		await page.locator('c-health-check, kern-health-check').first().waitFor({state: 'visible', timeout: 60000}).catch(() => {});
+		// Let the banner finish running its checks (it renders Action required / Review
 		// recommended rows on an unconfigured org), then clear any app-shell toast before the shot.
 		await page.waitForTimeout(2500);
 		await dismissToasts(page);
