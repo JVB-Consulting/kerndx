@@ -28,7 +28,7 @@ You enter through the home page. It shows a readiness banner (a quick check that
 
 ## Use this when
 - **You want to monitor your own integrations and jobs.** Watch API calls, platform events, Change Data Capture, and async chains as they happen, check what is consuming your org limits, and review the logs and call history, without standing up your own streaming client or stitching together list views.
-- **You need to troubleshoot a failure.** Fire a real Apex callout or inbound endpoint without Postman or throwaway anonymous Apex, see which step of a multi-step async job broke and how far it got, and find and retry the integration calls that failed.
+- **You need to troubleshoot a failure.** Fire a real Apex callout or inbound endpoint without Postman or throwaway anonymous Apex, see which step of a multi-step async job broke and how far it got, browse what your code logged grouped into recurring problems, and find and retry the integration calls that failed.
 - **You are developing or onboarding an org.** Schedule a recurring job without writing scheduling code, build a deployable masking configuration from a scan instead of auditing for sensitive fields by hand, generate the small class that points the framework at your own Apex, and turn features on or off as you roll them out.
 
 ## When the native Salesforce tool is enough
@@ -58,11 +58,11 @@ The tour below follows the same order, from the home page through each job. The 
 Open the **Kern** app and you land on **Kern Home**. It is the front door to everything else, laid out in two parts:
 
 - **A readiness banner across the top** that checks whether the org is configured correctly (covered next).
-- **Launch cards** under an **Administration Tools** heading (the same name as this guide), one for each interactive tool: the API Test Harness, the Streaming Event Monitor, the Chain Monitor, and the Data Masking Advisor.
+- **Launch cards** under an **Administration Tools** heading (the same name as this guide), one for each interactive tool: the API Test Harness, the Streaming Event Monitor, the Chain Monitor, the Data Masking Advisor, and the Log Console.
 
 The app's navigation bar gives you the records behind the tools: API Calls, Logs, Scheduled Jobs, API Issues, Async Chain Executions, and a login summary, alongside Reports and Dashboards.
 
-One thing worth knowing: the four tools are launched from the home cards, not pinned as their own tabs. Kern Home is the intended way in. (They are also listed in the App Launcher if you prefer to search for one by name.)
+One thing worth knowing: the five tools are launched from the home cards, not pinned as their own tabs. Kern Home is the intended way in. (They are also listed in the App Launcher if you prefer to search for one by name.)
 
 <StillShot src="/stills/kern-home.jpg" caption="Kern Home: the Health Check readiness banner, here flagging setup that still needs attention, sits above the Administration Tools launch cards.">
 
@@ -123,7 +123,7 @@ Two readings sit alongside the event timeline in the same tool:
 
 The live tools are for watching; the tabs in the navigation bar are where the history is kept. Four are worth knowing:
 
-- **Logs** record what your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. They are the searchable, kept record you reach for after the fact. See the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) for how to write to them from your own Apex.
+- **Logs** record what your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. The tab keeps the raw rows; when you want to browse or diagnose them, open the [Log Console](#log-console) instead, which groups repeats into problems and lays a whole correlated run out on one timeline. See the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) for how to write to the log from your own Apex.
 - **API Calls** keep every inbound and outbound call with its request, response, status, and timing. Ready-made list views narrow the noise: *Today's Calls*, *Today's Failed Calls*, *Dead Letters*, and more.
 - **Async Chain Executions** record each multi-step async run: its status, how many steps finished, and how long it took. This is the history behind the Chain Monitor.
 - **Login summary** rolls up logins per user per month, a convenience for developers and ops. For the authoritative record of who signed in and when, use Salesforce's own Login History.
@@ -171,6 +171,22 @@ When a multi-step async job fails, the platform barely tells you which step brok
 <HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#chain-monitor) · [Read the full write-up in the LWC Guide](https://docs.jvb-consulting.io/lwc-guide#chain-monitor-components) · [Async chains in the Async Processing Guide](https://docs.jvb-consulting.io/async-processing-guide#monitoring-async-chain-failures)
+
+</HeroLoop>
+
+### Log Console
+
+Browse everything your code logged, grouped into recurring problems rather than a wall of rows, and drill from a problem to the exact run that caused it.
+
+Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you. Its **Problem summary** view folds the window down to distinct problems ("this error, N occurrences"); the **Individual entries** view shows the flat rows when you need every event. A summary ribbon across the top counts entries per level and names the top sources in the window, so you can see at a glance where the noise is coming from.
+
+From either view you can narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range), search the text, sort any column, and keep scrolling as more rows load. Selecting a row opens a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded. The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
+
+The console reads every user's log rows, so access sits behind the Kern Administrator permission set. For the full walkthrough, see [The Log Console](Logging%20-%20Guide.md#the-log-console) in the Logging Guide.
+
+<HeroLoop src="/recordings/log-console.webm" mp4="/recordings/log-console.mp4" poster="/recordings/log-console-poster.jpg" caption="Scan the grouped problems, filter to the errors, then search a correlation ID and follow the whole run on its timeline." guide="/logging-guide#the-log-console" guideLabel="Logging Guide">
+
+[Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#log-console) · [Read the full write-up in the Logging Guide](https://docs.jvb-consulting.io/logging-guide#the-log-console)
 
 </HeroLoop>
 

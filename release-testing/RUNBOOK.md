@@ -64,12 +64,13 @@ release-testing/
   scanner/                            # Static analysis validation fixtures
     classes/                          # Apex: deliberate violations + compliant class
     lwc/                              # LWC: violation, compliant, suppressed components
-  scripts/                            # Anonymous Apex test scripts (32 files)
-  e2e/                                # Playwright visual tests (36 checks)
-    specs/                            # 7 spec files (part1 through part7)
+  scripts/                            # Anonymous Apex test scripts (111 files) + Node probes
+  e2e/                                # Playwright visual tests (79 checks)
+    specs/                            # 10 spec files (part1 through part10) + capture specs
     pages/                            # Page objects for Salesforce UI
     helpers/                          # Auth, CLI, navigation, and wait helpers
     fixtures/cmdt-states/             # CMDT state XML for sections 3, 11, 27
+    fixtures/audit-fields/            # Two-step audit-field back-dating enablement (part10 seeds)
   runner/                             # Phase 2 orchestrator and CMDT deployer
   results/                            # Version-stamped result files
 ```
@@ -195,6 +196,26 @@ managed package — they install with §1.3 and need no separate deploy. `Subscr
 visibility of that tab, so the `part9` advisor e2e (which navigates to `/lightning/n/kern__DataMaskingAdvisor`) resolves
 on the subscriber. `SubscriberTestAccess` also grants field-level security on the `SubscriberCdcProbe__c` and
 `SubscriberCdcMarker__c` fields so the CDC sections (71-72) can read the recorded change-event markers.
+
+**Log Console tab (Phase-3 `part10` e2e):** The `kern__LogConsole` tab and its FlexiPage also ship inside the managed
+package. `SubscriberTestAccess` grants the test user visibility of that tab (same pattern as the advisor tab), so
+`part10` — which navigates to `/lightning/n/kern__LogConsole`, launches the Kern Home tile, and drives the Chain
+Monitor "View logs" cross-link — resolves on the subscriber.
+
+**Audit-field back-dating (Phase-3 `part10` prerequisite):** The Log Console e2e seed
+(`release-testing/scripts/seed-log-console.apex`) back-dates `CreatedDate`/`LastModifiedDate` so the date-range checks
+have rows spread across every window. A fresh scratch org silently ignores back-dated audit fields until BOTH steps
+below are applied — **in this order, as two separate deploys** (deploying them together fails silently):
+
+```bash
+sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step1-security-settings/metadata -o $SF_SUBSCRIBER_ORG_ALIAS
+sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step2-audit-permset/metadata -o $SF_SUBSCRIBER_ORG_ALIAS
+sf org assign permset -o $SF_SUBSCRIBER_ORG_ALIAS -n KernE2EAuditFieldAccess
+```
+
+The seed probes its own back-dating and reports `auditBackdate=OK` or `auditBackdate=FAILED_ENABLE_AUDIT_FIELDS` in its
+debug output; `part10`'s date-range check (V108) hard-fails on the latter with a pointer back to this recipe. The
+`CreateAuditFields` permission alone is NOT sufficient, and neither step is available as a Setup UI toggle.
 
 Verify post-install configuration:
 
@@ -719,6 +740,24 @@ and on current builds it silently moves the org onto the degraded read path unti
 
 Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test fixtures and framework source.
 
+> **PMD floor vs. Code Analyzer bundle (2026-07-03).** The kern rulesets require the PMD apex module
+> >= 7.26.0 (`InvocableClassNoArgConstructor` reference; below it the whole ruleset fails to load with
+> `UninstantiableEngineError`). The latest published `code-analyzer` plugin (5.14.0) still bundles
+> pmd-apex **7.25.0**, so every `sf code-analyzer` command in 2.3a–2.3c fails to instantiate the PMD
+> engine until Salesforce ships a plugin bundling PMD >= 7.26.0 (`kerndx doctor` surfaces this as the
+> `below` verdict). Until then run the PMD legs with the standalone `pmd` CLI (>= 7.26.0,
+> `brew install pmd`) — same rulesets, same expected counts:
+>
+> ```bash
+> pmd check -d release-testing/scanner/classes/    -R scanner/kerndx-pmd-ruleset.xml       -f text --no-cache   # 2.3a
+> pmd check -d force-app/                          -R scanner/kerndx-framework-ruleset.xml -f text --no-cache   # 2.3b
+> pmd check -d release-testing/subscriber/classes/ -R scanner/kerndx-pmd-ruleset.xml       -f text --no-cache   # 2.3c
+> ```
+>
+> The `npm run release:phase2` scanner step (which drives `sf code-analyzer` against the fixture
+> config) fails the same way and its FAIL should be annotated with the pmd-CLI equivalent result.
+> Once a compliant plugin ships, delete this note and return to the `sf code-analyzer` commands below.
+
 #### 2.3a Violation Detection
 
 Run the scanner against the test fixtures that contain deliberate violations:
@@ -882,8 +921,8 @@ commands.
 
 ## Phase 3 — Visual Tests (Playwright E2E)
 
-Phase 3 is fully automated by Playwright. The 29 visual checks (V1-V29) run in a headless browser against
-the subscriber scratch org.
+Phase 3 is fully automated by Playwright. The 79 visual checks (numbered V1 through V113, with gaps between
+part groups) run in a headless browser against the subscriber scratch org.
 
 ### Running Phase 3
 
@@ -911,11 +950,26 @@ npm run test:e2e:part3
 | `part2-api-config.spec.js`         | V6-V10            | Echo results, API Issues, Streaming Monitor UI, CMDT, Login Frequencies                                                                                                                         |
 | `part3-lwc-integration.spec.js`    | V11-V14           | LWC components, module tests, Account triggers, log entries                                                                                                                                     |
 | `part4-scheduler-exec.spec.js`     | V15-V18           | Job execution (Purge, Login History), cleanup verification                                                                                                                                      |
-| `part5-streaming-setup.spec.js`    | V19-V24           | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events                                                                                                                                    |
+| `part5-streaming-setup.spec.js`    | V19-V24, V104-V105 | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events; Org Limits card grid (worst-first bands, sort + search)                                                                          |
 | `part6-streaming-advanced.spec.js` | V25-V29, V99-V103 | Generic channel (stale cache), publish, download, cleanup; Event usage metrics (prototype contract, view states, seeded-data roundtrip, Enhanced Usage Metrics toggle, CDC channel-list purity) |
 | `part7-async-chain.spec.js`        | V10-V17           | Async chain execution, polling, record verification, API callout, handler isolation                                                                                                             |
+| `part8-chain-monitor.spec.js`      | V30-V39           | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines                                          |
+| `part9-masking-advisor.spec.js`    | V90-V98           | Data Masking Advisor: landing, add-object flow, rule detail, export, health-check masking posture                                                                                               |
+| `part10-log-console.spec.js`       | V106-V113         | Log Console: launcher tile + namespaced tab, ribbon summary + severity filter, date ranges (needs audit back-dating), endless scroll, sorting, debounced search incl. SOSL body leg, Chain Monitor cross-links, detail drawer + chain-gated timeline |
 
-**Expected:** 41/41 tests passing (13 in part1 after subsequent additions added V1f–V1i and extended V1/V1e).
+**Expected:** 79/79 tests passing (13 in part1 after subsequent additions added V1f–V1i and extended V1/V1e).
+
+Run part10 on its own with:
+
+```bash
+npx playwright test --config release-testing/e2e/playwright.config.js part10-log-console
+```
+
+part10 seeds its own Log Console fixtures in `beforeAll` (`seed-log-console.apex` + `seed-log-console-bulk.apex`)
+and tears them down in `afterAll`; it needs no manual data staging beyond the Phase 1 audit-field recipe.
+
+**Out of Playwright scope:** Flow Builder rendering of the packaged invocable actions (the Setup-UI picklists) is not
+browser-tested; the actions' runtime behaviour is covered by Phase 2 sections 17, 20, and 41-44.
 
 **Part 1 detail (post-Phase 0):**
 
@@ -935,6 +989,7 @@ npm run test:e2e:part3
 - KernDX package installed in subscriber scratch org (alias: the value of `SF_SUBSCRIBER_ORG_ALIAS`)
 - Subscriber test code deployed (classes, triggers, CMDT, LWC components, FlexiPage, tab)
 - Health Check prerequisites configured (org cache partition, session cache partition, trusted URL)
+- Audit-field back-dating enabled (Phase 1 two-step recipe) — `part10`'s date-range check hard-fails without it
 
 ### Debugging Failures
 
@@ -947,7 +1002,10 @@ npm run test:e2e:part3
 ### Dependency Chain
 
 Parts 1-4 are mostly independent. Parts 5 and 6 MUST run in order (Part 5 creates streaming state,
-Part 6 consumes and cleans it up).
+Part 6 consumes and cleans it up). Part 10 runs in the `independent` Playwright project, which depends on
+the `scheduler-serial` project — that ordering guarantees part1's fire-and-forget `kern__LogEntry__c` purge
+batch is launched before part10 seeds, and part10's `beforeAll` additionally waits out any still-running
+kern batch before inserting its fixtures.
 
 ---
 
@@ -973,7 +1031,7 @@ After completing all phases, create a result file in `release-testing/results/` 
 | Phase 2 — Automated Tests | PASS/FAIL | XX/XX scripts passed, XXX/XXX test methods passed |
 | Phase 2 — Scanner Ruleset | PASS/FAIL | XX/24 expected violations, 0 production violations |
 | Phase 2 — ESLint LWC Scan | PASS/FAIL | 0 kerndx/use-component-builder violations |
-| Phase 3 — Visual Tests    | PASS/FAIL | XX/29 Playwright tests passed |
+| Phase 3 — Visual Tests    | PASS/FAIL | XX/79 Playwright tests passed |
 
 ## Phase 2 — Automated Test Results
 
@@ -1004,7 +1062,9 @@ After completing all phases, create a result file in `release-testing/results/` 
 2. Fill in results from Phase 2 and Phase 3
 3. Record any findings or deviations
 4. Check the promotion decision box
-5. Commit the result file
+5. Verify the `packageVersion` header in `results/current-run.json` matches the cycle under test (the reporter
+   preserves whatever header it finds — a stale value from the previous cycle must be corrected by hand)
+6. Commit the result file
 
 ---
 
@@ -1130,19 +1190,23 @@ Notes:
   after seeding events is platform latency, not a defect: V101 annotates and passes in that case rather
   than failing the run.
 
-### Usage-Metrics Probes (development org)
+### Usage-Metrics + Org-Limits Probes (development org)
 
-Two standalone Playwright probes exercise the deployed usage-metrics view directly against a
+Three standalone Playwright probes exercise deployed Streaming Event Monitor views directly against a
 development org (they do not need the subscriber harness):
 
 ```bash
 node release-testing/scripts/usage-metrics-gapfinder.mjs            # prototype data-spec-id contract
 node release-testing/scripts/usage-metrics-robustness-probe.mjs     # 10 hostile-interaction scenarios
+node release-testing/scripts/org-limits-gapfinder.mjs               # Org Limits card-grid prototype contract
 ```
 
-The gap-finder verifies every `data-spec-id` from the validated prototype exists in the live DOM.
+The usage-metrics gap-finder verifies every `data-spec-id` from the validated prototype exists in the live DOM.
 The robustness probe drives hostile interaction patterns (refresh spam, granularity storms,
 mid-fetch chip toggles, forced fetch failures, hostile custom-range input through the real pickers)
 and fails on any HIGH-severity anomaly — run it after any change to the Event Monitor LWC surface.
-Both accept `--org=<alias>` and `--headed`; the probe also accepts `--only=A,B` to run a scenario
-subset.
+The org-limits gap-finder does the same prototype-contract check for the "Org limits" card grid,
+driving the empty state (no-match search) and the error state (aborted Aura XHRs) live and
+self-recovering afterwards — coverage the subscriber-org V104/V105 checks cannot produce naturally.
+All three accept `--org=<alias>` and `--headed`; the robustness probe also accepts `--only=A,B` to
+run a scenario subset.

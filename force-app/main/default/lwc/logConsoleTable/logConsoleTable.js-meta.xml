@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Datatable for the Log Console list views with a severity-badge level column</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Log Console Table</masterLabel>
+</LightningComponentBundle>

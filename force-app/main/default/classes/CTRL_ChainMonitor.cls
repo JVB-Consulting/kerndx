@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date April 2026, June 2026
+ * @date April 2026, June 2026, July 2026
  */
 public with sharing class CTRL_ChainMonitor
 {
@@ -164,6 +164,29 @@ public with sharing class CTRL_ChainMonitor
 		}
 
 		return parseSteps(execution);
+	}
+
+	/**
+	 * @description Resolves the chain execution that carries a correlation id, so a deep link
+	 * arriving from the Log Console lands on the linked chain instead of the default selection.
+	 * Uses the monitoring read, which sees chains org-wide exactly as the console's list does.
+	 *
+	 * @param correlationId The correlation id carried by the deep link.
+	 *
+	 * @return The Id of the matching AsyncChainExecution__c record, or null when the correlation
+	 * id is blank or no registered chain carries it.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * Id executionId = CTRL_ChainMonitor.findChainExecutionIdByCorrelation('550e8400-e29b-41d4-a716-446655440000');
+	 * ```
+	 */
+	@AuraEnabled
+	public static Id findChainExecutionIdByCorrelation(String correlationId)
+	{
+		return new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring(correlationId)?.Id;
 	}
 
 	/**

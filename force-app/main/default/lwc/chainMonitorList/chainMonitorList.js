@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, May 2026, July 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -152,20 +152,19 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 			return;
 		}
 
-		const currentStillExists = this.selectedExecutionId && this.records.some((record) => record.executionId === this.selectedExecutionId);
-
-		if(currentStillExists)
+		// An existing selection is kept even when it is not on the current page (deep-linked or
+		// paged-away chains): the detail panel keeps showing it and only the row highlight is
+		// absent. Auto-select the first row only when nothing is selected yet.
+		if(!this.selectedExecutionId)
 		{
-			return;
+			this.selectExecution(this.records[0].executionId);
 		}
-
-		this.selectExecution(this.records[0].executionId);
 	}
 
-	selectExecution(executionId)
+	selectExecution(executionId, isUserSelection)
 	{
 		this.selectedExecutionId = executionId;
-		this.dispatchEvent(new CustomEvent('select', {detail: {executionId}}));
+		this.dispatchEvent(new CustomEvent('select', {detail: {executionId, isUserSelection: isUserSelection === true}}));
 	}
 
 	handleToggleFilters()
@@ -210,7 +209,7 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		const selectedRows = event.detail.selectedRows;
 		if(selectedRows && selectedRows.length > 0)
 		{
-			this.selectExecution(selectedRows[0].executionId);
+			this.selectExecution(selectedRows[0].executionId, true);
 		}
 	}
 
@@ -235,5 +234,15 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 	@api async refresh()
 	{
 		await this.loadData();
+	}
+
+	@api selectById(executionId)
+	{
+		// Drives the detail panel to a deep-linked chain. The row highlight follows only when the
+		// chain is on the current page; the detail panel loads by id either way.
+		if(executionId)
+		{
+			this.selectExecution(executionId);
+		}
 	}
 }

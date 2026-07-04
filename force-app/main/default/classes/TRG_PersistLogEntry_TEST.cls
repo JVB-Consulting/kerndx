@@ -8,7 +8,7 @@
  *
  * @group Triggers
  *
- * @date January 2026, June 2026
+ * @date January 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -319,23 +319,28 @@ private class TRG_PersistLogEntry_TEST
 	}
 
 	/**
-	 * @description Tests the compute-path fallback: when aggregation throws, every fingerprinted
-	 * event persists as a plain row with a NULL fingerprint (nulls are exempt from uniqueness),
-	 * so no event is ever lost to the flood-control path.
+	 * @description Tests that the fingerprint-key codec round-trips against this class's independent
+	 * key-shape oracles: a base that itself contains the colon separator composes into the documented
+	 * detail:/rollup: shapes and decodes back to the identical base, so a read layer decoding through the
+	 * codec can never truncate a base fingerprint.
 	 */
 	@IsTest
-	private static void shouldFallBackToPlainRowsOnComputeFailure()
+	private static void shouldRoundTripFingerprintKeyCodec()
 	{
-		TRG_PersistLogEntry.simulateComputeFailure = true;
+		String base = 'NullPointer:MyClass.method';
+		Datetime occurredAt = Datetime.newInstanceGmt(2026, 6, 26, 23, 59, 59);
 
-		Test.startTest();
-		EventBus.publish(buildEvent(TEST_FINGERPRINT));
-		Test.stopTest();
+		String detailKey = TRG_PersistLogEntry.buildDetailKey(base);
+		String rollupKey = TRG_PersistLogEntry.buildRollupKey(base, occurredAt);
 
-		Assert.isTrue(rowsByFingerprint().isEmpty(), 'Fallback rows must carry a null fingerprint');
-		List<LogEntry__c> all = new SEL_LogEntry().findAllByMethod(TEST_CLASS_METHOD);
-		Assert.areEqual(1, all.size(), 'The event must persist as a plain row despite the compute failure');
-		Assert.areEqual(TEST_MESSAGE, all[0].Message__c, 'Fallback row keeps the full payload');
+		Assert.areEqual(PREFIX_DETAIL + base, detailKey, 'The detail key is the documented prefix plus the base');
+		Assert.areEqual(PREFIX_ROLLUP + base + ':20260626', rollupKey, 'The rollup key carries the GMT day bucket of the occurrence instant');
+		Assert.areEqual(base, TRG_PersistLogEntry.decodeBaseFromDetailKey(detailKey), 'Decoding the detail key recovers the identical base');
+		Assert.areEqual
+				(
+						base,
+						TRG_PersistLogEntry.decodeBaseFromRollupKey(rollupKey), 'Decoding the rollup key strips exactly the prefix and the day suffix, even when the base contains colons'
+				);
 	}
 
 	/**

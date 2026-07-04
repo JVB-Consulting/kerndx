@@ -254,8 +254,8 @@ The first two rows are areas where another library ships a broader implementatio
 - **[TAF](https://github.com/mitchspano/apex-trigger-actions-framework)** (a Trigger Framework specialist) ties KernDX on the metadata-driven bypass-framework piece and on one
   other Trigger piece. There are no pieces where TAF goes further on its own. The decisive KernDX difference: KernDX writes its bypass audit signal to the event bus, where TAF's
   signal is SDLC-only.
-- **RFLIB** (a Trigger Framework specialist) goes further on the bypass-via-feature-switch piece, and adds a historical log-browser UI piece that KernDX doesn't have. Recursion
-  control is a tie. KernDX covers the rest of the Trigger surface broadly.
+- **RFLIB** (a Trigger Framework specialist) goes further on the bypass-via-feature-switch piece, and its log viewer goes further on the archival piece (it reads archived entries
+  back from a Big Object and exports CSV, which KernDX's Log Console does not). Recursion control is a tie. KernDX covers the rest of the Trigger surface broadly.
 - **`apex-libra`** (multi-area) goes further on the bypass framework, Mockito-style mocking, and functional/lambda-utility pieces. The Trigger Framework area as a whole is
   KernDX-covered, not `apex-libra`-covered. The decisive KernDX differences: KernDX enforces FLS/CRUD on writes by default where `apex-libra` enforces none, and KernDX audit-logs
   bypasses where `apex-libra` emits no audit signal.

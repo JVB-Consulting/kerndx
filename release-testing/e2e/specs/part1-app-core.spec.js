@@ -22,7 +22,9 @@ const EXPECTED_TABS = [
 const EXPECTED_TOOL_KEYS = [
 	'apiTestHarness',
 	'streamingMonitor',
-	'chainMonitor'
+	'chainMonitor',
+	'dataMaskingAdvisor',
+	'logConsole'
 ];
 
 test.describe.serial('Part 1: App Home & Core Pages', () =>
@@ -82,7 +84,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const home = new KernHomePage(page);
 
 		const expectedTabApiNames = {
-			apiTestHarness: 'kern__ApiTestHarness', streamingMonitor: 'kern__StreamingEventMonitor', chainMonitor: 'kern__ChainMonitor'
+			apiTestHarness: 'kern__ApiTestHarness',
+			streamingMonitor: 'kern__StreamingEventMonitor',
+			chainMonitor: 'kern__ChainMonitor',
+			dataMaskingAdvisor: 'kern__DataMaskingAdvisor',
+			logConsole: 'kern__LogConsole'
 		};
 
 		for(const [key, apiName] of Object.entries(expectedTabApiNames))

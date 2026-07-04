@@ -60,6 +60,10 @@
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
+        <tab>kern__LogConsole</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
         <tab>SubscriberLwcTestPage</tab>
         <visibility>Visible</visibility>
     </tabSettings>

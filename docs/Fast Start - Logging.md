@@ -90,6 +90,11 @@ Open **App Launcher > Kern > Log Entries** to see your four entries. Each has a 
 class/method context. All four also share the same **Correlation ID**, a single tracking ID that follows
 one user action across triggers, queries, callouts, and jobs, so you can filter the four entries as a group.
 
+Once you have real volume, open the **Log Console** instead (from the launcher card on the **Kern** app's
+home page, or search "Log Console" in the App Launcher): it groups recurring problems with occurrence
+counts, filters by severity, searches past entries, and opens a drawer that walks one operation end to
+end. The [Logging Developer Guide](Logging%20-%20Guide.md#the-log-console) covers it in full.
+
 > **Why the scope wrapper?** Each `.emit()` publishes a platform event, and Salesforce caps a single
 > transaction at 150 such immediate publishes (the `PublishImmediate` governor). The scope wrapper keeps
 > you safely under that cap: `LOG_Builder.scope()` collects every emission inside the try/finally and
@@ -556,8 +561,13 @@ All log entries from the Flow share the same Correlation ID, so you can filter t
 From a Lightning Web Component, log with the built-in `consoleLog()` and `consoleError()` methods on
 ComponentBuilder (the KernDX base class that gives your components their common wiring, such as toasts,
 Apex calls, and navigation, already built in). These write to the browser console, not to
-`kern__LogEntry__c`. So for server-side persistent logging, use `LOG_Builder` in your Apex controller
-methods instead.
+`kern__LogEntry__c`.
+
+When you want the client's story kept and searchable, import the `kern/utilityLogger` module instead: its
+`debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex automatically and saved as
+`kern__LogEntry__c` rows. Pass an `Error` object to `error()` and its JavaScript stack trace is kept on the
+entry, along with any context data you pass, so you can read later exactly what the client saw. For logging
+from your Apex controller methods themselves, use `LOG_Builder`.
 
 ```javascript
 // In any ComponentBuilder LWC:

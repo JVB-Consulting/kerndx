@@ -1,0 +1,345 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * Log Console container. Colour is confined to the severity axis (the per-level summary
+ * cards and the table's severity badges) and the limit bars in the detail pane; every
+ * other surface is neutral chrome. The level is always shown as text, never colour alone.
+ */
+.log-console
+{
+	background     : #FFFFFF;
+	display        : flex;
+	flex-direction : column;
+	height         : 100%;
+	min-height     : 0;
+}
+
+.brandbar
+{
+	align-items : center;
+	background  : #16325C;
+	color       : #FFFFFF;
+	display     : flex;
+	gap         : 0.5rem;
+	padding     : 0.4rem 0.9rem;
+}
+
+.brandbar .title
+{
+	font-size   : 0.95rem;
+	font-weight : 700;
+}
+
+.toolrow
+{
+	border-bottom : 1px solid #E5E5E5;
+}
+
+.date-range-combobox
+{
+	min-width : 12rem;
+}
+
+.customrange-field
+{
+	min-width : 8.5rem;
+}
+
+.filter-search
+{
+	flex      : 1 1 16rem;
+	min-width : 16rem;
+}
+
+.level-seg
+{
+	display : inline-flex;
+	gap     : 0.25rem;
+}
+
+.level-seg-btn
+{
+	background    : #FFFFFF;
+	border        : 1px solid #C9C9C9;
+	border-radius : 0.25rem;
+	color         : #5C5C5C;
+	cursor        : pointer;
+	font          : inherit;
+	font-size     : 0.7rem;
+	font-weight   : 700;
+	padding       : 0.18rem 0.5rem;
+}
+
+.level-seg-btn[aria-pressed="true"]
+{
+	border-color : #747474;
+	color        : #16325C;
+}
+
+.level-seg-btn[data-level="ERROR"][aria-pressed="true"]
+{
+	background   : #FEF1F0;
+	border-color : #EA9A93;
+	color        : #BA0517;
+}
+
+.level-seg-btn[data-level="WARN"][aria-pressed="true"]
+{
+	background   : #FEF5E8;
+	border-color : #F0C073;
+	color        : #8C4B02;
+}
+
+.level-seg-btn[data-level="INFO"][aria-pressed="true"]
+{
+	background   : #EEF4FF;
+	border-color : #B9D4F7;
+	color        : #0B5CAB;
+}
+
+.level-seg-btn[data-level="DEBUG"][aria-pressed="true"]
+{
+	background   : #F3F3F3;
+	border-color : #D4D4D4;
+	color        : #5C5C5C;
+}
+
+/* Stretch so every ribbon card shares the tallest card's height (the ranked top-sources card),
+   giving the row an aligned bottom edge instead of ragged, differently-sized tiles. */
+.summary
+{
+	align-items    : stretch;
+	padding-bottom : 0.5rem;
+	padding-top    : 0.5rem;
+}
+
+/* A flex column that centres the number/label/footnote inside the stretched height, so the
+   single-value cards read as balanced tiles rather than content floating at the top. */
+.summary-card
+{
+	background      : #FFFFFF;
+	border          : 1px solid #DDDBDA;
+	border-radius   : 0.25rem;
+	display         : flex;
+	flex-direction  : column;
+	justify-content : center;
+	min-width       : 130px;
+	padding         : 0.4rem 0.7rem;
+}
+
+.summary-card .lab
+{
+	color          : #747474;
+	font-size      : 0.66rem;
+	letter-spacing : 0.04em;
+	text-transform : uppercase;
+}
+
+.summary-card .val
+{
+	color       : #16325C;
+	font-size   : 1.1rem;
+	font-weight : 700;
+}
+
+.summary-card .footnote
+{
+	font-size : 0.64rem;
+}
+
+/* The best-effort totals badge: a quiet amber tag under the total, rendered only when the server
+   folded a capped rollup window, so an approximate headline number is never presented as exact. */
+.summary-card .approximate-badge
+{
+	background     : #FEF1E4;
+	border-radius  : 0.6rem;
+	color          : #8C4B02;
+	cursor         : help;
+	font-size      : 0.6rem;
+	font-weight    : 600;
+	letter-spacing : 0.03em;
+	margin-top     : 0.15rem;
+	padding        : 0.05rem 0.45rem;
+	text-transform : uppercase;
+	width          : fit-content;
+}
+
+.summary-card_error
+{
+	box-shadow : inset 3px 0 0 #BA0517;
+}
+
+.summary-card_warn
+{
+	box-shadow : inset 3px 0 0 #FE9339;
+}
+
+.summary-card_info
+{
+	box-shadow : inset 3px 0 0 #0B5CAB;
+}
+
+.summary-card_debug
+{
+	box-shadow : inset 3px 0 0 #5C5C5C;
+}
+
+/* A per-level card is a button that filters the list to that level; it must look identical to the
+   read-only cards beside it, so the native button chrome is reset and only hover/focus affordance is added. */
+.summary-card_clickable
+{
+	appearance : none;
+	cursor     : pointer;
+	font       : inherit;
+	text-align : left;
+	transition : border-color 0.12s, box-shadow 0.12s;
+}
+
+.summary-card_clickable:hover
+{
+	border-color : #9FB6D6;
+	box-shadow   : 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card_clickable:focus-visible
+{
+	outline        : 2px solid #1B96FF;
+	outline-offset : 2px;
+}
+
+/* The ranked list reads top-down, so its label heads the card rather than centring with the rows. */
+.summary-card_sources
+{
+	justify-content : flex-start;
+	min-width       : 170px;
+}
+
+.source-row
+{
+	align-items     : baseline;
+	appearance      : none;
+	background      : none;
+	border          : 0;
+	cursor          : pointer;
+	display         : flex;
+	font            : inherit;
+	gap             : 0.7rem;
+	justify-content : space-between;
+	padding         : 0.1rem 0;
+	text-align      : left;
+	width           : 100%;
+}
+
+.source-row:hover .sname
+{
+	text-decoration : underline;
+}
+
+.source-row:focus-visible
+{
+	outline        : 2px solid #1B96FF;
+	outline-offset : 1px;
+}
+
+.source-row .rank
+{
+	color     : #B6B6B6;
+	font-size : 0.66rem;
+	width     : 0.9rem;
+}
+
+.source-row .sname
+{
+	color         : #16325C;
+	flex          : 1;
+	font-size     : 0.82rem;
+	font-weight   : 600;
+	overflow      : hidden;
+	text-overflow : ellipsis;
+	white-space   : nowrap;
+}
+
+.source-row .metric
+{
+	color                : #747474;
+	font-size            : 0.68rem;
+	font-variant-numeric : tabular-nums;
+	white-space          : nowrap;
+}
+
+.cappedbanner
+{
+	background    : #FFF4CE;
+	border-bottom : 1px solid #F6D18A;
+	color         : #7A5B00;
+	font-size     : 0.78rem;
+	padding       : 0.4rem 0.9rem;
+}
+
+.body-row
+{
+	flex       : 1;
+	min-height : 0;
+}
+
+.main
+{
+	display        : flex;
+	flex           : 1;
+	flex-direction : column;
+	min-height     : 0;
+	min-width      : 0;
+}
+
+/* The list scrolls inside the datatable itself so its endless-loading trigger fires; the wrapper only
+   bounds the height. Each ancestor sets min-height:0 so the flex column can shrink below content size.
+   The viewport-relative max-height is the load-bearing bound: the flexipage region does not hand the
+   console a definite height, so without a cap the datatable grows to fit every row and never renders its
+   own scroll region (endless loading would never trigger). The subtrahend approximates the fixed chrome
+   stacked above the list (global header, app nav, page header, brand bar, toolbar, filters, ribbon). */
+.listwrap
+{
+	display        : flex;
+	flex           : 1;
+	flex-direction : column;
+	max-height     : calc(100vh - 34rem);
+	min-height     : 12rem;
+}
+
+.list-table
+{
+	flex       : 1;
+	min-height : 0;
+}
+
+/* Capped width: the detail is key/value pairs, limit bars and a timeline, none of which need
+   half the console. Clamping keeps the drawer readable while leaving the list its columns; on a
+   wide screen the list takes the extra room instead of the drawer stretching to sparse whitespace. */
+.panel
+{
+	border-left : 1px solid #DDDBDA;
+	flex-shrink : 0;
+	min-width   : 360px;
+	overflow    : auto;
+	width       : clamp(360px, 32%, 520px);
+}
+
+@media (max-width : 820px)
+{
+	.body-row
+	{
+		position : relative;
+	}
+
+	.panel
+	{
+		background : #FFFFFF;
+		bottom     : 0;
+		box-shadow : -6px 0 16px rgba(0, 0, 0, 0.18);
+		min-width  : 0;
+		position   : absolute;
+		right      : 0;
+		top        : 0;
+		width      : 100%;
+		z-index    : 40;
+	}
+}

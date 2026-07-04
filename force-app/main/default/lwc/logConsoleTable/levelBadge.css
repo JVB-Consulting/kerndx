@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * Stylesheet paired with the `levelBadge.html` cell template (same base name), so the
+ * badge `span` carries this stylesheet's scope token and the rules below actually
+ * apply where the datatable renders the custom cell. Colour is the one allowed colour
+ * axis in the list and is keyed off the level value alone, matching the validated
+ * prototype. The level name is always shown as text so severity is never conveyed by
+ * colour alone.
+ */
+.log-level-badge
+{
+	border-radius : 0.25rem;
+	display       : inline-block;
+	font-size     : 0.68rem;
+	font-weight   : 700;
+	min-width     : 44px;
+	padding       : 0.08rem 0.4rem;
+	text-align    : center;
+}
+
+.log-level-badge[data-level="ERROR"]
+{
+	background : #FEF1F0;
+	box-shadow : inset 0 0 0 1px #F5B4AE;
+	color      : #BA0517;
+}
+
+.log-level-badge[data-level="WARN"]
+{
+	background : #FEF5E8;
+	box-shadow : inset 0 0 0 1px #F6D18A;
+	color      : #8C4B02;
+}
+
+.log-level-badge[data-level="INFO"]
+{
+	background : #EEF4FF;
+	box-shadow : inset 0 0 0 1px #B9D4F7;
+	color      : #0B5CAB;
+}
+
+.log-level-badge[data-level="DEBUG"]
+{
+	background : #F3F3F3;
+	box-shadow : inset 0 0 0 1px #D4D4D4;
+	color      : #5C5C5C;
+}

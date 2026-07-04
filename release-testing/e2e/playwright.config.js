@@ -6,6 +6,14 @@ const sharedUse = {
 	browserName: 'chromium',
 	headless: true,
 	storageState: path.join(__dirname, '.auth', 'state.json'),
+	// Pin the browser clock to the scratch-org user's Salesforce timezone (America/Los_Angeles
+	// is the scratch-org default). The Log Console computes its date presets from the browser
+	// clock, so part10's midnight-straddle probe (V108) is only coherent when browser and
+	// Salesforce user agree on where "today" starts — the normal case for a real user. A browser
+	// whose OS timezone differs from the Salesforce user's (this machine: America/New_York)
+	// shifts the console's "Today" window off the user's calendar day; that browser-clock
+	// windowing is a known console limitation, tracked for a user-timezone-aware fix.
+	timezoneId: 'America/Los_Angeles',
 	viewport: {width: 1920, height: 1080},
 	screenshot: 'on',
 	trace: 'retain-on-failure',
@@ -23,9 +31,15 @@ const sharedUse = {
 // already declare `test.describe.serial(...)` so tests within each file are ordered;
 // running the two files in a single-worker `scheduler-serial` project extends that
 // serialisation across files too, without losing parallelism on the other independent
-// specs (part2 / part3 / part7 / part8 / part9) that don't touch scheduled jobs.
+// specs (part2 / part3 / part7 / part8 / part9 / part10) that don't touch scheduled jobs.
+//
+// part10 (log-console) sits in `independent` deliberately: that project depends on
+// `scheduler-serial`, so part1's fire-and-forget `kern__LogEntry__c` purge batch is
+// launched (and its beforeAll finished) before part10 starts. part10 then seeds its own
+// LogEntry fixtures in its OWN beforeAll — after additionally waiting out any still-running
+// kern batch — so the purge can never race the seeded rows away mid-spec.
 const schedulerSerialMatch = /part(1|4)-.*\.spec\.js$/;
-const independentMatch = /part(2|3|7|8|9)-.*\.spec\.js$/;
+const independentMatch = /part(2|3|7|8|9|10)-.*\.spec\.js$/;
 const streamingMatch = /part(5|6)-.*\.spec\.js$/;
 
 module.exports = defineConfig({
@@ -42,11 +56,17 @@ module.exports = defineConfig({
 		{
 			name: 'streaming-serial', testMatch: streamingMatch, fullyParallel: false, workers: 1, retries: 0, dependencies: ['independent'], use: sharedUse
 		},
+		// The media-capture projects mutate release-gate state: capture-heroes' kern-home hero
+		// clicks Apply Recommended Retention, creating the 4 purge ScheduledJob__c rows that
+		// part4's V17/V18 assert to zero. Without a dependency they start on the second global
+		// worker in parallel with scheduler-serial and contaminate the battery (caught 2026-07-03:
+		// V17 failed on 4 mid-run jobs and 63 dependent checks never ran). Sequencing them after
+		// streaming-serial keeps `npm run test:e2e` safe; run them alone with --project capture.
 		{
-			name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, use: {...sharedUse, permissions: ['clipboard-read', 'clipboard-write'], video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
+			name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['streaming-serial'], use: {...sharedUse, permissions: ['clipboard-read', 'clipboard-write'], video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
 		},
 		{
-			name: 'stills', testMatch: /capture-stills\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, use: {...sharedUse, video: 'off', trace: 'off'}
+			name: 'stills', testMatch: /capture-stills\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['capture'], use: {...sharedUse, video: 'off', trace: 'off'}
 		}
 	]
 });

@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
     <labels>
+        <fullName>ChainMonitor_ViewLogsAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Cross-link action to open the correlated logs in the Log Console</shortDescription>
+        <value>View logs</value>
+    </labels>
+    <labels>
         <fullName>ClassTypeResolverModal_Cancel</fullName>
         <categories>Class Type Resolver Setup</categories>
         <language>en_US</language>
@@ -2001,6 +2009,78 @@ Members: {0}</value>
         <value>24 hours</value>
     </labels>
     <labels>
+        <fullName>OrgLimits_CardTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Org limits card and sidebar-nav title.</shortDescription>
+        <value>Org limits</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Notice</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Notice above the org-limits grid.</shortDescription>
+        <value>Publishing or subscribing in the Streaming Monitor uses some of these limits.</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Error_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when the org limits fail to load.</shortDescription>
+        <value>Org limits could not be loaded.</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Empty</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when no limit matches the search.</shortDescription>
+        <value>No matching org limits.</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_SearchPlaceholder</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the org-limits search box.</shortDescription>
+        <value>Search limits…</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_SortBy_Label</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the org-limits sort combobox.</shortDescription>
+        <value>Sort by</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Sort_WorstFirst</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default sort option: highest usage first.</shortDescription>
+        <value>Worst → best usage</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Sort_Name</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Alphabetical sort option.</shortDescription>
+        <value>Name (A–Z)</value>
+    </labels>
+    <labels>
+        <fullName>OrgLimits_Usage</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Usage line: {0} used of {1} maximum.</shortDescription>
+        <value>{0} of {1}</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_ActionRequiredHeadline</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -2497,6 +2577,22 @@ Members: {0}</value>
         <value>Data Masking Advisor</value>
     </labels>
     <labels>
+        <fullName>KernHome_LogConsole_Description</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log Console tool card description</shortDescription>
+        <value>Browse and group log entries by distinct problem, see a per-level summary, and open a tabbed detail drawer for any entry.</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_LogConsole_Title</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log Console tool card title</shortDescription>
+        <value>Log Console</value>
+    </labels>
+    <labels>
         <fullName>KernHome_StreamingMonitor_Description</fullName>
         <categories>Kern Home</categories>
         <language>en_US</language>
@@ -2519,6 +2615,846 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Shared launch/open button label for tool cards</shortDescription>
         <value>Open</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionExport</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action: export the entry's transaction</shortDescription>
+        <value>Export transaction</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionHide</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action: hide this signature for the session</shortDescription>
+        <value>Hide signature (session)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionOpenChain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action: open the entry in Chain Monitor</shortDescription>
+        <value>Open in Chain Monitor</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionOpenRecord</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action: open the standard log entry record</shortDescription>
+        <value>Open record</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionSuppress</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action: suppress capture of this class</shortDescription>
+        <value>Suppress class…</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionSuppressDisabled</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action label when suppress is unavailable for ERROR</shortDescription>
+        <value>Suppress class (n/a for ERROR)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainAllEntries</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain tab heading above the ordered list of correlated entries</shortDescription>
+        <value>All correlated entries, in order</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainExplainer</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Explains what the correlation chain shows</shortDescription>
+        <value>The operation end to end: one user action followed across triggers, queueables, callouts and the async chain. The correlation id is the spine. Select any node or row to jump to that entry.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainHeading</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Section heading for the correlation chain strip</shortDescription>
+        <value>Correlation chain</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainOffsetHours</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Relative offset of a chain node, in hours from the first node</shortDescription>
+        <value>+{0}h</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainOffsetMinutes</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Relative offset of a chain node, in minutes from the first node</shortDescription>
+        <value>+{0}m</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainOffsetSeconds</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Relative offset of a chain node, in seconds from the first node</shortDescription>
+        <value>+{0}s</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainSoloNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown in the Chain tab when no other entry shares the correlation</shortDescription>
+        <value>Only this entry shares this correlation.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainStart</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Offset label for the first node in the correlation chain</shortDescription>
+        <value>start</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainThis</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marks the opened entry's own node in the correlation chain</shortDescription>
+        <value>this</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainViewFull</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Overview-tab link that opens the full correlation chain view</shortDescription>
+        <value>View full chain</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Close</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Close the detail drawer</shortDescription>
+        <value>Close</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Copied</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirmation shown after copying to the clipboard</shortDescription>
+        <value>Copied</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Copy</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copy the code block to the clipboard</shortDescription>
+        <value>Copy</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DetailsHeading</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail Overview section heading for the metadata grid</shortDescription>
+        <value>Details</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_FirstSeen</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label preceding the first-seen timestamp</shortDescription>
+        <value>First seen</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LastSeen</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label preceding the last-seen timestamp</shortDescription>
+        <value>Last seen</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LimitsHeading</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail Overview heading for the governor-limit bars</shortDescription>
+        <value>Governor limits at capture</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LimitsOnlyUsed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note that only consumed governor limits are shown</shortDescription>
+        <value>(only limits used)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the execution context</shortDescription>
+        <value>Context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaCorrelation</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the correlation id</shortDescription>
+        <value>Correlation</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaLogNumber</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the log number</shortDescription>
+        <value>Log Number</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaParentTransaction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the parent transaction id</shortDescription>
+        <value>Parent txn</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaSource</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the source class and method</shortDescription>
+        <value>Source</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaTransaction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the transaction id</shortDescription>
+        <value>Transaction</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaUser</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for the originating user</shortDescription>
+        <value>User</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MoreActions</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive label for the detail overflow actions menu</shortDescription>
+        <value>More actions</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoLimits</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when no governor limits were consumed</shortDescription>
+        <value>No governor limits consumed.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoStackTrace</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when the entry has no stack trace</shortDescription>
+        <value>No stack trace for this entry.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TabChain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail tab label for the correlation chain</shortDescription>
+        <value>Chain</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TabContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail tab label for the context JSON</shortDescription>
+        <value>Context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TabOverview</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail tab label for the overview</shortDescription>
+        <value>Overview</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TabStackTrace</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail tab label for the stack trace</shortDescription>
+        <value>Stack trace</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_AllContexts</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default option for the execution-context filter</shortDescription>
+        <value>All contexts</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CappedBanner</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner shown when the result set hit the candidate cap</shortDescription>
+        <value>Showing the first {0}. Narrow the filters to see the rest.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ClearAll</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Reset all filters</shortDescription>
+        <value>Clear all</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ClearHides</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Clear all session-hidden signatures</shortDescription>
+        <value>Clear hides</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the execution context</shortDescription>
+        <value>Context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColCorrelation</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the correlation id</shortDescription>
+        <value>Correlation</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColCount</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the occurrence count</shortDescription>
+        <value>Count</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColLastSeen</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the last-seen time (problems view)</shortDescription>
+        <value>Last seen</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColLevel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the log level</shortDescription>
+        <value>Level</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColLogNumber</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the log number</shortDescription>
+        <value>Log Number</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColMessage</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the message (entries view)</shortDescription>
+        <value>Message</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColProblem</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the problem (problems view)</shortDescription>
+        <value>Problem</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColSource</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the source class and method</shortDescription>
+        <value>Source</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColTime</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the entry time (entries view)</shortDescription>
+        <value>Time</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextFilter</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive label for the execution-context filter</shortDescription>
+        <value>Execution context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DistinctShown</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary footnote suffix for the distinct count shown</shortDescription>
+        <value>distinct shown</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DistinctSuffix</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Per-level summary footnote suffix for the distinct count</shortDescription>
+        <value>distinct</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_EmptyState</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when no logs match the filters</shortDescription>
+        <value>No logs match these filters.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_HiddenBanner</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner counting session-hidden signatures</shortDescription>
+        <value>{0} hidden for this session</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_HiddenNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note explaining that session-hide is temporary</shortDescription>
+        <value>Session only; resets on reload.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_HideAgain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle to re-hide session-hidden signatures</shortDescription>
+        <value>Hide again</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LoadingAlt</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text for the loading spinner</shortDescription>
+        <value>Loading logs</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OccurrencesSuffix</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Per-level summary card label suffix</shortDescription>
+        <value>occurrences</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_PercentOfShown</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Top-source summary footnote suffix</shortDescription>
+        <value>% of shown</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Refresh</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Manual refresh button</shortDescription>
+        <value>Refresh</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_SearchPlaceholder</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the message/source/correlation search</shortDescription>
+        <value>Search messages, sources, correlation id…</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ShowHidden</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toggle to reveal session-hidden signatures</shortDescription>
+        <value>Show hidden</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Title</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Console brand-bar title</shortDescription>
+        <value>Log Console</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TopSource</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary card label for the top source class</shortDescription>
+        <value>Top source</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TopSources</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ribbon card heading for the ranked top source classes</shortDescription>
+        <value>Top sources</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_EntriesInWindow</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-entries ribbon total card label for forensic rows matching the filters</shortDescription>
+        <value>Matching entries</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LogRows</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-entries ribbon total card footnote — the unit of the total count</shortDescription>
+        <value>log rows</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Logged</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail header label preceding a single entry's logged timestamp (entries view)</shortDescription>
+        <value>Logged</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoMessage</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail Overview placeholder shown when the entry has no message body</shortDescription>
+        <value>No message body</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RowsSuffix</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-entries ribbon per-level card footnote and top-source metric unit</shortDescription>
+        <value>rows</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TotalOccurrences</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Summary card label for total occurrences</shortDescription>
+        <value>Total occurrences</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TotalsApproximate</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Badge on the ribbon total when folded counts are best-effort</shortDescription>
+        <value>Totals approximate</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TotalsApproximateHelp</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tooltip explaining the approximate-totals badge</shortDescription>
+        <value>This window holds more activity than the console counts at once. Totals include only the most recent activity groups and may be higher.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ViewEntries</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View toggle for the flat entries list</shortDescription>
+        <value>Individual entries</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ViewProblems</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View toggle for the grouped-problem summary list</shortDescription>
+        <value>Problem summary</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextAnonymous</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Anonymous Apex</shortDescription>
+        <value>Anonymous Apex</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextAura</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Aura / LWC controller calls</shortDescription>
+        <value>Aura / LWC</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextBatchApex</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Batch Apex</shortDescription>
+        <value>Batch Apex</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextFuture</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for future methods</shortDescription>
+        <value>Future</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextQueueable</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Queueable jobs</shortDescription>
+        <value>Queueable</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextQueueableFinalizer</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for a Queueable finalizer</shortDescription>
+        <value>Queueable finalizer</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextRest</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Apex REST</shortDescription>
+        <value>REST API</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextScheduled</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for Scheduled Apex</shortDescription>
+        <value>Scheduled</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextSynchronous</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execution-context display name for a synchronous transaction</shortDescription>
+        <value>Synchronous</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LevelGroupLabel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive label for the log-level filter button group</shortDescription>
+        <value>Log levels</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DateRange</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range picklist label</shortDescription>
+        <value>Date range</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range15m</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last 15 minutes</shortDescription>
+        <value>Last 15 minutes</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range1h</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last hour</shortDescription>
+        <value>Last hour</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range4h</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last 4 hours</shortDescription>
+        <value>Last 4 hours</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range24h</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last 24 hours</shortDescription>
+        <value>Last 24 hours</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range7d</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last 7 days</shortDescription>
+        <value>Last 7 days</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_Range30d</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset: last 30 days</shortDescription>
+        <value>Last 30 days</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeToday</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range calendar preset: today so far</shortDescription>
+        <value>Today</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeYesterday</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range calendar preset: the whole of yesterday</shortDescription>
+        <value>Yesterday</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeThisWeek</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range calendar preset: this week so far</shortDescription>
+        <value>This week</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeLastWeek</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range calendar preset: the whole of last week</shortDescription>
+        <value>Last week</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeThisMonth</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range calendar preset: this month so far</shortDescription>
+        <value>This month</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeCustom</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Date-range preset that reveals the custom from/to date and time inputs</shortDescription>
+        <value>Custom range…</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_FromDate</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom date-range lower-bound date input label</shortDescription>
+        <value>From date</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_FromTime</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom date-range lower-bound time input label</shortDescription>
+        <value>From time</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ToDate</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom date-range upper-bound date input label</shortDescription>
+        <value>To date</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ToTime</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom date-range upper-bound time input label</shortDescription>
+        <value>To time</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_CoverageScan_BackToScan</fullName>
@@ -3159,5 +4095,229 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Posture-section button that opens the inventory export dialog.</shortDescription>
         <value>⤓ Export field inventory</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TabTimeline</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail tab label for the correlated execution timeline</shortDescription>
+        <value>Timeline</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineTitle</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline header title when the entry is correlated</shortDescription>
+        <value>Correlation timeline</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineThisEntry</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline header title when the entry has no correlation</shortDescription>
+        <value>This entry</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineStandalone</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline note shown when the entry has no correlation id</shortDescription>
+        <value>No correlation id, so this entry stands alone.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineNotRegistered</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline note shown when correlated but not a registered async chain</shortDescription>
+        <value>Correlated by id {0}. These entries share one operation, but it is not a registered async chain, so there is no Chain Monitor view.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineOverview</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the timeline overview minimap section</shortDescription>
+        <value>Overview</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineTransaction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular transaction noun for the timeline overview stat</shortDescription>
+        <value>transaction</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineTransactions</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural transactions noun for the timeline overview stat</shortDescription>
+        <value>transactions</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineEntry</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular entry noun for the timeline counts</shortDescription>
+        <value>entry</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineEntries</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Plural entries noun for the timeline counts</shortDescription>
+        <value>entries</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineErrorIn</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline overview marker naming the transaction that errored</shortDescription>
+        <value>error in {0}</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineAsync</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minimap label for a collapsed run of async transactions</shortDescription>
+        <value>Async</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineFrom</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline breadcrumb naming the parent transaction that spawned this hop</shortDescription>
+        <value>from {0}</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineGap</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline marker shown when a hop starts well after its parent ended</shortDescription>
+        <value>{0} gap before this hop; it was queued, or a step may be missing.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineCapOfTotal</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline cap row when more transactions exist than are shown</shortDescription>
+        <value>Showing the first {0} of {1} transactions. Open in Chain Monitor for the full chain.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineCapTruncated</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline cap row when the server truncated a very long trace</shortDescription>
+        <value>This trace is very long, so only its earliest entries are shown here. Open in Chain Monitor for the full chain.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineOpenedEntry</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marker on the timeline row that is the opened entry</shortDescription>
+        <value>Opened entry</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineNoFocusDetail</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Focus card note when the hop has no stack trace or context</shortDescription>
+        <value>No stack trace or context captured for this entry.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineLoadingFocus</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Focus card state while the hop detail loads</shortDescription>
+        <value>Loading detail…</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineFocusLoadFailed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Focus card state when the hop detail could not be loaded</shortDescription>
+        <value>Couldn't load this entry's detail. Open the record for the full detail.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LegendDebug</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline legend text for the debug severity dot</shortDescription>
+        <value>debug</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LegendInfo</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline legend text for the info severity dot</shortDescription>
+        <value>info</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LegendWarning</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline legend text for the warning severity dot</shortDescription>
+        <value>warning</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LegendError</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline legend text for the error severity dot</shortDescription>
+        <value>error</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LegendOpened</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline legend text for the opened-entry dot</shortDescription>
+        <value>opened entry</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DurationHours</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Duration unit: hours component of a timeline span</shortDescription>
+        <value>{0}h</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DurationMinutes</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Duration unit: minutes component of a timeline span</shortDescription>
+        <value>{0}m</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DurationSeconds</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Duration unit: seconds component of a timeline span</shortDescription>
+        <value>{0}s</value>
     </labels>
 </CustomLabels>

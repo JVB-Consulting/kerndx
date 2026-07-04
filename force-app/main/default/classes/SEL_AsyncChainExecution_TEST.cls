@@ -8,7 +8,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026
+ * @date April 2026, June 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -245,6 +245,88 @@ private class SEL_AsyncChainExecution_TEST
 			List<AsyncChainExecution__c> results = new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_RUNNING);
 
 			Assert.isFalse(results.isEmpty(), 'Should find the seeded AsyncChainExecution__c for low-privilege caller');
+		}
+	}
+
+	/**
+	 * @description Tier-A — proves SEL_AsyncChainExecution.existsByCorrelationId reports a registered chain
+	 * as existing even when the running user neither owns nor shares the chain record. The chain is seeded
+	 * owned by the admin (AsyncChainExecution__c is OWD=Private) and probed by a Minimum Access - Salesforce
+	 * user; the probe bypasses sharing (as the console's log reads and the Chain Monitor's org-wide listing
+	 * do), so it must still report the chain, otherwise Open in Chain Monitor would be hidden in exactly the
+	 * multi-user org the console targets.
+	 *
+	 * Catches: a future refactor that drops the sharing bypass from existsByCorrelationId would hide the
+	 * Chain Monitor entry point for chains the viewer does not own.
+	 *
+	 * @see SEL_AsyncChainExecution.existsByCorrelationId
+	 */
+	@IsTest
+	private static void shouldReportChainExistenceRegardlessOfSharing()
+	{
+		User lowPrivilegeUser = getLowPrivilegeUser();
+		String foreignCorrelationId = UTIL_Random.randomUUID();
+
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(AsyncChainExecution__c.SObjectType)
+					.withOverride(AsyncChainExecution__c.ChainName__c, 'ForeignOwnedChain')
+					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_RUNNING)
+					.withOverride(AsyncChainExecution__c.CorrelationId__c, foreignCorrelationId)
+					.build();
+		}
+
+		System.runAs(lowPrivilegeUser)
+		{
+			Assert.isTrue(new SEL_AsyncChainExecution().existsByCorrelationId(foreignCorrelationId),
+					'A registered chain owned by another user must still report as existing, so Open in Chain Monitor is offered consistently '
+					+ 'with how the console reads logs and how the monitor lists chains org-wide');
+			Assert.isFalse(new SEL_AsyncChainExecution().existsByCorrelationId(UTIL_Random.randomUUID()),
+					'An unknown correlation reports no chain');
+			Assert.isFalse(new SEL_AsyncChainExecution().existsByCorrelationId('   '),
+					'A blank correlation reports no chain without querying');
+		}
+	}
+
+	/**
+	 * @description Tier-A — proves findByCorrelationIdForMonitoring resolves a chain the running
+	 * user neither owns nor shares. The Log Console offers Open in Chain Monitor via the
+	 * sharing-bypassing existsByCorrelationId, so the deep-link resolve on the receiving side must
+	 * see the same record; a sharing-respecting read would silently land the deep link on the
+	 * default selection for every non-owner without View All.
+	 *
+	 * Catches: a future refactor that drops the sharing bypass from findByCorrelationIdForMonitoring
+	 * would break Open in Chain Monitor for exactly the multi-user orgs the console targets.
+	 *
+	 * @see SEL_AsyncChainExecution.findByCorrelationIdForMonitoring
+	 */
+	@IsTest
+	private static void shouldResolveForeignChainByCorrelationForMonitoring()
+	{
+		User lowPrivilegeUser = getLowPrivilegeUser();
+		String foreignCorrelationId = UTIL_Random.randomUUID();
+		Id seededExecutionId;
+
+		System.runAs(getTestAdmin())
+		{
+			seededExecutionId = TST_Builder.of(AsyncChainExecution__c.SObjectType)
+					.withOverride(AsyncChainExecution__c.ChainName__c, 'ForeignOwnedChain')
+					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_RUNNING)
+					.withOverride(AsyncChainExecution__c.CorrelationId__c, foreignCorrelationId)
+					.build()
+					.Id;
+		}
+
+		System.runAs(lowPrivilegeUser)
+		{
+			AsyncChainExecution__c resolved = new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring(foreignCorrelationId);
+
+			Assert.isNotNull(resolved, 'A chain owned by another user must resolve for the monitoring deep link');
+			Assert.areEqual(seededExecutionId, resolved.Id, 'The resolved chain must be the one carrying the correlation id');
+			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring(UTIL_Random.randomUUID()),
+					'An unknown correlation resolves to null');
+			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring('   '),
+					'A blank correlation resolves to null without querying');
 		}
 	}
 

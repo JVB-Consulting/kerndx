@@ -19,6 +19,11 @@ const TOOLS = [
 	{key: 'api-harness', title: 'api-harness'},
 	{key: 'streaming-monitor', title: 'streaming-monitor'},
 	{key: 'chain-monitor', title: 'chain-monitor'},
+	// log-console's poster is the ribbon-plus-problems opening state (grabbed mid-choreography),
+	// not the drilled-in timeline finale — the signature view should greet the reader. The clip
+	// plays back at 1.5x: the console reloads its list after every filter change, and at natural
+	// speed those settles read as dead air in a loop.
+	{key: 'log-console', title: 'log-console', posterFromShot: true, speed: 1.5},
 	{key: 'masking-advisor', title: 'masking-advisor'},
 	{key: 'scheduled-jobs', title: 'scheduled-jobs'},
 	// health-check's poster is taken from a hand-grabbed screenshot of the not-yet-healthy state
@@ -65,25 +70,33 @@ function findRawWebm(title)
 	return null;
 }
 
-function encodeWebm(input, output)
+// An optional per-tool `speed` factor (> 1 = faster playback) is applied via setpts. Committed
+// tools without one keep the identity filter chain, so their re-encodes stay byte-comparable.
+function videoFilter(speed)
+{
+	const pts = (speed && speed !== 1) ? `setpts=PTS/${speed},` : '';
+	return `${pts}scale=1280:-2`;
+}
+
+function encodeWebm(input, output, speed)
 {
 	execFileSync('ffmpeg', [
 		'-y', '-ss', String(LEAD_TRIM_SECONDS), '-i', input,
 		'-an', '-r', '30',
 		'-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32',
-		'-vf', 'scale=1280:-2',
+		'-vf', videoFilter(speed),
 		'-pix_fmt', 'yuv420p',
 		output
 	], {stdio: 'inherit'});
 }
 
-function encodeMp4(input, output)
+function encodeMp4(input, output, speed)
 {
 	execFileSync('ffmpeg', [
 		'-y', '-ss', String(LEAD_TRIM_SECONDS), '-i', input,
 		'-an', '-r', '30',
 		'-c:v', 'libx264', '-crf', '24', '-preset', 'slow',
-		'-vf', 'scale=1280:-2',
+		'-vf', videoFilter(speed),
 		'-pix_fmt', 'yuv420p',
 		'-movflags', '+faststart',
 		output
@@ -146,8 +159,8 @@ function processAll(only)
 		const webm = path.join(OUT_DIR, `${tool.key}.webm`);
 		const mp4 = path.join(OUT_DIR, `${tool.key}.mp4`);
 		const poster = path.join(OUT_DIR, `${tool.key}-poster.jpg`);
-		encodeWebm(raw, webm);
-		encodeMp4(raw, mp4);
+		encodeWebm(raw, webm, tool.speed);
+		encodeMp4(raw, mp4, tool.speed);
 		const shot = path.join(path.dirname(raw), 'problem-poster.png');
 		if(tool.posterFromShot && fs.existsSync(shot))
 		{

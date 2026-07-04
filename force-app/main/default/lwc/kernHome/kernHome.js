@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Kern developer control room. Displays health check banner and launch cards
- * for API Test Harness, Streaming Event Monitor, Chain Monitor, and Data Masking Advisor.
+ * for API Test Harness, Streaming Event Monitor, Chain Monitor, Data Masking Advisor, and
+ * Log Console.
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, July 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import ADMINISTRATION_TOOLS_HEADING from '@salesforce/label/c.KernHome_AdministrationToolsHeading';
@@ -18,6 +19,8 @@ import CHAIN_MONITOR_TITLE from '@salesforce/label/c.KernHome_ChainMonitor_Title
 import CHAIN_MONITOR_DESCRIPTION from '@salesforce/label/c.KernHome_ChainMonitor_Description';
 import DATA_MASKING_ADVISOR_TITLE from '@salesforce/label/c.KernHome_DataMaskingAdvisor_Title';
 import DATA_MASKING_ADVISOR_DESCRIPTION from '@salesforce/label/c.KernHome_DataMaskingAdvisor_Description';
+import LOG_CONSOLE_TITLE from '@salesforce/label/c.KernHome_LogConsole_Title';
+import LOG_CONSOLE_DESCRIPTION from '@salesforce/label/c.KernHome_LogConsole_Description';
 
 export default class KernHome extends ComponentBuilder('navigation')
 {
@@ -57,6 +60,9 @@ export default class KernHome extends ComponentBuilder('navigation')
 			description: DATA_MASKING_ADVISOR_DESCRIPTION,
 			buttonLabel: TOOL_OPEN_BUTTON,
 			launchTarget: 'DataMaskingAdvisor'
+		},
+		{
+			key: 'logConsole', iconName: 'custom:custom7', title: LOG_CONSOLE_TITLE, description: LOG_CONSOLE_DESCRIPTION, buttonLabel: TOOL_OPEN_BUTTON, launchTarget: 'LogConsole'
 		}
 	];
 

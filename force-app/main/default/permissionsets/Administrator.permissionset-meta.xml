@@ -65,6 +65,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>CTRL_LogConsole</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>CTRL_Logger</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -1345,6 +1349,10 @@
     </tabSettings>
     <tabSettings>
         <tab>KernHome</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>LogConsole</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>

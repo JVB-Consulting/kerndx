@@ -2,12 +2,14 @@
 /**
  * @description Jest unit tests for chainMonitor container LWC component
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, May 2026, July 2026
  */
 
 import {createElement} from 'lwc';
 import ChainMonitor from 'c/chainMonitor';
 import {subscribe, unsubscribe} from 'lightning/empApi';
+import {CurrentPageReference} from 'lightning/navigation';
+import {mockCallControllerMethod} from 'c/componentBuilder';
 
 describe('c-chain-monitor', () =>
 {
@@ -128,5 +130,143 @@ describe('c-chain-monitor', () =>
 		expect(() => streamingCallback({data: {payload: {}}})).not.toThrow();
 		expect(() => streamingCallback({data: {}})).not.toThrow();
 		expect(() => streamingCallback({})).not.toThrow();
+	});
+
+	// The container hosts the real chainMonitorList child, whose loadData also calls the
+	// controller mock — deep-link assertions therefore filter to calls carrying correlationId.
+	function getResolveCalls()
+	{
+		return mockCallControllerMethod.mock.calls.filter((call) => call[1] && 'correlationId' in call[1]);
+	}
+
+	function stubResolveResult(executionId)
+	{
+		mockCallControllerMethod.mockImplementation((controller, params) =>
+		{
+			if(typeof controller === 'function')
+			{
+				controller(params);
+			}
+			return Promise.resolve(params && 'correlationId' in params ? executionId : {});
+		});
+	}
+
+	it('should select the deep-linked chain when the correlation resolves', async() =>
+	{
+		stubResolveResult('resolved-chain-id');
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+		const selectById = jest.fn();
+		list.selectById = selectById;
+
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-9'}});
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(getResolveCalls()).toEqual([[expect.anything(), {correlationId: 'corr-9'}]]);
+		const detail = element.shadowRoot.querySelector('c-chain-monitor-detail');
+		expect(detail.executionId).toBe('resolved-chain-id');
+		expect(selectById).toHaveBeenCalledWith('resolved-chain-id');
+	});
+
+	it('should leave the default selection when the correlation resolves to no chain', async() =>
+	{
+		stubResolveResult(null);
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+		const selectById = jest.fn();
+		list.selectById = selectById;
+
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-unknown'}});
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const detail = element.shadowRoot.querySelector('c-chain-monitor-detail');
+		expect(detail.executionId).toBeNull();
+		expect(selectById).not.toHaveBeenCalled();
+	});
+
+	it('should resolve a repeated correlation only once', async() =>
+	{
+		stubResolveResult('resolved-chain-id');
+		await createComponent();
+
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-9'}});
+		await Promise.resolve();
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-9'}});
+		await Promise.resolve();
+
+		expect(getResolveCalls()).toHaveLength(1);
+	});
+
+	it('should ignore page references without a correlation', async() =>
+	{
+		await createComponent();
+
+		CurrentPageReference.emit({state: {}});
+		CurrentPageReference.emit({});
+		await Promise.resolve();
+
+		expect(getResolveCalls()).toHaveLength(0);
+	});
+
+	it('should keep the deep-linked chain when the list reconciles without it', async() =>
+	{
+		const offPagePayload = {
+			records: [{executionId: 'other-1', chainName: 'Other', status: 'Running', completedSteps: 0, totalSteps: 1}],
+			totalCount: 21, pageNumber: 1, totalPages: 2, hasMorePages: true
+		};
+		mockCallControllerMethod.mockImplementation((controller, params) =>
+		{
+			if(typeof controller === 'function')
+			{
+				controller(params);
+			}
+			return Promise.resolve(params && 'correlationId' in params ? 'off-page-chain-id' : offPagePayload);
+		});
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-off-page'}});
+		await Promise.resolve();
+		await Promise.resolve();
+		await list.refresh();
+		await Promise.resolve();
+
+		const detail = element.shadowRoot.querySelector('c-chain-monitor-detail');
+		expect(detail.executionId).toBe('off-page-chain-id');
+	});
+
+	it('should not stomp a selection the user made during the resolve', async() =>
+	{
+		let resolveDeepLink;
+		mockCallControllerMethod.mockImplementation((controller, params) =>
+		{
+			if(typeof controller === 'function')
+			{
+				controller(params);
+			}
+			if(params && 'correlationId' in params)
+			{
+				return new Promise((resolve) => { resolveDeepLink = resolve; });
+			}
+			return Promise.resolve({});
+		});
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+		const selectById = jest.fn();
+		list.selectById = selectById;
+
+		CurrentPageReference.emit({state: {c__correlationId: 'corr-slow'}});
+		await Promise.resolve();
+		list.dispatchEvent(new CustomEvent('select', {detail: {executionId: 'user-pick', isUserSelection: true}}));
+		await Promise.resolve();
+		resolveDeepLink('late-chain-id');
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const detail = element.shadowRoot.querySelector('c-chain-monitor-detail');
+		expect(detail.executionId).toBe('user-pick');
+		expect(selectById).not.toHaveBeenCalled();
 	});
 });

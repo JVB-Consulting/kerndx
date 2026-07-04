@@ -22,7 +22,9 @@ class KernReporter
 
 	onTestEnd(test, result)
 	{
-		const specMatch = test.parent?.title?.match(/Part\s*(\d)/i) || test.location?.file?.match(/part(\d)/);
+		// Multi-digit part numbers matter: with a single-digit capture, "Part 10" would
+		// truncate to part1 and silently misfile part10's results under part1's key.
+		const specMatch = test.parent?.title?.match(/Part\s*(\d+)/i) || test.location?.file?.match(/part(\d+)/);
 		if(!specMatch)
 		{
 			return;

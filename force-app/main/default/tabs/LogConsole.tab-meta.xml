@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>The Log Console tab provides a centralized workspace to browse, group, and diagnose log entries, with a distinct-problems view, a per-level summary, and a tabbed detail drawer.</description>
+    <flexiPage>LogConsole</flexiPage>
+    <label>Log Console</label>
+    <motif>Custom7: Square</motif>
+</CustomTab>

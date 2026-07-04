@@ -5,12 +5,13 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {copyToClipBoard} from 'c/utilitySystem';
 import getChainDetail from '@salesforce/apex/CTRL_ChainMonitor.getChainDetail';
+import viewLogsAction from '@salesforce/label/c.ChainMonitor_ViewLogsAction';
 
 const STATUS_ICONS = {
 	Running: 'standard:activations',
@@ -21,10 +22,14 @@ const STATUS_ICONS = {
 	Delayed: 'standard:shift_scheduling_operation'
 };
 
-export default class ChainMonitorDetail extends ComponentBuilder('controller', 'notification')
+export default class ChainMonitorDetail extends ComponentBuilder('controller', 'notification', 'navigation')
 {
 	detail = null;
 	currentExecutionId = null;
+
+	label = {
+		viewLogs: viewLogsAction
+	};
 
 	@api get executionId()
 	{
@@ -79,6 +84,11 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		return !!this.detail?.errorMessage;
 	}
 
+	get hasCorrelationId()
+	{
+		return !!this.detail?.correlationId;
+	}
+
 	get activeSections()
 	{
 		const sections = [
@@ -116,6 +126,19 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			await copyToClipBoard(this.detail.correlationId);
 			this.showSuccessToast('Correlation ID copied');
 		}
+	}
+
+	/**
+	 * @description Cross-links to the Log Console, deep-linking the correlated forensic
+	 * log entries for this chain execution. The template gates the action behind
+	 * `hasCorrelationId`, so `this.detail.correlationId` is always present when invoked.
+	 * The state param is `c__`-prefixed as the platform requires for custom URL state.
+	 */
+	handleViewLogs()
+	{
+		this.navigate({
+			type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}, state: {c__correlationId: this.detail.correlationId}
+		});
 	}
 
 	@api async refresh()

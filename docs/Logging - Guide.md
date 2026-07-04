@@ -95,30 +95,39 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
     - [Flow Simple Logging](#flow-simple-logging)
     - [Flow Bookend Pattern](#flow-bookend-pattern)
 15. [Testing](#testing)
-16. [Querying Log Entries](#querying-log-entries)
+16. [The Log Console](#the-log-console)
+    - [Where It Lives](#where-it-lives)
+    - [The Two Views](#the-two-views)
+    - [The Summary Ribbon](#the-summary-ribbon)
+    - [Filters, Search, and Date Range](#filters-search-and-date-range)
+    - [The Detail Drawer](#the-detail-drawer)
+    - [The Timeline Tab](#the-timeline-tab)
+    - [To and From the Chain Monitor](#to-and-from-the-chain-monitor)
+    - [What the Log Console Does Not Do](#what-the-log-console-does-not-do)
+17. [Querying Log Entries](#querying-log-entries)
     - [Why](#why)
     - [Right vs wrong](#right-vs-wrong)
     - [Reports and dashboards](#reports-and-dashboards)
     - [Cleanup scripts](#cleanup-scripts)
     - [Sharing considerations](#sharing-considerations)
-17. [How do I configure this?](#how-do-i-configure-this)
+18. [How do I configure this?](#how-do-i-configure-this)
     - [LogSetting__c Fields](#logsetting__c-fields)
     - [TriggerSetting__mdt Fields (Trigger Performance)](#triggersetting__mdt-fields-trigger-performance)
     - [TriggerAction__mdt Fields (Action-Level Control)](#triggeraction__mdt-fields-action-level-control)
-18. [Anti-Patterns](#anti-patterns)
-19. [Best Practices](#best-practices)
+19. [Anti-Patterns](#anti-patterns)
+20. [Best Practices](#best-practices)
     - [Always Include Context](#always-include-context)
     - [Use Appropriate Log Levels](#use-appropriate-log-levels)
     - [Never Log Sensitive Data](#never-log-sensitive-data)
     - [Use Correlation for Async Operations](#use-correlation-for-async-operations)
     - [Clean Up Context](#clean-up-context)
     - [Enable Performance Logging for Critical Operations](#enable-performance-logging-for-critical-operations)
-20. [Troubleshooting](#troubleshooting)
+21. [Troubleshooting](#troubleshooting)
     - [Logs Not Appearing](#logs-not-appearing)
     - [Missing Correlation](#missing-correlation)
     - [Performance Logs Missing](#performance-logs-missing)
     - [Context Not Appearing](#context-not-appearing)
-21. [Related Documentation](#related-documentation)
+22. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -134,6 +143,7 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
 | **Developer** | Add client-side logging       | [LWC Client-Side Logging](#lwc-client-side-logging)                          |
 | **Developer** | Test logging behaviour        | [Testing](#testing)                                                          |
 | **Developer** | Query persisted log entries   | [Querying Log Entries](#querying-log-entries)                                |
+| **DevOps**    | Diagnose a production problem | [The Log Console](#the-log-console)                                          |
 | **Analyst**   | Configure log filtering       | [How do I configure this?](#how-do-i-configure-this)                         |
 | **Analyst**   | Integrate logging in Flows    | [Flow Logging](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend) |
 
@@ -162,19 +172,19 @@ catch(Exception e)
 
 ```javascript
 import {ComponentBuilder} from 'c/componentBuilder';
-import {logger} from 'c/utilityLogger';
+import {startCorrelation, info, error} from 'c/utilityLogger';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
 	connectedCallback()
 	{
-		logger.startCorrelation();
-		logger.info('Component loaded', 'MyComponent.connectedCallback');
+		startCorrelation('MyComponent.load');
+		info('Component loaded');
 	}
 
-	handleError(error)
+	handleError(err)
 	{
-		logger.error(error.message, 'MyComponent.handleError');
+		error('Component action failed', err);
 	}
 }
 ```
@@ -200,6 +210,7 @@ The framework is 4 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), a
 
 - **One way to log from everywhere.** Write logs the same way from Apex, Lightning components, and Flows, so you learn one approach and use it across every layer.
 - **See one user action end to end.** Correlation tracking tags every related log with one tracking ID, so you can follow a single action across triggers, callouts, and background jobs instead of piecing it together by hand.
+- **Find production problems without writing a query.** The [Log Console](#the-log-console) groups recurring events into problems with occurrence counts, and its detail drawer walks one operation end to end, so diagnosis starts with a click rather than a SOQL query.
 - **Know which operation produced each log.** The context stack captures nested operation detail (query details, trigger info, and the like) automatically, so a log tells you where it came from.
 - **Surface only the slow operations.** Performance monitoring times operations automatically and logs only the ones that cross a threshold you set, so fast work stays quiet.
 - **Attach the details that matter to each entry.** Structured context lets you add key-value metadata to a log, so a record carries the account, user, or anything else you need to filter on later.
@@ -361,6 +372,8 @@ The first occurrence is kept in full: that is the row whose **Fingerprint** star
 - **To see what happened (one example per event kind):** filter **Fingerprint** starting with `detail:`. That gives you one full sample of each event kind.
 - **To count how often it happened:** SUM **Occurrence Count** over rows whose Fingerprint starts with `rollup:`. The sampled occurrence is already included in that count, so the rollup rows alone are the true total. Counting detail and rollup rows together double-counts, so do not add them.
 - A detail row's **Created Date** is the oldest retained sample, not the most recent. If your log purge job removes it, the next occurrence simply re-creates it. Rollup rows are counts, not forensic records, so their message reflects the window's first occurrence.
+
+You rarely need to do this reading by hand. [The Log Console](#the-log-console)'s **Problem summary** view performs the fold for you: one row per fingerprint, carrying the sample's message and the summed occurrence count. The rules above matter when you build your own reports or queries over the raw rows.
 
 **Framework bypass audit** uses this mechanism automatically. (A "bypass" is when a developer turns off a safety check; the framework records who did it, on which surface, and against what target.) Each distinct bypass identity keeps exactly one detail row in retained logs plus daily counters, so a bypass that fires inside a hot loop can no longer flood the log table. A *new* bypass identity appearing in production, such as a new code path or a new user, still lands loudly as a fresh detail row, so you are not blind to genuinely new activity.
 
@@ -642,45 +655,45 @@ your component that logging, and it tracks the correlation ID for you so a click
 
 ### LWC Setup
 
-Import the logger in your component:
+Import the logging functions your component needs (a default export bundling all of them is also available):
 
 ```javascript
-import {logger} from 'c/utilityLogger';
+import {debug, info, warn, error} from 'c/utilityLogger';
 ```
 
 ### LWC Basic Usage
 
+When you catch an error, pass the `Error` object itself as the second argument to `error()`. The framework keeps both halves: the error's message lands in the entry's context, and its JavaScript stack is saved as the entry's stack trace, so the record you open later shows what actually failed in the browser.
+
 ```javascript
 import {ComponentBuilder} from 'c/componentBuilder';
-import {logger} from 'c/utilityLogger';
+import {debug, info, error} from 'c/utilityLogger';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
 	connectedCallback()
 	{
-		logger.info('Component initialized', 'MyComponent.connectedCallback');
+		info('Component initialized');
 	}
 
 	handleButtonClick()
 	{
-		logger.debug('Button clicked', 'MyComponent.handleButtonClick');
+		debug('Button clicked');
 
 		try
 		{
 			this.processData();
 		}
-		catch(error)
+		catch(err)
 		{
-			logger.error(error.message, 'MyComponent.handleButtonClick', {
-				errorName: error.name,
-				stack: error.stack
-			});
+			// Pass the Error itself: its message and JavaScript stack persist with the entry
+			error('Processing failed', err);
 		}
 	}
 
 	processData()
 	{
-		logger.info('Processing data', 'MyComponent.processData', {
+		info('Processing data', {
 			recordCount: this.records.length
 		});
 	}
@@ -691,7 +704,7 @@ export default class MyComponent extends ComponentBuilder('notification')
 
 ```javascript
 import {ComponentBuilder} from 'c/componentBuilder';
-import {logger} from 'c/utilityLogger';
+import {startCorrelation, endCorrelation, info, error} from 'c/utilityLogger';
 import processRecords from '@salesforce/apex/MyController.processRecords';
 
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
@@ -699,9 +712,7 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 	async handleProcess()
 	{
 		// Start correlation for this user action
-		const correlationId = logger.startCorrelation();
-
-		logger.info('Starting process', 'MyComponent.handleProcess');
+		const correlationId = startCorrelation('Process records');
 
 		try
 		{
@@ -711,26 +722,33 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 				correlationId: correlationId
 			});
 
-			logger.info('Process completed', 'MyComponent.handleProcess', {
+			info('Process completed', {
 				successCount: result.successCount
 			});
 		}
-		catch(error)
+		catch(err)
 		{
-			logger.error('Process failed: ' + error.body?.message, 'MyComponent.handleProcess');
+			error('Process failed', err);
+		}
+		finally
+		{
+			// Closes the correlation and flushes the buffered logs to the server
+			endCorrelation();
 		}
 	}
 }
 ```
 
+If you would rather not manage the start/end pair yourself, `withCorrelation(actionName, asyncFn)` wraps it for you; see the [LWC guide](LWC%20-%20Guide.md#utilitylogger---client-side-logging) for the full `utilityLogger` surface.
+
 ### LWC Performance Timing
 
 ```javascript
-import {logger} from 'c/utilityLogger';
+import {startTimer, error} from 'c/utilityLogger';
 
 async loadData()
 {
-	const timer = logger.startTimer('LoadAccountData');
+	const timer = startTimer('LoadAccountData');
 
 	try
 	{
@@ -739,10 +757,10 @@ async loadData()
 
 		this.accountData = data;
 	}
-	catch(error)
+	catch(err)
 	{
 		timer.stop();
-		logger.error('Failed to load data', 'MyComponent.loadData');
+		error('Failed to load data', err);
 	}
 }
 ```
@@ -751,6 +769,9 @@ async loadData()
 
 Logs you write in the browser are not useful until they reach Salesforce and become records. The `utilityLogger` module sends its buffered logs to the server for you. A framework
 controller receives them and joins the browser's correlation ID to the server-side entries, so the whole user action stays linked from the click through to the Apex.
+
+The payload you logged survives the trip too: your context keys are saved on the entry in `ContextData__c`, and a JavaScript error's stack becomes the entry's stack trace. What you
+open later in [the Log Console](#the-log-console) is the client's story, not server plumbing.
 
 **How It Works:**
 
@@ -766,13 +787,13 @@ controller receives them and joins the browser's correlation ID to the server-si
 
 **Client Log Entry Structure:**
 
-| Property        | Type                | Description              |
-|-----------------|---------------------|--------------------------|
-| `timestamp`     | Datetime            | When the log was created |
-| `level`         | LoggingLevel        | DEBUG, INFO, WARN, ERROR |
-| `message`       | String              | Log message              |
-| `correlationId` | String              | Links related logs       |
-| `context`       | Map<String, Object> | Additional context data  |
+| Property        | Type          | Description                                                                                                 |
+|-----------------|---------------|-------------------------------------------------------------------------------------------------------------|
+| `timestamp`     | Datetime      | When the log was created                                                                                    |
+| `level`         | LoggingLevel  | DEBUG, INFO, WARN, ERROR                                                                                    |
+| `message`       | String        | Log message                                                                                                 |
+| `correlationId` | String        | Links related logs                                                                                          |
+| `context`       | String (JSON) | Key-value context data, saved on the entry in `ContextData__c`; an `errorStack` key becomes the stack trace |
 
 **Server-Side Processing:**
 
@@ -781,10 +802,10 @@ When logs arrive from LWC, the server controller:
 1. Extracts the correlation ID from the first log entry
 2. Links it with any subsequent server-side logs
 3. Pushes an LWC operation context onto the context stack
-4. Logs each entry via [`LOG_Builder`](reference/apex/LOG_Builder.md)
+4. Logs each entry via [`LOG_Builder`](reference/apex/LOG_Builder.md): the client context is saved on the entry in `ContextData__c`, a client JavaScript error stack (the `errorStack` key) becomes the entry's stack trace, and the action name you gave `startCorrelation` becomes the entry's source label (`LWC/<action>`)
 5. Pops the LWC context
 
-This ensures LWC logs appear in `LogEntry__c` with proper correlation and context.
+This ensures LWC logs appear in `LogEntry__c` with proper correlation, context, and stack trace, exactly as [the Log Console](#the-log-console)'s detail drawer shows them.
 
 ### Console Fallback
 
@@ -792,8 +813,8 @@ If the logs cannot reach the server (for example the Apex call fails), they are 
 debugging:
 
 ```text
-[utilityLogger] Failed to persist logs to server: [error details]
-[utilityLogger] Fallback - buffered logs:
+[utilityLogger] Server persistence failed: [error details]
+[utilityLogger] Buffered entries:
   [INFO] 2025-01-15T10:30:00.000Z | abc-123-def | Component initialized {...}
   [ERROR] 2025-01-15T10:30:01.000Z | abc-123-def | Process failed {...}
 ```
@@ -812,7 +833,7 @@ When you just need to drop a single log message and do not need it linked to any
 **[`FLOW_WriteLog`](reference/apex/FLOW_WriteLog.md)** (Full control):
 
 - `message` (Required) - The message to log
-- `logLevel` (Optional) - DEBUG, INFO, WARN, ERROR
+- `logLevel` (Optional) - DEBUG, INFO, WARN, ERROR (Flow Builder offers these as a picklist)
 - `shortMessage` (Optional) - Brief summary
 - `classMethod` (Optional) - Context identifier
 - `recordId` (Optional) - Associated record
@@ -841,7 +862,7 @@ You start the correlation once, pass the returned ID into each log along the way
 |----------------------------|--------------------------|
 | `correlationId` (Required) | From FLOW_LoggerStart    |
 | `message` (Required)       | Log message              |
-| `logLevel` (Optional)      | DEBUG, INFO, WARN, ERROR |
+| `logLevel` (Optional)      | DEBUG, INFO, WARN, ERROR (picklist in Flow Builder) |
 | `shortMessage` (Optional)  | Brief summary            |
 | `recordId` (Optional)      | Associated record        |
 | `stepName` (Optional)      | Current Flow step        |
@@ -937,7 +958,118 @@ private class MyService_TEST
 
 ---
 
+## The Log Console
+
+When something breaks in production, the question is rarely "show me every log row". It is "what is failing, how often, and what happened around it?". The Log Console answers that
+in two moves: a grouped view that surfaces distinct problems with occurrence counts, and a detail drawer that walks one occurrence end to end, across every trigger, background job,
+and callout that shared its tracking ID.
+
+You never write a query to use it. Filtering, search, grouping, and the timeline all work over the `LogEntry__c` rows the framework has already saved, and browsing changes
+nothing: the console only reads.
+
+### Where It Lives
+
+Open it from the **App Launcher** (search "Log Console"), from its launch card on the **Kern Home** page, or navigate directly to `/lightning/n/LogConsole`. The
+[Administration Tools guide](Administration%20Tools%20-%20Guide.md) tours it alongside the other consoles.
+
+Access sits behind the **Kern Administrator** permission set. The console deliberately shows every user's log rows, not just your own, so a production problem is visible no matter
+whose click triggered it. That breadth is exactly why access is gated to administrators.
+
+### The Two Views
+
+Two buttons at the top switch how the same window of logs is read:
+
+- **Problem summary** (the default) folds the window into distinct problems: one row per recurring event, with its total occurrence count and when it last fired. This is the
+  reading side of [Log Grouping & Flood Control](#log-grouping--flood-control): events logged with a fingerprint group into a single row, the daily counters supply the count, and
+  the kept sample supplies the message, level, and source. The framework's own bypass audit is fingerprinted for you, so it appears here automatically. Rows sort by occurrence
+  count, so the noisiest problem sits at the top.
+- **Individual entries** shows the flat rows, newest first: every kept entry, including the ones logged without a fingerprint (which the Problem summary does not group). The
+  counter rows that only hold a tally stay out of this list, so everything you see is a real, inspectable entry.
+
+Every column in both views is sortable, and sorting happens on the server, so it orders the full result in your date range, not just the rows you have scrolled through. The
+**Log Number** column links straight to the `LogEntry__c` record.
+
+### The Summary Ribbon
+
+Across the top, a ribbon summarises the whole window regardless of how far you have scrolled:
+
+- a **total** card: the total occurrences and how many distinct problems they fold into (in Individual entries, the count of matching rows instead),
+- one card per active **level**, showing that level's occurrences and its distinct-problem count (row counts in Individual entries), and
+- a **Top sources** card ranking the three sources producing the most activity: each one's share of occurrences in Problem summary, its row count in Individual entries.
+
+The cards are shortcuts, not just numbers: click a level card to narrow the list to that level, or click a source to drill into it.
+
+**When totals show as approximate.** A very busy window can hold more grouped activity than the console reads in one pass. When that happens, the total card carries a
+**Totals approximate** badge: the counts cover the most recent activity, and the true total may be higher. The badge is the console being honest about a best-effort number instead
+of presenting it as exact. Narrow the date range and it disappears.
+
+### Filters, Search, and Date Range
+
+- **Log levels.** Toggle ERROR, WARN, INFO, and DEBUG independently. ERROR and WARN start on, so the console opens showing problems rather than routine tracing.
+- **Execution context.** Filter to where the code was running: Batch Apex, Queueable, Queueable finalizer, Scheduled, Future, Aura / LWC, REST API, Synchronous, or Anonymous Apex.
+- **Date range.** One picklist covers rolling windows (Last 15 minutes up to Last 30 days), calendar ranges (Today, Yesterday, This week, Last week, This month) computed in your
+  time zone, and a custom From/To date-and-time pair. The default is the last 24 hours.
+- **Search.** One box searches messages and problem text, stack traces, source class and method names, and correlation IDs, re-querying when you pause typing. Problem-text and
+  correlation matches are immediate; matches inside a long message body or stack trace go through Salesforce's search index, so an entry saved seconds ago can take a moment to
+  become findable by its body.
+
+Results load a page at a time as you scroll, while the ribbon keeps describing the whole window. If a search matches more rows than the console will page through, a banner says so
+and asks you to narrow the filters. **Refresh** re-runs everything; **Clear all** returns every filter to its default.
+
+### The Detail Drawer
+
+Click any row and a drawer opens with the entry's full story, in four tabs:
+
+- **Overview**: the full message, plus a details grid: the log number, the source (`Class.method:line`), the execution context, the user who produced the entry (shown by name; the
+  console resolves the stored user ID for you, sidestepping the `CreatedById` trap described under [Querying Log Entries](#querying-log-entries)), the correlation ID, and the
+  transaction and parent-transaction IDs. In Problem summary the drawer also shows the occurrence count and the first-seen and last-seen times. Below that sit the
+  **governor limits at capture**: usage bars for each limit the transaction had consumed when the entry was saved, showing only the limits actually used.
+- **Stack trace**: the stored stack trace, with a copy button. For an entry logged from a Lightning component this is the client's JavaScript stack (see
+  [Server Persistence](#server-persistence)).
+- **Context**: the entry's context data as JSON, the key-value pairs attached through global context, `.withContext(...)`, or a client-side log call.
+- **Timeline**: the correlated execution, described next.
+
+**Open record** opens the standard `LogEntry__c` record page for the entry.
+
+### The Timeline Tab
+
+The timeline reconstructs the whole operation the entry belongs to. Every entry sharing the correlation ID is grouped into its Apex transactions and laid out in time order, so you
+see the operation the way it actually ran: a click, the synchronous transaction it started, and the queueables, batch steps, and finalizers that followed.
+
+Each transaction group shows where the work ran, when it started relative to the first entry (`start`, `+3s`, `+2m`), how long it spanned, how many entries it holds, and a colour
+for its worst severity. A breadcrumb notes which transaction spawned it, and a gap marker calls out a hop that started long after its parent ended (it was queued, or a step may be
+missing). For long chains, a compact overview strip at the top maps the whole run; click a segment to jump to that transaction.
+
+Click any entry in the timeline to focus it in place: its full message, stack trace, and context appear inline, so you can walk hop by hop through the operation without losing
+your place in the console. A very long trace is capped, and the drawer points you to the Chain Monitor for the rest.
+
+An entry with no correlation ID shows a single-entry timeline and says so plainly: it stands alone.
+
+### To and From the Chain Monitor
+
+When the correlated operation is a registered [async chain](Async%20Processing%20-%20Guide.md), the drawer offers **Open in Chain Monitor**, which opens that chain's live status
+view. The console verifies that a chain really exists for the correlation before showing the action, so you never land on an empty monitor. Entries that are correlated but not
+part of a registered chain get a timeline note saying so instead.
+
+The link works in the other direction too: the Chain Monitor's detail panel has a **View logs** action that opens the Log Console pre-filtered to that chain's correlation ID. A
+deep link like that lands on Individual entries with all four levels on and the widest rolling window, so an older chain's rows are still visible, and the pinned correlation shows
+as a removable pill, so you can see, and clear, exactly what is filtering the list.
+
+### What the Log Console Does Not Do
+
+- **It never changes your data.** Browsing, filtering, and drilling are reads. There is no edit, delete, or purge in the console.
+- **It reads this framework's log table only.** It shows `LogEntry__c` rows. Salesforce debug logs and other packages' log stores do not appear here.
+- **The Problem summary groups fingerprinted events.** An entry logged without a fingerprint appears in Individual entries but is not folded into a problem row. Give your
+  recurring events a [fingerprint](#log-grouping--flood-control) and the grouping works for you.
+- **It is not an analytics dashboard.** For charts, trends, and scheduled reporting, build reports and dashboards on `LogEntry__c` (see
+  [Querying Log Entries](#querying-log-entries)). The console is for finding and diagnosing problems now.
+
+---
+
 ## Querying Log Entries
+
+When you want to browse or diagnose logs interactively, [the Log Console](#the-log-console) is the front door and needs no query at all. This section is for when you query
+`LogEntry__c` yourself: in reports, dashboards, cleanup scripts, or Apex.
 
 There is one trap to know about before you query your logs. When you want the logs for a particular user (in reports, dashboards, cleanup scripts, or audit
 queries), **filter by `UserId__c`, NOT by `CreatedById`**. Filtering by `CreatedById` looks correct but silently returns nothing, and the next section explains why.
@@ -1179,12 +1311,13 @@ finally
 ## Related Documentation
 
 - [Objects & Metadata - Guide](Objects%20%26%20Metadata%20-%20Guide.md) - LogEntry__c, LogSetting__c details
-- [Async Processing - Guide](Async%20Processing%20-%20Guide.md) - Async context propagation patterns
+- [Administration Tools - Guide](Administration%20Tools%20-%20Guide.md) - The consoles on the Kern Home page, the Log Console included
+- [Async Processing - Guide](Async%20Processing%20-%20Guide.md) - Async context propagation patterns and the Chain Monitor
 - [Web Services - Guide](Web%20Services%20-%20Guide.md) - Automatic API logging
 - [Triggers - Guide](Triggers%20-%20Guide.md) - Trigger action logging
 - [Fast Start - Logging](Fast%20Start%20-%20Logging.md) - Quick-start primer for logging
 
 ---
 
-**Last Updated:** April 2026
-**Guide Version:** 2.1
+**Last Updated:** July 2026
+**Guide Version:** 2.2

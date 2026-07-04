@@ -1,0 +1,130 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class="log-console">
+		<div class="brandbar">
+			<span class="title">{label.title}</span>
+		</div>
+
+		<div class="toolrow slds-grid slds-grid_vertical-align-end slds-wrap slds-gutters_xx-small slds-p-around_x-small">
+			<lightning-combobox class="date-range-combobox" dropdown-alignment="left" label={label.dateRange} onchange={handleDateRangeChange} options={dateRangeOptions}
+			                    value={rangePreset}></lightning-combobox>
+			<template lwc:if={isCustomRange}>
+				<lightning-input class="customrange-field slds-m-left_x-small" data-field="fromDate" label={label.fromDate} onchange={handleCustomRangeChange} type="date"
+				                 value={customFromDate}></lightning-input>
+				<lightning-input class="customrange-field" data-field="fromTime" label={label.fromTime} onchange={handleCustomRangeChange} type="time"
+				                 value={customFromTime}></lightning-input>
+				<lightning-input class="customrange-field" data-field="toDate" label={label.toDate} onchange={handleCustomRangeChange} type="date"
+				                 value={customToDate}></lightning-input>
+				<lightning-input class="customrange-field" data-field="toTime" label={label.toTime} onchange={handleCustomRangeChange} type="time"
+				                 value={customToTime}></lightning-input>
+			</template>
+			<span class="slds-col_bump-left"></span>
+			<lightning-button class="slds-align-bottom" icon-name="utility:refresh" label={label.refresh} onclick={handleRefresh}></lightning-button>
+		</div>
+
+		<div class="filterrow slds-grid slds-grid_vertical-align-center slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small slds-p-bottom_x-small">
+			<lightning-button-group>
+				<lightning-button data-view="problems" label={label.viewProblems} onclick={handleViewChange} variant={problemsVariant}></lightning-button>
+				<lightning-button data-view="entries" label={label.viewEntries} onclick={handleViewChange} variant={entriesVariant}></lightning-button>
+			</lightning-button-group>
+
+			<div aria-label={label.levelGroupLabel} class="level-seg slds-m-left_x-small" role="group">
+				<template for:each={levelToggles} for:item="toggle">
+					<!-- aria-pressed binds a valid true/false string at run time; the inspector cannot prove that for a bound value -->
+					<!--suppress HtmlWrongAttributeValue -->
+					<button aria-pressed={toggle.pressed} class="level-seg-btn" data-level={toggle.level} key={toggle.level} onclick={handleLevelToggle}>
+						{toggle.level}
+					</button>
+				</template>
+			</div>
+
+			<lightning-combobox class="slds-m-left_x-small filter-combobox" label={label.contextFilterLabel} onchange={handleContextChange} options={contextOptions}
+			                    placeholder={label.allContexts} value={executionEvent} variant="label-hidden"></lightning-combobox>
+
+			<template lwc:if={correlationId}>
+				<lightning-pill class="slds-m-left_x-small correlation-pill" data-testid="correlation-pill" label={correlationPillLabel}
+				                onremove={handleRemoveCorrelation}></lightning-pill>
+			</template>
+
+			<lightning-input class="slds-m-left_x-small filter-search" label={label.searchPlaceholder} onchange={handleSearch} placeholder={label.searchPlaceholder} type="search"
+			                 value={searchTerm} variant="label-hidden"></lightning-input>
+
+			<lightning-button class="slds-m-left_x-small" label={label.clearAll} onclick={handleClearAll} variant="base"></lightning-button>
+		</div>
+
+		<div class="summary slds-grid slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small">
+			<template for:each={summaryCards} for:item="card">
+				<template lwc:if={card.isSources}>
+					<div class="summary-card summary-card_sources" data-testid="summary-card" key={card.key}>
+						<div class="lab">{card.label}</div>
+						<template lwc:if={card.hasSources}>
+							<template for:each={card.sources} for:item="source">
+								<button class="source-row" data-source={source.name} data-testid="source-row" key={source.key} onclick={handleSourceDrill} type="button">
+									<span class="rank">{source.rank}</span>
+									<span class="sname">{source.name}</span>
+									<span class="metric">{source.metric}</span>
+								</button>
+							</template>
+						</template>
+						<template lwc:else>
+							<div class="footnote slds-text-color_weak">&mdash;</div>
+						</template>
+					</div>
+				</template>
+				<template lwc:elseif={card.isLevel}>
+					<button class={card.cardClass} data-level={card.level} data-testid="summary-card" key={card.key} onclick={handleLevelCardFilter} type="button">
+						<div class="lab">{card.label}</div>
+						<div class="val">
+							<lightning-formatted-number value={card.value}></lightning-formatted-number>
+						</div>
+						<div class="footnote slds-text-color_weak">{card.footnote}</div>
+					</button>
+				</template>
+				<template lwc:else>
+					<div class={card.cardClass} data-testid="summary-card" key={card.key}>
+						<div class="lab">{card.label}</div>
+						<div class="val">
+							<lightning-formatted-number value={card.value}></lightning-formatted-number>
+						</div>
+						<div class="footnote slds-text-color_weak">{card.footnote}</div>
+						<template lwc:if={card.isApproximate}>
+							<div class="approximate-badge" data-testid="totals-approximate" title={label.totalsApproximateHelp}>{label.totalsApproximate}</div>
+						</template>
+					</div>
+				</template>
+			</template>
+		</div>
+
+		<template lwc:if={resultsTruncated}>
+			<div aria-live="polite" class="cappedbanner" data-testid="capped-banner" role="alert">{resultsTruncatedText}</div>
+		</template>
+
+		<div class="body-row slds-grid">
+			<div class="main slds-col">
+				<div class="listwrap">
+					<template lwc:if={isLoading}>
+						<div class="slds-p-around_large slds-align_absolute-center">
+							<lightning-spinner alternative-text={label.loadingAlt} size="small"></lightning-spinner>
+						</div>
+					</template>
+					<template lwc:elseif={isEmpty}>
+						<div class="empty slds-p-around_large slds-text-align_center slds-text-color_weak" data-testid="empty-state" role="status">{label.emptyState}</div>
+					</template>
+					<template lwc:else>
+						<c-log-console-table class="list-table" columns={columns} data={records} enable-infinite-loading is-loading={isLoadingMore} key-field="id"
+						                     max-row-selection="1" onloadmore={handleLoadMore} onrowselection={handleRowSelection} onsort={handleSort} selected-rows={selectedRows}
+						                     sorted-by={sortedBy} sorted-direction={sortDirection}></c-log-console-table>
+					</template>
+				</div>
+			</div>
+
+			<template lwc:if={hasSelection}>
+				<div class="panel" data-testid="detail-panel">
+					<c-log-console-detail detail={selectedDetail} focused-detail={selectedFocusedDetail} occurrence-count={selectedOccurrenceCount} onclose={handleDetailClose}
+					                      onentryfocus={handleEntryFocus} onnavigatechain={handleNavigateChain} onopenrecord={handleOpenRecord} trace={selectedTrace}
+					                      trace-truncated={selectedTraceTruncated} view={view}></c-log-console-detail>
+				</div>
+			</template>
+		</div>
+	</div>
+</template>

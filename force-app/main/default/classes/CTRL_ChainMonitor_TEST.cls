@@ -360,4 +360,37 @@ private class CTRL_ChainMonitor_TEST
 		Assert.areEqual('45s', summary.durationLabel, 'Duration label should be formatted');
 	}
 
+	@IsTest
+	private static void shouldFindChainExecutionIdByCorrelation()
+	{
+		String correlationId = UTIL_Random.randomUUID();
+		AsyncChainExecution__c execution = (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
+				.withOverride(AsyncChainExecution__c.ChainName__c, TEST_CHAIN)
+				.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_RUNNING)
+				.withOverride(AsyncChainExecution__c.CorrelationId__c, correlationId)
+				.build();
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, 'OtherChain');
+
+		Id resolvedId = CTRL_ChainMonitor.findChainExecutionIdByCorrelation(correlationId);
+
+		Assert.areEqual(execution.Id, resolvedId, 'Should resolve the chain execution that carries the correlation id');
+	}
+
+	@IsTest
+	private static void shouldReturnNullForUnknownCorrelation()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN);
+
+		Id resolvedId = CTRL_ChainMonitor.findChainExecutionIdByCorrelation(UTIL_Random.randomUUID());
+
+		Assert.isNull(resolvedId, 'Should return null when no chain carries the correlation id');
+	}
+
+	@IsTest
+	private static void shouldReturnNullForBlankCorrelation()
+	{
+		Assert.isNull(CTRL_ChainMonitor.findChainExecutionIdByCorrelation(null), 'Should return null for a null correlation id');
+		Assert.isNull(CTRL_ChainMonitor.findChainExecutionIdByCorrelation(''), 'Should return null for an empty correlation id');
+	}
+
 }

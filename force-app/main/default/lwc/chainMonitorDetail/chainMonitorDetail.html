@@ -19,6 +19,11 @@
 						<span class="slds-text-body_small slds-text-color_weak" data-testid="progress-label">{progressLabel}</span>
 					</div>
 				</div>
+				<template if:true={hasCorrelationId}>
+					<div class="slds-media__figure slds-media__figure_reverse">
+						<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs} variant="neutral"></lightning-button>
+					</div>
+				</template>
 			</div>
 
 			<!-- Progress bar -->

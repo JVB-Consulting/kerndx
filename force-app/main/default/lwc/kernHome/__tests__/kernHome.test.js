@@ -23,6 +23,8 @@ jest.mock('@salesforce/label/c.KernHome_ChainMonitor_Title', () => ({default: 'C
 jest.mock('@salesforce/label/c.KernHome_ChainMonitor_Description', () => ({default: 'Monitor async chain executions...'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_DataMaskingAdvisor_Title', () => ({default: 'Data Masking Advisor'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_DataMaskingAdvisor_Description', () => ({default: 'Surface sensitive fields, preview rule output...'}), {virtual: true});
+jest.mock('@salesforce/label/c.KernHome_LogConsole_Title', () => ({default: 'Log Console'}), {virtual: true});
+jest.mock('@salesforce/label/c.KernHome_LogConsole_Description', () => ({default: 'Browse and group log entries...'}), {virtual: true});
 
 describe('c-kern-home', () =>
 {
@@ -70,12 +72,12 @@ describe('c-kern-home', () =>
 		expect(outerCard.iconName).toBe('utility:setup');
 	});
 
-	it('should render four tool cards inside the Administration Tools card', async() =>
+	it('should render five tool cards inside the Administration Tools card', async() =>
 	{
 		const element = await createComponent();
 
 		const toolCards = getToolCards(element);
-		expect(toolCards).toHaveLength(4);
+		expect(toolCards).toHaveLength(5);
 	});
 
 	it('should render the expected tool titles', async() =>
@@ -87,6 +89,7 @@ describe('c-kern-home', () =>
 		expect(toolCards[1].title).toBe('Streaming Event Monitor');
 		expect(toolCards[2].title).toBe('Chain Monitor');
 		expect(toolCards[3].title).toBe('Data Masking Advisor');
+		expect(toolCards[4].title).toBe('Log Console');
 	});
 
 	it('should render the expected icon names on each tool card (matching their tab motifs)', async() =>
@@ -98,6 +101,7 @@ describe('c-kern-home', () =>
 		expect(toolCards[1].iconName).toBe('custom:custom30');
 		expect(toolCards[2].iconName).toBe('custom:custom57');
 		expect(toolCards[3].iconName).toBe('custom:custom91');
+		expect(toolCards[4].iconName).toBe('custom:custom7');
 	});
 
 	it('should navigate to the api test harness tab when the open button is clicked', async() =>
@@ -149,6 +153,19 @@ describe('c-kern-home', () =>
 
 		expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({
 			type: 'standard__navItemPage', attributes: {apiName: 'DataMaskingAdvisor'}
+		}));
+	});
+
+	it('should navigate to the log console page when the open button is clicked', async() =>
+	{
+		const element = await createComponent();
+
+		const button = element.shadowRoot.querySelector('lightning-button[data-key="logConsole"]');
+		button.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({
+			type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}
 		}));
 	});
 

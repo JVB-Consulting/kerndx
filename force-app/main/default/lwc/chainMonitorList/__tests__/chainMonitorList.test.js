@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for chainMonitorList LWC component
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, May 2026, July 2026
  */
 
 import {createElement} from 'lwc';
@@ -406,10 +406,37 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: {executionId: 'id-1'}}));
+		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: expect.objectContaining({executionId: 'id-1', isUserSelection: false})}));
 
 		const datatable = element.shadowRoot.querySelector('lightning-datatable');
 		expect(datatable.selectedRows).toEqual(['id-1']);
+	});
+
+	it('should mark row clicks as user selections', async() =>
+	{
+		const element = await createComponent();
+		const handler = jest.fn();
+		element.addEventListener('select', handler);
+
+		const datatable = element.shadowRoot.querySelector('lightning-datatable');
+		datatable.dispatchEvent(new CustomEvent('rowselection', {detail: {selectedRows: [{executionId: 'id-2'}]}}));
+		await Promise.resolve();
+
+		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: expect.objectContaining({executionId: 'id-2', isUserSelection: true})}));
+	});
+
+	it('should keep an off-page selection across refresh', async() =>
+	{
+		const element = await createComponent();
+		element.selectById('off-page-id');
+		await Promise.resolve();
+		const handler = jest.fn();
+		element.addEventListener('select', handler);
+
+		await element.refresh();
+		await Promise.resolve();
+
+		expect(handler).not.toHaveBeenCalled();
 	});
 
 	it('should handle null controller response', async() =>
@@ -423,7 +450,7 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: {executionId: null}}));
+		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: expect.objectContaining({executionId: null})}));
 
 		const datatable = element.shadowRoot.querySelector('lightning-datatable');
 		expect(datatable.data).toEqual([]);
@@ -442,6 +469,32 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: {executionId: null}}));
+		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: expect.objectContaining({executionId: null})}));
+	});
+
+	it('should select a deep-linked execution via selectById', async() =>
+	{
+		mockCallControllerMethod.mockResolvedValue(MOCK_PAGE);
+		const element = await createComponent();
+		const handler = jest.fn();
+		element.addEventListener('select', handler);
+
+		element.selectById('id-2');
+		await Promise.resolve();
+
+		expect(handler).toHaveBeenCalledWith(expect.objectContaining({detail: expect.objectContaining({executionId: 'id-2'})}));
+	});
+
+	it('should ignore selectById without an execution id', async() =>
+	{
+		mockCallControllerMethod.mockResolvedValue(MOCK_PAGE);
+		const element = await createComponent();
+		const handler = jest.fn();
+		element.addEventListener('select', handler);
+
+		element.selectById(null);
+		await Promise.resolve();
+
+		expect(handler).not.toHaveBeenCalled();
 	});
 });

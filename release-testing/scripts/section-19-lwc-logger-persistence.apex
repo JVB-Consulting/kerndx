@@ -191,6 +191,89 @@ try
 		System.debug('19h PASS: LOG_Builder accepted all 4 log levels from subscriber');
 	}
 
+	// Test 19i: LWC client error stack persists into StackTrace__c (not framework plumbing)
+	// The harness's "Test Persistence" button throws a real browser Error and logs it, so the
+	// persisted row must carry the CLIENT JavaScript frames — a trace made of Class.kern.* frames
+	// means the framework persisted its own logging plumbing instead of the client payload.
+	// NOTE: kern__StackTrace__c is Long Text Area — cannot filter in SOQL WHERE. Filter in Apex.
+	{
+		List<kern__LogEntry__c> errorRows =
+		[
+				SELECT
+						kern__Message__c,
+						kern__StackTrace__c
+				FROM kern__LogEntry__c
+				WHERE kern__ClassMethod__c LIKE 'LWC/%'
+				AND kern__LogLevel__c = 'ERROR'
+				ORDER BY CreatedDate DESC
+				LIMIT 50
+		];
+
+		kern__LogEntry__c clientStackRow = null;
+		for(kern__LogEntry__c row : errorRows)
+		{
+			if(row.kern__Message__c != null && row.kern__Message__c.contains('error with client stack'))
+			{
+				clientStackRow = row;
+				break;
+			}
+		}
+
+		if(clientStackRow == null)
+		{
+			System.debug('19i INFO: No client-stack test entry found yet. Ensure "Test Persistence" was clicked (async platform events may still be in flight).');
+		}
+		else
+		{
+			System.assert(String.isNotBlank(clientStackRow.kern__StackTrace__c),
+					'19i FAIL: The LWC error row should persist the client JavaScript stack into StackTrace__c');
+			System.assert(!clientStackRow.kern__StackTrace__c.contains('Class.kern.'),
+					'19i FAIL: StackTrace__c should carry client frames, not kern framework plumbing. Got: ' + clientStackRow.kern__StackTrace__c);
+			System.debug('19i PASS: LWC client error stack persisted into StackTrace__c: ' + clientStackRow.kern__StackTrace__c.abbreviate(120));
+		}
+	}
+
+	// Test 19j: LWC structured context persists into ContextData__c
+	// The persistence-test entries send {testSection: 'section-19', level: ...} from the browser;
+	// the persisted rows must carry those client keys — an empty ContextData__c means the
+	// framework read the context only to label the entry and then dropped it.
+	{
+		List<kern__LogEntry__c> contextRows =
+		[
+				SELECT
+						kern__Message__c,
+						kern__ContextData__c
+				FROM kern__LogEntry__c
+				WHERE kern__ClassMethod__c LIKE 'LWC/%'
+				ORDER BY CreatedDate DESC
+				LIMIT 50
+		];
+
+		kern__LogEntry__c clientContextRow = null;
+		for(kern__LogEntry__c row : contextRows)
+		{
+			if(row.kern__Message__c != null && row.kern__Message__c.contains('Subscriber LWC persistence test')
+					&& String.isNotBlank(row.kern__ContextData__c))
+			{
+				clientContextRow = row;
+				break;
+			}
+		}
+
+		if(clientContextRow == null)
+		{
+			System.debug('19j INFO: No persistence-test entry with context found yet. Ensure "Test Persistence" was clicked (async platform events may still be in flight).');
+		}
+		else
+		{
+			System.assert(clientContextRow.kern__ContextData__c.contains('testSection'),
+					'19j FAIL: ContextData__c should carry the client context key "testSection". Got: ' + clientContextRow.kern__ContextData__c);
+			System.assert(clientContextRow.kern__ContextData__c.contains('section-19'),
+					'19j FAIL: ContextData__c should carry the client context value "section-19". Got: ' + clientContextRow.kern__ContextData__c);
+			System.debug('19j PASS: LWC client context persisted into ContextData__c: ' + clientContextRow.kern__ContextData__c.abbreviate(120));
+		}
+	}
+
 	System.debug('=== Section 19 COMPLETE: All LWC Logger persistence tests passed ===');
 }
 catch(Exception error)

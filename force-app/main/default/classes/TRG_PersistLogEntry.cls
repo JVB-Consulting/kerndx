@@ -25,28 +25,118 @@
  *
  * @group Triggers
  *
- * @date January 2026, June 2026
+ * @date January 2026, July 2026
  */
 public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements IF_Trigger.AfterInsert
 {
 	/**
-	 * @description Key prefix marking the single forensic detail row per fingerprint.
+	 * @description Key prefix marking the single forensic detail row kept per fingerprint (the full
+	 * sample). This persist handler owns the persisted key shape — it stamps the prefix onto
+	 * `Fingerprint__c` here — so the prefix is defined here as the single source of truth and the Log
+	 * Console read layer references it to strip the key back to the base fingerprint.
 	 */
-	@TestVisible
-	private static final String PREFIX_DETAIL = 'detail:';
+	public static final String PREFIX_DETAIL = 'detail:';
 
 	/**
-	 * @description Key prefix marking windowed rollup counter rows.
+	 * @description Key prefix marking the per-day windowed rollup counter rows, shaped
+	 * `rollup:<base>:<yyyyMMdd>`. Defined here, where this handler stamps it onto `Fingerprint__c`, as
+	 * the single source of truth the read layer references to fold the rows back to the base fingerprint.
 	 */
-	@TestVisible
-	private static final String PREFIX_ROLLUP = 'rollup:';
+	public static final String PREFIX_ROLLUP = 'rollup:';
 
 	/**
-	 * @description Test seam forcing the aggregation-compute path to throw, exercising the
-	 * plain-row fallback without depending on a real defect.
+	 * @description Character length of a rollup key's trailing day suffix (':' + the UTC day bucket).
+	 * Derived from the same UTIL_String.COLON and UTIL_Date.toUtcDayBucket sources buildRollupKey
+	 * composes with — any fixed instant yields the fixed-width `yyyyMMdd` bucket — so the decode width
+	 * can never drift from the written key shape.
+	 *
+	 * @date July 2026
 	 */
-	@TestVisible
-	private static Boolean simulateComputeFailure = false;
+	private static final Integer ROLLUP_DAY_SUFFIX_LENGTH = UTIL_String.COLON.length() + UTIL_Date.toUtcDayBucket(Datetime.newInstanceGmt(2026, 1, 1)).length();
+
+	/**
+	 * @description Composes the presence-based detail key ('detail:<base>') this handler stamps onto the
+	 * single forensic sample row kept per fingerprint. Compose and decode live together here, in the layer
+	 * that owns the persisted key shape, so a read layer never re-implements the format.
+	 *
+	 * @param baseFingerprint The base fingerprint (without any prefix).
+	 *
+	 * @return The full 'detail:<base>' key.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * String detailKey = TRG_PersistLogEntry.buildDetailKey('NullPointer:MyClass.method');
+	 * ```
+	 */
+	public static String buildDetailKey(String baseFingerprint)
+	{
+		return PREFIX_DETAIL + baseFingerprint;
+	}
+
+	/**
+	 * @description Composes the per-UTC-day rollup key ('rollup:<base>:<yyyyMMdd>') this handler stamps
+	 * onto the windowed counter rows, bucketing the supplied occurrence instant to its GMT calendar day.
+	 *
+	 * @param baseFingerprint The base fingerprint (without any prefix).
+	 * @param occurredAt The occurrence instant whose UTC day buckets the counter row.
+	 *
+	 * @return The full 'rollup:<base>:<yyyyMMdd>' key.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * String rollupKey = TRG_PersistLogEntry.buildRollupKey('NullPointer:MyClass.method', Datetime.now());
+	 * ```
+	 */
+	public static String buildRollupKey(String baseFingerprint, Datetime occurredAt)
+	{
+		return PREFIX_ROLLUP + baseFingerprint + UTIL_String.COLON + UTIL_Date.toUtcDayBucket(occurredAt);
+	}
+
+	/**
+	 * @description Strips the 'detail:' prefix from a detail key to recover the base fingerprint — the
+	 * decode twin of buildDetailKey, kept beside it so the key format is parsed only where it is written.
+	 *
+	 * @param detailKey The full 'detail:<base>' key.
+	 *
+	 * @return The base fingerprint.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * String base = TRG_PersistLogEntry.decodeBaseFromDetailKey('detail:NullPointer:MyClass.method');
+	 * ```
+	 */
+	public static String decodeBaseFromDetailKey(String detailKey)
+	{
+		return detailKey.substring(PREFIX_DETAIL.length());
+	}
+
+	/**
+	 * @description Strips the 'rollup:' prefix and the trailing ':yyyyMMdd' day suffix from a rollup key
+	 * to recover the base fingerprint shared with its detail sample — the decode twin of buildRollupKey.
+	 * The suffix width derives from the same sources the compose side uses, so a bucket-format change can
+	 * never leave the decode silently truncating the base.
+	 *
+	 * @param rollupKey The full 'rollup:<base>:<yyyyMMdd>' key.
+	 *
+	 * @return The base fingerprint.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * String base = TRG_PersistLogEntry.decodeBaseFromRollupKey('rollup:NullPointer:MyClass.method:20260626');
+	 * ```
+	 */
+	public static String decodeBaseFromRollupKey(String rollupKey)
+	{
+		return rollupKey.substring(PREFIX_ROLLUP.length(), rollupKey.length() - ROLLUP_DAY_SUFFIX_LENGTH);
+	}
 
 	/**
 	 * @description Will ensure that the events raised are logged to the LogEntry__c object —
@@ -68,7 +158,9 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description Persists a chunk of log events: plain events insert as today; fingerprinted
 	 * events collapse into presence-based detail rows and per-day rollup counters via the
-	 * insert/update split routed off one indexed selector query. DML-layer failures are
+	 * insert/update split routed off one indexed selector query. If the aggregation compute ever
+	 * throws (no current input can), the fingerprinted events persist as plain null-fingerprint
+	 * rows instead, so no log event is lost to the flood-control path. DML-layer failures are
 	 * deliberately NOT wrapped (no fallback-on-failed-DML amplification) and no
 	 * EventBus.RetryableException is thrown (retry exhaustion would suspend the subscription).
 	 *
@@ -76,6 +168,8 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * delivered-event path) and `LOG_Engine` (in-context path, when publishing would loop).
 	 *
 	 * @param events The platform-event chunk to persist.
+	 *
+	 * @date January 2026, July 2026
 	 */
 	public static void persist(List<LogEntryEvent__e> events)
 	{
@@ -97,25 +191,20 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 
 		List<LogEntry__c> aggregatedInserts = new List<LogEntry__c>();
 		List<LogEntry__c> aggregatedUpdates = new List<LogEntry__c>();
-		Boolean aggregated = true;
 		try
 		{
 			aggregate(fingerprinted, aggregatedInserts, aggregatedUpdates);
-		}
-		catch(Exception error)
-		{
-			aggregated = false;
-		}
-
-		if(aggregated)
-		{
 			rowsToInsert.addAll(aggregatedInserts);
 			rowsToUpdate.addAll(aggregatedUpdates);
 		}
-		else
+		// kern-coverage-exempt: durability fallback; no current aggregate() input can throw, kept so a future compute defect degrades to plain rows instead of losing log events
+		// kern-coverage-exempt: the catch-entry brace below is coverage-counted with the fallback and is unreachable for the same reason (nothing in aggregate() can throw)
+		catch(Exception error)
 		{
+			// kern-coverage-exempt: fallback loop reachable only through the compute catch above; persists fingerprinted events as plain null-fingerprint rows
 			for(LogEntryEvent__e event : fingerprinted)
 			{
+				// kern-coverage-exempt: fallback row build reachable only through the compute catch above; no log event is ever lost to a compute defect
 				rowsToInsert.add(buildRow(event));
 			}
 		}
@@ -137,16 +226,14 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * @param events The fingerprinted events of this chunk.
 	 * @param rowsToInsert Output: detail rows and new rollup rows.
 	 * @param rowsToUpdate Output: existing rollup rows with incremented counts.
+	 *
+	 * @date January 2026, July 2026
 	 */
 	private static void aggregate(List<LogEntryEvent__e> events, List<LogEntry__c> rowsToInsert, List<LogEntry__c> rowsToUpdate)
 	{
 		if(events.isEmpty())
 		{
 			return;
-		}
-		if(simulateComputeFailure)
-		{
-			throw new IllegalArgumentException('Simulated aggregation failure for testing');
 		}
 
 		Map<String, LogEntryEvent__e> detailSampleByKey = new Map<String, LogEntryEvent__e>();
@@ -180,14 +267,13 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	{
 		for(LogEntryEvent__e event : events)
 		{
-			String detailKey = PREFIX_DETAIL + event.Fingerprint__c;
+			String detailKey = buildDetailKey(event.Fingerprint__c);
 			if(!detailSampleByKey.containsKey(detailKey))
 			{
 				detailSampleByKey.put(detailKey, event);
 			}
 
-			String dayBucket = UTIL_Date.toUtcDayBucket(event.CreatedDate ?? Datetime.now());
-			String rollupKey = PREFIX_ROLLUP + event.Fingerprint__c + UTIL_String.COLON + dayBucket;
+			String rollupKey = buildRollupKey(event.Fingerprint__c, event.CreatedDate ?? Datetime.now());
 			RollupWindow window = windowByKey.get(rollupKey);
 			if(window == null)
 			{

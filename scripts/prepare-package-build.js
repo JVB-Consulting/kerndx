@@ -65,7 +65,8 @@ const CONFIG = {
 		'ApiTestHarness',
 		'StreamingEventMonitor',
 		'ChainMonitor',
-		'DataMaskingAdvisor'
+		'DataMaskingAdvisor',
+		'LogConsole'
 	],
 
 	// Flow files that need namespace prefixing for managed package field resolution

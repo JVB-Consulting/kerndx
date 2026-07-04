@@ -14,7 +14,14 @@
  *    `kern__` namespace prefix on the FROM clause — proving subscriber callers receive
  *    properly-namespaced SOQL strings for packaged objects.
  *
+ * Also proves each release's new global query surface is subscriber-reachable through the
+ * `kern` namespace: the 1.2 geolocation distance functions, and the 1.3 aliased aggregates
+ * (`count`/`countDistinct`/`sum`/`avg`/`min`/`max` with an explicit alias), `orderByCount`,
+ * the single-argument `QRY_Condition.FieldCondition` constructors paired with `contains()`,
+ * and the call-site alias validation on aliased selections.
+ *
  * @see kern.QRY_Builder
+ * @see kern.QRY_Condition
  * @see kern.QRY_Function
  * @see kern.UTIL_FeatureFlag
  *
@@ -22,7 +29,7 @@
  *
  * @group Selectors
  *
- * @date May 2026, June 2026
+ * @date May 2026, June 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -194,6 +201,214 @@ private class Subscriber_QryEdges_TEST
 		Assert.areEqual(2, nearby.size(), 'Only the two Accounts within fifty miles should be returned (the cross-country one is excluded)');
 		Assert.areEqual('Geo Near', nearby[0].Name, 'The nearest Account should sort first');
 		Assert.areEqual('Geo Mid', nearby[1].Name, 'The second-nearest Account should sort second');
+	}
+
+	/**
+	 * @description The 1.3 aliased aggregates must accumulate into ONE grouped query from
+	 * subscriber Apex — six aggregate functions folded over the same GROUP BY — with every value
+	 * read back by its caller-chosen alias on the `AggregateRow`. Two industries are seeded with
+	 * known headcounts so each per-group value is exact, proving the aliases survive the round
+	 * trip through the generated SOQL rather than falling back to the auto `expr0` positions.
+	 * Account trigger actions are bypassed for the seeds because the Phase-5B flow action
+	 * (`TST_SubscriberFlow_AdditionalDefaults`) stamps `NumberOfEmployees = 42` on every Account
+	 * before-insert, which would replace the seeded headcounts these aggregate assertions read.
+	 * Accessor choice matches the verified runtime boxing over the int-soapType
+	 * NumberOfEmployees: COUNT/COUNT_DISTINCT/MIN/MAX box as Integer (read via `getInteger`),
+	 * while SUM/AVG box as Double (read via `getDecimal`; `getInteger` there throws a
+	 * TypeException, and `getDecimal` also reads Integer-boxed values safely).
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldFoldAliasedAggregatesReadBackByAlias()
+	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
+		kern.TRG_Base.bypass(Account.SObjectType);
+		seedAccount('AggAlias Alpha', 'Technology', 10);
+		seedAccount('AggAlias Beta', 'Technology', 30);
+		seedAccount('AggAlias Gamma', 'Agriculture', 5);
+
+		Test.startTest();
+
+		List<kern.QRY_Builder.AggregateRow> rows = kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.condition(Account.Name).contains('AggAlias')
+				.groupBy(Account.Industry)
+				.count(Account.Id, 'rowTotal')
+				.countDistinct(Account.Name, 'uniqueNames')
+				.sum(Account.NumberOfEmployees, 'headcount')
+				.avg(Account.NumberOfEmployees, 'meanHeadcount')
+				.min(Account.NumberOfEmployees, 'smallest')
+				.max(Account.NumberOfEmployees, 'largest')
+				.toAggregateList();
+
+		Test.stopTest();
+
+		Assert.areEqual(2, rows.size(), 'One grouped row per seeded industry should be returned');
+		kern.QRY_Builder.AggregateRow technology = findGroup(rows, 'Technology');
+		Assert.areEqual(2, technology.getInteger('rowTotal'), 'COUNT should read back by its alias for the two Technology accounts');
+		Assert.areEqual(2, technology.getInteger('uniqueNames'), 'COUNT_DISTINCT should read back by its alias');
+		Assert.areEqual(40, technology.getDecimal('headcount'), 'SUM should read back by its alias (10 + 30)');
+		Assert.areEqual(20, technology.getDecimal('meanHeadcount'), 'AVG should read back by its alias ((10 + 30) / 2)');
+		Assert.areEqual(10, technology.getInteger('smallest'), 'MIN should read back by its alias');
+		Assert.areEqual(30, technology.getInteger('largest'), 'MAX should read back by its alias');
+		kern.QRY_Builder.AggregateRow agriculture = findGroup(rows, 'Agriculture');
+		Assert.areEqual(1, agriculture.getInteger('rowTotal'), 'COUNT should read back for the single Agriculture account');
+		Assert.areEqual(5, agriculture.getDecimal('headcount'), 'SUM should read back for the single Agriculture account');
+	}
+
+	/**
+	 * @description The 1.3 `orderByCount` must emit ORDER BY COUNT(...) and actually rank the
+	 * grouped rows largest-first from subscriber Apex. The groups are seeded so the count order
+	 * is the REVERSE of the alphabetical group order (the alphabetically-first industry gets the
+	 * smaller count) and inserted smallest-group-first — so a dropped or ignored ORDER BY COUNT
+	 * could not pass by coincidence of default or insertion ordering.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldRankGroupsLargestFirstWithOrderByCount()
+	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
+		seedAccount('OrderByCount Solo', 'Agriculture', 1);
+		seedAccount('OrderByCount One', 'Technology', 1);
+		seedAccount('OrderByCount Two', 'Technology', 1);
+		seedAccount('OrderByCount Three', 'Technology', 1);
+
+		Test.startTest();
+
+		List<kern.QRY_Builder.AggregateRow> rows = kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.condition(Account.Name).contains('OrderByCount')
+				.groupBy(Account.Industry)
+				.count(Account.Id, 'groupSize')
+				.orderByCount(Account.Id, true)
+				.toAggregateList();
+
+		Test.stopTest();
+
+		Assert.areEqual(2, rows.size(), 'One grouped row per seeded industry should be returned');
+		Assert.areEqual('Technology', rows[0].getString('Industry'), 'orderByCount descending should rank the three-record group first (alphabetical order would put Agriculture first)');
+		Assert.areEqual(3, rows[0].getInteger('groupSize'), 'The leading group should carry its COUNT under the chosen alias');
+		Assert.areEqual('Agriculture', rows[1].getString('Industry'), 'The single-record group should rank last');
+		Assert.areEqual(1, rows[1].getInteger('groupSize'), 'The trailing group should carry its COUNT under the chosen alias');
+	}
+
+	/**
+	 * @description The 1.3 single-argument `QRY_Condition.FieldCondition` constructors (SObjectField
+	 * and String forms) paired with `contains()` must build executable standalone conditions from
+	 * subscriber Apex — the documented way to assemble an OR group of contains matches and hand it
+	 * to the builder via `addCondition`. Executes against seeded rows so the wrapped `%value%`
+	 * pattern is proven end-to-end, not just rendered. The string-form condition uses `Phone`:
+	 * `AccountNumber` (with `Site`, `Sic` and `TickerSymbol`) is no longer present on the Account
+	 * entity in Summer '26 (v67) scratch orgs, and `Description` is a long text area and therefore
+	 * not filterable.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldFilterWithStandaloneContainsConditions()
+	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
+		seedAccount('QryContains Target', 'Technology', 1);
+		seedAccount('Plain Control Row', 'Technology', 1);
+
+		kern.QRY_Condition.OrCondition textMatch = new kern.QRY_Condition.OrCondition();
+		textMatch.add(new kern.QRY_Condition.FieldCondition(Account.Name).contains('QryContains'));
+		textMatch.add(new kern.QRY_Condition.FieldCondition('Phone').contains('QryContains'));
+
+		Test.startTest();
+
+		List<Account> matches = (List<Account>)kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.addCondition(textMatch)
+				.toList();
+
+		Test.stopTest();
+
+		Assert.areEqual(1, matches.size(), 'Only the account whose Name contains the token should match the OR group');
+		Assert.areEqual('QryContains Target', matches[0].Name, 'The contains match should be the seeded target row');
+	}
+
+	/**
+	 * @description The alias on an aliased aggregate selection and on a projected function field
+	 * is validated at the call site: anything other than a bare identifier (a letter followed by
+	 * letters, digits or underscores) must throw `IllegalArgumentException` immediately, so a
+	 * caller-supplied alias can never carry SOQL syntax into the generated clause.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldRejectMalformedAliasAtCallSite()
+	{
+		Boolean aggregateAliasRejected = false;
+		Boolean projectionAliasRejected = false;
+
+		Test.startTest();
+
+		try
+		{
+			kern.QRY_Builder.selectFrom(Account.SObjectType)
+					.groupBy(Account.Industry)
+					.count(Account.Id, 'not a bare identifier');
+		}
+		catch(IllegalArgumentException expected)
+		{
+			aggregateAliasRejected = true;
+		}
+		try
+		{
+			kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
+					.addField(kern.QRY_Function.calendarMonth(Opportunity.CloseDate), '1leadingDigit');
+		}
+		catch(IllegalArgumentException expected)
+		{
+			projectionAliasRejected = true;
+		}
+
+		Test.stopTest();
+
+		Assert.isTrue(aggregateAliasRejected, 'An aliased aggregate should reject a non-identifier alias at the call site');
+		Assert.isTrue(projectionAliasRejected, 'A projected function field should reject a non-identifier alias at the call site');
+	}
+
+	/**
+	 * @description Seeds one Account through the packaged test-data builder with the fields the
+	 * aggregate and contains scenarios read back.
+	 *
+	 * @param name The account name (carries each scenario's match token).
+	 * @param industry The grouping value for the aggregate scenarios.
+	 * @param employees The numeric value the SUM/AVG/MIN/MAX scenarios fold.
+	 *
+	 * @date July 2026
+	 */
+	private static void seedAccount(String name, String industry, Integer employees)
+	{
+		kern.TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, name)
+				.withOverride(Account.Industry, industry)
+				.withOverride(Account.NumberOfEmployees, employees)
+				.build();
+	}
+
+	/**
+	 * @description Finds the grouped aggregate row for an industry, failing the test with a clear
+	 * message when the group is missing instead of throwing a null dereference.
+	 *
+	 * @param rows The grouped aggregate rows.
+	 * @param industry The GROUP BY value to find.
+	 *
+	 * @return The matching aggregate row.
+	 */
+	private static kern.QRY_Builder.AggregateRow findGroup(List<kern.QRY_Builder.AggregateRow> rows, String industry)
+	{
+		for(kern.QRY_Builder.AggregateRow row : rows)
+		{
+			if(row.getString('Industry') == industry)
+			{
+				return row;
+			}
+		}
+		Assert.fail('No grouped row returned for industry ' + industry);
+		return null;
 	}
 
 	/**

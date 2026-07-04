@@ -152,6 +152,16 @@ export default class SubscriberLoggerTest extends LightningElement
 		utilityLogger.warn('Subscriber LWC persistence test — warn level', {testSection: 'section-19', level: 'WARN'});
 		utilityLogger.error('Subscriber LWC persistence test — error level', {testSection: 'section-19', level: 'ERROR'});
 		utilityLogger.debug('Subscriber LWC persistence test — debug level', {testSection: 'section-19', level: 'DEBUG'});
+		// A real thrown Error carries a browser stack: the framework must persist those client
+		// frames into StackTrace__c instead of its own logging plumbing (section-19 check 19i).
+		try
+		{
+			throw new Error('Subscriber LWC persistence test — thrown client error');
+		}
+		catch(clientError)
+		{
+			utilityLogger.error('Subscriber LWC persistence test — error with client stack', clientError);
+		}
 		utilityLogger.endCorrelation({success: true, testComplete: true});
 	}
 }

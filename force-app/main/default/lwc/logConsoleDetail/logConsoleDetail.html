@@ -1,0 +1,225 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<template lwc:if={hasDetail}>
+		<div class="detail-pane">
+			<div class="slds-p-around_small detail-header">
+				<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-start">
+					<div class="dhead-chips">
+						<span class="log-level-badge" data-level={detail.level} data-testid="level-badge">{detail.level}</span>
+						<span class="log-number" data-testid="log-number">{detail.logNumber}</span>
+						<template lwc:if={isProblemsView}>
+							<span class={countPillClass} data-testid="count-pill">&times; <lightning-formatted-number value={occurrenceCount}></lightning-formatted-number></span>
+						</template>
+					</div>
+					<lightning-button-icon alternative-text={label.close} data-testid="close-button" icon-name="utility:close" onclick={handleClose} title={label.close}
+					                       variant="bare"></lightning-button-icon>
+				</div>
+
+				<h2 class="slds-text-heading_small slds-m-top_x-small detail-heading" data-testid="heading" tabindex="-1">{detail.shortMessage}</h2>
+
+				<p class="slds-text-color_weak slds-text-body_small slds-m-top_xxx-small" data-testid="seen-line">
+					<template lwc:if={isProblemsView}>
+						{label.firstSeen}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>&nbsp;&middot; {label.lastSeen}&nbsp;<lightning-relative-date-time
+							value={lastSeenValue}></lightning-relative-date-time>
+					</template>
+					<template lwc:else>
+						{label.logged}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>
+					</template>
+				</p>
+
+				<div class="slds-grid slds-grid_vertical-align-center slds-m-top_x-small detail-actions">
+					<template lwc:if={showChainButton}>
+						<lightning-button class="slds-m-right_xx-small" data-testid="action-open-chain" label={label.actionOpenChain} onclick={handleOpenChain}
+						                  variant="neutral"></lightning-button>
+					</template>
+					<lightning-button data-testid="action-open-record" label={label.actionOpenRecord} onclick={handleOpenRecord} variant="neutral"></lightning-button>
+				</div>
+			</div>
+
+			<lightning-tabset active-tab-value={activeTab} variant="scoped">
+				<lightning-tab label={label.tabOverview} onactive={handleTabActive} value="overview">
+					<template lwc:if={hasMessage}>
+						<div class="codewrap slds-m-bottom_small">
+							<lightning-button class="copybtn" data-testid="copy-message" label={label.copy} onclick={handleCopyMessage} variant="neutral"></lightning-button>
+							<pre class="code" data-testid="message-code">{detail.message}</pre>
+						</div>
+					</template>
+					<template lwc:else>
+						<div class="slds-text-color_weak slds-text-body_small slds-m-bottom_small" data-testid="no-message">{label.noMessage}</div>
+					</template>
+
+					<div class="sech">{label.detailsHeading}</div>
+					<div class="metagrid" data-testid="metagrid">
+						<span class="k">{label.metaLogNumber}</span><span class="v">{detail.logNumber}</span>
+						<span class="k">{label.metaSource}</span><span class="v" data-testid="meta-source">{sourceLabel}</span>
+						<span class="k">{label.metaContext}</span><span class="v">{detail.executionEvent}</span>
+						<span class="k">{label.metaUser}</span><span class="v" data-testid="meta-user">{userLabel}</span>
+						<span class="k">{label.metaCorrelation}</span><span class="v">{detail.correlationId}</span>
+						<span class="k">{label.metaTransaction}</span><span class="v">{detail.transactionId}</span>
+						<span class="k">{label.metaParentTransaction}</span><span class="v">{detail.parentTransactionId}</span>
+					</div>
+
+					<div class="sech">{label.limitsHeading} <span class="slds-text-color_weak only-used">{label.limitsOnlyUsed}</span></div>
+					<template lwc:if={hasLimits}>
+						<div class="limits2">
+							<template for:each={limitRows} for:item="limitBar">
+								<div class="lbar" data-testid="limit-bar" key={limitBar.key}>
+									<div class="lbar-top">
+										<span>{limitBar.name}</span>
+										<span><lightning-formatted-number value={limitBar.used}></lightning-formatted-number> / <lightning-formatted-number
+												value={limitBar.maximum}></lightning-formatted-number> ({limitBar.percentage}%)</span>
+									</div>
+									<div aria-label={limitBar.name} aria-valuemax="100" aria-valuemin="0" aria-valuenow={limitBar.percentage} class="lbartrack" role="progressbar">
+										<span class="lbarfill" data-level={limitBar.level} data-testid="limit-fill" style={limitBar.barStyle}></span>
+									</div>
+								</div>
+							</template>
+						</div>
+					</template>
+					<template lwc:else>
+						<span class="slds-text-color_weak" data-testid="no-limits">{label.noLimits}</span>
+					</template>
+				</lightning-tab>
+
+				<lightning-tab label={label.tabStackTrace} onactive={handleTabActive} value="stack">
+					<template lwc:if={hasStackTrace}>
+						<div class="codewrap">
+							<lightning-button class="copybtn" data-testid="copy-stack" label={label.copy} onclick={handleCopyStack} variant="neutral"></lightning-button>
+							<pre class="code" data-testid="stack-code">{detail.stackTrace}</pre>
+						</div>
+					</template>
+					<template lwc:else>
+						<span class="slds-text-color_weak" data-testid="no-stack">{label.noStackTrace}</span>
+					</template>
+				</lightning-tab>
+
+				<lightning-tab label={label.tabContext} onactive={handleTabActive} value="context">
+					<c-json-viewer json-text={detail.contextJson}></c-json-viewer>
+				</lightning-tab>
+
+				<lightning-tab label={label.tabTimeline} onactive={handleTabActive} value="timeline">
+					<div class="tlhead">
+						<span class="ttl">{timelineTitle}<template lwc:if={hasCorrelation}> &middot; <span class="cid">{correlationId}</span></template></span>
+						<template lwc:if={showChainButton}>
+							<button class="chain-viewfull" data-testid="timeline-open-chain" onclick={handleOpenChain} type="button">{label.actionOpenChain} &rarr;</button>
+						</template>
+					</div>
+
+					<template lwc:if={timelineNote}>
+						<div class="note plain" data-testid="timeline-note">{timelineNote}</div>
+					</template>
+
+					<template lwc:if={hasMultipleEntries}>
+						<div class="ovhead">
+							<span class="lab">{label.timelineOverview}</span>
+							<span class="stat" data-testid="overview-stat">{overviewStat}</span>
+						</div>
+						<div class="minimap" data-testid="minimap">
+							<template for:each={overviewSegments} for:item="segment">
+								<span class="mseg-group" key={segment.key}>
+									<template lwc:if={segment.showArrow}>
+										<span class="marrow">&rarr;</span>
+									</template>
+									<button class={segment.segmentClass} data-testid="minimap-segment" data-transaction-id={segment.firstId} onclick={handleJumpToTransaction}
+									        type="button">
+										<span class="mq">{segment.segmentLabel}</span>
+										<span class="mc">{segment.countLabel}</span>
+										<template lwc:if={segment.showWarnPin}>
+											<span class="warnpin">&#9888;</span>
+										</template>
+									</button>
+								</span>
+							</template>
+						</div>
+						<div class="legend">
+							<template for:each={legendItems} for:item="item">
+								<span class="lg" key={item.key}><span class={item.dotClass}></span>{item.text}</span>
+							</template>
+						</div>
+					</template>
+
+					<div class="groups" data-testid="timeline-groups">
+						<template for:each={transactionGroups} for:item="group">
+							<div class="txn-wrap" key={group.key}>
+								<template lwc:if={group.showGap}>
+									<div class="gapnote" data-testid="gap-note">&#9203; {group.gapLabel}</div>
+								</template>
+								<div class="txn">
+									<button aria-expanded={group.expandedAttr} class={group.headClass} data-testid="txn-head" data-transaction-id={group.transactionId}
+									        onclick={handleToggleTransaction} type="button">
+										<span class={group.chevronClass}>&#9654;</span>
+										<span class="tq">{group.quiddityLabel}</span>
+										<span class="toff">{group.offsetLabel}</span>
+										<span class="tdur">&middot; {group.durationLabel}</span>
+										<span class={group.badgeClass}>{group.level}</span>
+										<template lwc:if={group.crumb}>
+											<span class="crumb">&#8627; {group.crumb}</span>
+										</template>
+										<span class="tcount">{group.countLabel}</span>
+									</button>
+									<template lwc:if={group.expanded}>
+										<ul class="tentries">
+											<template for:each={group.entries} for:item="entry">
+												<li class={entry.rowClass} key={entry.key}>
+													<button class="tent-summary" data-entry-id={entry.entryId} data-testid="timeline-entry" onclick={handleFocusHop} type="button">
+														<span aria-label={entry.nodeLabel} class={entry.nodeClass}></span>
+														<span class="tent-main">
+															<span class="elvl" data-level={entry.level}>{entry.level}</span>
+															<span class="where">{entry.source}</span>
+															<template lwc:if={entry.isSelf}>
+																<span class="youare">{entry.openedMarker}</span>
+															</template>
+															<span class="emsg">{entry.message}</span>
+														</span>
+														<span class="eoff">{entry.offsetLabel}</span>
+													</button>
+													<template lwc:if={entry.isFocused}>
+														<div class="focuscard" data-testid="focus-card">
+															<div class="fc-type">{entry.focus.typeLabel}</div>
+															<div class="fc-msg">{entry.focus.message}</div>
+															<template lwc:if={entry.focus.loading}>
+																<div class="fc-loading" data-testid="focus-loading">{label.timelineLoadingFocus}</div>
+															</template>
+															<template lwc:if={entry.focus.loadFailed}>
+																<div class="fc-none" data-testid="focus-failed">{label.timelineFocusLoadFailed}</div>
+															</template>
+															<template lwc:if={entry.focus.hasStack}>
+																<div class="fc-type fc-sub">{label.tabStackTrace}</div>
+																<pre class="fc-pre" data-testid="focus-stack">{entry.focus.stack}</pre>
+															</template>
+															<template lwc:if={entry.focus.hasContext}>
+																<div class="fc-type fc-sub">{label.tabContext}</div>
+																<pre class="fc-pre" data-testid="focus-context">{entry.focus.context}</pre>
+															</template>
+															<template lwc:if={entry.focus.showNoDetail}>
+																<div class="fc-none" data-testid="focus-none">{label.timelineNoFocusDetail}</div>
+															</template>
+															<template lwc:if={entry.focus.showOpenRecord}>
+																<button class="chain-viewfull fc-open" data-entry-id={entry.focus.entryId} data-testid="focus-open-record"
+																        onclick={handleOpenFocusedRecord} type="button">{label.actionOpenRecord} &rarr;
+																</button>
+															</template>
+														</div>
+													</template>
+												</li>
+											</template>
+										</ul>
+									</template>
+								</div>
+							</div>
+						</template>
+					</div>
+
+					<template lwc:if={showCapRow}>
+						<div class="caprow" data-testid="cap-row">
+							{capRowText}
+							<template lwc:if={showChainButton}>
+								<button class="chain-viewfull" data-testid="cap-open-chain" onclick={handleOpenChain} type="button">{label.actionOpenChain} &rarr;</button>
+							</template>
+						</div>
+					</template>
+				</lightning-tab>
+			</lightning-tabset>
+		</div>
+	</template>
+</template>

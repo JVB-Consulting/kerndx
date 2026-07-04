@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants the CreateAuditFields user permission so the Log Console e2e seed can back-date CreatedDate/LastModifiedDate. Deploy ONLY AFTER the Security settings step — deploying both together fails silently.</description>
+    <label>Kern E2E Audit Field Access</label>
+    <userPermissions>
+        <enabled>true</enabled>
+        <name>CreateAuditFields</name>
+    </userPermissions>
+</PermissionSet>

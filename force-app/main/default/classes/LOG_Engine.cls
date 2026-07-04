@@ -36,7 +36,7 @@
  *
  * @group Logging
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
 public inherited sharing class LOG_Engine
@@ -69,10 +69,31 @@ public inherited sharing class LOG_Engine
 	private static final Pattern STACK_LINE = Pattern.compile('^(?:Class\\.)?([^.]+)\\.?([^.:]+)?[.:]?([^.:]*): line (\\d+), column (\\d+)$');
 
 	/**
-	 * @description Frame-prefix marker used to strip self-references from generated stack traces
-	 * so `LOG_Builder` infrastructure frames don't dominate the persisted `StackTrace__c` field.
+	 * @description Leading token of an Apex class stack frame (`Class.Name.method: line N`), used
+	 * to anchor framework-frame prefixes to the start of a frame.
 	 */
-	private static final String CLASS_SUFFIX = 'LOG_Builder.';
+	private static final String CLASS_FRAME_PREFIX = 'Class' + UTIL_String.DOT;
+
+	/**
+	 * @description Frame prefixes used to strip framework infrastructure frames from generated
+	 * stack traces so logging plumbing (builder, engine, LWC/Flow bridges) doesn't dominate the
+	 * persisted `StackTrace__c` field. Each prefix anchors to the full class-frame shape
+	 * (`Class.<resolved name>.`) and derives the name from the class reference rather than a
+	 * string literal, so it carries the package namespace when installed managed
+	 * (`Class.kern.LOG_Engine.`) and cannot match a subscriber class whose name merely ends with a
+	 * framework class name (`Class.AppLOG_Engine.run`). Entries logged through a bridge with no
+	 * caller frames left persist an empty trace rather than a misleading one.
+	 */
+	private static final Set<String> FRAMEWORK_FRAME_PREFIXES = new Set<String>
+	{
+			frameworkFramePrefix(LOG_Builder.class),
+			frameworkFramePrefix(LOG_Engine.class),
+			frameworkFramePrefix(CTRL_Logger.class),
+			frameworkFramePrefix(FLOW_LoggerLog.class),
+			frameworkFramePrefix(FLOW_LoggerStart.class),
+			frameworkFramePrefix(FLOW_LoggerEnd.class),
+			frameworkFramePrefix(UTIL_BypassAudit.class)
+	};
 
 	/**
 	 * @description Format string for the lead line of a persisted DML error message. Tokens are
@@ -315,6 +336,12 @@ public inherited sharing class LOG_Engine
 	 */
 	public static final String CONTEXT_ACTION_NAME = 'actionName';
 	/**
+	 * @description Context key carrying the client-side JavaScript error stack captured by the
+	 * LWC logger. Promoted into `StackTrace__c` by `CTRL_Logger` instead of the synthetic Apex
+	 * trace, which for LWC entries holds only framework plumbing.
+	 */
+	public static final String CONTEXT_ERROR_STACK = 'errorStack';
+	/**
 	 * @description Context key for validation context class name.
 	 */
 	public static final String CONTEXT_CONTEXT_CLASS_NAME = 'contextClassName';
@@ -375,6 +402,14 @@ public inherited sharing class LOG_Engine
 	 * Carried onto every `LogEntryEvent__e` built while set.
 	 */
 	private static String currentFingerprint;
+
+	/**
+	 * @description Per-emit stack-trace override channel — set by `LOG_Builder.LogEntry.emitInternal`
+	 * just before the log call and cleared in its finally, mirroring the fingerprint channel. Used
+	 * when the true stack is known but is not the current Apex call stack (e.g. a client-side
+	 * JavaScript stack relayed by `CTRL_Logger`). A real exception's own trace always wins over it.
+	 */
+	private static String currentStackTrace;
 
 	/**
 	 * @description Transaction-scoped parent-transaction id stamped onto every emitted
@@ -531,6 +566,22 @@ public inherited sharing class LOG_Engine
 	 * @description Maximum depth of context stack to prevent memory issues in deeply nested operations.
 	 */
 	private static final Integer MAX_CONTEXT_DEPTH = 10;
+
+	/**
+	 * @description Builds the anchored stack-frame prefix (`Class.<resolved name>.`) for a
+	 * framework class, resolving the name from the type so it carries the namespace in a managed
+	 * install.
+	 *
+	 * @param frameworkType The framework class whose frames count as logging plumbing.
+	 *
+	 * @return The anchored frame prefix for the class.
+	 *
+	 * @date July 2026
+	 */
+	private static String frameworkFramePrefix(Type frameworkType)
+	{
+		return CLASS_FRAME_PREFIX + frameworkType.getName() + UTIL_String.DOT;
+	}
 
 	/**
 	 * @description Returns the effective LogSetting__c for the current user.
@@ -891,15 +942,46 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Extracts the class name from a classMethod string.
-	 * Handles both 'ClassName/methodName' and 'ClassName.methodName' formats.
+	 * @description Returns the severity rank of a log level (DEBUG < INFO < WARN < ERROR) — the single ordering
+	 * the framework already uses to compare a level against the configured threshold. Exposed so readers of the
+	 * log (the Log Console) sort the Level column by severity, matching the `LogLevel__c` picklist order the
+	 * All-entries view sorts by, rather than re-implementing the ranking. Returns -1 for a null or unknown level
+	 * so such rows sort before DEBUG on an ascending sort.
 	 *
-	 * @param classMethod The class/method string
+	 * @param level The log level name (e.g. 'ERROR').
 	 *
-	 * @return The class name portion, or the full string if no separator found
+	 * @return The severity rank (DEBUG=0, INFO=1, WARN=2, ERROR=3), or -1 for a null or unrecognised level.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * Integer rank = LOG_Engine.levelSeverityRank('WARN');
+	 * ```
 	 */
-	@TestVisible
-	private static String extractClassName(String classMethod)
+	public static Integer levelSeverityRank(String level)
+	{
+		Integer rank = LEVEL_ORDINALS.get(level);
+		return rank == null ? -1 : rank;
+	}
+
+	/**
+	 * @description Extracts the source class name from a ClassMethod value — the canonical parser for the
+	 * `ClassMethod__c` format this engine writes, handling both the 'ClassName/methodName' (test) and
+	 * 'ClassName.methodName' forms and returning the full string when no separator is present. Exposed so
+	 * readers of the log (the Log Console) interpret the source class exactly as the engine records it, rather
+	 * than re-implementing the split.
+	 *
+	 * @param classMethod The class/method string.
+	 *
+	 * @return The class name portion, or the full string if no separator found.
+	 *
+	 * @example
+	 * ```apex
+	 * String className = LOG_Engine.extractClassName('AccountTriggerHandler.handleAfterUpdate');
+	 * ```
+	 */
+	public static String extractClassName(String classMethod)
 	{
 		if(String.isBlank(classMethod))
 		{
@@ -913,7 +995,7 @@ public inherited sharing class LOG_Engine
 			return classMethod.substring(0, slashIndex);
 		}
 
-		Integer dotIndex = classMethod.indexOf('.');
+		Integer dotIndex = classMethod.indexOf(UTIL_String.DOT);
 
 		if(dotIndex > 0)
 		{
@@ -1009,6 +1091,31 @@ public inherited sharing class LOG_Engine
 	public static void clearCurrentFingerprint()
 	{
 		currentFingerprint = null;
+	}
+
+	/**
+	 * @description Sets the stack-trace override applied to events built during the current emit
+	 * call. Public-but-not-global so subscribers route through `LOG_Builder`; used by the LWC
+	 * logging bridge to persist the client-side JavaScript stack instead of the synthetic Apex
+	 * trace. Capped to the `StackTrace__c` field length.
+	 *
+	 * @param stackTrace The caller-supplied stack trace text.
+	 *
+	 * @date July 2026
+	 */
+	public static void setCurrentStackTrace(String stackTrace)
+	{
+		currentStackTrace = UTIL_String.abbreviate(stackTrace, UTIL_SObjectDescribe.getCachedFieldDescribe(LogEntryEvent__e.StackTrace__c).length);
+	}
+
+	/**
+	 * @description Clears the per-emit stack-trace override so it cannot leak into later entries.
+	 *
+	 * @date July 2026
+	 */
+	public static void clearCurrentStackTrace()
+	{
+		currentStackTrace = null;
 	}
 
 	/**
@@ -1927,12 +2034,17 @@ public inherited sharing class LOG_Engine
 		}
 
 		/**
-		 * @description Will return the stack trace to be included in the error log,
-		 * uses an idea from Idea taken from https://salesforce.stackexchange.com/questions/153835
+		 * @description Will return the stack trace to be included in the error log. A real
+		 * exception's own trace wins; otherwise a caller-supplied override (the per-emit channel
+		 * set via `setCurrentStackTrace`, e.g. a client-side JavaScript stack) is used; otherwise
+		 * the stack is calculated from the current call stack with framework infrastructure frames
+		 * stripped. Calculation idea taken from https://salesforce.stackexchange.com/questions/153835
 		 *
 		 * @param error If the log was called with an exception, this will be used else the stack will be calculated
 		 *
 		 * @return The stack track of the log entry
+		 *
+		 * @date July 2026
 		 */
 		private String getStackTrace(Exception error)
 		{
@@ -1941,6 +2053,10 @@ public inherited sharing class LOG_Engine
 			if(error != null)
 			{
 				stackTrace = error.getStackTraceString();
+			}
+			else if(String.isNotBlank(currentStackTrace))
+			{
+				stackTrace = currentStackTrace;
 			}
 			else
 			{
@@ -1952,7 +2068,7 @@ public inherited sharing class LOG_Engine
 
 					Matcher patternMatcher = STACK_LINE.matcher(stackTraceLine);
 
-					if(!patternMatcher.find() || stackTraceLine.contains(CLASS_SUFFIX))
+					if(!patternMatcher.find() || isFrameworkFrame(stackTraceLine))
 					{
 						stackTraceLines.remove(i);
 					}
@@ -1962,6 +2078,29 @@ public inherited sharing class LOG_Engine
 			}
 
 			return stackTrace;
+		}
+
+		/**
+		 * @description Returns whether a stack-trace line belongs to the logging framework's own
+		 * plumbing (builder, engine, LWC/Flow bridges) rather than caller code.
+		 *
+		 * @param stackTraceLine The raw stack-trace line to classify.
+		 *
+		 * @return True when the line starts with any anchored framework frame prefix.
+		 *
+		 * @date July 2026
+		 */
+		private Boolean isFrameworkFrame(String stackTraceLine)
+		{
+			for(String prefix : FRAMEWORK_FRAME_PREFIXES)
+			{
+				if(stackTraceLine.startsWith(prefix))
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		/**

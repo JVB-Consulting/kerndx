@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!--
+* @description Custom datatable cell template for the Log Console `logLevel` column.
+* Renders the log level as a severity badge whose colour is driven entirely by the
+* level value (via the `data-level` attribute and the co-located stylesheet). The
+* visible text is the level name so the severity is conveyed to screen readers, not
+* by colour alone.
+*
+* @author Jason van Beukering
+*
+* @date June 2026
+* -->
+<template>
+	<span class="log-level-badge" data-level={value}>{value}</span>
+</template>

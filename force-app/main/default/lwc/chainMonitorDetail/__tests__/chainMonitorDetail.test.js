@@ -2,17 +2,20 @@
 /**
  * @description Jest unit tests for chainMonitorDetail LWC component
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, June 2026
  */
 
 import {createElement} from 'lwc';
-import {mockCallControllerMethod, mockShowSuccessToast} from 'c/componentBuilder';
+// noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
+import {mockCallControllerMethod, mockNavigate, mockShowSuccessToast} from 'c/componentBuilder';
 
 const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('c/utilitySystem', () => ({
 	copyToClipBoard: (...args) => mockCopyToClipBoard(...args)
 }), {virtual: true});
+
+jest.mock('@salesforce/label/c.ChainMonitor_ViewLogsAction', () => ({default: 'View logs'}), {virtual: true});
 
 /*
  * Note on `global.__lwcJestMock_getChainDetail`:
@@ -67,12 +70,11 @@ describe('c-chain-monitor-detail', () =>
 		jest.clearAllMocks();
 	});
 
-	async function createComponent(executionId = null)
+	async function createComponent(executionId = null, detail)
 	{
-		mockCallControllerMethod.mockResolvedValue(executionId ? MOCK_DETAIL : null);
+		mockCallControllerMethod.mockResolvedValue(detail === undefined ? (executionId ? MOCK_DETAIL : null) : detail);
 
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
+		const element = createElement('c-chain-monitor-detail', {is: require('c/chainMonitorDetail').default});
 
 		if(executionId)
 		{
@@ -188,13 +190,7 @@ describe('c-chain-monitor-detail', () =>
 
 	it('should show error section when chain has error', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValue(MOCK_FAILED_DETAIL);
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
-		element.executionId = 'a00000000000001AAA';
-		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		const element = await createComponent('a00000000000001AAA', MOCK_FAILED_DETAIL);
 
 		const errorSection = element.shadowRoot.querySelector('.slds-theme_error');
 		expect(errorSection).toBeTruthy();
@@ -255,13 +251,7 @@ describe('c-chain-monitor-detail', () =>
 
 	it('should handle zero total steps in progress bar', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValue({...MOCK_DETAIL, totalSteps: 0, completedSteps: 0});
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
-		element.executionId = 'a00000000000001AAA';
-		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, totalSteps: 0, completedSteps: 0});
 
 		const progressBar = element.shadowRoot.querySelector('lightning-progress-bar');
 		expect(progressBar.value).toBe(0);
@@ -279,13 +269,7 @@ describe('c-chain-monitor-detail', () =>
 
 	it('should not copy when no correlationId', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValue({...MOCK_DETAIL, correlationId: null});
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
-		element.executionId = 'a00000000000001AAA';
-		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, correlationId: null});
 
 		const copyButton = element.shadowRoot.querySelector('lightning-button-icon');
 		if(copyButton)
@@ -299,13 +283,7 @@ describe('c-chain-monitor-detail', () =>
 
 	it('should use fallback icon for unknown status', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValue({...MOCK_DETAIL, status: 'Unknown'});
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
-		element.executionId = 'a00000000000001AAA';
-		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Unknown'});
 
 		const icon = element.shadowRoot.querySelector('lightning-icon');
 		expect(icon.iconName).toBe('utility:question');
@@ -322,17 +300,34 @@ describe('c-chain-monitor-detail', () =>
 
 	it('should hide completed date when chain is running', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValue({...MOCK_DETAIL, status: 'Running', completedAt: null});
-		const ChainMonitorDetail = require('c/chainMonitorDetail').default;
-		const element = createElement('c-chain-monitor-detail', {is: ChainMonitorDetail});
-		element.executionId = 'a00000000000001AAA';
-		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Running', completedAt: null});
 
 		const dtElements = element.shadowRoot.querySelectorAll('dt');
 		const labels = Array.from(dtElements).map(el => el.textContent);
 		expect(labels).not.toContain('Completed');
+	});
+
+	it('navigates to the Log Console filtered by the correlation id when View logs is clicked', async() =>
+	{
+		const element = await createComponent('a00000000000001AAA');
+
+		const viewLogs = element.shadowRoot.querySelector('[data-testid="view-logs"]');
+		expect(viewLogs).toBeTruthy();
+		viewLogs.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		expect(mockNavigate).toHaveBeenCalled();
+		const target = mockNavigate.mock.calls[0][0];
+		expect(target.type).toBe('standard__navItemPage');
+		expect(target.attributes.apiName).toBe('LogConsole');
+		expect(target.state.c__correlationId).toBe('test-correlation-id');
+	});
+
+	it('hides the View logs action when the chain has no correlation id', async() =>
+	{
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, correlationId: null});
+
+		expect(element.shadowRoot.querySelector('[data-testid="view-logs"]')).toBeFalsy();
 	});
 
 });

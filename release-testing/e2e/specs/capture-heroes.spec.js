@@ -7,6 +7,7 @@ const {test} = require('@playwright/test');
 const ApiTestHarnessPage = require('../pages/api-test-harness.page');
 const StreamingMonitorPage = require('../pages/streaming-monitor.page');
 const ChainMonitorPage = require('../pages/chain-monitor.page');
+const LogConsolePage = require('../pages/log-console.page');
 const MaskingAdvisorPage = require('../pages/masking-advisor.page');
 const ScheduledJobsPage = require('../pages/scheduled-jobs.page');
 const KernHomePage = require('../pages/kern-home.page');
@@ -159,6 +160,54 @@ test.describe('admin-tool hero loops', () =>
 		await settle(page, 1300); // the step timeline renders with the failed step flagged
 		await chain.expandErrorAccordion().catch(() => {});
 		await settle(page, 1900); // dwell on the failed step + its error message
+	});
+
+	test('log-console', async({page}, testInfo) =>
+	{
+		// Differentiator: flood-controlled logs are compact to store but awkward to READ — the console
+		// does the reading. Problem summary folds the window to distinct problems with counts, the
+		// ribbon shows per-level totals + top sources, one click filters to the errors, and a
+		// correlation-ID search pulls up a single run whose timeline hands off to the Chain Monitor.
+		// The seed paints an incident afternoon: a recurring payment timeout (181 occurrences) whose
+		// terminal hop belongs to a failed four-step fulfilment run under this correlation ID.
+		const fulfilmentCorrelationId = '7f3a9c14b8d2e5f6a0c1b2d3e4f50617'; // fixed in capture-seed.apex
+		await installOverlay(page);
+		const logConsole = new LogConsolePage(page);
+		await gotoTool(page, 'LogConsole');
+		await logConsole.root().waitFor({state: 'visible', timeout: 30000});
+		await logConsole.waitForListSettled();
+		await settle(page, 1500); // dwell on the opening state: severity ribbon + grouped problems
+
+		// This ribbon-plus-problems frame is the poster (the still a reader sees before pressing
+		// play) — the console's signature view, not the drilled-in finale.
+		await page.screenshot({path: testInfo.outputPath('problem-poster.png')});
+		await settle(page, 400);
+
+		// One filter beat: click the ERROR summary card — the list narrows to error problems in place.
+		await moveCursorTo(page, '[data-testid="summary-card"][data-level="ERROR"]');
+		await logConsole.levelCard('ERROR').click();
+		await logConsole.waitForListSettled();
+		await settle(page, 1100);
+
+		// Flip to the flat per-event view.
+		await moveCursorTo(page, 'lightning-button[data-view="entries"]');
+		await logConsole.switchView('entries');
+		await settle(page, 700);
+
+		// Search by the fulfilment run's correlation ID — the list narrows to that run's entries
+		// (the ERROR-card filter is still on, so its terminal timeout hop is the match).
+		await moveCursorTo(page, '.filter-search input');
+		await logConsole.search(fulfilmentCorrelationId);
+		await settle(page, 900);
+
+		// Open the run's entry, then the payoff: the Timeline tab lays the whole correlated run out —
+		// DEBUG order intake through the ERROR payment timeout — with the Open in Chain Monitor
+		// hand-off in the header.
+		const hopIndex = await logConsole.findRowIndexByText('Read timed out');
+		await logConsole.selectRow(hopIndex >= 0 ? hopIndex : 0);
+		await settle(page, 900); // dwell on the detail drawer (level badge, message, metadata)
+		await logConsole.openDrawerTab('Timeline');
+		await settle(page, 2400); // dwell on the transaction-grouped timeline + chain hand-off
 	});
 
 	test('masking-advisor', async({page}) =>

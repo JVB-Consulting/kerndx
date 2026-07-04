@@ -1737,4 +1737,26 @@ private class LOG_Engine_TEST
 		}
 		return false;
 	}
+
+	/**
+	 * @description Tests that levelSeverityRank ranks the log levels by ascending severity
+	 * (DEBUG < INFO < WARN < ERROR) and returns -1 for a null or unrecognised level, so the Log Console can
+	 * sort the Level column by severity rather than alphabetically.
+	 */
+	@IsTest
+	private static void shouldRankLevelsBySeverity()
+	{
+		Test.startTest();
+		Integer debugRank = LOG_Engine.levelSeverityRank(LOG_Engine.LEVEL_DEBUG);
+		Integer infoRank = LOG_Engine.levelSeverityRank(LOG_Engine.LEVEL_INFO);
+		Integer warnRank = LOG_Engine.levelSeverityRank(LOG_Engine.LEVEL_WARN);
+		Integer errorRank = LOG_Engine.levelSeverityRank(LOG_Engine.LEVEL_ERROR);
+		Integer unknownRank = LOG_Engine.levelSeverityRank('NOT_A_LEVEL');
+		Integer nullRank = LOG_Engine.levelSeverityRank(null);
+		Test.stopTest();
+
+		Assert.isTrue(debugRank < infoRank && infoRank < warnRank && warnRank < errorRank, 'Levels must rank by ascending severity: DEBUG < INFO < WARN < ERROR');
+		Assert.areEqual(-1, unknownRank, 'An unrecognised level ranks -1 so it sorts before DEBUG on an ascending sort');
+		Assert.areEqual(-1, nullRank, 'A null level ranks -1');
+	}
 }

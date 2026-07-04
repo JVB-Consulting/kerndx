@@ -1,0 +1,770 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * Log Console detail pane. Colour is the one allowed colour axis: the severity badge
+ * (keyed off the level value) and the governor-limit bar bands (green/amber/red). The
+ * level name is always shown as text so severity is never conveyed by colour alone.
+ */
+.dhead-chips
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 0.4rem;
+	min-width   : 0;
+}
+
+.log-level-badge
+{
+	border-radius : 0.25rem;
+	display       : inline-block;
+	font-size     : 0.68rem;
+	font-weight   : 700;
+	min-width     : 44px;
+	padding       : 0.08rem 0.4rem;
+	text-align    : center;
+}
+
+.log-level-badge[data-level="ERROR"]
+{
+	background : #FEF1F0;
+	box-shadow : inset 0 0 0 1px #F5B4AE;
+	color      : #BA0517;
+}
+
+.log-level-badge[data-level="WARN"]
+{
+	background : #FEF5E8;
+	box-shadow : inset 0 0 0 1px #F6D18A;
+	color      : #8C4B02;
+}
+
+.log-level-badge[data-level="INFO"]
+{
+	background : #EEF4FF;
+	box-shadow : inset 0 0 0 1px #B9D4F7;
+	color      : #0B5CAB;
+}
+
+.log-level-badge[data-level="DEBUG"]
+{
+	background : #F3F3F3;
+	box-shadow : inset 0 0 0 1px #D4D4D4;
+	color      : #5C5C5C;
+}
+
+.log-number
+{
+	color       : #0B5CAB;
+	font-family : "SF Mono", Menlo, Consolas, monospace;
+	font-size   : 0.73rem;
+	white-space : nowrap;
+}
+
+.count-pill
+{
+	background    : #16325C;
+	border-radius : 1rem;
+	color         : #FFFFFF;
+	font-size     : 0.7rem;
+	font-weight   : 700;
+	padding       : 0.04rem 0.5rem;
+	white-space   : nowrap;
+}
+
+.count-pill_low
+{
+	background : #706E6B;
+}
+
+.detail-heading
+{
+	color : #0B3D6B;
+}
+
+.detail-heading:focus
+{
+	outline : none;
+}
+
+.codewrap
+{
+	position : relative;
+}
+
+.copybtn
+{
+	position : absolute;
+	right    : 0.3rem;
+	top      : 0.3rem;
+	z-index  : 1;
+}
+
+pre.code
+{
+	background    : #1D1F23;
+	border-radius : 0.25rem;
+	color         : #E6E6E6;
+	font-family   : "SF Mono", Menlo, Consolas, monospace;
+	font-size     : 0.73rem;
+	margin        : 0;
+	max-height    : 230px;
+	overflow      : auto;
+	padding       : 0.7rem 0.8rem;
+	white-space   : pre-wrap;
+	word-break    : break-word;
+}
+
+.sech
+{
+	color          : #747474;
+	font-size      : 0.66rem;
+	font-weight    : 700;
+	letter-spacing : 0.05em;
+	margin         : 0.8rem 0 0.4rem;
+	text-transform : uppercase;
+}
+
+.only-used
+{
+	font-weight    : 400;
+	text-transform : none;
+}
+
+.metagrid
+{
+	display               : grid;
+	font-size             : 0.76rem;
+	gap                   : 0.25rem 0.8rem;
+	grid-template-columns : auto 1fr;
+}
+
+.metagrid .k
+{
+	color : #747474;
+}
+
+.metagrid .v
+{
+	font-family : "SF Mono", Menlo, Consolas, monospace;
+	font-size   : 0.72rem;
+	word-break  : break-all;
+}
+
+.limits2
+{
+	display               : grid;
+	gap                   : 0.45rem 0.9rem;
+	grid-template-columns : 1fr 1fr;
+}
+
+.lbar-top
+{
+	display         : flex;
+	font-size       : 0.68rem;
+	justify-content : space-between;
+	margin-bottom   : 0.15rem;
+}
+
+.lbartrack
+{
+	background    : #ECECEC;
+	border-radius : 4px;
+	height        : 7px;
+	overflow      : hidden;
+}
+
+.lbarfill
+{
+	display : block;
+	height  : 100%;
+}
+
+.lbarfill[data-level="green"]
+{
+	background : #2E844A;
+}
+
+.lbarfill[data-level="amber"]
+{
+	background : #FE9339;
+}
+
+.lbarfill[data-level="red"]
+{
+	background : #BA0517;
+}
+
+@media (max-width : 480px)
+{
+	.limits2
+	{
+		grid-template-columns : 1fr;
+	}
+}
+
+/* ---- timeline ------------------------------------------------------------------------------------ */
+.tlhead
+{
+	align-items     : center;
+	display         : flex;
+	flex-wrap       : wrap;
+	gap             : 0.5rem;
+	justify-content : space-between;
+	margin-bottom   : 0.5rem;
+}
+
+.tlhead .ttl
+{
+	color          : #747474;
+	font-size      : 0.66rem;
+	letter-spacing : 0.05em;
+	text-transform : uppercase;
+}
+
+.tlhead .cid
+{
+	color          : #16325C;
+	font-family    : "SF Mono", Menlo, Consolas, monospace;
+	font-weight    : 700;
+	text-transform : none;
+}
+
+.chain-viewfull
+{
+	background  : none;
+	border      : 0;
+	color       : #0B5CAB;
+	cursor      : pointer;
+	font-size   : 0.74rem;
+	font-weight : 600;
+	padding     : 0;
+	white-space : nowrap;
+}
+
+.chain-viewfull:hover
+{
+	text-decoration : underline;
+}
+
+.note
+{
+	border-radius : 0.25rem;
+	font-size     : 0.72rem;
+	margin        : 0.3rem 0 0.6rem;
+	padding       : 0.3rem 0.55rem;
+}
+
+.note.plain
+{
+	background : #F6F6F5;
+	border     : 1px solid #DDDBDA;
+	color      : #747474;
+}
+
+.ovhead
+{
+	align-items     : baseline;
+	display         : flex;
+	gap             : 0.5rem;
+	justify-content : space-between;
+	margin          : 0.2rem 0 0.35rem;
+}
+
+.ovhead .lab
+{
+	color          : #747474;
+	font-size      : 0.6rem;
+	letter-spacing : 0.05em;
+	text-transform : uppercase;
+}
+
+.ovhead .stat
+{
+	color                : #3B3B3B;
+	font-size            : 0.72rem;
+	font-variant-numeric : tabular-nums;
+}
+
+.minimap
+{
+	align-items   : stretch;
+	background    : #FBFBFB;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	display       : flex;
+	flex-wrap     : wrap;
+	gap           : 0.15rem;
+	margin-bottom : 0.7rem;
+	padding       : 0.5rem 0.55rem;
+}
+
+.mseg
+{
+	align-items    : flex-start;
+	background     : #FFFFFF;
+	border         : 1px solid #DDDBDA;
+	border-radius  : 0.25rem;
+	cursor         : pointer;
+	display        : inline-flex;
+	flex-direction : column;
+	gap            : 0.1rem;
+	min-width      : 0;
+	padding        : 0.28rem 0.5rem;
+	position       : relative;
+}
+
+.mseg:hover
+{
+	border-color : #9FB6D6;
+}
+
+.mseg .mq
+{
+	color       : #16325C;
+	font-size   : 0.72rem;
+	font-weight : 700;
+	white-space : nowrap;
+}
+
+.mseg .mc
+{
+	color     : #747474;
+	font-size : 0.6rem;
+}
+
+.mseg.s-ERROR
+{
+	box-shadow : inset 0 -3px 0 #BA0517;
+}
+
+.mseg.s-WARN
+{
+	box-shadow : inset 0 -3px 0 #FE9339;
+}
+
+.mseg.s-OK
+{
+	box-shadow : inset 0 -3px 0 #2E844A;
+}
+
+.mseg .warnpin
+{
+	color     : #BA0517;
+	font-size : 0.7rem;
+	position  : absolute;
+	right     : -0.3rem;
+	top       : -0.4rem;
+}
+
+.mseg-group
+{
+	display : contents;
+}
+
+.marrow
+{
+	align-self : center;
+	color      : #B6B6B6;
+	font-size  : 0.8rem;
+}
+
+.legend
+{
+	color     : #3B3B3B;
+	display   : flex;
+	flex-wrap : wrap;
+	font-size : 0.68rem;
+	gap       : 0.7rem;
+	margin    : 0.1rem 0 0.6rem;
+}
+
+.legend .lg
+{
+	align-items : center;
+	display     : inline-flex;
+	gap         : 0.3rem;
+}
+
+.dot
+{
+	border-radius : 50%;
+	display       : inline-block;
+	height        : 9px;
+	width         : 9px;
+}
+
+.dot.d-DEBUG
+{
+	background : #5C5C5C;
+}
+
+.dot.d-INFO
+{
+	background : #2E844A;
+}
+
+.dot.d-WARN
+{
+	background : #FE9339;
+}
+
+.dot.d-ERROR
+{
+	background : #BA0517;
+}
+
+.dot.d-self
+{
+	background : #0B5CAB;
+}
+
+.groups
+{
+	display        : flex;
+	flex-direction : column;
+	gap            : 0.35rem;
+}
+
+.txn
+{
+	background    : #FFFFFF;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	overflow      : hidden;
+}
+
+.txnhead
+{
+	align-items : center;
+	background  : #FAFAF9;
+	border      : 0;
+	border-left : 3px solid #DDDBDA;
+	cursor      : pointer;
+	display     : flex;
+	gap         : 0.5rem;
+	padding     : 0.4rem 0.6rem;
+	text-align  : left;
+	width       : 100%;
+}
+
+.txnhead:hover
+{
+	background : #F1F0EE;
+}
+
+.txnhead.s-ERROR
+{
+	border-left-color : #BA0517;
+}
+
+.txnhead.s-WARN
+{
+	border-left-color : #FE9339;
+}
+
+.txnhead.s-OK
+{
+	border-left-color : #2E844A;
+}
+
+.chev
+{
+	color      : #747474;
+	transition : transform 0.12s;
+	width      : 0.8rem;
+}
+
+.chev.open
+{
+	transform : rotate(90deg);
+}
+
+.txnhead .tq
+{
+	color       : #16325C;
+	font-weight : 700;
+	white-space : nowrap;
+}
+
+.txnhead .toff
+{
+	color                : #747474;
+	font-size            : 0.7rem;
+	font-variant-numeric : tabular-nums;
+	white-space          : nowrap;
+}
+
+.txnhead .tdur
+{
+	color     : #747474;
+	font-size : 0.7rem;
+}
+
+.txnhead .tcount
+{
+	color       : #747474;
+	font-size   : 0.68rem;
+	margin-left : auto;
+	white-space : nowrap;
+}
+
+.txnhead .crumb
+{
+	color      : #747474;
+	font-size  : 0.66rem;
+	font-style : italic;
+}
+
+.sbadge
+{
+	border-radius : 0.5rem;
+	font-size     : 0.6rem;
+	font-weight   : 700;
+	padding       : 0.02rem 0.4rem;
+}
+
+.sbadge.s-ERROR
+{
+	background : #FEF1F0;
+	color      : #BA0517;
+}
+
+.sbadge.s-WARN
+{
+	background : #FEF5E8;
+	color      : #8C4B02;
+}
+
+.sbadge.s-OK
+{
+	background : #EBF7EE;
+	color      : #2E844A;
+}
+
+.gapnote
+{
+	background : repeating-linear-gradient(90deg, #FFFFFF, #FFFFFF 6px, #FDF6EA 6px, #FDF6EA 12px);
+	color      : #8C4B02;
+	font-size  : 0.66rem;
+	padding    : 0.15rem 0.6rem 0.15rem 1.4rem;
+}
+
+.tentries
+{
+	list-style : none;
+	margin     : 0;
+	padding    : 0.15rem 0 0.3rem;
+}
+
+.tent
+{
+	border-left : 2px solid transparent;
+}
+
+.tent.focused
+{
+	background        : #EEF4FF;
+	border-left-color : #0B5CAB;
+}
+
+.tent-summary
+{
+	align-items           : start;
+	background            : none;
+	border                : 0;
+	cursor                : pointer;
+	display               : grid;
+	font                  : inherit;
+	gap                   : 0.5rem;
+	grid-template-columns : 16px 1fr auto;
+	padding               : 0.28rem 0.6rem 0.28rem 0.8rem;
+	text-align            : left;
+	width                 : 100%;
+}
+
+.tent-summary:hover
+{
+	background : #F6F9FF;
+}
+
+.tent-main
+{
+	min-width : 0;
+}
+
+.node
+{
+	border        : 2px solid #FFFFFF;
+	border-radius : 50%;
+	box-shadow    : 0 0 0 1px #DDDBDA;
+	display       : inline-block;
+	height        : 11px;
+	margin-top    : 2px;
+	width         : 11px;
+}
+
+.node_self
+{
+	box-shadow : 0 0 0 2px #0B5CAB;
+}
+
+.node.d-DEBUG
+{
+	background : #5C5C5C;
+}
+
+.node.d-INFO
+{
+	background : #2E844A;
+}
+
+.node.d-WARN
+{
+	background : #FE9339;
+}
+
+.node.d-ERROR
+{
+	background : #BA0517;
+}
+
+.elvl
+{
+	border-radius : 0.25rem;
+	font-size     : 0.58rem;
+	font-weight   : 700;
+	margin-right  : 0.35rem;
+	padding       : 0 0.3rem;
+}
+
+.elvl[data-level="ERROR"]
+{
+	background : #FEF1F0;
+	color      : #BA0517;
+}
+
+.elvl[data-level="WARN"]
+{
+	background : #FEF5E8;
+	color      : #8C4B02;
+}
+
+.elvl[data-level="INFO"]
+{
+	background : #EEF4FF;
+	color      : #0B5CAB;
+}
+
+.elvl[data-level="DEBUG"]
+{
+	background : #F3F3F3;
+	color      : #5C5C5C;
+}
+
+.where
+{
+	color       : #1D1D1D;
+	font-family : "SF Mono", Menlo, Consolas, monospace;
+	font-size   : 0.74rem;
+	word-break  : break-word;
+}
+
+.emsg
+{
+	color      : #747474;
+	display    : block;
+	font-size  : 0.72rem;
+	margin-top : 0.05rem;
+}
+
+.eoff
+{
+	color                : #747474;
+	font-size            : 0.68rem;
+	font-variant-numeric : tabular-nums;
+	white-space          : nowrap;
+}
+
+.youare
+{
+	background     : #EEF4FF;
+	border         : 1px solid #B9D4F7;
+	border-radius  : 0.5rem;
+	color          : #0B5CAB;
+	font-size      : 0.58rem;
+	margin-left    : 0.35rem;
+	padding        : 0 0.3rem;
+	vertical-align : middle;
+}
+
+.focuscard
+{
+	background    : #FCFCFB;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	margin        : 0 0.6rem 0.35rem 1.35rem;
+	padding       : 0.5rem 0.6rem;
+}
+
+.fc-type
+{
+	color          : #747474;
+	font-size      : 0.62rem;
+	letter-spacing : 0.04em;
+	text-transform : uppercase;
+}
+
+.fc-sub
+{
+	margin-top : 0.4rem;
+}
+
+.fc-msg
+{
+	color      : #2A2A2A;
+	font-size  : 0.76rem;
+	margin-top : 0.2rem;
+}
+
+.fc-pre
+{
+	background    : #FBFBFA;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	color         : #2A2A2A;
+	font-family   : "SF Mono", Menlo, Consolas, monospace;
+	font-size     : 0.72rem;
+	line-height   : 1.5;
+	margin        : 0.3rem 0 0;
+	max-height    : 220px;
+	overflow      : auto;
+	padding       : 0.45rem 0.55rem;
+	white-space   : pre-wrap;
+	word-break    : break-word;
+}
+
+.fc-none,
+.fc-loading
+{
+	color      : #747474;
+	font-size  : 0.72rem;
+	margin-top : 0.3rem;
+}
+
+.fc-open
+{
+	margin-top : 0.45rem;
+}
+
+.caprow
+{
+	align-items : center;
+	background  : #FBFBFB;
+	border-top  : 1px dashed #DDDBDA;
+	color       : #747474;
+	display     : flex;
+	flex-wrap   : wrap;
+	font-size   : 0.72rem;
+	gap         : 0.4rem;
+	padding     : 0.4rem 0.6rem;
+}

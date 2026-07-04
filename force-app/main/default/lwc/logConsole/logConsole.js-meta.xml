@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Log Console: browse, filter and inspect captured log entries</description>
+	<isExposed>true</isExposed>
+	<masterLabel>Log Console</masterLabel>
+	<targets>
+		<target>lightning__AppPage</target>
+	</targets>
+</LightningComponentBundle>

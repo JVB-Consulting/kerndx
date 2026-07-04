@@ -115,7 +115,7 @@ Got a specific need? This is the fast lookup. The "Consider an alternative whenâ
 
 | Capability                     | KernDX gives you                                                                                                                                                                                                                                                                                                                 | Consider an alternative when                                                                                                                    |
 |--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Trigger framework**          | Configuration-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, a searchable record of what each trigger actually did (execution observability), reacting to record-change events (Change Data Capture, with the change header available to Flow and Apex actions), and follow-up work that runs after the transaction commits (post-trigger finalizers) | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
+| **Trigger framework**          | Configuration-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, a stable action order (actions that share an order value always run in the same sequence), a searchable record of what each trigger actually did (execution observability), reacting to record-change events (Change Data Capture, with the change header available to Flow and Apex actions), and follow-up work that runs after the transaction commits (post-trigger finalizers) | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
 | **Query builder**              | A fluent SOQL API with no string concatenation, FLS/CRUD enforced by default, an audit log on every bypass, and a subclassable builder                                                                                                                                                                                           | `apex-fluently-soql` if a standalone fluent-DSL is all you want and developer-managed access control is acceptable                              |
 | **DML**                        | Transactional batching, FLS/CRUD enforced on writes by default, audited bypass, async DML, and saves related records in the right multi-level order (parents before children), catching impossible loops                                                                                                                                                                      | `apex-fluently-dml` if you prefer its record-builder relationship DSL. Both resolve multi-level graphs; the difference is API shape, not depth |
 | **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, small response classes that convert themselves to and from JSON (DTO marshalling), validation hooks, and a paired test harness                                                                                                                        | No framework alternative among those compared: hand-roll the dispatcher per endpoint, or adopt KernDX                                           |
@@ -179,7 +179,7 @@ DML, outbound, async, security, and masking.
 **The library.** `taf` ("Trigger Actions Framework") is a single-capability trigger framework that uses metadata-driven registration. It scopes to triggers only. Licence: Apache 2.0.
 
 **Where it wins.** Little over KernDX on capability. KernDX covers everything `taf` does, including Change Data Capture dispatch and post-trigger finalizers, and adds bypass
-auditing, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There are two honest cases for `taf`. First, you already run it and want triggers
+auditing, a stable order for actions that share an order value, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There are two honest cases for `taf`. First, you already run it and want triggers
 only, so a migration isn't worth the churn. Second, the licence case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 licence matters to you. (Under BSL 1.1, ordinary teams and the consultants
 deploying for them keep full production-use rights, and it converts to Apache 2.0 four years after publication.)
 
@@ -227,12 +227,12 @@ admin per-row declarative-bypass shape.
 feature-switch is sealed against extension. It ships no inbound REST, outbound HTTP, data masking, async-chain orchestration, health check, or scanner. KernDX covers those with
 default-on security and full bypass audit.
 
-**Coexistence.** Good for the log-browser surface, since the two run in separate namespaces. (Logging is parallel, not merged: entries emitted via KernDX are not picked up by `rflib`'s
-viewer.)
+**Coexistence.** Good for the log-archival surface (`rflib`'s viewer reads archived entries back from a Big Object and exports CSV, which KernDX's Log Console does not), since the two run
+in separate namespaces. (Logging is parallel, not merged: entries emitted via KernDX are not picked up by `rflib`'s viewer, and `rflib` entries do not appear in the Log Console.)
 
-**Migration complexity: Low.** Most value comes from coexisting for the log-browser rather than migrating.
+**Migration complexity: Low.** Most value comes from coexisting for the archival surface rather than migrating.
 
-> **Pick:** KernDX for full coverage. Keep `rflib` when its historical log-browser or admin per-row bypass is load-bearing: they co-install cleanly.
+> **Pick:** KernDX for full coverage. Keep `rflib` when its Big Object log archival with CSV export or admin per-row bypass is load-bearing: they co-install cleanly.
 
 ### vs. nebula-logger
 
@@ -240,8 +240,8 @@ viewer.)
 mature release history.
 
 **Where it wins.** Maximum logging depth: selectable transport (event bus / queueable / REST / synchronous), all seven platform log levels, per-record and per-scenario retention
-overrides, and a dedicated historical log-browser LWC. KernDX's logging is leaner (single platform-event transport, four levels, no per-record retention field, no dedicated
-log-browser UI).
+overrides, and log analytics dashboards. KernDX's logging is leaner (single platform-event transport, four levels, no per-record retention field); its Log Console covers browsing,
+severity filtering, and searching past entries, with recurring problems grouped and a per-operation drilldown, but ships no analytics dashboards.
 
 **The KernDX divergence.** `nebula-logger` is logging-only. It has no trigger framework, query/DML framework, web services, async orchestration, or security defaults, and its
 logging is not wired into a trigger/query/DML bypass-audit or async status signal, because those don't exist outside an integrated framework.

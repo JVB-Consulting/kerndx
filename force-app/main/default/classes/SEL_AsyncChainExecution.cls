@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026
+ * @date April 2026, June 2026, July 2026
  *
  * @since 1.0
  *
@@ -166,6 +166,65 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	{
 		return (AsyncChainExecution__c)query
 				.condition(AsyncChainExecution__c.CorrelationId__c).equals(correlationId).getFirst();
+	}
+
+	/**
+	 * @description Returns whether any registered async chain execution shares the given correlation id.
+	 * Sharing is bypassed so the check is consistent with how the console reads its log rows and how the
+	 * Chain Monitor lists chains org-wide: the console offers Open in Chain Monitor whenever there is a chain
+	 * to open, not only when the viewer happens to share the chain record. A blank correlation returns false
+	 * without querying.
+	 *
+	 * @param correlationId The CorrelationId__c to probe for a registered chain.
+	 *
+	 * @return True when a chain execution carries the correlation id; false for a blank id or no match.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean hasChain = new SEL_AsyncChainExecution().existsByCorrelationId('8f2c-ord-4471');
+	 * ```
+	 */
+	public Boolean existsByCorrelationId(String correlationId)
+	{
+		return String.isNotBlank(correlationId)
+				&& query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.CorrelationId__c).equals(correlationId)
+				.getFirst() != null;
+	}
+
+	/**
+	 * @description Retrieves the chain execution carrying a correlation id for the Chain Monitor
+	 * console. Sharing is bypassed for the same reason as findByIdForMonitoring and
+	 * existsByCorrelationId: the console lists and opens chains org-wide, and the Open in Chain
+	 * Monitor deep link is offered whenever a chain exists, so resolving that link must see the
+	 * same records the console itself shows. Orchestration and subscriber-facing status reads keep
+	 * using findByCorrelationId, which respects the caller's sharing access. A blank correlation
+	 * returns null without querying.
+	 *
+	 * @param correlationId The CorrelationId__c carried by the deep link.
+	 *
+	 * @return The matching AsyncChainExecution__c record, or null for a blank id or no match.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring('8f2c-ord-4471');
+	 * ```
+	 */
+	public AsyncChainExecution__c findByCorrelationIdForMonitoring(String correlationId)
+	{
+		if(String.isBlank(correlationId))
+		{
+			return null;
+		}
+
+		return (AsyncChainExecution__c)query
+				.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.CorrelationId__c).equals(correlationId)
+				.getFirst();
 	}
 
 	/**
