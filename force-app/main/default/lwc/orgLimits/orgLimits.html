@@ -1,11 +1,63 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<lightning-card title="Org limits">
-		<div class="slds-var-p-horizontal_large">
-			<c-notice>The use of the Streaming Monitor counts against
-				limits.
-			</c-notice>
-			<div class="chart" lwc:dom="manual"></div>
+	<lightning-card>
+		<span data-spec-id="org-limits-title" slot="title">{labels.cardTitle}</span>
+		<div class="slds-var-p-horizontal_medium slds-var-p-bottom_small">
+			<c-notice data-spec-id="org-limits-notice">{labels.notice}</c-notice>
+
+			<template lwc:if={isLoading}>
+				<div class="slds-is-relative slds-var-p-vertical_large">
+					<lightning-spinner alternative-text={labels.cardTitle} size="small"></lightning-spinner>
+				</div>
+			</template>
+
+			<template lwc:elseif={hasError}>
+				<div class="state-pane state-pane_error" data-spec-id="org-limits-error">
+					<lightning-icon alternative-text={labels.errorBody} icon-name="utility:error" size="small" variant="error"></lightning-icon>
+					<span>{labels.errorBody}</span>
+				</div>
+			</template>
+
+			<template lwc:else>
+				<div class="controls slds-grid slds-wrap slds-grid_vertical-align-end slds-gutters_x-small slds-var-m-bottom_small">
+					<div class="slds-col slds-form-element">
+						<lightning-combobox data-spec-id="org-limits-sort" label={labels.sortByLabel} onchange={handleSort} options={sortOptions}
+						                    value={sortKey}></lightning-combobox>
+					</div>
+					<div class="slds-col search-col">
+						<lightning-input data-spec-id="org-limits-search" label={labels.searchPlaceholder} onchange={handleSearch} placeholder={labels.searchPlaceholder}
+						                 type="search" value={searchTerm} variant="label-hidden"></lightning-input>
+					</div>
+				</div>
+
+				<template lwc:if={hasLimits}>
+					<div class="slds-grid slds-wrap slds-gutters" data-spec-id="org-limits-grid">
+						<template for:each={displayLimits} for:item="limit">
+							<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3 slds-var-p-bottom_small limit-card" data-level={limit.level}
+							     data-testid="org-limits-card" key={limit.key}>
+								<div class="limit-card__surface" data-level={limit.level}>
+									<div class="limit-card__top">
+										<span class="limit-name" title={limit.rawName}>{limit.name}</span>
+										<span class="limit-percent" data-level={limit.level}>{limit.percentLabel}</span>
+									</div>
+									<div aria-label={limit.rawName} aria-valuemax="100" aria-valuemin="0" aria-valuenow={limit.percentage}
+									     class="slds-progress-bar slds-progress-bar_x-small limit-bar-track" data-testid="limit-bar" role="progressbar">
+										<span class="slds-progress-bar__value limit-bar-fill" data-level={limit.level} style={limit.barStyle}></span>
+									</div>
+									<div class="limit-usage">{limit.usageLine}</div>
+									<div class="limit-raw">{limit.rawName}</div>
+								</div>
+							</div>
+						</template>
+					</div>
+				</template>
+
+				<template lwc:else>
+					<div class="state-pane" data-spec-id="org-limits-empty">
+						<span>{labels.empty}</span>
+					</div>
+				</template>
+			</template>
 		</div>
 	</lightning-card>
 </template>

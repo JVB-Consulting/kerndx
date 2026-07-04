@@ -4,13 +4,13 @@
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
 	<div class={splitViewContainerClasses}>
-		<button aria-controls="split-view-id" aria-expanded={isSidebarVisible} class={toggleButtonClasses} onclick={handleToggleSidebar} title="Toggle sidebar">
+		<button aria-controls="split-view-id" aria-expanded={sidebarExpanded} class={toggleButtonClasses} onclick={handleToggleSidebar} title="Toggle sidebar">
 			<svg aria-hidden="true" class="slds-button__icon slds-button__icon_x-small" viewBox="0 0 52 52">
 				<path d="M38 8.3v35.4c0 1-1.3 1.7-2.2.9L14.6 27.3c-.8-.6-.8-1.9 0-2.5L35.8 7.3c.9-.7 2.2-.1 2.2 1z"></path>
 			</svg>
 			<span class="slds-assistive-text">Toggle sidebar</span>
 		</button>
-		<article aria-hidden={isSidebarHidden} class="slds-split-view slds-grid slds-grid_vertical slds-grow" id="split-view-id">
+		<article aria-hidden={sidebarHidden} class="slds-split-view slds-grid slds-grid_vertical slds-grow" id="split-view-id">
 			<lightning-vertical-navigation onselect={handleMenuSelect} selected-item={selectedItem}>
 				<lightning-vertical-navigation-item-icon icon-name="utility:events" label="Streaming Monitor" name="monitor"></lightning-vertical-navigation-item-icon>
 				<lightning-vertical-navigation-section label="Actions">
@@ -20,7 +20,7 @@
 					<lightning-vertical-navigation-item label="Register an event source" name="register"></lightning-vertical-navigation-item>
 				</lightning-vertical-navigation-section>
 				<lightning-vertical-navigation-section label="Dashboards">
-					<lightning-vertical-navigation-item label="Org limits" name="view-org-limits"></lightning-vertical-navigation-item>
+					<lightning-vertical-navigation-item label={labels.navOrgLimits} name="view-org-limits"></lightning-vertical-navigation-item>
 					<lightning-vertical-navigation-item label="Event usage metrics" name="view-event-usage-metrics"></lightning-vertical-navigation-item>
 				</lightning-vertical-navigation-section>
 			</lightning-vertical-navigation>

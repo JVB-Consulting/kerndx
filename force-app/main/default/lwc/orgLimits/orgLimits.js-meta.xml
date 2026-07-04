@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
 	<apiVersion>67.0</apiVersion>
-	<description>Displays Salesforce org limits in a horizontal bar chart using D3.js. Shows limit name, consumption percentage, and remaining capacity with interactive tooltips.
+	<description>Displays Salesforce org limits as a prioritised SLDS card grid. Each card shows the limit name, a colour-coded usage bar, the percentage consumed, and the used-of-maximum numbers, sorted worst-first with client-side sort and search.
 	</description>
 	<isExposed>false</isExposed>
 	<masterLabel>Org Limits</masterLabel>

@@ -144,4 +144,72 @@ test.describe.serial('Part 5: Streaming — Setup & Subscribe', () =>
 		{
 		});
 	});
+
+	test('V104: Org Limits card grid renders worst-first with colour bands', async({page}) =>
+	{
+		test.setTimeout(120_000);
+		await navigateToApp(page, 'Kern');
+		const monitor = new StreamingMonitorPage(page);
+		await monitor.navigate();
+		await monitor.navigateToOrgLimits();
+
+		const cardCount = await monitor.getOrgLimitCardCount();
+		expect(cardCount, 'Org limits grid should render at least one card').toBeGreaterThan(0);
+
+		// Every card carries a progress bar and a "<used> of <max>" usage line.
+		const firstCard = monitor.orgLimitCards().first();
+		await expect(firstCard.locator('[data-testid="limit-bar"]'), 'Each card has a limit bar').toBeVisible();
+		await expect(firstCard.locator('.limit-usage'), 'Each card shows a used-of-max usage line').toContainText(/ of /);
+
+		// Worst-first default sort: the per-card percentages are non-increasing down the grid.
+		const percentages = await monitor.getOrgLimitPercentages();
+		expect(percentages.length, 'Every card exposes an aria-valuenow percentage').toBe(cardCount);
+		const sortedDescending = [...percentages].sort((first, second) => second - first);
+		expect(percentages, 'Cards should be ordered worst → best usage').toEqual(sortedDescending);
+
+		// Colour bands render; band correctness at every 69/70/89/90/100 boundary is proven in Jest,
+		// since a live scratch org cannot be seeded to a specific consumption. Assert the red band only
+		// when a real limit actually sits at >= 90%.
+		const levels = await monitor.getOrgLimitLevels();
+		expect(levels.length, 'Every card carries a colour band level').toBe(cardCount);
+		expect(levels.every((level) => ['green', 'amber', 'red'].includes(level)), 'Bands are green/amber/red').toBeTruthy();
+		if(percentages[0] >= 90)
+		{
+			expect(levels[0], 'A limit at >= 90% renders the red band').toBe('red');
+		}
+	});
+
+	test('V105: Org Limits sort and search controls filter the grid', async({page}) =>
+	{
+		test.setTimeout(120_000);
+		await navigateToApp(page, 'Kern');
+		const monitor = new StreamingMonitorPage(page);
+		await monitor.navigate();
+		await monitor.navigateToOrgLimits();
+
+		const totalCards = await monitor.getOrgLimitCardCount();
+		expect(totalCards, 'Grid should start populated').toBeGreaterThan(0);
+
+		// Sort by name (A–Z) reorders the grid alphabetically by the visible (prettified) name.
+		await monitor.sortOrgLimitsBy('Name');
+		const names = await monitor.getOrgLimitNames();
+		const alphabetical = [...names].sort((first, second) => first.localeCompare(second));
+		expect(names, 'Name (A–Z) sort should order cards alphabetically').toEqual(alphabetical);
+
+		// Search narrows the grid to matching limits (every org exposes API-request limits).
+		await monitor.searchOrgLimits('Api');
+		const filteredCount = await monitor.getOrgLimitCardCount();
+		expect(filteredCount, 'Search should not widen the grid').toBeLessThanOrEqual(totalCards);
+		expect(filteredCount, 'At least one API limit should match').toBeGreaterThan(0);
+		const filteredNames = await monitor.getOrgLimitNames();
+		for(const name of filteredNames)
+		{
+			expect(name.toLowerCase(), 'Every visible card matches the search term').toContain('api');
+		}
+
+		// Clearing the search restores the full grid.
+		await monitor.searchOrgLimits('');
+		const restoredCount = await monitor.getOrgLimitCardCount();
+		expect(restoredCount, 'Clearing the search restores every card').toBe(totalCards);
+	});
 });

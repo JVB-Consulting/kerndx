@@ -1,89 +1,116 @@
 // SPDX-License-Identifier: BUSL-1.1
-/* global d3 */
-// noinspection JSUnresolvedFunction,FunctionWithMultipleReturnPointsJS,JSDeprecatedSymbols
 
 /**
- * @description LWC component that renders a horizontal bar chart of Salesforce org limits
- * using D3.js. Each bar represents a limit's percentage consumed, with tooltips showing
- * the consumed value and maximum.
+ * @description LWC component that renders Salesforce org limits as a prioritised SLDS card grid.
+ * Each card shows the limit's prettified name, a colour-coded usage bar, the percentage consumed,
+ * and the raw "used of maximum" numbers. Cards default to worst-first (highest usage) order, and a
+ * client-side sort and search operate over the single Apex load. Everything shown is derived purely
+ * from what `OrgLimits.getAll()` returns (name, value, maximum); no reset interval, description, or
+ * other metadata is fabricated.
  *
- * @date March 2026, May 2026
+ * @author Jason van Beukering
+ * @date July 2026
  */
 import {LightningElement} from 'lwc';
 import getOrgLimits from '@salesforce/apex/CTRL_EventMonitor.getOrgLimits';
-import {loadScript} from 'lightning/platformResourceLoader';
-import D3 from '@salesforce/resourceUrl/d3';
+import {formatCount} from 'c/utilityStreaming';
 import LOCALE from '@salesforce/i18n/locale';
+
+import CARD_TITLE from '@salesforce/label/c.OrgLimits_CardTitle';
+import NOTICE from '@salesforce/label/c.OrgLimits_Notice';
+import ERROR_BODY from '@salesforce/label/c.OrgLimits_Error_Body';
+import EMPTY from '@salesforce/label/c.OrgLimits_Empty';
+import SEARCH_PLACEHOLDER from '@salesforce/label/c.OrgLimits_SearchPlaceholder';
+import SORT_BY_LABEL from '@salesforce/label/c.OrgLimits_SortBy_Label';
+import SORT_WORST_FIRST from '@salesforce/label/c.OrgLimits_Sort_WorstFirst';
+import SORT_NAME from '@salesforce/label/c.OrgLimits_Sort_Name';
+import USAGE from '@salesforce/label/c.OrgLimits_Usage';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
-/**
- * @description Accessor function returning the percentage value of a limit record.
- *
- * @param {Object} datum - A single limit record.
- * @returns {number} The percentage consumed.
- */
-const getPercentage = (datum) => datum.percent;
+/** @description Percentage at or above which a limit is shown in the amber (watch) band. */
+const AMBER_THRESHOLD = 70;
+
+/** @description Percentage at or above which a limit is shown in the red (urgent) band. */
+const RED_THRESHOLD = 90;
+
+const SORT_WORST = 'worst';
+const SORT_ALPHABETICAL = 'name';
 
 /**
- * @description Accessor function returning the name of a limit record.
- *
- * @param {Object} datum - A single limit record.
- * @returns {string} The limit name.
+ * @description Acronym dictionary for the cosmetic name prettify. A value of `1` keeps the token
+ * upper-cased as-is; a string value substitutes an exact mixed-case rendering. Tokens not listed
+ * are Title-cased normally, so ordinary words (Bulk, Einstein, …) need no entry.
  */
-const getLimitName = (datum) => datum.name;
-
-/**
- * @description Localized number formatter used for rendering values in tooltips and labels.
- */
-const numberFormatter = new Intl.NumberFormat(LOCALE);
-
-/**
- * @description Margins used around the chart layout.
- */
-const MARGINS = {top: 0, right: 20, bottom: 20, left: 300};
-
-/**
- * @description Height in pixels for each row in the bar chart.
- */
-const ROW_HEIGHT = 30;
-
-const TOOLTIP_Y_OFFSET = 30;
+const ACRONYMS = {
+	API: 1, ODATA: 'OData', CDC: 1, MB: 1, ID: 'Id', APEX: 'Apex', GMT: 1, SOQL: 1, SOSL: 1, URL: 1
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 /**
- * @description Transforms raw Apex limit records by computing the percentage consumed
- * and sorting alphabetically by name.
- *
- * @param {Array<Object>} rawLimits - Raw limit records from Apex.
- * @returns {Array<Object>} Transformed limits with computed `percent` field.
+ * @description Substitutes positional `{0}`, `{1}`, … tokens in a label template.
+ * @param {string} template - The label text containing positional tokens.
+ * @param {...string} values - Replacement values, in order.
+ * @returns {string} The interpolated string.
  */
-function transformLimits(rawLimits)
+function formatLabel(template, ...values)
 {
-	return rawLimits
-	.map((limit) =>
-	{
-		const limitData = {...limit};
-		limitData.percent = limitData.max === 0 ? 0 : Math.trunc((limitData.value / limitData.max) * 100);
-		return limitData;
-	})
-	.sort((a, b) => a.name.localeCompare(b.name));
+	return values.reduce((accumulator, value, index) => accumulator.replace(`{${index}}`, value), template);
 }
 
 /**
- * @description Calculates tooltip position relative to the chart root.
- *
- * @param {Array<number>} mousePos - The [x, y] mouse position.
- * @param {DOMRect} rootRect - Bounding rect of the chart root element.
- * @param {DOMRect} tooltipRect - Bounding rect of the tooltip element.
- * @returns {{posX: number, posY: number}} Calculated position.
+ * @description Cosmetically prettifies a raw org-limit API name for display: splits camelCase and
+ * digit boundaries, Title-cases each token, preserves known acronyms, and rejoins `V<digit>` tokens
+ * (so `DailyBulkV2QueryJobs` reads `Daily Bulk V2 Query Jobs`). Purely presentational — no semantic
+ * inference. The raw name remains the source of truth for search and the bar's aria-label.
+ * @param {string} name - The raw org-limit API name.
+ * @returns {string} The display name.
  */
-function calculateTooltipPosition(mousePos, rootRect, tooltipRect)
+function prettify(name)
 {
-	return {
-		posX: mousePos[0] + rootRect.x - tooltipRect.width / 2, posY: mousePos[1] + rootRect.y - TOOLTIP_Y_OFFSET - tooltipRect.height
-	};
+	return name
+	.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+	.replace(/([A-Za-z])([0-9])/g, '$1 $2')
+	.replace(/([0-9])([A-Za-z])/g, '$1 $2')
+	.split(/\s+/)
+	.map((token) =>
+	{
+		const upper = token.toUpperCase();
+		if(ACRONYMS[upper])
+		{
+			return ACRONYMS[upper] === 1 ? upper : ACRONYMS[upper];
+		}
+		return token.charAt(0).toUpperCase() + token.slice(1);
+	})
+	.join(' ')
+	.replace(/\bV (\d)\b/g, 'V$1');
+}
+
+/**
+ * @description Computes the percentage consumed, guarding the max==0 (unprovisioned) case so an
+ * unprovisioned feature reads 0% rather than NaN.
+ * @param {number} used - The consumed value.
+ * @param {number} max - The maximum value.
+ * @returns {number} The integer percentage 0–100+ (may exceed 100 if usage exceeds the maximum).
+ */
+function percentageConsumed(used, max)
+{
+	return max > 0 ? Math.round((used / max) * 100) : 0;
+}
+
+/**
+ * @description Maps a percentage to its colour band.
+ * @param {number} percentage - The percentage consumed.
+ * @returns {string} `green` (healthy), `amber` (watch), or `red` (urgent).
+ */
+function bandLevel(percentage)
+{
+	if(percentage >= RED_THRESHOLD)
+	{
+		return 'red';
+	}
+	return percentage >= AMBER_THRESHOLD ? 'amber' : 'green';
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -93,33 +120,111 @@ export default class OrgLimits extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
 
-	/** @description Transformed org limit records with computed percentages. */
-	limits;
+	/** @description Raw org-limit records from Apex (`[{name, value, max}]`); undefined until loaded. */
+	rawLimits;
 
-	/** @description Contains error information if the Apex call fails. */
+	/** @description Serialized error when the Apex load fails; undefined on success. */
 	error;
 
-	/** @description Whether D3 has been loaded and initialized. */
-	isD3Loaded = false;
+	/** @description The active sort key (`worst` | `name`). */
+	sortKey = SORT_WORST;
+
+	/** @description The current case-insensitive name search term. */
+	searchTerm = '';
+
+	/**
+	 * @description Static label strings the template renders, grouped so the markup reads `{labels.x}`.
+	 * @type {Object<string, string>}
+	 */
+	labels = {
+		cardTitle: CARD_TITLE, notice: NOTICE, errorBody: ERROR_BODY, empty: EMPTY, searchPlaceholder: SEARCH_PLACEHOLDER, sortByLabel: SORT_BY_LABEL
+	};
 
 	// ── Lifecycle ────────────────────────────────────────────────────────
 
 	/**
-	 * @description Loads org limit data from Apex and the D3 script resource.
-	 * Transforms limit data and draws the chart.
+	 * @description Whether the Apex load is still pending (no data and no error yet).
+	 * @returns {boolean}
+	 */
+	get isLoading()
+	{
+		return !this.rawLimits && !this.error;
+	}
+
+	// ── Computed Properties ──────────────────────────────────────────────
+
+	/**
+	 * @description Whether the Apex load failed.
+	 * @returns {boolean}
+	 */
+	get hasError()
+	{
+		return Boolean(this.error);
+	}
+
+	/**
+	 * @description The two sort options offered by the combobox.
+	 * @returns {Array<{label: string, value: string}>}
+	 */
+	get sortOptions()
+	{
+		return [
+			{label: SORT_WORST_FIRST, value: SORT_WORST},
+			{label: SORT_NAME, value: SORT_ALPHABETICAL}
+		];
+	}
+
+	/**
+	 * @description The render model driving the grid: every raw limit mapped to its display shape,
+	 * filtered by the search term, then sorted. Worst-first sorts by percentage descending with an
+	 * alphabetical tie-break; name sorts alphabetically by the prettified name.
+	 * @returns {Array<Object>} `[{key, name, rawName, percentage, percentLabel, level, barStyle, usageLine}]`.
+	 */
+	get displayLimits()
+	{
+		const term = this.searchTerm.trim().toLowerCase();
+		const rows = this.rawLimits
+		.map((limit) =>
+		{
+			const percentage = percentageConsumed(limit.value, limit.max);
+			return {
+				key: limit.name,
+				name: prettify(limit.name),
+				rawName: limit.name,
+				percentage,
+				percentLabel: `${percentage}%`,
+				level: bandLevel(percentage),
+				barStyle: `width: ${Math.min(percentage, 100)}%;`,
+				usageLine: formatLabel(USAGE, formatCount(limit.value, LOCALE), formatCount(limit.max, LOCALE))
+			};
+		})
+		.filter((row) => !term || row.name.toLowerCase().includes(term) || row.rawName.toLowerCase().includes(term));
+
+		if(this.sortKey === SORT_ALPHABETICAL)
+		{
+			return rows.sort((first, second) => first.name.localeCompare(second.name));
+		}
+		return rows.sort((first, second) => second.percentage - first.percentage || first.name.localeCompare(second.name));
+	}
+
+	/**
+	 * @description Whether the grid has at least one card to show after search filtering.
+	 * @returns {boolean}
+	 */
+	get hasLimits()
+	{
+		return this.displayLimits.length > 0;
+	}
+
+	/**
+	 * @description Loads org-limit data from Apex once. A failure stores the error so the template
+	 * can render a visible error state rather than a silent blank card.
 	 */
 	async connectedCallback()
 	{
 		try
 		{
-			const [limits] = await Promise.all([
-				getOrgLimits(),
-				loadScript(this, D3)
-			]);
-
-			this.isD3Loaded = true;
-			this.limits = transformLimits(limits);
-			this.drawChart();
+			this.rawLimits = await getOrgLimits();
 		}
 		catch(error)
 		{
@@ -127,158 +232,23 @@ export default class OrgLimits extends LightningElement
 		}
 	}
 
-	/**
-	 * @description Ensures the chart is redrawn when component dimensions change.
-	 */
-	async renderedCallback()
-	{
-		this.drawChart();
-	}
-
-	// ── Chart Drawing ────────────────────────────────────────────────────
+	// ── Event Handlers ───────────────────────────────────────────────────
 
 	/**
-	 * @description Renders the limits bar chart using D3, including axes, bars, labels, and tooltip.
+	 * @description Applies the search term from the search box (client-side; no Apex re-query).
+	 * @param {Event} event - Change event from the search input.
 	 */
-	drawChart()
+	handleSearch(event)
 	{
-		if(!this.isD3Loaded)
-		{
-			return;
-		}
-
-		const rootElement = this.template.querySelector('.chart');
-		rootElement.childNodes.forEach((childNode) => childNode.remove());
-
-		const svg = d3.select(rootElement)
-		.append('svg')
-		.attr('width', '100%')
-		.attr('height', `${this.limits.length * ROW_HEIGHT}px`);
-
-		const dimensions = rootElement.getBoundingClientRect();
-		svg.attr('viewBox', `0 0 ${dimensions.width} ${dimensions.height}`);
-
-		const bounds = svg.append('g');
-
-		const xAxisGroup = bounds
-		.append('g')
-		.attr('transform', `translate(0, ${dimensions.height - MARGINS.bottom})`);
-
-		const yAxisGroup = bounds
-		.append('g')
-		.attr('transform', `translate(${MARGINS.left}, 0)`);
-
-		const xScale = d3.scaleLinear()
-		.range([
-			MARGINS.left,
-			dimensions.width - MARGINS.right
-		])
-		.domain([
-			0,
-			100
-		]);
-
-		const yScale = d3.scaleBand()
-		.range([
-			MARGINS.top,
-			dimensions.height - MARGINS.bottom
-		])
-		.domain(this.limits.map((datum) => datum.name))
-		.paddingInner(0.25)
-		.paddingOuter(0.25);
-
-		const xAxis = d3.axisBottom(xScale);
-		xAxisGroup.call(xAxis);
-
-		const yAxis = d3.axisLeft(yScale).tickSize(0);
-		yAxisGroup.call(yAxis);
-
-		d3.select(rootElement).append('div').attr('class', 'tooltip inactive');
-
-		bounds
-		.selectAll('.bar')
-		.data(this.limits)
-		.join('rect')
-		.attr('class', 'bar')
-		.attr('y', (datum) => yScale(getLimitName(datum)))
-		.attr('height', yScale.bandwidth())
-		.attr('x', MARGINS.left)
-		.attr('width', (datum) => xScale(getPercentage(datum)) - MARGINS.left)
-		.on('mouseenter', (event, datum) =>
-		{
-			const mousePos = d3.pointer(event);
-			this.drawTooltip(mousePos, datum);
-		})
-		.on('mouseout', () => this.hideTooltip());
-
-		this.renderLabels(bounds, xScale, yScale);
-	}
-
-	// ── Internal Helpers ─────────────────────────────────────────────────
-
-	/**
-	 * @description Renders percentage labels at the end of each bar.
-	 *
-	 * @param {Object} bounds - D3 group element where labels will be appended.
-	 * @param {Function} xScale - Preconfigured D3 x-scale.
-	 * @param {Function} yScale - Preconfigured D3 y-scale.
-	 */
-	renderLabels(bounds, xScale, yScale)
-	{
-		this.limits.forEach((limitData) =>
-		{
-			const posX = xScale(getPercentage(limitData)) + 3;
-			const posY = yScale(getLimitName(limitData)) + yScale.bandwidth() / 2 + 4;
-
-			bounds.append('text')
-			.attr('class', 'label')
-			.attr('x', posX)
-			.attr('y', posY)
-			.text(`${limitData.percent}%`);
-		});
+		this.searchTerm = event.target.value;
 	}
 
 	/**
-	 * @description Hides the tooltip by applying the inactive CSS class.
+	 * @description Applies the chosen sort order.
+	 * @param {CustomEvent} event - Change event from the sort combobox.
 	 */
-	hideTooltip()
+	handleSort(event)
 	{
-		const tooltipElement = this.template.querySelector('.tooltip');
-		tooltipElement.classList.add('inactive');
-	}
-
-	/**
-	 * @description Displays a tooltip at the given mouse coordinate with limit details.
-	 *
-	 * @param {Array<number>} mousePos - The [x, y] position from D3 pointer.
-	 * @param {Object} data - The limit data object containing name, value, max, and percent.
-	 */
-	drawTooltip(mousePos, data)
-	{
-		const tooltip = this.template.querySelector('.tooltip');
-
-		while(tooltip.firstChild)
-		{
-			tooltip.removeChild(tooltip.firstChild);
-		}
-
-		const nameElement = document.createElement('b');
-		nameElement.textContent = data.name;
-		tooltip.appendChild(nameElement);
-
-		tooltip.appendChild(document.createElement('br'));
-		tooltip.appendChild(document.createTextNode(`Consumed: ${numberFormatter.format(data.value)} (${data.percent}%)`));
-
-		tooltip.appendChild(document.createElement('br'));
-		tooltip.appendChild(document.createTextNode(`Limit: ${numberFormatter.format(data.max)}`));
-
-		const tooltipRect = tooltip.getBoundingClientRect();
-		const rootRect = this.template.querySelector('.chart').getBoundingClientRect();
-
-		const {posX, posY} = calculateTooltipPosition(mousePos, rootRect, tooltipRect);
-
-		tooltip.style.left = `${posX}px`;
-		tooltip.style.top = `${posY}px`;
-		tooltip.classList.remove('inactive');
+		this.sortKey = event.detail.value;
 	}
 }

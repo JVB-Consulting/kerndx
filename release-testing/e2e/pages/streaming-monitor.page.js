@@ -268,6 +268,72 @@ class StreamingMonitorPage
 		await btn.click();
 		await this.page.waitForTimeout(500);
 	}
+
+	// ── Org Limits view (PLAN-108 card grid) ─────────────────────────────
+
+	async navigateToOrgLimits()
+	{
+		await this.clickSidebarAction('Org limits');
+		await this.page.locator('c-org-limits [data-spec-id="org-limits-grid"], c-org-limits [data-spec-id="org-limits-error"]')
+		.first().waitFor({state: 'visible', timeout: 20_000});
+	}
+
+	orgLimitCards()
+	{
+		return this.page.locator('c-org-limits [data-testid="org-limits-card"]');
+	}
+
+	async getOrgLimitCardCount()
+	{
+		return this.orgLimitCards().count();
+	}
+
+	// The bar's aria-valuenow is the authoritative per-card percentage (WCAG 1.4.1: value is not
+	// colour-only). Reading it in DOM order gives the worst-first ordering oracle.
+	async getOrgLimitPercentages()
+	{
+		const bars = this.page.locator('c-org-limits [data-testid="limit-bar"]');
+		const count = await bars.count();
+		const values = [];
+		for(let index = 0; index < count; index++)
+		{
+			values.push(Number(await bars.nth(index).getAttribute('aria-valuenow')));
+		}
+		return values;
+	}
+
+	async getOrgLimitNames()
+	{
+		return this.page.locator('c-org-limits [data-testid="org-limits-card"] .limit-name').allTextContents();
+	}
+
+	async getOrgLimitLevels()
+	{
+		const cards = this.orgLimitCards();
+		const count = await cards.count();
+		const levels = [];
+		for(let index = 0; index < count; index++)
+		{
+			levels.push(await cards.nth(index).getAttribute('data-level'));
+		}
+		return levels;
+	}
+
+	async sortOrgLimitsBy(optionName)
+	{
+		const combobox = this.page.locator('c-org-limits [data-spec-id="org-limits-sort"]');
+		await combobox.locator('button, input').first().click();
+		await this.page.getByRole('option', {name: optionName}).first().click();
+		await this.page.waitForTimeout(500);
+	}
+
+	async searchOrgLimits(term)
+	{
+		const search = this.page.locator('c-org-limits [data-spec-id="org-limits-search"] input');
+		await search.fill(term);
+		await search.blur();
+		await this.page.waitForTimeout(600);
+	}
 }
 
 module.exports = StreamingMonitorPage;

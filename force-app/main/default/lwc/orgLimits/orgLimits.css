@@ -1,42 +1,129 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
-.bar:nth-child(even)
+.search-col
 {
-	fill : #0176D3;
+	flex      : 1 1 16rem;
+	min-width : 12rem;
 }
 
-.bar:nth-child(odd)
+.limit-card__surface
 {
-	fill : #57A3FD;
+	background    : #FFFFFF;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	box-shadow    : 0 1px 2px rgba(0, 0, 0, 0.05);
+	height        : 100%;
+	padding       : 0.7rem 0.8rem;
 }
 
-.bar:hover
+/* Left accent draws the eye to the cards that need attention (colour is reinforcement only — the
+   visible percentage and used-of-max text always carry the value, per WCAG 1.4.1). */
+.limit-card__surface[data-level="amber"]
 {
-	fill : #014486;
+	box-shadow : inset 3px 0 0 #FE9339, 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-/*noinspection CssUnusedSymbol*/
-.tick
+.limit-card__surface[data-level="red"]
 {
-	font-size : 14px;
+	box-shadow : inset 3px 0 0 #BA0517, 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-.label
+.limit-card__top
 {
-	font-size : 14px;
+	align-items     : baseline;
+	display         : flex;
+	gap             : 0.5rem;
+	justify-content : space-between;
+	margin-bottom   : 0.5rem;
 }
 
-/*noinspection CssUnusedSymbol*/
-.tooltip
+.limit-name
 {
-	background     : #014486;
-	color          : #FFFFFF;
-	padding        : 6px;
-	pointer-events : none;
-	position       : fixed;
-	z-index        : 1000;
+	color         : #16325C;
+	font-size     : 0.85rem;
+	font-weight   : 700;
+	overflow      : hidden;
+	text-overflow : ellipsis;
+	white-space   : nowrap;
 }
 
-.inactive
+.limit-percent
 {
-	visibility : hidden;
+	font-size            : 0.85rem;
+	font-variant-numeric : tabular-nums;
+	font-weight          : 700;
+	white-space          : nowrap;
+}
+
+.limit-percent[data-level="green"]
+{
+	color : #2E844A;
+}
+
+.limit-percent[data-level="amber"]
+{
+	color : #8C4B02;
+}
+
+.limit-percent[data-level="red"]
+{
+	color : #BA0517;
+}
+
+.limit-bar-track
+{
+	background : #ECEBEA;
+	overflow   : hidden;
+}
+
+.limit-bar-fill
+{
+	display : block;
+	height  : 100%;
+}
+
+.limit-bar-fill[data-level="green"]
+{
+	background : #2E844A;
+}
+
+.limit-bar-fill[data-level="amber"]
+{
+	background : #FE9339;
+}
+
+.limit-bar-fill[data-level="red"]
+{
+	background : #BA0517;
+}
+
+.limit-usage
+{
+	color                : #3B3B3B;
+	font-size            : 0.77rem;
+	font-variant-numeric : tabular-nums;
+	margin-top           : 0.5rem;
+}
+
+.limit-raw
+{
+	color       : #747474;
+	font-family : "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+	font-size   : 0.66rem;
+	margin-top  : 0.15rem;
+}
+
+.state-pane
+{
+	color      : #747474;
+	padding    : 2rem 0.9rem;
+	text-align : center;
+}
+
+.state-pane_error
+{
+	align-items     : center;
+	color           : #BA0517;
+	display         : flex;
+	gap             : 0.5rem;
+	justify-content : center;
 }

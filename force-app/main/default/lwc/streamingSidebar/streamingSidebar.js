@@ -9,9 +9,10 @@
  * It controls visibility of the sidebar and dispatches navigation
  * and toggle events to the parent component.
  *
- * @date March 2026, May 2026
+ * @date March 2026, May 2026, July 2026
  */
 import {LightningElement, api} from 'lwc';
+import NAV_ORG_LIMITS from '@salesforce/label/c.OrgLimits_CardTitle';
 
 // eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingSidebar extends LightningElement
@@ -20,6 +21,14 @@ export default class StreamingSidebar extends LightningElement
 
 	isSidebarVisible = true;
 	lastSelectedItem;
+
+	/**
+	 * @description Static label strings the template renders, grouped so the markup reads `{labels.x}`.
+	 * @type {Object<string, string>}
+	 */
+	labels = {
+		navOrgLimits: NAV_ORG_LIMITS
+	};
 
 	// ── @api Properties ──────────────────────────────────────────────────
 
@@ -40,6 +49,26 @@ export default class StreamingSidebar extends LightningElement
 	get isSidebarHidden()
 	{
 		return !this.isSidebarVisible;
+	}
+
+	/**
+	 * @description String form of the hidden state for the `aria-hidden` attribute, which is an ARIA
+	 * enumerated attribute that takes the literal strings "true"/"false".
+	 * @returns {string}
+	 */
+	get sidebarHidden()
+	{
+		return String(this.isSidebarHidden);
+	}
+
+	/**
+	 * @description String form of the visible state for the `aria-expanded` attribute (same ARIA
+	 * enumerated-value reason as {@link sidebarHidden}).
+	 * @returns {string}
+	 */
+	get sidebarExpanded()
+	{
+		return String(this.isSidebarVisible);
 	}
 
 	/**
