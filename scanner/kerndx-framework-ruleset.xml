@@ -57,4 +57,13 @@
    <rule ref="scanner/kerndx-pmd-ruleset.xml/KernNoCoverageTheatre"/>
    <rule ref="scanner/kerndx-pmd-ruleset.xml/KernNoBooleanExceptionThrown"/>
    <rule ref="scanner/kerndx-pmd-ruleset.xml/KernCoverageExemptRequiresReason"/>
+
+   <!--
+      Standard PMD correctness rule (category/apex/errorprone.xml, PMD 7.26.0+).
+      Universal: the framework's own @InvocableVariable DTOs and Flow/Process
+      action classes must expose a no-arg constructor just like subscriber code,
+      so this is enforced package-side too. Referenced by its PMD category path,
+      not via kerndx-pmd-ruleset.xml. Requires PMD apex module >= 7.26.0.
+   -->
+   <rule ref="category/apex/errorprone.xml/InvocableClassNoArgConstructor"/>
 </ruleset>

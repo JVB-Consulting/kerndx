@@ -41,6 +41,7 @@ Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informat
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                                                                                       | `UTIL_Email`                                                                               | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                                                                                     | `REST_*` + `API_Dispatcher`                                                                | 3        |
 | `KernNoInlineDmlInTests`           | Inline DML (`insert record;`, etc.) in `_TEST.cls` files outside the framework allowlist                                                                  | `TST_Builder.build()` / `DML_Builder`                                                      | 3        |
+| `InvocableClassNoArgConstructor`   | `@InvocableVariable` class whose only constructor takes arguments (Flow/Process can't instantiate it at run time)                                          | Declare an explicit `public` no-arg constructor alongside the other one                    | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                                                                                        | `Assert.*`                                                                                 | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                                                                                        | `TST_Builder`                                                                              | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = true/false` followed by asserting the flag                                                                                     | `Assert.fail` + `Assert.isInstanceOfType` inside the catch block                           | 5        |
@@ -54,6 +55,10 @@ Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informat
 The four PMD test-quality rules above — `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`,
 `KernNoInlineDmlInTests`, `KernNoBooleanExceptionThrown` — catch the canonical coverage-theatre anti-patterns
 so tests can't silently pad the coverage number without exercising real behaviour.
+
+`InvocableClassNoArgConstructor` is the one rule here that is **not** KernDX-authored: it is PMD's own
+standard Apex rule (`category/apex/errorprone.xml`), bundled by reference. Because it was added in
+**PMD 7.26.0**, the ruleset now requires that version or newer — see [PMD Version Compatibility](#pmd-version-compatibility).
 
 ## Suppressing Rules
 
@@ -209,13 +214,16 @@ export default class Notice extends LightningElement
 
 ## PMD Version Compatibility
 
-The ruleset targets **PMD 7** (`net.sourceforge.pmd.lang.rule.xpath.XPathRule`), which ships with SF Code Analyzer v5.
+The ruleset requires **PMD 7.26.0 or newer** (the PMD `apex` module version, which ships inside SF Code
+Analyzer v5). The floor exists because the ruleset bundles the standard `InvocableClassNoArgConstructor`
+rule, introduced in PMD 7.26.0. On an older PMD the Code Analyzer cannot resolve that rule reference and
+the **entire** ruleset fails to load — so this is a hard requirement, not a soft one. Upgrade with
+`sf plugins update`. The pipeline surfaces a clear version warning before scanning: `kerndx doctor`
+flags an out-of-date PMD, and `kerndx scan` prints the same notice in its preflight.
 
-For **PMD 6**, change the `class` attribute on each rule to:
-
-```
-net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
-```
+The custom KernDX rules themselves target **PMD 7** (`net.sourceforge.pmd.lang.rule.xpath.XPathRule`).
+A **PMD 6** downgrade (rule class `net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is no longer viable
+while `InvocableClassNoArgConstructor` is bundled, since that rule does not exist in PMD 6.
 
 ## Validating Locally
 

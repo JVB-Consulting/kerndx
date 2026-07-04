@@ -7,10 +7,15 @@
    DML_Builder, LOG_Builder, UTIL_HttpClient, SCHED_Base, UTIL_Cache,
    UTIL_SObjectDescribe, UTIL_System, UTIL_AsynchronousJobLauncher,
    UTIL_Email, UTIL_FeatureFlag, REST_* naming, and modern Assert class.
+   Also bundles one standard PMD rule — InvocableClassNoArgConstructor —
+   by category reference (see the PMD-INVOCABLE section below).
 
    PMD 7 rule class: net.sourceforge.pmd.lang.rule.xpath.XPathRule
    PMD 6 rule class: net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
    (Change the class attribute on each rule element if using PMD 6.)
+   Note: the bundled InvocableClassNoArgConstructor rule pins this ruleset
+   to PMD apex module >= 7.26.0 (the release that introduced it), so the
+   PMD 6 downgrade path above no longer applies while that rule is present.
 
    Priority tiers:
       1 — Blocker: must fix before deployment
@@ -1030,5 +1035,28 @@
          </property>
       </properties>
    </rule>
+
+   <!-- ================================================================
+        PMD-INVOCABLE: InvocableClassNoArgConstructor (Priority 3 — Should Fix)
+        Standard PMD Apex rule (category/apex/errorprone.xml), introduced
+        in PMD 7.26.0. Unlike every rule above — which are KernDX-authored
+        XPath rules — this references PMD's own built-in rule by category
+        path rather than redefining it.
+
+        It flags Apex classes that expose @InvocableVariable properties
+        (Flow / Process inputs or outputs) but do not provide a visible,
+        zero-argument constructor. Recent Salesforce API versions
+        instantiate those classes via the no-arg constructor at run time,
+        so a class declaring only an argument-bearing constructor throws
+        at invocation. Fix: declare an explicit public no-arg constructor
+        alongside any other constructor.
+
+        Requires the PMD apex module >= 7.26.0. Below that version the
+        Salesforce Code Analyzer cannot resolve this reference and the
+        whole ruleset fails to load — see scanner/README.md
+        "PMD Version Compatibility". The pipeline surfaces a version
+        warning via `kerndx scan` / `kerndx doctor`.
+        ================================================================ -->
+   <rule ref="category/apex/errorprone.xml/InvocableClassNoArgConstructor"/>
 
 </ruleset>

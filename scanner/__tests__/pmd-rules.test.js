@@ -131,6 +131,24 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 			expect(countRuleHits(output, 'KernSecurityBypassCallSite')).toBe(0);
 		});
 	});
+
+	describe('InvocableClassNoArgConstructor', () =>
+	{
+		// Standard PMD rule (category/apex/errorprone.xml) bundled by reference,
+		// added in PMD 7.26.0. This guards that the category reference resolves
+		// (a typo or a PMD downgrade below 7.26.0 fails the whole ruleset load).
+		it('fires on an @InvocableVariable class with no no-arg constructor', () =>
+		{
+			const output = runPmd('InvocableClassNoArgConstructor-positive.cls');
+			expect(countRuleHits(output, 'InvocableClassNoArgConstructor')).toBe(1);
+		});
+
+		it('is silent when an explicit no-arg constructor is present', () =>
+		{
+			const output = runPmd('InvocableClassNoArgConstructor-negative.cls');
+			expect(countRuleHits(output, 'InvocableClassNoArgConstructor')).toBe(0);
+		});
+	});
 });
 
 if(!pmdAvailable())
