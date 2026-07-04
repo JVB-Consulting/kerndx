@@ -30,7 +30,7 @@ Input parameters for logging a Flow event.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [additionalContext](#additionalcontext) | Additional context to include with the log entry |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | Correlation ID from Start Flow Correlation |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowStep](#flowstep) | Current step/screen name for context |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | DEBUG, INFO, WARN, or ERROR (default: INFO) |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | The log level: Debug, Info, Warning, or Error (stored as DEBUG, INFO, WARN, or ERROR). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Log message |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [recordId](#recordid) | Optional record to associate with this log entry. |
 
@@ -85,12 +85,13 @@ String value = instance.flowStep;
 ### logLevel
 
 ```apex
-@InvocableVariable(description='DEBUG, INFO, WARN, or ERROR (default: INFO)' label='Log Level') global String logLevel
+@InvocableVariable(description='Pick Debug, Info, Warning, or Error. Defaults to Info when left empty. Stored values are DEBUG, INFO, WARN, and ERROR.' label='Log Level') global String logLevel
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-DEBUG, INFO, WARN, or ERROR (default: INFO)
+The log level: Debug, Info, Warning, or Error (stored as DEBUG, INFO, WARN, or ERROR).
+Defaults to INFO when left empty.
 
 **Example**
 

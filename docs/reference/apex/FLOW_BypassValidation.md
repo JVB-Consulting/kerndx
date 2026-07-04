@@ -5,7 +5,7 @@ pageClass: reference
 description: "Flow invocable action to bypass validation rules for the current transaction. Use this before DML operations in Flow to temporarily disable validation rules. Important: Bypasses are cleared at the end"
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, May 2026"
+date: "January 2026, July 2026"
 since: "1.0"
 category: apex
 ---

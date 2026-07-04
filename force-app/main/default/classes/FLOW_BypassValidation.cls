@@ -14,7 +14,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, July 2026
  *
  * @since 1.0
  *
@@ -120,10 +120,11 @@ global inherited sharing class FLOW_BypassValidation
 		 *
 		 * @since 1.0
 		 */
+		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
 				Label='Bypass Type'
-				Description='Type of bypass: OBJECT_NAME, GROUP_NAME, or RULE_NAME'
+				Description='Pick Object to bypass all validation rules on an object, Rule Group to bypass one rule group, or Rule to bypass a single rule. Stored values are OBJECT_NAME, GROUP_NAME, and RULE_NAME; the field shows the stored value.'
 				DefaultValue='OBJECT_NAME'
 				PlaceholderText='OBJECT_NAME'
 		)

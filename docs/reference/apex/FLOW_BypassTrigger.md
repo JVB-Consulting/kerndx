@@ -5,7 +5,7 @@ pageClass: reference
 description: "Flow invocable action to manage trigger bypasses. Supports bypassing a specific trigger action or object, clearing a specific bypass, and clearing all bypasses in a single action."
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

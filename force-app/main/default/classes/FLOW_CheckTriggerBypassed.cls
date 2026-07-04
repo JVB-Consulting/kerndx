@@ -28,7 +28,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -93,11 +93,19 @@ global inherited sharing class FLOW_CheckTriggerBypassed
 	global inherited sharing class DTO_Request
 	{
 		/**
-		 * @description The type of bypass: either CLASS_NAME or OBJECT_NAME.
+		 * @description The type of bypass to check: Class (stored as CLASS_NAME) checks one trigger action class;
+		 * Object (stored as OBJECT_NAME) checks an object-wide bypass.
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Bypass Type' Description='Must be either "CLASS_NAME" or "OBJECT_NAME"' DefaultValue='OBJECT_NAME' PlaceholderText='OBJECT_NAME')
+		@SuppressWarnings('LongLine')
+		@InvocableVariable
+		(
+				Label='Bypass Type'
+				Description='Pick Class to check a trigger action class bypass, or Object to check an object-wide bypass. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
+				DefaultValue='OBJECT_NAME'
+				PlaceholderText='OBJECT_NAME'
+		)
 		global String bypassType;
 
 		/**
@@ -105,7 +113,7 @@ global inherited sharing class FLOW_CheckTriggerBypassed
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Item Name' Description='API Name of the trigger action class nane, or SObject API Name' Required=true)
+		@InvocableVariable(Label='Item Name' Description='API name of the trigger action class or SObject to check' Required=true)
 		global String name;
 	}
 }

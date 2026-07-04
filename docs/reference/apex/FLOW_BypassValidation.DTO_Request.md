@@ -33,7 +33,7 @@ Request DTO for the Bypass Validation invocable action. Specifies which validati
 ### bypassType
 
 ```apex
-@InvocableVariable(description='Type of bypass: OBJECT_NAME, GROUP_NAME, or RULE_NAME' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
+@InvocableVariable(description='Pick Object to bypass all validation rules on an object, Rule Group to bypass one rule group, or Rule to bypass a single rule. Stored values are OBJECT_NAME, GROUP_NAME, and RULE_NAME; the field shows the stored value.' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

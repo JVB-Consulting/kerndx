@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, June 2026
+ * @date December 2025, July 2026
  *
  * @since 1.0
  *
@@ -119,7 +119,8 @@ global inherited sharing class FLOW_LoggerLog
 		global String message;
 
 		/**
-		 * @description DEBUG, INFO, WARN, or ERROR (default: INFO)
+		 * @description The log level: Debug, Info, Warning, or Error (stored as DEBUG, INFO, WARN, or ERROR).
+		 * Defaults to INFO when left empty.
 		 *
 		 * @since 1.0
 		 *
@@ -128,7 +129,7 @@ global inherited sharing class FLOW_LoggerLog
 		 * String value = instance.logLevel;
 		 * ```
 		 */
-		@InvocableVariable(Label='Log Level' Description='DEBUG, INFO, WARN, or ERROR (default: INFO)')
+		@InvocableVariable(Label='Log Level' Description='Pick Debug, Info, Warning, or Error. Defaults to Info when left empty. Stored values are DEBUG, INFO, WARN, and ERROR.')
 		global String logLevel;
 
 		/**

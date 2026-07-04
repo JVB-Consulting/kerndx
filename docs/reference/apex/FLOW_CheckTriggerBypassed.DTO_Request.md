@@ -35,23 +35,24 @@ request.bypassType = 'OBJECT_NAME';
 
 | Field | Description |
 |-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [bypassType](#bypasstype) | The type of bypass: either CLASS_NAME or OBJECT_NAME. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [bypassType](#bypasstype) | The type of bypass to check: Class (stored as CLASS_NAME) checks one trigger action class; Object (stored as OBJECT_NAME) checks an object-wide bypass. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The API name of the trigger action class or SObject to check bypass status for. |
 
 ### bypassType
 
 ```apex
-@InvocableVariable(description='Must be either "CLASS_NAME" or "OBJECT_NAME"' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
+@InvocableVariable(description='Pick Class to check a trigger action class bypass, or Object to check an object-wide bypass. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-The type of bypass: either CLASS_NAME or OBJECT_NAME.
+The type of bypass to check: Class (stored as CLASS_NAME) checks one trigger action class;
+Object (stored as OBJECT_NAME) checks an object-wide bypass.
 
 ### name
 
 ```apex
-@InvocableVariable(required=true description='API Name of the trigger action class nane, or SObject API Name' label='Item Name') global String name
+@InvocableVariable(required=true description='API name of the trigger action class or SObject to check' label='Item Name') global String name
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

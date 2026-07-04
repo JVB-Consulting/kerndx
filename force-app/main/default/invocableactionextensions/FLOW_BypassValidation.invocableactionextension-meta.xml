@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<InvocableActionExtension xmlns="http://soap.sforce.com/2006/04/metadata">
+    <targets>
+        <targetType>ActionParameter</targetType>
+        <targetName>FLOW_BypassValidation.DTO_Request.bypassType</targetName>
+        <attributes>
+            <key>ProvidedValuesList</key>
+            <dataType>String</dataType>
+            <value>OBJECT_NAME|Object, GROUP_NAME|Rule Group, RULE_NAME|Rule</value>
+        </attributes>
+    </targets>
+</InvocableActionExtension>

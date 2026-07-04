@@ -59,7 +59,7 @@ For delete operations, these are the records being deleted. This field is requir
 ### triggerContext
 
 ```apex
-@InvocableVariable(description='The trigger operation context matching TriggerOperation enum: BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE, AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE.' label='Trigger Context' placeholderText='BEFORE_INSERT' defaultValue='BEFORE_INSERT') global String triggerContext
+@InvocableVariable(description='Pick the trigger context whose validation rules should run, from Before Insert to After Undelete. Stored values match the TriggerOperation enum (for example BEFORE_INSERT); the field shows the stored value.' label='Trigger Context' placeholderText='BEFORE_INSERT' defaultValue='BEFORE_INSERT') global String triggerContext
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

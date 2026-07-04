@@ -28,13 +28,13 @@ Request DTO for the Trigger Bypass invocable action.
 | Field | Description |
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [action](#action) | The action to perform. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [bypassType](#bypasstype) | The type of bypass: either CLASS_NAME or OBJECT_NAME. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [bypassType](#bypasstype) | The type of bypass: Class (stored as CLASS_NAME) targets one trigger action class; Object (stored as OBJECT_NAME) targets every trigger action on the object. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [name](#name) | The API name of the trigger action class or SObject. |
 
 ### action
 
 ```apex
-@InvocableVariable(description='BYPASS, CLEAR, or CLEAR_ALL' label='Action' placeholderText='BYPASS' defaultValue='BYPASS') global String action
+@InvocableVariable(description='Pick Bypass to add a bypass, Clear to remove one, or Clear All to remove every bypass. Stored values are BYPASS, CLEAR, and CLEAR_ALL; the field shows the stored value.' label='Action' placeholderText='BYPASS' defaultValue='BYPASS') global String action
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
@@ -48,12 +48,13 @@ The action to perform. Valid values:
 ### bypassType
 
 ```apex
-@InvocableVariable(description='Must be either "CLASS_NAME" or "OBJECT_NAME"' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
+@InvocableVariable(description='Pick Class to bypass one trigger action class, or Object to bypass every trigger action on an object. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.' label='Bypass Type' placeholderText='OBJECT_NAME' defaultValue='OBJECT_NAME') global String bypassType
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-The type of bypass: either CLASS_NAME or OBJECT_NAME.
+The type of bypass: Class (stored as CLASS_NAME) targets one trigger action class;
+Object (stored as OBJECT_NAME) targets every trigger action on the object.
 
 ### name
 

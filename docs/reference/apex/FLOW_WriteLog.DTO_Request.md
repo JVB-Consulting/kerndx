@@ -57,7 +57,7 @@ An optional correlation ID for tracing across transactions.
 ### logLevel
 
 ```apex
-@InvocableVariable(description='The level at which to log the message' label='Log Level' placeholderText='Use one of the following values: DEBUG|INFO|WARN|ERROR' defaultValue='INFO') global String logLevel
+@InvocableVariable(description='Pick Debug, Info, Warning, or Error for this log entry. Stored values are DEBUG, INFO, WARN, and ERROR; the field shows the stored value.' label='Log Level' placeholderText='INFO' defaultValue='INFO') global String logLevel
 ```
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)

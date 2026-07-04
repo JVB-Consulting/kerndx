@@ -11,7 +11,7 @@
  *
  * @group Logging
  *
- * @date September 2025, May 2026
+ * @date September 2025, July 2026
  *
  * @since 1.0
  *
@@ -89,9 +89,9 @@ global inherited sharing class FLOW_WriteLog
 		@InvocableVariable
 		(
 				Label='Log Level'
-				Description='The level at which to log the message'
+				Description='Pick Debug, Info, Warning, or Error for this log entry. Stored values are DEBUG, INFO, WARN, and ERROR; the field shows the stored value.'
 				DefaultValue='INFO'
-				PlaceholderText='Use one of the following values: DEBUG|INFO|WARN|ERROR'
+				PlaceholderText='INFO'
 		)
 		global String logLevel;
 

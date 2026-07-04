@@ -5,7 +5,7 @@ pageClass: reference
 description: "Flow invocable action to execute validation rules against records. Use this in Record-Triggered Flows or Screen Flows to validate records before DML and display user-friendly error messages. Usage in "
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, May 2026"
+date: "January 2026, July 2026"
 since: "1.0"
 category: apex
 ---

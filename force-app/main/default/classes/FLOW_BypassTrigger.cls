@@ -11,7 +11,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -88,15 +88,30 @@ global inherited sharing class FLOW_BypassTrigger
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Action' Description='BYPASS, CLEAR, or CLEAR_ALL' DefaultValue='BYPASS' PlaceholderText='BYPASS')
+		@SuppressWarnings('LongLine')
+		@InvocableVariable
+		(
+				Label='Action'
+				Description='Pick Bypass to add a bypass, Clear to remove one, or Clear All to remove every bypass. Stored values are BYPASS, CLEAR, and CLEAR_ALL; the field shows the stored value.'
+				DefaultValue='BYPASS'
+				PlaceholderText='BYPASS'
+		)
 		global String action;
 
 		/**
-		 * @description The type of bypass: either CLASS_NAME or OBJECT_NAME.
+		 * @description The type of bypass: Class (stored as CLASS_NAME) targets one trigger action class;
+		 * Object (stored as OBJECT_NAME) targets every trigger action on the object.
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Bypass Type' Description='Must be either "CLASS_NAME" or "OBJECT_NAME"' DefaultValue='OBJECT_NAME' PlaceholderText='OBJECT_NAME')
+		@SuppressWarnings('LongLine')
+		@InvocableVariable
+		(
+				Label='Bypass Type'
+				Description='Pick Class to bypass one trigger action class, or Object to bypass every trigger action on an object. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
+				DefaultValue='OBJECT_NAME'
+				PlaceholderText='OBJECT_NAME'
+		)
 		global String bypassType;
 
 		/**

@@ -18,7 +18,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, July 2026
  *
  * @since 1.0
  *
@@ -224,7 +224,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		@InvocableVariable
 		(
 				Label='Trigger Context'
-				Description='The trigger operation context matching TriggerOperation enum: BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE, AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE.'
+				Description='Pick the trigger context whose validation rules should run, from Before Insert to After Undelete. Stored values match the TriggerOperation enum (for example BEFORE_INSERT); the field shows the stored value.'
 				DefaultValue='BEFORE_INSERT'
 				PlaceholderText='BEFORE_INSERT'
 		)

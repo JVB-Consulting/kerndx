@@ -5,7 +5,7 @@ pageClass: reference
 description: "This class is used to check whether certain triggers or actions are bypassed in the system. The class provides a method that can be invoked from a flow or Apex to determine if an object-level, Apex tr"
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

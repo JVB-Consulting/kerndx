@@ -5,7 +5,7 @@ pageClass: reference
 description: "Logs an event within a Flow with correlation support. Use this to log messages, warnings, or errors during Flow execution."
 author: "Jason Van Beukering"
 group: "Logging"
-date: "December 2025, June 2026"
+date: "December 2025, July 2026"
 since: "1.0"
 category: apex
 ---
