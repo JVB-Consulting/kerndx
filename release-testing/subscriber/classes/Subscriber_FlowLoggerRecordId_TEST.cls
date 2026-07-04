@@ -39,7 +39,11 @@ private class Subscriber_FlowLoggerRecordId_TEST
 
 	/**
 	 * @description Verifies that a recordId supplied to the Flow logging action ties the
-	 * persisted log entry to that record via kern__RecordId__c.
+	 * persisted log entry to that record via kern__RecordId__c. The correlation suffix is
+	 * alphanumeric, never an epoch timestamp: a Luhn-valid thirteen-digit run is card-shaped and
+	 * gets redacted by the framework's card masking, so the read-back query would find nothing.
+	 *
+	 * @date July 2026
 	 */
 	@IsTest
 	private static void shouldLinkLogEntryToRecordWhenRecordIdSupplied()
@@ -48,7 +52,7 @@ private class Subscriber_FlowLoggerRecordId_TEST
 		Account account = (Account)kern.TST_Builder.of(Account.SObjectType).build();
 
 		kern.LOG_Builder.ignoreTestMode = true;
-		String correlationId = 'flow-recordid-' + Datetime.now().getTime();
+		String correlationId = 'flow-recordid-' + kern.UTIL_Random.randomAlphanumeric(12);
 
 		kern.FLOW_LoggerLog.DTO_Request request = new kern.FLOW_LoggerLog.DTO_Request();
 		request.correlationId = correlationId;
@@ -72,13 +76,16 @@ private class Subscriber_FlowLoggerRecordId_TEST
 	/**
 	 * @description Verifies that omitting recordId leaves the Flow log entry unlinked
 	 * (kern__RecordId__c null), proving the link is driven by the new input rather than
-	 * stamped unconditionally.
+	 * stamped unconditionally. The correlation suffix is alphanumeric for the same
+	 * card-masking reason as the linked-record case above.
+	 *
+	 * @date July 2026
 	 */
 	@IsTest
 	private static void shouldLeaveLogEntryUnlinkedWhenRecordIdOmitted()
 	{
 		kern.LOG_Builder.ignoreTestMode = true;
-		String correlationId = 'flow-norecordid-' + Datetime.now().getTime();
+		String correlationId = 'flow-norecordid-' + kern.UTIL_Random.randomAlphanumeric(12);
 
 		kern.FLOW_LoggerLog.DTO_Request request = new kern.FLOW_LoggerLog.DTO_Request();
 		request.correlationId = correlationId;

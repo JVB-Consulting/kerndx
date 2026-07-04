@@ -355,11 +355,16 @@ private class SubscriberChainSteps_TEST
 
 	/**
 	 * @description Verifies that a caller-supplied correlation ID is used instead of auto-generating one.
+	 * The suffix is alphanumeric, never an epoch timestamp: thirteen contiguous digits are card-shaped,
+	 * and whenever the millisecond value happens to be Luhn-valid the framework's card masking redacts
+	 * it, failing the round-trip comparison intermittently.
+	 *
+	 * @date July 2026
 	 */
 	@IsTest
 	private static void shouldUseExplicitCorrelationId()
 	{
-		String customCorrelationId = 'subscriber-correlation-' + Datetime.now().getTime();
+		String customCorrelationId = 'subscriber-correlation-' + kern.UTIL_Random.randomAlphanumeric(12);
 
 		Test.startTest();
 		String executionId = kern.UTIL_AsyncChain.newChain('ExplicitCorrelation')

@@ -13,6 +13,12 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.3.0-3] — 2026-07-03
+
+**Subscriber package version id:** `04tfj000000M0ZFAA0`
+
+A purely additive release headlined by the Log Console: a dedicated screen for browsing past log entries, with recurring problems grouped by occurrence count, severity filtering, search, and a detail drawer that walks one operation end to end across triggers, jobs, and callouts, cross-linked both ways with the Chain Monitor. Alongside it: aliased multi-aggregate selections and aggregate ordering in the query builder (several aggregates in one query, read back by name), a contains filter and single-argument condition constructors, picklists on the Flow invocable-action inputs, a redesigned Org Limits view, and LWC logging that now persists the client's own error stack and context. Everything is additive, so upgrading from 1.2 is the standard package upgrade with no migration steps. For the full capability tour, see [Kern 1.3 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.3.md).
+
 ## [1.2.0-1] — 2026-06-27
 
 **Subscriber package version id:** `04tfj000000LXH7AAO`
@@ -34,3 +40,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.0.0-121]: https://github.com/JVB-Consulting/kerndx/tree/v1.0.0-121
 [1.1.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.1.0-11
 [1.2.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.2.0-1
+[1.3.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.3.0-3
