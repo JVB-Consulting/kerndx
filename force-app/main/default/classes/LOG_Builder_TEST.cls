@@ -32,9 +32,9 @@
  *
  * @group Logging
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.UnusedLocalVariable,ApexUnusedDeclaration,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.UnusedLocalVariable,ApexUnusedDeclaration,PMD.CyclomaticComplexity,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
 private class LOG_Builder_TEST
 {
@@ -1435,5 +1435,41 @@ private class LOG_Builder_TEST
 			}
 		}
 		Assert.fail('The verbatim-key detail row should have persisted');
+	}
+
+	/**
+	 * @description Tests that a real exception's own stack trace wins over a caller-supplied
+	 * stack-trace override — the override applies only to non-exception entries. Asserts the
+	 * persisted stack equals the caught exception's own trace text, which holds both where frames
+	 * are visible and in a subscriber org, where the platform masks managed-code frames to
+	 * '(kern)' and a frame-name assertion can never match.
+	 *
+	 * @see LOG_Builder.LogEntry.withStackTraceInternal
+	 */
+	@IsTest
+	private static void exceptionTraceWinsOverStackTraceOverride()
+	{
+		String clientStackTrace = 'Error: boom\n    at submitOrder (modules/c/orderPanel.js:42:13)';
+		String thrownStackTrace;
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+
+		try
+		{
+			throw new IllegalArgumentException('Forced test exception');
+		}
+		catch(Exception caughtError)
+		{
+			thrownStackTrace = caughtError.getStackTraceString();
+			LOG_Builder.build().error(caughtError).withStackTraceInternal(clientStackTrace).at(CLASS_METHOD).emit();
+		}
+
+		Test.stopTest();
+
+		LogEntry__c logEntry = new SEL_LogEntry().findByMethod(CLASS_METHOD);
+
+		Assert.areNotEqual(clientStackTrace, logEntry.StackTrace__c, 'A real exception trace must win over the caller-supplied override');
+		Assert.areEqual(thrownStackTrace, logEntry.StackTrace__c, 'The exception trace should persist verbatim');
 	}
 }

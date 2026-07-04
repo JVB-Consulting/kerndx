@@ -8,12 +8,17 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class CTRL_Logger_TEST
 {
+	/**
+	 * @description A representative client-side JavaScript error stack as captured by the LWC logger.
+	 */
+	private static final String CLIENT_STACK = 'Error: boom\n    at submitOrder (c/orderPanel.js:42:13)';
+
 	/**
 	 * @description Resets logger state for test isolation.
 	 */
@@ -277,5 +282,115 @@ private class CTRL_Logger_TEST
 
 		// Verify
 		Assert.areEqual('datetime-test', LOG_Engine.getCorrelationId(), 'Should process entry with Datetime timestamp');
+	}
+
+	/**
+	 * @description Tests that persistLogs persists the client context payload into ContextData__c and
+	 * promotes the client JavaScript error stack into StackTrace__c — excluding the promoted keys from
+	 * the persisted context — and that the stack does not leak onto a following entry without one.
+	 */
+	@IsTest
+	private static void shouldPersistClientContextAndPromoteErrorStack()
+	{
+		// Setup
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry crashEntry = createEntry(LoggingLevel.ERROR, 'Component crashed', 'client-payload-test');
+		crashEntry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => 'SubmitOrder',
+				LOG_Engine.CONTEXT_ERROR_STACK => CLIENT_STACK,
+				'errorMessage' => 'boom',
+				'recordCount' => 3
+		});
+		CTRL_Logger.DTO_ClientLogEntry plainEntry = createEntry(LoggingLevel.INFO, 'Follow-up entry', 'client-payload-test');
+		plainEntry.context = JSON.serialize(new Map<String, Object> {LOG_Engine.CONTEXT_ACTION_NAME => 'RefreshList'});
+
+		// Execute
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {crashEntry, plainEntry}));
+		Test.stopTest();
+
+		// Verify
+		LogEntry__c crashRow = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/SubmitOrder');
+		Assert.isNotNull(crashRow, 'The crash entry should persist');
+		Assert.areEqual(CLIENT_STACK, crashRow.StackTrace__c, 'The client JavaScript stack should persist as the stack trace');
+		Assert.isTrue(crashRow.ContextData__c.contains('errorMessage'), 'The client context keys should persist into ContextData__c');
+		Assert.isTrue(crashRow.ContextData__c.contains('recordCount'), 'All non-promoted client context keys should persist');
+		Assert.isFalse(crashRow.ContextData__c.contains(LOG_Engine.CONTEXT_ERROR_STACK), 'The stack is promoted to StackTrace__c, not duplicated in context');
+
+		LogEntry__c plainRow = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/RefreshList');
+		Assert.isNotNull(plainRow, 'The follow-up entry should persist');
+		Assert.areNotEqual(CLIENT_STACK, plainRow.StackTrace__c, 'The stack override must not leak onto entries that did not supply one');
+	}
+
+	/**
+	 * @description Tests that a client errorStack that cannot be promoted (a non-string value) is kept in
+	 * the persisted context instead of being dropped, so no client payload is silently lost.
+	 */
+	@IsTest
+	private static void shouldKeepUnpromotableErrorStackInContext()
+	{
+		// Setup
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'Crash with structured stack', 'unpromotable-stack-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => 'StructuredStack',
+				LOG_Engine.CONTEXT_ERROR_STACK => new List<String> {'frameOne', 'frameTwo'}
+		});
+
+		// Execute
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		// Verify
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/StructuredStack');
+		Assert.isNotNull(row, 'The entry should persist');
+		Assert.isTrue(row.ContextData__c.contains('frameOne'), 'An unpromotable errorStack value must stay in the persisted context');
+		Assert.isFalse(row.StackTrace__c?.contains('frameOne') ?? false, 'An unpromotable value must not be promoted into the stack trace');
+	}
+
+	/**
+	 * @description Tests that an LWC entry without a client stack persists a synthetic Apex trace free of
+	 * logging-framework plumbing frames (builder, engine, LWC bridge), leaving only genuine caller frames.
+	 * In a subscriber org the platform masks every managed-code frame to '(kern)', so no matchable frame
+	 * survives the strip and the contract becomes: persist no stack at all rather than masked noise.
+	 */
+	@IsTest
+	private static void shouldStripFrameworkFramesFromSyntheticStack()
+	{
+		// Setup
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.INFO, 'No client stack', 'frame-strip-test');
+		entry.context = JSON.serialize(new Map<String, Object> {LOG_Engine.CONTEXT_ACTION_NAME => 'FrameStrip'});
+
+		// Execute
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		// Verify
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/FrameStrip');
+		Assert.isNotNull(row, 'The entry should persist');
+
+		Boolean managedFramesVisible = new DmlException().getStackTraceString().contains(CTRL_Logger_TEST.class.getName() + '.');
+
+		if(managedFramesVisible)
+		{
+			Assert.isTrue(row.StackTrace__c.contains(CTRL_Logger_TEST.class.getName() + '.'), 'The genuine caller frame should survive the strip');
+			Assert.isFalse(row.StackTrace__c.contains(CTRL_Logger.class.getName() + '.'), 'LWC-bridge frames are logging plumbing and should be stripped');
+			Assert.isFalse(row.StackTrace__c.contains(LOG_Engine.class.getName() + '.'), 'Engine frames are logging plumbing and should be stripped');
+		}
+		else
+		{
+			Assert.isNull(row.StackTrace__c, 'With every managed frame masked, the strip should persist no stack rather than masked noise');
+		}
 	}
 }
