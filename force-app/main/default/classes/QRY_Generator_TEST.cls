@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -484,6 +484,153 @@ private class QRY_Generator_TEST
 
 		Assert.isTrue(soql.contains('COUNT_DISTINCT(Name)'), 'Should contain COUNT_DISTINCT');
 		Assert.isTrue(soql.contains('count_distinct_Name'), 'Should contain alias');
+	}
+
+	/**
+	 * @description Tests that explicitly aliased aggregate selections accumulate: one query renders COUNT,
+	 * MIN and MAX together, each under its caller-supplied alias and in call order, with the GROUP BY
+	 * expression echoed into SELECT as usual.
+	 */
+	@IsTest
+	private static void shouldGenerateMultipleAliasedAggregates()
+	{
+		QRY_Generator generator = new QRY_Generator(Opportunity.SObjectType)
+				.selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', 'rowTotal')
+				.selectAggregate(QRY_Generator.Aggregate.MIN, 'CreatedDate', 'firstSeen')
+				.selectAggregate(QRY_Generator.Aggregate.MAX, 'CreatedDate', 'lastSeen')
+				.groupBy('StageName');
+
+		String soql = generator.toSoql();
+
+		Assert.isTrue(soql.contains('COUNT(Id) rowTotal'), 'Should render the aliased COUNT selection');
+		Assert.isTrue(soql.contains('MIN(CreatedDate) firstSeen'), 'Should render the aliased MIN selection');
+		Assert.isTrue(soql.contains('MAX(CreatedDate) lastSeen'), 'Should render the aliased MAX selection');
+		Assert.isTrue(soql.contains('GROUP BY StageName'), 'Should keep the GROUP BY clause');
+		Assert.isTrue(soql.indexOf('rowTotal') < soql.indexOf('firstSeen') && soql.indexOf('firstSeen') < soql.indexOf('lastSeen'), 'Selections should render in call order');
+	}
+
+	/**
+	 * @description Tests that the legacy single aggregate and the aliased selections combine in one
+	 * SELECT: the legacy auto-aliased function renders first, then the explicit selections.
+	 */
+	@IsTest
+	private static void shouldCombineLegacyAggregateWithAliasedSelections()
+	{
+		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
+				.selectCount('Id')
+				.selectAggregate(QRY_Generator.Aggregate.MAX, 'CreatedDate', 'lastSeen')
+				.groupBy('Industry');
+
+		String soql = generator.toSoql();
+
+		Assert.isTrue(soql.contains('COUNT(Id) count_Id'), 'Should keep the legacy auto-aliased aggregate');
+		Assert.isTrue(soql.contains('MAX(CreatedDate) lastSeen'), 'Should render the aliased selection alongside it');
+		Assert.isTrue(soql.indexOf('count_Id') < soql.indexOf('lastSeen'), 'The legacy aggregate should render before the selections');
+	}
+
+	/**
+	 * @description Tests that a malformed aggregate alias is rejected: anything other than a bare
+	 * identifier (a letter followed by letters, digits or underscores) throws, so a caller-supplied alias
+	 * can never smuggle SOQL syntax into the SELECT clause.
+	 */
+	@IsTest
+	private static void shouldRejectMalformedAggregateAlias()
+	{
+		List<String> malformedAliases = new List<String> {null, '', ' ', 'bad alias', '1leading', 'alias, Name', 'alias FROM Account'};
+
+		for(String malformed : malformedAliases)
+		{
+			try
+			{
+				new QRY_Generator(Account.SObjectType).selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', malformed);
+				Assert.fail('A malformed alias should throw: ' + malformed);
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+				Assert.isTrue(error.getMessage().contains('alias'), 'The error should name the alias rule');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that an aliased aggregate selection without a field is rejected — every
+	 * selection aggregates a concrete field.
+	 */
+	@IsTest
+	private static void shouldRejectBlankFieldForAggregateSelection()
+	{
+		try
+		{
+			new QRY_Generator(Account.SObjectType).selectAggregate(QRY_Generator.Aggregate.COUNT, ' ', 'rowTotal');
+			Assert.fail('A blank aggregate field should throw');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+			Assert.isTrue(error.getMessage().contains('field'), 'The error should name the missing field');
+		}
+	}
+
+	/**
+	 * @description Tests that a padded alias is trimmed rather than rejected — SOQL ignores whitespace
+	 * around an alias, so padding must not break callers that predate the validation.
+	 */
+	@IsTest
+	private static void shouldTrimAliasPadding()
+	{
+		String soql = new QRY_Generator(Account.SObjectType)
+				.selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', ' rowTotal ')
+				.groupBy('Industry')
+				.toSoql();
+
+		Assert.areEqual('rowTotal', QRY_Generator.validateSelectAlias(' rowTotal '), 'Validation should return the trimmed alias');
+		Assert.isTrue(soql.contains('COUNT(Id) rowTotal'), 'The rendered selection should carry the trimmed alias');
+	}
+
+	/**
+	 * @description Tests that a duplicate aggregate alias is rejected when registered — SOQL treats
+	 * aliases case-insensitively, so a case-variant duplicate counts as a collision.
+	 */
+	@IsTest
+	private static void shouldRejectDuplicateAggregateAlias()
+	{
+		try
+		{
+			new QRY_Generator(Account.SObjectType)
+					.selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', 'rowTotal')
+					.selectAggregate(QRY_Generator.Aggregate.MAX, 'CreatedDate', 'ROWTOTAL');
+			Assert.fail('A duplicate alias should throw');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+			Assert.isTrue(error.getMessage().contains('alias'), 'The error should name the alias rule');
+		}
+	}
+
+	/**
+	 * @description Tests that a field-less COUNT() combined with aliased selections fails fast at
+	 * build — SOQL allows COUNT() only as the sole SELECT entry, and the raw parser error names
+	 * neither culprit.
+	 */
+	@IsTest
+	private static void shouldRejectFieldlessCountWithAliasedSelections()
+	{
+		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
+				.selectCount()
+				.selectAggregate(QRY_Generator.Aggregate.MAX, 'CreatedDate', 'lastSeen');
+
+		try
+		{
+			generator.toSoql();
+			Assert.fail('A field-less COUNT() combined with aliased selections should throw at build time');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+			Assert.isTrue(error.getMessage().contains('COUNT()'), 'The error should name the field-less COUNT()');
+		}
 	}
 
 	/**

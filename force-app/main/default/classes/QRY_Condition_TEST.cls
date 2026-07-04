@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -175,6 +175,25 @@ private class QRY_Condition_TEST
 
 			Assert.isTrue(soql.contains('LIKE'), 'Should contain LIKE operator');
 			Assert.isTrue(soql.contains('%Test%'), 'Should contain pattern');
+		}
+	}
+
+	/**
+	 * @description Tests that FieldCondition contains wraps the value in wildcards itself, so callers
+	 * never assemble LIKE patterns by hand.
+	 */
+	@IsTest
+	private static void shouldGenerateContainsCondition()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(TEST_FIELD);
+			condition.contains('Test');
+
+			String soql = condition.toSoql();
+
+			Assert.isTrue(soql.contains('LIKE'), 'Should contain LIKE operator');
+			Assert.isTrue(soql.contains('%Test%'), 'Should wrap the value in wildcards');
 		}
 	}
 

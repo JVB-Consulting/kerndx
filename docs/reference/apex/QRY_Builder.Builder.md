@@ -69,13 +69,16 @@ List<Account> accounts = query.toList();
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies an AVG aggregate function. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies an AVG aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules using a without sharing proxy class. |
 | global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([QRY_Function](QRY_Function.md) functionField) | Starts a WHERE condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles), so you can filter on the function result: .lessThan(10) renders DISTANCE(...) < 10. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Starts a WHERE condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts a WHERE condition on a field using its API name. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [count](#count)() | Returns the number of records that match the query criteria. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [count](#count)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a COUNT aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [count](#count)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Applies a COUNT aggregate function. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [countDistinct](#countdistinct)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a COUNT_DISTINCT aggregate function. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [countDistinct](#countdistinct)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a COUNT_DISTINCT aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [countDistinct](#countdistinct)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Applies a COUNT_DISTINCT aggregate function. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [cube](#cube)() | Flags the GROUP BY clause as CUBE for cross-tabulation. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [descending](#descending)() | Sets the last ORDER BY clause to DESCENDING. |
@@ -108,7 +111,9 @@ List<Account> accounts = query.toList();
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isCached](#iscached)() | Indicates whether the last execution retrieved results from cache. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [logPerformanceIfSlowerThan](#logperformanceifslowerthan)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) thresholdMs) | Sets a custom performance threshold for this query. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [max](#max)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a MAX aggregate function. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [max](#max)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a MAX aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [min](#min)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a MIN aggregate function. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [min](#min)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a MIN aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [nullsFirst](#nullsfirst)() | Sets the last ORDER BY clause to NULLS FIRST. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [nullsLast](#nullslast)() | Sets the last ORDER BY clause to NULLS LAST. |
 | global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [orCondition](#orcondition)([QRY_Function](QRY_Function.md) functionField) | Starts an OR condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles). |
@@ -122,6 +127,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Adds an ORDER BY clause (default ascending). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending) | Adds an ORDER BY clause with a dynamic sort direction. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderBy](#orderby)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) nullsLast) | Adds an ORDER BY clause with a dynamic sort direction and nulls placement. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [orderByCount](#orderbycount)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) sortDescending) | Orders an aggregate query by COUNT of a field (e.g. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [relatedField](#relatedfield)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parentField) | Adds a single parent field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [relatedFields](#relatedfields)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> parentFields) | Adds parent (related) fields to the selection. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [rollup](#rollup)() | Flags the GROUP BY clause as ROLLUP for subtotals. |
@@ -129,6 +135,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [stripInaccessible](#stripinaccessible)() | Strips inaccessible fields from results. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [subselect](#subselect)([QRY_Builder.Builder](QRY_Builder.Builder.md) childQuery, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) relationshipName) | Adds a child subquery (child relationship query). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a SUM aggregate function. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a SUM aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [suppressPerformanceLogging](#suppressperformancelogging)() | Suppresses performance logging for this query. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md)> [toAggregateList](#toaggregatelist)() | Executes an aggregate query and returns results as typed AggregateRow wrappers. |
 | global [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) [toCursor](#tocursor)() | Returns a Database.Cursor for large data set traversal. |
@@ -189,15 +196,23 @@ global virtual QRY_Builder.Builder addField(QRY_Function functionField, String a
 Projects a SOQL date-function expression into SELECT under an explicit alias, for
 read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
 Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
+The alias is validated as a bare identifier — the same rule as the aliased aggregate selections —
+so a caller-supplied alias can never carry SOQL syntax into the clause.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `functionField` | [QRY_Function](QRY_Function.md) | The date-function expression, from a QRY_Function factory |
-| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The read-back alias for the projected expression |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The read-back alias for the projected expression; must be a bare identifier |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores) |
 
 **Example**
 
@@ -941,6 +956,38 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
 
 </div>
 
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder avg(SObjectField field, String alias)
+```
+
+Applies an AVG aggregate under an explicit result alias. Aliased aggregates
+accumulate, so one query folds several aggregates and reads each back by its alias.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to average |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+.avg(Opportunity.Amount, 'meanAmount')
+```
+
+</div>
+
 ### bypassSharing
 
 <div class="apex-member">
@@ -1071,6 +1118,43 @@ Integer total = QRY_Builder.selectFrom(Account.SObjectType)
 <div class="apex-member">
 
 ```apex
+global virtual QRY_Builder.Builder count(SObjectField field, String alias)
+```
+
+Applies a COUNT aggregate under an explicit result alias. Aliased aggregates
+accumulate — unlike the single-aggregate overloads, each call adds one more selection — so one
+query folds several aggregates and reads each back by its alias on the AggregateRow.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to count |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .groupBy(Opportunity.StageName)
+    .count(Opportunity.Id, 'rowTotal')
+    .min(Opportunity.CreatedDate, 'firstSeen')
+    .toAggregateList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
 global QRY_Builder.Builder count(String fieldName)
 ```
 
@@ -1120,6 +1204,38 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
     .groupBy(Contact.AccountId)
     .countDistinct(Contact.Email)
     .toList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder countDistinct(SObjectField field, String alias)
+```
+
+Applies a COUNT_DISTINCT aggregate under an explicit result alias. Aliased
+aggregates accumulate, so one query folds several aggregates and reads each back by its alias.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to count distinct values of |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+.countDistinct(Contact.Email, 'uniqueEmails')
 ```
 
 </div>
@@ -1971,6 +2087,38 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
 
 </div>
 
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder max(SObjectField field, String alias)
+```
+
+Applies a MAX aggregate under an explicit result alias. Aliased aggregates
+accumulate, so one query folds several aggregates and reads each back by its alias.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to take the maximum of |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+.max(Opportunity.CreatedDate, 'lastSeen')
+```
+
+</div>
+
 ### min
 
 <div class="apex-member">
@@ -1996,6 +2144,38 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .min(Opportunity.CloseDate)
     .toList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder min(SObjectField field, String alias)
+```
+
+Applies a MIN aggregate under an explicit result alias. Aliased aggregates
+accumulate, so one query folds several aggregates and reads each back by its alias.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to take the minimum of |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+.min(Opportunity.CreatedDate, 'firstSeen')
 ```
 
 </div>
@@ -2350,6 +2530,46 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 </div>
 
+### orderByCount
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder orderByCount(SObjectField field, Boolean sortDescending)
+```
+
+Orders an aggregate query by COUNT of a field (e.g. ORDER BY COUNT(Id) DESC), the
+SOQL form for ranking grouped rows by how many records each group holds — a top-N-groups read
+combines this with withLimit. No NULLS clause is emitted: COUNT never yields null groups.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field whose COUNT orders the grouped rows |
+| `sortDescending` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | When true, sorts DESCENDING (largest groups first); otherwise ASCENDING |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if field is null |
+
+**Example**
+
+```apex
+List<QRY_Builder.AggregateRow> topSources = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .groupBy(Opportunity.StageName)
+    .count(Opportunity.Id, 'rowTotal')
+    .orderByCount(Opportunity.Id, true)
+    .withLimit(3)
+    .toAggregateList();
+```
+
+</div>
+
 ### relatedField
 
 <div class="apex-member">
@@ -2532,6 +2752,38 @@ List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .sum(Opportunity.Amount)
     .toList();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder sum(SObjectField field, String alias)
+```
+
+Applies a SUM aggregate under an explicit result alias. Aliased aggregates
+accumulate, so one query folds several aggregates and reads each back by its alias.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `field` | [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) | The field to sum |
+| `alias` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The result alias; must be a bare identifier, unique across the aliased selections |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if alias is not a bare identifier (a letter followed by letters, digits or underscores); or, when the query builds, if the alias duplicates an earlier aliased selection |
+
+**Example**
+
+```apex
+.sum(Opportunity.Amount, 'pipelineTotal')
 ```
 
 </div>

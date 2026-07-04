@@ -18,7 +18,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength')
 public inherited sharing class QRY_Generator
@@ -182,6 +182,47 @@ public inherited sharing class QRY_Generator
 	 * @description The field for the aggregate function.
 	 */
 	private String aggregateField;
+
+	/**
+	 * @description Explicitly aliased aggregate selections ('COUNT(Field__c) myAlias'), rendered in call
+	 * order after the legacy single aggregate (when one is set). Multiple selections let one query fold
+	 * several aggregates (e.g. COUNT + MIN + MAX) without falling back to hand-written SOQL. Lazy-loaded
+	 * on first access.
+	 *
+	 * @date July 2026
+	 */
+	private final List<String> aggregateSelections
+	{
+		get
+		{
+			if(aggregateSelections == null)
+			{
+				aggregateSelections = new List<String>();
+			}
+			return aggregateSelections;
+		}
+		private set;
+	}
+
+	/**
+	 * @description Lowercased aliases already claimed by aggregate selections, so a duplicate alias is
+	 * rejected when it is registered instead of surfacing as a QueryException at query time. Lowercased
+	 * because SOQL treats aliases case-insensitively. Lazy-loaded on first access.
+	 *
+	 * @date July 2026
+	 */
+	private final Set<String> usedSelectAliases
+	{
+		get
+		{
+			if(usedSelectAliases == null)
+			{
+				usedSelectAliases = new Set<String>();
+			}
+			return usedSelectAliases;
+		}
+		private set;
+	}
 
 	/**
 	 * @description Flag for WITH USER_MODE field-level security enforcement.
@@ -785,6 +826,76 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
+	 * @description Adds an explicitly aliased aggregate selection to the SELECT clause. Unlike the single
+	 * legacy aggregate (selectCount/selectSum/...), selections accumulate, so one query can fold several
+	 * aggregates (e.g. COUNT(Id) plus MIN and MAX of CreatedDate) and read each back by its alias. The
+	 * alias is validated as a bare identifier so a caller-supplied alias can never smuggle SOQL into the
+	 * clause; the field name is expected to be describe-derived by the caller.
+	 *
+	 * @param aggregate The aggregate function to apply.
+	 * @param fieldName The field to aggregate; must not be blank.
+	 * @param alias The result alias to read the value back by; must be a bare identifier, unique across
+	 * the aggregate selections.
+	 *
+	 * @return This generator for chaining.
+	 *
+	 * @throws IllegalArgumentException if fieldName is blank, the alias is not a bare identifier, or the
+	 * alias duplicates an earlier aggregate selection.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * generator.selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', 'rowTotal');
+	 * ```
+	 */
+	public QRY_Generator selectAggregate(Aggregate aggregate, String fieldName, String alias)
+	{
+		if(String.isBlank(fieldName))
+		{
+			throw new IllegalArgumentException('Aggregate selection requires a field name');
+		}
+		String validatedAlias = validateSelectAlias(alias);
+		if(!usedSelectAliases.add(validatedAlias.toLowerCase()))
+		{
+			throw new IllegalArgumentException('Duplicate SELECT alias: ' + validatedAlias);
+		}
+		aggregateSelections.add(formatAggregate(aggregate, fieldName) + UTIL_String.SPACE + validatedAlias);
+		return this;
+	}
+
+	/**
+	 * @description Validates a SELECT result alias as a bare identifier (a letter followed by letters,
+	 * digits or underscores), so a caller-supplied alias can never carry SOQL syntax into a generated
+	 * clause. Guards every explicit-alias entry point: the aliased aggregate selections and the
+	 * QRY_Function projection alias. Surrounding whitespace is trimmed rather than rejected — SOQL
+	 * itself ignores padding around an alias, so padding must not break a caller that worked before
+	 * validation existed.
+	 *
+	 * @param alias The alias to validate.
+	 *
+	 * @return The validated alias, trimmed of surrounding whitespace.
+	 *
+	 * @throws IllegalArgumentException if the alias is blank or not a bare identifier.
+	 *
+	 * @date July 2026
+	 *
+	 * @example
+	 * ```apex
+	 * String alias = QRY_Generator.validateSelectAlias('rowTotal');
+	 * ```
+	 */
+	public static String validateSelectAlias(String alias)
+	{
+		String normalizedAlias = alias?.trim();
+		if(String.isBlank(normalizedAlias) || !Pattern.matches('[a-zA-Z][a-zA-Z0-9_]*', normalizedAlias))
+		{
+			throw new IllegalArgumentException('SELECT alias must be a bare identifier (a letter followed by letters, digits or underscores): ' + alias);
+		}
+		return normalizedAlias;
+	}
+
+	/**
 	 * @description Formats an aggregate function expression for use in HAVING clauses.
 	 *
 	 * @param aggregate The aggregate function
@@ -971,7 +1082,7 @@ public inherited sharing class QRY_Generator
 	 */
 	private String buildSelectClause(QRY_BindRegistry registry, QRY_Condition.SoqlOptions options)
 	{
-		if(aggregateFunction != null)
+		if(aggregateFunction != null || !aggregateSelections.isEmpty())
 		{
 			return buildAggregateClause();
 		}
@@ -1028,28 +1139,42 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the aggregate clause. Emits the aggregate function (with its auto-alias),
-	 * echoes the GROUP BY expressions into SELECT, then appends any parenthesised SELECT expressions
+	 * @description Builds the aggregate clause. Emits the legacy single aggregate function (with its
+	 * auto-alias) when one is set, then every explicitly aliased aggregate selection in call order,
+	 * echoes the GROUP BY expressions into SELECT, and appends any parenthesised SELECT expressions
 	 * (e.g. GROUPING(...) or a date-function projection). A GROUP BY expression that is also projected
 	 * under an explicit alias is echoed only once — the aliased projection wins — so a date function
-	 * grouped and projected together is not emitted twice.
+	 * grouped and projected together is not emitted twice. A field-less COUNT() is rejected here when
+	 * aliased selections are present: SOQL allows COUNT() only as the sole SELECT entry, so the
+	 * combination would otherwise fail at query time with an opaque parser error.
 	 *
 	 * @return The aggregate SELECT content.
+	 *
+	 * @throws IllegalArgumentException if a field-less COUNT() is combined with aliased selections.
 	 */
 	private String buildAggregateClause()
 	{
-		String functionName = aggregateFunction.name();
-		String fieldPart = String.isBlank(aggregateField) ? UTIL_String.EMPTY : aggregateField;
-		String functionCall = functionName + '(' + fieldPart + ')';
-
-		String alias = UTIL_String.EMPTY;
-		if(String.isNotBlank(aggregateField))
+		if(aggregateFunction != null && String.isBlank(aggregateField) && !aggregateSelections.isEmpty())
 		{
-			alias = UTIL_String.SPACE + functionName?.toLowerCase() + '_' + aggregateField;
+			throw new IllegalArgumentException('A field-less ' + aggregateFunction.name()
+					+ '() cannot be combined with aliased aggregate selections; aggregate a concrete field instead (e.g. COUNT(Id))');
 		}
-
 		List<String> parts = new List<String>();
-		parts.add(functionCall + alias);
+		if(aggregateFunction != null)
+		{
+			String functionName = aggregateFunction.name();
+			String fieldPart = String.isBlank(aggregateField) ? UTIL_String.EMPTY : aggregateField;
+			String functionCall = functionName + '(' + fieldPart + ')';
+
+			String alias = UTIL_String.EMPTY;
+			if(String.isNotBlank(aggregateField))
+			{
+				alias = UTIL_String.SPACE + functionName?.toLowerCase() + '_' + aggregateField;
+			}
+
+			parts.add(functionCall + alias);
+		}
+		parts.addAll(aggregateSelections);
 
 		for(String groupExpression : groupByFields)
 		{

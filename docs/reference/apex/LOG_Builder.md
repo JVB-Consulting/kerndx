@@ -5,7 +5,7 @@ pageClass: reference
 description: "Primary logging interface for application debugging, monitoring, and error tracking. Uses a fluent builder API for rich contextual logging.  ```apex // Full chain with context LOG_Builder.build()     "
 author: "Jason Van Beukering"
 group: "Logging"
-date: "October 2024, June 2026"
+date: "October 2024, July 2026"
 since: "1.0"
 category: apex
 ---

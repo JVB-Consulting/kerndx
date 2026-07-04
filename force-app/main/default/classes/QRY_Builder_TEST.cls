@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -1476,6 +1476,259 @@ private class QRY_Builder_TEST
 					.toSoql();
 
 			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+		}
+	}
+
+	/**
+	 * @description Tests that aliased aggregate overloads accumulate into one SELECT: COUNT,
+	 * COUNT_DISTINCT, SUM, AVG, MIN and MAX render together, each under its caller-supplied alias,
+	 * alongside the GROUP BY.
+	 */
+	@IsTest
+	private static void aliasedAggregatesRenderInOneQuery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, 'rowTotal')
+					.countDistinct(Foobar__c.Name, 'distinctNames')
+					.sum(Foobar__c.NumberInteger__c, 'integerTotal')
+					.avg(Foobar__c.NumberInteger__c, 'integerMean')
+					.min(Foobar__c.CreatedDate, 'firstSeen')
+					.max(Foobar__c.CreatedDate, 'lastSeen')
+					.groupBy(Foobar__c.Picklist__c)
+					.toSoql();
+
+			Assert.isTrue(soql.contains('COUNT(Id) rowTotal'), 'Should render the aliased COUNT');
+			Assert.isTrue(soql.contains('COUNT_DISTINCT(Name) distinctNames'), 'Should render the aliased COUNT_DISTINCT in the same SELECT');
+			String integerFieldName = Foobar__c.NumberInteger__c.getDescribe().getName();
+			Assert.isTrue(soql.contains('SUM(' + integerFieldName + ') integerTotal'), 'Should render the aliased SUM in the same SELECT');
+			Assert.isTrue(soql.contains('AVG(' + integerFieldName + ') integerMean'), 'Should render the aliased AVG in the same SELECT');
+			Assert.isTrue(soql.contains('MIN(CreatedDate) firstSeen'), 'Should render the aliased MIN in the same SELECT');
+			Assert.isTrue(soql.contains('MAX(CreatedDate) lastSeen'), 'Should render the aliased MAX in the same SELECT');
+			Assert.isTrue(soql.containsIgnoreCase('GROUP BY'), 'Should keep the GROUP BY clause');
+		}
+	}
+
+	/**
+	 * @description Tests that orderByCount renders an aggregate ordering (ORDER BY COUNT(field) DESC/ASC),
+	 * the SOQL form for ranking grouped rows by size.
+	 */
+	@IsTest
+	private static void orderByCountRendersAggregateOrdering()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String descending = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, 'rowTotal')
+					.groupBy(Foobar__c.Picklist__c)
+					.orderByCount(Foobar__c.Id, true)
+					.toSoql();
+			String ascending = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, 'rowTotal')
+					.groupBy(Foobar__c.Picklist__c)
+					.orderByCount(Foobar__c.Id, false)
+					.toSoql();
+
+			Assert.isTrue(descending.contains('ORDER BY COUNT(Id) DESC'), 'True should order by COUNT descending');
+			Assert.isTrue(ascending.contains('ORDER BY COUNT(Id) ASC'), 'False should order by COUNT ascending');
+		}
+	}
+
+	/**
+	 * @description Tests that aliased aggregates execute end-to-end over real rows: one query folds the
+	 * row count and the earliest CreatedDate per group, ranks the groups largest-first via orderByCount,
+	 * and caps at the top group — each value read back by its alias on the AggregateRow.
+	 */
+	@IsTest
+	private static void aliasedAggregatesFoldOverRealRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateAlpha').build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateAlpha').build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateBeta').build();
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, 'rowTotal')
+					.min(Foobar__c.CreatedDate, 'firstSeen')
+					.groupBy(Foobar__c.Name)
+					.orderByCount(Foobar__c.Id, true)
+					.withLimit(1)
+					.toAggregateList();
+
+			Assert.areEqual(1, rows.size(), 'The limit should cap the ranked groups at the top one');
+			Assert.areEqual('AggregateAlpha', rows[0].getString('Name'), 'The largest group should rank first under orderByCount descending');
+			Assert.areEqual(2, rows[0].getInteger('rowTotal'), 'The aliased COUNT should fold the two Alpha rows');
+			Assert.isNotNull(rows[0].get('firstSeen'), 'The aliased MIN should fold in the same query');
+		}
+	}
+
+	/**
+	 * @description Tests that a malformed aggregate alias fails at the call site — the builder validates
+	 * before recording the selection, so a bad alias can never reach the generated SOQL.
+	 */
+	@IsTest
+	private static void malformedAggregateAliasThrowsAtCallSite()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, 'bad alias');
+				Assert.fail('A malformed alias should throw at the call site');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+				Assert.isTrue(error.getMessage().contains('alias'), 'The error should name the alias rule');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that the QRY_Function projection alias is validated by the same bare-identifier
+	 * rule as the aliased aggregates, so no explicit-alias entry point concatenates raw caller text into
+	 * the SELECT clause.
+	 */
+	@IsTest
+	private static void malformedFunctionProjectionAliasThrows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).addField(QRY_Function.calendarMonth(Foobar__c.CreatedDate), 'closeMonth, Name');
+				Assert.fail('A malformed projection alias should throw at the call site');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+				Assert.isTrue(error.getMessage().contains('alias'), 'The error should name the alias rule');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that orderByCount rejects a null field at the call site — the alternative is
+	 * malformed 'ORDER BY COUNT(null)' SOQL that only fails at query time.
+	 */
+	@IsTest
+	private static void orderByCountNullFieldThrows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).orderByCount(null, true);
+				Assert.fail('A null orderByCount field should throw at the call site');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that a field-less COUNT() cannot be combined with aliased aggregate selections —
+	 * SOQL allows COUNT() only as the sole SELECT entry, so the build fails fast instead of dying at
+	 * query time with an opaque parser error.
+	 */
+	@IsTest
+	private static void fieldlessCountWithAliasedAggregatesThrowsOnBuild()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType)
+						.count((String)null)
+						.max(Foobar__c.CreatedDate, 'lastSeen')
+						.toSoql();
+				Assert.fail('A field-less COUNT() combined with aliased selections should throw at build time');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that a duplicate aggregate alias is rejected when the query builds — SOQL treats
+	 * aliases case-insensitively, so a case-variant duplicate counts as a collision.
+	 */
+	@IsTest
+	private static void duplicateAggregateAliasThrowsOnBuild()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType)
+						.count(Foobar__c.Id, 'rowTotal')
+						.min(Foobar__c.CreatedDate, 'ROWTOTAL')
+						.groupBy(Foobar__c.Picklist__c)
+						.toSoql();
+				Assert.fail('A duplicate aggregate alias should throw when the query builds');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+				Assert.isTrue(error.getMessage().contains('alias'), 'The error should name the alias rule');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that aliased aggregates combine with HAVING over real rows: the platform itself
+	 * validates the combined query shape, and only groups passing the HAVING floor return.
+	 */
+	@IsTest
+	private static void aliasedAggregatesHonourHavingOverRealRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateAlpha').build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateAlpha').build();
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, 'AggregateBeta').build();
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, 'rowTotal')
+					.min(Foobar__c.CreatedDate, 'firstSeen')
+					.groupBy(Foobar__c.Name)
+					.havingCountOf(Foobar__c.Id).greaterThan(1)
+					.toAggregateList();
+
+			Assert.areEqual(1, rows.size(), 'Only the group passing the HAVING floor should return');
+			Assert.areEqual('AggregateAlpha', rows[0].getString('Name'), 'The multi-row group should pass the HAVING floor');
+			Assert.areEqual(2, rows[0].getInteger('rowTotal'), 'The aliased COUNT should fold the two Alpha rows');
+		}
+	}
+
+	/**
+	 * @description Tests that surrounding whitespace on an explicit alias is trimmed rather than
+	 * rejected — SOQL ignores padding around an alias, so a padded alias that worked before validation
+	 * existed keeps working, for both the aggregate and the function-projection entry points.
+	 */
+	@IsTest
+	private static void aliasPaddingIsTrimmedNotRejected()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String aggregateSoql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, ' rowTotal ')
+					.groupBy(Foobar__c.Picklist__c)
+					.toSoql();
+			String projectionSoql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.addField(QRY_Function.calendarMonth(Foobar__c.CreatedDate), ' closeMonth ')
+					.count('Id')
+					.groupBy(QRY_Function.calendarMonth(Foobar__c.CreatedDate))
+					.toSoql();
+
+			Assert.isTrue(aggregateSoql.contains('COUNT(Id) rowTotal'), 'The aggregate alias should render trimmed');
+			Assert.isTrue(projectionSoql.contains('CALENDAR_MONTH(CreatedDate) closeMonth'), 'The projection alias should render trimmed');
 		}
 	}
 

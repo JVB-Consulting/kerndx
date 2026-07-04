@@ -17,15 +17,15 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
  * @example
  * ```apex
- * QRY_Condition.Evaluable condition = new QRY_Condition.OrCondition()
- *     .add(new QRY_Condition.FieldCondition(Account.Industry).equals('Tech'))
- *     .add(new QRY_Condition.FieldCondition(Account.Industry).equals('Finance'));
+ * QRY_Condition.OrCondition condition = new QRY_Condition.OrCondition();
+ * condition.add(new QRY_Condition.FieldCondition(Account.Industry, QRY_Condition.Operator.EQUALS, 'Technology'));
+ * condition.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme'));
  * List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
  *     .addCondition(condition)
  *     .toList();
@@ -304,21 +304,37 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified field.
+		 * @description Constructor for FieldCondition with a specified field. Pair with contains() to
+		 * complete the condition, or use the field-operator-value constructor for other comparisons.
 		 *
 		 * @param fieldName The field to apply the condition to.
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Condition.Evaluable condition = new QRY_Condition.FieldCondition('Name').contains('Acme');
+		 * ```
 		 */
-		public FieldCondition(String fieldName)
+		global FieldCondition(String fieldName)
 		{
 			this.field(fieldName);
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified SObjectField.
+		 * @description Constructor for FieldCondition with a specified SObjectField. Pair with contains()
+		 * to complete the condition, or use the field-operator-value constructor for other comparisons.
 		 *
 		 * @param objectField The ObjectField to apply the condition to.
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Condition.Evaluable condition = new QRY_Condition.FieldCondition(Account.Name).contains('Acme');
+		 * ```
 		 */
-		public FieldCondition(SObjectField objectField)
+		global FieldCondition(SObjectField objectField)
 		{
 			this.field(objectField);
 		}
@@ -503,6 +519,34 @@ global inherited sharing class QRY_Condition
 		public FieldCondition likeX(Object compareValue)
 		{
 			return setOperation(LIKE_X, compareValue);
+		}
+
+		/**
+		 * @description Sets the condition to a LIKE comparison that matches the value anywhere in the
+		 * field (a contains match). This differs from the raw LIKE form (the Operator.LIKE_X
+		 * constructor argument), which passes your pattern through verbatim and leaves every % and _
+		 * wildcard to you: contains owns the wildcards, wrapping the value in a leading and trailing %
+		 * so callers never assemble '%' + value + '%' patterns by hand — the same contract as the query
+		 * builder's contains().
+		 *
+		 * @param compareValue The text to match anywhere in the field.
+		 *
+		 * @return The FieldCondition instance for method chaining.
+		 *
+		 * @date July 2026
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Condition.OrCondition textMatch = new QRY_Condition.OrCondition();
+		 * textMatch.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme')); // Name LIKE '%Acme%'
+		 * textMatch.add(new QRY_Condition.FieldCondition(Account.Website).contains('acme'));
+		 * ```
+		 */
+		global virtual FieldCondition contains(String compareValue)
+		{
+			return setOperation(LIKE_X, '%' + compareValue + '%');
 		}
 
 		/**

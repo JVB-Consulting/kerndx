@@ -5,7 +5,7 @@ pageClass: reference
 description: "Condition infrastructure for building complex SOQL WHERE clauses. Use these classes with QRY_Builder.addCondition() for compound conditions that cannot be expressed with the fluent API alone (e.g., gr"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---
@@ -37,9 +37,9 @@ that cannot be expressed with the fluent API alone (e.g., grouped OR conditions)
 **Example**
 
 ```apex
-QRY_Condition.Evaluable condition = new QRY_Condition.OrCondition()
-    .add(new QRY_Condition.FieldCondition(Account.Industry).equals('Tech'))
-    .add(new QRY_Condition.FieldCondition(Account.Industry).equals('Finance'));
+QRY_Condition.OrCondition condition = new QRY_Condition.OrCondition();
+condition.add(new QRY_Condition.FieldCondition(Account.Industry, QRY_Condition.Operator.EQUALS, 'Technology'));
+condition.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme'));
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .addCondition(condition)
     .toList();

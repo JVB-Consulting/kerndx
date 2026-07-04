@@ -19,7 +19,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -2198,6 +2198,28 @@ global inherited sharing class QRY_Builder
 		private String aggregateField;
 
 		/**
+		 * @description Explicitly aliased aggregate selections, applied to the generator in call order at
+		 * build time. Unlike the single aggregate above, selections accumulate, so one query folds several
+		 * aggregates (e.g. COUNT plus MIN and MAX) and reads each back by its alias. Lazy-loaded on first
+		 * access.
+		 *
+		 * @date July 2026
+		 */
+		@TestVisible
+		private final List<AggregateSelection> aggregateSelections
+		{
+			get
+			{
+				if(aggregateSelections == null)
+				{
+					aggregateSelections = new List<AggregateSelection>();
+				}
+				return aggregateSelections;
+			}
+			private set;
+		}
+
+		/**
 		 * @description Field(s) for GROUP BY. Lazy-loaded on first access.
 		 */
 		@TestVisible
@@ -2686,11 +2708,16 @@ global inherited sharing class QRY_Builder
 		 * @description Projects a SOQL date-function expression into SELECT under an explicit alias, for
 		 * read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
 		 * Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
+		 * The alias is validated as a bare identifier — the same rule as the aliased aggregate selections —
+		 * so a caller-supplied alias can never carry SOQL syntax into the clause.
 		 *
 		 * @param functionField The date-function expression, from a QRY_Function factory
-		 * @param alias The read-back alias for the projected expression
+		 * @param alias The read-back alias for the projected expression; must be a bare identifier
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores)
 		 *
 		 * @since 1.1
 		 *
@@ -2705,7 +2732,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global virtual Builder addField(QRY_Function functionField, String alias)
 		{
-			explicitFields.add(functionField.toExpression() + UTIL_String.SPACE + alias);
+			explicitFields.add(functionField.toExpression() + UTIL_String.SPACE + QRY_Generator.validateSelectAlias(alias));
 			return this;
 		}
 
@@ -3237,6 +3264,186 @@ global inherited sharing class QRY_Builder
 		{
 			aggregateType = QRY_Generator.Aggregate.COUNT_DISTINCT;
 			aggregateField = fieldName;
+			return this;
+		}
+
+		/**
+		 * @description Applies a COUNT aggregate under an explicit result alias. Aliased aggregates
+		 * accumulate — unlike the single-aggregate overloads, each call adds one more selection — so one
+		 * query folds several aggregates and reads each back by its alias on the AggregateRow.
+		 *
+		 * @param field The field to count
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .groupBy(Opportunity.StageName)
+		 *     .count(Opportunity.Id, 'rowTotal')
+		 *     .min(Opportunity.CreatedDate, 'firstSeen')
+		 *     .toAggregateList();
+		 * ```
+		 */
+		global virtual Builder count(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.COUNT, field, alias);
+		}
+
+		/**
+		 * @description Applies a COUNT_DISTINCT aggregate under an explicit result alias. Aliased
+		 * aggregates accumulate, so one query folds several aggregates and reads each back by its alias.
+		 *
+		 * @param field The field to count distinct values of
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * .countDistinct(Contact.Email, 'uniqueEmails')
+		 * ```
+		 */
+		global virtual Builder countDistinct(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.COUNT_DISTINCT, field, alias);
+		}
+
+		/**
+		 * @description Applies a SUM aggregate under an explicit result alias. Aliased aggregates
+		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 *
+		 * @param field The field to sum
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * .sum(Opportunity.Amount, 'pipelineTotal')
+		 * ```
+		 */
+		global virtual Builder sum(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.SUM, field, alias);
+		}
+
+		/**
+		 * @description Applies an AVG aggregate under an explicit result alias. Aliased aggregates
+		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 *
+		 * @param field The field to average
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * .avg(Opportunity.Amount, 'meanAmount')
+		 * ```
+		 */
+		global virtual Builder avg(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.AVG, field, alias);
+		}
+
+		/**
+		 * @description Applies a MIN aggregate under an explicit result alias. Aliased aggregates
+		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 *
+		 * @param field The field to take the minimum of
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * .min(Opportunity.CreatedDate, 'firstSeen')
+		 * ```
+		 */
+		global virtual Builder min(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.MIN, field, alias);
+		}
+
+		/**
+		 * @description Applies a MAX aggregate under an explicit result alias. Aliased aggregates
+		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 *
+		 * @param field The field to take the maximum of
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if alias is not a bare identifier (a letter followed by
+		 * letters, digits or underscores); or, when the query builds, if the alias duplicates an
+		 * earlier aliased selection
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * .max(Opportunity.CreatedDate, 'lastSeen')
+		 * ```
+		 */
+		global virtual Builder max(SObjectField field, String alias)
+		{
+			return addAggregateSelection(QRY_Generator.Aggregate.MAX, field, alias);
+		}
+
+		/**
+		 * @description Records one aliased aggregate selection, validating the alias immediately so a bad
+		 * alias fails at the call site rather than at query build time. A duplicate alias across the
+		 * selections is rejected when the query builds; a collision with the legacy auto-alias (e.g.
+		 * count_Id) or an echoed GROUP BY field name surfaces as a QueryException at query time.
+		 *
+		 * @param aggregate The aggregate function to apply.
+		 * @param field The field token to aggregate.
+		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections.
+		 *
+		 * @return Builder for chaining.
+		 *
+		 * @date July 2026
+		 *
+		 * @example
+		 * ```apex
+		 * return addAggregateSelection(QRY_Generator.Aggregate.COUNT, field, alias);
+		 * ```
+		 */
+		private Builder addAggregateSelection(QRY_Generator.Aggregate aggregate, SObjectField field, String alias)
+		{
+			aggregateSelections.add(new AggregateSelection(aggregate, UTIL_SObjectDescribe.getCachedFieldName(field), QRY_Generator.validateSelectAlias(alias)));
 			return this;
 		}
 
@@ -3811,6 +4018,44 @@ global inherited sharing class QRY_Builder
 		global virtual Builder orderBy(QRY_Function functionField, Boolean sortDescending)
 		{
 			return orderBy(functionField.toExpression(), sortDescending);
+		}
+
+		/**
+		 * @description Orders an aggregate query by COUNT of a field (e.g. ORDER BY COUNT(Id) DESC), the
+		 * SOQL form for ranking grouped rows by how many records each group holds — a top-N-groups read
+		 * combines this with withLimit. No NULLS clause is emitted: COUNT never yields null groups.
+		 *
+		 * @param field The field whose COUNT orders the grouped rows
+		 * @param sortDescending When true, sorts DESCENDING (largest groups first); otherwise ASCENDING
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if field is null
+		 *
+		 * @since 1.3
+		 *
+		 * @example
+		 * ```apex
+		 * List<QRY_Builder.AggregateRow> topSources = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .groupBy(Opportunity.StageName)
+		 *     .count(Opportunity.Id, 'rowTotal')
+		 *     .orderByCount(Opportunity.Id, true)
+		 *     .withLimit(3)
+		 *     .toAggregateList();
+		 * ```
+		 */
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+		global virtual Builder orderByCount(SObjectField field, Boolean sortDescending)
+		{
+			String fieldName = UTIL_SObjectDescribe.getCachedFieldName(field);
+			if(String.isBlank(fieldName))
+			{
+				throw new IllegalArgumentException('Aggregate ordering requires a field');
+			}
+			QRY_Generator.OrderBy aggregateOrder =
+					new QRY_Generator.OrderBy(QRY_Generator.formatAggregate(QRY_Generator.Aggregate.COUNT, fieldName));
+			orderByFields.add(sortDescending == true ? aggregateOrder.descending() : aggregateOrder.ascending());
+			return this;
 		}
 
 		/**
@@ -4482,6 +4727,11 @@ global inherited sharing class QRY_Builder
 						generator.selectCountDistinct(aggregateField);
 					}
 				}
+			}
+
+			for(AggregateSelection selection : aggregateSelections)
+			{
+				generator.selectAggregate(selection.aggregateFunction, selection.fieldName, selection.alias);
 			}
 
 			for(QRY_Generator.OrderBy orderBy : orderByFields)
@@ -5357,6 +5607,45 @@ global inherited sharing class QRY_Builder
 		{
 			condition = cond;
 			isOr = isOrCondition;
+		}
+	}
+
+	/**
+	 * @description Internal class to hold one explicitly aliased aggregate selection until the generator
+	 * is built.
+	 *
+	 * @date July 2026
+	 */
+	@TestVisible
+	private class AggregateSelection
+	{
+		/**
+		 * @description The aggregate function to apply.
+		 */
+		public QRY_Generator.Aggregate aggregateFunction;
+
+		/**
+		 * @description The describe-derived API name of the field to aggregate.
+		 */
+		public String fieldName;
+
+		/**
+		 * @description The validated result alias the value is read back by.
+		 */
+		public String alias;
+
+		/**
+		 * @description Constructor.
+		 *
+		 * @param aggregateFunction The aggregate function to apply
+		 * @param fieldName The describe-derived field API name
+		 * @param alias The validated result alias
+		 */
+		public AggregateSelection(QRY_Generator.Aggregate aggregateFunction, String fieldName, String alias)
+		{
+			this.aggregateFunction = aggregateFunction;
+			this.fieldName = fieldName;
+			this.alias = alias;
 		}
 	}
 
