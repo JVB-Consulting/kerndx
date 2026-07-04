@@ -81,16 +81,25 @@ function checkSfcaPluginPresent()
 
 // --- PMD apex-module version guard -----------------------------------------
 //
-// The custom rulesets under scanner/ are XPath rules evaluated against the
-// Apex AST. KernDX does not pin PMD directly — it arrives transitively through
-// whatever PMD jars the Salesforce Code Analyzer plugin bundles. The validated
-// baseline below is the version those rules were verified against; the ceiling
-// is the release where the Apex parser makes a major jump (apex-parser 4.x to
-// 5.0), which can shift the AST node shapes the XPath rules target. Crossing
-// the ceiling warns a human to re-validate the rulesets — it never blocks.
+// The custom rulesets under scanner/ are mostly XPath rules evaluated against
+// the Apex AST, plus one standard PMD rule bundled by reference
+// (InvocableClassNoArgConstructor, category/apex/errorprone.xml). KernDX does
+// not pin PMD directly — it arrives transitively through whatever PMD jars the
+// Salesforce Code Analyzer plugin bundles. Three thresholds bracket the safe
+// range:
+//
+//   * minimum  — the rulesets reference a rule that only exists at or above
+//     this version (InvocableClassNoArgConstructor landed in PMD 7.26.0). Below
+//     it the Code Analyzer cannot resolve the reference and the WHOLE ruleset
+//     fails to load, so this is a hard floor surfaced loudly (status 'below').
+//   * validated — the version the rules were last verified against.
+//   * ceiling  — the next version we have not yet re-validated against; crossing
+//     it warns a human to re-run the deliberate-violation fixtures in case the
+//     Apex AST shifted under the XPath rules. Advisory only — it never blocks.
 
-const PMD_APEX_MODULE_VALIDATED_VERSION = '7.19.0';
-const PMD_APEX_MODULE_CEILING_VERSION = '7.25.0';
+const PMD_APEX_MODULE_MINIMUM_VERSION = '7.26.0';
+const PMD_APEX_MODULE_VALIDATED_VERSION = '7.26.0';
+const PMD_APEX_MODULE_CEILING_VERSION = '7.27.0';
 
 const PMD_APEX_JAR_PATTERN = /^pmd-apex-(\d+(?:\.\d+)*)\.jar$/;
 const PMD_ENGINE_LIB_SEGMENTS = [
@@ -130,17 +139,30 @@ function compareVersionTuples(a, b)
 	return 0;
 }
 
-// Classify a bundled pmd-apex version against the validated baseline / ceiling.
-// Returns { status: 'ok' | 'ahead' | 'unknown', version, validated, ceiling, message }.
+// Classify a bundled pmd-apex version against the minimum / validated / ceiling.
+// Returns { status: 'below' | 'ok' | 'ahead' | 'unknown', version, minimum,
+// validated, ceiling, message }.
 function classifyPmdApexVersion(version)
 {
 	const verdict = {
-		version: version == null ? null : version, validated: PMD_APEX_MODULE_VALIDATED_VERSION, ceiling: PMD_APEX_MODULE_CEILING_VERSION, message: null
+		version: version == null ? null : version, minimum: PMD_APEX_MODULE_MINIMUM_VERSION, validated: PMD_APEX_MODULE_VALIDATED_VERSION, ceiling: PMD_APEX_MODULE_CEILING_VERSION, message: null
 	};
 	const tuple = parseVersionTuple(version);
 	if(!tuple)
 	{
 		return {...verdict, status: 'unknown'};
+	}
+	const minimum = parseVersionTuple(PMD_APEX_MODULE_MINIMUM_VERSION);
+	if(compareVersionTuples(tuple, minimum) < 0)
+	{
+		return {
+			...verdict,
+			status: 'below',
+			message: `PMD apex module ${version} bundled by Salesforce Code Analyzer is older than the `
+					+ `${PMD_APEX_MODULE_MINIMUM_VERSION} minimum the KernDX scanner/ rulesets require `
+					+ `(InvocableClassNoArgConstructor was added in PMD 7.26.0; below it the ruleset cannot load). `
+					+ `Upgrade the plugin: sf plugins update.`
+		};
 	}
 	const ceiling = parseVersionTuple(PMD_APEX_MODULE_CEILING_VERSION);
 	if(compareVersionTuples(tuple, ceiling) >= 0)
@@ -148,8 +170,8 @@ function classifyPmdApexVersion(version)
 		return {
 			...verdict,
 			status: 'ahead',
-			message: `PMD apex module ${version} bundled by Salesforce Code Analyzer crosses the validated `
-					+ `${PMD_APEX_MODULE_VALIDATED_VERSION} baseline (apex-parser 5.0). Re-validate the scanner/ rulesets `
+			message: `PMD apex module ${version} bundled by Salesforce Code Analyzer is newer than the validated `
+					+ `${PMD_APEX_MODULE_VALIDATED_VERSION} baseline. Re-validate the scanner/ rulesets `
 					+ `against the deliberate-violation fixtures before trusting scan results.`
 		};
 	}
@@ -237,12 +259,13 @@ function pmdApexVersionVerdict(deps = {})
 	return classifyPmdApexVersion(getBundledPmdApexVersion(deps));
 }
 
-// Convenience for the scan preflight, which only cares about the loud case.
-// Returns the warning text when the bundled version is ahead, else null.
+// Convenience for the scan preflight, which only cares about the loud cases.
+// Returns the warning text when the bundled version is below the hard minimum
+// or ahead of the validated baseline, else null.
 function pmdApexVersionWarning(deps = {})
 {
 	const verdict = pmdApexVersionVerdict(deps);
-	return verdict.status === 'ahead' ? verdict.message : null;
+	return (verdict.status === 'below' || verdict.status === 'ahead') ? verdict.message : null;
 }
 
 module.exports = {
@@ -257,6 +280,7 @@ module.exports = {
 	getBundledPmdApexVersion,
 	pmdApexVersionVerdict,
 	pmdApexVersionWarning,
+	PMD_APEX_MODULE_MINIMUM_VERSION,
 	PMD_APEX_MODULE_VALIDATED_VERSION,
 	PMD_APEX_MODULE_CEILING_VERSION,
 };

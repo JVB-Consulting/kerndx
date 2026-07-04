@@ -36,9 +36,14 @@ async function runDoctor({verbose = false, skipEnvironmentChecks = false} = {})
 		{
 			issues.push('SFCA plugin not installed (sf plugins install code-analyzer)');
 		}
-		// Advisory only — neither branch fails doctor.
+		// Advisory only — no branch fails doctor (the hard failure, if any,
+		// comes from SFCA itself when it cannot load the ruleset).
 		const pmdVerdict = pmdApexVersionVerdict();
-		if(pmdVerdict.status === 'ahead')
+		if(pmdVerdict.status === 'below')
+		{
+			console.log(pc.red(`Error: ${pmdVerdict.message}`));
+		}
+		else if(pmdVerdict.status === 'ahead')
 		{
 			console.log(pc.yellow(`Warning: ${pmdVerdict.message}`));
 		}
