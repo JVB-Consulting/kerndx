@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-07-02T18:53:26.321Z",
+  "capturedAt": "2026-07-04T15:22:43.398Z",
   "apex": {
-    "totalWallClockSeconds": 41.938,
+    "totalWallClockSeconds": 595.098,
     "testSetupClasses": [
       "API_Dispatcher_TEST",
       "API_GetPwndPasswords_TEST",
@@ -144,7 +144,7 @@
       },
       "CTRL_ChainMonitor": {
         "percentage": 100,
-        "coveredLines": 96,
+        "coveredLines": 98,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -570,7 +570,7 @@
       },
       "SEL_AsyncChainExecution": {
         "percentage": 100,
-        "coveredLines": 31,
+        "coveredLines": 38,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -654,7 +654,7 @@
       },
       "SEL_Hierarchy": {
         "percentage": 100,
-        "coveredLines": 238,
+        "coveredLines": 239,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1578,7 +1578,7 @@
       "force-app/main/default/lwc/utilityLogger/utilityLogger.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 93.3,
+        "functions": 100,
         "lines": 100
       },
       "force-app/main/default/lwc/utilityRandom/utilityRandom.js": {

@@ -4,11 +4,11 @@ navOrder: 16
 
 # KernDX — Choosing a Framework
 
-> A capability-by-capability guide to choosing between KernDX and the established Salesforce Apex frameworks: [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common), [`taf`](https://github.com/mitchspano/apex-trigger-actions-framework), [`rflib`](https://github.com/j-fischer/rflib), [`nebula-logger`](https://github.com/jongpie/NebulaLogger), [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library),
-> the [Apex Fluently libraries](https://github.com/beyond-the-cloud-dev), and others. Written by the KernDX team. Every claim about another framework is checkable against its public
+> A capability-by-capability guide to choosing between KernDX and the Salesforce Apex frameworks it is most often compared against: the established [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common), [`taf`](https://github.com/mitchspano/apex-trigger-actions-framework), [`rflib`](https://github.com/j-fischer/rflib), [`nebula-logger`](https://github.com/jongpie/NebulaLogger), [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library),
+> the [Apex Fluently libraries](https://github.com/beyond-the-cloud-dev), the newer foundation library [`sf-bedrock`](https://github.com/force-creators/sf-bedrock), and others. Written by the KernDX team. Every claim about another framework is checkable against its public
 > source.
 
-**What this is:** a side-by-side comparison of KernDX against the Apex frameworks teams most often already use, judged on the things that actually drive a production decision. **Why it exists:** picking a framework is a long-term commitment, and the differences that matter (what each one does by default, how much it covers, what you have to wire together yourself) are easy to miss when you choose on familiarity alone. **Who should read it:** architects and tech leads making the call, plus the delivery managers and executives who sign off on it. **When to use it:** when your team is asking "why KernDX instead of the framework we already know?" Where another framework is the better fit, this guide says so plainly.
+**What this is:** a side-by-side comparison of KernDX against the Apex frameworks teams most often already use or ask about, judged on the things that actually drive a production decision. **Why it exists:** picking a framework is a long-term commitment, and the differences that matter (what each one does by default, how much it covers, what you have to wire together yourself) are easy to miss when you choose on familiarity alone. **Who should read it:** architects and tech leads making the call, plus the delivery managers and executives who sign off on it. **When to use it:** when your team is asking "why KernDX instead of the framework we already know?" Where another framework is the better fit, this guide says so plainly.
 
 ## Table of contents
 
@@ -24,6 +24,7 @@ navOrder: 16
     - [vs. nebula-logger](#vs-nebula-logger)
     - [vs. the Apex Fluently libraries](#vs-the-apex-fluently-libraries)
     - [vs. fflib-mocks](#vs-fflib-mocks)
+    - [vs. sf-bedrock](#vs-sf-bedrock)
 - [Other specialty libraries](#other-specialty-libraries)
 - [Organisational fit](#organisational-fit)
 - [Spotted something wrong?](#spotted-something-wrong)
@@ -32,7 +33,7 @@ navOrder: 16
 
 ## How to use this guide
 
-If your team is asking *"why KernDX instead of the framework we already know?"*, this is the answer. Here is the fastest route through it:
+If your team is asking *"why KernDX instead of the framework we already know?"*, or weighing a newer arrival such as `sf-bedrock`, this is the answer. Here is the fastest route through it:
 
 - Start with [What actually separates these frameworks](#what-actually-separates-these-frameworks) for the differences that matter most.
 - Use [Pick by capability](#pick-by-capability) to find the right tool for a specific need.
@@ -65,7 +66,7 @@ This guide compares frameworks on the dimensions that drive a real production de
 - **how sustainably it is maintained**
 - **its licensing**
 
-**Comparison baseline:** each framework's published source as of May 2026.
+**Comparison baseline:** each framework's published source as of May 2026 (`sf-bedrock`, whose first commit is dated June 2026, is assessed at a fixed later snapshot).
 
 ---
 
@@ -82,6 +83,7 @@ KernDX enforces field- and object-level security on every read and write by defa
 
 - **`fflib`** does not enforce FLS/CRUD by default on its Query/DML surfaces. Access mode is the developer's responsibility per call, and `SimpleDML` writes run without FLS/CRUD.
 - **`apex-libra`** defaults to *system mode* on DML writes, so you must override per call to get FLS/CRUD enforcement on writes.
+- **`sf-bedrock`** ships no permission enforcement in its packaged library: reads run through `Database.query` and writes through bare DML statements, with no user-mode option anywhere in the packaged directory.
 - **`taf`, the Apex Fluently libraries, `fflib`, and most others** rely on standard platform execution contexts, so elevated access leaves no automated audit trail.
 
 The practical difference is the audit posture: a missed or deliberate elevation in those libraries leaves no record, whereas KernDX logs it. So you depend less on every developer applying access control consistently. All of this is checkable in each framework's source.
@@ -118,7 +120,7 @@ Got a specific need? This is the fast lookup. The "Consider an alternative when�
 | **Trigger framework**          | Configuration-driven registration, four-level bypass (per-object / per-action / per-flow / framework-wide) with an audit log on every bypass, automatic recursion control, a stable action order (actions that share an order value always run in the same sequence), a searchable record of what each trigger actually did (execution observability), reacting to record-change events (Change Data Capture, with the change header available to Flow and Apex actions), and follow-up work that runs after the transaction commits (post-trigger finalizers) | `taf` if you're already invested in it and want triggers only. KernDX covers everything `taf` does and more                                    |
 | **Query builder**              | A fluent SOQL API with no string concatenation, FLS/CRUD enforced by default, an audit log on every bypass, and a subclassable builder                                                                                                                                                                                           | `apex-fluently-soql` if a standalone fluent-DSL is all you want and developer-managed access control is acceptable                              |
 | **DML**                        | Transactional batching, FLS/CRUD enforced on writes by default, audited bypass, async DML, and saves related records in the right multi-level order (parents before children), catching impossible loops                                                                                                                                                                      | `apex-fluently-dml` if you prefer its record-builder relationship DSL. Both resolve multi-level graphs; the difference is API shape, not depth |
-| **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, small response classes that convert themselves to and from JSON (DTO marshalling), validation hooks, and a paired test harness                                                                                                                        | No framework alternative among those compared: hand-roll the dispatcher per endpoint, or adopt KernDX                                           |
+| **Inbound REST**               | A two-class routing pattern that keeps REST plumbing out of business logic, small response classes that convert themselves to and from JSON (DTO marshalling), validation hooks, and a paired test harness                                                                                                                        | No alternative covers all of this among those compared. [`sf-bedrock`](https://github.com/force-creators/sf-bedrock) ships the routing layer at a basic level (a configuration-driven gateway, with no DTO layer, no validation hooks, no call record, and no paired test harness), so beyond basic routing you still hand-roll the rest per endpoint, or adopt KernDX |
 | **Outbound HTTP**              | Production callouts with retry/backoff, a circuit breaker (after repeated failures it stops calling the failing system for a cool-off, then resumes), idempotency keys (the same request arriving twice returns the first result instead of re-running), a dead-letter queue (messages that fail after all retries are set aside for inspection, not lost), named-credential resolution, and a mock library | `apex-fluently-httpmock` ties on the *mock* surface only; it ships no production callout path                                                   |
 | **Logging**                    | A lean Apex/LWC/Flow logging API that writes log records in the background by default, integrated with triggers/query/DML/async                                                                                                                                                                                                   | `nebula-logger` if you need multi-transport selection, all seven platform log levels, per-record retention, or a historical log-browser UI      |
 | **Testing**                    | A builder-pattern test-data factory with parent-child wiring, DML-free query mocking, and framework-object assertion helpers                                                                                                                                                                                                     | `fflib-mocks` if you need Mockito-style behaviour verification (argument matchers, verification modes); KernDX has no equivalent               |
@@ -153,7 +155,7 @@ adopt it for most capabilities and keep a specialised library where that library
 
 ## Head-to-head
 
-Seven frameworks come up most often when teams compare against KernDX. Each entry below follows the same shape: what it is, where it wins, where KernDX diverges, how they coexist, and the
+Eight frameworks come up most often when teams compare against KernDX. Each entry below follows the same shape: what it is, where it wins, where KernDX diverges, how they coexist, and the
 rough migration effort. The migration-complexity rating measures how much of your established code would have to change, not implementation hours, and assumes you already have a codebase rather than starting from scratch.
 
 ### vs. fflib
@@ -293,11 +295,25 @@ assertions: a different and complementary surface.
 
 > **Pick:** Adopt both side-by-side. `fflib-mocks` for Mockito-style verification; KernDX's test-data builder and selector mocks for the rest.
 
+### vs. sf-bedrock
+
+**The library.** [`sf-bedrock`](https://github.com/force-creators/sf-bedrock) is a multi-capability Apex foundation library organised as sixteen single-purpose modules, including async work queues, scheduling, platform-event relay, platform caching, feature flags, selectors, a DML wrapper, an inbound REST gateway, test data, a trigger-handler base, and a governor-limit gate, plus an operations-console Lightning app. It distributes as an unlocked package, with documentation hosted at sfbedrock.com. Licence: MPL-2.0 (Mozilla Public License 2.0). Activity at its snapshot: 187 commits and 2 tags, all since its first commit on 2026-06-02, the shortest recorded history of the frameworks compared here. The capability notes below are read from that published source, not from its age.
+
+**Where it wins.** Two of its modules cover ground KernDX does not, and both are genuine wins. The governor-limit gate (`Limiter`) answers "is this limit still under my threshold?" in one Apex call, across both per-transaction limits and org-wide daily limits such as daily async executions and daily platform events; KernDX's `UTIL_Limits` ships the same per-transaction checks but no Apex check for org-wide daily limits, which KernDX shows on its monitoring screens instead. The durable platform-event relay (`EventRelay`) stores platform-event or generic payloads as work records and drains them in first-in-first-out lanes through retryable publisher and handler classes, with a per-item status you can inspect, retry, or delete; KernDX ships no general-purpose durable event relay. Its async operations console is also wider: eight monitoring views over its work queue with retry and delete row actions, against KernDX's Chain Monitor at three views plus a step timeline (KernDX goes deeper per execution; `sf-bedrock` spans more views). (A permissive licence rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
+
+**The KernDX divergence.** `sf-bedrock` ships no permission enforcement in its packaged library: reads run through `Database.query` and writes through bare DML statements, with no field- or object-permission checks and no user-mode option, so there is no bypass to record. Its trigger layer is a virtual handler base class only, with no configuration-driven registration, no recursion control, no bypass mechanism, and no record of what ran; its feature flags are org-wide only, with no per-user scoping and no swappable resolution rules; and its chain steps cannot pass state to the next step, with no off-switch for the chain engine. It ships no logging framework, no query builder, no outbound HTTP framework, no data masking, no health check, no CI scanner suite, and no published coverage report; its inbound REST gateway stops at basic routing (no DTO layer, validation hooks, call record, or paired test harness); and its test scaffolding is narrower: a data builder that defaults to a single record with no parent-child auto-wiring, query mocking opted into per call site, and no outbound, inbound, or Flow test helpers. KernDX covers all of those areas with security enforced by default and an audit entry on every bypass.
+
+**Coexistence.** Possible but overlapping. It installs as an unlocked package alongside KernDX's managed package, and the two overlap on triggers, selectors, DML, async, caching, feature flags, and test data, so most teams pick one. The one module that fills a gap KernDX leaves is the platform-event relay: mix it in if durable, ordered platform-event work is a hard requirement.
+
+**Migration complexity: Low–Medium.** Overlapping surfaces (selector base classes, a static DML facade, work-queue steps) re-point to KernDX's default-on equivalents, and trigger handlers move from subclassing its handler base to configuration-driven registration.
+
+> **Pick:** KernDX. `sf-bedrock` spans many of the same areas, but everywhere the two overlap KernDX covers the ground as fully or more fully, and it adds the security defaults, audited bypass, logging, outbound HTTP, data masking, query builder, and CI tooling that `sf-bedrock` does not ship. Mix in its event relay only if durable platform-event work with ordered lanes is a hard requirement.
+
 ---
 
 ## Other specialty libraries
 
-Beyond the seven above, these single-purpose libraries each cover one specialty surface. In most cases KernDX already covers the same ground as part of its integrated scope; the table flags the exceptions where a specialty library is still worth reaching for.
+Beyond the eight above, these single-purpose libraries each cover one specialty surface. In most cases KernDX already covers the same ground as part of its integrated scope; the table flags the exceptions where a specialty library is still worth reaching for.
 
 <details>
 <summary>Full specialty-library comparison (14 libraries)</summary>
