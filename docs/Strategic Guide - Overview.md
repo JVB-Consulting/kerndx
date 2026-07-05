@@ -282,7 +282,7 @@ canonical implementation of the Application factory pattern. If you already run 
 
 #### How the frameworks we compared break down
 
-The Apex libraries this guide surveyed fall into three groups: full-stack frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`); single-capability libraries (the Apex
+The Apex libraries this guide surveyed fall into three groups: full-stack frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`, and [`sf-bedrock`](https://github.com/force-creators/sf-bedrock)); single-capability libraries (the Apex
 Fluently family, 8 libraries, plus `nebula-logger`, `taf`, and [`nebula-triggers`](https://github.com/aidan-harding/nebula-core)); and single-purpose tools (`fflib-mocks`,
 [`mask-sobject`](https://github.com/tprouvot/mask-sobject), [`promise`](https://github.com/codefriar/promise), [`apex-chainable`](https://github.com/rsoesemann/apex-chainable),
 [`apex-promisify`](https://github.com/oguzalp/apex-promisify), [`apex-async-linkable`](https://github.com/scolladon/apex-async-linkable)). The per-area findings above point to the
