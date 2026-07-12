@@ -12,6 +12,10 @@ import {CloseActionScreenEvent} from 'lightning/actions';
 import {notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 import retry from '@salesforce/apex/CTRL_RetryApiIssue.retry';
 
+import RETRY_SUCCESSFUL from '@salesforce/label/c.RetryApiIssue_RetrySuccessful';
+import RETRY_FAILED from '@salesforce/label/c.RetryApiIssue_RetryFailed';
+import UNEXPECTED_ERROR from '@salesforce/label/c.RetryApiIssue_UnexpectedError';
+
 export default class RetryApiIssue extends ComponentBuilder('notification')
 {
 	@api recordId;
@@ -25,17 +29,17 @@ export default class RetryApiIssue extends ComponentBuilder('notification')
 			if(result.callSuccessful)
 			{
 				await notifyRecordUpdateAvailable([{recordId: this.recordId}]);
-				this.showSuccessToast('Retry successful');
+				this.showSuccessToast(RETRY_SUCCESSFUL);
 			}
 			else
 			{
-				this.showErrorToast(result.errorMessage || 'Retry failed');
+				this.showErrorToast(result.errorMessage || RETRY_FAILED);
 			}
 		}
 		catch(error)
 		{
 			this.consoleError(error, 'RetryApiIssue.invoke');
-			this.showErrorToast(reduceErrors(error) || 'An unexpected error occurred');
+			this.showErrorToast(reduceErrors(error) || UNEXPECTED_ERROR);
 		}
 		finally
 		{

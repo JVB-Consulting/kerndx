@@ -7,8 +7,24 @@
  *              these tests verify module structure, exports, and static analysis.
  *
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
+
+// Custom Label mocks — values byte-equal the real CustomLabels entries so value
+// assertions (and formatTemplateString composition) exercise the shipped text.
+jest.mock('@salesforce/label/c.CreateForm_CancelButton', () => ({default: 'Cancel'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_EmailPatternMismatch', () => ({default: 'Please enter a valid email address.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_InvalidFieldWarning', () => ({default: 'Field "{0}" is not valid for SObject "{1}"'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_ModeNotSelected', () => ({default: 'Save Mode or Update Mode must be selected to use this feature.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_NoFieldsConfigured', () => ({default: 'No fields or FieldSet API Name have been passed into this form.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_PhoneFieldHelp', () => ({default: 'Telephone/Cellphone number e.g. 0129873456'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_RecordCreatedSuccess', () => ({default: 'Record Created Successfully'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_RecordUpdatedSuccess', () => ({default: 'Record Updated Successfully'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_RequiredError', () => ({default: 'Required'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_SaveButton', () => ({default: 'Save'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_UpdateButton', () => ({default: 'Update'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_UpdateRequiresRecordId', () => ({default: 'You are attempting to update a record without providing a Record Id'}), {virtual: true});
+jest.mock('@salesforce/label/c.CreateForm_ValidationFailed', () => ({default: 'Validation Failed'}), {virtual: true});
 
 // Mock dependencies
 jest.mock('@salesforce/apex/CTRL_FieldSet.getObjectNameFromId', () => ({
@@ -466,6 +482,7 @@ describe('c-create-form', () =>
 				showSuccessToast: jest.fn(),
 				showErrorToast: jest.fn(),
 				showWarningToast: jest.fn(),
+				reportInvalidFieldWarnings: jest.fn(),
 				dispatchEvent: jest.fn()
 			};
 		};
@@ -837,10 +854,10 @@ describe('c-create-form', () =>
 				expect(result.fields.Industry).toBe('Tech');
 			});
 
-			it('generateRecord uses existingRecord when fieldValue is empty', () =>
+			it('generateRecord uses existingRecord only when fieldValue is nullish', () =>
 			{
 				const context = createMockContext();
-				context.fields = [{fieldName: 'Name', fieldValue: ''}];
+				context.fields = [{fieldName: 'Name'}];
 				context.formValueMap = {};
 				context.existingRecord = {Name: 'Existing Value'};
 				Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
@@ -964,6 +981,26 @@ describe('c-create-form', () =>
 				prototype.fetchObjectNameFromRecord.call(context, {data: null});
 				expect(context.objectNameFromRecord).toBe('');
 			});
+
+			it('fetchObjectInfo reports invalid-field warnings once the object information arrives', () =>
+			{
+				const context = createMockContext();
+				const mockData = {Name: {fieldType: 'STRING'}};
+				context.handleWireResponse = jest.fn(() => mockData);
+				prototype.fetchObjectInfo.call(context, {data: mockData});
+				expect(context.reportInvalidFieldWarnings).toHaveBeenCalledTimes(1);
+			});
+
+			it('fetchFieldset reports invalid-field warnings once the field set result arrives', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = 'TestFieldSet';
+				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
+				const mockData = {Account: {TestFieldSet: [{fieldAPIName: 'Name'}]}};
+				context.handleWireResponse = jest.fn(() => mockData);
+				prototype.fetchFieldset.call(context, {data: mockData});
+				expect(context.reportInvalidFieldWarnings).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		describe('field validation and metadata functions', () =>
@@ -976,13 +1013,13 @@ describe('c-create-form', () =>
 				expect(prototype.isFieldValid.call(context, 'Name')).toBe(true);
 			});
 
-			it('isFieldValid returns false and shows warning for invalid field', () =>
+			it('isFieldValid returns false for an invalid field without toasting (pure compute path)', () =>
 			{
 				const context = createMockContext();
 				context.objectInfo = {Name: {fieldType: 'STRING'}};
 				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
 				expect(prototype.isFieldValid.call(context, 'InvalidField')).toBe(false);
-				expect(context.showWarningToast).toHaveBeenCalled();
+				expect(context.showWarningToast).not.toHaveBeenCalled();
 			});
 
 			it('isFieldValid does not show warning for relationship fields', () =>
@@ -1041,6 +1078,120 @@ describe('c-create-form', () =>
 				const context = createMockContext();
 				context.objectInfo = null;
 				expect(prototype.getLookupObjectApiName.call(context, 'AccountId')).toBe('');
+			});
+		});
+
+		/*
+		 * Render-path purity: the invalid-field warning used to fire from isFieldValid,
+		 * inside the displayFieldList compute path. It is now reported from the
+		 * data-arrival points (the wire handlers and the fields setter), where field
+		 * validity first becomes decidable, at most once per field/object pair.
+		 */
+		describe('reportInvalidFieldWarnings', () =>
+		{
+			const createWarningContext = (overrides = {}) =>
+			{
+				const context = createMockContext();
+				Object.assign(context, overrides);
+				context.isFieldValid = prototype.isFieldValid;
+				Object.defineProperty(context, 'configuredFieldNames', getDescriptor('configuredFieldNames'));
+				Object.defineProperty(context, 'fieldApiNameList', getDescriptor('fieldApiNameList'));
+				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
+				return context;
+			};
+
+			it('does nothing while the object information has not loaded', () =>
+			{
+				const context = createWarningContext({objectInfo: null, fields: [{fieldName: 'InvalidField'}]});
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).not.toHaveBeenCalled();
+			});
+
+			it('reports a warning only for the configured fields missing from the object information', () =>
+			{
+				const context = createWarningContext({
+					objectInfo: {Name: {fieldType: 'STRING'}}, fields: [
+						{fieldName: 'Name'},
+						{fieldName: 'InvalidField'}
+					]
+				});
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).toHaveBeenCalledTimes(1);
+				expect(context.showWarningToast).toHaveBeenCalledWith('Field "InvalidField" is not valid for SObject "Account"');
+			});
+
+			it('reports each invalid field once across repeated invocations', () =>
+			{
+				const context = createWarningContext({
+					objectInfo: {Name: {fieldType: 'STRING'}}, fields: [{fieldName: 'InvalidField'}]
+				});
+				prototype.reportInvalidFieldWarnings.call(context);
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).toHaveBeenCalledTimes(1);
+			});
+
+			it('does not report relationship fields or nameless fields', () =>
+			{
+				const context = createWarningContext({
+					objectInfo: {Name: {fieldType: 'STRING'}}, fields: [
+						{fieldName: 'Contact__r.Name'},
+						{fieldName: ''},
+						{}
+					]
+				});
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).not.toHaveBeenCalled();
+			});
+
+			it('reports invalid field-set fields when a field set is configured, ignoring the fields property', () =>
+			{
+				const context = createWarningContext({
+					objectInfo: {Name: {fieldType: 'STRING'}},
+					fieldSetApiName: 'TestFieldSet',
+					fieldSetResult: [{fieldAPIName: 'InvalidFieldSetField'}],
+					fields: [{fieldName: 'InvalidField'}]
+				});
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).toHaveBeenCalledTimes(1);
+				expect(context.showWarningToast).toHaveBeenCalledWith('Field "InvalidFieldSetField" is not valid for SObject "Account"');
+			});
+
+			it('falls back to the fields property while the field set result has not arrived', () =>
+			{
+				const context = createWarningContext({
+					objectInfo: {Name: {fieldType: 'STRING'}}, fieldSetApiName: 'TestFieldSet', fieldSetResult: null, fields: [{fieldName: 'InvalidField'}]
+				});
+				prototype.reportInvalidFieldWarnings.call(context);
+				expect(context.showWarningToast).toHaveBeenCalledWith('Field "InvalidField" is not valid for SObject "Account"');
+			});
+		});
+
+		describe('fields property', () =>
+		{
+			/*
+			 * The LWC engine freezes the component prototype at first createElement, so the
+			 * component's own methods cannot be spied on or restored. A throwaway subclass
+			 * shadows reportInvalidFieldWarnings on its own prototype instead; the authored
+			 * fields setter resolves the shadowed method through the instance.
+			 */
+			it('round-trips through the public accessor and re-reports invalid-field warnings on replacement', () =>
+			{
+				const reportInvalidFieldWarningsMock = jest.fn();
+
+				class ReportSpyCreateForm extends LwcCreateForm
+				{
+					reportInvalidFieldWarnings()
+					{
+						reportInvalidFieldWarningsMock();
+					}
+				}
+
+				const {createElement} = require('lwc');
+				const element = createElement('c-create-form-report-spy', {is: ReportSpyCreateForm});
+				const replacementFields = [{fieldName: 'InvalidField'}];
+				element.fields = replacementFields;
+				expect(element.fields).toEqual(replacementFields);
+				expect(reportInvalidFieldWarningsMock).toHaveBeenCalledTimes(1);
 			});
 		});
 
@@ -1103,6 +1254,67 @@ describe('c-create-form', () =>
 				expect(result[0].fieldValue).toBe('Preset');
 			});
 
+			describe('explicit falsy display values survive (mirrors generateRecord)', () =>
+			{
+				const buildContext = (existingRecord) =>
+				{
+					const context = createMockContext();
+					context.objectInfo = {
+						Amount: {fieldType: 'STRING', fieldLabel: 'Amount', lookupObjectApiName: ''}
+					};
+					context.existingRecord = existingRecord;
+					Object.defineProperty(context, 'picklistMap', {get: () => ({})});
+					prepareFieldMetadataContext(context);
+					return context;
+				};
+
+				it('keeps an explicit 0 instead of the existing record value', () =>
+				{
+					const context = buildContext({Amount: 42});
+					const fields = [{fieldName: 'Amount', fieldType: '', fieldLabel: '', isRequired: false, fieldValue: 0}];
+					const result = prototype.mapFieldsToDisplayFieldList.call(context, fields);
+					expect(result[0].fieldValue).toBe(0);
+				});
+
+				it('keeps an explicit false instead of the existing record value', () =>
+				{
+					const context = buildContext({Amount: true});
+					const fields = [{fieldName: 'Amount', fieldType: '', fieldLabel: '', isRequired: false, fieldValue: false}];
+					const result = prototype.mapFieldsToDisplayFieldList.call(context, fields);
+					expect(result[0].fieldValue).toBe(false);
+				});
+
+				it('keeps an explicit empty string instead of the existing record value', () =>
+				{
+					const context = buildContext({Amount: 'Existing'});
+					const fields = [{fieldName: 'Amount', fieldType: '', fieldLabel: '', isRequired: false, fieldValue: ''}];
+					const result = prototype.mapFieldsToDisplayFieldList.call(context, fields);
+					expect(result[0].fieldValue).toBe('');
+				});
+
+				it('displays an explicit empty string on a DATETIME field without converting', () =>
+				{
+					const context = buildContext(null);
+					context.objectInfo = {
+						DateField: {fieldType: 'DATETIME', fieldLabel: 'Date', lookupObjectApiName: ''}
+					};
+					prepareFieldMetadataContext(context, {
+						getFieldType: () => 'DATETIME', getFieldLabel: () => 'Date'
+					});
+					const fields = [{fieldName: 'DateField', fieldType: 'DATETIME', fieldLabel: '', isRequired: false, fieldValue: ''}];
+					const result = prototype.mapFieldsToDisplayFieldList.call(context, fields);
+					expect(result[0].fieldValue).toBe('');
+				});
+
+				it('still falls back to the existing record value for an explicit null', () =>
+				{
+					const context = buildContext({Amount: 'Existing'});
+					const fields = [{fieldName: 'Amount', fieldType: '', fieldLabel: '', isRequired: false, fieldValue: null}];
+					const result = prototype.mapFieldsToDisplayFieldList.call(context, fields);
+					expect(result[0].fieldValue).toBe('Existing');
+				});
+			});
+
 			it('maps DATETIME field value to ISO string', () =>
 			{
 				const context = createMockContext();
@@ -1157,7 +1369,13 @@ describe('c-create-form', () =>
 
 		describe('displayFieldList', () =>
 		{
-			it('shows error toast when no fields or fieldSetApiName provided', () =>
+			/*
+			 * Render-path purity: the getter is evaluated on every render, so it must not
+			 * dispatch toasts (the missing-configuration warning now fires once, from
+			 * connectedCallback) and must not recompute the derived list while its inputs
+			 * are unchanged.
+			 */
+			it('does not toast from the getter when no fields or fieldSetApiName are provided', () =>
 			{
 				const context = createMockContext();
 				context.fieldSetApiName = null;
@@ -1165,7 +1383,42 @@ describe('c-create-form', () =>
 				context.fieldSetResult = null;
 				context.mapFieldsToDisplayFieldList = jest.fn(() => []);
 				callGetter(context, 'displayFieldList');
-				expect(context.showErrorToast).toHaveBeenCalled();
+				expect(context.showErrorToast).not.toHaveBeenCalled();
+			});
+
+			it('memoises the derived list: repeated reads with unchanged inputs map once and return the same reference', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = null;
+				const {Field} = require('c/createForm');
+				const field = new Field();
+				field.fieldName = 'Name';
+				context.fields = [field];
+				context.fieldSetResult = null;
+				context.mapFieldsToDisplayFieldList = jest.fn((fields) => fields);
+				const firstRead = callGetter(context, 'displayFieldList');
+				const secondRead = callGetter(context, 'displayFieldList');
+				expect(context.mapFieldsToDisplayFieldList).toHaveBeenCalledTimes(1);
+				expect(secondRead).toBe(firstRead);
+			});
+
+			it('recomputes the list when an input reference changes', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = null;
+				const {Field} = require('c/createForm');
+				const field = new Field();
+				field.fieldName = 'Name';
+				context.fields = [field];
+				context.fieldSetResult = null;
+				context.mapFieldsToDisplayFieldList = jest.fn((fields) => fields);
+				callGetter(context, 'displayFieldList');
+				const replacementField = new Field();
+				replacementField.fieldName = 'Industry';
+				context.fields = [replacementField];
+				const secondRead = callGetter(context, 'displayFieldList');
+				expect(context.mapFieldsToDisplayFieldList).toHaveBeenCalledTimes(2);
+				expect(secondRead[0].fieldName).toBe('Industry');
 			});
 
 			it('returns mapped fields from fields array', () =>
@@ -1195,6 +1448,52 @@ describe('c-create-form', () =>
 				const result = callGetter(context, 'displayFieldList');
 				expect(result).toHaveLength(1);
 				expect(result[0].fieldName).toBe('Name');
+			});
+
+			it('does not toast for an invalid field from the compute path', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = null;
+				context.fields = [{fieldName: 'InvalidField', fieldType: '', fieldLabel: '', isRequired: false}];
+				context.fieldSetResult = null;
+				context.objectInfo = {Name: {fieldType: 'STRING', fieldLabel: 'Name', lookupObjectApiName: ''}};
+				context.mapFieldsToDisplayFieldList = prototype.mapFieldsToDisplayFieldList;
+				context.isFieldValid = prototype.isFieldValid;
+				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
+				const result = callGetter(context, 'displayFieldList');
+				expect(result).toEqual([]);
+				expect(context.showWarningToast).not.toHaveBeenCalled();
+			});
+		});
+
+		describe('connectedCallback', () =>
+		{
+			it('shows the no-fields error toast once when the form is connected without any field configuration', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = null;
+				context.fields = [];
+				prototype.connectedCallback.call(context);
+				expect(context.showErrorToast).toHaveBeenCalledTimes(1);
+				expect(context.showErrorToast).toHaveBeenCalledWith('No fields or FieldSet API Name have been passed into this form.');
+			});
+
+			it('does not toast when fields are configured', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = null;
+				context.fields = [{fieldName: 'Name'}];
+				prototype.connectedCallback.call(context);
+				expect(context.showErrorToast).not.toHaveBeenCalled();
+			});
+
+			it('does not toast when a field set API name is configured', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = 'TestFieldSet';
+				context.fields = [];
+				prototype.connectedCallback.call(context);
+				expect(context.showErrorToast).not.toHaveBeenCalled();
 			});
 		});
 
@@ -1284,6 +1583,20 @@ describe('c-create-form', () =>
 			});
 		});
 
+		// Record-operation contexts wire the REAL callControllerMethod (c/moduleController is not
+		// mocked in this suite) so the failure-path tests prove the genuine error normalisation:
+		// a rejected uiRecordApi call surfaces one error toast and resolves to undefined.
+		const createRecordOperationContext = () =>
+		{
+			const {initialiseCallControllerMethod} = require('c/moduleController');
+			const context = createMockContext();
+			initialiseCallControllerMethod(context);
+			context.consoleError = jest.fn();
+			context.dispatchRecordCreatedEvent = jest.fn();
+			context.dispatchRecordUpdatedEvent = jest.fn();
+			return context;
+		};
+
 		describe('insertRecord', () =>
 		{
 			it('creates record and dispatches event on success', async() =>
@@ -1298,6 +1611,22 @@ describe('c-create-form', () =>
 				expect(context.dispatchRecordCreatedEvent).toHaveBeenCalled();
 				expect(context.showSuccessToast).toHaveBeenCalled();
 			});
+
+			it('does not dispatch the created event or a success toast when the create fails', async() =>
+			{
+				const {createRecord} = require('lightning/uiRecordApi');
+				createRecord.mockRejectedValueOnce({body: {message: 'Required fields are missing'}});
+				const context = createRecordOperationContext();
+				context.generateRecord = jest.fn(() => ({fields: {Name: 'Test'}}));
+
+				await prototype.insertRecord.call(context);
+
+				expect(context.dispatchEvent).toHaveBeenCalledTimes(1);
+				expect(context.dispatchEvent.mock.calls[0][0].detail.variant).toBe('error');
+				expect(context.showSuccessToast).not.toHaveBeenCalled();
+				expect(context.dispatchRecordCreatedEvent).not.toHaveBeenCalled();
+				expect(context.awaitingRecordOperation).toBe(false);
+			});
 		});
 
 		describe('updateRecord', () =>
@@ -1305,14 +1634,30 @@ describe('c-create-form', () =>
 			it('updates record and dispatches event on success', async() =>
 			{
 				const {updateRecord} = require('lightning/uiRecordApi');
-				updateRecord.mockResolvedValue({id: '001'});
-				const context = createMockContext();
+				updateRecord.mockResolvedValueOnce({id: '001'});
+				const context = createRecordOperationContext();
 				context.generateRecord = jest.fn(() => ({fields: {Id: '001', Name: 'Test'}}));
-				context.dispatchRecordUpdatedEvent = jest.fn();
 				await prototype.updateRecord.call(context);
+				expect(updateRecord).toHaveBeenCalledWith({fields: {Id: '001', Name: 'Test'}});
 				expect(context.awaitingRecordOperation).toBe(false);
-				expect(context.dispatchRecordUpdatedEvent).toHaveBeenCalled();
+				expect(context.dispatchRecordUpdatedEvent).toHaveBeenCalledWith({id: '001'});
 				expect(context.showSuccessToast).toHaveBeenCalled();
+			});
+
+			it('surfaces an error toast and does not signal success when the update is rejected', async() =>
+			{
+				const {updateRecord} = require('lightning/uiRecordApi');
+				updateRecord.mockRejectedValueOnce({body: {message: 'FIELD_CUSTOM_VALIDATION_EXCEPTION: Record is locked'}});
+				const context = createRecordOperationContext();
+				context.generateRecord = jest.fn(() => ({fields: {Id: '001', Name: 'Test'}}));
+
+				await prototype.updateRecord.call(context);
+
+				expect(context.dispatchEvent).toHaveBeenCalledTimes(1);
+				expect(context.dispatchEvent.mock.calls[0][0].detail.variant).toBe('error');
+				expect(context.showSuccessToast).not.toHaveBeenCalled();
+				expect(context.dispatchRecordUpdatedEvent).not.toHaveBeenCalled();
+				expect(context.awaitingRecordOperation).toBe(false);
 			});
 		});
 
@@ -1576,13 +1921,38 @@ describe('c-create-form', () =>
 				__lwcJestMock_searchSObjects: jest.fn(),
 				__lwcJestMock_getSObjectAllFieldsInformation: jest.fn()
 			};
+			const saved = {};
+			Object.keys(apexGlobals).forEach((key) =>
+			{
+				saved[key] = global[key];
+			});
 			Object.assign(global, apexGlobals);
 
 			let LwcCreateFormFresh;
-			jest.isolateModules(() =>
+			try
 			{
-				LwcCreateFormFresh = require('c/createForm').default;
-			});
+				jest.isolateModules(() =>
+				{
+					LwcCreateFormFresh = require('c/createForm').default;
+				});
+			}
+			finally
+			{
+				// Restore/delete the pre-set slots — leaked __lwcJestMock_* globals survive this
+				// file and poison later suites' module worlds (proven: moduleController's toast
+				// mock stops intercepting when these leak).
+				Object.keys(apexGlobals).forEach((key) =>
+				{
+					if(saved[key] === undefined)
+					{
+						delete global[key];
+					}
+					else
+					{
+						global[key] = saved[key];
+					}
+				});
+			}
 
 			expect(typeof LwcCreateFormFresh).toBe('function');
 			expect(typeof LwcCreateFormFresh.prototype.validateForm).toBe('function');
@@ -1694,6 +2064,55 @@ describe('c-create-form', () =>
 			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 			const result = prototype.generateRecord.call(context);
 			expect(result.fields.Industry).toBe('');
+		});
+	});
+
+	/*
+	 * Behavioural-visible correction: a parent-supplied falsy value (0 / false / '')
+	 * previously fell through to the existing record value or an empty string; it now
+	 * survives into the generated record. Only null/undefined fall back. These tests
+	 * document the intended new behaviour for the backward-compat review.
+	 */
+	describe('generateRecord preserves explicit falsy field values', () =>
+	{
+		const LwcCreateForm = require('c/createForm').default;
+		const prototype = LwcCreateForm.prototype;
+
+		const generateWith = (fields, existingRecord) =>
+		{
+			const context = {fields, formValueMap: {}, existingRecord};
+			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
+			return prototype.generateRecord.call(context);
+		};
+
+		it('keeps an explicit 0 instead of the existing record value', () =>
+		{
+			const result = generateWith([{fieldName: 'Quantity', fieldValue: 0}], {Quantity: 5});
+			expect(result.fields.Quantity).toBe(0);
+		});
+
+		it('keeps an explicit false instead of the existing record value', () =>
+		{
+			const result = generateWith([{fieldName: 'IsActive', fieldValue: false}], {IsActive: true});
+			expect(result.fields.IsActive).toBe(false);
+		});
+
+		it('keeps an explicit empty string instead of the existing record value', () =>
+		{
+			const result = generateWith([{fieldName: 'Name', fieldValue: ''}], {Name: 'Existing Value'});
+			expect(result.fields.Name).toBe('');
+		});
+
+		it('surfaces a falsy existing-record value (0) when no fieldValue is supplied', () =>
+		{
+			const result = generateWith([{fieldName: 'Quantity'}], {Quantity: 0});
+			expect(result.fields.Quantity).toBe(0);
+		});
+
+		it('surfaces a false existing-record value when no fieldValue is supplied', () =>
+		{
+			const result = generateWith([{fieldName: 'IsActive'}], {IsActive: false});
+			expect(result.fields.IsActive).toBe(false);
 		});
 	});
 });

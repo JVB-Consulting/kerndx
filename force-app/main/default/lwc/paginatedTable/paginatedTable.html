@@ -9,13 +9,14 @@
 			<template if:true={showPagination}>
 				<lightning-layout horizontal-align="space">
 					<lightning-layout-item flexibility="auto">
-						<lightning-button disabled={disablePreviousButton} icon-name="utility:chevronleft" label="Previous" onclick={previousHandler}></lightning-button>
+						<lightning-button disabled={disablePreviousButton} icon-name="utility:chevronleft" label={labels.previous} onclick={previousHandler}></lightning-button>
 					</lightning-layout-item>
 					<lightning-layout-item flexibility="auto">
-						Page {page} of {totalPages}
+						{pageOfPagesLabel}
 					</lightning-layout-item>
 					<lightning-layout-item flexibility="auto">
-						<lightning-button disabled={disableNextButton} icon-name="utility:chevronright" icon-position="right" label="Next" onclick={nextHandler}></lightning-button>
+						<lightning-button disabled={disableNextButton} icon-name="utility:chevronright" icon-position="right" label={labels.next}
+						                  onclick={nextHandler}></lightning-button>
 					</lightning-layout-item>
 				</lightning-layout>
 			</template>

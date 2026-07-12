@@ -24,6 +24,12 @@ jest.mock('c/utilitySystem', () => ({
 	reduceErrors: jest.fn().mockReturnValue('mock error detail')
 }), {virtual: true});
 
+// Restore the real English values for the toast labels these tests value-assert (the default
+// sfdx-lwc-jest stub resolves each to the bare string 'c.<Name>').
+jest.mock('@salesforce/label/c.RetryApiIssue_RetrySuccessful', () => ({default: 'Retry successful'}), {virtual: true});
+jest.mock('@salesforce/label/c.RetryApiIssue_RetryFailed', () => ({default: 'Retry failed'}), {virtual: true});
+jest.mock('@salesforce/label/c.RetryApiIssue_UnexpectedError', () => ({default: 'An unexpected error occurred'}), {virtual: true});
+
 /*
  * Note on `global.__lwcJestMock_retry`:
  *

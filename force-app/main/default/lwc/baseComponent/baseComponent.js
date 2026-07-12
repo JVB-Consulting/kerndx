@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 import utilityLogger from 'c/utilityLogger';
 import {formatTemplateString} from 'c/utilityString';
@@ -24,6 +24,9 @@ import SpinnerHtml from './spinner.html';
 // ── Module Error Factory ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** @description Template for uninitialised module error messages. */
+		// Developer-only invariant: guides a developer who calls a module method without wiring
+		// that module in the ComponentBuilder invocation — never reachable from subscriber interaction.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 const MISSING_MODULE_TEMPLATE = 'Please include {0} in LwcBuilder invocation to use the {1} method';
 
 /**
@@ -412,7 +415,9 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 
 	/**
 	 * @description Logs a value with optional Locker Service proxy bypass. Complex objects are
-	 * round-tripped through JSON to strip framework proxies and reveal actual data.
+	 * round-tripped through JSON to strip framework proxies and reveal actual data. Only an
+	 * absent value (null/undefined) logs the description alone — legitimate falsy values such
+	 * as `0`, `false`, and `''` are logged as values.
 	 *
 	 * @param {string} description Label for the log entry
 	 * @param {*} value Object or value to log
@@ -420,15 +425,14 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	 */
 	@api consoleLog(description, value = null, bypassProxy = true)
 	{
-		if(value)
-		{
-			const resolved = (typeof value === 'object' && bypassProxy) ? JSON.parse(JSON.stringify(value)) : value;
-			utilityLogger.debug(description, {value: resolved});
-		}
-		else
+		if(value === null)
 		{
 			utilityLogger.debug(description);
+			return;
 		}
+
+		const resolved = (typeof value === 'object' && bypassProxy) ? JSON.parse(JSON.stringify(value)) : value;
+		utilityLogger.debug(description, {value: resolved});
 	}
 
 	/**

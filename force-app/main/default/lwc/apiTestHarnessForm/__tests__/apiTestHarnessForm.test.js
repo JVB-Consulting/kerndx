@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for apiTestHarnessForm LWC component
  * @author Jason van Beukering
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 
 import {createElement} from 'lwc';
@@ -84,6 +84,80 @@ jest.mock('c/jsonViewer', () =>
 		}
 	};
 }, {virtual: true});
+
+// Restore the real English values for every bundle label (the default sfdx-lwc-jest stub resolves
+// each to the bare string 'c.<Name>'), so value assertions stay byte-faithful to the shipped
+// labels. The six summary templates keep their {0}-form so the real formatTemplateString
+// interpolation is verified end-to-end.
+jest.mock('@salesforce/label/c.ApiTestHarness_Direction_Outbound', () => ({default: 'Outbound'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Direction_Inbound', () => ({default: 'Inbound'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_Live', () => ({default: 'LIVE'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_LiveDmlMocked', () => ({default: 'Live DML · Mocked callouts'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_FullSandbox', () => ({default: 'Full Sandbox'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_SafeMode', () => ({default: 'Safe Mode'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Execute', () => ({default: 'Execute'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ExecuteLive', () => ({default: 'Execute (Live)'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Status_Unknown', () => ({default: 'Unknown'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Validation_BlankParameterKey', () => ({default: 'Parameter key cannot be blank when a value is provided.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Validation_InvalidJson', () => ({default: 'JSON Body contains invalid JSON.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionSuccess', () => ({default: 'Execution completed successfully'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionAborted', () => ({default: 'Execution aborted'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionFailed', () => ({default: 'Execution failed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_SummaryCopied', () => ({default: 'Summary copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_RequestHeadersCopied', () => ({default: 'Request headers copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ResponseHeadersCopied', () => ({default: 'Response headers copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_RequestBodyCopied', () => ({default: 'Request body copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ResponseBodyCopied', () => ({default: 'Response body copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ErrorsCopied', () => ({default: 'Errors copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Toast_CopyFailed', () => ({default: 'Failed to copy to clipboard'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_Service', () => ({default: 'Service: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_Status', () => ({default: 'Status: {0} ({1})'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_Timing', () => ({default: 'Total: {0} (Handler: {1}, Callout: {2}, Commit: {3})'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_SafeMode', () => ({default: 'Safe Mode: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_Mocked', () => ({default: 'Mocked: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Summary_ApiCallId', () => ({default: 'API Call ID: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Enabled', () => ({default: 'Enabled'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Disabled', () => ({default: 'Disabled'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Yes', () => ({default: 'Yes'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_No', () => ({default: 'No'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Direction', () => ({default: 'Direction'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Service', () => ({default: 'Service'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Service_ValueMissing', () => ({default: 'Select a service to execute'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Service_Placeholder', () => ({default: 'Select a service'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RecordId', () => ({default: 'Record ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RecordId_Placeholder', () => ({default: 'Enter triggering record ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Parameters', () => ({default: 'Parameters'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Key', () => ({default: 'Key'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Value', () => ({default: 'Value'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Name', () => ({default: 'Name'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AddParameter', () => ({default: 'Add parameter'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_JsonBody', () => ({default: 'JSON Body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_JsonBody_Placeholder', () => ({default: 'Enter JSON request body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ExecutionSettings', () => ({default: 'Execution Settings'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_SafeMode_ToggleActive', () => ({default: 'DML rolled back'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_SafeMode_ToggleInactive', () => ({default: 'Live DML — changes will persist'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Mocking', () => ({default: 'Mocking'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Mocking_ToggleActive', () => ({default: 'Mock responses'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Mocking_ToggleInactive', () => ({default: 'Real endpoint responses'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Reset', () => ({default: 'Reset'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Mocked', () => ({default: 'Mocked'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_StatusCode', () => ({default: 'Status Code'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Total', () => ({default: 'Total'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Handler', () => ({default: 'Handler'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Callout', () => ({default: 'Callout'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Commit', () => ({default: 'Commit'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ApiCallId', () => ({default: 'API Call ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Tab_Request', () => ({default: 'Request'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RequestHeaders', () => ({default: 'Request Headers'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RequestBody', () => ({default: 'Request Body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Tab_Response', () => ({default: 'Response'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ResponseHeaders', () => ({default: 'Response Headers'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ResponseBody', () => ({default: 'Response Body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Tab_Errors', () => ({default: 'Errors'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ErrorMessages', () => ({default: 'Error Messages'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_NoData', () => ({default: 'No request or response data available.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_EmptyState_Heading', () => ({default: 'No response yet'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_EmptyState_Body', () => ({default: 'Configure the request on the left and click Execute.'}), {virtual: true});
 
 describe('c-api-test-harness-form', () =>
 {
@@ -531,24 +605,28 @@ describe('c-api-test-harness-form', () =>
 		expect(combobox.options).toEqual([]);
 	});
 
-	it('should show error and clear result when execution returns undefined', async() =>
+	it('should clear the result without stacking a second error toast when execution resolves undefined', async() =>
 	{
+		// callControllerMethod resolves undefined after surfacing an Apex failure as an error
+		// toast; a component-level toast on top of that stacks two error toasts for one failure.
 		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
-
-		mockCallControllerMethod.mockResolvedValueOnce(undefined);
 
 		const combobox = element.shadowRoot.querySelector('lightning-combobox');
 		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
 		await Promise.resolve();
 
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 10});
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]')).toBeTruthy();
+		mockShowErrorToast.mockClear();
+		mockShowSuccessToast.mockClear();
+
+		await executeWithResult(element, undefined);
 		await Promise.resolve();
 
-		expect(mockShowErrorToast).toHaveBeenCalledWith('Execution failed to return a result');
+		expect(mockShowErrorToast).not.toHaveBeenCalled();
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
 		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]')).toBeFalsy();
 	});
 

@@ -3,9 +3,14 @@
  * @description Jest unit tests for scheduledJobDetail LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 import {createElement} from 'lwc';
+import LOADING_LABEL from '@salesforce/label/c.ScheduledJobDetail_Loading';
+import LOAD_FAILED_LABEL from '@salesforce/label/c.ScheduledJobDetail_LoadFailed';
+import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
+import ACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Active';
+import INACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Inactive';
 
 jest.mock('lightning/uiRecordApi', () => ({
 	getRecord: jest.fn(), getFieldValue: jest.fn()
@@ -29,7 +34,7 @@ jest.mock('c/utilitySystem', () => ({
 	reduceErrors: jest.fn().mockReturnValue('mock error detail')
 }), {virtual: true});
 
-describe('c-scheduled-job-editor', () =>
+describe('c-scheduled-job-detail', () =>
 {
 	afterEach(() =>
 	{
@@ -145,6 +150,7 @@ describe('c-scheduled-job-editor', () =>
 				recordId: 'a00000000000001',
 				record: null,
 				parameterDefinitions: null,
+				loadErrorMessage: '',
 				_lastLoadedClassName: undefined,
 				showSuccessToast: jest.fn(),
 				showErrorToast: jest.fn(),
@@ -188,6 +194,68 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext({record: {fields: {}}});
 				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
 				expect(context.record).toBeUndefined();
+			});
+
+			it('surfaces the load failure instead of blanking silently on wire error', () =>
+			{
+				let context = createMockContext({record: {fields: {}}});
+				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
+				expect(context.loadErrorMessage).toBe('mock error detail');
+			});
+
+			it('uses the fallback label when reduceErrors returns empty on wire error', () =>
+			{
+				const {reduceErrors} = require('c/utilitySystem');
+				reduceErrors.mockReturnValueOnce('');
+				let context = createMockContext();
+				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
+				expect(context.loadErrorMessage).toBe(LOAD_FAILED_LABEL);
+			});
+
+			it('clears the load error when record data arrives', () =>
+			{
+				getFieldValue.mockReturnValue(null);
+				let context = createMockContext({loadErrorMessage: 'stale error'});
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				expect(context.loadErrorMessage).toBe('');
+			});
+		});
+
+		describe('loading and error state getters', () =>
+		{
+			it('isLoadingRecord returns true before the wire emits anything', () =>
+			{
+				let context = createMockContext({record: null, loadErrorMessage: ''});
+				let getter = getGetter('isLoadingRecord');
+				expect(getter.call(context)).toBe(true);
+			});
+
+			it('isLoadingRecord returns false once the record has loaded', () =>
+			{
+				let context = createMockContext({record: {fields: {}}, loadErrorMessage: ''});
+				let getter = getGetter('isLoadingRecord');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('isLoadingRecord returns false once the wire has errored', () =>
+			{
+				let context = createMockContext({record: undefined, loadErrorMessage: 'mock error detail'});
+				let getter = getGetter('isLoadingRecord');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('hasLoadError returns false when there is no load error', () =>
+			{
+				let context = createMockContext({loadErrorMessage: ''});
+				let getter = getGetter('hasLoadError');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('hasLoadError returns true when the wire has errored', () =>
+			{
+				let context = createMockContext({loadErrorMessage: 'mock error detail'});
+				let getter = getGetter('hasLoadError');
+				expect(getter.call(context)).toBe(true);
 			});
 		});
 
@@ -347,7 +415,7 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext();
 				Object.defineProperty(context, 'viewIsActive', {get: () => true});
 				let getter = getGetter('activeStatusLabel');
-				expect(getter.call(context)).toBe('Active');
+				expect(getter.call(context)).toBe(ACTIVE_STATUS);
 			});
 
 			it('returns Inactive label when isActive is false', () =>
@@ -355,7 +423,7 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext();
 				Object.defineProperty(context, 'viewIsActive', {get: () => false});
 				let getter = getGetter('activeStatusLabel');
-				expect(getter.call(context)).toBe('Inactive');
+				expect(getter.call(context)).toBe(INACTIVE_STATUS);
 			});
 
 			it('returns success variant when active', () =>
@@ -575,7 +643,7 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext({parameterDefinitions: [{name: 'old'}]});
 				context.callControllerMethod = jest.fn().mockRejectedValue(new Error('Not found'));
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
-				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to load parameter definitions');
+				expect(context.showErrorToast).toHaveBeenCalledWith(LOAD_PARAMETERS_FAILED);
 			});
 		});
 	});
@@ -592,11 +660,25 @@ describe('c-scheduled-job-editor', () =>
 			return element;
 		}
 
-		it('does not render lightning-card before record is loaded', async() =>
+		it('renders the card with a loading spinner before the record wire emits', async() =>
 		{
+			// Documents the intended behaviour change for the Release-A backward-compat gate:
+			// the component previously rendered nothing at all until the wire emitted, leaving
+			// a blank region on slow loads and on wire errors. It now always renders its card
+			// shell with an explicit loading state until data or an error arrives.
 			let element = await createEditorElement();
 			let card = element.shadowRoot.querySelector('lightning-card');
-			expect(card).toBeNull();
+			expect(card).not.toBeNull();
+			let spinner = element.shadowRoot.querySelector('lightning-spinner');
+			expect(spinner).not.toBeNull();
+			expect(spinner.alternativeText).toBe(LOADING_LABEL);
+		});
+
+		it('does not render the record body or the error region while loading', async() =>
+		{
+			let element = await createEditorElement();
+			expect(element.shadowRoot.querySelector('[data-testid="schedule-heading"]')).toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="load-error"]')).toBeNull();
 		});
 
 		it('does not contain edit form elements in template', () =>
@@ -620,6 +702,20 @@ describe('c-scheduled-job-editor', () =>
 			expect(template).toContain('viewSchedulerName');
 			expect(template).toContain('viewClassName');
 			expect(template).toContain('activeStatusLabel');
+		});
+
+		it('contains loading and error states in template', () =>
+		{
+			const fs = require('fs');
+			const path = require('path');
+			let templatePath = path.resolve(__dirname, '..', 'scheduledJobDetail.html');
+			let template = fs.readFileSync(templatePath, 'utf8');
+			expect(template).toContain('lightning-spinner');
+			expect(template).toContain('isLoadingRecord');
+			expect(template).toContain('lwc:elseif={hasLoadError}');
+			expect(template).toContain('data-testid="load-error"');
+			expect(template).toContain('{loadErrorMessage}');
+			expect(template).toContain('role="alert"');
 		});
 
 		it('does not contain edit button or handleEdit reference', () =>

@@ -7,8 +7,11 @@
  *
  * @author Jason van Beukering
  *
- * @date September 2022, June 2026
+ * @date September 2022, July 2026
  */
+import NO_RECORDS_FOUND from '@salesforce/label/c.BaseLookup_NoRecordsFound';
+import REMOVE_SELECTED_OPTION from '@salesforce/label/c.BaseLookup_RemoveSelectedOption';
+import SEARCH_PLACEHOLDER from '@salesforce/label/c.BaseLookup_SearchPlaceholder';
 import Component from '@salesforce/messageChannel/Component__c';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {api} from 'lwc';
@@ -33,6 +36,13 @@ const DOWN_KEY = 40;
 const ESCAPE_KEY = 27;
 
 /**
+ * @description Matches regular-expression metacharacters so display field names can be
+ * escaped before being compiled into the display-format token pattern.
+ * @type {RegExp}
+ */
+const REGULAR_EXPRESSION_METACHARACTERS = /[.*+?^${}()|[\]\\]/g;
+
+/**
  * @description Map-based keyboard dispatch table. Each entry maps a key code to a handler
  * function receiving the component context and the keyboard event.
  * @type {Map<number, Function>}
@@ -51,7 +61,7 @@ const KEY_HANDLERS = new Map([
 		(context, event) =>
 		{
 			event.preventDefault();
-			context.selectedRecord = context.searchResults[context.currentFocusedSearchOption];
+			context.selectedRecord = context.filteredSearchResults[context.currentFocusedSearchOption];
 		}
 	],
 	[
@@ -128,7 +138,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	 * @description Provide a custom placeholder text for lookup search
 	 * @type {string}
 	 */
-	@api placeholder = 'Search';
+	@api placeholder = SEARCH_PLACEHOLDER;
 
 	/**
 	 * @description List of field API names e.g. ['FirstName','LastName'] to display
@@ -161,17 +171,20 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	 */
 	@api idField = 'Id';
 	templateHTML = lookupTemplate;
-	searchResults = [];
 	searchTerm = '';
 
 	// ── Internal State ───────────────────────────────────────────────────
 	isSearchLoading = false;
-	hasRecords = false;
 	record;
 	preselectedRecordId;
 	delayTimeout;
 	currentFocusedSearchOption = NO_FOCUSED_OPTION;
 	valueSelectEventParams = {};
+
+	/** @description Template-bound Custom Labels for the empty state and pill-clear button. */
+	labels = {
+		noRecordsFound: NO_RECORDS_FOUND, removeSelectedOption: REMOVE_SELECTED_OPTION
+	};
 
 	_searchOptions = [];
 
@@ -192,6 +205,30 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	{
 		this._searchOptions = value || [];
 		this.searchResults = [...this._searchOptions];
+	}
+
+	_searchResults = [];
+
+	get searchResults()
+	{
+		return this._searchResults;
+	}
+
+	/**
+	 * @description Search results backing the dropdown. Assigning results marks the
+	 * in-flight search as settled, resets keyboard focus, and reopens the dropdown when a
+	 * search term is active without a selection. Subclasses and parents settle a search by
+	 * assigning results here, either directly or through `searchOptions`.
+	 */
+	set searchResults(value)
+	{
+		this._searchResults = value || [];
+		this.isSearchLoading = false;
+		this.resetSearchOptionFocus();
+		if(this.searchTerm && !this.record)
+		{
+			this.showResults();
+		}
 	}
 
 	// ── Computed Properties ──────────────────────────────────────────────
@@ -245,30 +282,52 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 
 	get lookupInputContainerClassList()
 	{
-		return this.template.querySelector('.lookupInputContainer').classList;
+		return this.template.querySelector('.lookupInputContainer')?.classList;
 	}
 
+	/**
+	 * @description Raw search results that match the current search term across the
+	 * configured display fields, in the order the dropdown renders them. Keyboard
+	 * navigation and Enter selection index into this list so they always track what
+	 * is visible.
+	 * @returns {[]}
+	 */
+	get filteredSearchResults()
+	{
+		return this.searchResults.filter(item => this.displayFields.some(displayField => (item[displayField] || '').toLowerCase().includes(this.searchTerm.toLowerCase())));
+	}
+
+	/**
+	 * @description Pure render-path projection of the filtered results, decorated with
+	 * the generated display label and result identifier. Performs no state mutation and
+	 * no DOM work; the dropdown-open and focus-reset side effects live in the input
+	 * handlers and the `searchResults` setter.
+	 * @returns {[]}
+	 */
 	get displaySearchOptions()
 	{
-		this.currentFocusedSearchOption = NO_FOCUSED_OPTION;
-		let searchOptions = this.searchResults
-		.map(item =>
+		return this.filteredSearchResults.map(item =>
 		{
 			let option = {...item};
 			option.label = this.generateRecordLabel(option);
 			option.resultIdentifier = this.getResultIdentifier(option);
 			return option;
-		})
-		.filter(item => this.displayFields.some(displayField => (item[displayField] || '').toLowerCase().includes(this.searchTerm.toLowerCase())));
+		});
+	}
 
-		this.isSearchLoading = !!this.searchTerm && (searchOptions.length === 0);
-		this.hasRecords = searchOptions.length > 0;
-		if(this.searchTerm && !this.record)
-		{
-			this.showResults();
-			this.selectSearchOptionUI();
-		}
-		return searchOptions;
+	get hasRecords()
+	{
+		return this.filteredSearchResults.length > 0;
+	}
+
+	/**
+	 * @description Whether the 'No Records Found' empty state should render. Gated on the
+	 * search being settled, so the empty state stays hidden while a search is in flight.
+	 * @returns {boolean}
+	 */
+	get displayNoRecordsFound()
+	{
+		return !this.isSearchLoading && !this.hasRecords;
 	}
 
 	get selectedRecord()
@@ -330,35 +389,54 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 		}
 	}
 
+	/**
+	 * @description Clears the pending debounce timer so a torn-down instance cannot run
+	 * the delayed search callback, then chains to the framework teardown.
+	 */
+	disconnectedCallback()
+	{
+		super.disconnectedCallback?.();
+		clearTimeout(this.delayTimeout);
+	}
+
 	// ── Record Label ─────────────────────────────────────────────────────
 
 	/**
-	 * @description Generates display label for a search result by replacing field name
-	 * tokens in the display format with actual record values.
+	 * @description Generates the display label for a search result by replacing field
+	 * name tokens in the display format with the record's values. Tokens are matched
+	 * longest-first in a single pass, so overlapping field names (e.g. `FirstName` and
+	 * `Name`) cannot corrupt each other and replaced values are never re-scanned.
+	 * Missing values render as empty text rather than the literal 'undefined'.
 	 * @param record
 	 * @returns {string}
 	 */
 	generateRecordLabel(record)
 	{
-		return this.displayFields.reduce((label, originalField) =>
+		const fieldTokens = this.displayFields
+		.map(displayField => displayField.trim())
+		.filter(displayField => displayField.length > 0)
+		.sort((firstField, secondField) => secondField.length - firstField.length)
+		.map(displayField => displayField.replace(REGULAR_EXPRESSION_METACHARACTERS, '\\$&'));
+
+		if(fieldTokens.length === 0)
 		{
-			const field = originalField.trim();
-			return label.replace(field, record[field]);
-		}, this.displayFieldFormat);
+			return this.displayFieldFormat;
+		}
+
+		const fieldTokenPattern = new RegExp(fieldTokens.join('|'), 'g');
+		return this.displayFieldFormat.replace(fieldTokenPattern, fieldToken => record[fieldToken] ?? '');
 	}
 
 	// ── Results Visibility ───────────────────────────────────────────────
 
 	showResults()
 	{
-		const classList = this.lookupInputContainerClassList;
-		classList.add('slds-is-open');
+		this.lookupInputContainerClassList?.add('slds-is-open');
 	}
 
 	hideResults()
 	{
-		const classList = this.lookupInputContainerClassList;
-		classList.remove('slds-is-open');
+		this.lookupInputContainerClassList?.remove('slds-is-open');
 	}
 
 	// ── Lookup Clearing ──────────────────────────────────────────────────
@@ -386,7 +464,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 
 	nextSearchResult()
 	{
-		if(this.currentFocusedSearchOption < this.searchResults.length)
+		if(this.currentFocusedSearchOption < this.filteredSearchResults.length - 1)
 		{
 			this.currentFocusedSearchOption += 1;
 		}
@@ -398,6 +476,16 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 		{
 			this.currentFocusedSearchOption -= 1;
 		}
+	}
+
+	/**
+	 * @description Returns keyboard focus to the no-focus sentinel and clears any focus
+	 * highlight from the rendered options.
+	 */
+	resetSearchOptionFocus()
+	{
+		this.currentFocusedSearchOption = NO_FOCUSED_OPTION;
+		this.selectSearchOptionUI();
 	}
 
 	selectSearchOptionUI()
@@ -453,11 +541,15 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	{
 		// Debouncing this method: Do not update the reactive property as long as this function is
 		// being called within a delay of DELAY. This is to avoid a very large number of Apex method calls.
-		this.isSearchLoading = true;
 		clearTimeout(this.delayTimeout);
 		const searchKey = event.target.value;
+		this.isSearchLoading = !!searchKey;
 		this.setSearchTimeoutFn(searchKey);
-		if(!searchKey)
+		if(searchKey)
+		{
+			this.showResults();
+		}
+		else
 		{
 			this.hideResults();
 		}
@@ -499,12 +591,27 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 		this.dispatchEvent(this.searchTermChangedEvent);
 	}
 
+	/**
+	 * @description Debounces applying the typed search key to the search term. When the
+	 * debounced key matches the already-applied term (for example a keystroke reverted
+	 * within the debounce window), reassigning the term is a no-op for reactive search
+	 * parameters, so no results assignment ever arrives to settle the in-flight flag;
+	 * the callback settles it here instead. Subclasses that search imperatively raise
+	 * and settle the flag themselves around their own search call.
+	 * @param {string} searchKey - The current search input value.
+	 */
 	setSearchTimeoutFn(searchKey)
 	{
 		// eslint-disable-next-line @lwc/lwc/no-async-operation
 		this.delayTimeout = setTimeout(() =>
 		{
+			if(this.searchTerm === searchKey)
+			{
+				this.isSearchLoading = false;
+			}
+
 			this.searchTerm = searchKey;
+			this.resetSearchOptionFocus();
 			this.dispatchSearchTermChangedEvent();
 		}, DELAY);
 	}

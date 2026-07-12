@@ -14,7 +14,9 @@
 		<targetConfig targets="lightning__FlowScreen">
 			<property name="errors" type="apex://DTO_FlowValidationError[]" label="Errors" role="inputOnly" />
 			<property name="warnings" type="apex://DTO_FlowValidationError[]" label="Warnings" role="inputOnly" />
+			<!-- i18n-allow: a targetConfig default cannot bind a Custom Label; dropping it would change App Builder/Flow behaviour. The JS default is label-sourced when the property is unset. -->
 			<property name="errorTitle" type="String" label="Error Title" default="Validation Errors" role="inputOnly" />
+			<!-- i18n-allow: same as errorTitle above. -->
 			<property name="warningTitle" type="String" label="Warning Title" default="Warnings" role="inputOnly" />
 			<property name="showFieldNames" type="Boolean" label="Show Field Names" default="true" role="inputOnly" />
 			<property name="showRuleNames" type="Boolean" label="Show Rule Names" default="false" role="inputOnly" />

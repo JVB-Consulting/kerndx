@@ -6,6 +6,91 @@
  * @author Jason van Beukering
  * @date February 2026, May 2026
  */
+
+// PLAN-111: resolve every CronExpressionEditor_* label to its real value so the existing
+// exact-string assertions verify byte-faithful interpolation (labels otherwise resolve to
+// 'c.X' in jest). Generated from the same ledger as the CustomLabels entries.
+jest.mock('@salesforce/label/c.CronExpressionEditor_FreqEveryNMinutes', () => ({default: 'Every N Minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_FreqHourly', () => ({default: 'Hourly'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_FreqDaily', () => ({default: 'Daily'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_FreqWeekly', () => ({default: 'Weekly'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_FreqMonthly', () => ({default: 'Monthly'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalEvery5', () => ({default: 'Every 5 minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalEvery10', () => ({default: 'Every 10 minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalEvery15', () => ({default: 'Every 15 minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalEvery30', () => ({default: 'Every 30 minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DaySunday', () => ({default: 'Sunday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayMonday', () => ({default: 'Monday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayTuesday', () => ({default: 'Tuesday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayWednesday', () => ({default: 'Wednesday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayThursday', () => ({default: 'Thursday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayFriday', () => ({default: 'Friday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DaySaturday', () => ({default: 'Saturday'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ModePreset', () => ({default: 'Preset'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ModeAdvanced', () => ({default: 'Advanced'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ModeCustom', () => ({default: 'Custom'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ModeLabel', () => ({default: 'Mode'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_FrequencyLabel', () => ({default: 'Frequency'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalLabel', () => ({default: 'Interval'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_AtMinuteLabel', () => ({default: 'At Minute'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_HourLabel', () => ({default: 'Hour'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_MinuteLabel', () => ({default: 'Minute'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DaysLabel', () => ({default: 'Days'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayOfMonthLabel', () => ({default: 'Day of Month'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_SecondsLabel', () => ({default: 'Seconds'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_MinutesLabel', () => ({default: 'Minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_HoursLabel', () => ({default: 'Hours'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_MonthLabel', () => ({default: 'Month'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayOfWeekHelp', () => ({default: '1-7, SUN-SAT, ?, L, #, e.g. FRI#1'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayOfWeekLabel', () => ({default: 'Day of Week'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_YearHelp', () => ({default: '1970-2099 or leave empty'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_YearOptionalLabel', () => ({default: 'Year (Optional)'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_CronExpressionLabel', () => ({default: 'Cron Expression'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_PreviewLabel', () => ({default: 'Preview'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_PresetModeUnrepresentable',
+		() => ({default: 'This expression cannot be represented in Preset mode. Use Advanced or Custom mode instead.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_OrdinalFirst', () => ({default: 'First'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_OrdinalSecond', () => ({default: 'Second'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_OrdinalThird', () => ({default: 'Third'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_OrdinalFourth', () => ({default: 'Fourth'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_OrdinalFifth', () => ({default: 'Fifth'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayListTwo', () => ({default: '{0} and {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DayListConjunction', () => ({default: ', and {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescEveryNMinutes', () => ({default: 'Every {0} minutes'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescHourly', () => ({default: 'Every hour at minute {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescDaily', () => ({default: 'Every day at {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescDailyInMonth', () => ({default: 'Every day in month {0} at {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescNthWeekday', () => ({default: '{0} {1} of every month at {2}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescLastWeekday', () => ({default: 'Last {0} of every month at {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescWeekdays', () => ({default: 'Every weekday (Monday through Friday) at {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescDayRange', () => ({default: 'Every {0} through {1} at {2}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescDayList', () => ({default: 'Every {0} at {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescLastDay', () => ({default: 'Last day of every month at {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescLastWeekdayOfMonth', () => ({default: 'Last weekday of every month at {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix', () => ({default: 'in month {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescNearestWeekday', () => ({default: 'Nearest weekday to day {0} of every month{1} at {2}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay', () => ({default: 'Monthly on day {0}{1} at {2}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValSeconds', () => ({default: 'Enter 0-59'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutes', () => ({default: 'Enter 0-59, *, */N, N/N, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValHours', () => ({default: 'Enter 0-23, *, */N, N/N, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValDayOfMonth', () => ({default: 'Enter 1-31, *, ?, L, W, LW, */N, N/N, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMonth', () => ({default: 'Enter 1-12, *, JAN-DEC, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValDayOfWeek', () => ({default: 'Enter 1-7, SUN-SAT, ?, L, or # patterns'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValYear', () => ({default: 'Enter a year (1970-2099) or leave empty'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValYearInPast', () => ({default: 'Year {0} is in the past — the job will never fire'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValOutOfRange', () => ({default: 'Value {0} is out of range ({1}-{2})'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValHashDay', () => ({default: 'Day in # expression must be 1-7'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValHashOccurrence', () => ({default: 'Occurrence in # expression must be 1-5'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValStepMin', () => ({default: 'Step value must be at least 1'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValStepMax', () => ({default: 'Step value {0} exceeds maximum {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValBaseOutOfRange', () => ({default: 'Base value {0} is out of range ({1}-{2})'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValRangeReversed', () => ({default: 'Range {0}-{1} is invalid — start must not exceed end'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValDayNotInMonth', () => ({default: 'Day {0} does not exist in {1} (max {2} days)'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValBothQuestion', () => ({default: 'Exactly one of Day of Month or Day of Week must be ? — both cannot be ?'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValNeitherQuestion', () => ({default: 'Exactly one of Day of Month or Day of Week must be ? — set one field to ?'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValStructure', () => ({default: 'Invalid cron expression — must have 6 or 7 space-separated fields'}), {virtual: true});
 import {parseCronExpression, buildCronExpression, describeCronExpression, validateCronField, validateCronExpression} from '../cronParser';
 
 describe('cronParser', () =>

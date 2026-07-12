@@ -10,8 +10,10 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
+import BACK_BUTTON from '@salesforce/label/c.FlowFooter_BackButton';
+import NEXT_BUTTON from '@salesforce/label/c.FlowFooter_NextButton';
 import MC_NAV from '@salesforce/messageChannel/Navigation__c';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {api} from 'lwc';
@@ -64,13 +66,13 @@ export default class FlowFooter extends ComponentBuilder('lightning-message', 'f
 	 * @description Overrides the title of the 'Next' button.
 	 * @type {string}
 	 */
-	@api nextTitle = 'Next';
+	@api nextTitle = NEXT_BUTTON;
 
 	/**
 	 * @description Overrides the title of the 'Back' button.
 	 * @type {string}
 	 */
-	@api previousTitle = 'Back';
+	@api previousTitle = BACK_BUTTON;
 
 	/**
 	 * @description Causes the 'Back' button to dispatch a FlowNavigationFinishEvent event when set to true.
@@ -124,6 +126,15 @@ export default class FlowFooter extends ComponentBuilder('lightning-message', 'f
 		});
 
 		this.publishLightningMessage(MC_NAV, {isReady: true});
+	}
+
+	/**
+	 * @description Releases the Navigation message channel subscription so a footer removed
+	 * from the DOM no longer holds a live handler for page-session navigation messages.
+	 */
+	disconnectedCallback()
+	{
+		this.clearSubscriptions();
 	}
 
 	// ── Navigation Handlers ──────────────────────────────────────────────

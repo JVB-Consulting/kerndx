@@ -3,7 +3,7 @@
  * @description Jest unit tests for classTypeResolverSetupModal LWC component.
  *
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, July 2026
  */
 jest.mock('lightning/modal', () =>
 {
@@ -12,11 +12,13 @@ jest.mock('lightning/modal', () =>
 }, {virtual: true});
 
 jest.mock('@salesforce/label/c.ClassTypeResolverModal_SetupStep3', () => ({default: 'Register the resolver: set Class Name to {0}.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ClassTypeResolverModal_CopyFailed',
+		() => ({default: 'Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.'}), {virtual: true});
 
 const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
 jest.mock('c/utilitySystem', () => ({
 	copyToClipBoard: (...args) => mockCopyToClipBoard(...args)
-}), {virtual: true});
+}));
 
 describe('c-class-type-resolver-setup-modal', () =>
 {
@@ -179,6 +181,70 @@ describe('c-class-type-resolver-setup-modal', () =>
 			expect(context.testCopyIcon).toBe('utility:copy_to_clipboard');
 
 			jest.useRealTimers();
+		});
+	});
+
+	describe('copy failure handling', () =>
+	{
+		it('handleCopyResolver resolves, keeps the copy icon, and reports the failure inline when the copy fails', async() =>
+		{
+			mockCopyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+			const context = createMockContext();
+			Object.defineProperty(context, 'resolverClassCode', {get: () => 'FAKE_RESOLVER_CODE'});
+
+			await expect(prototype.handleCopyResolver.call(context)).resolves.toBeUndefined();
+
+			expect(context.resolverCopyIcon).toBe('utility:copy_to_clipboard');
+			expect(context.copyErrorMessage).toBe('Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.');
+		});
+
+		it('handleCopyTest resolves, keeps the copy icon, and reports the failure inline when the copy fails', async() =>
+		{
+			mockCopyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+			const context = createMockContext();
+			Object.defineProperty(context, 'testClassCode', {get: () => 'FAKE_TEST_CODE'});
+
+			await expect(prototype.handleCopyTest.call(context)).resolves.toBeUndefined();
+
+			expect(context.testCopyIcon).toBe('utility:copy_to_clipboard');
+			expect(context.copyErrorMessage).toBe('Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.');
+		});
+
+		it('clears the inline failure message when a retry succeeds', async() =>
+		{
+			jest.useFakeTimers();
+			const context = createMockContext({copyErrorMessage: 'Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.'});
+			Object.defineProperty(context, 'resolverClassCode', {get: () => 'FAKE_RESOLVER_CODE'});
+
+			await prototype.handleCopyResolver.call(context);
+
+			expect(context.copyErrorMessage).toBeNull();
+			expect(context.resolverCopyIcon).toBe('utility:check');
+
+			jest.advanceTimersByTime(1500);
+			jest.useRealTimers();
+		});
+
+		it('renders the inline copy error in the modal body when a copy fails', async() =>
+		{
+			mockCopyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+			const {createElement} = require('lwc');
+			const element = createElement('c-class-type-resolver-setup-modal', {is: ClassTypeResolverSetupModal});
+			document.body.appendChild(element);
+			await Promise.resolve();
+
+			expect(element.shadowRoot.querySelector('[data-testid="copy-error"]')).toBeNull();
+
+			element.shadowRoot.querySelector('[data-testid="copy-resolver"]').click();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			await Promise.resolve();
+
+			const errorRegion = element.shadowRoot.querySelector('[data-testid="copy-error"]');
+			expect(errorRegion).not.toBeNull();
+			expect(errorRegion.textContent).toBe('Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.');
+			expect(element.shadowRoot.querySelector('[data-testid="copy-resolver"]').iconName).toBe('utility:copy_to_clipboard');
+
+			document.body.removeChild(element);
 		});
 	});
 

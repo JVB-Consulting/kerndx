@@ -8,6 +8,54 @@
 import {
 	MODE_PRESET, MODE_ADVANCED, MODE_CUSTOM, DEFAULT_CRON_EXPRESSION, NUMBER_TO_DAY_NAME
 } from './constants';
+import {formatTemplateString} from 'c/utilityString';
+import DAY_SUNDAY from '@salesforce/label/c.CronExpressionEditor_DaySunday';
+import DAY_MONDAY from '@salesforce/label/c.CronExpressionEditor_DayMonday';
+import DAY_TUESDAY from '@salesforce/label/c.CronExpressionEditor_DayTuesday';
+import DAY_WEDNESDAY from '@salesforce/label/c.CronExpressionEditor_DayWednesday';
+import DAY_THURSDAY from '@salesforce/label/c.CronExpressionEditor_DayThursday';
+import DAY_FRIDAY from '@salesforce/label/c.CronExpressionEditor_DayFriday';
+import DAY_SATURDAY from '@salesforce/label/c.CronExpressionEditor_DaySaturday';
+import ORDINAL_FIRST from '@salesforce/label/c.CronExpressionEditor_OrdinalFirst';
+import ORDINAL_SECOND from '@salesforce/label/c.CronExpressionEditor_OrdinalSecond';
+import ORDINAL_THIRD from '@salesforce/label/c.CronExpressionEditor_OrdinalThird';
+import ORDINAL_FOURTH from '@salesforce/label/c.CronExpressionEditor_OrdinalFourth';
+import ORDINAL_FIFTH from '@salesforce/label/c.CronExpressionEditor_OrdinalFifth';
+import DAY_LIST_TWO from '@salesforce/label/c.CronExpressionEditor_DayListTwo';
+import DAY_LIST_CONJUNCTION from '@salesforce/label/c.CronExpressionEditor_DayListConjunction';
+import DESC_EVERY_N_MINUTES from '@salesforce/label/c.CronExpressionEditor_DescEveryNMinutes';
+import DESC_HOURLY from '@salesforce/label/c.CronExpressionEditor_DescHourly';
+import DESC_DAILY from '@salesforce/label/c.CronExpressionEditor_DescDaily';
+import DESC_DAILY_IN_MONTH from '@salesforce/label/c.CronExpressionEditor_DescDailyInMonth';
+import DESC_NTH_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescNthWeekday';
+import DESC_LAST_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescLastWeekday';
+import DESC_WEEKDAYS from '@salesforce/label/c.CronExpressionEditor_DescWeekdays';
+import DESC_DAY_RANGE from '@salesforce/label/c.CronExpressionEditor_DescDayRange';
+import DESC_DAY_LIST from '@salesforce/label/c.CronExpressionEditor_DescDayList';
+import DESC_LAST_DAY from '@salesforce/label/c.CronExpressionEditor_DescLastDay';
+import DESC_LAST_WEEKDAY_OF_MONTH from '@salesforce/label/c.CronExpressionEditor_DescLastWeekdayOfMonth';
+import DESC_IN_MONTH_SUFFIX from '@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix';
+import DESC_NEAREST_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescNearestWeekday';
+import DESC_MONTHLY_ON_DAY from '@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay';
+import VAL_SECONDS from '@salesforce/label/c.CronExpressionEditor_ValSeconds';
+import VAL_MINUTES from '@salesforce/label/c.CronExpressionEditor_ValMinutes';
+import VAL_HOURS from '@salesforce/label/c.CronExpressionEditor_ValHours';
+import VAL_DAY_OF_MONTH from '@salesforce/label/c.CronExpressionEditor_ValDayOfMonth';
+import VAL_MONTH from '@salesforce/label/c.CronExpressionEditor_ValMonth';
+import VAL_DAY_OF_WEEK from '@salesforce/label/c.CronExpressionEditor_ValDayOfWeek';
+import VAL_YEAR from '@salesforce/label/c.CronExpressionEditor_ValYear';
+import VAL_YEAR_IN_PAST from '@salesforce/label/c.CronExpressionEditor_ValYearInPast';
+import VAL_OUT_OF_RANGE from '@salesforce/label/c.CronExpressionEditor_ValOutOfRange';
+import VAL_HASH_DAY from '@salesforce/label/c.CronExpressionEditor_ValHashDay';
+import VAL_HASH_OCCURRENCE from '@salesforce/label/c.CronExpressionEditor_ValHashOccurrence';
+import VAL_STEP_MIN from '@salesforce/label/c.CronExpressionEditor_ValStepMin';
+import VAL_STEP_MAX from '@salesforce/label/c.CronExpressionEditor_ValStepMax';
+import VAL_BASE_OUT_OF_RANGE from '@salesforce/label/c.CronExpressionEditor_ValBaseOutOfRange';
+import VAL_RANGE_REVERSED from '@salesforce/label/c.CronExpressionEditor_ValRangeReversed';
+import VAL_DAY_NOT_IN_MONTH from '@salesforce/label/c.CronExpressionEditor_ValDayNotInMonth';
+import VAL_BOTH_QUESTION from '@salesforce/label/c.CronExpressionEditor_ValBothQuestion';
+import VAL_NEITHER_QUESTION from '@salesforce/label/c.CronExpressionEditor_ValNeitherQuestion';
+import VAL_STRUCTURE from '@salesforce/label/c.CronExpressionEditor_ValStructure';
 
 const VALID_MINUTE_INTERVALS = [
 	'5',
@@ -27,11 +75,11 @@ const DAY_NAMES_ORDERED = [
 ];
 
 const DAY_FULL_NAMES = {
-	'SUN': 'Sunday', 'MON': 'Monday', 'TUE': 'Tuesday', 'WED': 'Wednesday', 'THU': 'Thursday', 'FRI': 'Friday', 'SAT': 'Saturday'
+	'SUN': DAY_SUNDAY, 'MON': DAY_MONDAY, 'TUE': DAY_TUESDAY, 'WED': DAY_WEDNESDAY, 'THU': DAY_THURSDAY, 'FRI': DAY_FRIDAY, 'SAT': DAY_SATURDAY
 };
 
 const ORDINAL_NAMES = {
-	'1': 'First', '2': 'Second', '3': 'Third', '4': 'Fourth', '5': 'Fifth'
+	'1': ORDINAL_FIRST, '2': ORDINAL_SECOND, '3': ORDINAL_THIRD, '4': ORDINAL_FOURTH, '5': ORDINAL_FIFTH
 };
 
 /**
@@ -339,10 +387,17 @@ function describeDayList(days)
 
 	if(fullNames.length === 2)
 	{
-		return `${fullNames[0]} and ${fullNames[1]}`;
+		return formatTemplateString(DAY_LIST_TWO, [
+			fullNames[0],
+			fullNames[1]
+		]);
 	}
 
-	return fullNames.slice(0, -1).join(', ') + ', and ' + fullNames[fullNames.length - 1];
+	// The ', ' list separator stays a literal: it is pure punctuation, and Salesforce strips
+	// leading/trailing whitespace from Custom Label values, so a ', ' label cannot round-trip.
+	// The translatable conjunction carries the final day as a {0} placeholder to keep its
+	// internal spacing (which Salesforce does preserve).
+	return fullNames.slice(0, -1).join(', ') + formatTemplateString(DAY_LIST_CONJUNCTION, [fullNames[fullNames.length - 1]]);
 }
 
 /**
@@ -351,7 +406,7 @@ function describeDayList(days)
 function describeIntervalMinutes(minutes)
 {
 	let interval = minutes.substring(2);
-	return `Every ${interval} minutes`;
+	return formatTemplateString(DESC_EVERY_N_MINUTES, [interval]);
 }
 
 /**
@@ -359,7 +414,7 @@ function describeIntervalMinutes(minutes)
  */
 function describeHourlyPattern(minuteNum)
 {
-	return `Every hour at minute ${minuteNum}`;
+	return formatTemplateString(DESC_HOURLY, [minuteNum]);
 }
 
 /**
@@ -369,10 +424,13 @@ function describeDailyPattern(time, month)
 {
 	if(month === '*')
 	{
-		return `Every day at ${time}`;
+		return formatTemplateString(DESC_DAILY, [time]);
 	}
 
-	return `Every day in month ${month} at ${time}`;
+	return formatTemplateString(DESC_DAILY_IN_MONTH, [
+		month,
+		time
+	]);
 }
 
 /**
@@ -465,14 +523,21 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 		let normalisedDay = normaliseDayToken(day);
 		let dayName = DAY_FULL_NAMES[normalisedDay] || normalisedDay;
 		let ordinal = ORDINAL_NAMES[occurrence] || `#${occurrence}`;
-		return `${ordinal} ${dayName} of every month at ${time}`;
+		return formatTemplateString(DESC_NTH_WEEKDAY, [
+			ordinal,
+			dayName,
+			time
+		]);
 	}
 
 	if(dayOfWeek.endsWith('L'))
 	{
 		let day = normaliseDayToken(dayOfWeek.slice(0, -1));
 		let dayName = DAY_FULL_NAMES[day] || day;
-		return `Last ${dayName} of every month at ${time}`;
+		return formatTemplateString(DESC_LAST_WEEKDAY, [
+			dayName,
+			time
+		]);
 	}
 
 	if(dayOfWeek.includes('-'))
@@ -480,35 +545,36 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 		let [start, end] = dayOfWeek.split('-');
 		if(start === 'MON' && end === 'FRI')
 		{
-			return `Every weekday (Monday through Friday) at ${time}`;
+			return formatTemplateString(DESC_WEEKDAYS, [time]);
 		}
 		let startName = DAY_FULL_NAMES[start] || start;
 		let endName = DAY_FULL_NAMES[end] || end;
-		return `Every ${startName} through ${endName} at ${time}`;
+		return formatTemplateString(DESC_DAY_RANGE, [
+			startName,
+			endName,
+			time
+		]);
 	}
 
 	let days = dayOfWeek.includes(',') ? dayOfWeek.split(',') : [dayOfWeek];
-	return `Every ${describeDayList(days)} at ${time}`;
+	return formatTemplateString(DESC_DAY_LIST, [
+		describeDayList(days),
+		time
+	]);
 }
 
 const CRON_FIELD_PATTERNS = {
-	seconds: {pattern: /^(\d{1,2})$/, message: 'Enter 0-59', min: 0, max: 59},
-	minutes: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,\-]\d{1,2})+)$/, message: 'Enter 0-59, *, */N, N/N, or comma/range lists', min: 0, max: 59},
-	hours: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,\-]\d{1,2})+)$/, message: 'Enter 0-23, *, */N, N/N, or comma/range lists', min: 0, max: 23},
+	seconds: {pattern: /^(\d{1,2})$/, message: VAL_SECONDS, min: 0, max: 59},
+	minutes: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_MINUTES, min: 0, max: 59},
+	hours: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_HOURS, min: 0, max: 23},
 	dayOfMonth: {
-		pattern: /^(\*|\?|L|LW|\d{1,2}W?|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,\-]\d{1,2})+)$/,
-		message: 'Enter 1-31, *, ?, L, W, LW, */N, N/N, or comma/range lists',
-		min: 1,
-		max: 31
+		pattern: /^(\*|\?|L|LW|\d{1,2}W?|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_DAY_OF_MONTH, min: 1, max: 31
 	},
 	month: {
-		pattern: /^(\*|\d{1,2}|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|[\dA-Z]{1,3}([,\-][\dA-Z]{1,3})+)$/,
-		message: 'Enter 1-12, *, JAN-DEC, or comma/range lists',
-		min: 1,
-		max: 12
+		pattern: /^(\*|\d{1,2}|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|[\dA-Z]{1,3}([,-][\dA-Z]{1,3})+)$/, message: VAL_MONTH, min: 1, max: 12
 	},
-	dayOfWeek: {pattern: /^(\*|\?|\d(L|#\d)?|[A-Za-z]{3}(L|#\d)?|[\dA-Za-z]{1,3}([,\-][\dA-Za-z]{1,3})*)$/, message: 'Enter 1-7, SUN-SAT, ?, L, or # patterns', min: 1, max: 7},
-	year: {pattern: /^(\d{4})?$/, message: 'Enter a year (1970-2099) or leave empty', min: 1970, max: 2099, isPastAware: true}
+	dayOfWeek: {pattern: /^(\*|\?|\d(L|#\d)?|[A-Za-z]{3}(L|#\d)?|[\dA-Za-z]{1,3}([,-][\dA-Za-z]{1,3})*)$/, message: VAL_DAY_OF_WEEK, min: 1, max: 7},
+	year: {pattern: /^(\d{4})?$/, message: VAL_YEAR, min: 1970, max: 2099, isPastAware: true}
 };
 
 /**
@@ -526,7 +592,7 @@ function validateFieldSemantics(fieldName, value, field)
 		let year = parseInt(value, 10);
 		if(year < new Date().getFullYear())
 		{
-			return `Year ${year} is in the past \u2014 the job will never fire`;
+			return formatTemplateString(VAL_YEAR_IN_PAST, [year]);
 		}
 	}
 
@@ -545,7 +611,11 @@ function validateFieldSemantics(fieldName, value, field)
 		let digit = parseInt(value.slice(0, -1), 10);
 		if(digit < field.min || digit > field.max)
 		{
-			return `Value ${digit} is out of range (${field.min}-${field.max})`;
+			return formatTemplateString(VAL_OUT_OF_RANGE, [
+				digit,
+				field.min,
+				field.max
+			]);
 		}
 		return null;
 	}
@@ -556,12 +626,12 @@ function validateFieldSemantics(fieldName, value, field)
 		let dayNum = parseInt(dayPart, 10);
 		if(!isNaN(dayNum) && (dayNum < 1 || dayNum > 7))
 		{
-			return 'Day in # expression must be 1-7';
+			return VAL_HASH_DAY;
 		}
 		let occurrence = parseInt(occurrencePart, 10);
 		if(isNaN(occurrence) || occurrence < 1 || occurrence > 5)
 		{
-			return 'Occurrence in # expression must be 1-5';
+			return VAL_HASH_OCCURRENCE;
 		}
 		return null;
 	}
@@ -572,18 +642,25 @@ function validateFieldSemantics(fieldName, value, field)
 		let stepNum = parseInt(step, 10);
 		if(isNaN(stepNum) || stepNum < 1)
 		{
-			return 'Step value must be at least 1';
+			return VAL_STEP_MIN;
 		}
 		if(stepNum > field.max)
 		{
-			return `Step value ${stepNum} exceeds maximum ${field.max}`;
+			return formatTemplateString(VAL_STEP_MAX, [
+				stepNum,
+				field.max
+			]);
 		}
 		if(base !== '*' && /^\d+$/.test(base))
 		{
 			let baseNum = parseInt(base, 10);
 			if(baseNum < field.min || baseNum > field.max)
 			{
-				return `Base value ${baseNum} is out of range (${field.min}-${field.max})`;
+				return formatTemplateString(VAL_BASE_OUT_OF_RANGE, [
+					baseNum,
+					field.min,
+					field.max
+				]);
 			}
 		}
 		return null;
@@ -601,15 +678,26 @@ function validateFieldSemantics(fieldName, value, field)
 				let end = parseInt(endStr, 10);
 				if(start < field.min || start > field.max)
 				{
-					return `Value ${start} is out of range (${field.min}-${field.max})`;
+					return formatTemplateString(VAL_OUT_OF_RANGE, [
+						start,
+						field.min,
+						field.max
+					]);
 				}
 				if(end < field.min || end > field.max)
 				{
-					return `Value ${end} is out of range (${field.min}-${field.max})`;
+					return formatTemplateString(VAL_OUT_OF_RANGE, [
+						end,
+						field.min,
+						field.max
+					]);
 				}
 				if(start > end)
 				{
-					return `Range ${start}-${end} is invalid \u2014 start must not exceed end`;
+					return formatTemplateString(VAL_RANGE_REVERSED, [
+						start,
+						end
+					]);
 				}
 			}
 		}
@@ -618,7 +706,11 @@ function validateFieldSemantics(fieldName, value, field)
 			let num = parseInt(token, 10);
 			if(num < field.min || num > field.max)
 			{
-				return `Value ${num} is out of range (${field.min}-${field.max})`;
+				return formatTemplateString(VAL_OUT_OF_RANGE, [
+					num,
+					field.min,
+					field.max
+				]);
 			}
 		}
 	}
@@ -747,7 +839,11 @@ function validateDayMonthCombination(dayOfMonth, month)
 	{
 		let monthNames = Object.keys(MONTH_NAME_TO_NUMBER);
 		let monthName = monthNames[monthNum - 1] || `month ${monthNum}`;
-		return `Day ${maxDay} does not exist in ${monthName} (max ${monthLimit} days)`;
+		return formatTemplateString(VAL_DAY_NOT_IN_MONTH, [
+			maxDay,
+			monthName,
+			monthLimit
+		]);
 	}
 
 	return null;
@@ -767,12 +863,12 @@ function validateCronCrossFields(parts)
 
 	if(dayOfMonth === '?' && dayOfWeek === '?')
 	{
-		return 'Exactly one of Day of Month or Day of Week must be ? \u2014 both cannot be ?';
+		return VAL_BOTH_QUESTION;
 	}
 
 	if(dayOfMonth !== '?' && dayOfWeek !== '?')
 	{
-		return 'Exactly one of Day of Month or Day of Week must be ? \u2014 set one field to ?';
+		return VAL_NEITHER_QUESTION;
 	}
 
 	let dayMonthError = validateDayMonthCombination(dayOfMonth, month);
@@ -794,7 +890,7 @@ export function validateCronExpression(expression)
 	let parts = splitCronExpression(expression || '');
 	if(!parts || !parts.every((part) => part.length > 0))
 	{
-		return {isValid: false, errorMessage: 'Invalid cron expression \u2014 must have 6 or 7 space-separated fields'};
+		return {isValid: false, errorMessage: VAL_STRUCTURE};
 	}
 
 	let fieldNames = [
@@ -829,23 +925,33 @@ export function validateCronExpression(expression)
  */
 function describeDayOfMonthPattern(dayOfMonth, time, month)
 {
-	let monthSuffix = month === '*' ? '' : ` in month ${month}`;
+	// The leading space is added here, not in the label: Salesforce strips leading/trailing
+	// whitespace from Custom Label values, so DescInMonthSuffix stores 'in month {0}'.
+	let monthSuffix = month === '*' ? '' : ' ' + formatTemplateString(DESC_IN_MONTH_SUFFIX, [month]);
 
 	if(dayOfMonth === 'L')
 	{
-		return `Last day of every month at ${time}`;
+		return formatTemplateString(DESC_LAST_DAY, [time]);
 	}
 
 	if(dayOfMonth === 'LW')
 	{
-		return `Last weekday of every month at ${time}`;
+		return formatTemplateString(DESC_LAST_WEEKDAY_OF_MONTH, [time]);
 	}
 
 	if(dayOfMonth.endsWith('W'))
 	{
 		let day = dayOfMonth.slice(0, -1);
-		return `Nearest weekday to day ${day} of every month${monthSuffix} at ${time}`;
+		return formatTemplateString(DESC_NEAREST_WEEKDAY, [
+			day,
+			monthSuffix,
+			time
+		]);
 	}
 
-	return `Monthly on day ${dayOfMonth}${monthSuffix} at ${time}`;
+	return formatTemplateString(DESC_MONTHLY_ON_DAY, [
+		dayOfMonth,
+		monthSuffix,
+		time
+	]);
 }

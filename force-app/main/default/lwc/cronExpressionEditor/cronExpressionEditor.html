@@ -1,45 +1,46 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
 	<div class="slds-var-m-bottom_medium">
-		<lightning-radio-group data-testid="cron-mode" label="Mode" name="mode" onchange={handleModeChange} options={modeOptions} type="button"
+		<lightning-radio-group data-testid="cron-mode" label={label.mode} name="mode" onchange={handleModeChange} options={modeOptions} type="button"
 		                       value={mode}></lightning-radio-group>
 	</div>
 
 	<template lwc:if={isPresetMode}>
 		<div class="slds-var-m-bottom_medium">
-			<lightning-combobox label="Frequency" name="frequency" onchange={handleFrequencyChange} options={presetFrequencies} value={presetFrequency}></lightning-combobox>
+			<lightning-combobox label={label.frequency} name="frequency" onchange={handleFrequencyChange} options={presetFrequencies} value={presetFrequency}></lightning-combobox>
 		</div>
 
 		<template lwc:if={isEveryNMinutes}>
-			<lightning-combobox label="Interval" name="minuteInterval" onchange={handleMinuteIntervalChange} options={minuteIntervals}
+			<lightning-combobox label={label.interval} name="minuteInterval" onchange={handleMinuteIntervalChange} options={minuteIntervals}
 			                    value={presetMinuteInterval}></lightning-combobox>
 		</template>
 
 		<template lwc:if={isHourly}>
-			<lightning-combobox label="At Minute" name="presetMinute" onchange={handlePresetMinuteChange} options={minutesOptions} value={presetMinute}></lightning-combobox>
+			<lightning-combobox label={label.atMinute} name="presetMinute" onchange={handlePresetMinuteChange} options={minutesOptions} value={presetMinute}></lightning-combobox>
 		</template>
 
 		<template lwc:if={showHourMinute}>
 			<lightning-layout multiple-rows>
 				<lightning-layout-item padding="horizontal-small" size="6">
-					<lightning-combobox label="Hour" name="presetHour" onchange={handlePresetHourChange} options={hoursOptions} value={presetHour}></lightning-combobox>
+					<lightning-combobox label={label.hour} name="presetHour" onchange={handlePresetHourChange} options={hoursOptions} value={presetHour}></lightning-combobox>
 				</lightning-layout-item>
 				<lightning-layout-item padding="horizontal-small" size="6">
-					<lightning-combobox label="Minute" name="presetMinute" onchange={handlePresetMinuteChange} options={minutesOptions} value={presetMinute}></lightning-combobox>
+					<lightning-combobox label={label.minute} name="presetMinute" onchange={handlePresetMinuteChange} options={minutesOptions}
+					                    value={presetMinute}></lightning-combobox>
 				</lightning-layout-item>
 			</lightning-layout>
 		</template>
 
 		<template lwc:if={isWeekly}>
 			<div class="slds-var-m-top_small">
-				<lightning-checkbox-group label="Days" name="daysOfWeek" onchange={handleDaysOfWeekChange} options={daysOfWeekOptions}
+				<lightning-checkbox-group label={label.days} name="daysOfWeek" onchange={handleDaysOfWeekChange} options={daysOfWeekOptions}
 				                          value={presetDaysOfWeek}></lightning-checkbox-group>
 			</div>
 		</template>
 
 		<template lwc:if={isMonthly}>
 			<div class="slds-var-m-top_small">
-				<lightning-combobox label="Day of Month" name="dayOfMonth" onchange={handlePresetDayOfMonthChange} options={dayOfMonthOptions}
+				<lightning-combobox label={label.dayOfMonth} name="dayOfMonth" onchange={handlePresetDayOfMonthChange} options={dayOfMonthOptions}
 				                    value={presetDayOfMonth}></lightning-combobox>
 			</div>
 		</template>
@@ -48,42 +49,45 @@
 	<template lwc:if={isAdvancedMode}>
 		<lightning-layout multiple-rows>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-combobox label="Seconds" name="seconds" onchange={handleAdvancedSecondsChange} options={secondsOptions} value={advancedSeconds}></lightning-combobox>
+				<lightning-combobox label={label.seconds} name="seconds" onchange={handleAdvancedSecondsChange} options={secondsOptions}
+				                    value={advancedSeconds}></lightning-combobox>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="0-59, *, */N" label="Minutes" name="minutes" onchange={handleAdvancedMinutesChange} type="text"
+				<lightning-input field-level-help="0-59, *, */N" label={label.minutes} name="minutes" onchange={handleAdvancedMinutesChange} type="text"
 				                 value={advancedMinutes}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="0-23, *, */N, N/N" label="Hours" name="hours" onchange={handleAdvancedHoursChange} type="text"
+				<lightning-input field-level-help="0-23, *, */N, N/N" label={label.hours} name="hours" onchange={handleAdvancedHoursChange} type="text"
 				                 value={advancedHours}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="1-31, *, ?, L, W, LW, */N, N/N" label="Day of Month" name="dayOfMonth" onchange={handleAdvancedDayOfMonthChange} type="text"
+				<!-- i18n-allow: field-level-help is a cron-syntax token list, not translatable prose -->
+				<lightning-input field-level-help="1-31, *, ?, L, W, LW, */N, N/N" label={label.dayOfMonth} name="dayOfMonth" onchange={handleAdvancedDayOfMonthChange} type="text"
 				                 value={advancedDayOfMonth}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="1-12, JAN-DEC, *" label="Month" name="month" onchange={handleAdvancedMonthChange} type="text"
+				<!-- i18n-allow: field-level-help is a cron-syntax token list, not translatable prose -->
+				<lightning-input field-level-help="1-12, JAN-DEC, *" label={label.month} name="month" onchange={handleAdvancedMonthChange} type="text"
 				                 value={advancedMonth}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="1-7, SUN-SAT, ?, L, #, e.g. FRI#1" label="Day of Week" name="dayOfWeek" onchange={handleAdvancedDayOfWeekChange} type="text"
+				<lightning-input field-level-help={label.dayOfWeekHelp} label={label.dayOfWeek} name="dayOfWeek" onchange={handleAdvancedDayOfWeekChange} type="text"
 				                 value={advancedDayOfWeek}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="1970-2099 or leave empty" label="Year (Optional)" name="year" onchange={handleAdvancedYearChange} type="text"
+				<lightning-input field-level-help={label.yearHelp} label={label.yearOptional} name="year" onchange={handleAdvancedYearChange} type="text"
 				                 value={advancedYear}></lightning-input>
 			</lightning-layout-item>
 		</lightning-layout>
 	</template>
 
 	<template lwc:if={isCustomMode}>
-		<lightning-input data-testid="cron-custom-input" label="Cron Expression" name="customExpression" onchange={handleCustomExpressionChange} placeholder="0 0 12 * * ?"
+		<lightning-input data-testid="cron-custom-input" label={label.cronExpression} name="customExpression" onchange={handleCustomExpressionChange} placeholder="0 0 12 * * ?"
 		                 type="text" value={customExpression}></lightning-input>
 	</template>
 
 	<div class="slds-form-element slds-form-element_readonly slds-var-m-top_medium">
-		<span class="slds-form-element__label">Preview</span>
+		<span class="slds-form-element__label">{label.preview}</span>
 		<div class="slds-form-element__control">
 			<span class="slds-form-element__static expression">{currentExpression}</span>
 			<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xxx-small">{cronDescription}</p>

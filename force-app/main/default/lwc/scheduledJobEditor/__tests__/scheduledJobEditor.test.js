@@ -3,8 +3,17 @@
  * @description Jest unit tests for scheduledJobEditor LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
+import CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
+import EDIT_TITLE from '@salesforce/label/c.ScheduledJob_EditTitle';
+import SCHEDULE from '@salesforce/label/c.ScheduledJob_Schedule';
+import LOAD_RECORD_FAILED from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
+import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
+import CREATED from '@salesforce/label/c.ScheduledJob_Created';
+import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
+import SAVE_FAILED from '@salesforce/label/c.ScheduledJob_SaveFailed';
+
 const mockShowSuccessToast = jest.fn();
 const mockShowErrorToast = jest.fn();
 const mockShowInfoToast = jest.fn();
@@ -67,6 +76,11 @@ jest.mock('@salesforce/apex/CTRL_ScheduledJob.getSchedulableClasses', () => ({de
 jest.mock('@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ScheduledJob.getUserTimezone', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ScheduledJob.saveRecord', () => ({default: jest.fn()}), {virtual: true});
+
+// Resolve the timezone-heading label to its real templated value so scheduleHeading's
+// formatTemplateString interpolation (and the getTimezoneDisplayName raw-id fallback)
+// can be asserted through the public getter, rather than the default 'c.X' stub.
+jest.mock('@salesforce/label/c.ScheduledJob_ScheduleWithTimezone', () => ({default: 'Schedule ({0})'}), {virtual: true});
 
 jest.mock('c/cronExpressionEditor', () =>
 {
@@ -254,6 +268,7 @@ describe('c-scheduled-job-editor', () =>
 		{
 			for(let index = 0; index < 5; index++)
 			{
+				// eslint-disable-next-line no-await-in-loop -- flush one microtask tick per iteration
 				await Promise.resolve();
 			}
 		}
@@ -371,7 +386,7 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext({recordId: undefined});
 				Object.defineProperty(context, 'isCreateMode', {get: () => true});
 				let getter = getGetter('cardTitle');
-				expect(getter.call(context)).toBe('New Scheduled Job');
+				expect(getter.call(context)).toBe(CREATE_TITLE);
 			});
 
 			it('returns Edit Scheduled Job in edit mode', () =>
@@ -379,7 +394,7 @@ describe('c-scheduled-job-editor', () =>
 				let context = createMockContext();
 				Object.defineProperty(context, 'isCreateMode', {get: () => false});
 				let getter = getGetter('cardTitle');
-				expect(getter.call(context)).toBe('Edit Scheduled Job');
+				expect(getter.call(context)).toBe(EDIT_TITLE);
 			});
 		});
 
@@ -470,6 +485,40 @@ describe('c-scheduled-job-editor', () =>
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
 				let getter = getGetter('isSaveDisabled');
 				expect(getter.call(context)).toBe(false);
+			});
+
+			it('returns false when a required parameter is satisfied only by its defaultValue', () =>
+			{
+				// The parameter input renders pre-filled with the defaultValue, so the form must
+				// treat that default as a satisfied required value instead of keeping Save disabled.
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					cronIsValid: true,
+					parameterDefinitions: [{name: 'objectName', label: 'Object Name', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'}],
+					parameterValues: {}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('isSaveDisabled');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('returns true when a required parameter was explicitly cleared despite a defaultValue', () =>
+			{
+				// An explicit empty entry means the user removed the pre-filled default,
+				// so the requirement is no longer satisfied and Save stays disabled.
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					cronIsValid: true,
+					parameterDefinitions: [{name: 'objectName', label: 'Object Name', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'}],
+					parameterValues: {objectName: ''}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('isSaveDisabled');
+				expect(getter.call(context)).toBe(true);
 			});
 		});
 
@@ -642,7 +691,7 @@ describe('c-scheduled-job-editor', () =>
 			{
 				let context = createMockContext({userTimezone: ''});
 				let getter = getGetter('scheduleHeading');
-				expect(getter.call(context)).toBe('Schedule');
+				expect(getter.call(context)).toBe(SCHEDULE);
 			});
 
 			it('falls back to the raw timezone id when Intl cannot format the zone', () =>
@@ -784,7 +833,7 @@ describe('c-scheduled-job-editor', () =>
 				reduceErrors.mockReturnValueOnce('');
 				let context = createMockContext();
 				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
-				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to load record');
+				expect(context.showErrorToast).toHaveBeenCalledWith(LOAD_RECORD_FAILED);
 			});
 
 			it('defaults to an empty parameter map when the stored JSON omits nameValueMap', () =>
@@ -829,7 +878,7 @@ describe('c-scheduled-job-editor', () =>
 				getParameterDefinitions.mockRejectedValue(new Error('Not found'));
 				let context = createMockContext();
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
-				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to load parameter definitions');
+				expect(context.showErrorToast).toHaveBeenCalledWith(LOAD_PARAMETERS_FAILED);
 			});
 		});
 
@@ -1048,7 +1097,7 @@ describe('c-scheduled-job-editor', () =>
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				Object.defineProperty(context, 'isCreateMode', {get: () => true});
 				await prototype.handleSave.call(context);
-				expect(context.showSuccessToast).toHaveBeenCalledWith('Scheduled job created');
+				expect(context.showSuccessToast).toHaveBeenCalledWith(CREATED);
 				expect(context.redirectToRecordPage).toHaveBeenCalledWith('a00000000000NEW');
 			});
 
@@ -1061,7 +1110,7 @@ describe('c-scheduled-job-editor', () =>
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				Object.defineProperty(context, 'isCreateMode', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(context.showSuccessToast).toHaveBeenCalledWith('Scheduled job saved');
+				expect(context.showSuccessToast).toHaveBeenCalledWith(SAVED);
 			});
 
 			it('sends null parameters when no parameter definitions', async() =>
@@ -1130,7 +1179,7 @@ describe('c-scheduled-job-editor', () =>
 				});
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to save scheduled job');
+				expect(context.showErrorToast).toHaveBeenCalledWith(SAVE_FAILED);
 			});
 
 			it('shows fallback error when reduceErrors returns empty', async() =>
@@ -1143,7 +1192,7 @@ describe('c-scheduled-job-editor', () =>
 				});
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(context.showErrorToast).toHaveBeenCalledWith('Failed to save scheduled job');
+				expect(context.showErrorToast).toHaveBeenCalledWith(SAVE_FAILED);
 			});
 
 			it('resets isSaving after failure', async() =>
@@ -1224,6 +1273,62 @@ describe('c-scheduled-job-editor', () =>
 				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
 				expect(parsed.parameters.objectName).toBe('');
 			});
+
+			it('persists an untouched parameter defaultValue in the save payload', async() =>
+			{
+				// The form displays the defaultValue, so saving without touching the input
+				// must persist exactly what the user saw instead of dropping the parameter.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job', className: 'SCHED_Test', cronExpression: '0 0 12 * * ?', parameterDefinitions: [
+						{name: 'objectName', label: 'Object', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'},
+						{name: 'minimumNumberOfDays', label: 'Minimum Number Of Days', dataType: 'NUMERIC', defaultValue: '30'}
+					], parameterValues: {}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters).toEqual({objectName: 'LogEntry__c', minimumNumberOfDays: '30'});
+			});
+
+			it('prunes parameter values from a previously selected class out of the save payload', async() =>
+			{
+				// Switching schedulable classes leaves the old class's entries in parameterValues;
+				// only parameters defined for the currently selected class may be serialised.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT'}],
+					parameterValues: {objectName: 'Account', staleParameterFromPreviousClass: 'stale'}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters).toEqual({objectName: 'Account'});
+			});
+
+			it('keeps an explicitly cleared parameter empty instead of restoring its defaultValue', async() =>
+			{
+				// Pins the what-you-see-is-what-saves rule: a cleared input shows empty,
+				// so the payload carries an empty string, not the resurrected default.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT', defaultValue: 'LogEntry__c'}],
+					parameterValues: {objectName: ''}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters.objectName).toBe('');
+			});
 		});
 
 		describe('handleCancel', () =>
@@ -1261,8 +1366,8 @@ describe('c-scheduled-job-editor', () =>
 			const path = require('path');
 			let templatePath = path.resolve(__dirname, '..', 'scheduledJobEditor.html');
 			let template = fs.readFileSync(templatePath, 'utf8');
-			expect(template).toContain('label="Save"');
-			expect(template).toContain('label="Cancel"');
+			expect(template).toContain('label={label.save}');
+			expect(template).toContain('label={label.cancel}');
 			expect(template).toContain('variant="brand"');
 			expect(template).toContain('slot="footer"');
 		});

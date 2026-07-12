@@ -7,6 +7,11 @@
 import {createElement} from 'lwc';
 import LwcValidationErrors from 'c/validationErrors';
 
+// Custom Label mocks — values byte-equal the real CustomLabels entries so the
+// default-title assertions exercise the shipped text.
+jest.mock('@salesforce/label/c.ValidationErrors_ErrorTitle', () => ({default: 'Validation Errors'}), {virtual: true});
+jest.mock('@salesforce/label/c.ValidationErrors_WarningTitle', () => ({default: 'Warnings'}), {virtual: true});
+
 describe('validationErrors', () =>
 {
 	afterEach(() =>

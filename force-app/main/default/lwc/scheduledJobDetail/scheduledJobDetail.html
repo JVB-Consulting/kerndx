@@ -1,12 +1,31 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<template lwc:if={hasRecord}>
-		<lightning-card data-testid="scheduled-job-detail-root" title="Scheduled Job">
+	<lightning-card data-testid="scheduled-job-detail-root" title={labels.cardTitle}>
+		<template lwc:if={isLoadingRecord}>
+			<div class="slds-is-relative slds-var-p-vertical_large">
+				<lightning-spinner alternative-text={labels.loading} size="small"></lightning-spinner>
+			</div>
+		</template>
+
+		<template lwc:elseif={hasLoadError}>
+			<div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+				<div class="slds-scoped-notification slds-media slds-media_center slds-theme_error" data-testid="load-error" role="alert">
+					<div class="slds-media__figure">
+						<lightning-icon icon-name="utility:error" size="small" variant="inverse"></lightning-icon>
+					</div>
+					<div class="slds-media__body">
+						<p data-testid="load-error-message">{loadErrorMessage}</p>
+					</div>
+				</div>
+			</div>
+		</template>
+
+		<template lwc:elseif={hasRecord}>
 			<div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
 				<lightning-layout multiple-rows>
 					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
 						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
-							<span class="slds-form-element__label">Scheduler Name</span>
+							<span class="slds-form-element__label">{labels.schedulerName}</span>
 							<div class="slds-form-element__control">
 								<span class="slds-form-element__static">{viewSchedulerName}</span>
 							</div>
@@ -14,7 +33,7 @@
 					</lightning-layout-item>
 					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
 						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
-							<span class="slds-form-element__label">Class Name</span>
+							<span class="slds-form-element__label">{labels.className}</span>
 							<div class="slds-form-element__control">
 								<span class="slds-form-element__static">{viewClassName}</span>
 							</div>
@@ -22,7 +41,7 @@
 					</lightning-layout-item>
 					<lightning-layout-item medium-device-size="6" padding="horizontal-small" size="12">
 						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
-							<span class="slds-form-element__label">Status</span>
+							<span class="slds-form-element__label">{labels.status}</span>
 							<div class="slds-form-element__control">
 								<span class={activeStatusVariant}>{activeStatusLabel}</span>
 							</div>
@@ -31,24 +50,24 @@
 				</lightning-layout>
 
 				<div class="slds-var-m-top_medium">
-					<h3 class="slds-text-title_caps slds-var-m-bottom_x-small" data-testid="schedule-heading">Schedule</h3>
+					<h3 class="slds-text-title_caps slds-var-m-bottom_x-small" data-testid="schedule-heading">{labels.schedule}</h3>
 					<template lwc:if={viewCronExpression}>
 						<span class="cron-expression">{viewCronExpression}</span>
 						<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xxx-small" data-testid="cron-description">{viewCronDescription}</p>
 					</template>
 					<template lwc:else>
-						<span class="slds-text-color_weak">No schedule configured</span>
+						<span class="slds-text-color_weak">{labels.noSchedule}</span>
 					</template>
 				</div>
 
 				<template lwc:if={hasViewParameterPairs}>
 					<div class="slds-var-m-top_medium">
-						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">Parameters</h3>
+						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">{labels.parameters}</h3>
 						<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-no-row-hover">
 							<thead>
 							<tr class="slds-line-height_reset">
-								<th class="slds-text-title_caps" scope="col">Parameter</th>
-								<th class="slds-text-title_caps" scope="col">Value</th>
+								<th class="slds-text-title_caps" scope="col">{labels.parameterColumn}</th>
+								<th class="slds-text-title_caps" scope="col">{labels.valueColumn}</th>
 							</tr>
 							</thead>
 							<tbody>
@@ -65,11 +84,11 @@
 
 				<template lwc:if={hasViewDescription}>
 					<div class="slds-var-m-top_medium">
-						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">Description</h3>
+						<h3 class="slds-text-title_caps slds-var-m-bottom_x-small">{labels.description}</h3>
 						<span>{viewDescription}</span>
 					</div>
 				</template>
 			</div>
-		</lightning-card>
-	</template>
+		</template>
+	</lightning-card>
 </template>

@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, July 2026
  */
 import {APPLICATION_SCOPE, publish, subscribe, unsubscribe} from 'lightning/messageService';
 
@@ -23,6 +23,9 @@ function requireParameter(value, parameterName)
 {
 	if(!value)
 	{
+		// Developer-only invariant: null-guard for a missing required argument —
+		// never reachable from subscriber interaction.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 		throw new Error(`Error: ${parameterName} is ${value}`);
 	}
 }
@@ -147,7 +150,8 @@ export const initialisePublishService = function(component)
 
 /**
  * @description Activates the Lightning Message Service module on a BaseComponent instance,
- * wiring subscription management, publishing, and cleanup capabilities.
+ * wiring subscription management (which includes the clearSubscriptions cleanup method)
+ * and publishing.
  *
  * @param {Object} component The BaseComponent instance to enhance
  */
@@ -155,5 +159,4 @@ export default function initialiseLightningMessageModule(component)
 {
 	initialiseSubscriptionService(component);
 	initialisePublishService(component);
-	initialiseClearSubscriptions(component);
 }

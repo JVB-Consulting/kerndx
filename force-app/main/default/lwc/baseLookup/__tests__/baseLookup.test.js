@@ -7,8 +7,14 @@
  *              module structure, exports, and static analysis rather than DOM rendering.
  *
  * @author Jason van Beukering
- * @date December 2025, June 2026
+ * @date December 2025, July 2026
  */
+
+// Custom Label mocks — values byte-equal the real CustomLabels entries so any
+// value assertion exercises the shipped text.
+jest.mock('@salesforce/label/c.BaseLookup_NoRecordsFound', () => ({default: 'No Records Found....'}), {virtual: true});
+jest.mock('@salesforce/label/c.BaseLookup_RemoveSelectedOption', () => ({default: 'Remove selected option'}), {virtual: true});
+jest.mock('@salesforce/label/c.BaseLookup_SearchPlaceholder', () => ({default: 'Search'}), {virtual: true});
 
 // Mock dependencies
 jest.mock('@salesforce/messageChannel/Component__c', () => ({
@@ -54,10 +60,12 @@ describe('c-base-lookup', () =>
 			expect(typeof prototype.nextSearchResult).toBe('function');
 			expect(typeof prototype.previousSearchResult).toBe('function');
 			expect(typeof prototype.selectSearchOptionUI).toBe('function');
+			expect(typeof prototype.resetSearchOptionFocus).toBe('function');
 			expect(typeof prototype.getResultIdentifier).toBe('function');
 			expect(typeof prototype.handleSelectRecordHelper).toBe('function');
 			expect(typeof prototype.setSearchTimeoutFn).toBe('function');
 			expect(typeof prototype.connectedCallback).toBe('function');
+			expect(typeof prototype.disconnectedCallback).toBe('function');
 			expect(typeof prototype.dispatchValueSelectEvent).toBe('function');
 			expect(typeof prototype.publishValueSelectMessage).toBe('function');
 			expect(typeof prototype.dispatchSearchTermChangedEvent).toBe('function');
@@ -78,6 +86,11 @@ describe('c-base-lookup', () =>
 			expect(selectedRecordDesc).toBeDefined();
 			expect(typeof selectedRecordDesc.get).toBe('function');
 			expect(typeof selectedRecordDesc.set).toBe('function');
+
+			const searchResultsDesc = Object.getOwnPropertyDescriptor(prototype, 'searchResults');
+			expect(searchResultsDesc).toBeDefined();
+			expect(typeof searchResultsDesc.get).toBe('function');
+			expect(typeof searchResultsDesc.set).toBe('function');
 		});
 
 		it('has computed getters', () =>
@@ -93,7 +106,10 @@ describe('c-base-lookup', () =>
 				'pillLabel',
 				'displayFieldFormat',
 				'lookupInputContainerClassList',
+				'filteredSearchResults',
 				'displaySearchOptions',
+				'hasRecords',
+				'displayNoRecordsFound',
 				'searchTermChangedEvent',
 				'valueSelectDetail',
 				'valueSelectEvent'
@@ -236,7 +252,6 @@ describe('c-base-lookup', () =>
 				searchResults: [],
 				searchOptions: [],
 				isSearchLoading: false,
-				hasRecords: false,
 				currentFocusedSearchOption: -1,
 				delayTimeout: null,
 				displayFields: ['Name'],
@@ -273,13 +288,14 @@ describe('c-base-lookup', () =>
 		{
 			const descriptor = getDescriptor(propertyName);
 			Object.defineProperty(context, propertyName, {
-				get: descriptor.get.bind(context), set: descriptor.set.bind(context)
+				get: descriptor.get?.bind(context), set: descriptor.set?.bind(context)
 			});
 		};
 
 		const prepareSearchContext = (context) =>
 		{
 			Object.defineProperty(context, 'displayFieldFormat', {get: () => 'Name'});
+			bindDescriptor(context, 'filteredSearchResults');
 			context.generateRecordLabel = prototype.generateRecordLabel.bind(context);
 			context.getResultIdentifier = prototype.getResultIdentifier.bind(context);
 			context.showResults = jest.fn();
@@ -425,19 +441,8 @@ describe('c-base-lookup', () =>
 				const result = callGetter(context, 'displaySearchOptions');
 				expect(result.length).toBe(1);
 				expect(result[0].Name).toBe('Test Account');
-				expect(context.showResults).toHaveBeenCalled();
-			});
-
-			it('displaySearchOptions sets isSearchLoading when no results', () =>
-			{
-				const context = createMockContext();
-				context.searchResults = [];
-				context.searchTerm = 'xyz';
-				context.record = null;
-				context.displayFields = ['Name'];
-				prepareSearchContext(context);
-				callGetter(context, 'displaySearchOptions');
-				expect(context.isSearchLoading).toBe(true);
+				expect(result[0].label).toBe('Test Account');
+				expect(result[0].resultIdentifier).toBe('001');
 			});
 
 			it('selectedRecord returns record', () =>
@@ -627,26 +632,13 @@ describe('c-base-lookup', () =>
 			{
 				const context = createMockContext();
 				context.currentFocusedSearchOption = 0;
-				context.searchResults = [
+				context.filteredSearchResults = [
 					{},
 					{},
 					{}
 				];
 				prototype.nextSearchResult.call(context);
 				expect(context.currentFocusedSearchOption).toBe(1);
-			});
-
-			it('nextSearchResult does not increment beyond searchResults length', () =>
-			{
-				const context = createMockContext();
-				context.currentFocusedSearchOption = 3;
-				context.searchResults = [
-					{},
-					{},
-					{}
-				];
-				prototype.nextSearchResult.call(context);
-				expect(context.currentFocusedSearchOption).toBe(3);
 			});
 
 			it('previousSearchResult decrements currentFocusedSearchOption', () =>
@@ -725,7 +717,7 @@ describe('c-base-lookup', () =>
 			it('handleKeyDown handles ENTER key', () =>
 			{
 				const context = createMockContext();
-				context.searchResults = [{Id: '001'}];
+				context.filteredSearchResults = [{Id: '001'}];
 				context.currentFocusedSearchOption = 0;
 				context.handleSelectRecordHelper = jest.fn();
 				context.dispatchValueSelectEvent = jest.fn();
@@ -753,7 +745,7 @@ describe('c-base-lookup', () =>
 			{
 				const context = createMockContext();
 				context.currentFocusedSearchOption = 0;
-				context.searchResults = [
+				context.filteredSearchResults = [
 					{},
 					{}
 				];
@@ -778,7 +770,9 @@ describe('c-base-lookup', () =>
 			{
 				jest.useFakeTimers();
 				const context = createMockContext();
+				context.showResults = jest.fn();
 				context.hideResults = jest.fn();
+				context.resetSearchOptionFocus = jest.fn();
 				context.dispatchSearchTermChangedEvent = jest.fn();
 				context.setSearchTimeoutFn = prototype.setSearchTimeoutFn.bind(context);
 				const mockEvent = {target: {value: 'test'}};
@@ -807,6 +801,7 @@ describe('c-base-lookup', () =>
 			{
 				jest.useFakeTimers();
 				const context = createMockContext();
+				context.resetSearchOptionFocus = jest.fn();
 				context.dispatchSearchTermChangedEvent = jest.fn();
 				prototype.setSearchTimeoutFn.call(context, 'delayed search');
 				expect(context.delayTimeout).toBeDefined();
@@ -860,23 +855,7 @@ describe('c-base-lookup', () =>
 
 		describe('displaySearchOptions edge cases', () =>
 		{
-			it('displaySearchOptions does not show results when record is selected', () =>
-			{
-				const context = createMockContext();
-				context.searchResults = [
-					{Id: '001', Name: 'Test Account'}
-				];
-				context.searchTerm = 'test';
-				context.record = {Id: '001', Name: 'Test Account'};
-				context.displayFields = ['Name'];
-				context.idField = 'Id';
-				prepareSearchContext(context);
-				callGetter(context, 'displaySearchOptions');
-				// When record is selected (truthy), showResults is NOT called
-				expect(context.showResults).not.toHaveBeenCalled();
-			});
-
-			it('displaySearchOptions sets hasRecords false when no matching results', () =>
+			it('displaySearchOptions returns empty when no records match the search term', () =>
 			{
 				const context = createMockContext();
 				context.searchResults = [
@@ -887,13 +866,13 @@ describe('c-base-lookup', () =>
 				context.displayFields = ['Name'];
 				context.idField = 'Id';
 				prepareSearchContext(context);
+				bindDescriptor(context, 'hasRecords');
 				const result = callGetter(context, 'displaySearchOptions');
 				expect(result.length).toBe(0);
 				expect(context.hasRecords).toBe(false);
-				expect(context.isSearchLoading).toBe(true);
 			});
 
-			it('displaySearchOptions sets isSearchLoading false and hasRecords true when results match', () =>
+			it('displaySearchOptions returns every record when the search term is empty', () =>
 			{
 				const context = createMockContext();
 				context.searchResults = [
@@ -904,11 +883,11 @@ describe('c-base-lookup', () =>
 				context.displayFields = ['Name'];
 				context.idField = 'Id';
 				prepareSearchContext(context);
+				bindDescriptor(context, 'hasRecords');
 				const result = callGetter(context, 'displaySearchOptions');
 				// With empty searchTerm, all items pass filter (includes('')===true)
 				expect(result.length).toBe(1);
 				expect(context.hasRecords).toBe(true);
-				expect(context.isSearchLoading).toBe(false);
 			});
 
 			it('displaySearchOptions treats records with null display field values as empty strings for matching', () =>
@@ -938,6 +917,380 @@ describe('c-base-lookup', () =>
 				// Should not throw
 				prototype.clearLookupUI.call(context);
 				expect(context.isSearchLoading).toBe(false);
+			});
+		});
+
+		describe('render-path purity', () =>
+		{
+			it('displaySearchOptions leaves focus, loading, and dropdown state untouched during render', () =>
+			{
+				const context = createMockContext();
+				context.searchResults = [{Id: '001', Name: 'Acme'}];
+				context.searchTerm = 'acme';
+				context.record = null;
+				context.currentFocusedSearchOption = 0;
+				context.isSearchLoading = true;
+				prepareSearchContext(context);
+				const result = callGetter(context, 'displaySearchOptions');
+				expect(result).toHaveLength(1);
+				expect(context.currentFocusedSearchOption).toBe(0);
+				expect(context.isSearchLoading).toBe(true);
+				expect(context.showResults).not.toHaveBeenCalled();
+				expect(context.selectSearchOptionUI).not.toHaveBeenCalled();
+			});
+
+			it('filteredSearchResults returns the raw matching records in display order', () =>
+			{
+				const context = createMockContext();
+				const matchingRecord = {Id: '001', Name: 'Acme'};
+				context.searchResults = [
+					matchingRecord,
+					{Id: '002', Name: 'Beta'}
+				];
+				context.searchTerm = 'ac';
+				context.displayFields = ['Name'];
+				const result = callGetter(context, 'filteredSearchResults');
+				expect(result).toHaveLength(1);
+				expect(result[0]).toBe(matchingRecord);
+			});
+
+			it('hasRecords reflects whether any option matches the search term', () =>
+			{
+				const context = createMockContext();
+				context.searchResults = [{Id: '001', Name: 'Acme'}];
+				context.displayFields = ['Name'];
+				context.searchTerm = 'acme';
+				bindDescriptor(context, 'filteredSearchResults');
+				bindDescriptor(context, 'hasRecords');
+				expect(context.hasRecords).toBe(true);
+				context.searchTerm = 'zzzzz';
+				expect(context.hasRecords).toBe(false);
+			});
+		});
+
+		describe('search settlement side effects', () =>
+		{
+			const createSetterContext = () =>
+			{
+				const context = createMockContext();
+				context.isSearchLoading = true;
+				context.resetSearchOptionFocus = jest.fn();
+				context.showResults = jest.fn();
+				return context;
+			};
+
+			it('assigning searchResults settles the in-flight search and resets keyboard focus', () =>
+			{
+				const context = createSetterContext();
+				callSetter(context, 'searchResults', [{Id: '001', Name: 'Acme'}]);
+				expect(callGetter(context, 'searchResults')).toEqual([{Id: '001', Name: 'Acme'}]);
+				expect(context.isSearchLoading).toBe(false);
+				expect(context.resetSearchOptionFocus).toHaveBeenCalledTimes(1);
+			});
+
+			it('assigning searchResults coerces a null value to an empty list', () =>
+			{
+				const context = createSetterContext();
+				callSetter(context, 'searchResults', null);
+				expect(callGetter(context, 'searchResults')).toEqual([]);
+			});
+
+			it('assigning searchResults reopens the dropdown while a search term is active', () =>
+			{
+				const context = createSetterContext();
+				context.searchTerm = 'acme';
+				context.record = null;
+				callSetter(context, 'searchResults', [{Id: '001', Name: 'Acme'}]);
+				expect(context.showResults).toHaveBeenCalledTimes(1);
+			});
+
+			it('assigning searchResults keeps the dropdown closed when no search term is active', () =>
+			{
+				const context = createSetterContext();
+				context.searchTerm = '';
+				callSetter(context, 'searchResults', [{Id: '001', Name: 'Acme'}]);
+				expect(context.showResults).not.toHaveBeenCalled();
+			});
+
+			it('assigning searchResults keeps the dropdown closed when a record is selected', () =>
+			{
+				const context = createSetterContext();
+				context.searchTerm = 'acme';
+				context.record = {Id: '001', Name: 'Acme'};
+				callSetter(context, 'searchResults', [{Id: '001', Name: 'Acme'}]);
+				expect(context.showResults).not.toHaveBeenCalled();
+			});
+
+			it('resetSearchOptionFocus returns focus to the no-focus sentinel and clears highlights', () =>
+			{
+				const context = createMockContext();
+				context.currentFocusedSearchOption = 2;
+				context.selectSearchOptionUI = jest.fn();
+				prototype.resetSearchOptionFocus.call(context);
+				expect(context.currentFocusedSearchOption).toBe(-1);
+				expect(context.selectSearchOptionUI).toHaveBeenCalledTimes(1);
+			});
+		});
+
+		describe('search input handling side effects', () =>
+		{
+			it('typing a search key opens the results dropdown from the input handler', () =>
+			{
+				const context = createMockContext();
+				context.showResults = jest.fn();
+				context.hideResults = jest.fn();
+				context.setSearchTimeoutFn = jest.fn();
+				prototype.handleKeyChange.call(context, {target: {value: 'acme'}});
+				expect(context.showResults).toHaveBeenCalledTimes(1);
+				expect(context.hideResults).not.toHaveBeenCalled();
+				expect(context.isSearchLoading).toBe(true);
+			});
+
+			it('clearing the input stops the loading indicator and hides the dropdown', () =>
+			{
+				const context = createMockContext();
+				context.isSearchLoading = true;
+				context.showResults = jest.fn();
+				context.hideResults = jest.fn();
+				context.setSearchTimeoutFn = jest.fn();
+				prototype.handleKeyChange.call(context, {target: {value: ''}});
+				expect(context.isSearchLoading).toBe(false);
+				expect(context.hideResults).toHaveBeenCalledTimes(1);
+				expect(context.showResults).not.toHaveBeenCalled();
+			});
+
+			it('the debounce firing resets keyboard focus before dispatching the term change', () =>
+			{
+				jest.useFakeTimers();
+				const context = createMockContext();
+				context.resetSearchOptionFocus = jest.fn();
+				context.dispatchSearchTermChangedEvent = jest.fn();
+				prototype.setSearchTimeoutFn.call(context, 'acme');
+				jest.advanceTimersByTime(DEBOUNCE_DELAY);
+				expect(context.searchTerm).toBe('acme');
+				expect(context.resetSearchOptionFocus).toHaveBeenCalledTimes(1);
+				expect(context.dispatchSearchTermChangedEvent).toHaveBeenCalledTimes(1);
+				jest.useRealTimers();
+			});
+
+			it('the debounce firing on an unchanged term settles the in-flight search itself', () =>
+			{
+				// A keystroke reverted within the debounce window re-applies the same term, so
+				// nothing downstream re-runs the search and no results assignment ever arrives to
+				// settle the loading flag. The debounce callback settles it directly.
+				jest.useFakeTimers();
+				const context = createMockContext();
+				context.searchTerm = 'acme';
+				context.isSearchLoading = true;
+				context.resetSearchOptionFocus = jest.fn();
+				context.dispatchSearchTermChangedEvent = jest.fn();
+				prototype.setSearchTimeoutFn.call(context, 'acme');
+				jest.advanceTimersByTime(DEBOUNCE_DELAY);
+				expect(context.isSearchLoading).toBe(false);
+				expect(context.searchTerm).toBe('acme');
+				expect(context.dispatchSearchTermChangedEvent).toHaveBeenCalledTimes(1);
+				jest.useRealTimers();
+			});
+
+			it('the debounce firing on a changed term leaves the search in flight for the results assignment to settle', () =>
+			{
+				jest.useFakeTimers();
+				const context = createMockContext();
+				context.searchTerm = 'acme';
+				context.isSearchLoading = true;
+				context.resetSearchOptionFocus = jest.fn();
+				context.dispatchSearchTermChangedEvent = jest.fn();
+				prototype.setSearchTimeoutFn.call(context, 'acmes');
+				jest.advanceTimersByTime(DEBOUNCE_DELAY);
+				expect(context.isSearchLoading).toBe(true);
+				expect(context.searchTerm).toBe('acmes');
+				jest.useRealTimers();
+			});
+		});
+
+		describe('keyboard navigation over the filtered list', () =>
+		{
+			it('nextSearchResult stops at the last visible option', () =>
+			{
+				const context = createMockContext();
+				context.currentFocusedSearchOption = 2;
+				context.searchResults = [
+					{},
+					{},
+					{}
+				];
+				context.filteredSearchResults = [
+					{},
+					{},
+					{}
+				];
+				prototype.nextSearchResult.call(context);
+				expect(context.currentFocusedSearchOption).toBe(2);
+			});
+
+			it('nextSearchResult walks the filtered list, not the full result set', () =>
+			{
+				const context = createMockContext();
+				context.currentFocusedSearchOption = 0;
+				context.searchResults = [
+					{},
+					{},
+					{}
+				];
+				context.filteredSearchResults = [{}];
+				prototype.nextSearchResult.call(context);
+				expect(context.currentFocusedSearchOption).toBe(0);
+			});
+
+			it('Enter selects the focused option from the filtered list, not the full result set', () =>
+			{
+				const context = createMockContext();
+				const filteredRecord = {Id: '002', Name: 'Beta'};
+				context.searchResults = [
+					{Id: '001', Name: 'Acme'},
+					filteredRecord
+				];
+				context.filteredSearchResults = [filteredRecord];
+				context.currentFocusedSearchOption = 0;
+				context.handleSelectRecordHelper = jest.fn();
+				context.dispatchValueSelectEvent = jest.fn();
+				context.publishValueSelectMessage = jest.fn();
+				bindDescriptor(context, 'selectedRecord');
+				prototype.handleKeyDown.call(context, {keyCode: 13, preventDefault: jest.fn()});
+				expect(context.record).toBe(filteredRecord);
+			});
+		});
+
+		describe('record label generation', () =>
+		{
+			const createLabelContext = (displayFields, displayFieldFormat) =>
+			{
+				const context = createMockContext();
+				context.displayFields = displayFields;
+				Object.defineProperty(context, 'displayFieldFormat', {get: () => displayFieldFormat});
+				return context;
+			};
+
+			it('renders empty text instead of the literal undefined for missing field values', () =>
+			{
+				const context = createLabelContext([
+					'FirstName',
+					'LastName'
+				], 'FirstName LastName');
+				const result = prototype.generateRecordLabel.call(context, {FirstName: 'John'});
+				expect(result).toBe('John ');
+			});
+
+			it('renders empty text instead of the literal null for null field values', () =>
+			{
+				const context = createLabelContext([
+					'FirstName',
+					'LastName'
+				], 'FirstName LastName');
+				const result = prototype.generateRecordLabel.call(context, {FirstName: 'John', LastName: null});
+				expect(result).toBe('John ');
+			});
+
+			it('resolves overlapping field-name tokens without corrupting each other', () =>
+			{
+				const context = createLabelContext([
+					'Name',
+					'FirstName'
+				], 'FirstName (Name)');
+				const result = prototype.generateRecordLabel.call(context, {FirstName: 'Ada', Name: 'Lovelace'});
+				expect(result).toBe('Ada (Lovelace)');
+			});
+
+			it('never re-scans replaced values for other field tokens', () =>
+			{
+				const context = createLabelContext([
+					'FirstName',
+					'LastName'
+				], 'FirstName LastName');
+				const result = prototype.generateRecordLabel.call(context, {FirstName: 'LastName', LastName: 'Smith'});
+				expect(result).toBe('LastName Smith');
+			});
+
+			it('keeps falsy-but-present field values', () =>
+			{
+				const context = createLabelContext(['Amount'], 'Amount');
+				const result = prototype.generateRecordLabel.call(context, {Amount: 0});
+				expect(result).toBe('0');
+			});
+
+			it('returns the format unchanged when no usable display fields are configured', () =>
+			{
+				const context = createLabelContext([' '], 'Static Label');
+				const result = prototype.generateRecordLabel.call(context, {Name: 'Acme'});
+				expect(result).toBe('Static Label');
+			});
+
+			it('treats regular-expression metacharacters in field names as literal text', () =>
+			{
+				const context = createLabelContext(['Amount(USD)'], 'Amount(USD)');
+				const result = prototype.generateRecordLabel.call(context, {'Amount(USD)': 42});
+				expect(result).toBe('42');
+			});
+		});
+
+		describe('empty-state gating', () =>
+		{
+			const createEmptyStateContext = (isSearchLoading, filteredSearchResults) =>
+			{
+				const context = createMockContext();
+				context.isSearchLoading = isSearchLoading;
+				context.filteredSearchResults = filteredSearchResults;
+				bindDescriptor(context, 'hasRecords');
+				return context;
+			};
+
+			it('displayNoRecordsFound stays false while a search is in flight', () =>
+			{
+				const context = createEmptyStateContext(true, []);
+				expect(callGetter(context, 'displayNoRecordsFound')).toBe(false);
+			});
+
+			it('displayNoRecordsFound is true once the search settles with no matches', () =>
+			{
+				const context = createEmptyStateContext(false, []);
+				expect(callGetter(context, 'displayNoRecordsFound')).toBe(true);
+			});
+
+			it('displayNoRecordsFound is false when settled results match', () =>
+			{
+				const context = createEmptyStateContext(false, [{Id: '001'}]);
+				expect(callGetter(context, 'displayNoRecordsFound')).toBe(false);
+			});
+		});
+
+		describe('unrendered template safety', () =>
+		{
+			it('showResults and hideResults tolerate an unrendered template', () =>
+			{
+				const context = {template: {querySelector: jest.fn(() => null)}};
+				bindDescriptor(context, 'lookupInputContainerClassList');
+				expect(() => prototype.showResults.call(context)).not.toThrow();
+				expect(() => prototype.hideResults.call(context)).not.toThrow();
+			});
+		});
+
+		describe('debounce teardown', () =>
+		{
+			it('chains the framework teardown when disconnecting', () =>
+			{
+				const parentPrototype = Object.getPrototypeOf(prototype);
+				const parentDisconnectedCallback = jest.fn();
+				parentPrototype.disconnectedCallback = parentDisconnectedCallback;
+				try
+				{
+					const context = {delayTimeout: 42};
+					prototype.disconnectedCallback.call(context);
+					expect(parentDisconnectedCallback).toHaveBeenCalledTimes(1);
+				}
+				finally
+				{
+					delete parentPrototype.disconnectedCallback;
+				}
 			});
 		});
 
@@ -1018,6 +1371,106 @@ describe('c-base-lookup', () =>
 			element.searchOptions = null;
 
 			expect(element.searchOptions).toEqual([]);
+		});
+	});
+
+	describe('search lifecycle (DOM)', () =>
+	{
+		afterEach(() =>
+		{
+			jest.useRealTimers();
+			while(document.body.firstChild)
+			{
+				document.body.removeChild(document.body.firstChild);
+			}
+		});
+
+		const mountLookup = () =>
+		{
+			const {createElement} = require('lwc');
+			const LwcBaseLookup = require('c/baseLookup').default;
+			const element = createElement('c-base-lookup', {is: LwcBaseLookup});
+			document.body.appendChild(element);
+			return element;
+		};
+
+		const typeSearchKey = (element, value) =>
+		{
+			const input = element.shadowRoot.querySelector('lightning-input');
+			input.value = value;
+			input.dispatchEvent(new CustomEvent('change'));
+		};
+
+		it('hides the No Records empty state while a search is in flight and shows it once the search settles', async() =>
+		{
+			jest.useFakeTimers();
+			const element = mountLookup();
+			expect(element.shadowRoot.querySelector('.no-records-found')).not.toBeNull();
+
+			typeSearchKey(element, 'acme');
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.no-records-found')).toBeNull();
+
+			jest.advanceTimersByTime(DEBOUNCE_DELAY);
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.no-records-found')).toBeNull();
+
+			element.searchOptions = [];
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.no-records-found')).not.toBeNull();
+		});
+
+		it('opens the results dropdown as soon as a search key is typed', async() =>
+		{
+			jest.useFakeTimers();
+			const element = mountLookup();
+
+			typeSearchKey(element, 'acme');
+			await Promise.resolve();
+
+			const container = element.shadowRoot.querySelector('.lookupInputContainer');
+			expect(container.classList.contains('slds-is-open')).toBe(true);
+		});
+
+		it('settles the spinner and re-shows the empty state when a debounced edit lands back on the already-applied term', async() =>
+		{
+			// Type-then-revert inside the debounce window: the callback re-applies the same
+			// term, so a reactive-parameter search never re-fires and no results assignment
+			// arrives. The debounce itself must settle the search, or the spinner sticks on
+			// and the empty state the user was just seeing never returns.
+			jest.useFakeTimers();
+			const element = mountLookup();
+
+			typeSearchKey(element, 'acme');
+			jest.advanceTimersByTime(DEBOUNCE_DELAY);
+			element.searchOptions = [];
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.no-records-found')).not.toBeNull();
+
+			typeSearchKey(element, 'acmes');
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.no-records-found')).toBeNull();
+
+			typeSearchKey(element, 'acme');
+			jest.advanceTimersByTime(DEBOUNCE_DELAY);
+			await Promise.resolve();
+
+			expect(element.shadowRoot.querySelector('lightning-input').isLoading).toBe(false);
+			expect(element.shadowRoot.querySelector('.no-records-found')).not.toBeNull();
+		});
+
+		it('clears the pending debounce search when the component is disconnected', () =>
+		{
+			jest.useFakeTimers();
+			const element = mountLookup();
+			const searchTermChangedHandler = jest.fn();
+			element.addEventListener('searchtermchanged', searchTermChangedHandler);
+
+			typeSearchKey(element, 'acme');
+			document.body.removeChild(element);
+			jest.advanceTimersByTime(DEBOUNCE_DELAY);
+
+			expect(searchTermChangedHandler).not.toHaveBeenCalled();
 		});
 	});
 });

@@ -15,6 +15,16 @@ jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ScheduleOptions', () =>
 	default: 'Nightly 2:00 AM=0 0 2 * * ?|Nightly 1:00 AM=0 0 1 * * ?|Weekly Sunday 2:00 AM=0 0 2 ? * SUN|Monthly 1st at 2:00 AM=0 0 2 1 * ?'
 }), {virtual: true});
 
+// Restore the real English values for the bundle's labels (the default sfdx-lwc-jest stub
+// resolves each to the bare string 'c.<Name>'). The retention template keeps its {0} form so the
+// real formatTemplateString interpolation is verified end-to-end.
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ColumnObject', () => ({default: 'Object'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ColumnRecordsToday', () => ({default: 'Records today'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ColumnRetention', () => ({default: 'Retention'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ColumnSchedule', () => ({default: 'Schedule'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RetentionDays', () => ({default: '{0} days'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_CancelButton', () => ({default: 'Cancel'}), {virtual: true});
+
 describe('c-apply-retention-modal', () =>
 {
 	afterEach(() =>
@@ -153,7 +163,8 @@ describe('c-apply-retention-modal', () =>
 				prototype.connectedCallback.call(context);
 
 				expect(context.workingProposals).toHaveLength(2);
-				expect(context.workingProposals[0]).toEqual(originalProposals[0]);
+				expect(context.workingProposals[0]).toEqual({...originalProposals[0], retentionDisplay: '30 days'});
+				expect(context.workingProposals[1].retentionDisplay).toBe('60 days');
 				expect(context.workingProposals[0]).not.toBe(originalProposals[0]);
 				context.workingProposals[0].cronExpression = '0 0 9 * * ?';
 				expect(originalProposals[0].cronExpression).toBe('0 0 2 * * ?');
@@ -215,6 +226,8 @@ describe('c-apply-retention-modal', () =>
 				let payload = context.close.mock.calls[0][0];
 				expect(payload.proposals.find((proposal) => proposal.objectApiName === 'LogEntry__c').cronExpression).toBe('0 0 1 * * ?');
 				expect(payload.proposals.find((proposal) => proposal.objectApiName === 'ApiCall__c').cronExpression).toBe('0 0 2 * * ?');
+				// The display-only retention text must not leak into the payload the caller serialises to Apex.
+				expect(payload.proposals[0]).not.toHaveProperty('retentionDisplay');
 			});
 		});
 

@@ -2,11 +2,23 @@
 /**
  * @description Jest unit tests for healthCheck LWC component
  * @author Jason van Beukering
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 import {createElement} from 'lwc';
 import HealthCheck from 'c/healthCheck';
 import {mockCallControllerMethod, mockShowSuccessToast, mockNavigate} from 'c/componentBuilder';
+import getRetentionProposals from '@salesforce/apex/CTRL_HealthCheck.getRetentionProposals';
+import applyRetentionRecommendations from '@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations';
+
+/**
+ * The runHealthChecks adapter is deliberately NOT jest.mock'd: the lwc jest transformer then
+ * falls back to the shared `global.__lwcJestMock_runHealthChecks` stub inside the component
+ * bundle, which this helper exposes for call-identity assertions on callControllerMethod.
+ */
+function runHealthChecksAdapter()
+{
+	return global.__lwcJestMock_runHealthChecks;
+}
 
 const mockModalOpen = jest.fn().mockResolvedValue('confirmed');
 jest.mock('c/classTypeResolverSetupModal', () => ({
@@ -79,6 +91,12 @@ jest.mock('@salesforce/label/c.HealthCheck_FailSection_Heading', () => ({default
 jest.mock('@salesforce/label/c.HealthCheck_WarnSection_Heading', () => ({default: 'Review recommended'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_MaskingPosture_CheckName', () => ({default: 'Data Masking'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName', () => ({default: 'Custom-Object Masking Coverage'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_WarningSingular', () => ({default: 'warning'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_WarningPlural', () => ({default: 'warnings'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RefreshFailedToast', () => ({default: 'Failed to refresh retention proposals'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RecordCountSingular', () => ({default: '1 record'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RecordCountPlural', () => ({default: '{0} records'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_DataRetention_DaySuffix', () => ({default: '{0} day retention'}), {virtual: true});
 
 const MOCK_RESULTS = [
 	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
@@ -200,9 +218,36 @@ describe('c-health-check', () =>
 		jest.clearAllMocks();
 	});
 
+	/**
+	 * Mirrors the real callControllerMethod contract on the componentBuilder mock: the matching
+	 * Apex mock is invoked with the parameter map, and a rejected call resolves undefined (the
+	 * real module surfaces the failure as an error toast), so the component must guard on a
+	 * truthy result. Any other controller method resolves the supplied health-check results.
+	 */
+	function stubControllerMethodDispatch(healthCheckResults)
+	{
+		mockCallControllerMethod.mockImplementation((controllerMethod, parameterMap) =>
+		{
+			if(controllerMethod === getRetentionProposals)
+			{
+				return mockGetRetentionProposals(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === applyRetentionRecommendations)
+			{
+				return mockApplyRetentionRecommendations(parameterMap).catch(() => undefined);
+			}
+			return Promise.resolve(healthCheckResults);
+		});
+	}
+
+	async function flushPromises()
+	{
+		return new Promise((resolve) => setTimeout(resolve, 0));
+	}
+
 	async function createComponent(mockData = MOCK_RESULTS)
 	{
-		mockCallControllerMethod.mockResolvedValue(mockData);
+		stubControllerMethodDispatch(mockData);
 
 		const element = createElement('c-health-check', {
 			is: HealthCheck
@@ -587,21 +632,16 @@ describe('c-health-check', () =>
 		const element = await createComponent(MOCK_RESULTS_WITH_RETENTION_WARN);
 
 		mockCallControllerMethod.mockClear();
-		mockCallControllerMethod.mockResolvedValue(MOCK_RESULTS);
 
 		const applyButton = element.shadowRoot.querySelector('[data-testid="apply-retention-button"]');
 		applyButton.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		expect(mockApplyRetentionRecommendations).toHaveBeenCalledWith({
 			proposalsJson: JSON.stringify(MOCK_PROPOSALS)
 		});
 		expect(mockShowSuccessToast).toHaveBeenCalledWith('Created 2 scheduled jobs.');
-		expect(mockCallControllerMethod).toHaveBeenCalled();
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(runHealthChecksAdapter());
 	});
 
 	it('should flip to customize mode when modal resolves with customize action', async() =>
@@ -611,10 +651,7 @@ describe('c-health-check', () =>
 
 		const applyButton = element.shadowRoot.querySelector('[data-testid="apply-retention-button"]');
 		applyButton.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		const sublist = element.shadowRoot.querySelector('[data-testid="retention-sublist"]');
 		expect(sublist).toBeTruthy();
@@ -638,7 +675,7 @@ describe('c-health-check', () =>
 
 		expect(mockApplyRetentionRecommendations).not.toHaveBeenCalled();
 		expect(mockShowSuccessToast).not.toHaveBeenCalled();
-		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
 	});
 
 	it('should do nothing when modal resolves with null', async() =>
@@ -657,7 +694,54 @@ describe('c-health-check', () =>
 
 		expect(mockApplyRetentionRecommendations).not.toHaveBeenCalled();
 		expect(mockShowSuccessToast).not.toHaveBeenCalled();
-		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+	});
+
+	it('should surface a failed proposal fetch through callControllerMethod and keep the apply modal closed', async() =>
+	{
+		mockGetRetentionProposals.mockRejectedValueOnce(new Error('proposal fetch failed'));
+		const element = await createComponent(MOCK_RESULTS_WITH_RETENTION_WARN);
+
+		const applyButton = element.shadowRoot.querySelector('[data-testid="apply-retention-button"]');
+		applyButton.dispatchEvent(new CustomEvent('click'));
+		await flushPromises();
+
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(getRetentionProposals);
+		expect(mockApplyRetentionModalOpen).not.toHaveBeenCalled();
+	});
+
+	it('should surface a failed apply through callControllerMethod without a success toast or re-run', async() =>
+	{
+		mockApplyRetentionModalOpen.mockResolvedValueOnce({action: 'confirm', proposals: MOCK_PROPOSALS});
+		mockApplyRetentionRecommendations.mockRejectedValueOnce(new Error('job insert failed'));
+		const element = await createComponent(MOCK_RESULTS_WITH_RETENTION_WARN);
+
+		mockCallControllerMethod.mockClear();
+
+		const applyButton = element.shadowRoot.querySelector('[data-testid="apply-retention-button"]');
+		applyButton.dispatchEvent(new CustomEvent('click'));
+		await flushPromises();
+
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(applyRetentionRecommendations, {
+			proposalsJson: JSON.stringify(MOCK_PROPOSALS)
+		});
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+	});
+
+	it('should stay out of customize mode when the proposal fetch fails', async() =>
+	{
+		mockGetRetentionProposals.mockRejectedValueOnce(new Error('proposal fetch failed'));
+		const element = await createComponent(MOCK_RESULTS_WITH_RETENTION_WARN);
+
+		const customizeLink = element.shadowRoot.querySelector('[data-testid="customize-retention-link"]');
+		customizeLink.dispatchEvent(new CustomEvent('click'));
+		await flushPromises();
+
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(getRetentionProposals);
+		expect(element.shadowRoot.querySelector('[data-testid="retention-sublist"]')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="apply-retention-button"]')).toBeTruthy();
+		expect(element.shadowRoot.querySelector('[data-testid="customize-retention-link"]')).toBeTruthy();
 	});
 
 	it('should flip to customize mode when customize link is clicked directly', async() =>
@@ -700,10 +784,7 @@ describe('c-health-check', () =>
 
 		const applyButton = element.shadowRoot.querySelector('[data-testid="apply-retention-button"]');
 		applyButton.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		const subRows = element.shadowRoot.querySelectorAll('[data-testid="retention-sub-row"]');
 		expect(subRows).toHaveLength(2);

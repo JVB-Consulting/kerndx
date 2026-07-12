@@ -8,12 +8,25 @@
  *
  * @see CTRL_FieldSet
  *
- * @date January 2022, March 2026
+ * @date January 2022, July 2026
  */
 import getObjectNameFromId from '@salesforce/apex/CTRL_FieldSet.getObjectNameFromId';
 import searchFieldSets from '@salesforce/apex/CTRL_FieldSet.search';
 import searchSObjects from '@salesforce/apex/CTRL_Search.search';
 import getSObjectAllFieldsInformation from '@salesforce/apex/CTRL_SObjectInformation.getSObjectAllFieldsInformation';
+import CANCEL_BUTTON from '@salesforce/label/c.CreateForm_CancelButton';
+import EMAIL_PATTERN_MISMATCH from '@salesforce/label/c.CreateForm_EmailPatternMismatch';
+import INVALID_FIELD_WARNING from '@salesforce/label/c.CreateForm_InvalidFieldWarning';
+import SAVE_MODE_OR_UPDATE_MODE_NOT_SELECTED from '@salesforce/label/c.CreateForm_ModeNotSelected';
+import NO_FIELDS_PASSED_INTO_FORM_ERROR from '@salesforce/label/c.CreateForm_NoFieldsConfigured';
+import PHONE_FIELD_HELP from '@salesforce/label/c.CreateForm_PhoneFieldHelp';
+import RECORD_CREATED_SUCCESS_MESSAGE from '@salesforce/label/c.CreateForm_RecordCreatedSuccess';
+import RECORD_UPDATED_SUCCESS_MESSAGE from '@salesforce/label/c.CreateForm_RecordUpdatedSuccess';
+import REQUIRED_ERROR from '@salesforce/label/c.CreateForm_RequiredError';
+import SAVE_LABEL from '@salesforce/label/c.CreateForm_SaveButton';
+import UPDATE_LABEL from '@salesforce/label/c.CreateForm_UpdateButton';
+import UPDATE_REQUIRES_RECORD_ID from '@salesforce/label/c.CreateForm_UpdateRequiresRecordId';
+import GENERIC_VALIDATION_FAILURE from '@salesforce/label/c.CreateForm_ValidationFailed';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {EMPTY, formatTemplateString} from 'c/utilityString';
 import {reduceErrors} from 'c/utilitySystem';
@@ -197,17 +210,39 @@ export class PicklistValue
 
 // ── Internal Constants ───────────────────────────────────────────────────
 
-const UPDATE_REQUIRES_RECORD_ID = 'You are attempting to update a record without providing a Record Id';
-const GENERIC_VALIDATION_FAILURE = 'Validation Failed';
-const INVALID_FIELD_WARNING = 'Field "{0}" is not valid for SObject "{1}"';
-const NO_FIELDS_PASSED_INTO_FORM_ERROR = 'No fields or FieldSet API Name have been passed into this form.';
-const RECORD_CREATED_SUCCESS_MESSAGE = 'Record Created Successfully';
-const RECORD_UPDATED_SUCCESS_MESSAGE = 'Record Updated Successfully';
 const RELATIONSHIP_SUFFIX = '__r.';
-const REQUIRED_ERROR = 'Required';
-const SAVE_LABEL = 'Save';
-const SAVE_MODE_OR_UPDATE_MODE_NOT_SELECTED = 'Save Mode or Update Mode must be selected to use this feature.';
-const UPDATE_LABEL = 'Update';
+
+/**
+ * @description Per-instance memo of the derived display field list. Kept outside the
+ * component (and therefore outside the reactive membrane) so the `displayFieldList`
+ * getter stays pure: it never writes component state during render, and repeated reads
+ * with unchanged inputs return the same list without recomputing.
+ * @type {WeakMap<object, {inputReferences: *[], value: Field[]}>}
+ */
+const DISPLAY_FIELD_LIST_MEMO = new WeakMap();
+
+/**
+ * @description Determines whether a memoised display field list is still valid by
+ * reference-comparing the inputs it was derived from against the current inputs.
+ * Wire adapters and @api setters replace these references wholesale, so reference
+ * equality is a reliable staleness signal.
+ * @param {{inputReferences: *[], value: Field[]}|undefined} memoisedEntry - Previously memoised entry, if any
+ * @param {*[]} inputReferences - The current input references
+ * @returns {boolean} Whether the memoised value can be reused
+ */
+function isMemoisedDisplayFieldListCurrent(memoisedEntry, inputReferences)
+{
+	return Boolean(memoisedEntry) && memoisedEntry.inputReferences.every((reference, index) => reference === inputReferences[index]);
+}
+
+/**
+ * @description Per-instance record of invalid-field warnings already reported. Kept
+ * outside the component (and the reactive membrane) alongside the display-list memo so
+ * the warning bookkeeping never touches reactive state, and each invalid field/object
+ * pair is reported at most once per component instance.
+ * @type {WeakMap<object, Set<string>>}
+ */
+const REPORTED_INVALID_FIELD_WARNINGS = new WeakMap();
 
 // ── Field Mapping Helpers ────────────────────────────────────────────────
 
@@ -233,9 +268,13 @@ function resolveFieldType(field, getFieldType)
  */
 function resolveFieldValue(field, populatedField, existingRecord)
 {
-	if(field.fieldValue)
+	// An explicit falsy value (0, false, '') displays as-is — only null/undefined fall
+	// back to the existing record (mirrors generateRecord). '' skips the DATETIME
+	// conversion because new Date('').toISOString() throws.
+	if(field.fieldValue !== undefined && field.fieldValue !== null)
 	{
-		return populatedField.isDateTime ? new Date(field.fieldValue).toISOString() : field.fieldValue;
+		const isConvertibleDateTime = populatedField.isDateTime && field.fieldValue !== '';
+		return isConvertibleDateTime ? new Date(field.fieldValue).toISOString() : field.fieldValue;
 	}
 	if(existingRecord)
 	{
@@ -354,11 +393,6 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	 */
 	@api objectApiName;
 	/**
-	 * @description List of fields to display, see @type for object structure. Fields retrieved using 'fieldSetApiName' is preferred.
-	 * @type {Field[]}
-	 */
-	@api fields = [];
-	/**
 	 * @description Record type Id to create the SObject. If not provided, the default record type Id
 	 * will be used.
 	 * @type {string}
@@ -372,9 +406,6 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	 * @description If set to true, perform an update operation instead of an insert operation. Defaults to false.
 	 */
 	@api isUpdateMode = false;
-
-	// ── Internal State ───────────────────────────────────────────────────
-
 	/**
 	 * @description Creates SObject structure with required fields and default values.
 	 * @type {{objectInfos, record}}
@@ -385,6 +416,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	 * @type {{data: {lookupObjectApiName}, error}}
 	 */
 	objectInfo;
+
+	// ── Internal State ───────────────────────────────────────────────────
 	/**
 	 * @description Retrieves picklist values for record type.
 	 * @type {{picklistFieldValues}}
@@ -414,6 +447,16 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	 * @type {{fieldLabel, fieldAPIName, fieldValue, fieldSetAPIName, fieldSetName}[]}
 	 */
 	fieldSetResult;
+	/**
+	 * @description Backing store for the fields property; replaced wholesale by the setter.
+	 * @type {Field[]}
+	 */
+	fieldListSource = [];
+
+	/** @description Template-bound Custom Labels for the form inputs and footer. */
+	labels = {
+		cancelButton: CANCEL_BUTTON, emailPatternMismatch: EMAIL_PATTERN_MISMATCH, phoneFieldHelp: PHONE_FIELD_HELP
+	};
 
 	constructor()
 	{
@@ -421,7 +464,22 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		this.isLoading = true;
 	}
 
-	// ── Computed Properties ──────────────────────────────────────────────
+	/**
+	 * @description List of fields to display, see @type for object structure. Fields retrieved using 'fieldSetApiName' is preferred.
+	 * @type {Field[]}
+	 */
+	@api get fields()
+	{
+		return this.fieldListSource;
+	}
+
+	set fields(value)
+	{
+		this.fieldListSource = value;
+		this.reportInvalidFieldWarnings();
+	}
+
+	// ── Lifecycle ────────────────────────────────────────────────────────
 
 	/**
 	 * @description Indicates whether the fields are being fetched
@@ -431,6 +489,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	{
 		return (this.displayFieldList.length === 0) && this.isLoading;
 	}
+
+	// ── Computed Properties ──────────────────────────────────────────────
 
 	/**
 	 * @description Returns map of picklist values
@@ -460,15 +520,30 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	}
 
 	/**
-	 * @description Converts fields into List of Field objects.
+	 * @description Converts fields into List of Field objects. Pure and memoised: the
+	 * getter runs on every render (and from `validateForm`), so it performs no side
+	 * effects (the missing-configuration toast fires once, from `connectedCallback`,
+	 * and the invalid-field warning is reported from the data-arrival points by
+	 * `reportInvalidFieldWarnings`) and only recomputes when one of its input
+	 * references changes.
 	 * @see fields
 	 * @returns {Field[]}
 	 */
 	get displayFieldList()
 	{
-		if(!(this.fieldSetApiName || this.fields.length))
+		const inputReferences = [
+			this.fieldSetApiName,
+			this.fieldSetResult,
+			this.fields,
+			this.objectInfo,
+			this.picklistCollection,
+			this.existingRecord
+		];
+		const memoisedEntry = DISPLAY_FIELD_LIST_MEMO.get(this);
+
+		if(isMemoisedDisplayFieldListCurrent(memoisedEntry, inputReferences))
 		{
-			this.showErrorToast(NO_FIELDS_PASSED_INTO_FORM_ERROR);
+			return memoisedEntry.value;
 		}
 
 		let displayFieldList = [];
@@ -498,7 +573,9 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		 * it the spinner hides regardless of `isLoading` (which is never
 		 * cleared anywhere).
 		 */
-		return this.mapFieldsToDisplayFieldList(displayFieldList);
+		const value = this.mapFieldsToDisplayFieldList(displayFieldList);
+		DISPLAY_FIELD_LIST_MEMO.set(this, {inputReferences, value});
+		return value;
 	}
 
 	/**
@@ -528,6 +605,21 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	get fieldApiNameList()
 	{
 		return this.fields.map(field => field.fieldName);
+	}
+
+	/**
+	 * @description Returns the configured field API names from whichever source feeds the
+	 * display list: the fetched field set result when a field set API name is configured,
+	 * otherwise the fields property.
+	 * @returns {string[]}
+	 */
+	get configuredFieldNames()
+	{
+		if(this.fieldSetApiName && this.fieldSetResult)
+		{
+			return this.fieldSetResult.map(({fieldAPIName}) => fieldAPIName);
+		}
+		return this.fieldApiNameList;
 	}
 
 	get objectName()
@@ -597,6 +689,20 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		return this.template.querySelectorAll('c-s-object-lookup');
 	}
 
+	/**
+	 * @description Surfaces the missing-configuration error once, at connection time,
+	 * when the form is placed without a field set API name or a fields list. This side
+	 * effect used to live in the `displayFieldList` getter, where it re-toasted on
+	 * every render; render-path getters stay pure.
+	 */
+	connectedCallback()
+	{
+		if(!(this.fieldSetApiName || this.fields.length))
+		{
+			this.showErrorToast(NO_FIELDS_PASSED_INTO_FORM_ERROR);
+		}
+	}
+
 	// ── Field Mapping ────────────────────────────────────────────────────
 
 	mapFieldsToDisplayFieldList(fields)
@@ -625,6 +731,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	@wire(getSObjectAllFieldsInformation, {objectName: '$objectName'}) fetchObjectInfo(result)
 	{
 		this.objectInfo = this.handleWireResponse(result);
+		this.reportInvalidFieldWarnings();
 	}
 
 	@wire(getPicklistValuesByRecordType, {objectApiName: '$objectName', recordTypeId: '$availableRecordTypeId'}) fetchPicklistCollection(result)
@@ -652,6 +759,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 			let wireResponse = this.handleWireResponse(result);
 			let wireResponseByObjectName = wireResponse[this.objectName];
 			this.fieldSetResult = wireResponseByObjectName[this.fieldSetApiName];
+			this.reportInvalidFieldWarnings();
 		}
 	}
 
@@ -663,22 +771,55 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	// ── Field Metadata Accessors ─────────────────────────────────────────
 
 	/**
-	 * @description Checks if field name is a valid field API name for the object
+	 * @description Checks if field name is a valid field API name for the object. Pure:
+	 * it runs from the displayFieldList compute path, so the invalid-field warning is
+	 * reported separately, from the data-arrival points, by reportInvalidFieldWarnings.
 	 * @param {string} fieldName Field name to be checked
-	 * @returns {boolean}
+	 * @returns {boolean} true/false once the object information has loaded; falsy (not yet decidable) while it is still being fetched
 	 */
 	isFieldValid(fieldName)
 	{
-		let isValid = this.objectInfo && Object.keys(this.objectInfo).includes(fieldName);
-		// NB: DO NOT CHANGE THIS STRICT EQUALITY CHECK. While objectInfo is still being fetched, isValid will be undefined (because of how '&&' is evaluated)
-		if(isValid === false && !fieldName.includes(RELATIONSHIP_SUFFIX))
+		return this.objectInfo && Object.keys(this.objectInfo).includes(fieldName);
+	}
+
+	/**
+	 * @description Reports a warning toast for each configured field that is not a valid
+	 * field API name on the object. Called from the data-arrival points (the object
+	 * information and field set wire handlers, and the fields setter) rather than the
+	 * render path: field validity first becomes decidable once the object information
+	 * arrives. Relationship fields and nameless fields are skipped, and each invalid
+	 * field/object pair is reported at most once per component instance.
+	 */
+	reportInvalidFieldWarnings()
+	{
+		if(!this.objectInfo)
 		{
-			this.showWarningToast(formatTemplateString(INVALID_FIELD_WARNING, [
+			return;
+		}
+
+		let reportedWarnings = REPORTED_INVALID_FIELD_WARNINGS.get(this);
+
+		if(!reportedWarnings)
+		{
+			reportedWarnings = new Set();
+			REPORTED_INVALID_FIELD_WARNINGS.set(this, reportedWarnings);
+		}
+
+		this.configuredFieldNames
+		.filter(fieldName => Boolean(fieldName) && !fieldName.includes(RELATIONSHIP_SUFFIX) && (this.isFieldValid(fieldName) === false))
+		.forEach(fieldName =>
+		{
+			const warningMessage = formatTemplateString(INVALID_FIELD_WARNING, [
 				fieldName,
 				this.objectName
-			]));
-		}
-		return isValid;
+			]);
+
+			if(!reportedWarnings.has(warningMessage))
+			{
+				reportedWarnings.add(warningMessage);
+				this.showWarningToast(warningMessage);
+			}
+		});
 	}
 
 	/**
@@ -792,7 +933,9 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 
 	//noinspection FunctionWithMultipleLoopsJS
 	/**
-	 * @description Create New Object that is ready for insert via uiRecordApi.createRecord
+	 * @description Create New Object that is ready for insert via uiRecordApi.createRecord.
+	 * An explicit falsy field value (0, false, '') survives into the generated record;
+	 * only null/undefined fall back to the existing record value, then to an empty string.
 	 *
 	 * @see RecordInputRepresentation {for object structure}
 	 * @returns {RecordInputRepresentation}
@@ -800,7 +943,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	@api generateRecord()
 	{
 		let defaultRecord = this.recordInputForCreate;
-		this.fields.forEach(({fieldName, fieldValue}) => (defaultRecord.fields[fieldName] = fieldValue || (this.existingRecord && this.existingRecord[fieldName]) || EMPTY));
+		this.fields.forEach(({fieldName, fieldValue}) => (defaultRecord.fields[fieldName] = fieldValue ?? this.existingRecord?.[fieldName] ?? EMPTY));
 		Object.keys(this.formValueMap)
 		.forEach(key => (defaultRecord.fields[key] = this.formValueMap[key]));
 		return defaultRecord;
@@ -822,6 +965,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 
 	/**
 	 * @description Inserts a new object based on the form inputs and object defaults via {uiRecordApi.createRecord}.
+	 * A rejected save (validation rule, field-level security, record lock) surfaces as an error toast and resolves
+	 * to undefined, so callers never see an unhandled rejection and no success signal fires.
 	 * @see uiRecordApi.generateRecord
 	 * @returns {Promise<RecordRepresentation>}
 	 * @type {Promise<RecordRepresentation>}
@@ -833,8 +978,13 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		return this.callControllerMethod(createRecord, record)
 		.then(createResult =>
 		{
-			this.dispatchRecordCreatedEvent(createResult);
-			this.showSuccessToast(RECORD_CREATED_SUCCESS_MESSAGE);
+			// callControllerMethod resolves undefined after surfacing a failed save as an
+			// error toast; only a real result may signal success.
+			if(createResult)
+			{
+				this.dispatchRecordCreatedEvent(createResult);
+				this.showSuccessToast(RECORD_CREATED_SUCCESS_MESSAGE);
+			}
 			return createResult;
 		}).finally(() =>
 		{
@@ -844,6 +994,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 
 	/**
 	 * @description Updates an existing object based on the form inputs and object defaults via {uiRecordApi.updateRecord}.
+	 * A rejected save (validation rule, field-level security, record lock) surfaces as an error toast and resolves
+	 * to undefined, so callers never see an unhandled rejection and no success signal fires.
 	 * @see uiRecordApi.updateRecord
 	 * @returns {Promise<RecordRepresentation>}
 	 * @type {Promise<RecordRepresentation>}
@@ -851,11 +1003,14 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	updateRecord()
 	{
 		this.awaitingRecordOperation = true;
-		return updateRecord(this.generateRecord())
+		return this.callControllerMethod(updateRecord, this.generateRecord())
 		.then(updateResult =>
 		{
-			this.dispatchRecordUpdatedEvent(updateResult);
-			this.showSuccessToast(RECORD_UPDATED_SUCCESS_MESSAGE);
+			if(updateResult)
+			{
+				this.dispatchRecordUpdatedEvent(updateResult);
+				this.showSuccessToast(RECORD_UPDATED_SUCCESS_MESSAGE);
+			}
 			return updateResult;
 		}).finally(() =>
 		{

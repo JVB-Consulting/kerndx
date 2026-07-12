@@ -21,12 +21,11 @@
 							                    value={field.fieldValue}></lightning-textarea>
 						</template>
 						<template if:true={field.isEmail}>
-							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel}
-							                 message-when-pattern-mismatch="Please enter a valid email address." onchange={handleFieldChange} required={field.isRequired}
-							                 type="email" value={field.fieldValue}></lightning-input>
+							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} message-when-pattern-mismatch={labels.emailPatternMismatch}
+							                 onchange={handleFieldChange} required={field.isRequired} type="email" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isPhone}>
-							<lightning-input class="input-field" data-id={field.fieldName} field-level-help="Telephone/Cellphone number e.g. 0129873456" label={field.fieldLabel}
+							<lightning-input class="input-field" data-id={field.fieldName} field-level-help={labels.phoneFieldHelp} label={field.fieldLabel}
 							                 onchange={handleFieldChange} pattern="[0-9]{10}" required={field.isRequired} type="tel" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isDateTime}>
@@ -52,7 +51,7 @@
 						</div>
 					</template>
 					<template if:false={awaitingRecordOperation}>
-						<lightning-button if:true={showCancel} label="Cancel" onclick={dispatchCancelEvent} variant="brand"></lightning-button>
+						<lightning-button if:true={showCancel} label={labels.cancelButton} onclick={dispatchCancelEvent} variant="brand"></lightning-button>
 						<lightning-button class="slds-m-left_small" if:true={isSaveMode} label={saveLabel} onclick={saveRecord} variant="brand"></lightning-button>
 					</template>
 				</div>

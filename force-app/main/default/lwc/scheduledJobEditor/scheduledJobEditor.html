@@ -4,14 +4,14 @@
 		<div class="slds-var-p-around_medium">
 			<div class="slds-grid slds-wrap slds-gutters_small">
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
-					<lightning-input data-testid="scheduler-name" label="Scheduler Name" onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
+					<lightning-input data-testid="scheduler-name" label={label.schedulerName} onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
-					<lightning-combobox data-testid="class-name" label="Class Name" name="className" onchange={handleClassNameChange} options={classOptions}
-					                    placeholder="Select a class..." required value={className}></lightning-combobox>
+					<lightning-combobox data-testid="class-name" label={label.className} name="className" onchange={handleClassNameChange} options={classOptions}
+					                    placeholder={label.classPlaceholder} required value={className}></lightning-combobox>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
-					<lightning-input checked={isActive} data-testid="is-active" label="Active" message-toggle-active="Active" message-toggle-inactive="Inactive"
+					<lightning-input checked={isActive} data-testid="is-active" label={label.active} message-toggle-active={label.active} message-toggle-inactive={label.inactive}
 					                 onchange={handleIsActiveChange} type="toggle"></lightning-input>
 				</div>
 			</div>
@@ -23,7 +23,7 @@
 
 			<template lwc:if={hasParameterDefinitions}>
 				<div class="slds-var-m-top_medium">
-					<h3 class="slds-text-heading_small slds-var-m-bottom_small">Parameters</h3>
+					<h3 class="slds-text-heading_small slds-var-m-bottom_small">{label.parameters}</h3>
 					<div class="slds-grid slds-wrap slds-gutters_small">
 						<template for:each={editParameterFields} for:item="parameter">
 							<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small" key={parameter.name}>
@@ -39,8 +39,9 @@
 								</template>
 								<template lwc:elseif={parameter.isToggle}>
 									<lightning-input checked={parameter.toggleChecked} data-parameter-name={parameter.name} data-testid={parameter.testId}
-									                 disabled={parameter.isLocked} field-level-help={parameter.description} label={parameter.label} message-toggle-active="Yes"
-									                 message-toggle-inactive="No" onchange={handleParameterChange} type="toggle"></lightning-input>
+									                 disabled={parameter.isLocked} field-level-help={parameter.description} label={parameter.label}
+									                 message-toggle-active={label.yes} message-toggle-inactive={label.no} onchange={handleParameterChange}
+									                 type="toggle"></lightning-input>
 								</template>
 							</div>
 						</template>
@@ -49,13 +50,13 @@
 			</template>
 
 			<div class="slds-var-m-top_medium">
-				<lightning-textarea label="Description" onchange={handleDescriptionChange} value={description}></lightning-textarea>
+				<lightning-textarea label={label.description} onchange={handleDescriptionChange} value={description}></lightning-textarea>
 			</div>
 		</div>
 
 		<div slot="footer">
-			<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" disabled={isSaving} label="Cancel" onclick={handleCancel}></lightning-button>
-			<lightning-button data-testid="save-button" disabled={isSaveDisabled} label="Save" onclick={handleSave} variant="brand"></lightning-button>
+			<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" disabled={isSaving} label={label.cancel} onclick={handleCancel}></lightning-button>
+			<lightning-button data-testid="save-button" disabled={isSaveDisabled} label={label.save} onclick={handleSave} variant="brand"></lightning-button>
 		</div>
 	</lightning-card>
 </template>

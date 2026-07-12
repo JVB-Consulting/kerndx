@@ -6,12 +6,83 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
+import {formatTemplateString} from 'c/utilityString';
 import getServices from '@salesforce/apex/CTRL_ApiTestHarness.getServices';
 import invokeOutbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound';
 import invokeInbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeInbound';
+
+import DIRECTION_OUTBOUND from '@salesforce/label/c.ApiTestHarness_Direction_Outbound';
+import DIRECTION_INBOUND from '@salesforce/label/c.ApiTestHarness_Direction_Inbound';
+import MODE_BADGE_LIVE from '@salesforce/label/c.ApiTestHarness_ModeBadge_Live';
+import MODE_BADGE_LIVE_DML_MOCKED from '@salesforce/label/c.ApiTestHarness_ModeBadge_LiveDmlMocked';
+import MODE_BADGE_FULL_SANDBOX from '@salesforce/label/c.ApiTestHarness_ModeBadge_FullSandbox';
+import SAFE_MODE from '@salesforce/label/c.ApiTestHarness_SafeMode';
+import EXECUTE from '@salesforce/label/c.ApiTestHarness_Execute';
+import EXECUTE_LIVE from '@salesforce/label/c.ApiTestHarness_ExecuteLive';
+import STATUS_UNKNOWN from '@salesforce/label/c.ApiTestHarness_Status_Unknown';
+import VALIDATION_BLANK_PARAMETER_KEY from '@salesforce/label/c.ApiTestHarness_Validation_BlankParameterKey';
+import VALIDATION_INVALID_JSON from '@salesforce/label/c.ApiTestHarness_Validation_InvalidJson';
+import TOAST_EXECUTION_SUCCESS from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionSuccess';
+import TOAST_EXECUTION_ABORTED from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionAborted';
+import TOAST_EXECUTION_FAILED from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionFailed';
+import TOAST_SUMMARY_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_SummaryCopied';
+import TOAST_REQUEST_HEADERS_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_RequestHeadersCopied';
+import TOAST_RESPONSE_HEADERS_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_ResponseHeadersCopied';
+import TOAST_REQUEST_BODY_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_RequestBodyCopied';
+import TOAST_RESPONSE_BODY_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_ResponseBodyCopied';
+import TOAST_ERRORS_COPIED from '@salesforce/label/c.ApiTestHarness_Toast_ErrorsCopied';
+import TOAST_COPY_FAILED from '@salesforce/label/c.ApiTestHarness_Toast_CopyFailed';
+import SUMMARY_SERVICE from '@salesforce/label/c.ApiTestHarness_Summary_Service';
+import SUMMARY_STATUS from '@salesforce/label/c.ApiTestHarness_Summary_Status';
+import SUMMARY_TIMING from '@salesforce/label/c.ApiTestHarness_Summary_Timing';
+import SUMMARY_SAFE_MODE from '@salesforce/label/c.ApiTestHarness_Summary_SafeMode';
+import SUMMARY_MOCKED from '@salesforce/label/c.ApiTestHarness_Summary_Mocked';
+import SUMMARY_API_CALL_ID from '@salesforce/label/c.ApiTestHarness_Summary_ApiCallId';
+import ENABLED from '@salesforce/label/c.ApiTestHarness_Enabled';
+import DISABLED from '@salesforce/label/c.ApiTestHarness_Disabled';
+import YES from '@salesforce/label/c.ApiTestHarness_Yes';
+import NO from '@salesforce/label/c.ApiTestHarness_No';
+import DIRECTION from '@salesforce/label/c.ApiTestHarness_Direction';
+import SERVICE from '@salesforce/label/c.ApiTestHarness_Service';
+import SERVICE_VALUE_MISSING from '@salesforce/label/c.ApiTestHarness_Service_ValueMissing';
+import SERVICE_PLACEHOLDER from '@salesforce/label/c.ApiTestHarness_Service_Placeholder';
+import RECORD_ID from '@salesforce/label/c.ApiTestHarness_RecordId';
+import RECORD_ID_PLACEHOLDER from '@salesforce/label/c.ApiTestHarness_RecordId_Placeholder';
+import PARAMETERS from '@salesforce/label/c.ApiTestHarness_Parameters';
+import KEY from '@salesforce/label/c.ApiTestHarness_Key';
+import VALUE from '@salesforce/label/c.ApiTestHarness_Value';
+import NAME from '@salesforce/label/c.ApiTestHarness_Name';
+import ADD_PARAMETER from '@salesforce/label/c.ApiTestHarness_AddParameter';
+import JSON_BODY from '@salesforce/label/c.ApiTestHarness_JsonBody';
+import JSON_BODY_PLACEHOLDER from '@salesforce/label/c.ApiTestHarness_JsonBody_Placeholder';
+import EXECUTION_SETTINGS from '@salesforce/label/c.ApiTestHarness_ExecutionSettings';
+import SAFE_MODE_TOGGLE_ACTIVE from '@salesforce/label/c.ApiTestHarness_SafeMode_ToggleActive';
+import SAFE_MODE_TOGGLE_INACTIVE from '@salesforce/label/c.ApiTestHarness_SafeMode_ToggleInactive';
+import MOCKING from '@salesforce/label/c.ApiTestHarness_Mocking';
+import MOCKING_TOGGLE_ACTIVE from '@salesforce/label/c.ApiTestHarness_Mocking_ToggleActive';
+import MOCKING_TOGGLE_INACTIVE from '@salesforce/label/c.ApiTestHarness_Mocking_ToggleInactive';
+import RESET from '@salesforce/label/c.ApiTestHarness_Reset';
+import MOCKED from '@salesforce/label/c.ApiTestHarness_Mocked';
+import STATUS_CODE from '@salesforce/label/c.ApiTestHarness_StatusCode';
+import TOTAL from '@salesforce/label/c.ApiTestHarness_Total';
+import HANDLER from '@salesforce/label/c.ApiTestHarness_Handler';
+import CALLOUT from '@salesforce/label/c.ApiTestHarness_Callout';
+import COMMIT from '@salesforce/label/c.ApiTestHarness_Commit';
+import API_CALL_ID from '@salesforce/label/c.ApiTestHarness_ApiCallId';
+import TAB_REQUEST from '@salesforce/label/c.ApiTestHarness_Tab_Request';
+import REQUEST_HEADERS from '@salesforce/label/c.ApiTestHarness_RequestHeaders';
+import REQUEST_BODY from '@salesforce/label/c.ApiTestHarness_RequestBody';
+import TAB_RESPONSE from '@salesforce/label/c.ApiTestHarness_Tab_Response';
+import RESPONSE_HEADERS from '@salesforce/label/c.ApiTestHarness_ResponseHeaders';
+import RESPONSE_BODY from '@salesforce/label/c.ApiTestHarness_ResponseBody';
+import TAB_ERRORS from '@salesforce/label/c.ApiTestHarness_Tab_Errors';
+import ERROR_MESSAGES from '@salesforce/label/c.ApiTestHarness_ErrorMessages';
+import NO_DATA from '@salesforce/label/c.ApiTestHarness_NoData';
+import EMPTY_STATE_HEADING from '@salesforce/label/c.ApiTestHarness_EmptyState_Heading';
+import EMPTY_STATE_BODY from '@salesforce/label/c.ApiTestHarness_EmptyState_Body';
 
 const COPY_RESET_DELAY = 1500;
 
@@ -31,9 +102,52 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	_nextRowId = 1;
 
+	/** @description Template-bound Custom Labels for the harness form and result panel. */
+	labels = {
+		direction: DIRECTION,
+		service: SERVICE,
+		serviceValueMissing: SERVICE_VALUE_MISSING,
+		servicePlaceholder: SERVICE_PLACEHOLDER,
+		recordId: RECORD_ID,
+		recordIdPlaceholder: RECORD_ID_PLACEHOLDER,
+		parameters: PARAMETERS,
+		key: KEY,
+		value: VALUE,
+		name: NAME,
+		addParameter: ADD_PARAMETER,
+		jsonBody: JSON_BODY,
+		jsonBodyPlaceholder: JSON_BODY_PLACEHOLDER,
+		executionSettings: EXECUTION_SETTINGS,
+		safeMode: SAFE_MODE,
+		safeModeToggleActive: SAFE_MODE_TOGGLE_ACTIVE,
+		safeModeToggleInactive: SAFE_MODE_TOGGLE_INACTIVE,
+		mocking: MOCKING,
+		mockingToggleActive: MOCKING_TOGGLE_ACTIVE,
+		mockingToggleInactive: MOCKING_TOGGLE_INACTIVE,
+		reset: RESET,
+		mocked: MOCKED,
+		statusCode: STATUS_CODE,
+		total: TOTAL,
+		handler: HANDLER,
+		callout: CALLOUT,
+		commit: COMMIT,
+		apiCallId: API_CALL_ID,
+		tabRequest: TAB_REQUEST,
+		requestHeaders: REQUEST_HEADERS,
+		requestBody: REQUEST_BODY,
+		tabResponse: TAB_RESPONSE,
+		responseHeaders: RESPONSE_HEADERS,
+		responseBody: RESPONSE_BODY,
+		tabErrors: TAB_ERRORS,
+		errorMessages: ERROR_MESSAGES,
+		noData: NO_DATA,
+		emptyStateHeading: EMPTY_STATE_HEADING,
+		emptyStateBody: EMPTY_STATE_BODY
+	};
+
 	directionOptions = [
-		{label: 'Outbound', value: 'Outbound'},
-		{label: 'Inbound', value: 'Inbound'}
+		{label: DIRECTION_OUTBOUND, value: 'Outbound'},
+		{label: DIRECTION_INBOUND, value: 'Inbound'}
 	];
 
 	get isOutbound()
@@ -83,17 +197,17 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 	{
 		if(!this.safeModeEnabled && !this.mockingEnabled)
 		{
-			return 'LIVE';
+			return MODE_BADGE_LIVE;
 		}
 		if(!this.safeModeEnabled)
 		{
-			return 'Live DML · Mocked callouts';
+			return MODE_BADGE_LIVE_DML_MOCKED;
 		}
 		if(this.mockingEnabled)
 		{
-			return 'Full Sandbox';
+			return MODE_BADGE_FULL_SANDBOX;
 		}
-		return 'Safe Mode';
+		return SAFE_MODE;
 	}
 
 	get modeBadgeClass()
@@ -120,7 +234,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	get executeLabel()
 	{
-		return this.safeModeEnabled ? 'Execute' : 'Execute (Live)';
+		return this.safeModeEnabled ? EXECUTE : EXECUTE_LIVE;
 	}
 
 	get executeIcon()
@@ -194,7 +308,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	get resultStatusLabel()
 	{
-		return this.result?.status || 'Unknown';
+		return this.result?.status || STATUS_UNKNOWN;
 	}
 
 	get isAborted()
@@ -243,12 +357,20 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		const callout = this.formatDuration(this.result?.calloutDurationMs);
 		const commit = this.formatDuration(this.result?.commitDurationMs);
 		const lines = [
-			`Service: ${this.result?.serviceName || '\u2014'}`,
-			`Status: ${this.result?.status || 'Unknown'} (${this.result?.statusCode ?? '\u2014'})`,
-			`Total: ${total} (Handler: ${handler}, Callout: ${callout}, Commit: ${commit})`,
-			`Safe Mode: ${this.result?.safeModeEnabled ? 'Enabled' : 'Disabled'}`,
-			`Mocked: ${this.result?.isMockedResponse ? 'Yes' : 'No'}`,
-			`API Call ID: ${this.result?.apiCallId || '\u2014'}`
+			formatTemplateString(SUMMARY_SERVICE, [this.result?.serviceName || '\u2014']),
+			formatTemplateString(SUMMARY_STATUS, [
+				this.result?.status || STATUS_UNKNOWN,
+				this.result?.statusCode ?? '\u2014'
+			]),
+			formatTemplateString(SUMMARY_TIMING, [
+				total,
+				handler,
+				callout,
+				commit
+			]),
+			formatTemplateString(SUMMARY_SAFE_MODE, [this.result?.safeModeEnabled ? ENABLED : DISABLED]),
+			formatTemplateString(SUMMARY_MOCKED, [this.result?.isMockedResponse ? YES : NO]),
+			formatTemplateString(SUMMARY_API_CALL_ID, [this.result?.apiCallId || '\u2014'])
 		];
 		return lines.join('\n');
 	}
@@ -340,13 +462,13 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 	handleParameterKeyChange(event)
 	{
 		const rowId = event.currentTarget.dataset.rowId;
-		this.parameterRows = this.parameterRows.map((row) => row.id === rowId ? {...row, key: event.detail.value} : row);
+		this.parameterRows = this.parameterRows.map((row) => (row.id === rowId ? {...row, key: event.detail.value} : row));
 	}
 
 	handleParameterValueChange(event)
 	{
 		const rowId = event.currentTarget.dataset.rowId;
-		this.parameterRows = this.parameterRows.map((row) => row.id === rowId ? {...row, value: event.detail.value} : row);
+		this.parameterRows = this.parameterRows.map((row) => (row.id === rowId ? {...row, value: event.detail.value} : row));
 	}
 
 	handleAddParameterRow()
@@ -418,7 +540,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 			const hasBlankKeyWithValue = this.parameterRows.some((row) => (!row.key || !row.key.trim()) && row.value && row.value.trim() !== '');
 			if(hasBlankKeyWithValue)
 			{
-				return 'Parameter key cannot be blank when a value is provided.';
+				return VALIDATION_BLANK_PARAMETER_KEY;
 			}
 		}
 
@@ -430,7 +552,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 			}
 			catch
 			{
-				return 'JSON Body contains invalid JSON.';
+				return VALIDATION_INVALID_JSON;
 			}
 		}
 
@@ -466,8 +588,9 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 			if(!executionResult)
 			{
+				// callControllerMethod resolves undefined after surfacing the Apex failure as an
+				// error toast; toasting here again would stack a second error toast on the same failure.
 				this.result = null;
-				this.showErrorToast('Execution failed to return a result');
 				return;
 			}
 
@@ -476,15 +599,15 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 			if(executionResult.isSuccess)
 			{
-				this.showSuccessToast('Execution completed successfully');
+				this.showSuccessToast(TOAST_EXECUTION_SUCCESS);
 			}
 			else if(executionResult.status === 'Aborted')
 			{
-				this.showWarningToast(executionResult.errorMessages || 'Execution aborted');
+				this.showWarningToast(executionResult.errorMessages || TOAST_EXECUTION_ABORTED);
 			}
 			else
 			{
-				this.showErrorToast(executionResult.errorMessages || 'Execution failed');
+				this.showErrorToast(executionResult.errorMessages || TOAST_EXECUTION_FAILED);
 			}
 		}
 		finally
@@ -495,32 +618,32 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	async handleCopySummary()
 	{
-		await this.copyToClipboard(this.summaryText, 'Summary copied', 'summary');
+		await this.copyToClipboard(this.summaryText, TOAST_SUMMARY_COPIED, 'summary');
 	}
 
 	async handleCopyRequestHeaders()
 	{
-		await this.copyToClipboard(this.requestHeadersCopyText, 'Request headers copied', 'requestHeaders');
+		await this.copyToClipboard(this.requestHeadersCopyText, TOAST_REQUEST_HEADERS_COPIED, 'requestHeaders');
 	}
 
 	async handleCopyResponseHeaders()
 	{
-		await this.copyToClipboard(this.responseHeadersCopyText, 'Response headers copied', 'responseHeaders');
+		await this.copyToClipboard(this.responseHeadersCopyText, TOAST_RESPONSE_HEADERS_COPIED, 'responseHeaders');
 	}
 
 	async handleCopyRequestBody()
 	{
-		await this.copyToClipboard(this.result?.requestBody, 'Request body copied', 'requestBody');
+		await this.copyToClipboard(this.result?.requestBody, TOAST_REQUEST_BODY_COPIED, 'requestBody');
 	}
 
 	async handleCopyResponseBody()
 	{
-		await this.copyToClipboard(this.result?.responseBody, 'Response body copied', 'responseBody');
+		await this.copyToClipboard(this.result?.responseBody, TOAST_RESPONSE_BODY_COPIED, 'responseBody');
 	}
 
 	async handleCopyErrors()
 	{
-		await this.copyToClipboard(this.result?.errorMessages, 'Errors copied', 'errors');
+		await this.copyToClipboard(this.result?.errorMessages, TOAST_ERRORS_COPIED, 'errors');
 	}
 
 	parseHeaders(headerJson)
@@ -575,7 +698,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		}
 		catch
 		{
-			this.showErrorToast('Failed to copy to clipboard');
+			this.showErrorToast(TOAST_COPY_FAILED);
 		}
 	}
 }

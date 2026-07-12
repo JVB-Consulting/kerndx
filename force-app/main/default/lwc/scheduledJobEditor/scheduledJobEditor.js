@@ -7,12 +7,13 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 import {api, wire} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {getRecord, getFieldValue, notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 import {reduceErrors} from 'c/utilitySystem';
+import {getTimezoneDisplayName, parseAttributes} from 'c/utilityScheduledJob';
 import getSchedulableClasses from '@salesforce/apex/CTRL_ScheduledJob.getSchedulableClasses';
 import getParameterDefinitions from '@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions';
 import getUserTimezone from '@salesforce/apex/CTRL_ScheduledJob.getUserTimezone';
@@ -24,6 +25,27 @@ import IS_ACTIVE_FIELD from '@salesforce/schema/ScheduledJob__c.IsActive__c';
 import DESCRIPTION_FIELD from '@salesforce/schema/ScheduledJob__c.Description__c';
 import PARAMETERS_FIELD from '@salesforce/schema/ScheduledJob__c.Parameters__c';
 import TIMEZONE_FIELD from '@salesforce/schema/ScheduledJob__c.Timezone__c';
+import {formatTemplateString} from 'c/utilityString';
+import CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
+import EDIT_TITLE from '@salesforce/label/c.ScheduledJob_EditTitle';
+import SCHEDULE from '@salesforce/label/c.ScheduledJob_Schedule';
+import SCHEDULE_WITH_TIMEZONE from '@salesforce/label/c.ScheduledJob_ScheduleWithTimezone';
+import LOAD_RECORD_FAILED from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
+import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
+import CREATED from '@salesforce/label/c.ScheduledJob_Created';
+import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
+import SAVE_FAILED from '@salesforce/label/c.ScheduledJob_SaveFailed';
+import SCHEDULER_NAME_LABEL from '@salesforce/label/c.ScheduledJob_SchedulerName';
+import CLASS_NAME_LABEL from '@salesforce/label/c.ScheduledJob_ClassName';
+import CLASS_NAME_PLACEHOLDER from '@salesforce/label/c.ScheduledJob_ClassNamePlaceholder';
+import ACTIVE_LABEL from '@salesforce/label/c.ScheduledJob_Active';
+import INACTIVE_LABEL from '@salesforce/label/c.ScheduledJob_Inactive';
+import PARAMETERS_HEADING from '@salesforce/label/c.ScheduledJob_Parameters';
+import YES_LABEL from '@salesforce/label/c.ScheduledJob_Yes';
+import NO_LABEL from '@salesforce/label/c.ScheduledJob_No';
+import DESCRIPTION_LABEL from '@salesforce/label/c.ScheduledJob_Description';
+import CANCEL_LABEL from '@salesforce/label/c.ScheduledJob_Cancel';
+import SAVE_LABEL from '@salesforce/label/c.ScheduledJob_Save';
 
 const FIELDS = [
 	SCHEDULER_NAME_FIELD,
@@ -46,6 +68,20 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 	 */
 	@api lockedFields = [];
 
+	label = {
+		schedulerName: SCHEDULER_NAME_LABEL,
+		className: CLASS_NAME_LABEL,
+		classPlaceholder: CLASS_NAME_PLACEHOLDER,
+		active: ACTIVE_LABEL,
+		inactive: INACTIVE_LABEL,
+		parameters: PARAMETERS_HEADING,
+		yes: YES_LABEL,
+		no: NO_LABEL,
+		description: DESCRIPTION_LABEL,
+		cancel: CANCEL_LABEL,
+		save: SAVE_LABEL
+	};
+
 	_lastLoadedClassName;
 	className = '';
 	classOptions = [];
@@ -66,17 +102,17 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 
 	get cardTitle()
 	{
-		return this.isCreateMode ? 'New Scheduled Job' : 'Edit Scheduled Job';
+		return this.isCreateMode ? CREATE_TITLE : EDIT_TITLE;
 	}
 
 	get scheduleHeading()
 	{
 		if(this.userTimezone)
 		{
-			return 'Schedule (' + getTimezoneDisplayName(this.userTimezone) + ')';
+			return formatTemplateString(SCHEDULE_WITH_TIMEZONE, [getTimezoneDisplayName(this.userTimezone)]);
 		}
 
-		return 'Schedule';
+		return SCHEDULE;
 	}
 
 	get isSaveDisabled()
@@ -90,7 +126,9 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 
 		if(hasRequiredFields && this.hasParameterDefinitions)
 		{
-			return this.parameterDefinitions.some((parameter) => parameter.isRequired && !this.parameterValues[parameter.name]);
+			// A parameter input renders pre-filled with its defaultValue, so an untouched default
+			// satisfies the requirement; only an explicitly cleared entry ('') leaves it unmet.
+			return this.parameterDefinitions.some((parameter) => parameter.isRequired && !(this.parameterValues[parameter.name] ?? parameter.defaultValue));
 		}
 
 		return !hasRequiredFields;
@@ -144,7 +182,7 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 		{
 			this.userTimezone = await getUserTimezone({});
 		}
-		catch(error)
+		catch
 		{
 			this.userTimezone = '';
 		}
@@ -157,7 +195,7 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 			let classes = await getSchedulableClasses({});
 			this.classOptions = (classes || []).map((name) => ({label: name, value: name}));
 		}
-		catch(error)
+		catch
 		{
 			this.classOptions = [];
 		}
@@ -187,7 +225,7 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 
 		if(error)
 		{
-			this.showErrorToast(reduceErrors(error) || 'Failed to load record');
+			this.showErrorToast(reduceErrors(error) || LOAD_RECORD_FAILED);
 		}
 	}
 
@@ -200,7 +238,7 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 		catch(error)
 		{
 			this.parameterDefinitions = null;
-			this.showErrorToast(reduceErrors(error) || 'Failed to load parameter definitions');
+			this.showErrorToast(reduceErrors(error) || LOAD_PARAMETERS_FAILED);
 		}
 	}
 
@@ -250,9 +288,12 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 			{
 				parameters = {};
 
-				for(let [key, value] of Object.entries(this.parameterValues))
+				// Serialise exactly what the form displays: every parameter defined for the currently
+				// selected class, using the entered value or the pre-filled defaultValue. This prunes
+				// orphaned entries left behind by a previously selected class and persists untouched defaults.
+				for(let parameter of this.parameterDefinitions)
 				{
-					parameters[key] = String(value ?? '');
+					parameters[parameter.name] = String(this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '');
 				}
 			}
 
@@ -270,13 +311,13 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 			});
 
 			let savedRecordId = resultId || this.recordId;
-			notifyRecordUpdateAvailable([{recordId: savedRecordId}]);
-			this.showSuccessToast(this.isCreateMode ? 'Scheduled job created' : 'Scheduled job saved');
+			await notifyRecordUpdateAvailable([{recordId: savedRecordId}]);
+			this.showSuccessToast(this.isCreateMode ? CREATED : SAVED);
 			this.redirectToRecordPage(savedRecordId);
 		}
 		catch(error)
 		{
-			let message = 'Failed to save scheduled job';
+			let message = SAVE_FAILED;
 
 			try
 			{
@@ -286,7 +327,7 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 					message = reduced;
 				}
 			}
-			catch(reduceError)
+			catch
 			{
 				// use default message
 			}
@@ -302,52 +343,5 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 	handleCancel()
 	{
 		window.history.back();
-	}
-}
-
-/**
- * @description Returns a human-readable timezone name from an IANA TimeZoneSidKey
- * using the browser's Intl.DateTimeFormat API.
- *
- * @param {string} timezoneSidKey The IANA timezone ID (e.g., Africa/Johannesburg).
- *
- * @returns {string} The display name, or the raw SidKey as fallback.
- */
-function getTimezoneDisplayName(timezoneSidKey)
-{
-	try
-	{
-		return new Intl.DateTimeFormat('en', {timeZone: timezoneSidKey, timeZoneName: 'long'})
-		.formatToParts(new Date())
-		.find((part) => part.type === 'timeZoneName').value;
-	}
-	catch(error)
-	{
-		return timezoneSidKey;
-	}
-}
-
-/**
- * @description Parses a DTO_NameValues JSON string into a plain object.
- *
- * @param {string} attributeString The serialized DTO_NameValues JSON.
- *
- * @returns {Object} Key-value map of parsed attributes.
- */
-function parseAttributes(attributeString)
-{
-	if(!attributeString)
-	{
-		return {};
-	}
-
-	try
-	{
-		let parsed = JSON.parse(attributeString);
-		return parsed.nameValueMap || {};
-	}
-	catch(error)
-	{
-		return {};
 	}
 }

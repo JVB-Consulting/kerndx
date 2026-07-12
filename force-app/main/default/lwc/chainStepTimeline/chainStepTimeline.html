@@ -4,7 +4,7 @@
 		<lightning-spinner alternative-text="Loading steps" size="small"></lightning-spinner>
 	</template>
 	<template if:false={isLoading}>
-		<lightning-card icon-name="standard:flow" title="Step Timeline">
+		<lightning-card icon-name="standard:flow" title={labels.stepTimelineTitle}>
 			<template if:true={hasSteps}>
 				<div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
 					<ul class="slds-timeline">
@@ -43,20 +43,20 @@
 										<div class="step-popover slds-popover slds-popover_tooltip slds-nubbin_bottom-left" role="tooltip">
 											<div class="slds-popover__body">
 												<dl class="popover-grid">
-													<dt>Class</dt>
+													<dt>{labels.classLabel}</dt>
 													<dd>{step.className}</dd>
-													<dt>Status</dt>
+													<dt>{labels.status}</dt>
 													<dd>{step.statusLabel}</dd>
 													<template if:true={step.hasDuration}>
-														<dt>Duration</dt>
+														<dt>{labels.duration}</dt>
 														<dd>{step.durationLabel}</dd>
 													</template>
 													<template if:true={step.continueOnError}>
-														<dt>Continue on Error</dt>
-														<dd>Yes</dd>
+														<dt>{labels.continueOnError}</dt>
+														<dd>{labels.yes}</dd>
 													</template>
 													<template if:true={step.hasError}>
-														<dt>Error</dt>
+														<dt>{labels.error}</dt>
 														<dd class="slds-text-color_error">{step.errorMessage}</dd>
 													</template>
 												</dl>
@@ -71,7 +71,7 @@
 			</template>
 			<template if:false={hasSteps}>
 				<div class="slds-text-align_center slds-text-color_weak slds-var-p-around_medium">
-					No steps recorded.
+					{labels.noStepsRecorded}
 				</div>
 			</template>
 		</lightning-card>

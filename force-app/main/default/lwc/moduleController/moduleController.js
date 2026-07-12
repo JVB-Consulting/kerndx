@@ -5,14 +5,16 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, July 2026
  */
+import ERROR_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_ErrorTitle';
+import FAILED_CONTROLLER_CALL_LABEL from '@salesforce/label/c.ModuleController_FailedControllerCall';
 import {reduceErrors} from 'c/utilitySystem';
 import {ShowToastEvent} from 'lightning/platformShowToastEvent';
 
 // ── Constants ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const FAILED_CONTROLLER_CALL_ERROR = 'Failed controller call';
+export const FAILED_CONTROLLER_CALL_ERROR = FAILED_CONTROLLER_CALL_LABEL;
 export const CALL_CONTROLLER_METHOD_NAME = 'callControllerMethod';
 export const HANDLE_WIRE_RESPONSE_METHOD_NAME = 'handleWireResponse';
 
@@ -20,12 +22,13 @@ export const HANDLE_WIRE_RESPONSE_METHOD_NAME = 'handleWireResponse';
 
 /**
  * @description Surfaces an Apex error to the user via toast and structured logging,
- * optionally re-throwing to allow upstream catch handling.
+ * optionally throwing a normalised failure that carries the original error as its
+ * `cause` so an upstream catch can still inspect what actually went wrong.
  *
  * @param {Object} component The BaseComponent instance
  * @param {string} source Identifier of the method that failed
  * @param {Error|Object} error The error from the Apex call
- * @param {boolean} shouldThrow When true, re-throws after logging
+ * @param {boolean} shouldThrow When true, throws after logging
  * @private
  */
 function surfaceError(component, source, error, shouldThrow = false)
@@ -33,12 +36,14 @@ function surfaceError(component, source, error, shouldThrow = false)
 	component.consoleError(error, `${source}: `);
 
 	component.dispatchEvent(new ShowToastEvent({
-		title: 'Error', message: reduceErrors(error), variant: 'error'
+		title: ERROR_TITLE_LABEL, message: reduceErrors(error), variant: 'error'
 	}));
 
 	if(shouldThrow)
 	{
-		throw new Error(FAILED_CONTROLLER_CALL_ERROR);
+		const failedCallError = new Error(FAILED_CONTROLLER_CALL_ERROR);
+		failedCallError.cause = error;
+		throw failedCallError;
 	}
 }
 

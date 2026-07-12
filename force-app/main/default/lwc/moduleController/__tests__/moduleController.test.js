@@ -4,8 +4,14 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
+
+// Byte-real label mocks (values mirror CustomLabels.labels-meta.xml) so the
+// display-string assertions below exercise the shipped copy — live again now that
+// moduleController imports these labels directly.
+jest.mock('@salesforce/label/c.ModuleNotification_ErrorTitle', () => ({default: 'Error'}), {virtual: true});
+jest.mock('@salesforce/label/c.ModuleController_FailedControllerCall', () => ({default: 'Failed controller call'}), {virtual: true});
 
 // Mock utilitySystem - must be before imports
 jest.mock('c/utilitySystem', () => ({
@@ -25,22 +31,22 @@ jest.mock('c/utilitySystem', () => ({
 		}
 		return 'Unknown error';
 	})
-}), {virtual: true});
+}));
 
-// Mock ShowToastEvent
-const mockShowToastEventInstances = [];
-jest.mock('lightning/platformShowToastEvent', () => ({
-	ShowToastEvent: class MockShowToastEvent
-	{
-		constructor(config)
-		{
-			this.title = config.title;
-			this.message = config.message;
-			this.variant = config.variant;
-			mockShowToastEventInstances.push(this);
-		}
-	}
-}), {virtual: true});
+// lightning/platformShowToastEvent is deliberately NOT jest.mock'd: the sfdx-lwc-jest stub
+// dispatches a CustomEvent('lightning__showtoast') carrying the toast config in `detail`, so the
+// tests assert on the dispatched event's shape instead. Mocking this module here is unsafe:
+// jest keys an explicit mock by a raw-specifier module id at registration, but once ANY earlier
+// suite in the same worker has loaded the real c/moduleController chain, the run-shared resolver
+// cache makes the source's lookup resolve to the absolute stub path — the ids no longer match
+// and the mock silently stops intercepting (root-caused 2026-07-07; this was the intermittent
+// full-suite failure of the four error-path tests below).
+const dispatchedToast = (component, callIndex = 0) =>
+{
+	const event = component.dispatchEvent.mock.calls[callIndex][0];
+	expect(event.type).toBe('lightning__showtoast');
+	return event.detail;
+};
 
 import initialiseControllerModule, {
 	initialiseCallControllerMethod, initialiseHandleWireResponse, FAILED_CONTROLLER_CALL_ERROR, CALL_CONTROLLER_METHOD_NAME, HANDLE_WIRE_RESPONSE_METHOD_NAME
@@ -53,7 +59,6 @@ describe('moduleController', () =>
 	beforeEach(() =>
 	{
 		jest.clearAllMocks();
-		mockShowToastEventInstances.length = 0;
 		mockComponent = {
 			dispatchEvent: jest.fn(), consoleError: jest.fn()
 		};
@@ -118,9 +123,9 @@ describe('moduleController', () =>
 			expect(mockComponent.dispatchEvent).toHaveBeenCalledTimes(1);
 			expect(result).toBeUndefined();
 
-			const toastEvent = mockShowToastEventInstances[0];
-			expect(toastEvent.title).toBe('Error');
-			expect(toastEvent.variant).toBe('error');
+			const toastDetail = dispatchedToast(mockComponent);
+			expect(toastDetail.title).toBe('Error');
+			expect(toastDetail.variant).toBe('error');
 		});
 
 		it('should throw error when isThrow is true', async() =>
@@ -135,6 +140,27 @@ describe('moduleController', () =>
 			expect(mockComponent.dispatchEvent).toHaveBeenCalled();
 		});
 
+		it('preserves the original error as the cause of the thrown failure', async() =>
+		{
+			const testError = new Error('Controller error');
+			const mockController = jest.fn().mockRejectedValue(testError);
+			initialiseCallControllerMethod(mockComponent);
+
+			let caught;
+			try
+			{
+				await mockComponent.callControllerMethod(mockController, {}, true);
+			}
+			catch(thrown)
+			{
+				caught = thrown;
+			}
+
+			expect(caught).toBeInstanceOf(Error);
+			expect(caught.message).toBe(FAILED_CONTROLLER_CALL_ERROR);
+			expect(caught.cause).toBe(testError);
+		});
+
 		it('should handle string error message', async() =>
 		{
 			const mockController = jest.fn().mockRejectedValue('String error');
@@ -142,8 +168,8 @@ describe('moduleController', () =>
 
 			await mockComponent.callControllerMethod(mockController);
 
-			const toastEvent = mockShowToastEventInstances[0];
-			expect(toastEvent.message).toBe('String error');
+			const toastDetail = dispatchedToast(mockComponent);
+			expect(toastDetail.message).toBe('String error');
 		});
 
 		it('should handle error with body.message (Apex style)', async() =>
@@ -154,8 +180,8 @@ describe('moduleController', () =>
 
 			await mockComponent.callControllerMethod(mockController);
 
-			const toastEvent = mockShowToastEventInstances[0];
-			expect(toastEvent.message).toBe('Apex error message');
+			const toastDetail = dispatchedToast(mockComponent);
+			expect(toastDetail.message).toBe('Apex error message');
 		});
 	});
 
@@ -196,9 +222,9 @@ describe('moduleController', () =>
 			expect(mockComponent.consoleError).toHaveBeenCalledWith(testError, 'handleWireResponse: ');
 			expect(mockComponent.dispatchEvent).toHaveBeenCalledTimes(1);
 
-			const toastEvent = mockShowToastEventInstances[0];
-			expect(toastEvent.title).toBe('Error');
-			expect(toastEvent.variant).toBe('error');
+			const toastDetail = dispatchedToast(mockComponent);
+			expect(toastDetail.title).toBe('Error');
+			expect(toastDetail.variant).toBe('error');
 		});
 
 		it('should return undefined when neither data nor error', () =>

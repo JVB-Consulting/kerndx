@@ -14,9 +14,49 @@ import {
 	MODE_PRESET, MODE_ADVANCED, MODE_CUSTOM, DEFAULT_CRON_EXPRESSION, MODE_OPTIONS, PRESET_FREQUENCIES, MINUTE_INTERVALS, DAYS_OF_WEEK, HOURS_OPTIONS, MINUTES_OPTIONS,
 	DAY_OF_MONTH_OPTIONS, SECONDS_OPTIONS
 } from './constants';
+import PRESET_MODE_UNREPRESENTABLE from '@salesforce/label/c.CronExpressionEditor_PresetModeUnrepresentable';
+import MODE_LABEL from '@salesforce/label/c.CronExpressionEditor_ModeLabel';
+import FREQUENCY_LABEL from '@salesforce/label/c.CronExpressionEditor_FrequencyLabel';
+import INTERVAL_LABEL from '@salesforce/label/c.CronExpressionEditor_IntervalLabel';
+import AT_MINUTE_LABEL from '@salesforce/label/c.CronExpressionEditor_AtMinuteLabel';
+import HOUR_LABEL from '@salesforce/label/c.CronExpressionEditor_HourLabel';
+import MINUTE_LABEL from '@salesforce/label/c.CronExpressionEditor_MinuteLabel';
+import DAYS_LABEL from '@salesforce/label/c.CronExpressionEditor_DaysLabel';
+import DAY_OF_MONTH_LABEL from '@salesforce/label/c.CronExpressionEditor_DayOfMonthLabel';
+import SECONDS_LABEL from '@salesforce/label/c.CronExpressionEditor_SecondsLabel';
+import MINUTES_LABEL from '@salesforce/label/c.CronExpressionEditor_MinutesLabel';
+import HOURS_LABEL from '@salesforce/label/c.CronExpressionEditor_HoursLabel';
+import MONTH_LABEL from '@salesforce/label/c.CronExpressionEditor_MonthLabel';
+import DAY_OF_WEEK_HELP from '@salesforce/label/c.CronExpressionEditor_DayOfWeekHelp';
+import DAY_OF_WEEK_LABEL from '@salesforce/label/c.CronExpressionEditor_DayOfWeekLabel';
+import YEAR_HELP from '@salesforce/label/c.CronExpressionEditor_YearHelp';
+import YEAR_OPTIONAL_LABEL from '@salesforce/label/c.CronExpressionEditor_YearOptionalLabel';
+import CRON_EXPRESSION_LABEL from '@salesforce/label/c.CronExpressionEditor_CronExpressionLabel';
+import PREVIEW_LABEL from '@salesforce/label/c.CronExpressionEditor_PreviewLabel';
 
 export default class CronExpressionEditor extends ComponentBuilder('notification')
 {
+	label = {
+		mode: MODE_LABEL,
+		frequency: FREQUENCY_LABEL,
+		interval: INTERVAL_LABEL,
+		atMinute: AT_MINUTE_LABEL,
+		hour: HOUR_LABEL,
+		minute: MINUTE_LABEL,
+		days: DAYS_LABEL,
+		dayOfMonth: DAY_OF_MONTH_LABEL,
+		seconds: SECONDS_LABEL,
+		minutes: MINUTES_LABEL,
+		hours: HOURS_LABEL,
+		month: MONTH_LABEL,
+		dayOfWeekHelp: DAY_OF_WEEK_HELP,
+		dayOfWeek: DAY_OF_WEEK_LABEL,
+		yearHelp: YEAR_HELP,
+		yearOptional: YEAR_OPTIONAL_LABEL,
+		cronExpression: CRON_EXPRESSION_LABEL,
+		preview: PREVIEW_LABEL
+	};
+
 	mode = MODE_PRESET;
 	presetFrequency = 'daily';
 	presetMinuteInterval = '5';
@@ -263,7 +303,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 			let result = parseCronExpression(currentExpression);
 			if(!result.preset)
 			{
-				this.showWarningToast('This expression cannot be represented in Preset mode. Use Advanced or Custom mode instead.');
+				this.showWarningToast(PRESET_MODE_UNREPRESENTABLE);
 				let currentMode = this.mode;
 				this.mode = null;
 				// eslint-disable-next-line @lwc/lwc/no-async-operation

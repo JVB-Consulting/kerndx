@@ -6,10 +6,10 @@
 		<table class="slds-table slds-table_cell-buffer slds-table_bordered" data-testid="proposal-table">
 			<thead>
 			<tr>
-				<th scope="col">Object</th>
-				<th scope="col">Records today</th>
-				<th scope="col">Retention</th>
-				<th scope="col">Schedule</th>
+				<th scope="col">{labels.columnObject}</th>
+				<th scope="col">{labels.columnRecordsToday}</th>
+				<th scope="col">{labels.columnRetention}</th>
+				<th scope="col">{labels.columnSchedule}</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -17,9 +17,9 @@
 				<tr data-object-api-name={proposal.objectApiName} data-testid="proposal-row" key={proposal.objectApiName}>
 					<td>{proposal.objectLabel}</td>
 					<td>{proposal.recordCount}</td>
-					<td>{proposal.retentionDays} days</td>
+					<td>{proposal.retentionDisplay}</td>
 					<td>
-						<lightning-combobox data-object-api-name={proposal.objectApiName} label="Schedule" onchange={handleCronChange} options={scheduleOptions}
+						<lightning-combobox data-object-api-name={proposal.objectApiName} label={labels.columnSchedule} onchange={handleCronChange} options={scheduleOptions}
 						                    value={proposal.cronExpression} variant="label-hidden"></lightning-combobox>
 					</td>
 				</tr>
@@ -30,7 +30,7 @@
 	</lightning-modal-body>
 	<lightning-modal-footer>
 		<lightning-button class="slds-var-m-right_auto" data-testid="customize-link" label={customizeLinkLabel} onclick={handleCustomize} variant="base"></lightning-button>
-		<lightning-button data-testid="cancel-button" label="Cancel" onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="cancel-button" label={labels.cancel} onclick={handleCancel}></lightning-button>
 		<lightning-button data-testid="confirm-button" label={confirmButtonLabel} onclick={handleConfirm} variant="brand"></lightning-button>
 	</lightning-modal-footer>
 </template>

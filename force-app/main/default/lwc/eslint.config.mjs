@@ -53,6 +53,19 @@ export default tseslint.config(// Always use the recommended rule set
 			}
 		},
 
+		// KernDX i18n rule — surfaced here at `warn` for editor squiggles on
+		// production LWC JavaScript. The authoritative gate (with per-area
+		// warn->error staging) is `npm run lint:i18n`
+		// (scanner/scan-hardcoded-user-text.js), which also covers .html and
+		// .js-meta.xml. Test files are exempt (fixtures carry literal copy).
+		{
+			plugins: {
+				kerndx: kerndxPlugin
+			}, files: ['**/*.js'], ignores: ['**/*.test.js'], rules: {
+				'kerndx/no-hardcoded-user-text': 'warn'
+			}
+		},
+
 		// KernDX Jest test-quality rules fire only on LWC test files.
 		{
 			plugins: {
@@ -84,7 +97,7 @@ export default tseslint.config(// Always use the recommended rule set
 				import: importPlugin
 			}, files: ['**/*.test.ts'], languageOptions: {
 				globals: {
-					...globals.node, d3: 'readonly'
+					...globals.node
 				}
 			}, rules: {
 				'@lwc/lwc/no-unexpected-wire-adapter-usages': 'off',
@@ -102,7 +115,7 @@ export default tseslint.config(// Always use the recommended rule set
 		{
 			files: ['**/*.test.js'], languageOptions: {
 				globals: {
-					...globals.node, d3: 'readonly'
+					...globals.node
 				}
 			}, rules: {
 				'@lwc/lwc/no-unexpected-wire-adapter-usages': 'off', '@lwc/lwc/no-async-operation': 'off', 'jest/no-conditional-expect': 'off'

@@ -7,8 +7,10 @@
 import {createElement} from 'lwc';
 import LogConsoleDetail from 'c/logConsoleDetail';
 import {copyToClipBoard} from 'c/utilitySystem';
+// noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
+import {mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
 
-jest.mock('c/utilitySystem', () => ({copyToClipBoard: jest.fn(() => Promise.resolve())}), {virtual: true});
+jest.mock('c/utilitySystem', () => ({copyToClipBoard: jest.fn(() => Promise.resolve())}));
 
 jest.mock('c/logConsoleContext', () => ({
 	CONTEXT_LABEL_BY_VALUE: {
@@ -63,6 +65,7 @@ jest.mock('@salesforce/label/c.LogConsole_NoLimits', () => ({default: 'No govern
 jest.mock('@salesforce/label/c.LogConsole_NoStackTrace', () => ({default: 'No stack trace for this entry.'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_Copy', () => ({default: 'Copy'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_Copied', () => ({default: 'Copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyFailed', () => ({default: 'Couldn\'t copy to the clipboard. Try again or copy the text manually.'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_Close', () => ({default: 'Close'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ActionOpenChain', () => ({default: 'Open in Chain Monitor'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ActionOpenRecord', () => ({default: 'Open record'}), {virtual: true});
@@ -481,6 +484,35 @@ describe('c-log-console-detail', () =>
 		testid(element, 'copy-stack').click();
 		expect(copyToClipBoard).toHaveBeenCalledWith('System.CalloutException: Read timed out');
 		expect(copyToClipBoard).toHaveBeenCalledWith('Class.PaymentGateway.capture: line 64');
+	});
+
+	it('shows an error toast instead of an unhandled rejection when copying the message fails', async() =>
+	{
+		copyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+
+		const element = createComponent();
+		await flush();
+		testid(element, 'copy-message').click();
+		// A macrotask flush lets the async click handler fully settle. Before the fix, the
+		// un-caught copy rejection escaped the handler here and failed this test as an
+		// unhandled rejection, so a regression of the catch surfaces loudly on its own.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		expect(mockShowErrorToast).toHaveBeenCalledWith('Couldn\'t copy to the clipboard. Try again or copy the text manually.');
+	});
+
+	it('shows an error toast instead of an unhandled rejection when copying the stack trace fails', async() =>
+	{
+		copyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+
+		const element = createComponent();
+		await flush();
+		testid(element, 'copy-stack').click();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		expect(mockShowErrorToast).toHaveBeenCalledWith('Couldn\'t copy to the clipboard. Try again or copy the text manually.');
 	});
 
 	it('shows the client cap row when more than the display cap of transactions exist', async() =>

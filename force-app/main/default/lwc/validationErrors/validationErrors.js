@@ -7,6 +7,8 @@
  *
  * @date February 2026, May 2026
  */
+import ERROR_TITLE from '@salesforce/label/c.ValidationErrors_ErrorTitle';
+import WARNING_TITLE from '@salesforce/label/c.ValidationErrors_WarningTitle';
 import {api, LightningElement} from 'lwc';
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -134,13 +136,13 @@ export default class ValidationErrors extends LightningElement
 	 * @description Title for the errors section
 	 * @type {string}
 	 */
-	@api errorTitle = 'Validation Errors';
+	@api errorTitle = ERROR_TITLE;
 
 	/**
 	 * @description Title for the warnings section
 	 * @type {string}
 	 */
-	@api warningTitle = 'Warnings';
+	@api warningTitle = WARNING_TITLE;
 
 	/**
 	 * @description Whether to show rule names (for debugging)

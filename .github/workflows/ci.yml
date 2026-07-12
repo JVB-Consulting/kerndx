@@ -94,6 +94,17 @@ jobs:
         # module load and every test reports "test failed").
         run: cd scanner/eslint-plugin-kerndx && npm ci && npm test
 
+      - name: Run i18n gate
+        id: i18n
+        # First unit-test the hardcoded-user-text scanner, then run the
+        # gate itself. The gate covers .js (via the isolated kerndx/no-hardcoded-
+        # user-text eslint rule), .html, and .js-meta.xml. It fails ONLY on a
+        # hardcoded subscriber-visible string in a SWEPT area
+        # (scanner/i18n-swept-areas.json); every other area is a non-failing warn,
+        # so unswept work never reddens CI. It is deliberately independent of the
+        # broken repo-wide `npm run lint` and the pre-existing non-i18n backlog.
+        run: npm run test:i18n && npm run lint:i18n
+
       - name: Explain failure
         # Turn the generic "All jobs have failed" email into something
         # actionable: name the check that bit and the exact local repro command.
@@ -124,6 +135,11 @@ jobs:
             matched=1
             echo "::error title=Scanner tests failed::eslint-plugin-kerndx rule tests failed. Reproduce locally: cd scanner/eslint-plugin-kerndx && npm ci && npm test"
             echo "- ❌ **Scanner tests** — reproduce: \`cd scanner/eslint-plugin-kerndx && npm ci && npm test\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.i18n.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=i18n gate failed::A hardcoded subscriber-visible string in a swept LWC area, or the scanner test failed. Reproduce locally: npm run test:i18n && npm run lint:i18n"
+            echo "- ❌ **i18n gate** — reproduce: \`npm run test:i18n && npm run lint:i18n\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$matched" = "0" ]; then
             # Failure came from an earlier step (dependency install or the

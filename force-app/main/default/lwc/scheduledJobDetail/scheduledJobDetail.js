@@ -5,14 +5,30 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 import {api, wire} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {getRecord, getFieldValue} from 'lightning/uiRecordApi';
 import {describeCronExpression} from 'c/cronExpressionEditor';
 import {reduceErrors} from 'c/utilitySystem';
+import {getTimezoneDisplayName, parseAttributes} from 'c/utilityScheduledJob';
 import getParameterDefinitions from '@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions';
+import LOADING_LABEL from '@salesforce/label/c.ScheduledJobDetail_Loading';
+import LOAD_FAILED_LABEL from '@salesforce/label/c.ScheduledJobDetail_LoadFailed';
+import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
+import CARD_TITLE from '@salesforce/label/c.ScheduledJobDetail_CardTitle';
+import SCHEDULER_NAME from '@salesforce/label/c.ScheduledJob_SchedulerName';
+import CLASS_NAME from '@salesforce/label/c.ScheduledJob_ClassName';
+import STATUS from '@salesforce/label/c.ScheduledJobDetail_Status';
+import SCHEDULE from '@salesforce/label/c.ScheduledJob_Schedule';
+import NO_SCHEDULE from '@salesforce/label/c.ScheduledJobDetail_NoSchedule';
+import PARAMETERS from '@salesforce/label/c.ScheduledJob_Parameters';
+import PARAMETER_COLUMN from '@salesforce/label/c.ScheduledJobDetail_ParameterColumn';
+import VALUE_COLUMN from '@salesforce/label/c.ScheduledJobDetail_ValueColumn';
+import DESCRIPTION from '@salesforce/label/c.ScheduledJob_Description';
+import ACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Active';
+import INACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Inactive';
 import SCHEDULER_NAME_FIELD from '@salesforce/schema/ScheduledJob__c.SchedulerName__c';
 import CLASS_NAME_FIELD from '@salesforce/schema/ScheduledJob__c.ClassName__c';
 import CRON_EXPRESSION_FIELD from '@salesforce/schema/ScheduledJob__c.CronExpression__c';
@@ -37,11 +53,56 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	record;
 	parameterDefinitions;
 
+	/**
+	 * @description Message rendered in the card's inline error state when the record wire fails.
+	 *              Empty when the record loaded (or is still loading) without error.
+	 *
+	 * @type {string}
+	 */
+	loadErrorMessage = '';
+
+	/**
+	 * @description Static label strings the template renders.
+	 */
+	labels = {
+		loading: LOADING_LABEL,
+		cardTitle: CARD_TITLE,
+		schedulerName: SCHEDULER_NAME,
+		className: CLASS_NAME,
+		status: STATUS,
+		schedule: SCHEDULE,
+		noSchedule: NO_SCHEDULE,
+		parameters: PARAMETERS,
+		parameterColumn: PARAMETER_COLUMN,
+		valueColumn: VALUE_COLUMN,
+		description: DESCRIPTION
+	};
+
 	_lastLoadedClassName;
 
 	get hasRecord()
 	{
 		return Boolean(this.record);
+	}
+
+	/**
+	 * @description Whether the record wire has not yet emitted data or an error.
+	 *
+	 * @return {boolean} True while the initial record load is still in flight.
+	 */
+	get isLoadingRecord()
+	{
+		return !this.record && !this.loadErrorMessage;
+	}
+
+	/**
+	 * @description Whether the record wire failed, so the inline error state should render.
+	 *
+	 * @return {boolean} True when a load error message is waiting to be shown.
+	 */
+	get hasLoadError()
+	{
+		return Boolean(this.loadErrorMessage);
 	}
 
 	get viewSchedulerName()
@@ -134,7 +195,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 
 	get activeStatusLabel()
 	{
-		return this.viewIsActive ? 'Active' : 'Inactive';
+		return this.viewIsActive ? ACTIVE_STATUS : INACTIVE_STATUS;
 	}
 
 	get activeStatusVariant()
@@ -147,6 +208,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 		if(data)
 		{
 			this.record = data;
+			this.loadErrorMessage = '';
 			let currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
 
 			if(currentClassName && currentClassName !== this._lastLoadedClassName)
@@ -158,7 +220,10 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 
 		if(error)
 		{
+			// Surface the failure instead of blanking silently; the template renders
+			// this message in the card's inline error state.
 			this.record = undefined;
+			this.loadErrorMessage = reduceErrors(error) || LOAD_FAILED_LABEL;
 		}
 	}
 
@@ -171,53 +236,8 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 		catch(error)
 		{
 			this.parameterDefinitions = null;
-			this.showErrorToast(reduceErrors(error) || 'Failed to load parameter definitions');
+			this.showErrorToast(reduceErrors(error) || LOAD_PARAMETERS_FAILED);
 		}
 	}
 
-}
-
-/**
- * @description Returns a human-readable timezone name from an IANA TimeZoneSidKey
- * using the browser's Intl.DateTimeFormat API.
- *
- * @param {string} timezoneSidKey The IANA timezone ID (e.g., Africa/Johannesburg).
- *
- * @returns {string} The display name, or the raw SidKey as fallback.
- */
-function getTimezoneDisplayName(timezoneSidKey)
-{
-	try
-	{
-		return new Intl.DateTimeFormat('en', {timeZone: timezoneSidKey, timeZoneName: 'long'})
-		.formatToParts(new Date())
-		.find((part) => part.type === 'timeZoneName').value;
-	}
-	catch(error)
-	{
-		return timezoneSidKey;
-	}
-}
-
-/**
- * @description Parses a DTO_NameValues JSON string into a plain object. Callers are
- * expected to have already verified the string is non-empty; invalid JSON is
- * caught and surfaced as an empty map so a malformed Parameters__c value never
- * breaks rendering.
- *
- * @param {string} attributeString The raw attributes JSON string.
- *
- * @returns {Object} Key-value map of parsed attributes.
- */
-function parseAttributes(attributeString)
-{
-	try
-	{
-		let parsed = JSON.parse(attributeString);
-		return parsed.nameValueMap || {};
-	}
-	catch(error)
-	{
-		return {};
-	}
 }

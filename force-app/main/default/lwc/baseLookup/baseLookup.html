@@ -20,7 +20,7 @@
                         </span>
 					<input class="slds-input slds-combobox__input slds-combobox__input-value" id="pill-input" readonly type="text" value={pillLabel}/>
 					<template if:false={readOnly}>
-						<button class="slds-button slds-button_icon slds-input__icon slds-input__icon_right" title="Remove selected option">
+						<button class="slds-button slds-button_icon slds-input__icon slds-input__icon_right" title={labels.removeSelectedOption}>
 							<lightning-icon alternative-text="close icon" icon-name="utility:close" onclick={clearLookup} size="x-small"></lightning-icon>
 						</button>
 					</template>
@@ -52,8 +52,8 @@
 					</template>
 
 					<!--ERROR msg, if there is no records-->
-					<template if:false={hasRecords}>
-						<li class="slds-listbox__item no-records-found">No Records Found....</li>
+					<template if:true={displayNoRecordsFound}>
+						<li class="slds-listbox__item no-records-found">{labels.noRecordsFound}</li>
 					</template>
 				</ul>
 			</div>

@@ -11,6 +11,14 @@ import {
 	mockCustomNotificationFactory, mockCustomNotification, mockShowErrorToast
 } from 'c/componentBuilder';
 
+// Custom Label mocks — values byte-equal the real CustomLabels entries so DOM
+// label lookups and formatTemplateString composition exercise the shipped text.
+jest.mock('@salesforce/label/c.PaginatedTable_InvalidPageSizeHeading', () => ({default: '"{0}" is not a valid number for Display Rows per Page on this table.'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_InvalidPageSizeMessage', () => ({default: 'Please enter a valid number greater than 0.'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_Next', () => ({default: 'Next'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_PageOfPages', () => ({default: 'Page {0} of {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_Previous', () => ({default: 'Previous'}), {virtual: true});
+
 // Mock message channel
 jest.mock('@salesforce/messageChannel/Component__c', () => ({
 	default: {}
@@ -259,7 +267,7 @@ describe('c-paginated-table', () =>
 			element.rows = mockRows;
 			element.columns = mockColumns;
 
-			element.selectedTableRows;
+			expect(element.selectedTableRows).toEqual([]);
 			expect(mockShowErrorToast).toHaveBeenCalledWith('Table accessed before render.');
 		});
 	});
@@ -302,6 +310,49 @@ describe('c-paginated-table', () =>
 			await flushPromises();
 
 			expect(mockCustomNotification).toHaveBeenCalled();
+		});
+	});
+
+	describe('render-path purity (invalid results-per-page side effects)', () =>
+	{
+		it('warns exactly once for an invalid resultsPerPage value across re-renders', async() =>
+		{
+			const element = createComponent({resultsPerPage: 0});
+			await flushPromises();
+
+			// An unrelated re-render must not re-fire the warning for the same invalid value.
+			element.title = 'Re-rendered Table';
+			await flushPromises();
+
+			expect(mockCustomNotification).toHaveBeenCalledTimes(1);
+		});
+
+		it('warns again when the invalid value changes to a different invalid value', async() =>
+		{
+			const element = createComponent({resultsPerPage: 0});
+			await flushPromises();
+
+			// @ts-ignore - intentionally passing string to drive a second, different invalid value
+			element.resultsPerPage = 'invalid';
+			await flushPromises();
+			await flushPromises();
+
+			expect(mockCustomNotification).toHaveBeenCalledTimes(2);
+		});
+
+		it('warns for a fresh invalid value after the table recovers to a valid one', async() =>
+		{
+			const element = createComponent({resultsPerPage: 0});
+			await flushPromises();
+
+			element.resultsPerPage = 2;
+			await flushPromises();
+
+			element.resultsPerPage = 0;
+			await flushPromises();
+			await flushPromises();
+
+			expect(mockCustomNotification).toHaveBeenCalledTimes(2);
 		});
 	});
 

@@ -17,6 +17,9 @@ export const ALL_MODULES = 'all';
 
 /** @description Error guidance when an unrecognised module identifier is supplied. */
 		// noinspection JSUnusedGlobalSymbols - exported for external use
+		// Developer-only invariant: thrown at class-composition time for a bad module identifier —
+		// never reachable from subscriber interaction.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 export const INVALID_INITIALISATION_ERROR = 'Verify that the module identifiers passed to ComponentBuilder are valid';
 
 /**

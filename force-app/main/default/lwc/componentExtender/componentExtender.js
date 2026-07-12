@@ -19,6 +19,9 @@ import initialiseNotificationModule from 'c/moduleNotification';
 const ALL_MODULES = 'all';
 
 /** @description Error guidance when an unrecognised module identifier is supplied. */
+		// Developer-only invariant: thrown at class-composition time for a bad module identifier —
+		// never reachable from subscriber interaction.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 const INVALID_INITIALISATION_ERROR = 'Verify that the module identifiers passed to ComponentBuilder are valid';
 
 // ── Module Registry ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -95,6 +98,8 @@ export function activateModules(component, moduleIdentifiers)
 
 		if(!initialiser)
 		{
+			// Developer-only invariant: composition-time failure for a bad module identifier.
+			// eslint-disable-next-line kerndx/no-hardcoded-user-text
 			throw new Error(`Invalid initialisation value: '${identifier}'. ${INVALID_INITIALISATION_ERROR}.`);
 		}
 

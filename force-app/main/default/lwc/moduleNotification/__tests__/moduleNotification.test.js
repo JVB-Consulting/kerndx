@@ -7,7 +7,14 @@
  * @date December 2025, June 2026
  */
 
-		// Mock ShowToastEvent
+// Custom Label mocks — values byte-equal the real CustomLabels entries so the
+// exported-constant and default-title assertions exercise the shipped text.
+jest.mock('@salesforce/label/c.ModuleNotification_ErrorTitle', () => ({default: 'Error'}), {virtual: true});
+jest.mock('@salesforce/label/c.ModuleNotification_InfoTitle', () => ({default: 'Info'}), {virtual: true});
+jest.mock('@salesforce/label/c.ModuleNotification_SuccessTitle', () => ({default: 'Success'}), {virtual: true});
+jest.mock('@salesforce/label/c.ModuleNotification_WarningTitle', () => ({default: 'Warning'}), {virtual: true});
+
+// Mock ShowToastEvent
 const mockShowToastEventInstances = [];
 jest.mock('lightning/platformShowToastEvent', () => ({
 	ShowToastEvent: class MockShowToastEvent

@@ -9,6 +9,22 @@ import {createElement} from 'lwc';
 import ChainStepTimeline from 'c/chainStepTimeline';
 import {mockCallControllerMethod} from 'c/componentBuilder';
 
+// Custom Label mocks — values byte-equal the real CustomLabels entries so DOM
+// text assertions exercise the shipped text.
+jest.mock('@salesforce/label/c.ChainMonitor_ClassLabel', () => ({default: 'Class'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ContinueOnErrorLabel', () => ({default: 'Continue on Error'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_Duration', () => ({default: 'Duration'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ErrorSection', () => ({default: 'Error'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_NoStepsRecorded', () => ({default: 'No steps recorded.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_Status', () => ({default: 'Status'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusCompleted', () => ({default: 'Completed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusContinued', () => ({default: 'Continued'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusFailed', () => ({default: 'Failed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusPending', () => ({default: 'Pending'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusRunning', () => ({default: 'Running'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StepTimelineTitle', () => ({default: 'Step Timeline'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_Yes', () => ({default: 'Yes'}), {virtual: true});
+
 const MOCK_STEPS = [
 	{name: 'Create Account', className: 'CreateAccountStep', stepStatus: 'success', durationLabel: '0.8s', errorMessage: null},
 	{name: 'Call API', className: 'CallApiStep', stepStatus: 'warning', durationLabel: '2.1s', errorMessage: 'Non-fatal: skipped', continueOnError: true},
@@ -219,6 +235,29 @@ describe('c-chain-step-timeline', () =>
 
 		const action = element.shadowRoot.querySelector('.slds-timeline__actions');
 		expect(action.textContent.trim()).toBe('Pending');
+	});
+
+	it('should assign unique row keys when the same step class and name repeat in a chain', () =>
+	{
+		const repeatedSteps = [
+			{name: 'Send Email', className: 'SendEmailStep', stepStatus: 'success', durationLabel: '1s', errorMessage: null},
+			{name: 'Send Email', className: 'SendEmailStep', stepStatus: 'pending', durationLabel: null, errorMessage: null}
+		];
+		const descriptor = Object.getOwnPropertyDescriptor(ChainStepTimeline.prototype, 'displaySteps');
+		const result = descriptor.get.call({steps: repeatedSteps, loadedSteps: [], isChainRunning: false});
+
+		expect(new Set(result.map((step) => step.key)).size).toBe(repeatedSteps.length);
+	});
+
+	it('should render every occurrence of a repeated step class', async() =>
+	{
+		const repeatedSteps = [
+			{name: 'Send Email', className: 'SendEmailStep', stepStatus: 'success', durationLabel: '1s', errorMessage: null},
+			{name: 'Send Email', className: 'SendEmailStep', stepStatus: 'pending', durationLabel: null, errorMessage: null}
+		];
+		const element = await createComponent({steps: repeatedSteps, chainStatus: 'Completed'});
+
+		expect(element.shadowRoot.querySelectorAll('[data-testid="step-row"]')).toHaveLength(repeatedSteps.length);
 	});
 
 	it('should use loaded chain status when chainStatus api property is absent', async() =>

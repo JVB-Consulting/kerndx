@@ -10,27 +10,17 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
+import INVALID_PAGE_SIZE_HEADING from '@salesforce/label/c.PaginatedTable_InvalidPageSizeHeading';
+import INVALID_PAGE_SIZE_MESSAGE from '@salesforce/label/c.PaginatedTable_InvalidPageSizeMessage';
+import NEXT_LABEL from '@salesforce/label/c.PaginatedTable_Next';
+import PAGE_OF_PAGES from '@salesforce/label/c.PaginatedTable_PageOfPages';
+import PREVIOUS_LABEL from '@salesforce/label/c.PaginatedTable_Previous';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {formatTemplateString} from 'c/utilityString';
 import {sortBy} from 'c/utilitySystem';
 import {api} from 'lwc';
-
-// ── Constants ────────────────────────────────────────────────────────────
-
-/**
- * @description Warning body shown when the results-per-page value is not a valid positive number.
- * @type {string}
- */
-const INVALID_PAGE_SIZE_MESSAGE = 'Please enter a valid number greater than 0.';
-
-/**
- * @description Warning heading template shown when the results-per-page value is invalid.
- * The `{0}` placeholder is replaced with the invalid value.
- * @type {string}
- */
-const INVALID_PAGE_SIZE_HEADING = '"{0}" is not a valid number for Display Rows per Page on this table.';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -113,6 +103,17 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 	 */
 	aggregatedSelections = [];
 
+	/**
+	 * @description The invalid results-per-page value already warned about, so the warning fires once
+	 * per distinct invalid value instead of on every render.
+	 */
+	lastWarnedResultsPerPage;
+
+	/** @description Template-bound Custom Labels for the pagination buttons. */
+	labels = {
+		next: NEXT_LABEL, previous: PREVIOUS_LABEL
+	};
+
 	// ── Computed Properties ──────────────────────────────────────────────
 
 	/**
@@ -143,20 +144,22 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 		let dataTable = this.template.querySelector('lightning-datatable');
 		if(!dataTable)
 		{
+			// Developer-only invariant: fires when a parent composes the table wrongly and
+			// queries it before first render — never reachable from subscriber interaction.
+			// eslint-disable-next-line kerndx/no-hardcoded-user-text
 			this.showErrorToast('Table accessed before render.');
 		}
 		return dataTable;
 	}
 
+	/**
+	 * @description Whether the configured results-per-page value is a valid positive number. Pure — the
+	 * invalid-value side effects (page reset + warning toast) run in renderedCallback, never during render.
+	 * @returns {boolean}
+	 */
 	get isValidResultsPerPage()
 	{
-		const isValidResultsPerPage = !isNaN(this.numResultsPerPage) && (this.numResultsPerPage > 0);
-		if(!isValidResultsPerPage)
-		{
-			this.resetPageNumber();
-			this.showWarningToast(INVALID_PAGE_SIZE_MESSAGE, formatTemplateString(INVALID_PAGE_SIZE_HEADING, [this.resultsPerPage]));
-		}
-		return isValidResultsPerPage;
+		return !isNaN(this.numResultsPerPage) && (this.numResultsPerPage > 0);
 	}
 
 	get currentPage()
@@ -193,6 +196,19 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 	get showPagination()
 	{
 		return this.isValidResultsPerPage && this.totalPages > 1;
+	}
+
+	/**
+	 * @description Pagination position text composed from the page-of-pages template label —
+	 * the HTML template cannot interpolate a label around bindings.
+	 * @returns {string}
+	 */
+	get pageOfPagesLabel()
+	{
+		return formatTemplateString(PAGE_OF_PAGES, [
+			this.page,
+			this.totalPages
+		]);
 	}
 
 	/**
@@ -244,6 +260,36 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 	{
 		// Overriding showWarningToast to use 'pester' instead of 'dismissible'
 		this.showWarningToast = this.customNotificationFactory('warning', 'pester');
+	}
+
+	renderedCallback()
+	{
+		this.handleInvalidResultsPerPage();
+	}
+
+	/**
+	 * @description Runs the invalid results-per-page side effects outside the render path: resets to the
+	 * first page and warns once per distinct invalid value. Clears the warned marker on a valid value so a
+	 * later regression warns again.
+	 */
+	handleInvalidResultsPerPage()
+	{
+		if(this.isValidResultsPerPage)
+		{
+			this.lastWarnedResultsPerPage = undefined;
+			return;
+		}
+
+		if(this.page !== 1)
+		{
+			this.resetPageNumber();
+		}
+
+		if(this.lastWarnedResultsPerPage !== this.resultsPerPage)
+		{
+			this.lastWarnedResultsPerPage = this.resultsPerPage;
+			this.showWarningToast(INVALID_PAGE_SIZE_MESSAGE, formatTemplateString(INVALID_PAGE_SIZE_HEADING, [this.resultsPerPage]));
+		}
 	}
 
 	// ── Navigation ───────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, March 2026
+ * @date June 2021, July 2026
  */
 import utilityLogger from 'c/utilityLogger';
 
@@ -38,6 +38,11 @@ import utilityLogger from 'c/utilityLogger';
  */
 
 const ERROR_SEPARATOR = ' // ';
+// Internal signal only: every copyToClipBoard caller catches this and shows its own
+// labelled toast (e.g. LogConsole_CopyFailed, ChainMonitor_CopyFailed); the thrown
+// message itself reaches only utilityLogger.
+// eslint-disable-next-line kerndx/no-hardcoded-user-text
+const CLIPBOARD_COPY_FAILED_ERROR = 'Clipboard copy failed';
 
 /**
  * @description Extracts message strings from a response body, handling the various
@@ -190,9 +195,12 @@ export function sortBy(field, direction = 1, transform = null)
 /**
  * @description Copies the provided text to the system clipboard. Uses the modern
  * Clipboard API with a fallback to a temporary input element for restricted contexts.
+ * Rejects when the Clipboard API and the fallback both fail, so callers never signal
+ * a copy that did not happen.
  *
  * @param {string} text - Text to copy
  * @returns {Promise<void>}
+ * @throws {Error} When the Clipboard API and the temporary-input fallback both fail
  */
 export async function copyToClipBoard(text)
 {
@@ -219,11 +227,16 @@ export async function copyToClipBoard(text)
 		try
 		{
 			// eslint-disable-next-line no-restricted-properties
-			document.execCommand('copy');
+			const didCopy = document.execCommand('copy');
+			if(!didCopy)
+			{
+				throw new Error(CLIPBOARD_COPY_FAILED_ERROR);
+			}
 		}
 		catch(fallbackError)
 		{
 			utilityLogger.error('Clipboard fallback failed', fallbackError);
+			throw fallbackError;
 		}
 		finally
 		{

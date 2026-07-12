@@ -2,15 +2,21 @@
 /**
  * @description Jest unit tests for flowFooter LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 import {createElement} from 'lwc';
 import LwcFlowFooter, {BACK_NAVIGATION_EVENT, NEXT_NAVIGATION_EVENT} from 'c/flowFooter';
 
+// Custom Label mocks — values byte-equal the real CustomLabels entries so the
+// default-title assertions exercise the shipped text.
+jest.mock('@salesforce/label/c.FlowFooter_BackButton', () => ({default: 'Back'}), {virtual: true});
+jest.mock('@salesforce/label/c.FlowFooter_NextButton', () => ({default: 'Next'}), {virtual: true});
+
 // Track message channel subscriptions
 let mockSubscriptions = [];
 let mockPublishedMessages = [];
+let mockClearedSubscriptionCount = 0;
 
 // Mock ComponentBuilder to return a class with required functionality
 jest.mock('c/componentBuilder', () => ({
@@ -28,6 +34,13 @@ jest.mock('c/componentBuilder', () => ({
 			publishLightningMessage(channel, message)
 			{
 				mockPublishedMessages.push({channel, message});
+			}
+
+			clearSubscriptions()
+			{
+				mockClearedSubscriptionCount += 1;
+				mockSubscriptions = [];
+				return mockSubscriptions.length;
 			}
 
 			dispatchFlowBackEvent()
@@ -61,6 +74,7 @@ describe('c-flow-footer', () =>
 	{
 		mockSubscriptions = [];
 		mockPublishedMessages = [];
+		mockClearedSubscriptionCount = 0;
 	});
 
 	afterEach(() =>
@@ -259,6 +273,19 @@ describe('c-flow-footer', () =>
 			await Promise.resolve();
 
 			expect(element.isNextButtonDisabled).toBe(false);
+		});
+	});
+
+	describe('disconnectedCallback', () =>
+	{
+		it('should clear the Navigation message channel subscription when removed from the DOM', async() =>
+		{
+			await createComponent();
+			expect(mockClearedSubscriptionCount).toBe(0);
+
+			document.body.removeChild(element);
+
+			expect(mockClearedSubscriptionCount).toBe(1);
 		});
 	});
 

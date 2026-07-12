@@ -33,15 +33,15 @@
 
 			<!-- Steps -->
 			<lightning-accordion active-section-name={activeSections} allow-multiple-sections-open>
-				<lightning-accordion-section label="Steps" name="steps">
+				<lightning-accordion-section label={label.stepsSection} name="steps">
 					<c-chain-step-timeline chain-status={detail.status} data-testid="step-timeline" steps={detail.steps}></c-chain-step-timeline>
 				</lightning-accordion-section>
 
 				<!-- Timing -->
-				<lightning-accordion-section label="Timing" name="timing">
+				<lightning-accordion-section label={label.timingSection} name="timing">
 					<dl class="timing-grid" data-testid="timing-grid">
 						<div>
-							<dt>Started</dt>
+							<dt>{label.started}</dt>
 							<dd data-testid="started-at">
 								<lightning-formatted-date-time day="numeric" hour="2-digit" minute="2-digit" month="short" second="2-digit" value={detail.startedAt}
 								                               year="numeric"></lightning-formatted-date-time>
@@ -49,7 +49,7 @@
 						</div>
 						<template if:true={hasCompletedAt}>
 							<div>
-								<dt>Completed</dt>
+								<dt>{label.completed}</dt>
 								<dd data-testid="completed-at">
 									<lightning-formatted-date-time day="numeric" hour="2-digit" minute="2-digit" month="short" second="2-digit" value={detail.completedAt}
 									                               year="numeric"></lightning-formatted-date-time>
@@ -57,11 +57,11 @@
 							</div>
 						</template>
 						<div>
-							<dt>Duration</dt>
+							<dt>{label.duration}</dt>
 							<dd data-testid="duration">{detail.durationLabel}</dd>
 						</div>
 						<div>
-							<dt>Correlation ID</dt>
+							<dt>{label.correlationId}</dt>
 							<dd>
 								<span class="slds-truncate" data-testid="correlation-id" title={detail.correlationId}>{detail.correlationId}</span>
 								<lightning-button-icon alternative-text="Copy correlation ID" data-testid="copy-correlation" icon-name="utility:copy_to_clipboard"
@@ -73,7 +73,7 @@
 
 				<!-- Error -->
 				<template if:true={hasError}>
-					<lightning-accordion-section label="Error" name="error">
+					<lightning-accordion-section label={label.errorSection} name="error">
 						<div class="slds-box slds-box_x-small slds-theme_error slds-text-body_small" data-testid="error-message" style="white-space: pre-wrap;">
 							{detail.errorMessage}
 						</div>
@@ -86,9 +86,8 @@
 		<template if:false={isLoading}>
 			<div class="slds-illustration slds-illustration_small slds-var-p-around_large">
 				<div class="slds-text-longform">
-					<h3 class="slds-text-heading_medium slds-text-color_weak">Select a chain</h3>
-					<p class="slds-text-body_regular slds-text-color_weak">
-						Choose a chain execution from the list to view step details. </p>
+					<h3 class="slds-text-heading_medium slds-text-color_weak">{label.emptyStateHeading}</h3>
+					<p class="slds-text-body_regular slds-text-color_weak">{label.emptyStateBody}</p>
 				</div>
 			</div>
 		</template>

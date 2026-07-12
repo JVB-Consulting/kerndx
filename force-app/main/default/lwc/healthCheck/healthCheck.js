@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import ClassTypeResolverSetupModal from 'c/classTypeResolverSetupModal';
@@ -39,6 +39,13 @@ import CUSTOMIZING_HEADLINE from '@salesforce/label/c.HealthCheck_DataRetention_
 import CUSTOMIZING_HELP from '@salesforce/label/c.HealthCheck_DataRetention_CustomizingHelp';
 import FAIL_SECTION_HEADING from '@salesforce/label/c.HealthCheck_FailSection_Heading';
 import WARN_SECTION_HEADING from '@salesforce/label/c.HealthCheck_WarnSection_Heading';
+import WARNING_SINGULAR from '@salesforce/label/c.HealthCheck_WarningSingular';
+import WARNING_PLURAL from '@salesforce/label/c.HealthCheck_WarningPlural';
+import REFRESH_FAILED_TOAST from '@salesforce/label/c.HealthCheck_DataRetention_RefreshFailedToast';
+import RECORD_COUNT_SINGULAR from '@salesforce/label/c.HealthCheck_DataRetention_RecordCountSingular';
+import RECORD_COUNT_PLURAL from '@salesforce/label/c.HealthCheck_DataRetention_RecordCountPlural';
+import DAY_SUFFIX from '@salesforce/label/c.HealthCheck_DataRetention_DaySuffix';
+import {formatTemplateString} from 'c/utilityString';
 
 const PARAMETER_OBJECT_NAME = 'objectName';
 const PARAMETER_MINIMUM_DAYS = 'minimumNumberOfDays';
@@ -142,9 +149,9 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		const warnCount = this.results.filter((result) => result.warned).length;
 		if(failCount > 0)
 		{
-			return ACTION_REQUIRED_HEADLINE.replace('{0}', failCount).replace('{1}', warnCount).replace('{2}', warnCount === 1 ? 'warning' : 'warnings');
+			return ACTION_REQUIRED_HEADLINE.replace('{0}', failCount).replace('{1}', warnCount).replace('{2}', warnCount === 1 ? WARNING_SINGULAR : WARNING_PLURAL);
 		}
-		return REVIEW_RECOMMENDED_HEADLINE.replace('{0}', warnCount).replace('{1}', warnCount === 1 ? 'warning' : 'warnings');
+		return REVIEW_RECOMMENDED_HEADLINE.replace('{0}', warnCount).replace('{1}', warnCount === 1 ? WARNING_SINGULAR : WARNING_PLURAL);
 	}
 
 	get resultCountLabel()
@@ -235,13 +242,22 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 	/**
 	 * @description Opens the Apply Recommended Retention modal after fetching proposals from Apex.
 	 *              Dispatches to confirm (apply + toast + refresh), customize (flip mode), or cancel (no-op)
-	 *              based on the modal's resolved action.
+	 *              based on the modal's resolved action. A failed proposal fetch or a failed apply is
+	 *              surfaced as an error toast by callControllerMethod, and the flow stops there.
 	 *
 	 * @return {Promise<void>} Resolves after the full apply-or-customize flow completes.
 	 */
 	async handleApplyRetention()
 	{
-		const proposals = await getRetentionProposals();
+		// callControllerMethod resolves undefined after surfacing a failed fetch as an error
+		// toast; without proposals there is nothing to review, so the modal stays closed.
+		const proposals = await this.callControllerMethod(getRetentionProposals);
+
+		if(!proposals)
+		{
+			return;
+		}
+
 		const result = await ApplyRetentionModal.open({
 			size: 'medium',
 			proposals,
@@ -254,9 +270,17 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 
 		if(result?.action === 'confirm')
 		{
-			const insertedIds = await applyRetentionRecommendations({
+			const insertedIds = await this.callControllerMethod(applyRetentionRecommendations, {
 				proposalsJson: JSON.stringify(result.proposals)
 			});
+
+			// A failed apply is surfaced as an error toast by callControllerMethod; only a
+			// real result may refresh the checks and signal success.
+			if(!insertedIds)
+			{
+				return;
+			}
+
 			await this.runChecks();
 			this.showSuccessToast(SUCCESS_TOAST.replace('{0}', insertedIds.length));
 		}
@@ -327,7 +351,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		}
 		catch(error)
 		{
-			this.showErrorToast('Failed to refresh retention proposals');
+			this.showErrorToast(REFRESH_FAILED_TOAST);
 			return;
 		}
 
@@ -339,8 +363,10 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 
 	/**
 	 * @description Toggles customize mode. When enabling, fetches the current retention
-	 *              proposals so sub-rows render with fresh data. When disabling, leaves
-	 *              the cached list in place (the sub-row template unmounts anyway).
+	 *              proposals so sub-rows render with fresh data; a failed fetch is surfaced
+	 *              as an error toast by callControllerMethod and leaves the mode unchanged.
+	 *              When disabling, leaves the cached list in place (the sub-row template
+	 *              unmounts anyway).
 	 *
 	 * @param {boolean} enabled Whether customize mode should be on.
 	 *
@@ -350,20 +376,30 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 	{
 		if(enabled)
 		{
-			this.retentionProposals = this.decorateProposals(await getRetentionProposals());
+			// callControllerMethod resolves undefined after surfacing a failed fetch as an
+			// error toast; staying in the current view beats an empty customize block.
+			const proposals = await this.callControllerMethod(getRetentionProposals);
+
+			if(!proposals)
+			{
+				return;
+			}
+
+			this.retentionProposals = this.decorateProposals(proposals);
 		}
 
 		this.isCustomizeMode = enabled;
 	}
 
 	/**
-	 * @description Decorates each retention proposal with a view-model field that renders
+	 * @description Decorates each retention proposal with view-model fields that render
 	 *              the record count with correct singular/plural grammar and locale-aware
-	 *              thousands separators. Returns a new array; does not mutate its input.
+	 *              thousands separators, and the label-sourced retention period text.
+	 *              Returns a new array; does not mutate its input.
 	 *
 	 * @param {object[]} proposals The raw proposal list returned from the Apex controller.
 	 *
-	 * @return {object[]} A decorated copy where each proposal has `recordCountLabel` added.
+	 * @return {object[]} A decorated copy where each proposal has `recordCountLabel` and `retentionLabel` added.
 	 */
 	decorateProposals(proposals)
 	{
@@ -373,7 +409,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		}
 
 		return proposals.map((proposal) => ({
-			...proposal, recordCountLabel: this.formatRecordCountLabel(proposal.recordCount)
+			...proposal, recordCountLabel: this.formatRecordCountLabel(proposal.recordCount), retentionLabel: formatTemplateString(DAY_SUFFIX, [proposal.retentionDays])
 		}));
 	}
 
@@ -395,10 +431,10 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 
 		if(numericCount === 1)
 		{
-			return '1 record';
+			return RECORD_COUNT_SINGULAR;
 		}
 
-		return numericCount.toLocaleString() + ' records';
+		return formatTemplateString(RECORD_COUNT_PLURAL, [numericCount.toLocaleString()]);
 	}
 
 	getIconName(status)

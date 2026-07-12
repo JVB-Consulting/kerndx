@@ -13,7 +13,14 @@
 /* eslint-disable-next-line kerndx/enforce-component-naming */
 import LightningModal from 'lightning/modal';
 import {api} from 'lwc';
+import {formatTemplateString} from 'c/utilityString';
 import SCHEDULE_OPTIONS from '@salesforce/label/c.HealthCheck_DataRetention_ScheduleOptions';
+import COLUMN_OBJECT from '@salesforce/label/c.HealthCheck_DataRetention_ColumnObject';
+import COLUMN_RECORDS_TODAY from '@salesforce/label/c.HealthCheck_DataRetention_ColumnRecordsToday';
+import COLUMN_RETENTION from '@salesforce/label/c.HealthCheck_DataRetention_ColumnRetention';
+import COLUMN_SCHEDULE from '@salesforce/label/c.HealthCheck_DataRetention_ColumnSchedule';
+import RETENTION_DAYS from '@salesforce/label/c.HealthCheck_DataRetention_RetentionDays';
+import CANCEL_BUTTON from '@salesforce/label/c.HealthCheck_DataRetention_CancelButton';
 
 export default class ApplyRetentionModal extends LightningModal
 {
@@ -69,6 +76,11 @@ export default class ApplyRetentionModal extends LightningModal
 	 */
 	workingProposals = [];
 
+	/** @description Template-bound Custom Labels for the proposal table and footer. */
+	labels = {
+		columnObject: COLUMN_OBJECT, columnRecordsToday: COLUMN_RECORDS_TODAY, columnRetention: COLUMN_RETENTION, columnSchedule: COLUMN_SCHEDULE, cancel: CANCEL_BUTTON
+	};
+
 	/**
 	 * @description Parses the pipe-delimited custom label into an array of combobox options.
 	 *
@@ -85,7 +97,9 @@ export default class ApplyRetentionModal extends LightningModal
 
 	connectedCallback()
 	{
-		this.workingProposals = (this.proposals || []).map((proposal) => ({...proposal}));
+		this.workingProposals = (this.proposals || []).map((proposal) => ({
+			...proposal, retentionDisplay: formatTemplateString(RETENTION_DAYS, [proposal.retentionDays])
+		}));
 	}
 
 	/**
@@ -110,7 +124,15 @@ export default class ApplyRetentionModal extends LightningModal
 
 	handleConfirm()
 	{
-		this.close(/** @type {*} */({action: 'confirm', proposals: this.workingProposals}));
+		// Strip the display-only retention text so the confirm payload keeps the exact
+		// DTO_RetentionProposal shape the caller serialises to Apex.
+		const proposals = this.workingProposals.map((workingProposal) =>
+		{
+			const proposal = {...workingProposal};
+			delete proposal.retentionDisplay;
+			return proposal;
+		});
+		this.close(/** @type {*} */({action: 'confirm', proposals}));
 	}
 
 	handleCustomize()

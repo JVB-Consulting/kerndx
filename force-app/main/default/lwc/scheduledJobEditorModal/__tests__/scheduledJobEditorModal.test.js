@@ -3,8 +3,23 @@
  * @description Jest unit tests for scheduledJobEditorModal LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
+import LOAD_RECORD_FAILED_LABEL from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
+import LOAD_PARAMETER_DEFINITIONS_FAILED_LABEL from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
+import SAVE_FAILED_LABEL from '@salesforce/label/c.ScheduledJob_SaveFailed';
+import CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
+import EDIT_TITLE from '@salesforce/label/c.ScheduledJob_EditTitle';
+import SCHEDULE from '@salesforce/label/c.ScheduledJob_Schedule';
+import SUCCESS_TOAST_TITLE from '@salesforce/label/c.ScheduledJobEditorModal_SuccessToastTitle';
+import CREATED from '@salesforce/label/c.ScheduledJob_Created';
+import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
+
+// Resolve the timezone-heading label to its real templated value so scheduleHeading's
+// formatTemplateString interpolation (and the getTimezoneDisplayName raw-id fallback)
+// stay verified through the public getter rather than mocked to a pass-through.
+jest.mock('@salesforce/label/c.ScheduledJob_ScheduleWithTimezone', () => ({default: 'Schedule ({0})'}), {virtual: true});
+
 jest.mock('lightning/modal', () =>
 {
 	const lwc = require('lwc');
@@ -223,6 +238,7 @@ describe('c-scheduled-job-editor-modal', () =>
 				cronIsValid: true,
 				isSaving: false,
 				disableClose: false,
+				errorMessage: '',
 				_lastLoadedClassName: undefined,
 				userTimezone: '',
 				close: jest.fn(),
@@ -252,20 +268,20 @@ describe('c-scheduled-job-editor-modal', () =>
 
 		describe('modalTitle', () =>
 		{
-			it('returns New Scheduled Job in create mode', () =>
+			it('returns the create-mode title in create mode', () =>
 			{
 				let context = createMockContext({recordId: undefined});
 				Object.defineProperty(context, 'isCreateMode', {get: () => true});
 				let getter = getGetter('modalTitle');
-				expect(getter.call(context)).toBe('New Scheduled Job');
+				expect(getter.call(context)).toBe(CREATE_TITLE);
 			});
 
-			it('returns Edit Scheduled Job in edit mode', () =>
+			it('returns the edit-mode title in edit mode', () =>
 			{
 				let context = createMockContext();
 				Object.defineProperty(context, 'isCreateMode', {get: () => false});
 				let getter = getGetter('modalTitle');
-				expect(getter.call(context)).toBe('Edit Scheduled Job');
+				expect(getter.call(context)).toBe(EDIT_TITLE);
 			});
 		});
 
@@ -356,6 +372,57 @@ describe('c-scheduled-job-editor-modal', () =>
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
 				let getter = getGetter('isSaveDisabled');
 				expect(getter.call(context)).toBe(false);
+			});
+
+			it('returns false when a required parameter is satisfied only by its defaultValue', () =>
+			{
+				// The parameter input renders pre-filled with the defaultValue, so the form must
+				// treat that default as a satisfied required value instead of keeping Save disabled.
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					cronIsValid: true,
+					parameterDefinitions: [{name: 'objectName', label: 'Object Name', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'}],
+					parameterValues: {}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('isSaveDisabled');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('returns true when a required parameter was explicitly cleared despite a defaultValue', () =>
+			{
+				// An explicit empty entry means the user removed the pre-filled default,
+				// so the requirement is no longer satisfied and Save stays disabled.
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					cronIsValid: true,
+					parameterDefinitions: [{name: 'objectName', label: 'Object Name', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'}],
+					parameterValues: {objectName: ''}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('isSaveDisabled');
+				expect(getter.call(context)).toBe(true);
+			});
+		});
+
+		describe('hasErrorMessage', () =>
+		{
+			it('returns false when errorMessage is empty', () =>
+			{
+				let context = createMockContext({errorMessage: ''});
+				let getter = getGetter('hasErrorMessage');
+				expect(getter.call(context)).toBe(false);
+			});
+
+			it('returns true when errorMessage is set', () =>
+			{
+				let context = createMockContext({errorMessage: 'Something went wrong'});
+				let getter = getGetter('hasErrorMessage');
+				expect(getter.call(context)).toBe(true);
 			});
 		});
 
@@ -501,6 +568,19 @@ describe('c-scheduled-job-editor-modal', () =>
 				let result = getter.call(context);
 				expect(result[0].isLocked).toBe(false);
 			});
+
+			it('treats a parameter with no dataType as an untyped field', () =>
+			{
+				let context = createMockContext({
+					parameterDefinitions: [{name: 'mystery', label: 'Mystery', isRequired: false}], parameterValues: {mystery: 'x'}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				let getter = getGetter('editParameterFields');
+				let result = getter.call(context);
+				expect(result[0].isText).toBe(false);
+				expect(result[0].isNumeric).toBe(false);
+				expect(result[0].isToggle).toBe(false);
+			});
 		});
 
 		describe('isClassNameLocked', () =>
@@ -554,7 +634,14 @@ describe('c-scheduled-job-editor-modal', () =>
 			{
 				let context = createMockContext({userTimezone: ''});
 				let getter = getGetter('scheduleHeading');
-				expect(getter.call(context)).toBe('Schedule');
+				expect(getter.call(context)).toBe(SCHEDULE);
+			});
+
+			it('falls back to the raw timezone id when Intl cannot format the zone', () =>
+			{
+				let context = createMockContext({userTimezone: 'Totally/Bogus_Zone'});
+				let getter = getGetter('scheduleHeading');
+				expect(getter.call(context)).toBe('Schedule (Totally/Bogus_Zone)');
 			});
 		});
 
@@ -676,23 +763,46 @@ describe('c-scheduled-job-editor-modal', () =>
 				expect(context.parameterValues).toEqual({});
 			});
 
-			it('dispatches error toast on wire error', () =>
+			it('defaults to an empty parameter map when the stored JSON omits nameValueMap', () =>
 			{
+				getFieldValue
+				.mockReturnValueOnce(null)
+				.mockReturnValueOnce('Job')
+				.mockReturnValueOnce('0 0 1 * * ?')
+				.mockReturnValueOnce(true)
+				.mockReturnValueOnce('Active job')
+				.mockReturnValueOnce('{"unexpected":true}');
 				let context = createMockContext();
-				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
-				expect(context.dispatchEvent).toHaveBeenCalled();
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({variant: 'error'}));
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				expect(context.parameterValues).toEqual({});
 			});
 
-			it('uses fallback message when reduceErrors returns empty on wire error', () =>
+			it('surfaces a record load failure inside the modal instead of dispatching a toast', () =>
+			{
+				// Toasts dispatched while a LightningModal is open are swallowed by the overlay,
+				// so load errors must render in the modal's inline error region instead.
+				let context = createMockContext();
+				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
+				expect(context.errorMessage).toBe('mock error detail');
+				expect(context.dispatchEvent).not.toHaveBeenCalled();
+				expect(ShowToastEvent).not.toHaveBeenCalled();
+			});
+
+			it('uses the fallback label when reduceErrors returns empty on wire error', () =>
 			{
 				const {reduceErrors} = require('c/utilitySystem');
 				reduceErrors.mockReturnValueOnce('');
 				let context = createMockContext();
 				prototype.wiredRecord.call(context, {error: {message: 'Error'}});
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					message: 'Failed to load record'
-				}));
+				expect(context.errorMessage).toBe(LOAD_RECORD_FAILED_LABEL);
+			});
+
+			it('clears the inline error when record data arrives', () =>
+			{
+				getFieldValue.mockReturnValue(null);
+				let context = createMockContext({errorMessage: 'stale error'});
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				expect(context.errorMessage).toBe('');
 			});
 		});
 
@@ -707,28 +817,33 @@ describe('c-scheduled-job-editor-modal', () =>
 				expect(context.parameterDefinitions).toEqual(mockDefinitions);
 			});
 
-			it('sets null and dispatches error toast on failure', async() =>
+			it('sets null and surfaces the failure inside the modal instead of dispatching a toast', async() =>
 			{
 				getParameterDefinitions.mockRejectedValue(new Error('Not found'));
 				let context = createMockContext({parameterDefinitions: [{name: 'old'}]});
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
 				expect(context.parameterDefinitions).toBeNull();
-				expect(context.dispatchEvent).toHaveBeenCalled();
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					title: 'Error', message: 'mock error detail', variant: 'error'
-				}));
+				expect(context.errorMessage).toBe('mock error detail');
+				expect(context.dispatchEvent).not.toHaveBeenCalled();
+				expect(ShowToastEvent).not.toHaveBeenCalled();
 			});
 
-			it('uses fallback message when reduceErrors returns empty', async() =>
+			it('uses the fallback label when reduceErrors returns empty', async() =>
 			{
 				const {reduceErrors} = require('c/utilitySystem');
 				reduceErrors.mockReturnValueOnce('');
 				getParameterDefinitions.mockRejectedValue(new Error('Not found'));
 				let context = createMockContext();
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					message: 'Failed to load parameter definitions'
-				}));
+				expect(context.errorMessage).toBe(LOAD_PARAMETER_DEFINITIONS_FAILED_LABEL);
+			});
+
+			it('clears the inline error when definitions load successfully', async() =>
+			{
+				getParameterDefinitions.mockResolvedValue([{name: 'objectName', label: 'Object Name', dataType: 'TEXT'}]);
+				let context = createMockContext({errorMessage: 'stale error'});
+				await prototype.loadParameterDefinitions.call(context, 'SCHED_PurgeRecords');
+				expect(context.errorMessage).toBe('');
 			});
 		});
 
@@ -862,6 +977,15 @@ describe('c-scheduled-job-editor-modal', () =>
 				expect(context.parameterValues.objectName).toBe('Account');
 				expect(context.parameterValues.batchSize).toBe('500');
 			});
+
+			it('coerces a missing change value to an empty string', () =>
+			{
+				let context = createMockContext({parameterValues: {}});
+				prototype.handleParameterChange.call(context, {
+					target: {dataset: {parameterName: 'objectName'}, type: 'text'}, detail: {}
+				});
+				expect(context.parameterValues.objectName).toBe('');
+			});
 		});
 
 		describe('handleSave', () =>
@@ -915,7 +1039,7 @@ describe('c-scheduled-job-editor-modal', () =>
 				Object.defineProperty(context, 'isCreateMode', {get: () => true});
 				await prototype.handleSave.call(context);
 				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					title: 'Success', message: 'Scheduled job created', variant: 'success'
+					title: SUCCESS_TOAST_TITLE, message: CREATED, variant: 'success'
 				}));
 				expect(context.close).toHaveBeenCalledWith('a00000000000NEW');
 			});
@@ -930,7 +1054,7 @@ describe('c-scheduled-job-editor-modal', () =>
 				Object.defineProperty(context, 'isCreateMode', {get: () => false});
 				await prototype.handleSave.call(context);
 				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					title: 'Success', message: 'Scheduled job saved', variant: 'success'
+					title: SUCCESS_TOAST_TITLE, message: SAVED, variant: 'success'
 				}));
 			});
 
@@ -965,12 +1089,7 @@ describe('c-scheduled-job-editor-modal', () =>
 
 			it('sets disableClose during save', async() =>
 			{
-				let capturedDisableClose;
-				saveRecord.mockImplementation(() =>
-				{
-					capturedDisableClose = true;
-					return Promise.resolve('a00000000000001');
-				});
+				saveRecord.mockImplementation(() => Promise.resolve('a00000000000001'));
 				let context = createMockContext({
 					schedulerName: 'Job', className: 'SCHED_Test', cronExpression: '0 0 12 * * ?'
 				});
@@ -1038,21 +1157,23 @@ describe('c-scheduled-job-editor-modal', () =>
 				expect(context.isSaving).toBe(false);
 			});
 
-			it('dispatches error toast on save failure', async() =>
+			it('surfaces a save failure inside the modal instead of dispatching a toast', async() =>
 			{
+				// Toasts dispatched while a LightningModal is open are swallowed by the overlay,
+				// so save errors must render in the modal's inline error region instead.
 				saveRecord.mockRejectedValue(new Error('Save failed'));
 				let context = createMockContext({
 					schedulerName: 'Job', className: 'SCHED_Test', cronExpression: '0 0 12 * * ?'
 				});
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					title: 'Error', message: 'mock error detail', variant: 'error'
-				}));
+				expect(context.errorMessage).toBe('mock error detail');
+				expect(context.dispatchEvent).not.toHaveBeenCalled();
+				expect(ShowToastEvent).not.toHaveBeenCalled();
 				expect(context.close).not.toHaveBeenCalled();
 			});
 
-			it('shows fallback error when reduceErrors fails', async() =>
+			it('shows the fallback label inline when reduceErrors fails', async() =>
 			{
 				const {reduceErrors} = require('c/utilitySystem');
 				reduceErrors.mockImplementationOnce(() =>
@@ -1065,12 +1186,10 @@ describe('c-scheduled-job-editor-modal', () =>
 				});
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					message: 'Failed to save scheduled job'
-				}));
+				expect(context.errorMessage).toBe(SAVE_FAILED_LABEL);
 			});
 
-			it('shows fallback error when reduceErrors returns empty', async() =>
+			it('shows the fallback label inline when reduceErrors returns empty', async() =>
 			{
 				const {reduceErrors} = require('c/utilitySystem');
 				reduceErrors.mockReturnValueOnce('');
@@ -1080,9 +1199,19 @@ describe('c-scheduled-job-editor-modal', () =>
 				});
 				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
 				await prototype.handleSave.call(context);
-				expect(ShowToastEvent).toHaveBeenCalledWith(expect.objectContaining({
-					message: 'Failed to save scheduled job'
-				}));
+				expect(context.errorMessage).toBe(SAVE_FAILED_LABEL);
+			});
+
+			it('clears a previous inline error when a new save attempt starts', async() =>
+			{
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job', className: 'SCHED_Test', cronExpression: '0 0 12 * * ?', errorMessage: 'stale error'
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => false});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				expect(context.errorMessage).toBe('');
 			});
 
 			it('resets isSaving after failure', async() =>
@@ -1145,6 +1274,79 @@ describe('c-scheduled-job-editor-modal', () =>
 				await prototype.handleSave.call(context);
 				let parsedInactive = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
 				expect(parsedInactive.isActive).toBe(false);
+			});
+
+			it('persists an untouched parameter defaultValue in the save payload', async() =>
+			{
+				// The form displays the defaultValue, so saving without touching the input
+				// must persist exactly what the user saw instead of dropping the parameter.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job', className: 'SCHED_Test', cronExpression: '0 0 12 * * ?', parameterDefinitions: [
+						{name: 'objectName', label: 'Object', dataType: 'TEXT', isRequired: true, defaultValue: 'LogEntry__c'},
+						{name: 'minimumNumberOfDays', label: 'Minimum Number Of Days', dataType: 'NUMERIC', defaultValue: '30'}
+					], parameterValues: {}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters).toEqual({objectName: 'LogEntry__c', minimumNumberOfDays: '30'});
+			});
+
+			it('prunes parameter values from a previously selected class out of the save payload', async() =>
+			{
+				// Switching schedulable classes leaves the old class's entries in parameterValues;
+				// only parameters defined for the currently selected class may be serialised.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT'}],
+					parameterValues: {objectName: 'Account', staleParameterFromPreviousClass: 'stale'}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters).toEqual({objectName: 'Account'});
+			});
+
+			it('keeps an explicitly cleared parameter empty instead of restoring its defaultValue', async() =>
+			{
+				// Pins the what-you-see-is-what-saves rule: a cleared input shows empty,
+				// so the payload carries an empty string, not the resurrected default.
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT', defaultValue: 'LogEntry__c'}],
+					parameterValues: {objectName: ''}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters.objectName).toBe('');
+			});
+
+			it('serializes an empty string when a parameter has neither a value nor a defaultValue', async() =>
+			{
+				saveRecord.mockResolvedValue('a00000000000001');
+				let context = createMockContext({
+					schedulerName: 'Job',
+					className: 'SCHED_Test',
+					cronExpression: '0 0 12 * * ?',
+					parameterDefinitions: [{name: 'objectName', label: 'Object', dataType: 'TEXT'}],
+					parameterValues: {}
+				});
+				Object.defineProperty(context, 'hasParameterDefinitions', {get: () => true});
+				Object.defineProperty(context, 'isCreateMode', {get: () => false});
+				await prototype.handleSave.call(context);
+				let parsed = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(parsed.parameters.objectName).toBe('');
 			});
 		});
 
@@ -1398,6 +1600,7 @@ describe('c-scheduled-job-editor-modal', () =>
 		{
 			for(let index = 0; index < 5; index++)
 			{
+				// eslint-disable-next-line no-await-in-loop -- flush one microtask tick per iteration
 				await Promise.resolve();
 			}
 		}
@@ -1495,6 +1698,34 @@ describe('c-scheduled-job-editor-modal', () =>
 				expect(String(name).trim()).not.toBe('utility:');
 			}
 		});
+
+		it('renders the inline error region when loading parameter definitions fails', async() =>
+		{
+			const getParameterDefinitions = require('@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions').default;
+			getParameterDefinitions.mockRejectedValue(new Error('Not found'));
+			const {createElement} = require('lwc');
+			let element = createElement('c-scheduled-job-editor-modal', {is: ScheduledJobEditorModal});
+			document.body.appendChild(element);
+			await flushPromises();
+
+			let combobox = element.shadowRoot.querySelector('lightning-combobox[data-testid="class-name"]');
+			combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'SCHED_BadClass'}}));
+			await flushPromises();
+
+			let errorRegion = element.shadowRoot.querySelector('[data-testid="inline-error"]');
+			expect(errorRegion).toBeTruthy();
+			expect(errorRegion.textContent).toContain('mock error detail');
+		});
+
+		it('does not render the inline error region when there is no error', async() =>
+		{
+			const {createElement} = require('lwc');
+			let element = createElement('c-scheduled-job-editor-modal', {is: ScheduledJobEditorModal});
+			document.body.appendChild(element);
+			await flushPromises();
+
+			expect(element.shadowRoot.querySelector('[data-testid="inline-error"]')).toBeNull();
+		});
 	});
 
 	describe('template structure', () =>
@@ -1508,6 +1739,17 @@ describe('c-scheduled-job-editor-modal', () =>
 			expect(template).toContain('lightning-modal-header');
 			expect(template).toContain('lightning-modal-body');
 			expect(template).toContain('lightning-modal-footer');
+		});
+
+		it('contains the inline error region bound to errorMessage', () =>
+		{
+			const fs = require('fs');
+			const path = require('path');
+			let templatePath = path.resolve(__dirname, '..', 'scheduledJobEditorModal.html');
+			let template = fs.readFileSync(templatePath, 'utf8');
+			expect(template).toContain('data-testid="inline-error"');
+			expect(template).toContain('{errorMessage}');
+			expect(template).toContain('role="alert"');
 		});
 
 		it('contains form fields in modal body', () =>
@@ -1528,8 +1770,8 @@ describe('c-scheduled-job-editor-modal', () =>
 			const path = require('path');
 			let templatePath = path.resolve(__dirname, '..', 'scheduledJobEditorModal.html');
 			let template = fs.readFileSync(templatePath, 'utf8');
-			expect(template).toContain('label="Save"');
-			expect(template).toContain('label="Cancel"');
+			expect(template).toContain('label={label.save}');
+			expect(template).toContain('label={label.cancel}');
 			expect(template).toContain('variant="brand"');
 		});
 

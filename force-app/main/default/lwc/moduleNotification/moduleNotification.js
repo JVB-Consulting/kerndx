@@ -7,6 +7,10 @@
  *
  * @date February 2022, May 2026
  */
+import ERROR_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_ErrorTitle';
+import INFO_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_InfoTitle';
+import SUCCESS_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_SuccessTitle';
+import WARNING_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_WarningTitle';
 import {ShowToastEvent} from 'lightning/platformShowToastEvent';
 import {reduceErrors} from 'c/utilitySystem';
 
@@ -24,13 +28,17 @@ const VALID_MODES = new Set([
 	'sticky'
 ]);
 
+// Developer-only invariants: thrown when a caller passes an invalid variant/mode — a
+// programming error surfaced during development, never reachable from subscriber interaction.
+// eslint-disable-next-line kerndx/no-hardcoded-user-text
 const INVALID_VARIANT_ERROR = 'Invalid Toast variant. Valid values are: \'info\' (default), \'success\', \'warning\', and \'error\'.';
+// eslint-disable-next-line kerndx/no-hardcoded-user-text
 const INVALID_MODE_ERROR = 'Invalid Toast mode. Valid values are: \'dismissible\' (default), \'pester\', and \'sticky\'.';
 
-export const INFO_NOTIFICATION_TITLE = 'Info';
-export const WARNING_NOTIFICATION_TITLE = 'Warning';
-export const SUCCESS_NOTIFICATION_TITLE = 'Success';
-export const ERROR_NOTIFICATION_TITLE = 'Error';
+export const INFO_NOTIFICATION_TITLE = INFO_TITLE_LABEL;
+export const WARNING_NOTIFICATION_TITLE = WARNING_TITLE_LABEL;
+export const SUCCESS_NOTIFICATION_TITLE = SUCCESS_TITLE_LABEL;
+export const ERROR_NOTIFICATION_TITLE = ERROR_TITLE_LABEL;
 
 // ── Internal Helpers ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

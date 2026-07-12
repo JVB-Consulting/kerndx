@@ -16,6 +16,7 @@
 			<property name="controllerName" type="String" label="Controller Name" description="Name of controller which implements IF_Search." required="true"></property>
 			<property name="name" type="String" description="Unique identifier of search lookup element" label="Unique Element Name" required="true"></property>
 			<property name="fieldLabel" type="String" label="Label" description="Lookup label" required="true"></property>
+			<!-- i18n-allow: default="Id" is a field API name (result-identity property), not display text. -->
 			<property name="resultUniqueId"
 					  type="String"
 					  label="Individual Result Id"
@@ -36,6 +37,7 @@
 					  required="true"></property>
 			<property name="name" role="inputOnly" type="String" description="Unique identifier of search lookup element" label="Unique Element Name" required="true"></property>
 			<property name="fieldLabel" role="inputOnly" type="String" label="Label" description="Lookup label" required="true"></property>
+			<!-- i18n-allow: default="Id" is a field API name (result-identity property), not display text. -->
 			<property name="resultUniqueId"
 					  role="inputOnly"
 					  type="String"

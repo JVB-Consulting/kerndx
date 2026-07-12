@@ -8,7 +8,7 @@
 		<!-- Search + Filter Toggle -->
 		<div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_x-small slds-gutters_x-small">
 			<div class="slds-col slds-grow">
-				<lightning-input label="Chain Name" oncommit={handleNameSearch} placeholder="Search chain name..." type="search" value={nameFilter}
+				<lightning-input label={label.nameFilter} oncommit={handleNameSearch} placeholder={label.nameFilterPlaceholder} type="search" value={nameFilter}
 				                 variant="label-hidden"></lightning-input>
 			</div>
 			<div class="slds-col slds-shrink-none">
@@ -21,7 +21,7 @@
 		<template if:true={showFilters}>
 			<div class="filter-tray slds-var-m-bottom_x-small">
 				<div class="filter-row">
-					<lightning-checkbox-group label="Status" onchange={handleStatusChange} options={statusOptions} value={statusFilters}
+					<lightning-checkbox-group label={label.statusFilter} onchange={handleStatusChange} options={statusOptions} value={statusFilters}
 					                          variant="label-hidden"></lightning-checkbox-group>
 					<lightning-button class="slds-shrink-none" label={toggleAllLabel} onclick={handleToggleAllStatuses} variant="base"></lightning-button>
 				</div>
@@ -34,9 +34,9 @@
 
 		<!-- Pagination -->
 		<div class="slds-grid slds-grid_align-center slds-var-m-top_x-small">
-			<lightning-button disabled={noPrevious} icon-name="utility:chevronleft" label="Previous" onclick={handlePrevious}></lightning-button>
+			<lightning-button disabled={noPrevious} icon-name="utility:chevronleft" label={label.previous} onclick={handlePrevious}></lightning-button>
 			<span class="slds-var-p-horizontal_medium slds-align-middle slds-text-body_small">{pageLabel}</span>
-			<lightning-button disabled={noNext} icon-name="utility:chevronright" icon-position="right" label="Next" onclick={handleNext}></lightning-button>
+			<lightning-button disabled={noNext} icon-name="utility:chevronright" icon-position="right" label={label.next} onclick={handleNext}></lightning-button>
 		</div>
 	</div>
 </template>
