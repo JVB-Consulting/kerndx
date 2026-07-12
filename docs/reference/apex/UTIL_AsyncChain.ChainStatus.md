@@ -67,7 +67,8 @@ if(status.isFailed()) { escalate(status.errorMessage); }
 global Boolean isRunning()
 ```
 
-Whether the chain is currently running. Delayed and Stalled are reported as
+Whether the chain is currently running. The reserved Delayed and Stalled
+statuses (defined but not currently written by the framework) would be reported as
 neither running nor terminal.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Running.
@@ -115,7 +116,7 @@ if(status.isTerminal()) { notifyDone(status); }
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | The failure message, when the chain has failed; otherwise null. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [executionId](#executionid) | The AsyncChainExecution__c record ID. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [startedAt](#startedat) | When the chain started executing. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The lifecycle status: one of Running, Completed, Failed, Aborted, Delayed or Stalled. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The lifecycle status: one of Running, Completed, Failed or Aborted. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [totalSteps](#totalsteps) | The total number of steps in the chain. |
 
 ### chainName
@@ -228,8 +229,9 @@ global String status
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-The lifecycle status: one of Running, Completed, Failed, Aborted, Delayed or
-Stalled. Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
+The lifecycle status: one of Running, Completed, Failed or Aborted. (The status
+picklist also defines Delayed and Stalled, which the framework does not currently write.)
+Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
 
 ### totalSteps
 

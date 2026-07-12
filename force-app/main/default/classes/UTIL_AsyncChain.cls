@@ -296,8 +296,9 @@ global inherited sharing class UTIL_AsyncChain
 		global String chainName;
 
 		/**
-		 * @description The lifecycle status: one of Running, Completed, Failed, Aborted, Delayed or
-		 * Stalled. Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
+		 * @description The lifecycle status: one of Running, Completed, Failed or Aborted. (The status
+		 * picklist also defines Delayed and Stalled, which the framework does not currently write.)
+		 * Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
 		 *
 		 * @since 1.2
 		 */
@@ -369,7 +370,8 @@ global inherited sharing class UTIL_AsyncChain
 		global String durationLabel;
 
 		/**
-		 * @description Whether the chain is currently running. Delayed and Stalled are reported as
+		 * @description Whether the chain is currently running. The reserved Delayed and Stalled
+		 * statuses (defined but not currently written by the framework) would be reported as
 		 * neither running nor terminal.
 		 *
 		 * @return true when the status is Running.

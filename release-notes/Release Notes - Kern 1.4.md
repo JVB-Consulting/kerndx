@@ -22,7 +22,7 @@ the release.
 <summary>Expand</summary>
 
 1. [At a glance](#at-a-glance)
-2. [Translate the framework's UI: every display string is now a Custom Label](#translate-the-frameworks-ui-every-display-string-is-now-a-custom-label)
+2. [Translate the framework's UI: display strings are now Custom Labels](#translate-the-frameworks-ui-display-strings-are-now-custom-labels)
 3. [Async chains: no more spurious failures from long step logs](#async-chains-no-more-spurious-failures-from-long-step-logs)
 4. [Chain Monitor: live refresh in every deploy, not just managed installs](#chain-monitor-live-refresh-in-every-deploy-not-just-managed-installs)
 5. [Record forms: failed saves are reported, explicit values survive](#record-forms-failed-saves-are-reported-explicit-values-survive)
@@ -43,7 +43,7 @@ Ordered by impact. Find your row, read across, and follow the link for more.
 
 | # | What's new | Who it's for | In one line |
 |---|-----------|--------------|-------------|
-| 1 | **[Translatable UI](#translate-the-frameworks-ui-every-display-string-is-now-a-custom-label)** | Admins · International teams | Every display string across 28 component bundles now comes from Custom Labels, ready for Translation Workbench |
+| 1 | **[Translatable UI](#translate-the-frameworks-ui-display-strings-are-now-custom-labels)** | Admins · International teams | Every display string across 28 component bundles now comes from Custom Labels, ready for Translation Workbench |
 | 2 | **[Async-chain failure fix](#async-chains-no-more-spurious-failures-from-long-step-logs)** | Developers · Admins | A continue-on-error chain no longer flips to Failed just because its accumulated step messages grew long |
 | 3 | **[Chain Monitor live refresh](#chain-monitor-live-refresh-in-every-deploy-not-just-managed-installs)** | Admins · Developers | Real-time refresh now works in unmanaged and renamed-namespace deploys, and only chain events trigger it |
 | 4 | **[Record forms you can trust](#record-forms-failed-saves-are-reported-explicit-values-survive)** | Admins · End users | A blocked save now shows an error instead of looking saved; explicit 0, false, and empty values persist as-is |
@@ -54,7 +54,7 @@ Ordered by impact. Find your row, read across, and follow the link for more.
 
 ---
 
-## Translate the framework's UI: every display string is now a Custom Label
+## Translate the framework's UI: display strings are now Custom Labels
 
 **Who it's for:** administrators of international orgs, and any team that wants to reword the framework's messages.
 
@@ -153,11 +153,6 @@ package upgrade with no migration steps.
   do unless you relied on unrelated events refreshing the view.
 - **Timeline axis ticks changed shape.** The Streaming Monitor timeline's axis ticks are epoch-aligned steps now (see the timeline section above).
 - **Three documentation links open in the current tab.** In the Streaming Monitor's register tab, developer-doc links that moved into rich text no longer force a new tab.
-
-### Known issue: Salesforce Code Analyzer cannot load the scanner rulesets yet
-
-Unchanged from 1.3: the current `code-analyzer` plugin bundles a PMD engine below the version the KernDX rulesets require, so `sf code-analyzer` fails to load them. The
-standalone PMD CLI (7.26.0 or later) runs the same rulesets with identical results; the pipeline tooling's `kerndx doctor` diagnoses this and prints the workaround.
 
 ### Known issue: the Log Console's date presets follow the browser clock
 
