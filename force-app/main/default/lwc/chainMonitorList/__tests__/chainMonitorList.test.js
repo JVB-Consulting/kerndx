@@ -5,9 +5,19 @@
  * @date April 2026, May 2026, July 2026
  */
 
+// The page-position label carries {0}/{1} placeholders; mocking it to the real template value
+// keeps the 'Page 1 of 1' assertion an end-to-end check of formatTemplateString interpolation
+// (the default sfdx-lwc-jest mock would resolve it to the bare label id and skip substitution).
+jest.mock('@salesforce/label/c.ChainMonitor_PageLabel', () => ({default: 'Page {0} of {1}'}), {virtual: true});
+
 import {createElement} from 'lwc';
 import ChainMonitorList from 'c/chainMonitorList';
 import {mockCallControllerMethod} from 'c/componentBuilder';
+import CLEAR_ALL from '@salesforce/label/c.ChainMonitor_ClearAll';
+import SELECT_ALL from '@salesforce/label/c.ChainMonitor_SelectAll';
+import NEXT_LABEL from '@salesforce/label/c.ChainMonitor_NextLabel';
+import PREVIOUS_LABEL from '@salesforce/label/c.ChainMonitor_PreviousLabel';
+import COLUMN_CHAIN_NAME from '@salesforce/label/c.ChainMonitor_ChainName';
 
 const MOCK_PAGE = {
 	records: [
@@ -125,7 +135,7 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === 'Clear All');
+		const toggleButton = Array.from(buttons).find(b => b.label === CLEAR_ALL);
 		expect(toggleButton).toBeTruthy();
 	});
 
@@ -138,7 +148,7 @@ describe('c-chain-monitor-list', () =>
 
 		mockCallControllerMethod.mockClear();
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === 'Clear All');
+		const toggleButton = Array.from(buttons).find(b => b.label === CLEAR_ALL);
 		toggleButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -161,7 +171,7 @@ describe('c-chain-monitor-list', () =>
 
 		mockCallControllerMethod.mockClear();
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === 'Select All');
+		const toggleButton = Array.from(buttons).find(b => b.label === SELECT_ALL);
 		toggleButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -231,7 +241,7 @@ describe('c-chain-monitor-list', () =>
 		mockCallControllerMethod.mockResolvedValueOnce(MOCK_PAGE_2);
 
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const nextButton = Array.from(buttons).find(b => b.label === 'Next');
+		const nextButton = Array.from(buttons).find(b => b.label === NEXT_LABEL);
 		nextButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -248,7 +258,7 @@ describe('c-chain-monitor-list', () =>
 		mockCallControllerMethod.mockResolvedValueOnce(MOCK_PAGE_1);
 
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const prevButton = Array.from(buttons).find(b => b.label === 'Previous');
+		const prevButton = Array.from(buttons).find(b => b.label === PREVIOUS_LABEL);
 		prevButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -300,7 +310,7 @@ describe('c-chain-monitor-list', () =>
 		const element = await createComponent();
 
 		const datatable = element.shadowRoot.querySelector('lightning-datatable');
-		const chainNameColumn = datatable.columns.find(c => c.label === 'Chain Name');
+		const chainNameColumn = datatable.columns.find(c => c.label === COLUMN_CHAIN_NAME);
 		expect(chainNameColumn.type).toBe('url');
 		expect(chainNameColumn.fieldName).toBe('recordUrl');
 	});
@@ -361,7 +371,7 @@ describe('c-chain-monitor-list', () =>
 		const element = await createComponent();
 
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const prevButton = Array.from(buttons).find(b => b.label === 'Previous');
+		const prevButton = Array.from(buttons).find(b => b.label === PREVIOUS_LABEL);
 		expect(prevButton.disabled).toBe(true);
 	});
 
@@ -370,7 +380,7 @@ describe('c-chain-monitor-list', () =>
 		const element = await createComponent();
 
 		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const nextButton = Array.from(buttons).find(b => b.label === 'Next');
+		const nextButton = Array.from(buttons).find(b => b.label === NEXT_LABEL);
 		expect(nextButton.disabled).toBe(true);
 	});
 

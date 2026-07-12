@@ -9,32 +9,49 @@
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
+import {formatTemplateString} from 'c/utilityString';
 import getChainExecutions from '@salesforce/apex/CTRL_ChainMonitor.getChainExecutions';
+import statusRunning from '@salesforce/label/c.ChainMonitor_StatusRunning';
+import statusCompleted from '@salesforce/label/c.ChainMonitor_StatusCompleted';
+import statusFailed from '@salesforce/label/c.ChainMonitor_StatusFailed';
+import statusAborted from '@salesforce/label/c.ChainMonitor_StatusAborted';
+import statusStalled from '@salesforce/label/c.ChainMonitor_StatusStalled';
+import chainNameLabel from '@salesforce/label/c.ChainMonitor_ChainName';
+import statusLabel from '@salesforce/label/c.ChainMonitor_Status';
+import columnProgress from '@salesforce/label/c.ChainMonitor_ColumnProgress';
+import startedLabel from '@salesforce/label/c.ChainMonitor_Started';
+import durationLabel from '@salesforce/label/c.ChainMonitor_Duration';
+import clearAll from '@salesforce/label/c.ChainMonitor_ClearAll';
+import selectAll from '@salesforce/label/c.ChainMonitor_SelectAll';
+import pageLabelTemplate from '@salesforce/label/c.ChainMonitor_PageLabel';
+import nameFilterPlaceholder from '@salesforce/label/c.ChainMonitor_NameFilterPlaceholder';
+import previousLabel from '@salesforce/label/c.ChainMonitor_PreviousLabel';
+import nextLabel from '@salesforce/label/c.ChainMonitor_NextLabel';
 
 const STATUS_OPTIONS = [
-	{label: 'Running', value: 'Running'},
-	{label: 'Completed', value: 'Completed'},
-	{label: 'Failed', value: 'Failed'},
-	{label: 'Aborted', value: 'Aborted'},
-	{label: 'Stalled', value: 'Stalled'}
+	{label: statusRunning, value: 'Running'},
+	{label: statusCompleted, value: 'Completed'},
+	{label: statusFailed, value: 'Failed'},
+	{label: statusAborted, value: 'Aborted'},
+	{label: statusStalled, value: 'Stalled'}
 ];
 
 const ALL_STATUS_VALUES = STATUS_OPTIONS.map((option) => option.value);
 
 const COLUMNS = [
 	{
-		label: 'Chain Name', fieldName: 'recordUrl', type: 'url', sortable: true, typeAttributes: {label: {fieldName: 'chainName'}}
+		label: chainNameLabel, fieldName: 'recordUrl', type: 'url', sortable: true, typeAttributes: {label: {fieldName: 'chainName'}}
 	},
-	{label: 'Status', fieldName: 'status', type: 'text', sortable: true},
-	{label: 'Progress', fieldName: 'progressLabel', type: 'text', sortable: false},
+	{label: statusLabel, fieldName: 'status', type: 'text', sortable: true},
+	{label: columnProgress, fieldName: 'progressLabel', type: 'text', sortable: false},
 	{
-		label: 'Started',
+		label: startedLabel,
 		fieldName: 'startedAt',
 		type: 'date',
 		sortable: true,
 		typeAttributes: {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}
 	},
-	{label: 'Duration', fieldName: 'durationLabel', type: 'text', sortable: true}
+	{label: durationLabel, fieldName: 'durationLabel', type: 'text', sortable: true}
 ];
 
 const PAGE_SIZE = 20;
@@ -55,6 +72,10 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 	showFilters = false;
 	selectedExecutionId = null;
 
+	label = {
+		nameFilter: chainNameLabel, nameFilterPlaceholder, statusFilter: statusLabel, previous: previousLabel, next: nextLabel
+	};
+
 	get isAllStatusesSelected()
 	{
 		return this.statusFilters.length === STATUS_OPTIONS.length;
@@ -62,7 +83,7 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 
 	get toggleAllLabel()
 	{
-		return this.isAllStatusesSelected ? 'Clear All' : 'Select All';
+		return this.isAllStatusesSelected ? clearAll : selectAll;
 	}
 
 	get noPrevious()
@@ -77,7 +98,10 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 
 	get pageLabel()
 	{
-		return `Page ${this.pageNumber} of ${this.totalPages}`;
+		return formatTemplateString(pageLabelTemplate, [
+			this.pageNumber,
+			this.totalPages
+		]);
 	}
 
 	get sortDirection()

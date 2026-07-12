@@ -2,20 +2,35 @@
 /**
  * @description Jest unit tests for chainMonitorDetail LWC component
  * @author Jason van Beukering
- * @date April 2026, June 2026
+ * @date April 2026, July 2026
  */
 
 import {createElement} from 'lwc';
 // noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
-import {mockCallControllerMethod, mockNavigate, mockShowSuccessToast} from 'c/componentBuilder';
+import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
 
 const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('c/utilitySystem', () => ({
 	copyToClipBoard: (...args) => mockCopyToClipBoard(...args)
-}), {virtual: true});
+}));
 
 jest.mock('@salesforce/label/c.ChainMonitor_ViewLogsAction', () => ({default: 'View logs'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CopyFailed', () => ({default: 'Couldn\'t copy to the clipboard. Try again or copy the value manually.'}), {virtual: true});
+// The progress badge carries {0}/{1} placeholders; the real template value keeps the '3/3 steps'
+// assertion an end-to-end check of formatTemplateString. The rest mirror their in-org values so
+// the DOM-text and toast-title assertions verify byte-faithful wiring, not a bare label id.
+jest.mock('@salesforce/label/c.ChainMonitor_ProgressSteps', () => ({default: '{0}/{1} steps'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CorrelationCopied', () => ({default: 'Correlation ID copied'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StepsSection', () => ({default: 'Steps'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_TimingSection', () => ({default: 'Timing'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_Started', () => ({default: 'Started'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CompletedLabel', () => ({default: 'Completed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_Duration', () => ({default: 'Duration'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CorrelationIdLabel', () => ({default: 'Correlation ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ErrorSection', () => ({default: 'Error'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_EmptyStateHeading', () => ({default: 'Select a chain'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_EmptyStateBody', () => ({default: 'Choose a chain execution from the list to view step details.'}), {virtual: true});
 
 /*
  * Note on `global.__lwcJestMock_getChainDetail`:
@@ -211,6 +226,22 @@ describe('c-chain-monitor-detail', () =>
 
 		expect(mockCopyToClipBoard).toHaveBeenCalledWith('test-correlation-id');
 		expect(mockShowSuccessToast).toHaveBeenCalledWith('Correlation ID copied');
+	});
+
+	it('shows an error toast instead of an unhandled rejection when the clipboard copy fails', async() =>
+	{
+		mockCopyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+
+		const element = await createComponent('a00000000000001AAA');
+		const copyButton = element.shadowRoot.querySelector('lightning-button-icon');
+		copyButton.dispatchEvent(new CustomEvent('click'));
+		// A macrotask flush lets the async click handler fully settle. Before the fix, the
+		// un-caught copy rejection escaped the handler here and failed this test as an
+		// unhandled rejection, so a regression of the catch surfaces loudly on its own.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		expect(mockShowErrorToast).toHaveBeenCalledWith('Couldn\'t copy to the clipboard. Try again or copy the value manually.');
 	});
 
 	it('should clear detail when executionId set to null', async() =>

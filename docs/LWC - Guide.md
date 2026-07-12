@@ -482,8 +482,8 @@ async loadData()
 You don't have to send logs to the server yourself. The framework flushes them to Apex automatically at three moments:
 
 - when you call `endCorrelation()`,
-- when the in-memory buffer fills up, and
-- when the page unloads (on a best-effort basis).
+- when you log an `error()` (sent immediately), and
+- when the in-memory buffer reaches 20 entries.
 
 On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The context object you pass is kept on the entry (`ContextData__c`), and when you log an `Error` its JavaScript stack trace is kept too (`StackTrace__c`), so the [Log Console](Logging%20-%20Guide.md#the-log-console) detail drawer shows exactly what the client saw. The benefit: when you investigate a problem later, the client and server halves of the same action are already stitched together.
 
@@ -1229,7 +1229,7 @@ When you need to watch real-time events flowing through your org, to debug an in
 
 - Subscribe/unsubscribe to event channels
 - Filter events by channel, payload content, time range
-- Table and Timeline views (D3.js visualisation)
+- Table and Timeline views
 - Publish events for testing
 - View org limits and event usage metrics
 - Register new Platform Events
@@ -1435,7 +1435,7 @@ These are the building blocks KernDX uses inside its own components. You don't p
 |--------------------------|---------------------------------------------------------|
 | `streamingEvents`        | Event list display                                      |
 | `streamingEventFilters`  | Filter controls                                         |
-| `streamingTimeline`      | D3.js timeline visualisation                            |
+| `streamingTimeline`      | Interactive timeline visualisation                            |
 | `streamingEventsHeader`  | Header action buttons                                   |
 | `streamingUsageMetrics`  | Usage metrics charts                                    |
 | `streamingUsageFilters`  | Metrics filter controls                                 |
@@ -1460,8 +1460,10 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
 
 **Key patterns:**
 
-- **Event-driven refresh:** `chainMonitor` subscribes to `LogEntryEvent__e` via `empApi`. If the subscribe
-  fails, it is caught silently and the monitor still works through imperative Apex calls on user interactions.
+- **Event-driven refresh:** `chainMonitor` subscribes to `LogEntryEvent__e` via `empApi`, resolving your
+  org's namespace at runtime so live refresh works in unmanaged and renamed-namespace deploys too. If the
+  subscribe fails, the failure is logged and the monitor still works through imperative Apex calls on user
+  interactions.
 - **Smart row selection:** `chainMonitorList` auto-selects the first row on load, keeps the selection
   after a filter or sort if the row still exists, and clears it if the row is filtered out.
 - **String parameter pattern:** the controller takes `String requestJson` and calls `JSON.deserialize()` to avoid
@@ -1871,7 +1873,7 @@ Components available in Lightning App Builder.
 
 - Subscribe/unsubscribe to event channels
 - Filter by channel, payload keyword, time range
-- Table and Timeline (D3.js) views
+- Table and Timeline views
 - Publish test events
 - View org limits consumption
 - Event usage metrics dashboard
@@ -2239,7 +2241,7 @@ All 67 LWC components in the KernDX framework with their category, exposure stat
 |--------------------------|:-------:|:----------:|---------------------------------------------------------|
 | `streamingEvents`        |    -    |    Yes     | Event list with table/timeline views                    |
 | `streamingEventFilters`  |    -    |    Yes     | Event filter controls                                   |
-| `streamingTimeline`      |    -    |    Yes     | D3.js timeline visualisation                            |
+| `streamingTimeline`      |    -    |    Yes     | Interactive timeline visualisation                            |
 | `streamingEventsHeader`  |    -    |    Yes     | Event header actions                                    |
 | `streamingUsageMetrics`  |    -    |    Yes     | Usage metrics charts                                    |
 | `streamingUsageFilters`  |    -    |    Yes     | Metrics filter controls                                 |

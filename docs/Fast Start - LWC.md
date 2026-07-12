@@ -17,7 +17,7 @@ navOrder: 30
 - [ ] Working in a sandbox or scratch org (not production)
 
 **What you'll build:** A KernDX-aware Lightning Web Component that calls an Apex controller method, shows a
-toast on success or failure, and logs to the browser console through the framework. You'll also write a Jest test that
+toast on success or failure, and logs errors through the framework's client logger. You'll also write a Jest test that
 mocks the framework base class so the component runs in isolation.
 
 **Success looks like:** Your component drops onto a Lightning page, calls Apex, and raises a success toast.
@@ -552,9 +552,11 @@ this.consoleLog('User clicked save', {recordId: this.recordId});
 this.consoleError(error, 'accountCard.handleSave');
 ```
 
-These write to the browser console. When you want the client's story **kept and searchable**, import the
-`kern/utilityLogger` module: its `debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex
-automatically and saved as `kern__LogEntry__c` rows, and an `Error` passed to `error()` keeps its JavaScript
+These are buffered and flushed to Apex automatically, so the client's story is **kept and searchable** out
+of the box (browser-console echoing is off by default; enable it while debugging with
+`setConsoleMirroring(true)` from `kern/utilityLogger`). For correlation tracking and explicit log levels,
+import the `kern/utilityLogger` module directly: its `debug()` / `info()` / `warn()` / `error()` calls are
+flushed to Apex automatically and saved as `kern__LogEntry__c` rows, and an `Error` passed to `error()` keeps its JavaScript
 stack trace and context data on the entry. For logging from your Apex controller method itself, call
 `kern.LOG_Builder`. See
 [Fast Start - Logging](Fast%20Start%20-%20Logging.md). To tie a client interaction to the Apex it triggers

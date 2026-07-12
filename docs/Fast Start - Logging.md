@@ -560,12 +560,14 @@ All log entries from the Flow share the same Correlation ID, so you can filter t
 
 From a Lightning Web Component, log with the built-in `consoleLog()` and `consoleError()` methods on
 ComponentBuilder (the KernDX base class that gives your components their common wiring, such as toasts,
-Apex calls, and navigation, already built in). These write to the browser console, not to
-`kern__LogEntry__c`.
+Apex calls, and navigation, already built in). These route through the framework's client logger: the
+entries are buffered, flushed to Apex automatically, and saved as `kern__LogEntry__c` rows. They echo to
+the browser console only if you turn mirroring on with `setConsoleMirroring(true)` from
+`kern/utilityLogger`, which is handy while debugging.
 
-When you want the client's story kept and searchable, import the `kern/utilityLogger` module instead: its
-`debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex automatically and saved as
-`kern__LogEntry__c` rows. Pass an `Error` object to `error()` and its JavaScript stack trace is kept on the
+For correlation tracking, timers, and explicit log levels, import the `kern/utilityLogger` module
+directly: its `debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex automatically and
+saved as `kern__LogEntry__c` rows. Pass an `Error` object to `error()` and its JavaScript stack trace is kept on the
 entry, along with any context data you pass, so you can read later exactly what the client saw. For logging
 from your Apex controller methods themselves, use `LOG_Builder`.
 

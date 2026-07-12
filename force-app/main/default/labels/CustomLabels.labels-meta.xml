@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
     <labels>
+        <fullName>ChainMonitor_CopyFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast shown when copying to the clipboard fails</shortDescription>
+        <value>Couldn&apos;t copy to the clipboard. Try again or copy the value manually.</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_ViewLogsAction</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -55,6 +63,14 @@
         <protected>false</protected>
         <shortDescription>Code container language label (shown above each code block)</shortDescription>
         <value>Apex</value>
+    </labels>
+    <labels>
+        <fullName>ClassTypeResolverModal_CopyFailed</fullName>
+        <categories>Class Type Resolver Setup</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inline error shown in the modal when copying the generated code fails</shortDescription>
+        <value>Couldn&apos;t copy to the clipboard. Select the code and copy it manually, or use the download button.</value>
     </labels>
     <labels>
         <fullName>ClassTypeResolverModal_CopyResolverAltText</fullName>
@@ -1705,6 +1721,22 @@ Members: {0}</value>
         <value>Events of type {0} cannot be published from the Event Monitor.</value>
     </labels>
     <labels>
+        <fullName>EventTimeline_ChartLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible label for the event timeline chart.</shortDescription>
+        <value>Event timeline</value>
+    </labels>
+    <labels>
+        <fullName>EventTimeline_Tooltip_ClickForDetails</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline dot tooltip call-to-action.</shortDescription>
+        <value>Click for more details.</value>
+    </labels>
+    <labels>
         <fullName>EventUsageMetrics_CardTitle</fullName>
         <categories>Streaming Monitor</categories>
         <language>en_US</language>
@@ -2621,7 +2653,7 @@ Members: {0}</value>
         <categories>Log Console</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Detail action: export the entry's transaction</shortDescription>
+        <shortDescription>Detail action: export the entry&apos;s transaction</shortDescription>
         <value>Export transaction</value>
     </labels>
     <labels>
@@ -2733,7 +2765,7 @@ Members: {0}</value>
         <categories>Log Console</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Marks the opened entry's own node in the correlation chain</shortDescription>
+        <shortDescription>Marks the opened entry&apos;s own node in the correlation chain</shortDescription>
         <value>this</value>
     </labels>
     <labels>
@@ -2767,6 +2799,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Copy the code block to the clipboard</shortDescription>
         <value>Copy</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyFailed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast shown when copying to the clipboard fails</shortDescription>
+        <value>Couldn&apos;t copy to the clipboard. Try again or copy the text manually.</value>
     </labels>
     <labels>
         <fullName>LogConsole_DetailsHeading</fullName>
@@ -3181,7 +3221,7 @@ Members: {0}</value>
         <categories>Log Console</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Detail header label preceding a single entry's logged timestamp (entries view)</shortDescription>
+        <shortDescription>Detail header label preceding a single entry&apos;s logged timestamp (entries view)</shortDescription>
         <value>Logged</value>
     </labels>
     <labels>
@@ -3510,7 +3550,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Idle-state explanation of what the coverage scan does.</shortDescription>
-        <value>The scan runs the advisor's field analysis on each object, a few at a time, and lists the ones with likely-sensitive fields and no masking. You can cancel at any point and keep what was found. Nothing changes in your org.</value>
+        <value>The scan runs the advisor&apos;s field analysis on each object, a few at a time, and lists the ones with likely-sensitive fields and no masking. You can cancel at any point and keep what was found. Nothing changes in your org.</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_CoverageScan_IncludeManaged_Label</fullName>
@@ -3677,7 +3717,7 @@ Members: {0}</value>
         <categories>Data Masking Advisor</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Add-object group heading for the subscriber's own custom objects.</shortDescription>
+        <shortDescription>Add-object group heading for the subscriber&apos;s own custom objects.</shortDescription>
         <value>Your custom objects</value>
     </labels>
     <labels>
@@ -4254,7 +4294,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Focus card state when the hop detail could not be loaded</shortDescription>
-        <value>Couldn't load this entry's detail. Open the record for the full detail.</value>
+        <value>Couldn&apos;t load this entry&apos;s detail. Open the record for the full detail.</value>
     </labels>
     <labels>
         <fullName>LogConsole_LegendDebug</fullName>
@@ -4319,5 +4359,2837 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Duration unit: seconds component of a timeline span</shortDescription>
         <value>{0}s</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_LoadFailed</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail card error message when the scheduled job record fails to load</shortDescription>
+        <value>The scheduled job could not be loaded.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_Loading</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail card loading spinner assistive text</shortDescription>
+        <value>Loading scheduled job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_NewTitle</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title shown when creating a scheduled job</shortDescription>
+        <value>New Scheduled Job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_EditTitle</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title shown when editing a scheduled job</shortDescription>
+        <value>Edit Scheduled Job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Schedule</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Schedule section heading</shortDescription>
+        <value>Schedule</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ScheduleWithTimezone</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Schedule heading with the user timezone in parentheses</shortDescription>
+        <value>Schedule ({0})</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_LoadRecordFailed</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast when the scheduled job record fails to load</shortDescription>
+        <value>Failed to load record</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_LoadParameterDefinitionsFailed</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast when parameter definitions fail to load</shortDescription>
+        <value>Failed to load parameter definitions</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Created</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast after creating a scheduled job</shortDescription>
+        <value>Scheduled job created</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Saved</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast after saving a scheduled job</shortDescription>
+        <value>Scheduled job saved</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_SaveFailed</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast when saving a scheduled job fails</shortDescription>
+        <value>Failed to save scheduled job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_SchedulerName</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for the scheduler name</shortDescription>
+        <value>Scheduler Name</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ClassName</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for the Apex class name</shortDescription>
+        <value>Class Name</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ClassNamePlaceholder</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the class-name lookup</shortDescription>
+        <value>Select a class...</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Active</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Active state label (toggle and status display)</shortDescription>
+        <value>Active</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Inactive</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Inactive state label (toggle and status display)</shortDescription>
+        <value>Inactive</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Parameters</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Parameters section heading</shortDescription>
+        <value>Parameters</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Yes</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Boolean parameter toggle on-label</shortDescription>
+        <value>Yes</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_No</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Boolean parameter toggle off-label</shortDescription>
+        <value>No</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Description</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for the job description</shortDescription>
+        <value>Description</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Cancel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Cancel button label</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_Save</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Save button label</shortDescription>
+        <value>Save</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_CardTitle</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail card title</shortDescription>
+        <value>Scheduled Job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_Status</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status field label</shortDescription>
+        <value>Status</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_NoSchedule</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state text shown when no cron schedule is configured</shortDescription>
+        <value>No schedule configured</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_ParameterColumn</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Parameters table parameter-name column header</shortDescription>
+        <value>Parameter</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_ValueColumn</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Parameters table value column header</shortDescription>
+        <value>Value</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobEditorModal_SuccessToastTitle</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast title after saving from the editor modal</shortDescription>
+        <value>Success</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FreqEveryNMinutes</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset frequency option: every N minutes</shortDescription>
+        <value>Every N Minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FreqHourly</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset frequency option: hourly</shortDescription>
+        <value>Hourly</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FreqDaily</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset frequency option: daily</shortDescription>
+        <value>Daily</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FreqWeekly</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset frequency option: weekly</shortDescription>
+        <value>Weekly</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FreqMonthly</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset frequency option: monthly</shortDescription>
+        <value>Monthly</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalEvery5</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minute-interval option: every 5 minutes</shortDescription>
+        <value>Every 5 minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalEvery10</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minute-interval option: every 10 minutes</shortDescription>
+        <value>Every 10 minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalEvery15</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minute-interval option: every 15 minutes</shortDescription>
+        <value>Every 15 minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalEvery30</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minute-interval option: every 30 minutes</shortDescription>
+        <value>Every 30 minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DaySunday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Sunday</shortDescription>
+        <value>Sunday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayMonday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Monday</shortDescription>
+        <value>Monday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayTuesday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Tuesday</shortDescription>
+        <value>Tuesday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayWednesday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Wednesday</shortDescription>
+        <value>Wednesday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayThursday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Thursday</shortDescription>
+        <value>Thursday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayFriday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Friday</shortDescription>
+        <value>Friday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DaySaturday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day name: Saturday</shortDescription>
+        <value>Saturday</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ModePreset</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor mode option: Preset</shortDescription>
+        <value>Preset</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ModeAdvanced</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor mode option: Advanced</shortDescription>
+        <value>Advanced</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ModeCustom</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor mode option: Custom</shortDescription>
+        <value>Custom</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ModeLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mode radio-group label</shortDescription>
+        <value>Mode</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_FrequencyLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Frequency combobox label</shortDescription>
+        <value>Frequency</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Minute-interval combobox label</shortDescription>
+        <value>Interval</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_AtMinuteLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Hourly at-minute combobox label</shortDescription>
+        <value>At Minute</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_HourLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset hour combobox label</shortDescription>
+        <value>Hour</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_MinuteLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preset minute combobox label</shortDescription>
+        <value>Minute</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DaysLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Weekly days checkbox-group label</shortDescription>
+        <value>Days</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayOfMonthLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day-of-month field label</shortDescription>
+        <value>Day of Month</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_SecondsLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced seconds combobox label</shortDescription>
+        <value>Seconds</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_MinutesLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced minutes input label</shortDescription>
+        <value>Minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_HoursLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced hours input label</shortDescription>
+        <value>Hours</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_MonthLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced month input label</shortDescription>
+        <value>Month</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayOfWeekHelp</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced day-of-week field-level help</shortDescription>
+        <value>1-7, SUN-SAT, ?, L, #, e.g. FRI#1</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayOfWeekLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced day-of-week input label</shortDescription>
+        <value>Day of Week</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_YearHelp</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced year field-level help</shortDescription>
+        <value>1970-2099 or leave empty</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_YearOptionalLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advanced year input label</shortDescription>
+        <value>Year (Optional)</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_CronExpressionLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom-mode cron expression input label</shortDescription>
+        <value>Cron Expression</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_PreviewLabel</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Preview section label</shortDescription>
+        <value>Preview</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_PresetModeUnrepresentable</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning toast when a cron expression cannot map to Preset mode</shortDescription>
+        <value>This expression cannot be represented in Preset mode. Use Advanced or Custom mode instead.</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_OrdinalFirst</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ordinal: first occurrence in month</shortDescription>
+        <value>First</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_OrdinalSecond</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ordinal: second occurrence in month</shortDescription>
+        <value>Second</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_OrdinalThird</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ordinal: third occurrence in month</shortDescription>
+        <value>Third</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_OrdinalFourth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ordinal: fourth occurrence in month</shortDescription>
+        <value>Fourth</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_OrdinalFifth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ordinal: fifth occurrence in month</shortDescription>
+        <value>Fifth</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayListTwo</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day-list description joining exactly two days</shortDescription>
+        <value>{0} and {1}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DayListConjunction</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Day-list description conjunction joining the final day ({0})</shortDescription>
+        <value>, and {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescEveryNMinutes</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: every N minutes</shortDescription>
+        <value>Every {0} minutes</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescHourly</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: hourly at a given minute</shortDescription>
+        <value>Every hour at minute {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescDaily</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: daily at a given time</shortDescription>
+        <value>Every day at {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescDailyInMonth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: daily within a given month at a time</shortDescription>
+        <value>Every day in month {0} at {1}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescNthWeekday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: nth weekday of every month at a time</shortDescription>
+        <value>{0} {1} of every month at {2}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescLastWeekday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: last named weekday of every month</shortDescription>
+        <value>Last {0} of every month at {1}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescWeekdays</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: every weekday at a time</shortDescription>
+        <value>Every weekday (Monday through Friday) at {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescDayRange</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: a day range at a time</shortDescription>
+        <value>Every {0} through {1} at {2}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescDayList</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: an explicit day list at a time</shortDescription>
+        <value>Every {0} at {1}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescLastDay</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: last day of every month</shortDescription>
+        <value>Last day of every month at {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescLastWeekdayOfMonth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: last weekday of every month</shortDescription>
+        <value>Last weekday of every month at {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescInMonthSuffix</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description suffix qualifying a specific month</shortDescription>
+        <value>in month {0}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescNearestWeekday</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: nearest weekday to a day of month</shortDescription>
+        <value>Nearest weekday to day {0} of every month{1} at {2}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescMonthlyOnDay</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: monthly on a specific day</shortDescription>
+        <value>Monthly on day {0}{1} at {2}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValSeconds</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the seconds field</shortDescription>
+        <value>Enter 0-59</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValMinutes</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the minutes field</shortDescription>
+        <value>Enter 0-59, *, */N, N/N, or comma/range lists</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValHours</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the hours field</shortDescription>
+        <value>Enter 0-23, *, */N, N/N, or comma/range lists</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValDayOfMonth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the day-of-month field</shortDescription>
+        <value>Enter 1-31, *, ?, L, W, LW, */N, N/N, or comma/range lists</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValMonth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the month field</shortDescription>
+        <value>Enter 1-12, *, JAN-DEC, or comma/range lists</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValDayOfWeek</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the day-of-week field</shortDescription>
+        <value>Enter 1-7, SUN-SAT, ?, L, or # patterns</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValYear</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation help for the year field</shortDescription>
+        <value>Enter a year (1970-2099) or leave empty</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValYearInPast</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: year is in the past</shortDescription>
+        <value>Year {0} is in the past — the job will never fire</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValOutOfRange</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: value out of range</shortDescription>
+        <value>Value {0} is out of range ({1}-{2})</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValHashDay</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: # expression day out of range</shortDescription>
+        <value>Day in # expression must be 1-7</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValHashOccurrence</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: # expression occurrence out of range</shortDescription>
+        <value>Occurrence in # expression must be 1-5</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValStepMin</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: step below minimum</shortDescription>
+        <value>Step value must be at least 1</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValStepMax</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: step above maximum</shortDescription>
+        <value>Step value {0} exceeds maximum {1}</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValBaseOutOfRange</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: step base out of range</shortDescription>
+        <value>Base value {0} is out of range ({1}-{2})</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValRangeReversed</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: reversed range</shortDescription>
+        <value>Range {0}-{1} is invalid — start must not exceed end</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValDayNotInMonth</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: day impossible for the month</shortDescription>
+        <value>Day {0} does not exist in {1} (max {2} days)</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValBothQuestion</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: both day fields are ?</shortDescription>
+        <value>Exactly one of Day of Month or Day of Week must be ? — both cannot be ?</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValNeitherQuestion</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: neither day field is ?</shortDescription>
+        <value>Exactly one of Day of Month or Day of Week must be ? — set one field to ?</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValStructure</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error: wrong number of fields</shortDescription>
+        <value>Invalid cron expression — must have 6 or 7 space-separated fields</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Title</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title for the full-page Chain Monitor</shortDescription>
+        <value>Chain Monitor</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusRunning</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status filter option: chain execution is running</shortDescription>
+        <value>Running</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusCompleted</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status filter option: chain execution completed</shortDescription>
+        <value>Completed</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status filter option: chain execution failed</shortDescription>
+        <value>Failed</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusAborted</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status filter option: chain execution was aborted</shortDescription>
+        <value>Aborted</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusStalled</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status filter option: chain execution stalled</shortDescription>
+        <value>Stalled</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ChainName</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain name label (list column and search filter)</shortDescription>
+        <value>Chain Name</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Status</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status label (list column and status filter)</shortDescription>
+        <value>Status</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ColumnProgress</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for step progress</shortDescription>
+        <value>Progress</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Started</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Start-time label (list column and detail field)</shortDescription>
+        <value>Started</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Duration</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Duration label (list column and detail field)</shortDescription>
+        <value>Duration</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearAll</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button to clear all status filters</shortDescription>
+        <value>Clear All</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SelectAll</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button to select all status filters</shortDescription>
+        <value>Select All</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_PageLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pagination position, e.g. Page 1 of 3</shortDescription>
+        <value>Page {0} of {1}</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_NameFilterPlaceholder</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the chain-name search input</shortDescription>
+        <value>Search chain name...</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_PreviousLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pagination button to go to the previous page</shortDescription>
+        <value>Previous</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_NextLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pagination button to go to the next page</shortDescription>
+        <value>Next</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ProgressSteps</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Progress badge beside the chain status, e.g. 3/5 steps</shortDescription>
+        <value>{0}/{1} steps</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_CorrelationCopied</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast when the correlation ID is copied</shortDescription>
+        <value>Correlation ID copied</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StepsSection</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accordion section title for the chain steps</shortDescription>
+        <value>Steps</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_TimingSection</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accordion section title for chain timing</shortDescription>
+        <value>Timing</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_CompletedLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing field label for the completion time</shortDescription>
+        <value>Completed</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_CorrelationIdLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing field label for the correlation ID</shortDescription>
+        <value>Correlation ID</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ErrorSection</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accordion section title for the error details</shortDescription>
+        <value>Error</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_EmptyStateHeading</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state heading when no chain is selected</shortDescription>
+        <value>Select a chain</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_EmptyStateBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state guidance when no chain is selected</shortDescription>
+        <value>Choose a chain execution from the list to view step details.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Subscriptions_Heading</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading for the active subscriptions list</shortDescription>
+        <value>Subscriptions</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Header_ClearEvents</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Header button to clear all received events</shortDescription>
+        <value>Clear events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Header_DisplayAs</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Header menu label to choose the event view mode</shortDescription>
+        <value>Display as</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_View_Timeline</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>View-mode option: show events on a timeline</shortDescription>
+        <value>Timeline</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_StreamingMonitorTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Streaming Monitor title (shared: sidebar nav and events card)</shortDescription>
+        <value>Streaming Monitor</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribeChannelTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe-to-a-channel title (shared: sidebar nav and subscribe card)</shortDescription>
+        <value>Subscribe to a channel</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_ToggleTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar collapse/expand toggle title and assistive text</shortDescription>
+        <value>Toggle sidebar</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_SectionActions</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar section heading for streaming actions</shortDescription>
+        <value>Actions</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_NavSubscribeAll</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar nav item: subscribe to multiple channels</shortDescription>
+        <value>Subscribe to channels</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_NavPublish</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar nav item: publish an event</shortDescription>
+        <value>Publish an event</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_NavRegister</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar nav item: register an event source</shortDescription>
+        <value>Register an event source</value>
+    </labels>
+    <labels>
+        <fullName>StreamingSidebar_SectionDashboards</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Sidebar section heading for dashboards</shortDescription>
+        <value>Dashboards</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_ChannelLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Filter label: include events on a channel</shortDescription>
+        <value>Include channel</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_ChannelPlaceholder</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the channel filter dropdown</shortDescription>
+        <value>Select channel</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_PayloadLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Filter label: include events whose payload matches a keyword</shortDescription>
+        <value>Include payload with keyword</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_PayloadPlaceholder</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the payload keyword filter</shortDescription>
+        <value>Search in payload content</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_MatchCase</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Filter checkbox: make the payload match case-sensitive</shortDescription>
+        <value>Match case</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_AfterToggle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Filter toggle: include events after a time</shortDescription>
+        <value>Include events after</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_AfterTimeLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the after-time filter input</shortDescription>
+        <value>After time</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_BeforeToggle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Filter toggle: include events before a time</shortDescription>
+        <value>Include events before</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_BeforeTimeLabel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the before-time filter input</shortDescription>
+        <value>Before time</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Filter_ClearButton</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button to clear all streaming event filters</shortDescription>
+        <value>Clear filters</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_PushTopic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for PushTopic events.</shortDescription>
+        <value>PushTopic event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_Generic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for generic events.</shortDescription>
+        <value>Generic event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_StandardPlatform</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for standard platform events.</shortDescription>
+        <value>Standard Platform event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_CustomPlatform</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for custom platform events.</shortDescription>
+        <value>Custom Platform event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_ChangeDataCapture</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for Change Data Capture events.</shortDescription>
+        <value>Change Data Capture event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_CustomChannelPlatform</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for custom-channel platform events.</shortDescription>
+        <value>Custom Channel - Platform event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_CustomChannelChange</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for custom-channel change events.</shortDescription>
+        <value>Custom Channel - Change event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventType_Monitoring</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event type name for monitoring events.</shortDescription>
+        <value>Monitoring event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_TypeLabel_PushTopic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event grid type label for a received PushTopic event ({0} = topic type).</shortDescription>
+        <value>PushTopic: {0}</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_TypeLabel_Generic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event grid type label for a received generic event.</shortDescription>
+        <value>Generic</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_TypeLabel_ChangeEvent</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event grid type label for a Change event ({0}=entity, {1}=change).</shortDescription>
+        <value>Change Event: {0} {1}</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_TypeLabel_PlatformEvent</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event grid type label for a received platform event.</shortDescription>
+        <value>Platform Event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_TypeLabel_Unknown</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event grid type label for an unrecognised event.</shortDescription>
+        <value>Unknown Event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Error_SeeDevConsole</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Fallback streaming-error message when no error detail is available.</shortDescription>
+        <value>See browser&apos;s dev console for details</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Error_SubscribeCdcInactive</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe error when a CDC channel may be inactive ({0} = channel).</shortDescription>
+        <value>Failed to subscribe to {0}. Is the Change Data Capture event active?</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Error_SubscribeDenied</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe error when denied by policy ({0} = channel, {1} = reason).</shortDescription>
+        <value>Failed to subscribe to {0}: {1}</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Error_StreamingTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title for a runtime streaming API error.</shortDescription>
+        <value>Streaming API error</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_NoChannels_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title when no channels match the subscribe filter.</shortDescription>
+        <value>No channels available</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_NoChannels_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast body when no channels match the subscribe filter.</shortDescription>
+        <value>There are no channels to subscribe to with the specified filter and current subscriptions</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribedAll_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title after subscribing to multiple channels.</shortDescription>
+        <value>Subscribed</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribedAll_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast body after subscribing to multiple channels.</shortDescription>
+        <value>Successfully subscribed to the specified channels</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_CannotSubscribe_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title when a duplicate channel subscription is rejected.</shortDescription>
+        <value>Cannot subscribe</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_AlreadySubscribed_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast body when already subscribed to a channel ({0} = channel).</shortDescription>
+        <value>Already subscribed to channel {0}</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribedOne_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title after subscribing to a single channel.</shortDescription>
+        <value>Successfully subscribed</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_ReceivedEvent_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title when a streaming event arrives on a channel.</shortDescription>
+        <value>Received event on channel</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnsubscribedAll_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title after unsubscribing from all channels.</shortDescription>
+        <value>Unsubscribed</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnsubscribedAll_Body</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast body after unsubscribing from all channels.</shortDescription>
+        <value>Successfully unsubscribed from all channels</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnsubscribedOne_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title after unsubscribing from a single channel.</shortDescription>
+        <value>Successfully unsubscribed</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_UnsubscribeFailed_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast title when unsubscribing from a channel fails.</shortDescription>
+        <value>Failed to unsubscribe</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Field_LocalTime</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for an event&apos;s local time (table column and detail).</shortDescription>
+        <value>Local Time</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Field_Channel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for an event&apos;s channel (table column and detail).</shortDescription>
+        <value>Channel</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Field_Type</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for an event&apos;s type (table column and detail).</shortDescription>
+        <value>Type</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Field_ReplayId</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for an event&apos;s replay id (table column and detail).</shortDescription>
+        <value>Replay Id</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Field_Payload</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field label for an event&apos;s payload (table column and detail).</shortDescription>
+        <value>Payload</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_ViewDetails_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Row-action tooltip to open the event detail modal.</shortDescription>
+        <value>Click to View Details</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_EventDetails_Title</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the event detail modal.</shortDescription>
+        <value>Event details</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_FilterWarning</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Notice shown when active filters may hide incoming events.</shortDescription>
+        <value>Current filters may prevent incoming events from being displayed.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_CountBadge_Showing</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event count badge when all events are shown ({0} = count).</shortDescription>
+        <value>Showing {0} events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_CountBadge_ShowingFiltered</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event count badge when filtered ({0} = shown, {1} = total).</shortDescription>
+        <value>Showing {0} of {1} events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Empty_Subscribe</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state message before any subscription exists.</shortDescription>
+        <value>Start by subscribing to events.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Empty_Waiting</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state message while subscribed but no events yet.</shortDescription>
+        <value>Waiting for events...</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Empty_NoMatch</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state message when filters hide all events.</shortDescription>
+        <value>No events displayed. Try changing your filters.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_EventType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Combobox label for choosing an event type.</shortDescription>
+        <value>Event type</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_SelectTypePlaceholder</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the event-type combobox.</shortDescription>
+        <value>Select type</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_EventName</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Combobox label for choosing an event name.</shortDescription>
+        <value>Event name</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_StreamingChannel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Input label for the streaming channel path.</shortDescription>
+        <value>Streaming channel</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_ReplayOption</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Combobox label for choosing a replay option.</shortDescription>
+        <value>Replay option</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_ReplayId</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Input label for a custom replay ID.</shortDescription>
+        <value>Replay ID</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_Filter</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Combobox label for the subscribe-all channel filter.</shortDescription>
+        <value>Filter</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Form_EventPayload</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Textarea label for the event payload to publish.</shortDescription>
+        <value>Event payload</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribeButton</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that starts a channel subscription.</shortDescription>
+        <value>Subscribe</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PublishButton</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that publishes the entered event.</shortDescription>
+        <value>Publish</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_RegisterSourceTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title of the register-event-source screen.</shortDescription>
+        <value>Register a streaming event source</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribeAllTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title of the subscribe-to-multiple-channels screen.</shortDescription>
+        <value>Subscribe to multiple streaming channels</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PublishEventTitle</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title of the publish-event screen.</shortDescription>
+        <value>Publish a streaming event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_SubscribeAll_Note</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note on the subscribe-all screen about supported channels.</shortDescription>
+        <value>Custom Change Data Capture channels cannot be automatically discovered. Supported channels: PushTopic, Generic, Platform events, Change Data Capture events and Monitoring events.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_PushTopicIntro</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Intro line above the PushTopic Apex registration sample.</shortDescription>
+        <value>Customize and execute the following code in Apex to register a new PushTopic:</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_Generic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text instructions for registering a generic event.</shortDescription>
+        <value>Navigate to the&amp;nbsp; &lt;a href=&quot;/lightning/o/StreamingChannel/list&quot;&gt;Streaming Channel&lt;/a&gt;&amp;nbsp;tab to register a generic event.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_PlatformEvent</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text instructions for registering a custom platform event.</shortDescription>
+        <value>Navigate to the&amp;nbsp; &lt;a href=&quot;/lightning/setup/EventObjects/home&quot;&gt;Platform Event&lt;/a&gt;&amp;nbsp;page in Setup to register a custom platform event.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_StandardPlatformEvent</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text note that standard platform events need no registration.</shortDescription>
+        <value>Standard platform events do not need to be registered. See&amp;nbsp; &lt;a href=&quot;https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_objects_list.htm&quot;&gt;documentation&lt;/a&gt;.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_ChangeDataCapture</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text instructions for activating a change data capture event.</shortDescription>
+        <value>Navigate to the&amp;nbsp; &lt;a href=&quot;/lightning/setup/CdcObjectEnablement/home&quot;&gt;Change Data Capture&lt;/a&gt;&amp;nbsp;page in Setup to activate a change data capture event.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_CustomChannelPE</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text instructions for declaring a custom platform-event channel.</shortDescription>
+        <value>Custom channels cannot be declared via the user interface. Follow these&amp;nbsp; &lt;a href=&quot;https://developer.salesforce.com/docs/atlas.en-us.240.0.platform_events.meta/platform_events/platform_events_custom_channel_configure.htm&quot;&gt;metadata deploy instructions&lt;/a&gt;.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Reg_CustomChannelCDC</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text instructions for declaring a custom change-event channel.</shortDescription>
+        <value>Custom channels cannot be declared via the user interface. Follow these&amp;nbsp; &lt;a href=&quot;https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_custom_channel.htm&quot;&gt;metadata deploy instructions&lt;/a&gt;.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Notice_MonitoringEnablement</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text notice that Event Manager streaming must be enabled.</shortDescription>
+        <value>Streaming must be enabled in&amp;nbsp; &lt;a href=&quot;/lightning/setup/EventManager/home&quot;&gt;Event Manager&lt;/a&gt;&amp;nbsp;in order to receive Monitoring Events.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Notice_CdcEnablement</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Rich-text notice about enabling Change Data Capture events in Setup.</shortDescription>
+        <value>Enable Change Data Capture events in&amp;nbsp; &lt;a href=&quot;/lightning/setup/CdcObjectEnablement/home&quot;&gt;Setup&lt;/a&gt;&amp;nbsp;to receive them on the &lt;code&gt;/data/ChangeEvents&lt;/code&gt; channel or the single-event channels. This doesn&apos;t apply to custom channels you define.</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Placeholder_SelectEvent</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event-name placeholder when channels are available.</shortDescription>
+        <value>Select event</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Placeholder_WaitingEventType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event-name placeholder before an event type is chosen.</shortDescription>
+        <value>Waiting for event type</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Placeholder_CdcManualChannel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event-name placeholder for custom CDC channels (manual input).</shortDescription>
+        <value>The /data/ChangeEvents channel and custom channels require manual channel input</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Placeholder_CustomManualChannel</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event-name placeholder for custom channels (manual input).</shortDescription>
+        <value>Custom channels require manual channel input</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Placeholder_NoEventsAvailable</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Event-name placeholder when a type has no channels ({0} = type label).</shortDescription>
+        <value>No {0}s available</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Validation_InvalidJson</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation message when the publish payload is not valid JSON.</shortDescription>
+        <value>Invalid JSON</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Replay_None</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Replay option that receives only new events.</shortDescription>
+        <value>No replay</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Replay_Past</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Replay option that replays past events.</shortDescription>
+        <value>Replay past events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_Replay_Custom</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Replay option that starts from a custom replay ID.</shortDescription>
+        <value>Custom replay ID</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_FilterOption_AllEvents</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe-all filter option for every event.</shortDescription>
+        <value>All events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_FilterOption_AllCustomEvents</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe-all filter option for custom events only.</shortDescription>
+        <value>All custom events</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_FilterOption_OnlyType</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Subscribe-all filter option for one event type ({0} = type label).</shortDescription>
+        <value>Only {0}s</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PayloadHelp_Generic</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Payload help text for generic events.</shortDescription>
+        <value>Plain string payload</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_PayloadHelp_Json</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Payload help text for JSON-payload events.</shortDescription>
+        <value>JSON formatted payload with strings delimited by double quotes</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Direction_Outbound</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Direction option for outbound API calls.</shortDescription>
+        <value>Outbound</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Direction_Inbound</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Direction option for inbound API calls.</shortDescription>
+        <value>Inbound</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ModeBadge_Live</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mode badge when Safe Mode and Mocking are both off.</shortDescription>
+        <value>LIVE</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ModeBadge_LiveDmlMocked</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mode badge when Safe Mode is off but Mocking is on.</shortDescription>
+        <value>Live DML · Mocked callouts</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ModeBadge_FullSandbox</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mode badge when Safe Mode and Mocking are both on.</shortDescription>
+        <value>Full Sandbox</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_SafeMode</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Safe Mode toggle label, mode badge, and result badge.</shortDescription>
+        <value>Safe Mode</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Execute</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execute button label when Safe Mode is on.</shortDescription>
+        <value>Execute</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ExecuteLive</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Execute button label when Safe Mode is off.</shortDescription>
+        <value>Execute (Live)</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Status_Unknown</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status badge fallback when the result has no status.</shortDescription>
+        <value>Unknown</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Validation_BlankParameterKey</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error when a parameter has a value but no key.</shortDescription>
+        <value>Parameter key cannot be blank when a value is provided.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Validation_InvalidJson</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error when the JSON body does not parse.</shortDescription>
+        <value>JSON Body contains invalid JSON.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ExecutionSuccess</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when an execution completes successfully.</shortDescription>
+        <value>Execution completed successfully</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ExecutionAborted</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast fallback when an execution is aborted.</shortDescription>
+        <value>Execution aborted</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ExecutionFailed</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast fallback when an execution fails.</shortDescription>
+        <value>Execution failed</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_SummaryCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the result summary.</shortDescription>
+        <value>Summary copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_RequestHeadersCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the request headers.</shortDescription>
+        <value>Request headers copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ResponseHeadersCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the response headers.</shortDescription>
+        <value>Response headers copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_RequestBodyCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the request body.</shortDescription>
+        <value>Request body copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ResponseBodyCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the response body.</shortDescription>
+        <value>Response body copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_ErrorsCopied</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after copying the error messages.</shortDescription>
+        <value>Errors copied</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Toast_CopyFailed</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when copying to the clipboard fails.</shortDescription>
+        <value>Failed to copy to clipboard</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_Service</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary service line ({0} = service name).</shortDescription>
+        <value>Service: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_Status</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary status line ({0} = status, {1} = status code).</shortDescription>
+        <value>Status: {0} ({1})</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_Timing</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary timing line ({0}-{3} = total/handler/callout/commit).</shortDescription>
+        <value>Total: {0} (Handler: {1}, Callout: {2}, Commit: {3})</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_SafeMode</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary Safe Mode line ({0} = Enabled/Disabled).</shortDescription>
+        <value>Safe Mode: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_Mocked</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary mocked line ({0} = Yes/No).</shortDescription>
+        <value>Mocked: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Summary_ApiCallId</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary API call line ({0} = record id).</shortDescription>
+        <value>API Call ID: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Enabled</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary word for an enabled setting.</shortDescription>
+        <value>Enabled</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Disabled</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary word for a disabled setting.</shortDescription>
+        <value>Disabled</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Yes</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary affirmative word.</shortDescription>
+        <value>Yes</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_No</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Copied-summary negative word.</shortDescription>
+        <value>No</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Direction</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the direction radio group.</shortDescription>
+        <value>Direction</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Service</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the service combobox.</shortDescription>
+        <value>Service</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Service_ValueMissing</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Required-field message for the service combobox.</shortDescription>
+        <value>Select a service to execute</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Service_Placeholder</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the service combobox.</shortDescription>
+        <value>Select a service</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_RecordId</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the triggering record ID input.</shortDescription>
+        <value>Record ID</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_RecordId_Placeholder</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the triggering record ID input.</shortDescription>
+        <value>Enter triggering record ID</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Parameters</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the outbound parameter rows.</shortDescription>
+        <value>Parameters</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Key</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label and placeholder for a parameter key input.</shortDescription>
+        <value>Key</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Value</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Parameter value input and header-table value column.</shortDescription>
+        <value>Value</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Name</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Header-table name column.</shortDescription>
+        <value>Name</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AddParameter</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that adds a parameter row.</shortDescription>
+        <value>Add parameter</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_JsonBody</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the inbound JSON body textarea.</shortDescription>
+        <value>JSON Body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_JsonBody_Placeholder</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Placeholder for the inbound JSON body textarea.</shortDescription>
+        <value>Enter JSON request body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ExecutionSettings</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the execution settings safety bar.</shortDescription>
+        <value>Execution Settings</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_SafeMode_ToggleActive</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Safe Mode toggle message when on.</shortDescription>
+        <value>DML rolled back</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_SafeMode_ToggleInactive</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Safe Mode toggle message when off.</shortDescription>
+        <value>Live DML — changes will persist</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Mocking</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Label for the mocking toggle.</shortDescription>
+        <value>Mocking</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Mocking_ToggleActive</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mocking toggle message when on.</shortDescription>
+        <value>Mock responses</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Mocking_ToggleInactive</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mocking toggle message when off.</shortDescription>
+        <value>Real endpoint responses</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Reset</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that resets the harness form.</shortDescription>
+        <value>Reset</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Mocked</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result badge shown for a mocked response.</shortDescription>
+        <value>Mocked</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_StatusCode</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the HTTP status code.</shortDescription>
+        <value>Status Code</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Total</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the total execution time.</shortDescription>
+        <value>Total</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Handler</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the handler duration.</shortDescription>
+        <value>Handler</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Callout</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the callout duration.</shortDescription>
+        <value>Callout</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Commit</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the commit duration.</shortDescription>
+        <value>Commit</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ApiCallId</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Result metric tile for the ApiCall record id.</shortDescription>
+        <value>API Call ID</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Tab_Request</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tab label for the request details.</shortDescription>
+        <value>Request</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_RequestHeaders</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the request headers table.</shortDescription>
+        <value>Request Headers</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_RequestBody</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the request body viewer.</shortDescription>
+        <value>Request Body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Tab_Response</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tab label for the response details.</shortDescription>
+        <value>Response</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ResponseHeaders</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the response headers table.</shortDescription>
+        <value>Response Headers</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ResponseBody</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the response body viewer.</shortDescription>
+        <value>Response Body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Tab_Errors</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tab label for the error details.</shortDescription>
+        <value>Errors</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ErrorMessages</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the error messages block.</shortDescription>
+        <value>Error Messages</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_NoData</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Message when a result has no request or response data.</shortDescription>
+        <value>No request or response data available.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_EmptyState_Heading</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state heading before the first execution.</shortDescription>
+        <value>No response yet</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_EmptyState_Body</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty-state body before the first execution.</shortDescription>
+        <value>Configure the request on the left and click Execute.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_RetrySuccessful</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when retrying a failed API call succeeds.</shortDescription>
+        <value>Retry successful</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_RetryFailed</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast fallback when retrying a failed API call fails again.</shortDescription>
+        <value>Retry failed</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_UnexpectedError</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast fallback when the retry action throws unexpectedly.</shortDescription>
+        <value>An unexpected error occurred</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ColumnObject</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention-proposal table column for the target object.</shortDescription>
+        <value>Object</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ColumnRecordsToday</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention-proposal table column for today&apos;s record count.</shortDescription>
+        <value>Records today</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ColumnRetention</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention-proposal table column for the retention period.</shortDescription>
+        <value>Retention</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ColumnSchedule</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention-proposal schedule column and picklist label.</shortDescription>
+        <value>Schedule</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_RetentionDays</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention period cell ({0} = number of days).</shortDescription>
+        <value>{0} days</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_CancelButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Button that closes the retention modal without applying.</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_WarningSingular</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Headline word for a single warning.</shortDescription>
+        <value>warning</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_WarningPlural</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Headline word for multiple warnings.</shortDescription>
+        <value>warnings</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_RefreshFailedToast</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when refreshing the retention proposals fails.</shortDescription>
+        <value>Failed to refresh retention proposals</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_RecordCountSingular</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention sub-row record count for exactly one record.</shortDescription>
+        <value>1 record</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_RecordCountPlural</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention sub-row record count ({0} = formatted count).</shortDescription>
+        <value>{0} records</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_DaySuffix</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retention sub-row period text ({0} = number of days).</shortDescription>
+        <value>{0} day retention</value>
+    </labels>
+    <labels>
+        <fullName>BaseLookup_NoRecordsFound</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state for a lookup with no matching records.</shortDescription>
+        <value>No Records Found....</value>
+    </labels>
+    <labels>
+        <fullName>BaseLookup_RemoveSelectedOption</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the button that clears the selected lookup option.</shortDescription>
+        <value>Remove selected option</value>
+    </labels>
+    <labels>
+        <fullName>BaseLookup_SearchPlaceholder</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default placeholder for the lookup search input.</shortDescription>
+        <value>Search</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_CancelButton</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Cancel button label on the form footer.</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_EmailPatternMismatch</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation message for an invalid email address.</shortDescription>
+        <value>Please enter a valid email address.</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_InvalidFieldWarning</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning toast for an invalid field ({0} = field, {1} = SObject).</shortDescription>
+        <value>Field &quot;{0}&quot; is not valid for SObject &quot;{1}&quot;</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_ModeNotSelected</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning toast when neither save mode nor update mode is selected.</shortDescription>
+        <value>Save Mode or Update Mode must be selected to use this feature.</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_NoFieldsConfigured</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error toast when the form has no fields or FieldSet API Name.</shortDescription>
+        <value>No fields or FieldSet API Name have been passed into this form.</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_PhoneFieldHelp</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Field-level help for the phone input.</shortDescription>
+        <value>Telephone/Cellphone number e.g. 0129873456</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_RecordCreatedSuccess</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast after a record is created.</shortDescription>
+        <value>Record Created Successfully</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_RecordUpdatedSuccess</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast after a record is updated.</shortDescription>
+        <value>Record Updated Successfully</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_RequiredError</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation error for an empty required field.</shortDescription>
+        <value>Required</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_SaveButton</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Save button label in save mode.</shortDescription>
+        <value>Save</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_UpdateButton</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Save button label in update mode.</shortDescription>
+        <value>Update</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_UpdateRequiresRecordId</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning toast when update mode is used without a Record Id.</shortDescription>
+        <value>You are attempting to update a record without providing a Record Id</value>
+    </labels>
+    <labels>
+        <fullName>CreateForm_ValidationFailed</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Fallback validation error when a custom validator gives no message.</shortDescription>
+        <value>Validation Failed</value>
+    </labels>
+    <labels>
+        <fullName>ModuleController_FailedControllerCall</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Message of the error thrown after a failed Apex controller call.</shortDescription>
+        <value>Failed controller call</value>
+    </labels>
+    <labels>
+        <fullName>ModuleNotification_ErrorTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of an error toast.</shortDescription>
+        <value>Error</value>
+    </labels>
+    <labels>
+        <fullName>ModuleNotification_InfoTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of an info toast.</shortDescription>
+        <value>Info</value>
+    </labels>
+    <labels>
+        <fullName>ModuleNotification_SuccessTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of a success toast.</shortDescription>
+        <value>Success</value>
+    </labels>
+    <labels>
+        <fullName>ModuleNotification_WarningTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of a warning toast.</shortDescription>
+        <value>Warning</value>
+    </labels>
+    <labels>
+        <fullName>PaginatedTable_InvalidPageSizeHeading</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning title for an invalid rows-per-page value ({0} = the value).</shortDescription>
+        <value>&quot;{0}&quot; is not a valid number for Display Rows per Page on this table.</value>
+    </labels>
+    <labels>
+        <fullName>PaginatedTable_InvalidPageSizeMessage</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning body when the rows-per-page value is not a positive number.</shortDescription>
+        <value>Please enter a valid number greater than 0.</value>
+    </labels>
+    <labels>
+        <fullName>PaginatedTable_Next</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Next-page button label.</shortDescription>
+        <value>Next</value>
+    </labels>
+    <labels>
+        <fullName>PaginatedTable_PageOfPages</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pagination position text ({0} = current page, {1} = total pages).</shortDescription>
+        <value>Page {0} of {1}</value>
+    </labels>
+    <labels>
+        <fullName>PaginatedTable_Previous</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Previous-page button label.</shortDescription>
+        <value>Previous</value>
+    </labels>
+    <labels>
+        <fullName>FlowFooter_BackButton</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of the flow Back button.</shortDescription>
+        <value>Back</value>
+    </labels>
+    <labels>
+        <fullName>FlowFooter_NextButton</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default title of the flow Next button.</shortDescription>
+        <value>Next</value>
+    </labels>
+    <labels>
+        <fullName>ValidationErrors_ErrorTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default heading for the validation errors section.</shortDescription>
+        <value>Validation Errors</value>
+    </labels>
+    <labels>
+        <fullName>ValidationErrors_WarningTitle</fullName>
+        <categories>Shared Components</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default heading for the validation warnings section.</shortDescription>
+        <value>Warnings</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClassLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step popover row label for the Apex class name.</shortDescription>
+        <value>Class</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ContinueOnErrorLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step popover row label for the continue-on-error flag.</shortDescription>
+        <value>Continue on Error</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_NoStepsRecorded</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when a chain execution has no recorded steps.</shortDescription>
+        <value>No steps recorded.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusContinued</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step status word: failed but the chain continued.</shortDescription>
+        <value>Continued</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusPending</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step status word: not yet executed.</shortDescription>
+        <value>Pending</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StepTimelineTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title of the step timeline.</shortDescription>
+        <value>Step Timeline</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Yes</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Affirmative value in the step popover.</shortDescription>
+        <value>Yes</value>
     </labels>
 </CustomLabels>

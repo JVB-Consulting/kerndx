@@ -5,13 +5,26 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, June 2026
+ * @date April 2026, July 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {copyToClipBoard} from 'c/utilitySystem';
+import {formatTemplateString} from 'c/utilityString';
 import getChainDetail from '@salesforce/apex/CTRL_ChainMonitor.getChainDetail';
 import viewLogsAction from '@salesforce/label/c.ChainMonitor_ViewLogsAction';
+import copyFailed from '@salesforce/label/c.ChainMonitor_CopyFailed';
+import progressStepsTemplate from '@salesforce/label/c.ChainMonitor_ProgressSteps';
+import correlationCopied from '@salesforce/label/c.ChainMonitor_CorrelationCopied';
+import stepsSection from '@salesforce/label/c.ChainMonitor_StepsSection';
+import timingSection from '@salesforce/label/c.ChainMonitor_TimingSection';
+import startedLabel from '@salesforce/label/c.ChainMonitor_Started';
+import completedLabel from '@salesforce/label/c.ChainMonitor_CompletedLabel';
+import durationLabel from '@salesforce/label/c.ChainMonitor_Duration';
+import correlationIdLabel from '@salesforce/label/c.ChainMonitor_CorrelationIdLabel';
+import errorSection from '@salesforce/label/c.ChainMonitor_ErrorSection';
+import emptyStateHeading from '@salesforce/label/c.ChainMonitor_EmptyStateHeading';
+import emptyStateBody from '@salesforce/label/c.ChainMonitor_EmptyStateBody';
 
 const STATUS_ICONS = {
 	Running: 'standard:activations',
@@ -28,7 +41,17 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	currentExecutionId = null;
 
 	label = {
-		viewLogs: viewLogsAction
+		viewLogs: viewLogsAction,
+		copyFailed,
+		stepsSection,
+		timingSection,
+		started: startedLabel,
+		completed: completedLabel,
+		duration: durationLabel,
+		correlationId: correlationIdLabel,
+		errorSection,
+		emptyStateHeading,
+		emptyStateBody
 	};
 
 	@api get executionId()
@@ -70,7 +93,10 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	 */
 	get progressLabel()
 	{
-		return `${this.detail.completedSteps}/${this.detail.totalSteps} steps`;
+		return formatTemplateString(progressStepsTemplate, [
+			this.detail.completedSteps,
+			this.detail.totalSteps
+		]);
 	}
 
 	get progressPercent()
@@ -119,12 +145,25 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		this.isLoading = false;
 	}
 
+	/**
+	 * @description Copies the chain's correlation ID to the clipboard, confirming with a success
+	 * toast only once the copy actually happened. A failed copy (Clipboard API and its
+	 * temporary-input fallback both failing) surfaces an error toast instead of rejecting.
+	 */
 	async handleCopyCorrelation()
 	{
 		if(this.detail?.correlationId)
 		{
-			await copyToClipBoard(this.detail.correlationId);
-			this.showSuccessToast('Correlation ID copied');
+			try
+			{
+				await copyToClipBoard(this.detail.correlationId);
+				this.showSuccessToast(correlationCopied);
+			}
+			catch
+			{
+				// copyToClipBoard already logged the failure; tell the user the copy did not happen.
+				this.showErrorToast(this.label.copyFailed);
+			}
 		}
 	}
 
