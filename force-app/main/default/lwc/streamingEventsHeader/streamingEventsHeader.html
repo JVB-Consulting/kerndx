@@ -4,11 +4,11 @@
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
 	<lightning-button-group>
-		<lightning-button data-testid="clear-button" icon-name="utility:delete" label="Clear events" onclick={handleClear}></lightning-button>
+		<lightning-button data-testid="clear-button" icon-name="utility:delete" label={label.clearEvents} onclick={handleClear}></lightning-button>
 		<lightning-button-icon-stateful alternative-text="Toggle filter view" data-testid="filter-toggle" icon-name="utility:filterList" onclick={handleFiltersDisplayToggle}
 		                                selected={isFiltersDisplayed}></lightning-button-icon-stateful>
 		<lightning-button-menu alternative-text="Display as" data-testid="view-toggle" icon-name={viewModeIconName} menu-alignment="right" onselect={handleViewModeSelect}>
-			<lightning-menu-subheader label="Display as"></lightning-menu-subheader>
+			<lightning-menu-subheader label={label.displayAs}></lightning-menu-subheader>
 			<template for:each={viewModes} for:item="option">
 				<lightning-menu-item checked={option.checked} icon-name={option.iconName} key={option.value} label={option.label} value={option.value}></lightning-menu-item>
 			</template>

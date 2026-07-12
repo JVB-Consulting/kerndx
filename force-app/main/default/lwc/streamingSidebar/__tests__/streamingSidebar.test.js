@@ -12,6 +12,8 @@
 import {createElement} from 'lwc';
 import LwcSidebar from 'c/streamingSidebar';
 
+jest.mock('@salesforce/label/c.StreamingSidebar_ToggleTitle', () => ({default: 'Toggle sidebar'}), {virtual: true});
+
 describe('c-streaming-sidebar', () =>
 {
 	let element;

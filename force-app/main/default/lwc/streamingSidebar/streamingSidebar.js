@@ -13,6 +13,15 @@
  */
 import {LightningElement, api} from 'lwc';
 import NAV_ORG_LIMITS from '@salesforce/label/c.OrgLimits_CardTitle';
+import TOGGLE_SIDEBAR from '@salesforce/label/c.StreamingSidebar_ToggleTitle';
+import NAV_MONITOR from '@salesforce/label/c.EventMonitor_StreamingMonitorTitle';
+import SECTION_ACTIONS from '@salesforce/label/c.StreamingSidebar_SectionActions';
+import NAV_SUBSCRIBE_ALL from '@salesforce/label/c.StreamingSidebar_NavSubscribeAll';
+import NAV_SUBSCRIBE from '@salesforce/label/c.EventMonitor_SubscribeChannelTitle';
+import NAV_PUBLISH from '@salesforce/label/c.StreamingSidebar_NavPublish';
+import NAV_REGISTER from '@salesforce/label/c.StreamingSidebar_NavRegister';
+import SECTION_DASHBOARDS from '@salesforce/label/c.StreamingSidebar_SectionDashboards';
+import EVENT_USAGE_METRICS from '@salesforce/label/c.EventUsageMetrics_CardTitle';
 
 // eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingSidebar extends LightningElement
@@ -27,7 +36,16 @@ export default class StreamingSidebar extends LightningElement
 	 * @type {Object<string, string>}
 	 */
 	labels = {
-		navOrgLimits: NAV_ORG_LIMITS
+		navOrgLimits: NAV_ORG_LIMITS,
+		toggleSidebar: TOGGLE_SIDEBAR,
+		navMonitor: NAV_MONITOR,
+		sectionActions: SECTION_ACTIONS,
+		navSubscribeAll: NAV_SUBSCRIBE_ALL,
+		navSubscribe: NAV_SUBSCRIBE,
+		navPublish: NAV_PUBLISH,
+		navRegister: NAV_REGISTER,
+		sectionDashboards: SECTION_DASHBOARDS,
+		eventUsageMetrics: EVENT_USAGE_METRICS
 	};
 
 	// ── @api Properties ──────────────────────────────────────────────────

@@ -4,185 +4,66 @@
 // Modifications copyright (c) 2026 JVB Consulting
 
 /**
- * @description Jest unit tests for streamingTimeline LWC component
+ * @description Jest unit tests for the streamingTimeline LWC component (native template SVG).
+ * DOM-first: geometry is asserted on rendered circle/text attributes computed by the real
+ * c/utilityStreaming band layout, interactions through real MouseEvents, and the `select`
+ * contract through a real circle click. No D3, no loadScript, no chainable mocks.
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, May 2026, July 2026
  */
 import {createElement} from 'lwc';
 import LwcEventTimeline from 'c/streamingTimeline';
+import CLICK_FOR_DETAILS from '@salesforce/label/c.EventTimeline_Tooltip_ClickForDetails';
+import {getTimeLabel} from 'c/utilityStreaming';
 
-// Mock loadScript - variable must be prefixed with 'mock' for jest.mock factory access
-const mockLoadScript = jest.fn();
+// Chart geometry constants mirrored from the component (independent oracle for the assertions).
+const CHART_WIDTH = 1000;
+const CHART_HEIGHT = 400;
+const MARGIN_LEFT = 200;
+const MARGIN_BOTTOM = 20;
+const INNER_WIDTH = CHART_WIDTH - MARGIN_LEFT;
+const BASELINE_Y = CHART_HEIGHT - MARGIN_BOTTOM;
 
-jest.mock('lightning/platformResourceLoader', () =>
-{
-	// Return reference to the module-level mock (allowed because prefixed with 'mock')
-	return {loadScript: (...args) => mockLoadScript(...args)};
-}, {virtual: true});
-
-// Mock D3 resource URL - returns URL string directly (not an object)
-jest.mock('@salesforce/resourceUrl/d3', () => '/sfc/servlet.shepherd/version/download/mockD3', {virtual: true});
-
-// Mock utilityStreaming
-jest.mock('c/utilityStreaming', () => ({
-	getTimeLabel: jest.fn(() => '2025-12-28 10:30:00')
-}), {virtual: true});
-
-// Storage for captured event handlers and callbacks
-let capturedSvgHandlers = {};
-let capturedCircleHandlers = {};
-let capturedTickFormatCallback = null;
-let capturedFilterCallback = null;
-let capturedCircleAttrCallbacks = {};
-
-// Create chainable D3 mock with handler capture
-const createChainableMock = (elementType = 'default') =>
-{
-	const mock = {};
-	mock.append = jest.fn((type) =>
-	{
-		if(type === 'svg')
-		{
-			return createChainableMock('svg');
-		}
-		if(type === 'circle')
-		{
-			return createChainableMock('circle');
-		}
-		return createChainableMock();
-	});
-	mock.attr = jest.fn((name, value) =>
-	{
-		if(elementType === 'circle' && typeof value === 'function')
-		{
-			capturedCircleAttrCallbacks[name] = value;
-		}
-		return mock;
-	});
-	mock.style = jest.fn(() => mock);
-	mock.html = jest.fn(() => mock);
-	mock.call = jest.fn(() => mock);
-	mock.select = jest.fn(() => createChainableMock());
-	mock.selectAll = jest.fn(() => mock);
-	mock.data = jest.fn(() => mock);
-	mock.join = jest.fn(() => createChainableMock('circle'));
-	mock.enter = jest.fn(() => mock);
-	mock.exit = jest.fn(() => mock);
-	mock.remove = jest.fn(() => mock);
-	mock.filter = jest.fn((callback) =>
-	{
-		if(typeof callback === 'function')
-		{
-			capturedFilterCallback = callback;
-		}
-		return mock;
-	});
-	mock.transition = jest.fn(() => mock);
-	mock.on = jest.fn((event, callback) =>
-	{
-		if(elementType === 'svg')
-		{
-			capturedSvgHandlers[event] = callback;
-		}
-		else if(elementType === 'circle')
-		{
-			capturedCircleHandlers[event] = callback;
-		}
-		return mock;
-	});
-	mock.text = jest.fn(() => mock);
-	mock.range = jest.fn(() => mock);
-	mock.domain = jest.fn(() => mock);
-	mock.nice = jest.fn(() => mock);
-	mock.paddingInner = jest.fn(() => mock);
-	mock.paddingOuter = jest.fn(() => mock);
-	mock.tickSize = jest.fn(() => mock);
-	mock.tickFormat = jest.fn((callback) =>
-	{
-		if(typeof callback === 'function')
-		{
-			capturedTickFormatCallback = callback;
-		}
-		return mock;
-	});
-	mock.ticks = jest.fn(() => mock);
-	mock.bandwidth = jest.fn(() => 20);
-	mock.invert = jest.fn(() => new Date());
-	mock.node = jest.fn(() => ({
-		getBoundingClientRect: () => ({
-			x: 10, y: 10, width: 100, height: 50, top: 10, right: 110, bottom: 60, left: 10, toJSON()
-			{
-			}
-		})
-	}));
-	return mock;
-};
-
-// Create callable scale mock with invert (scales are called as functions)
-const createCallableScaleMock = () =>
-{
-	// Create a callable function that returns a value (for cx/cy positioning)
-	const scaleFn = jest.fn(() => 100);
-	// Add chainable methods
-	scaleFn.range = jest.fn(() => scaleFn);
-	scaleFn.domain = jest.fn(() => scaleFn);
-	scaleFn.nice = jest.fn(() => scaleFn);
-	scaleFn.paddingInner = jest.fn(() => scaleFn);
-	scaleFn.paddingOuter = jest.fn(() => scaleFn);
-	scaleFn.bandwidth = jest.fn(() => 20);
-	scaleFn.invert = jest.fn(() => new Date());
-	return scaleFn;
-};
-
-global.d3 = {
-	select: jest.fn(() => createChainableMock()),
-	scaleLinear: jest.fn(() => createCallableScaleMock()),
-	scaleBand: jest.fn(() => createCallableScaleMock()),
-	scaleTime: jest.fn(() => createCallableScaleMock()),
-	scaleOrdinal: jest.fn(() => createChainableMock()),
-	schemeCategory10: [],
-	axisBottom: jest.fn(() => createChainableMock()),
-	axisLeft: jest.fn(() => createChainableMock()),
-	axisTop: jest.fn(() => createChainableMock()),
-	timeFormat: jest.fn(() => () => '10:30:00'),
-	pointer: jest.fn(() => [
-		250,
-		100
-	]),
-	extent: jest.fn(() => [
-		0,
-		100
-	]),
-	min: jest.fn(() => 0),
-	max: jest.fn(() => 100)
-};
-
+// Two events 1,000 seconds apart: domain = [start - 10%, end + 10%] of the 1,000,000 ms span.
+const EVENT_ONE_TIMESTAMP = 1000000;
+const EVENT_TWO_TIMESTAMP = 2000000;
 const mockEvents = [
 	{
-		id: 'evt-1', channel: '/event/TestEvent__e', timestamp: 1735380600000, timeLabel: '2025-12-28 10:30:00'
+		id: 'evt-1', channel: '/event/TestEvent__e', timestamp: EVENT_ONE_TIMESTAMP, timeLabel: '1970-01-01 00:16:40', payload: '{"a":1}'
 	},
 	{
-		id: 'evt-2', channel: '/event/AnotherEvent__e', timestamp: 1735380700000, timeLabel: '2025-12-28 10:31:40'
+		id: 'evt-2', channel: '/event/AnotherEvent__e', timestamp: EVENT_TWO_TIMESTAMP, timeLabel: '1970-01-01 00:33:20', payload: '{"b":2}'
 	}
 ];
-
 const mockChannels = [
 	'/event/TestEvent__e',
 	'/event/AnotherEvent__e'
 ];
 
+let resizeObserverCallback;
+
+class ResizeObserverStub
+{
+	constructor(callback)
+	{
+		resizeObserverCallback = callback;
+	}
+
+	observe()
+	{
+	}
+
+	disconnect()
+	{
+	}
+}
+
 describe('c-streaming-timeline', () =>
 {
 	beforeEach(() =>
 	{
-		// Reset and reconfigure the mock to ensure clean state
-		mockLoadScript.mockReset();
-		mockLoadScript.mockResolvedValue();
-		capturedSvgHandlers = {};
-		capturedCircleHandlers = {};
-		capturedTickFormatCallback = null;
-		capturedFilterCallback = null;
-		capturedCircleAttrCallbacks = {};
+		resizeObserverCallback = undefined;
+		global.ResizeObserver = ResizeObserverStub;
 	});
 
 	afterEach(() =>
@@ -191,780 +72,499 @@ describe('c-streaming-timeline', () =>
 		{
 			document.body.removeChild(document.body.firstChild);
 		}
+		delete global.ResizeObserver;
 		jest.clearAllMocks();
 	});
 
-	async function flushPromises()
+	function flushPromises()
 	{
 		return new Promise((resolve) => setTimeout(resolve, 0));
 	}
 
-	const createComponent = () =>
+	async function createComponent({events = mockEvents, channels = mockChannels, userTimezone, userLocale} = {})
 	{
 		const element = createElement('c-streaming-timeline', {is: LwcEventTimeline});
+		element.events = events;
+		element.channels = channels;
+		element.userTimezone = userTimezone;
+		element.userLocale = userLocale;
 		document.body.appendChild(element);
-		return element;
-	};
-
-	/**
-	 * Creates a component and waits for D3 initialization to complete.
-	 */
-	async function createInitializedComponent()
-	{
-		const element = createComponent();
 		await flushPromises();
-		await flushPromises();
+		stubHostRect(element);
 		return element;
 	}
 
-	/**
-	 * Creates an initialized component with events and channels assigned.
-	 * Accepts optional extra properties (e.g., userTimezone, userLocale).
-	 */
-	async function createComponentWithEvents(properties = {})
+	// jsdom performs no layout, so the chart host reports a zero rect; pinning it at the viewport
+	// origin at the chart's natural size makes clientX/clientY map 1:1 onto SVG coordinates.
+	function stubHostRect(element)
 	{
-		const element = await createInitializedComponent();
-		Object.assign(element, properties);
-		element.events = mockEvents;
-		element.channels = mockChannels;
-		await flushPromises();
-		return element;
+		const host = element.shadowRoot.querySelector('.timeline');
+		host.getBoundingClientRect = () => ({
+			x: 0, y: 0, top: 0, left: 0, right: CHART_WIDTH, bottom: CHART_HEIGHT, width: CHART_WIDTH, height: CHART_HEIGHT, toJSON()
+			{
+			}
+		});
 	}
 
-	describe('initialization', () =>
+	function chart(element)
 	{
-		it('loads D3 script on connected', async() =>
-		{
-			createComponent();
-			await flushPromises();
+		return element.shadowRoot.querySelector('[data-spec-id="timeline-chart"]');
+	}
 
-			expect(mockLoadScript).toHaveBeenCalled();
+	function circles(element)
+	{
+		return [...element.shadowRoot.querySelectorAll('[data-testid="timeline-dot"]')];
+	}
+
+	function tooltip(element)
+	{
+		return element.shadowRoot.querySelector('[data-spec-id="timeline-tooltip"]');
+	}
+
+	function tooltipLines(element)
+	{
+		return [...tooltip(element).querySelectorAll('div')].map((line) => line.textContent);
+	}
+
+	function xTickTexts(element)
+	{
+		return [...element.shadowRoot.querySelectorAll('svg text')].filter((text) => text.getAttribute('text-anchor') === 'middle');
+	}
+
+	function mouseMoveOnChart(element, clientX, clientY)
+	{
+		chart(element).dispatchEvent(new MouseEvent('mousemove', {clientX, clientY, bubbles: true}));
+	}
+
+	// ── Rendering ────────────────────────────────────────────────────────
+
+	describe('rendering', () =>
+	{
+		it('renders the chart SVG with the default viewBox once events arrive', async() =>
+		{
+			const element = await createComponent();
+
+			expect(chart(element)).not.toBeNull();
+			expect(chart(element).getAttribute('viewBox')).toBe(`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
 		});
 
-		it('renders timeline container', async() =>
+		it('renders no chart content when the events list is empty', async() =>
 		{
-			const element = createComponent();
-			await flushPromises();
+			const element = await createComponent({events: []});
 
-			const timeline = element.shadowRoot.querySelector('.timeline');
-			expect(timeline).not.toBeNull();
+			expect(chart(element)).toBeNull();
 		});
 
-		it('initializes D3 elements after script loads', async() =>
+		it('renders no chart content when events becomes undefined', async() =>
 		{
-			await createInitializedComponent();
+			const element = await createComponent();
+			element.events = undefined;
+			await flushPromises();
 
-			expect(global.d3.select).toHaveBeenCalled();
+			expect(chart(element)).toBeNull();
+		});
+
+		it('renders one circle per event with radius 10', async() =>
+		{
+			const element = await createComponent();
+			const dots = circles(element);
+
+			expect(dots).toHaveLength(2);
+			dots.forEach((dot) => expect(dot.getAttribute('r')).toBe('10'));
+		});
+
+		it('renders the x-axis baseline across the chart width', async() =>
+		{
+			const element = await createComponent();
+			const baseline = element.shadowRoot.querySelector('.axis-baseline');
+
+			expect(baseline.getAttribute('x1')).toBe(String(MARGIN_LEFT));
+			expect(baseline.getAttribute('x2')).toBe(String(CHART_WIDTH));
+			expect(baseline.getAttribute('y1')).toBe(String(BASELINE_Y));
+		});
+
+		it('renders a y-axis label per channel at the band position', async() =>
+		{
+			const element = await createComponent();
+			const labels = [...element.shadowRoot.querySelectorAll('text.axis-label')].filter((text) => text.getAttribute('text-anchor') === 'end');
+
+			// Band layout for 2 channels over [0, 380] with padding 1: positions at 126.7 and 253.3.
+			expect(labels).toHaveLength(2);
+			expect(labels[0].textContent).toBe(mockChannels[0]);
+			expect(Number(labels[0].getAttribute('y'))).toBeCloseTo(126.7 + 4, 1);
+			expect(Number(labels[1].getAttribute('y'))).toBeCloseTo(253.3 + 4, 1);
 		});
 	});
 
-	describe('@api events property', () =>
+	// ── Geometry ─────────────────────────────────────────────────────────
+
+	describe('circle geometry', () =>
 	{
-		it('sets events list', async() =>
+		it('positions circles by timestamp interpolation with the 10% domain margin', async() =>
 		{
-			const element = createComponent();
-			await flushPromises();
+			const element = await createComponent();
+			const [first, second] = circles(element);
 
-			element.events = mockEvents;
-			await flushPromises();
-
-			expect(element.events).toEqual(mockEvents);
+			// Domain: [900000, 2100000]. Event one sits at 100000/1200000 of the 800px inner width.
+			expect(Number(first.getAttribute('cx'))).toBeCloseTo(MARGIN_LEFT + (100000 / 1200000) * INNER_WIDTH, 1);
+			expect(Number(second.getAttribute('cx'))).toBeCloseTo(MARGIN_LEFT + (1100000 / 1200000) * INNER_WIDTH, 1);
 		});
 
-		it('triggers timeline redraw when events change', async() =>
+		it('positions circles vertically at their channel band', async() =>
 		{
-			const element = await createInitializedComponent();
+			const element = await createComponent();
+			const [first, second] = circles(element);
 
-			const initialCalls = global.d3.select.mock.calls.length;
+			expect(Number(first.getAttribute('cy'))).toBeCloseTo(126.7, 1);
+			expect(Number(second.getAttribute('cy'))).toBeCloseTo(253.3, 1);
+		});
 
-			element.events = mockEvents;
-			element.channels = mockChannels;
+		it('renders a single event at the horizontal midpoint of the chart area', async() =>
+		{
+			const element = await createComponent({events: [mockEvents[0]], channels: mockChannels});
+			const [only] = circles(element);
+
+			expect(Number(only.getAttribute('cx'))).toBeCloseTo(MARGIN_LEFT + INNER_WIDTH / 2, 1);
+		});
+
+		it('anchors an event whose channel is not in the channel list at the top of the chart', async() =>
+		{
+			const element = await createComponent({events: [{...mockEvents[0], channel: '/event/Unknown__e'}], channels: mockChannels});
+			const [only] = circles(element);
+
+			expect(only.getAttribute('cy')).toBe('0');
+		});
+
+		it('renders an event without an id using its index as the iteration key', async() =>
+		{
+			const anonymous = {...mockEvents[0]};
+			delete anonymous.id;
+			const element = await createComponent({events: [anonymous], channels: mockChannels});
+
+			expect(circles(element)).toHaveLength(1);
+		});
+
+		it('renders dots at the chart top and no channel labels when channels is undefined', async() =>
+		{
+			const element = await createComponent();
+			element.channels = undefined;
 			await flushPromises();
+			const labels = [...element.shadowRoot.querySelectorAll('text.axis-label')].filter((text) => text.getAttribute('text-anchor') === 'end');
 
-			expect(global.d3.select.mock.calls.length).toBeGreaterThanOrEqual(initialCalls);
+			expect(circles(element)).toHaveLength(2);
+			expect(circles(element)[0].getAttribute('cy')).toBe('0');
+			expect(labels).toHaveLength(0);
 		});
 	});
 
-	describe('@api channels property', () =>
-	{
-		it('sets channels list', async() =>
-		{
-			const element = createComponent();
-			await flushPromises();
-
-			element.channels = mockChannels;
-			await flushPromises();
-
-			expect(element.channels).toEqual(mockChannels);
-		});
-
-		it('triggers timeline redraw when channels change', async() =>
-		{
-			const element = createComponent();
-			element.events = mockEvents;
-			await flushPromises();
-			await flushPromises();
-
-			const initialCalls = global.d3.select.mock.calls.length;
-
-			element.channels = mockChannels;
-			await flushPromises();
-
-			expect(global.d3.select.mock.calls.length).toBeGreaterThanOrEqual(initialCalls);
-		});
-	});
-
-	describe('@api userTimezone property', () =>
-	{
-		it('sets timezone value', async() =>
-		{
-			const element = createComponent();
-			await flushPromises();
-
-			element.userTimezone = 'America/New_York';
-			await flushPromises();
-
-			expect(element.userTimezone).toBe('America/New_York');
-		});
-
-		it('triggers timeline redraw when timezone changes', async() =>
-		{
-			const element = await createComponentWithEvents();
-
-			const initialCalls = global.d3.select.mock.calls.length;
-
-			element.userTimezone = 'Europe/London';
-			await flushPromises();
-
-			expect(global.d3.select.mock.calls.length).toBeGreaterThanOrEqual(initialCalls);
-		});
-	});
-
-	describe('@api userLocale property', () =>
-	{
-		it('sets locale value', async() =>
-		{
-			const element = createComponent();
-			await flushPromises();
-
-			element.userLocale = 'en_US';
-			await flushPromises();
-
-			expect(element.userLocale).toBe('en_US');
-		});
-
-		it('triggers timeline redraw when locale changes', async() =>
-		{
-			const element = await createComponentWithEvents();
-
-			const initialCalls = global.d3.select.mock.calls.length;
-
-			element.userLocale = 'de_DE';
-			await flushPromises();
-
-			expect(global.d3.select.mock.calls.length).toBeGreaterThanOrEqual(initialCalls);
-		});
-	});
-
-	describe('D3 chart creation', () =>
-	{
-		it('creates timescale for x-axis', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(global.d3.scaleTime).toHaveBeenCalled();
-		});
-
-		it('creates band scale for y-axis', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(global.d3.scaleBand).toHaveBeenCalled();
-		});
-
-		it('creates bottom axis for time', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(global.d3.axisBottom).toHaveBeenCalled();
-		});
-
-		it('creates left axis for channels', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(global.d3.axisLeft).toHaveBeenCalled();
-		});
-	});
-
-	describe('timeline drawing', () =>
-	{
-		it('does not draw when not initialized', async() =>
-		{
-			const element = createComponent();
-			// Don't wait for promises, set events immediately
-			element.events = mockEvents;
-			element.channels = mockChannels;
-
-			// D3 should not be fully initialized yet
-			expect(element.events).toEqual(mockEvents);
-		});
-
-		it('does not draw when events array is empty', async() =>
-		{
-			const element = await createInitializedComponent();
-
-			const initialCalls = global.d3.axisBottom.mock.calls.length;
-
-			element.events = [];
-			element.channels = mockChannels;
-			await flushPromises();
-
-			// axisBottom should not be called again for empty events
-			expect(global.d3.axisBottom.mock.calls.length).toBe(initialCalls);
-		});
-
-		it('draws circles for events', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Check that selectAll was called (for circles)
-			const selectAllCalls = global.d3.select.mock.results
-			.flatMap((r) => r.value.selectAll?.mock?.calls || []);
-			expect(selectAllCalls.length).toBeGreaterThanOrEqual(0);
-		});
-	});
+	// ── Channel colors ───────────────────────────────────────────────────
 
 	describe('channel color classes', () =>
 	{
-		it('generates consistent color class for same channel', async() =>
+		it('assigns the same deterministic color class for the same channel', async() =>
 		{
-			const element = createComponent();
+			const twin = {...mockEvents[1], id: 'evt-3', channel: mockEvents[0].channel};
+			const element = await createComponent({
+				events: [
+					mockEvents[0],
+					twin
+				], channels: mockChannels
+			});
+			const dots = circles(element);
+
+			expect(dots[0].getAttribute('class')).toMatch(/channel-color-\d/);
+			expect(dots[0].getAttribute('class')).toBe(dots[1].getAttribute('class'));
+		});
+
+		it('assigns different classes to channels hashing to different palette slots', async() =>
+		{
+			const element = await createComponent();
+			const dots = circles(element);
+
+			expect(dots[0].getAttribute('class')).not.toBe(dots[1].getAttribute('class'));
+		});
+	});
+
+	// ── @api reactivity ──────────────────────────────────────────────────
+
+	describe('@api reactivity', () =>
+	{
+		it('re-renders circles when the events property changes', async() =>
+		{
+			const element = await createComponent();
+			element.events = [mockEvents[0]];
 			await flushPromises();
 
-			// Set up the component to draw
-			element.events = mockEvents;
-			element.channels = mockChannels;
+			expect(circles(element)).toHaveLength(1);
+		});
+
+		it('re-renders band positions when the channels property changes', async() =>
+		{
+			const element = await createComponent();
+			element.channels = [mockChannels[0]];
 			await flushPromises();
 
-			// The component should have assigned color classes
-			expect(element).toBeTruthy();
-		});
-	});
-
-	describe('locale handling', () =>
-	{
-		it('converts Salesforce locale format to JavaScript format', async() =>
-		{
-			const element = await createComponentWithEvents({userLocale: 'en_ZA'});
-
-			// The component should handle locale conversion
-			expect(element.userLocale).toBe('en_ZA');
+			// One channel over [0, 380] with padding 1: single lane at 190.
+			expect(Number(circles(element)[0].getAttribute('cy'))).toBeCloseTo(190, 1);
 		});
 
-		it('handles undefined locale gracefully', async() =>
+		it('re-formats tick labels when the locale property changes', async() =>
 		{
-			const element = await createComponentWithEvents();
-
-			// Should not throw with undefined locale
-			expect(element.userLocale).toBeUndefined();
-		});
-	});
-
-	describe('timezone handling', () =>
-	{
-		it('uses timezone for time formatting', async() =>
-		{
-			const element = await createComponentWithEvents({userTimezone: 'America/Los_Angeles'});
-
-			expect(element.userTimezone).toBe('America/Los_Angeles');
-		});
-
-		it('handles undefined timezone gracefully', async() =>
-		{
-			const element = await createComponentWithEvents();
-
-			// Should not throw with undefined timezone
-			expect(element.userTimezone).toBeUndefined();
-		});
-	});
-
-	describe('renderedCallback', () =>
-	{
-		it('re-initializes timeline on each render', async() =>
-		{
-			const element = await createInitializedComponent();
-
-			const initialCalls = global.d3.select.mock.calls.length;
-
-			// Trigger a rerender
-			element.events = mockEvents;
+			const element = await createComponent({userTimezone: 'UTC', userLocale: 'en_US'});
+			const twelveHourLabel = xTickTexts(element)[0].textContent;
+			element.userLocale = 'en_ZA';
 			await flushPromises();
 
-			expect(global.d3.select.mock.calls.length).toBeGreaterThanOrEqual(initialCalls);
+			expect(twelveHourLabel).toMatch(/AM|PM/);
+			expect(xTickTexts(element)[0].textContent).not.toMatch(/AM|PM/);
 		});
 	});
 
-	describe('mouse interactions', () =>
-	{
-		it('registers mousemove handler on SVG', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
-		});
-
-		it('registers mouseout handler on SVG', async() =>
-		{
-			await createInitializedComponent();
-
-			expect(capturedSvgHandlers.mouseout).toBeDefined();
-		});
-
-		it('mousemove shows tooltip when in chart area', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Invoke mousemove handler with position in chart area
-			if(capturedSvgHandlers.mousemove)
-			{
-				const mockEvent = {};
-				// This should trigger the tooltip display
-				capturedSvgHandlers.mousemove(mockEvent);
-			}
-
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
-		});
-
-		it('mousemove hides tooltip when outside chart area', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Mock pointer to return position outside chart area (left of margin)
-			global.d3.pointer.mockReturnValueOnce([
-				50,
-				100
-			]); // Left of 200px margin
-
-			if(capturedSvgHandlers.mousemove)
-			{
-				const mockEvent = {};
-				capturedSvgHandlers.mousemove(mockEvent);
-			}
-
-			expect(global.d3.pointer).toHaveBeenCalled();
-		});
-
-		it('mouseout hides tooltip', async() =>
-		{
-			await createInitializedComponent();
-
-			if(capturedSvgHandlers.mouseout)
-			{
-				capturedSvgHandlers.mouseout();
-			}
-
-			expect(capturedSvgHandlers.mouseout).toBeDefined();
-		});
-	});
-
-	describe('circle interactions', () =>
-	{
-		it('registers mouseenter handler on circles', async() =>
-		{
-			await createComponentWithEvents();
-
-			expect(capturedCircleHandlers.mouseenter).toBeDefined();
-		});
-
-		it('registers mouseout handler on circles', async() =>
-		{
-			await createComponentWithEvents();
-
-			expect(capturedCircleHandlers.mouseout).toBeDefined();
-		});
-
-		it('registers click handler on circles', async() =>
-		{
-			await createComponentWithEvents();
-
-			expect(capturedCircleHandlers.click).toBeDefined();
-		});
-
-		it('mouseenter on circle shows data tooltip', async() =>
-		{
-			await createComponentWithEvents();
-
-			if(capturedCircleHandlers.mouseenter)
-			{
-				const mockEvent = {};
-				const mockData = mockEvents[0];
-				capturedCircleHandlers.mouseenter(mockEvent, mockData);
-			}
-
-			expect(capturedCircleHandlers.mouseenter).toBeDefined();
-		});
-
-		it('mouseout on circle clears data tooltip flag', async() =>
-		{
-			await createComponentWithEvents();
-
-			if(capturedCircleHandlers.mouseout)
-			{
-				capturedCircleHandlers.mouseout();
-			}
-
-			expect(capturedCircleHandlers.mouseout).toBeDefined();
-		});
-
-		it('click on circle dispatches select event', async() =>
-		{
-			const element = await createComponentWithEvents();
-
-			const selectHandler = jest.fn();
-			element.addEventListener('select', selectHandler);
-
-			if(capturedCircleHandlers.click)
-			{
-				const mockEvent = {};
-				const mockData = mockEvents[0];
-				capturedCircleHandlers.click(mockEvent, mockData);
-			}
-
-			expect(selectHandler).toHaveBeenCalled();
-			expect(selectHandler.mock.calls[0][0].detail).toEqual(mockEvents[0]);
-		});
-	});
+	// ── Tick generation & formatting ─────────────────────────────────────
 
 	describe('tick formatting', () =>
 	{
-		it('formats time ticks correctly', async() =>
+		it('renders step-aligned time ticks across the domain', async() =>
 		{
-			await createComponentWithEvents({userLocale: 'en_US'});
+			const element = await createComponent({userTimezone: 'UTC', userLocale: 'en_US'});
+			const ticks = xTickTexts(element);
 
-			// The tick format function should have been set
-			expect(global.d3.axisBottom).toHaveBeenCalled();
+			// Span 1,200,000 ms resolves to the 5-minute ladder step: 900000..2100000 = 5 ticks.
+			expect(ticks).toHaveLength(5);
+			expect(ticks[0].textContent).toBe('12:15 AM');
 		});
 
-		it('handles 24-hour format detection', async() =>
+		it('renders 24-hour tick labels for a 24-hour locale', async() =>
 		{
-			await createComponentWithEvents({userLocale: 'de_DE'}); // German locale uses 24-hour format
+			const element = await createComponent({userTimezone: 'UTC', userLocale: 'en_ZA'});
 
-			expect(global.d3.axisBottom).toHaveBeenCalled();
+			expect(xTickTexts(element)[0].textContent).toBe('00:15');
 		});
 
-		it('handles day boundary in tick format', async() =>
+		it('formats ticks in the requested timezone', async() =>
 		{
-			await createComponentWithEvents({userTimezone: 'America/New_York'});
+			const element = await createComponent({userTimezone: 'Asia/Kolkata', userLocale: 'en_ZA'});
 
-			expect(global.d3.axisBottom).toHaveBeenCalled();
-		});
-	});
-
-	describe('getChannelColorClass', () =>
-	{
-		it('returns color class for channel', async() =>
-		{
-			const element = await createComponentWithEvents();
-
-			// The component should assign color classes to circles
-			// The class follows pattern 'channel-color-N' where N is 0-9
-			expect(element).toBeTruthy();
+			// 900000 ms UTC is 06:00 + 15 min in Asia/Kolkata (UTC+5:30).
+			expect(xTickTexts(element)[0].textContent).toBe('05:45');
 		});
 
-		it('uses captured class callback for channel color', async() =>
+		it('switches a day-boundary tick to the short-date form and marks it major', async() =>
 		{
-			await createComponentWithEvents();
+			const dayBoundary = 86400000;
+			const element = await createComponent({
+				events: [
+					{...mockEvents[0], timestamp: dayBoundary - 600000},
+					{...mockEvents[1], timestamp: dayBoundary + 600000}
+				], userTimezone: 'UTC', userLocale: 'en_US'
+			});
+			const ticks = xTickTexts(element);
+			const majorTick = ticks.find((tick) => tick.getAttribute('class').includes('major-tick'));
 
-			expect(capturedCircleAttrCallbacks.class).toBeDefined();
-			const colorClass = capturedCircleAttrCallbacks.class(mockEvents[0]);
-			expect(colorClass).toMatch(/^channel-color-\d$/);
+			expect(majorTick.textContent).toBe('Jan 2');
 		});
 
-		it('generates consistent hash for same channel', async() =>
+		it('marks a local-midnight tick as major when no timezone is set', async() =>
 		{
-			await createComponentWithEvents();
+			const localMidnight = new Date(1970, 0, 2, 0, 0, 0).getTime();
+			const element = await createComponent({
+				events: [
+					{...mockEvents[0], timestamp: localMidnight - 600000},
+					{...mockEvents[1], timestamp: localMidnight + 600000}
+				], userLocale: 'en_US'
+			});
+			const majorTicks = xTickTexts(element).filter((tick) => tick.getAttribute('class').includes('major-tick'));
 
-			expect(capturedCircleAttrCallbacks.class).toBeDefined();
-			const colorClass1 = capturedCircleAttrCallbacks.class(mockEvents[0]);
-			const colorClass2 = capturedCircleAttrCallbacks.class(mockEvents[0]);
-			expect(colorClass1).toBe(colorClass2);
+			expect(majorTicks).toHaveLength(1);
 		});
 
-		it('generates different hash for different channels', async() =>
+		it('falls back to whole-day steps for a span beyond the tick ladder', async() =>
 		{
-			await createComponentWithEvents();
+			const fourHundredDays = 400 * 86400000;
+			const element = await createComponent({
+				events: [
+					{...mockEvents[0], timestamp: 0},
+					{...mockEvents[1], timestamp: fourHundredDays}
+				], userTimezone: 'UTC', userLocale: 'en_US'
+			});
+			const ticks = xTickTexts(element);
 
-			expect(capturedCircleAttrCallbacks.class).toBeDefined();
-			const colorClass1 = capturedCircleAttrCallbacks.class(mockEvents[0]);
-			const colorClass2 = capturedCircleAttrCallbacks.class(mockEvents[1]);
-			// Different channels should potentially have different colors
-			expect(colorClass1).toMatch(/^channel-color-\d$/);
-			expect(colorClass2).toMatch(/^channel-color-\d$/);
-		});
-	});
-
-	describe('tickFormat callback', () =>
-	{
-		it('captures tickFormat callback', async() =>
-		{
-			await createComponentWithEvents();
-
-			expect(capturedTickFormatCallback).not.toBeNull();
+			expect(ticks.length).toBeGreaterThanOrEqual(2);
+			expect(ticks.length).toBeLessThanOrEqual(11);
 		});
 
-		it('formats time without timezone', async() =>
+		it('renders a single midpoint tick for a zero-span domain', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent({events: [mockEvents[0]], userTimezone: 'UTC', userLocale: 'en_US'});
+			const ticks = xTickTexts(element);
 
-			expect(capturedTickFormatCallback).not.toBeNull();
-			const testDate = new Date(2025, 0, 15, 14, 30, 0);
-			const formatted = capturedTickFormatCallback(testDate);
-			expect(typeof formatted).toBe('string');
-		});
-
-		it('formats time with timezone', async() =>
-		{
-			await createComponentWithEvents({userTimezone: 'America/New_York'});
-
-			expect(capturedTickFormatCallback).not.toBeNull();
-			const testDate = new Date(2025, 0, 15, 14, 30, 0);
-			const formatted = capturedTickFormatCallback(testDate);
-			expect(typeof formatted).toBe('string');
-		});
-
-		it('shows date at day boundary', async() =>
-		{
-			await createComponentWithEvents();
-
-			expect(capturedTickFormatCallback).not.toBeNull();
-
-			// First call sets lastFormattedDate
-			const firstDate = new Date(2025, 0, 14, 23, 59, 0);
-			capturedTickFormatCallback(firstDate);
-
-			// Second call with different day should show date format
-			const secondDate = new Date(2025, 0, 15, 0, 1, 0);
-			const formatted = capturedTickFormatCallback(secondDate);
-			expect(typeof formatted).toBe('string');
-		});
-
-		it('handles 24-hour locale format', async() =>
-		{
-			await createComponentWithEvents({userLocale: 'de_DE'}); // German uses 24-hour
-
-			expect(capturedTickFormatCallback).not.toBeNull();
-			const testDate = new Date(2025, 0, 15, 14, 30, 0);
-			const formatted = capturedTickFormatCallback(testDate);
-			expect(typeof formatted).toBe('string');
+			expect(ticks).toHaveLength(1);
+			expect(Number(ticks[0].getAttribute('x'))).toBeCloseTo(MARGIN_LEFT + INNER_WIDTH / 2, 1);
 		});
 	});
 
-	describe('midnight tick filter', () =>
+	// ── Crosshair tooltip ────────────────────────────────────────────────
+
+	describe('crosshair tooltip', () =>
 	{
-		it('captures filter callback for midnight detection', async() =>
+		it('shows the inverted time label when the pointer is inside the chart area', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent({userTimezone: 'UTC', userLocale: 'en_US'});
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
 
-			expect(capturedFilterCallback).not.toBeNull();
+			// x=600 inverts to 900000 + ((600-200)/800) * 1200000 = 1,500,000 ms.
+			expect(tooltip(element)).not.toBeNull();
+			expect(tooltip(element).getAttribute('class')).toBe('tooltip');
+			expect(tooltipLines(element)).toEqual([getTimeLabel(1500000, 'UTC', 'en_US')]);
 		});
 
-		it('identifies midnight tick without timezone', async() =>
+		it('hides the tooltip when the pointer is left of the chart area', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent();
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
+			mouseMoveOnChart(element, 100, 100);
+			await flushPromises();
 
-			expect(capturedFilterCallback).not.toBeNull();
-			const midnightDate = new Date(2025, 0, 15, 0, 0, 0);
-			const isMidnight = capturedFilterCallback(midnightDate);
-			expect(isMidnight).toBe(true);
+			expect(tooltip(element)).toBeNull();
 		});
 
-		it('identifies non-midnight tick without timezone', async() =>
+		it('hides the tooltip when the pointer is below the baseline', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent();
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
+			mouseMoveOnChart(element, 600, 395);
+			await flushPromises();
 
-			expect(capturedFilterCallback).not.toBeNull();
-			const nonMidnightDate = new Date(2025, 0, 15, 14, 30, 0);
-			const isMidnight = capturedFilterCallback(nonMidnightDate);
-			expect(isMidnight).toBe(false);
+			expect(tooltip(element)).toBeNull();
 		});
 
-		it('identifies midnight tick with timezone', async() =>
+		it('hides the tooltip when the pointer leaves the chart host', async() =>
 		{
-			await createComponentWithEvents({userTimezone: 'America/New_York'});
+			const element = await createComponent();
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
+			element.shadowRoot.querySelector('.timeline').dispatchEvent(new MouseEvent('mouseleave'));
+			await flushPromises();
 
-			expect(capturedFilterCallback).not.toBeNull();
-			// Create a date that is midnight in New York (UTC-5)
-			const midnightNY = new Date('2025-01-15T05:00:00Z'); // 00:00 in NY
-			const isMidnight = capturedFilterCallback(midnightNY);
-			expect(typeof isMidnight).toBe('boolean');
+			expect(tooltip(element)).toBeNull();
 		});
 	});
 
-	describe('mousemove with data tooltip', () =>
+	// ── Data tooltip ─────────────────────────────────────────────────────
+
+	describe('data tooltip', () =>
 	{
-		it('returns early when isDataTooltip is true', async() =>
+		it('shows the event details on dot hover', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent();
+			circles(element)[0].dispatchEvent(new MouseEvent('mouseenter', {clientX: 300, clientY: 130, bubbles: true}));
+			await flushPromises();
 
-			// First, trigger mouseenter on circle to set isDataTooltip = true
-			if(capturedCircleHandlers.mouseenter)
-			{
-				const mockEvent = {};
-				capturedCircleHandlers.mouseenter(mockEvent, mockEvents[0]);
-			}
-
-			// Then trigger mousemove on SVG - should return early
-			if(capturedSvgHandlers.mousemove)
-			{
-				capturedSvgHandlers.mousemove({});
-			}
-
-			// pointer should still be called to get position, but tooltip logic skipped
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
-		});
-	});
-
-	describe('circle position callbacks', () =>
-	{
-		it('registers position callbacks on circles', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Verify callbacks were registered (cx and cy are set as functions)
-			expect(capturedCircleAttrCallbacks.cx).toBeDefined();
-			expect(capturedCircleAttrCallbacks.cy).toBeDefined();
-			expect(capturedCircleAttrCallbacks.class).toBeDefined();
-		});
-
-		it('executes cx callback to position circles horizontally', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Arrow functions preserve lexical 'this', so callback should work
-			// The callback is: (d) => this.xScale(xAccessor(d))
-			expect(capturedCircleAttrCallbacks.cx).toBeDefined();
-			const xPos = capturedCircleAttrCallbacks.cx(mockEvents[0]);
-			expect(typeof xPos).toBe('number');
-			expect(xPos).toBe(100); // Mock scale returns 100
-		});
-
-		it('executes cy callback to position circles vertically', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Arrow functions preserve lexical 'this', so callback should work
-			// The callback is: (d) => this.yScale(yAccessor(d))
-			expect(capturedCircleAttrCallbacks.cy).toBeDefined();
-			const yPos = capturedCircleAttrCallbacks.cy(mockEvents[0]);
-			expect(typeof yPos).toBe('number');
-			expect(yPos).toBe(100); // Mock scale returns 100
-		});
-	});
-
-	describe('tooltip display in chart area', () =>
-	{
-		let originalGetBoundingClientRect;
-
-		beforeEach(() =>
-		{
-			// Save original and mock getBoundingClientRect globally
-			// JSDOM returns 0 by default since elements aren't actually rendered
-			originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
-			Element.prototype.getBoundingClientRect = jest.fn(() => ({
-				x: 0, y: 0, width: 800, height: 400, top: 0, right: 800, bottom: 400, left: 0, toJSON()
-				{
-				}
-			}));
-		});
-
-		afterEach(() =>
-		{
-			// Restore original
-			Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
-		});
-
-		it('shows time tooltip when mouse is in chart bounds', async() =>
-		{
-			await createComponentWithEvents();
-
-			// Mock pointer to return position inside chart area
-			// margin.left = 200, height = 400, margin.bottom = 20
-			// So valid area is x > 200, y < 380
-			global.d3.pointer.mockReturnValueOnce([
-				250,
-				100
+			expect(tooltip(element).getAttribute('class')).toBe('tooltip data');
+			expect(tooltipLines(element)).toEqual([
+				mockEvents[0].timeLabel,
+				mockEvents[0].channel,
+				'',
+				CLICK_FOR_DETAILS
 			]);
-
-			// Arrow function callback preserves 'this' context from component
-			// Execute the handler - it should invoke xScale.invert, getTimeLabel, and drawTooltip
-			if(capturedSvgHandlers.mousemove)
-			{
-				capturedSvgHandlers.mousemove({});
-			}
-
-			// Verify the handler executed the tooltip path (lines 152-154)
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
-			// xScale.invert should have been called to get time from mouse position
-			const xScale = global.d3.scaleTime.mock.results[0]?.value;
-			expect(xScale.invert).toHaveBeenCalled();
 		});
 
-		it('hides tooltip when mouse is outside chart bounds (left margin)', async() =>
+		it('suppresses the crosshair tooltip while the data tooltip is showing', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent();
+			circles(element)[0].dispatchEvent(new MouseEvent('mouseenter', {clientX: 300, clientY: 130, bubbles: true}));
+			await flushPromises();
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
 
-			// Mock pointer to return position in left margin (x < 200)
-			global.d3.pointer.mockReturnValueOnce([
-				100,
-				100
-			]);
-
-			if(capturedSvgHandlers.mousemove)
-			{
-				capturedSvgHandlers.mousemove({});
-			}
-
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
+			expect(tooltip(element).getAttribute('class')).toBe('tooltip data');
 		});
 
-		it('hides tooltip when mouse is in bottom margin (y >= height - margin.bottom)', async() =>
+		it('releases the crosshair suppression when the pointer leaves the dot', async() =>
 		{
-			await createComponentWithEvents();
+			const element = await createComponent();
+			circles(element)[0].dispatchEvent(new MouseEvent('mouseenter', {clientX: 300, clientY: 130, bubbles: true}));
+			await flushPromises();
+			circles(element)[0].dispatchEvent(new MouseEvent('mouseleave', {bubbles: true}));
+			await flushPromises();
 
-			// Mock pointer to return position in bottom margin area
-			// margin.left = 200, so x > 200 is valid; height = 400, margin.bottom = 20, so y >= 380 is invalid
-			global.d3.pointer.mockReturnValueOnce([
-				250,
-				390
-			]);
+			expect(tooltip(element)).toBeNull();
 
-			if(capturedSvgHandlers.mousemove)
-			{
-				capturedSvgHandlers.mousemove({});
-			}
+			mouseMoveOnChart(element, 600, 100);
+			await flushPromises();
 
-			expect(capturedSvgHandlers.mousemove).toBeDefined();
+			expect(tooltip(element).getAttribute('class')).toBe('tooltip');
 		});
 	});
 
-	describe('tickFormat with timezone at day boundary', () =>
+	// ── Selection ────────────────────────────────────────────────────────
+
+	describe('select event', () =>
 	{
-		it('formats date at day boundary with timezone', async() =>
+		it('dispatches select with the raw event datum on dot click', async() =>
 		{
-			await createComponentWithEvents({userTimezone: 'America/New_York'});
+			const element = await createComponent();
+			const selectHandler = jest.fn();
+			element.addEventListener('select', selectHandler);
+			circles(element)[1].dispatchEvent(new MouseEvent('click', {bubbles: true}));
+			await flushPromises();
 
-			expect(capturedTickFormatCallback).not.toBeNull();
+			expect(selectHandler).toHaveBeenCalledTimes(1);
+			expect(selectHandler.mock.calls[0][0].detail).toEqual(mockEvents[1]);
+			expect(tooltip(element)).toBeNull();
+		});
+	});
 
-			// First call to set lastFormattedDate
-			const firstDate = new Date(2025, 0, 14, 23, 59, 0);
-			capturedTickFormatCallback(firstDate);
+	// ── Resize ───────────────────────────────────────────────────────────
 
-			// Second call with different day should trigger day boundary formatting
-			// This should hit line 260 (dayOptions.timeZone = this.timezone)
-			const secondDate = new Date(2025, 0, 15, 0, 1, 0);
-			const formatted = capturedTickFormatCallback(secondDate);
-			expect(typeof formatted).toBe('string');
+	describe('resize', () =>
+	{
+		it('tracks the host width in the viewBox through the ResizeObserver', async() =>
+		{
+			const element = await createComponent();
+			resizeObserverCallback([{contentRect: {width: 500}}]);
+			await flushPromises();
+
+			expect(chart(element).getAttribute('viewBox')).toBe(`0 0 500 ${CHART_HEIGHT}`);
+		});
+
+		it('ignores a zero-width resize entry', async() =>
+		{
+			const element = await createComponent();
+			resizeObserverCallback([{contentRect: {width: 0}}]);
+			await flushPromises();
+
+			expect(chart(element).getAttribute('viewBox')).toBe(`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
+		});
+
+		it('ignores a resize callback without entries', async() =>
+		{
+			const element = await createComponent();
+			resizeObserverCallback([]);
+			await flushPromises();
+
+			expect(chart(element).getAttribute('viewBox')).toBe(`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
+		});
+
+		it('renders without a ResizeObserver implementation', async() =>
+		{
+			delete global.ResizeObserver;
+			const element = await createComponent();
+
+			expect(chart(element)).not.toBeNull();
+			expect(circles(element)).toHaveLength(2);
+		});
+
+		it('disconnects the observer when the component is removed', async() =>
+		{
+			const disconnectSpy = jest.spyOn(ResizeObserverStub.prototype, 'disconnect');
+			const element = await createComponent();
+			document.body.removeChild(element);
+
+			expect(disconnectSpy).toHaveBeenCalled();
 		});
 	});
 });

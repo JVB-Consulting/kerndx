@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date April 2026, June 2026, July 2026
+ * @date April 2026, July 2026
  */
 public with sharing class CTRL_ChainMonitor
 {
@@ -176,8 +176,6 @@ public with sharing class CTRL_ChainMonitor
 	 * @return The Id of the matching AsyncChainExecution__c record, or null when the correlation
 	 * id is blank or no registered chain carries it.
 	 *
-	 * @date July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * Id executionId = CTRL_ChainMonitor.findChainExecutionIdByCorrelation('550e8400-e29b-41d4-a716-446655440000');
@@ -187,6 +185,24 @@ public with sharing class CTRL_ChainMonitor
 	public static Id findChainExecutionIdByCorrelation(String correlationId)
 	{
 		return new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring(correlationId)?.Id;
+	}
+
+	/**
+	 * @description Exposes the managed-package namespace prefix so the monitor LWC can build its
+	 * streaming channel and payload key for the org it is actually running in: 'kern__' in a
+	 * managed install, an empty string in an unmanaged (no-namespace) deploy.
+	 *
+	 * @return The namespace prefix with '__' delimiter, or an empty string when no namespace applies.
+	 *
+	 * @example
+	 * ```apex
+	 * String namespacePrefix = CTRL_ChainMonitor.getNamespacePrefix(); // 'kern__' or ''
+	 * ```
+	 */
+	@AuraEnabled(Cacheable=true)
+	public static String getNamespacePrefix()
+	{
+		return UTIL_System.getManagedPackageNamespacePrefix();
 	}
 
 	/**

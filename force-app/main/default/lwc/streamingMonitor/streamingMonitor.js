@@ -12,7 +12,7 @@
  * Handles subscribing, publishing, tracking events,
  * UI navigation, error handling and rendering logic.
  *
- * @date March 2026, June 2026
+ * @date March 2026, July 2026
  */
 import {LightningElement, track} from 'lwc';
 import {
@@ -25,11 +25,28 @@ import {
 	EVENT_TYPES, EVT_CDC, CHANNEL_ALL_CDC, FILTER_CUSTOM, FILTER_ALL, isCDCChannel, getChannelPrefix, normalizeEvent, channelSort, isCustomChannel
 } from 'c/utilityStreaming';
 import utilityLogger from 'c/utilityLogger';
+import {formatTemplateString} from 'c/utilityString';
 
 import PUBLISH_ERROR_BODY from '@salesforce/label/c.EventMonitor_Publish_ErrorBody';
 import PUBLISH_ERROR_TITLE from '@salesforce/label/c.EventMonitor_Publish_ErrorTitle';
 import PUBLISH_SUCCESS_BODY from '@salesforce/label/c.EventMonitor_Publish_SuccessBody';
 import PUBLISH_SUCCESS_TITLE from '@salesforce/label/c.EventMonitor_Publish_SuccessTitle';
+import ERROR_SEE_DEV_CONSOLE from '@salesforce/label/c.EventMonitor_Error_SeeDevConsole';
+import ERROR_SUBSCRIBE_CDC_INACTIVE from '@salesforce/label/c.EventMonitor_Error_SubscribeCdcInactive';
+import ERROR_SUBSCRIBE_DENIED from '@salesforce/label/c.EventMonitor_Error_SubscribeDenied';
+import ERROR_STREAMING_TITLE from '@salesforce/label/c.EventMonitor_Error_StreamingTitle';
+import NO_CHANNELS_TITLE from '@salesforce/label/c.EventMonitor_NoChannels_Title';
+import NO_CHANNELS_BODY from '@salesforce/label/c.EventMonitor_NoChannels_Body';
+import SUBSCRIBED_ALL_TITLE from '@salesforce/label/c.EventMonitor_SubscribedAll_Title';
+import SUBSCRIBED_ALL_BODY from '@salesforce/label/c.EventMonitor_SubscribedAll_Body';
+import CANNOT_SUBSCRIBE_TITLE from '@salesforce/label/c.EventMonitor_CannotSubscribe_Title';
+import ALREADY_SUBSCRIBED_BODY from '@salesforce/label/c.EventMonitor_AlreadySubscribed_Body';
+import SUBSCRIBED_ONE_TITLE from '@salesforce/label/c.EventMonitor_SubscribedOne_Title';
+import RECEIVED_EVENT_TITLE from '@salesforce/label/c.EventMonitor_ReceivedEvent_Title';
+import UNSUBSCRIBED_ALL_TITLE from '@salesforce/label/c.EventMonitor_UnsubscribedAll_Title';
+import UNSUBSCRIBED_ALL_BODY from '@salesforce/label/c.EventMonitor_UnsubscribedAll_Body';
+import UNSUBSCRIBED_ONE_TITLE from '@salesforce/label/c.EventMonitor_UnsubscribedOne_Title';
+import UNSUBSCRIBE_FAILED_TITLE from '@salesforce/label/c.EventMonitor_UnsubscribeFailed_Title';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -53,6 +70,13 @@ const ACTION_VIEWS = new Set([
 	VIEW_MODES.REGISTER
 ]);
 
+// ShowToastEvent severity variants. Named constants keep the toast severity out of the notify()
+// call sites as identifiers (not display copy) — only the label-sourced title and message carry
+// subscriber-visible text.
+const TOAST_VARIANT = Object.freeze({
+	SUCCESS: 'success', ERROR: 'error', WARN: 'warn', INFO: 'info'
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 /**
@@ -65,7 +89,7 @@ const ACTION_VIEWS = new Set([
  */
 function classifyStreamingError(error, isErrorSuppressed)
 {
-	const defaultMessage = (error.subscription ? error.subscription + ' - ' : '') + (error.error ? error.error : 'See browser\'s dev console for details');
+	const defaultMessage = (error.subscription ? error.subscription + ' - ' : '') + (error.error ? error.error : ERROR_SEE_DEV_CONSOLE);
 
 	if(error.channel !== '/meta/subscribe' || !error.error)
 	{
@@ -76,30 +100,20 @@ function classifyStreamingError(error, isErrorSuppressed)
 	if(rawErrorMessage.startsWith('400::The channel specified is not valid'))
 	{
 		return {
-			showToast: !isErrorSuppressed && isCDCChannel(error.subscription),
-			errorMessage: `Failed to subscribe to ${error.subscription}. Is the Change Data Capture event active?`
+			showToast: !isErrorSuppressed && isCDCChannel(error.subscription), errorMessage: formatTemplateString(ERROR_SUBSCRIBE_CDC_INACTIVE, [error.subscription])
 		};
 	}
 	if(rawErrorMessage.startsWith('403:denied_by_security_policy'))
 	{
 		return {
-			showToast: !isErrorSuppressed, errorMessage: `Failed to subscribe to ${error.subscription}: ${rawErrorMessage}`
+			showToast: !isErrorSuppressed, errorMessage: formatTemplateString(ERROR_SUBSCRIBE_DENIED, [
+				error.subscription,
+				rawErrorMessage
+			])
 		};
 	}
 
 	return {showToast: true, errorMessage: defaultMessage};
-}
-
-/**
- * @description Substitutes the single `{0}` placeholder in a label template.
- *
- * @param {string} template - The label text containing `{0}`.
- * @param {string} value - The replacement value.
- * @returns {string} The interpolated string.
- */
-function formatLabel(template, value)
-{
-	return template.replace('{0}', value);
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -126,6 +140,15 @@ export default class StreamingMonitor extends LightningElement
 
 	/** @description Debounce timeout ID for window resize handling. */
 	resizeDebounceTimer;
+
+	/** @description Timeout ID for the temporary subscribe-error suppression window. */
+	subscribeErrorSuppressionTimer;
+
+	/**
+	 * @description Single bound window-resize handler, kept so disconnect removes the exact
+	 * listener reference that connect added.
+	 */
+	boundHandleWindowResize = this.handleWindowResize.bind(this);
 
 	// ── Computed Properties ──────────────────────────────────────────────
 
@@ -162,14 +185,19 @@ export default class StreamingMonitor extends LightningElement
 	// ── Lifecycle ────────────────────────────────────────────────────────
 
 	/**
-	 * @description Initializes EMP API, loads channels,
-	 * registers error handler and binds resize listener.
+	 * @description Initializes EMP API, registers the error handler,
+	 * binds the resize listener and loads channels.
 	 */
 	async connectedCallback()
 	{
 		setDebugFlag(true);
 
 		onError((error) => this.handleStreamingError(error));
+
+		// Attached synchronously, before the channel round trip, so a teardown while the
+		// load is in flight still finds the listener registered and removes it — attaching
+		// it after the await would leak the listener when disconnect wins the race.
+		window.addEventListener('resize', this.boundHandleWindowResize);
 
 		try
 		{
@@ -179,17 +207,19 @@ export default class StreamingMonitor extends LightningElement
 		{
 			utilityLogger.error('Failed to retrieve streaming channels', error);
 		}
-		window.addEventListener('resize', this.handleWindowResize.bind(this));
 	}
 
 	/**
 	 * @description Cleanup on component removal.
-	 * Unsubscribes from all channels and clears resize listener.
+	 * Unsubscribes from all channels, removes the resize listener,
+	 * and clears any pending debounce and error-suppression timers.
 	 */
 	disconnectedCallback()
 	{
 		this.handleUnsubscribeAll();
-		window.removeEventListener('resize', this.handleWindowResize);
+		window.removeEventListener('resize', this.boundHandleWindowResize);
+		clearTimeout(this.resizeDebounceTimer);
+		clearTimeout(this.subscribeErrorSuppressionTimer);
 	}
 
 	// ── Event Handlers ───────────────────────────────────────────────────
@@ -281,7 +311,7 @@ export default class StreamingMonitor extends LightningElement
 		const {showToast, errorMessage} = classifyStreamingError(error, this.isSubscribeErrorSuppressed);
 		if(showToast)
 		{
-			this.notify('error', 'Streaming API error', errorMessage);
+			this.notify(TOAST_VARIANT.ERROR, ERROR_STREAMING_TITLE, errorMessage);
 		}
 	}
 
@@ -303,7 +333,7 @@ export default class StreamingMonitor extends LightningElement
 
 			if(channels.length === 0)
 			{
-				this.notify('warn', 'No channels available', 'There are no channels to subscribe to with the specified filter and current subscriptions');
+				this.notify(TOAST_VARIANT.WARN, NO_CHANNELS_TITLE, NO_CHANNELS_BODY);
 				return;
 			}
 
@@ -313,7 +343,7 @@ export default class StreamingMonitor extends LightningElement
 
 			this.saveSubscriptions(subscriptions);
 
-			this.notify('success', 'Subscribed', 'Successfully subscribed to the specified channels');
+			this.notify(TOAST_VARIANT.SUCCESS, SUBSCRIBED_ALL_TITLE, SUBSCRIBED_ALL_BODY);
 			this.view = VIEW_MODES.MONITOR;
 		}
 		catch(error)
@@ -333,7 +363,7 @@ export default class StreamingMonitor extends LightningElement
 
 		if(this.subscriptions.some((sub) => sub.channel === channel))
 		{
-			this.notify('error', 'Cannot subscribe', `Already subscribed to channel ${channel}`);
+			this.notify(TOAST_VARIANT.ERROR, CANNOT_SUBSCRIBE_TITLE, formatTemplateString(ALREADY_SUBSCRIBED_BODY, [channel]));
 			return;
 		}
 
@@ -341,7 +371,7 @@ export default class StreamingMonitor extends LightningElement
 		{
 			this.handleStreamingEvent(streamingEvent);
 		});
-		this.notify('success', 'Successfully subscribed', subscription.channel);
+		this.notify(TOAST_VARIANT.SUCCESS, SUBSCRIBED_ONE_TITLE, subscription.channel);
 		this.saveSubscription(subscription);
 		this.view = VIEW_MODES.MONITOR;
 	}
@@ -353,7 +383,7 @@ export default class StreamingMonitor extends LightningElement
 	 */
 	handleStreamingEvent(streamingEvent)
 	{
-		this.notify('info', 'Received event on channel', streamingEvent.channel);
+		this.notify(TOAST_VARIANT.INFO, RECEIVED_EVENT_TITLE, streamingEvent.channel);
 		utilityLogger.debug('Received streaming event', {channel: streamingEvent.channel, event: streamingEvent});
 		const eventData = normalizeEvent(streamingEvent);
 		if(!this.cachedEventsComponent)
@@ -377,13 +407,13 @@ export default class StreamingMonitor extends LightningElement
 		try
 		{
 			await publishStreamingEvent(eventParams);
-			this.notify('success', PUBLISH_SUCCESS_TITLE, formatLabel(PUBLISH_SUCCESS_BODY, eventParams.eventName));
+			this.notify(TOAST_VARIANT.SUCCESS, PUBLISH_SUCCESS_TITLE, formatTemplateString(PUBLISH_SUCCESS_BODY, [eventParams.eventName]));
 			this.view = VIEW_MODES.MONITOR;
 		}
 		catch(error)
 		{
 			utilityLogger.error(`Failed to publish ${eventParams.eventName}`, error);
-			this.notify('error', PUBLISH_ERROR_TITLE, error?.body?.message || formatLabel(PUBLISH_ERROR_BODY, eventParams.eventName));
+			this.notify(TOAST_VARIANT.ERROR, PUBLISH_ERROR_TITLE, error?.body?.message || formatTemplateString(PUBLISH_ERROR_BODY, [eventParams.eventName]));
 		}
 	}
 
@@ -414,7 +444,7 @@ export default class StreamingMonitor extends LightningElement
 		});
 		this.subscriptions = [];
 
-		this.notify('success', 'Unsubscribed', 'Successfully unsubscribed from all channels');
+		this.notify(TOAST_VARIANT.SUCCESS, UNSUBSCRIBED_ALL_TITLE, UNSUBSCRIBED_ALL_BODY);
 	}
 
 	/**
@@ -446,11 +476,11 @@ export default class StreamingMonitor extends LightningElement
 		{
 			if(response.successful)
 			{
-				this.notify('success', 'Successfully unsubscribed', channel);
+				this.notify(TOAST_VARIANT.SUCCESS, UNSUBSCRIBED_ONE_TITLE, channel);
 			}
 			else
 			{
-				this.notify('error', 'Failed to unsubscribe', channel);
+				this.notify(TOAST_VARIANT.ERROR, UNSUBSCRIBE_FAILED_TITLE, channel);
 				utilityLogger.error('Failed to unsubscribe from channel', {channel, response});
 			}
 		});
@@ -564,7 +594,8 @@ export default class StreamingMonitor extends LightningElement
 	suppressSubscribeErrorsTemporarily()
 	{
 		this.isSubscribeErrorSuppressed = true;
-		setTimeout(() =>
+		clearTimeout(this.subscribeErrorSuppressionTimer);
+		this.subscribeErrorSuppressionTimer = setTimeout(() =>
 		{
 			this.isSubscribeErrorSuppressed = false;
 		}, SUBSCRIBE_ERROR_SUPPRESSION_MS);

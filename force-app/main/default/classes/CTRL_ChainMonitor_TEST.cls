@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date April 2026, May 2026
+ * @date April 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -391,6 +391,18 @@ private class CTRL_ChainMonitor_TEST
 	{
 		Assert.isNull(CTRL_ChainMonitor.findChainExecutionIdByCorrelation(null), 'Should return null for a null correlation id');
 		Assert.isNull(CTRL_ChainMonitor.findChainExecutionIdByCorrelation(''), 'Should return null for an empty correlation id');
+	}
+
+	@IsTest
+	private static void shouldExposeManagedPackageNamespacePrefixForStreaming()
+	{
+		String namespacePrefix = CTRL_ChainMonitor.getNamespacePrefix();
+
+		Assert.areEqual
+				(
+						UTIL_System.getManagedPackageNamespacePrefix(), namespacePrefix,
+						'Wrapper should expose the managed-package namespace prefix the monitor builds its streaming channel and payload key from'
+				);
 	}
 
 }

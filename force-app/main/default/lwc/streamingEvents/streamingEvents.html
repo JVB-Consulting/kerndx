@@ -4,16 +4,16 @@
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
 	<!-- Event data modal -->
-	<c-modal onclose={handleCloseEventModal} title="Event details">
+	<c-modal onclose={handleCloseEventModal} title={labels.eventDetailsTitle}>
 		<div class="slds-region_narrow">
 			<div class="slds-form slds-form_horizontal">
-				<lightning-input label="Local Time" read-only value={selectedEvent.timeLabel}></lightning-input>
-				<lightning-input label="Channel" read-only value={selectedEvent.channel}></lightning-input>
-				<lightning-input label="Type" read-only value={selectedEvent.type}></lightning-input>
-				<lightning-input label="Replay Id" read-only value={selectedEvent.replayId}></lightning-input>
+				<lightning-input label={labels.localTime} read-only value={selectedEvent.timeLabel}></lightning-input>
+				<lightning-input label={labels.channel} read-only value={selectedEvent.channel}></lightning-input>
+				<lightning-input label={labels.type} read-only value={selectedEvent.type}></lightning-input>
+				<lightning-input label={labels.replayId} read-only value={selectedEvent.replayId}></lightning-input>
 			</div>
 			<div class="slds-form-element">
-				<label class="slds-form-element__label" for="eventPayload">Payload</label>
+				<label class="slds-form-element__label" for="eventPayload">{labels.payload}</label>
 				<div class="slds-form-element__control">
                     <textarea class="slds-textarea payload" data-testid="event-payload" disabled id="eventPayload">
 {selectedEventPayload}</textarea>
@@ -23,7 +23,7 @@
 	</c-modal>
 
 	<!-- Event list -->
-	<lightning-card icon-name="utility:events" title="Streaming Monitor">
+	<lightning-card icon-name="utility:events" title={labels.streamingMonitorTitle}>
 		<!-- Begin card header -->
 		<div slot="actions">
 			<template lwc:if={hasActiveSubscriptions}>
@@ -41,9 +41,7 @@
 			<template lwc:if={hasActiveSubscriptions}>
 				<div class="slds-var-m-bottom_large">
 					<c-streaming-event-filters channels={channels} class={filterClasses} onfilterchange={handleFilterChange}></c-streaming-event-filters>
-					<c-notice lwc:if={hasActiveFilters}>Current filters may prevent incoming events from being
-						displayed.
-					</c-notice>
+					<c-notice lwc:if={hasActiveFilters}>{labels.filterWarning}</c-notice>
 				</div>
 			</template>
 			<!-- End filters -->

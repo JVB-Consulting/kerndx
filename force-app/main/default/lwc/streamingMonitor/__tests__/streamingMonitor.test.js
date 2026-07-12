@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingMonitor LWC component
  * @author Jason van Beukering
- * @date December 2025, June 2026
+ * @date December 2025, July 2026
  */
 import {createElement} from 'lwc';
 import LwcStreamingMonitor from 'c/streamingMonitor';
@@ -14,6 +14,16 @@ import PUBLISH_ERROR_BODY from '@salesforce/label/c.EventMonitor_Publish_ErrorBo
 import PUBLISH_ERROR_TITLE from '@salesforce/label/c.EventMonitor_Publish_ErrorTitle';
 import PUBLISH_SUCCESS_BODY from '@salesforce/label/c.EventMonitor_Publish_SuccessBody';
 import PUBLISH_SUCCESS_TITLE from '@salesforce/label/c.EventMonitor_Publish_SuccessTitle';
+
+// Restore the real English values for the labels these tests value-assert (the default
+// sfdx-lwc-jest stub resolves each to the bare string 'c.<Name>'). The two templated labels keep
+// their {0} form so the real formatTemplateString interpolation is verified end-to-end.
+jest.mock('@salesforce/label/c.EventMonitor_NoChannels_Title', () => ({default: 'No channels available'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_SubscribedAll_Title', () => ({default: 'Subscribed'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_UnsubscribedAll_Title', () => ({default: 'Unsubscribed'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Error_SubscribeCdcInactive', () => ({default: 'Failed to subscribe to {0}. Is the Change Data Capture event active?'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_AlreadySubscribed_Body', () => ({default: 'Already subscribed to channel {0}'}), {virtual: true});
 
 // Mock EMP API
 const mockSubscribe = jest.fn();
@@ -290,6 +300,117 @@ describe('c-streaming-monitor', () =>
 			expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function));
 			removeEventListenerSpy.mockRestore();
 		});
+
+		it('removes the exact resize listener function it added, so the window holds no reference to the torn-down component', async() =>
+		{
+			const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
+			const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
+
+			const element = await createInitializedComponent();
+
+			const addedResizeListener = addEventListenerSpy.mock.calls.find(([eventType]) => eventType === 'resize')[1];
+
+			document.body.removeChild(element);
+
+			const removedResizeListener = removeEventListenerSpy.mock.calls.find(([eventType]) => eventType === 'resize')[1];
+			expect(removedResizeListener).toBe(addedResizeListener);
+
+			addEventListenerSpy.mockRestore();
+			removeEventListenerSpy.mockRestore();
+		});
+
+		it('attaches the resize listener before the channel load settles, so a teardown during the load still removes it', async() =>
+		{
+			const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
+			const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
+
+			let resolveChannels;
+			mockGetAllEventChannels.mockReturnValue(new Promise((resolve) =>
+			{
+				resolveChannels = resolve;
+			}));
+
+			const element = createComponent();
+
+			// The listener must already be registered synchronously on connect, while the
+			// channel round trip is still in flight — otherwise a disconnect during the load
+			// removes nothing and the resumed await attaches a listener nothing ever removes.
+			const resizeAddsBeforeTeardown = addEventListenerSpy.mock.calls.filter(([eventType]) => eventType === 'resize');
+			expect(resizeAddsBeforeTeardown).toHaveLength(1);
+
+			document.body.removeChild(element);
+
+			resolveChannels(mockChannels);
+			await flushPromises();
+			await flushPromises();
+
+			const resizeAdds = addEventListenerSpy.mock.calls.filter(([eventType]) => eventType === 'resize');
+			const resizeRemoves = removeEventListenerSpy.mock.calls.filter(([eventType]) => eventType === 'resize');
+			expect(resizeAdds).toHaveLength(1);
+			expect(resizeRemoves).toHaveLength(1);
+			expect(resizeRemoves[0][1]).toBe(resizeAdds[0][1]);
+
+			addEventListenerSpy.mockRestore();
+			removeEventListenerSpy.mockRestore();
+		});
+	});
+
+	describe('timer cleanup on disconnect', () =>
+	{
+		beforeEach(() =>
+		{
+			jest.useFakeTimers();
+		});
+
+		afterEach(() =>
+		{
+			jest.useRealTimers();
+		});
+
+		/**
+		 * Flushes microtasks only (fake timers stay pending) so the component's async
+		 * connectedCallback settles without draining scheduled setTimeout callbacks.
+		 */
+		async function flushMicrotasks()
+		{
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		}
+
+		it('clears the pending resize debounce timer on disconnect', async() =>
+		{
+			const element = createComponent();
+			await flushMicrotasks();
+
+			window.dispatchEvent(new CustomEvent('resize'));
+			expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+			document.body.removeChild(element);
+
+			expect(jest.getTimerCount()).toBe(0);
+		});
+
+		it('clears the pending subscribe error suppression timer on disconnect', async() =>
+		{
+			const element = createComponent();
+			await flushMicrotasks();
+
+			const sidebar = element.shadowRoot.querySelector('c-streaming-sidebar');
+			sidebar.dispatchEvent(new CustomEvent('navigate', {detail: 'subscribeAll'}));
+			await flushMicrotasks();
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {filter: 'PushTopicEvent', replayId: -1}
+			}));
+			await flushMicrotasks();
+			expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+			document.body.removeChild(element);
+
+			expect(jest.getTimerCount()).toBe(0);
+		});
 	});
 
 	describe('getters', () =>
@@ -328,9 +449,24 @@ describe('c-streaming-monitor', () =>
 			jest.useRealTimers();
 		});
 
-		it('handles resize event', () =>
+		/**
+		 * Flushes microtasks only (fake timers stay pending) so the async connectedCallback
+		 * settles and the resize listener is registered before the test dispatches resizes.
+		 */
+		async function flushMicrotasks()
 		{
-			createComponent();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		}
+
+		it('handles resize event by rerendering the events component after the debounce delay', async() =>
+		{
+			const element = createComponent();
+			await flushMicrotasks();
+
+			const eventsElement = element.shadowRoot.querySelector('c-streaming-events');
+			eventsElement.forceRerender = jest.fn();
 
 			// Trigger resize event
 			window.dispatchEvent(new CustomEvent('resize'));
@@ -338,13 +474,16 @@ describe('c-streaming-monitor', () =>
 			// Advance timers to trigger debounced callback
 			jest.advanceTimersByTime(RERENDER_DELAY);
 
-			// No error should occur
-			expect(true).toBe(true);
+			expect(eventsElement.forceRerender).toHaveBeenCalledTimes(1);
 		});
 
-		it('debounces multiple resize events', () =>
+		it('debounces multiple resize events into a single rerender', async() =>
 		{
-			createComponent();
+			const element = createComponent();
+			await flushMicrotasks();
+
+			const eventsElement = element.shadowRoot.querySelector('c-streaming-events');
+			eventsElement.forceRerender = jest.fn();
 
 			// Trigger multiple resize events
 			window.dispatchEvent(new CustomEvent('resize'));
@@ -353,8 +492,7 @@ describe('c-streaming-monitor', () =>
 
 			jest.advanceTimersByTime(RERENDER_DELAY);
 
-			// No error should occur
-			expect(true).toBe(true);
+			expect(eventsElement.forceRerender).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -750,8 +888,9 @@ describe('c-streaming-monitor', () =>
 			}));
 			await flushPromises();
 
-			// Should show error toast for duplicate
+			// Should show error toast for duplicate, with the channel interpolated into the label body
 			expect(mockSubscribe).toHaveBeenCalledTimes(1);
+			expect(toastHandler.mock.calls[0][0].message).toBe('Already subscribed to channel /topic/TestTopic');
 		});
 
 		it('handleSubscribeAll subscribes to all channels with filter all', async() =>
@@ -1073,6 +1212,7 @@ describe('c-streaming-monitor', () =>
 			await flushPromises();
 
 			expect(toastHandler).toHaveBeenCalled();
+			expect(toastHandler.mock.calls[0][0].message).toBe('Failed to subscribe to /data/AccountChangeEvent. Is the Change Data Capture event active?');
 		});
 	});
 
@@ -1126,7 +1266,7 @@ describe('c-streaming-monitor', () =>
 
 			const toast = getLastToastByVariant('success');
 			expect(toast).not.toBeNull();
-			expect(toast.title).toBeTruthy();
+			expect(toast.title).toBe('Unsubscribed');
 		});
 
 		it('shows title on subscribe all success toast', async() =>
@@ -1143,7 +1283,7 @@ describe('c-streaming-monitor', () =>
 
 			const toast = getLastToastByVariant('success');
 			expect(toast).not.toBeNull();
-			expect(toast.title).toBeTruthy();
+			expect(toast.title).toBe('Subscribed');
 		});
 
 		it('shows title on subscribe all no channels warning toast', async() =>
@@ -1166,7 +1306,7 @@ describe('c-streaming-monitor', () =>
 
 			const toast = getLastToastByVariant('warn');
 			expect(toast).not.toBeNull();
-			expect(toast.title).toBeTruthy();
+			expect(toast.title).toBe('No channels available');
 		});
 
 		it('shows title on publish success toast', async() =>

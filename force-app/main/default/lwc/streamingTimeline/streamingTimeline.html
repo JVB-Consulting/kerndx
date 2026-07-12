@@ -4,6 +4,29 @@
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
 	<div class="slds-var-m-vertical_medium">
-		<div class="timeline" lwc:dom="manual"></div>
+		<div class="timeline" lwc:ref="chartHost" onmouseleave={handleChartMouseLeave}>
+			<template lwc:if={showChart}>
+				<svg aria-label={labels.chartLabel} class="timeline-chart" data-spec-id="timeline-chart" onmousemove={handleChartMouseMove} role="img" viewBox={chartViewBox}>
+					<line class="axis-baseline" x1={baseline.x1} x2={baseline.x2} y1={baseline.y} y2={baseline.y}></line>
+					<template for:each={xTicks} for:item="tick">
+						<text class={tick.className} key={tick.key} text-anchor="middle" x={tick.x} y={tick.y}>{tick.label}</text>
+					</template>
+					<template for:each={yChannels} for:item="channel">
+						<text class="axis-label" key={channel.key} text-anchor="end" x={channel.labelX} y={channel.y}>{channel.label}</text>
+					</template>
+					<template for:each={circles} for:item="dot">
+						<circle class={dot.className} cx={dot.cx} cy={dot.cy} data-index={dot.index} data-testid="timeline-dot" key={dot.key} onclick={handleDotClick}
+						        onmouseenter={handleDotMouseEnter} onmouseleave={handleDotMouseLeave} r={dot.r}></circle>
+					</template>
+				</svg>
+			</template>
+			<template lwc:if={tooltip.visible}>
+				<div class={tooltip.className} data-spec-id="timeline-tooltip" style={tooltip.style}>
+					<template for:each={tooltip.lines} for:item="line">
+						<div key={line.key}>{line.text}</div>
+					</template>
+				</div>
+			</template>
+		</div>
 	</div>
 </template>

@@ -3,6 +3,15 @@
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
 
+import fieldLocalTime from '@salesforce/label/c.EventMonitor_Field_LocalTime';
+import fieldChannel from '@salesforce/label/c.EventMonitor_Field_Channel';
+import fieldType from '@salesforce/label/c.EventMonitor_Field_Type';
+import fieldReplayId from '@salesforce/label/c.EventMonitor_Field_ReplayId';
+import fieldPayload from '@salesforce/label/c.EventMonitor_Field_Payload';
+import viewDetailsTitle from '@salesforce/label/c.EventMonitor_ViewDetails_Title';
+import viewTable from '@salesforce/label/c.EventUsageMetrics_View_Table';
+import viewTimeline from '@salesforce/label/c.EventMonitor_View_Timeline';
+
 /**
  * @description Column definitions for the events data table.
  * @type {Array<Object>}
@@ -11,21 +20,21 @@
  */
 export const TABLE_COLUMNS = [
 	{
-		label: 'Local Time', fieldName: 'timeLabel', type: 'text', initialWidth: 180
+		label: fieldLocalTime, fieldName: 'timeLabel', type: 'text', initialWidth: 180
 	},
 	{
-		label: 'Channel', fieldName: 'channel', type: 'text', initialWidth: 200
+		label: fieldChannel, fieldName: 'channel', type: 'text', initialWidth: 200
 	},
 	{
-		label: 'Type', fieldName: 'type', type: 'text', initialWidth: 200
+		label: fieldType, fieldName: 'type', type: 'text', initialWidth: 200
 	},
 	{
-		label: 'Replay Id', fieldName: 'replayId', type: 'text', initialWidth: 100
+		label: fieldReplayId, fieldName: 'replayId', type: 'text', initialWidth: 100
 	},
-	{label: 'Payload', fieldName: 'payload', type: 'text'},
+	{label: fieldPayload, fieldName: 'payload', type: 'text'},
 	{
 		label: ' ', type: 'button-icon', initialWidth: 50, typeAttributes: {
-			iconName: 'utility:zoomin', name: 'view', title: 'Click to View Details'
+			iconName: 'utility:zoomin', name: 'view', title: viewDetailsTitle
 		}
 	}
 ];
@@ -56,6 +65,6 @@ export const VIEW_MODE_TIMELINE = 'timeline';
  */
 		// noinspection JSUnusedGlobalSymbols
 export const VIEW_MODES = [
-			{label: 'Table', value: VIEW_MODE_TABLE, iconName: 'utility:table'},
-			{label: 'Timeline', value: VIEW_MODE_TIMELINE, iconName: 'utility:metrics'}
+			{label: viewTable, value: VIEW_MODE_TABLE, iconName: 'utility:table'},
+			{label: viewTimeline, value: VIEW_MODE_TIMELINE, iconName: 'utility:metrics'}
 		];

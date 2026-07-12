@@ -23,9 +23,48 @@ import {
 	EVT_MONITORING, FILTER_ALL, FILTER_CUSTOM, getChannelPrefix
 } from 'c/utilityStreaming';
 import utilityLogger from 'c/utilityLogger';
+import {formatTemplateString} from 'c/utilityString';
 
 import getBlankPlatformEvent from '@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent';
 import PUBLISH_SCOPE_NOTE from '@salesforce/label/c.EventMonitor_PublishScopeNote';
+import FORM_EVENT_TYPE from '@salesforce/label/c.EventMonitor_Form_EventType';
+import FORM_SELECT_TYPE_PLACEHOLDER from '@salesforce/label/c.EventMonitor_Form_SelectTypePlaceholder';
+import FORM_EVENT_NAME from '@salesforce/label/c.EventMonitor_Form_EventName';
+import FORM_STREAMING_CHANNEL from '@salesforce/label/c.EventMonitor_Form_StreamingChannel';
+import FORM_REPLAY_OPTION from '@salesforce/label/c.EventMonitor_Form_ReplayOption';
+import FORM_REPLAY_ID from '@salesforce/label/c.EventMonitor_Form_ReplayId';
+import FORM_FILTER from '@salesforce/label/c.EventMonitor_Form_Filter';
+import FORM_EVENT_PAYLOAD from '@salesforce/label/c.EventMonitor_Form_EventPayload';
+import SUBSCRIBE_BUTTON from '@salesforce/label/c.EventMonitor_SubscribeButton';
+import PUBLISH_BUTTON from '@salesforce/label/c.EventMonitor_PublishButton';
+import REGISTER_SOURCE_TITLE from '@salesforce/label/c.EventMonitor_RegisterSourceTitle';
+import SUBSCRIBE_CHANNEL_TITLE from '@salesforce/label/c.EventMonitor_SubscribeChannelTitle';
+import SUBSCRIBE_ALL_TITLE from '@salesforce/label/c.EventMonitor_SubscribeAllTitle';
+import PUBLISH_EVENT_TITLE from '@salesforce/label/c.EventMonitor_PublishEventTitle';
+import SUBSCRIBE_ALL_NOTE from '@salesforce/label/c.EventMonitor_SubscribeAll_Note';
+import REG_PUSH_TOPIC_INTRO from '@salesforce/label/c.EventMonitor_Reg_PushTopicIntro';
+import REG_GENERIC from '@salesforce/label/c.EventMonitor_Reg_Generic';
+import REG_PLATFORM_EVENT from '@salesforce/label/c.EventMonitor_Reg_PlatformEvent';
+import REG_STANDARD_PLATFORM_EVENT from '@salesforce/label/c.EventMonitor_Reg_StandardPlatformEvent';
+import REG_CHANGE_DATA_CAPTURE from '@salesforce/label/c.EventMonitor_Reg_ChangeDataCapture';
+import REG_CUSTOM_CHANNEL_PE from '@salesforce/label/c.EventMonitor_Reg_CustomChannelPE';
+import REG_CUSTOM_CHANNEL_CDC from '@salesforce/label/c.EventMonitor_Reg_CustomChannelCDC';
+import NOTICE_MONITORING_ENABLEMENT from '@salesforce/label/c.EventMonitor_Notice_MonitoringEnablement';
+import NOTICE_CDC_ENABLEMENT from '@salesforce/label/c.EventMonitor_Notice_CdcEnablement';
+import PLACEHOLDER_SELECT_EVENT from '@salesforce/label/c.EventMonitor_Placeholder_SelectEvent';
+import PLACEHOLDER_WAITING_EVENT_TYPE from '@salesforce/label/c.EventMonitor_Placeholder_WaitingEventType';
+import PLACEHOLDER_CDC_MANUAL_CHANNEL from '@salesforce/label/c.EventMonitor_Placeholder_CdcManualChannel';
+import PLACEHOLDER_CUSTOM_MANUAL_CHANNEL from '@salesforce/label/c.EventMonitor_Placeholder_CustomManualChannel';
+import PLACEHOLDER_NO_EVENTS_AVAILABLE from '@salesforce/label/c.EventMonitor_Placeholder_NoEventsAvailable';
+import VALIDATION_INVALID_JSON from '@salesforce/label/c.EventMonitor_Validation_InvalidJson';
+import REPLAY_NONE from '@salesforce/label/c.EventMonitor_Replay_None';
+import REPLAY_PAST from '@salesforce/label/c.EventMonitor_Replay_Past';
+import REPLAY_CUSTOM from '@salesforce/label/c.EventMonitor_Replay_Custom';
+import FILTER_OPTION_ALL_EVENTS from '@salesforce/label/c.EventMonitor_FilterOption_AllEvents';
+import FILTER_OPTION_ALL_CUSTOM_EVENTS from '@salesforce/label/c.EventMonitor_FilterOption_AllCustomEvents';
+import FILTER_OPTION_ONLY_TYPE from '@salesforce/label/c.EventMonitor_FilterOption_OnlyType';
+import PAYLOAD_HELP_GENERIC from '@salesforce/label/c.EventMonitor_PayloadHelp_Generic';
+import PAYLOAD_HELP_JSON from '@salesforce/label/c.EventMonitor_PayloadHelp_Json';
 
 import subscribeAll from './subscribeAll.html';
 import subscribe from './subscribe.html';
@@ -52,26 +91,30 @@ function getEventNamePlaceholder(eventType, channels)
 {
 	if(eventType && channels[eventType]?.length > 0)
 	{
-		return 'Select event';
+		return PLACEHOLDER_SELECT_EVENT;
 	}
 	if(!eventType)
 	{
-		return 'Waiting for event type';
+		return PLACEHOLDER_WAITING_EVENT_TYPE;
 	}
 	if(eventType === EVT_CUSTOM_CHANNEL_CDC)
 	{
-		return 'The /data/ChangeEvents channel and custom channels require manual channel input';
+		return PLACEHOLDER_CDC_MANUAL_CHANNEL;
 	}
 	if(eventType === EVT_CUSTOM_CHANNEL_PE)
 	{
-		return 'Custom channels require manual channel input';
+		return PLACEHOLDER_CUSTOM_MANUAL_CHANNEL;
 	}
 	const eventDefinition = EVENT_TYPES.find((e) => e.value === eventType);
 	if(!eventDefinition)
 	{
+		// Developer-only invariant guard: `eventType` is always one of the EVT_* constants in real
+		// usage, so this fires only on a programming error and never reaches an end user — it stays a
+		// plain diagnostic string rather than a subscriber Custom Label.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 		throw new Error(`Unsupported event type ${eventType}`);
 	}
-	return `No ${eventDefinition.label}s available`;
+	return formatTemplateString(PLACEHOLDER_NO_EVENTS_AVAILABLE, [eventDefinition.label]);
 }
 
 /**
@@ -100,7 +143,7 @@ function validateJsonPayload(element, value, eventType)
 	}
 	catch(error /* eslint-disable-line no-unused-vars */)
 	{
-		element.setCustomValidity('Invalid JSON');
+		element.setCustomValidity(VALIDATION_INVALID_JSON);
 	}
 }
 
@@ -144,6 +187,39 @@ export default class StreamingActions extends LightningElement
 	 * types can be published manually and where to watch the rest.
 	 **/
 	publishScopeNote = PUBLISH_SCOPE_NOTE;
+
+	/**
+	 * @description Template-bound Custom Labels for the four action screens. The `reg*` and
+	 * `notice*` entries carry inline anchor (and code) markup and are rendered through
+	 * `lightning-formatted-rich-text` so the links stay clickable — a plain `{binding}` would
+	 * HTML-escape them.
+	 **/
+	labels = {
+		registerSourceTitle: REGISTER_SOURCE_TITLE,
+		subscribeChannelTitle: SUBSCRIBE_CHANNEL_TITLE,
+		subscribeAllTitle: SUBSCRIBE_ALL_TITLE,
+		publishEventTitle: PUBLISH_EVENT_TITLE,
+		eventType: FORM_EVENT_TYPE,
+		selectTypePlaceholder: FORM_SELECT_TYPE_PLACEHOLDER,
+		eventName: FORM_EVENT_NAME,
+		streamingChannel: FORM_STREAMING_CHANNEL,
+		replayOption: FORM_REPLAY_OPTION,
+		replayId: FORM_REPLAY_ID,
+		filter: FORM_FILTER,
+		eventPayload: FORM_EVENT_PAYLOAD,
+		subscribe: SUBSCRIBE_BUTTON,
+		publish: PUBLISH_BUTTON,
+		subscribeAllNote: SUBSCRIBE_ALL_NOTE,
+		pushTopicIntro: REG_PUSH_TOPIC_INTRO,
+		regGeneric: REG_GENERIC,
+		regPlatformEvent: REG_PLATFORM_EVENT,
+		regStandardPlatformEvent: REG_STANDARD_PLATFORM_EVENT,
+		regChangeDataCapture: REG_CHANGE_DATA_CAPTURE,
+		regCustomChannelPE: REG_CUSTOM_CHANNEL_PE,
+		regCustomChannelCDC: REG_CUSTOM_CHANNEL_CDC,
+		noticeMonitoringEnablement: NOTICE_MONITORING_ENABLEMENT,
+		noticeCdcEnablement: NOTICE_CDC_ENABLEMENT
+	};
 
 	// ── Computed Properties: Subscribe ───────────────────────────────────
 
@@ -230,12 +306,12 @@ export default class StreamingActions extends LightningElement
 	get replayOptions()
 	{
 		const options = [
-			{label: 'No replay', value: '-1'},
-			{label: 'Replay past events', value: '-2'}
+			{label: REPLAY_NONE, value: '-1'},
+			{label: REPLAY_PAST, value: '-2'}
 		];
 		if(this.action === ACTIONS.SUBSCRIBE)
 		{
-			options.push({label: 'Custom replay ID', value: 'custom'});
+			options.push({label: REPLAY_CUSTOM, value: 'custom'});
 		}
 		return options;
 	}
@@ -254,15 +330,15 @@ export default class StreamingActions extends LightningElement
 	get subscribeAllFilterOptions()
 	{
 		const options = [
-			{label: 'All events', value: FILTER_ALL},
-			{label: 'All custom events', value: FILTER_CUSTOM}
+			{label: FILTER_OPTION_ALL_EVENTS, value: FILTER_ALL},
+			{label: FILTER_OPTION_ALL_CUSTOM_EVENTS, value: FILTER_CUSTOM}
 		];
 		EVENT_TYPES.forEach((type) =>
 		{
 			const {value} = type;
 			if(value !== EVT_CUSTOM_CHANNEL_PE && value !== EVT_CUSTOM_CHANNEL_CDC)
 			{
-				const label = `Only ${type.label}s`;
+				const label = formatTemplateString(FILTER_OPTION_ONLY_TYPE, [type.label]);
 				options.push({label, value});
 			}
 		});
@@ -323,7 +399,7 @@ export default class StreamingActions extends LightningElement
 	 **/
 	get publishPayloadHelp()
 	{
-		return this.pubEventType === EVT_GENERIC ? 'Plain string payload' : 'JSON formatted payload with strings delimited by double quotes';
+		return this.pubEventType === EVT_GENERIC ? PAYLOAD_HELP_GENERIC : PAYLOAD_HELP_JSON;
 	}
 
 	// ── Computed Properties: Register ────────────────────────────────────
@@ -419,6 +495,10 @@ export default class StreamingActions extends LightningElement
 			case ACTIONS.REGISTER:
 				return register;
 			default:
+				// Developer-only invariant guard: `action` is wired by streamingMonitor to one of the
+				// ACTIONS values, so this fires only on a programming error and never reaches an end
+				// user — it stays a plain diagnostic string rather than a subscriber Custom Label.
+				// eslint-disable-next-line kerndx/no-hardcoded-user-text
 				throw new Error(`Unsupported action: ${this.action}`);
 		}
 	}

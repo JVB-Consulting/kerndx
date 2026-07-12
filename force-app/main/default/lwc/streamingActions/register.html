@@ -3,56 +3,47 @@
 <!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
-	<lightning-card title="Register a streaming event source">
+	<lightning-card title={labels.registerSourceTitle}>
 		<div class="slds-var-p-horizontal_large">
-			<lightning-combobox class="slds-var-m-bottom_medium" label="Event type" name="registrationEventType" onchange={handleValueChange} options={registrationEventTypes}
-			                    placeholder="Select type" value={registrationEventType}></lightning-combobox>
+			<lightning-combobox class="slds-var-m-bottom_medium" label={labels.eventType} name="registrationEventType" onchange={handleValueChange} options={registrationEventTypes}
+			                    placeholder={labels.selectTypePlaceholder} value={registrationEventType}></lightning-combobox>
 
 			<template lwc:if={isPushTopicReg}>
-				<p class="slds-var-m-bottom_small">
-					Customize and execute the following code in Apex to register
-					a new PushTopic: </p>
-				<p class="slds-textarea push-topic-code">
-					PushTopic pushTopic = new PushTopic();<br/>
-					pushTopic.Name = 'ClosedCaseUpdates';<br/>
+				<p class="slds-var-m-bottom_small">{labels.pushTopicIntro}</p>
+				<!-- Apex code sample — untranslatable API code, not subscriber copy (i18n-allow markers) -->
+				<p class="slds-textarea push-topic-code"><!-- i18n-allow -->
+					PushTopic pushTopic = new PushTopic();<br/><!-- i18n-allow -->
+					pushTopic.Name = 'ClosedCaseUpdates';<br/><!-- i18n-allow -->
 					pushTopic.Query = 'SELECT Id, Subject FROM Case WHERE
-					Status=\'Closed\'';<br/>
-					pushTopic.ApiVersion = 65.0;<br/>
-					pushTopic.NotifyForOperationCreate = true;<br/>
-					pushTopic.NotifyForOperationUpdate = true;<br/>
-					pushTopic.NotifyForOperationUndelete = true;<br/>
-					pushTopic.NotifyForOperationDelete = true;<br/>
-					pushTopic.NotifyForFields = 'Referenced';<br/>
-					insert pushTopic; </p>
+					Status=\'Closed\'';<br/><!-- i18n-allow -->
+					pushTopic.ApiVersion = 65.0;<br/><!-- i18n-allow -->
+					pushTopic.NotifyForOperationCreate = true;<br/><!-- i18n-allow -->
+					pushTopic.NotifyForOperationUpdate = true;<br/><!-- i18n-allow -->
+					pushTopic.NotifyForOperationUndelete = true;<br/><!-- i18n-allow -->
+					pushTopic.NotifyForOperationDelete = true;<br/><!-- i18n-allow -->
+					pushTopic.NotifyForFields = 'Referenced';<br/><!-- i18n-allow -->
+					insert pushTopic; </p><!-- i18n-allow -->
 			</template>
 			<template lwc:elseif={isGenericReg}>
-				Navigate to the&nbsp; <a href="/lightning/o/StreamingChannel/list">Streaming Channel</a>&nbsp;tab to register a generic event.
+				<lightning-formatted-rich-text value={labels.regGeneric}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isPlatformEventReg}>
-				Navigate to the&nbsp; <a href="/lightning/setup/EventObjects/home">Platform Event</a>&nbsp;page in Setup to register a custom platform event.
+				<lightning-formatted-rich-text value={labels.regPlatformEvent}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isStandardPlatformEventReg}>
-				Standard platform events do not need to be registered.
-				See&nbsp; <a href="https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_objects_list.htm"
-				             rel="noopener noreferrer" target="_blank">documentation</a>.
+				<lightning-formatted-rich-text value={labels.regStandardPlatformEvent}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isStandardCDCReg}>
-				Navigate to the&nbsp; <a href="/lightning/setup/CdcObjectEnablement/home">Change Data Capture</a>&nbsp;page in Setup to activate a change data capture event.
+				<lightning-formatted-rich-text value={labels.regChangeDataCapture}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isCustomChannelPEReg}>
-				Custom channels cannot be declared via the user interface.
-				Follow these&nbsp; <a
-					href="https://developer.salesforce.com/docs/atlas.en-us.240.0.platform_events.meta/platform_events/platform_events_custom_channel_configure.htm"
-					rel="noopener noreferrer" target="_blank">metadata deploy instructions</a>.
+				<lightning-formatted-rich-text value={labels.regCustomChannelPE}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isCustomChannelCDCReg}>
-				Custom channels cannot be declared via the user interface.
-				Follow these&nbsp; <a href="https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_custom_channel.htm"
-				                      rel="noopener noreferrer" target="_blank">metadata deploy
-				instructions</a>.
+				<lightning-formatted-rich-text value={labels.regCustomChannelCDC}></lightning-formatted-rich-text>
 			</template>
 			<template lwc:elseif={isMonitoringReg}>
-				Streaming must be enabled in&nbsp; <a href="/lightning/setup/EventManager/home">Event Manager</a>&nbsp;in order to receive Monitoring Events.
+				<lightning-formatted-rich-text value={labels.noticeMonitoringEnablement}></lightning-formatted-rich-text>
 			</template>
 		</div>
 	</lightning-card>

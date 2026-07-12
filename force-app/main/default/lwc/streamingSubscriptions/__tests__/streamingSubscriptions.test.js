@@ -12,6 +12,8 @@
 import {createElement} from 'lwc';
 import LwcSubscriptions from 'c/streamingSubscriptions';
 
+jest.mock('@salesforce/label/c.EventMonitor_Subscriptions_Heading', () => ({default: 'Subscriptions'}), {virtual: true});
+
 describe('c-streaming-subscriptions', () =>
 {
 	let element;

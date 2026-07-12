@@ -13,17 +13,21 @@
  *
  * The component emits events to communicate user actions to parent components.
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 import {LightningElement} from 'lwc';
+import viewTable from '@salesforce/label/c.EventUsageMetrics_View_Table';
+import viewTimeline from '@salesforce/label/c.EventMonitor_View_Timeline';
+import clearEvents from '@salesforce/label/c.EventMonitor_Header_ClearEvents';
+import displayAs from '@salesforce/label/c.EventMonitor_Header_DisplayAs';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 const VIEW_MODE_TABLE = 'table';
 const VIEW_MODE_TIMELINE = 'timeline';
 const VIEW_MODES = [
-	{label: 'Table', value: VIEW_MODE_TABLE, iconName: 'utility:table'},
-	{label: 'Timeline', value: VIEW_MODE_TIMELINE, iconName: 'utility:metrics'}
+	{label: viewTable, value: VIEW_MODE_TABLE, iconName: 'utility:table'},
+	{label: viewTimeline, value: VIEW_MODE_TIMELINE, iconName: 'utility:metrics'}
 ];
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -33,9 +37,15 @@ export default class StreamingEventsHeader extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
 
-	viewMode = VIEW_MODE_TABLE;
+	// The default must match the parent's (c-streaming-events) initial view, which renders the
+	// timeline first, so the 'Display as' icon is correct on first load.
+	viewMode = VIEW_MODE_TIMELINE;
 	viewModes = VIEW_MODES;
 	isFiltersDisplayed = true;
+
+	label = {
+		clearEvents, displayAs
+	};
 
 	// ── Computed Properties ──────────────────────────────────────────────
 

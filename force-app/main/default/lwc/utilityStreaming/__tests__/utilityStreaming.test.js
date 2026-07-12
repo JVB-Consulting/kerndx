@@ -6,13 +6,31 @@
 /**
  * @description Jest unit tests for utilityStreaming LWC utility module
  * @author Jason van Beukering
- * @date December 2025, June 2026
+ * @date December 2025, July 2026
  */
+
+// The default sfdx-lwc-jest label stub resolves each label to the bare string 'c.<Name>', which
+// would make the byte-faithful value assertions below (and formatTemplateString interpolation)
+// meaningless. These virtual mocks restore the real English values so the event-type combobox
+// labels and the classifyEventType grid labels are verified end-to-end, interpolation included.
+jest.mock('@salesforce/label/c.EventMonitor_EventType_PushTopic', () => ({default: 'PushTopic event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_Generic', () => ({default: 'Generic event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_StandardPlatform', () => ({default: 'Standard Platform event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_CustomPlatform', () => ({default: 'Custom Platform event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_ChangeDataCapture', () => ({default: 'Change Data Capture event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_CustomChannelPlatform', () => ({default: 'Custom Channel - Platform event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_CustomChannelChange', () => ({default: 'Custom Channel - Change event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_EventType_Monitoring', () => ({default: 'Monitoring event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_TypeLabel_PushTopic', () => ({default: 'PushTopic: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_TypeLabel_Generic', () => ({default: 'Generic'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_TypeLabel_ChangeEvent', () => ({default: 'Change Event: {0} {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_TypeLabel_PlatformEvent', () => ({default: 'Platform Event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_TypeLabel_Unknown', () => ({default: 'Unknown Event'}), {virtual: true});
 
 import {
 	CHANNEL_ALL_CDC, EVT_CDC, EVT_CUSTOM_CHANNEL_CDC, EVT_CUSTOM_CHANNEL_PE, EVT_GENERIC, EVT_MONITORING, EVT_PLATFORM_EVENT, EVT_PUSH_TOPIC, EVT_STD_PLATFORM_EVENT, FILTER_ALL,
-	FILTER_CUSTOM, EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, getCompactTimeLabel, formatCount,
-	channelSort, timestampSort, toTitleCase
+	FILTER_CUSTOM, EVENT_TYPES, PUBLISHABLE_EVENT_TYPES, computeBandLayout, getChannelPrefix, isCDCChannel, isCustomChannel, normalizeEvent, getTimeLabel, getCompactTimeLabel,
+	formatCount, channelSort, roundCoordinate, timestampSort, toTitleCase
 } from 'c/utilityStreaming';
 
 describe('utilityStreaming', () =>
@@ -88,6 +106,20 @@ describe('utilityStreaming', () =>
 				expect(eventType).toHaveProperty('value');
 				expect(eventType).toHaveProperty('channelPrefix');
 			});
+		});
+
+		it('should expose the externalised event-type display labels in registry order', () =>
+		{
+			expect(EVENT_TYPES.map((eventType) => eventType.label)).toEqual([
+				'PushTopic event',
+				'Generic event',
+				'Standard Platform event',
+				'Custom Platform event',
+				'Change Data Capture event',
+				'Custom Channel - Platform event',
+				'Custom Channel - Change event',
+				'Monitoring event'
+			]);
 		});
 
 		it('should export PUBLISHABLE_EVENT_TYPES containing only the manually publishable types', () =>
@@ -408,6 +440,15 @@ describe('utilityStreaming', () =>
 			expect(getTimeLabel({})).toBe('');
 		});
 
+		it('should return empty string for NaN epochs and Invalid Date instances, never the literal "Invalid Date"', () =>
+		{
+			// Documents the hardened contract shared with getCompactTimeLabel: a NaN epoch (or an
+			// Invalid Date instance) yields the documented empty string, not Date's own
+			// 'Invalid Date' rendering.
+			expect(getTimeLabel(Number.NaN)).toBe('');
+			expect(getTimeLabel(new Date('not a date'))).toBe('');
+		});
+
 		it('should respect provided timezone', () =>
 		{
 			const date = new Date('2025-01-15T10:30:45.000Z');
@@ -685,6 +726,102 @@ describe('utilityStreaming', () =>
 		it('should handle already title case', () =>
 		{
 			expect(toTitleCase('Hello World')).toBe('Hello World');
+		});
+	});
+
+	describe('computeBandLayout', () =>
+	{
+		it('should match d3.scaleBand for the timeline degenerate padding-1 case', () =>
+		{
+			// n=3, range 0-380, paddingInner/Outer 1: step = 380 / (3 - 1 + 2) = 95.
+			const layout = computeBandLayout(3, 0, 380, 1, 1);
+
+			expect(layout.step).toBe(95);
+			expect(layout.bandwidth).toBe(0);
+			expect(layout.positions).toEqual([
+				95,
+				190,
+				285
+			]);
+		});
+
+		it('should space two padding-1 bands evenly across the range', () =>
+		{
+			// n=2, padding 1: step = range / (n + 1) — evenly spaced lane lines.
+			const layout = computeBandLayout(2, 0, 300, 1, 1);
+
+			expect(layout.step).toBe(100);
+			expect(layout.bandwidth).toBe(0);
+			expect(layout.positions).toEqual([
+				100,
+				200
+			]);
+		});
+
+		it('should match d3.scaleBand for the 0.25-padding bar-band case', () =>
+		{
+			// n=3, range 0-70, padding 0.25: step = 70 / (3 - 0.25 + 0.5) = 70 / 3.25.
+			const layout = computeBandLayout(3, 0, 70, 0.25, 0.25);
+			const expectedStep = 70 / 3.25;
+
+			expect(layout.step).toBeCloseTo(expectedStep, 10);
+			expect(layout.bandwidth).toBeCloseTo(expectedStep * 0.75, 10);
+			expect(layout.positions[0]).toBeCloseTo(expectedStep * 0.25, 10);
+			expect(layout.positions[2]).toBeCloseTo(expectedStep * 0.25 + 2 * expectedStep, 10);
+		});
+
+		it('should respect a non-zero range start', () =>
+		{
+			const layout = computeBandLayout(2, 50, 350, 1, 1);
+
+			expect(layout.positions).toEqual([
+				150,
+				250
+			]);
+		});
+
+		it('should return an empty layout for a zero count', () =>
+		{
+			expect(computeBandLayout(0, 0, 100, 1, 1)).toEqual({step: 0, bandwidth: 0, positions: []});
+		});
+
+		it('should return an empty layout for a negative count', () =>
+		{
+			expect(computeBandLayout(-3, 0, 100, 1, 1)).toEqual({step: 0, bandwidth: 0, positions: []});
+		});
+
+		it('should return an empty layout for a non-integer count', () =>
+		{
+			expect(computeBandLayout(2.5, 0, 100, 1, 1)).toEqual({step: 0, bandwidth: 0, positions: []});
+		});
+
+		it('should guard a zero-division band configuration', () =>
+		{
+			// n=1 with paddingInner 1 and paddingOuter 0: divisions = 1 - 1 + 0 = 0.
+			const layout = computeBandLayout(1, 0, 100, 1, 0);
+
+			expect(layout.step).toBe(0);
+			expect(layout.bandwidth).toBe(0);
+			expect(layout.positions).toEqual([0]);
+		});
+	});
+
+	describe('roundCoordinate', () =>
+	{
+		it('should round to one decimal place', () =>
+		{
+			expect(roundCoordinate(1.25)).toBe(1.3);
+			expect(roundCoordinate(1.24)).toBe(1.2);
+		});
+
+		it('should leave integers unchanged', () =>
+		{
+			expect(roundCoordinate(200)).toBe(200);
+		});
+
+		it('should round negative values', () =>
+		{
+			expect(roundCoordinate(-1.26)).toBe(-1.3);
 		});
 	});
 });

@@ -1,0 +1,31 @@
+{
+  "_comment": "PLAN-111 severity staging. Bundle directory names whose hardcoded-user-text sweep is COMPLETE are enforced at ERROR (a violation fails the gate). Every other bundle is WARN (reported, non-failing) until its wave lands. `alternative-text` is always WARN regardless of this list until PLAN-113 clears it. Promote a bundle by adding its dir name here in the same commit that finishes its sweep.",
+  "swept": [
+	"scheduledJobEditor",
+	"scheduledJobDetail",
+	"scheduledJobEditorModal",
+	"cronExpressionEditor",
+	"chainMonitor",
+	"chainMonitorList",
+	"chainMonitorDetail",
+	"streamingSubscriptions",
+	"streamingEventsHeader",
+	"streamingSidebar",
+	"streamingEventFilters",
+	"utilityStreaming",
+	"streamingMonitor",
+	"streamingEvents",
+	"streamingActions",
+	"apiTestHarnessForm",
+	"retryApiIssue",
+	"applyRetentionModal",
+	"healthCheck",
+	"createForm",
+	"baseLookup",
+	"paginatedTable",
+	"validationErrors",
+	"flowFooter",
+	"moduleNotification",
+	"chainStepTimeline"
+  ]
+}

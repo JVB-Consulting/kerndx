@@ -6,41 +6,41 @@
 	<div class="filters slds-grid slds-wrap slds-grid_vertical-align-center">
 		<!-- Channel -->
 		<div class="slds-col slds-size_9-of-12">
-			<lightning-combobox data-testid="filter-channel" label="Include channel" onchange={handleChannelChange} options={channelOptions} placeholder="Select channel"
-			                    value={channel} variant="label-inline"></lightning-combobox>
+			<lightning-combobox data-testid="filter-channel" label={labels.channelLabel} onchange={handleChannelChange} options={channelOptions}
+			                    placeholder={labels.channelPlaceholder} value={channel} variant="label-inline"></lightning-combobox>
 		</div>
 		<div class="slds-col slds-size_3-of-12">&nbsp;</div>
 
 		<!-- Payload -->
 		<div class="slds-col slds-size_9-of-12">
-			<lightning-input label="Include payload with keyword" onchange={handlePayloadChange} placeholder="Search in payload content" type="search" value={payload}
+			<lightning-input label={labels.payloadLabel} onchange={handlePayloadChange} placeholder={labels.payloadPlaceholder} type="search" value={payload}
 			                 variant="label-inline"></lightning-input>
 		</div>
 		<div class="slds-col slds-size_3-of-12 slds-p-bottom_small">
-			<lightning-input checked={isCaseSensitive} label="Match case" onchange={handleIsCaseSensitiveChange} type="checkbox"></lightning-input>
+			<lightning-input checked={isCaseSensitive} label={labels.matchCase} onchange={handleIsCaseSensitiveChange} type="checkbox"></lightning-input>
 		</div>
 
 		<!-- After time -->
 		<div class="slds-col slds-size_3-of-12 slds-m-bottom_small">
-			<lightning-input checked={afterTimeEnabled} class="toggle" label="Include events after" onchange={handleAfterTimeToggle} type="toggle"></lightning-input>
+			<lightning-input checked={afterTimeEnabled} class="toggle" label={labels.afterToggle} onchange={handleAfterTimeToggle} type="toggle"></lightning-input>
 		</div>
 		<div class="slds-size_9-of-12 slds-m-bottom_small">
-			<lightning-input disabled={afterTimeDisabled} label="After time" onchange={handleAfterTimeChange} type="datetime" value={afterTime}
+			<lightning-input disabled={afterTimeDisabled} label={labels.afterTimeLabel} onchange={handleAfterTimeChange} type="datetime" value={afterTime}
 			                 variant="label-hidden"></lightning-input>
 		</div>
 
 		<!-- Before time -->
 		<div class="slds-col slds-size_3-of-12">
-			<lightning-input checked={beforeTimeEnabled} class="toggle" label="Include events before" onchange={handleBeforeTimeToggle} type="toggle"></lightning-input>
+			<lightning-input checked={beforeTimeEnabled} class="toggle" label={labels.beforeToggle} onchange={handleBeforeTimeToggle} type="toggle"></lightning-input>
 		</div>
 		<div class="slds-size_9-of-12">
-			<lightning-input disabled={beforeTimeDisabled} label="Before time" onchange={handleBeforeTimeChange} type="datetime" value={beforeTime}
+			<lightning-input disabled={beforeTimeDisabled} label={labels.beforeTimeLabel} onchange={handleBeforeTimeChange} type="datetime" value={beforeTime}
 			                 variant="label-hidden"></lightning-input>
 		</div>
 
 		<!-- Reset -->
 		<div class="slds-col slds-size_12-of-12 slds-align_absolute-center slds-m-top_small">
-			<lightning-button data-testid="filter-clear" label="Clear filters" onclick={handleClearFilters}></lightning-button>
+			<lightning-button data-testid="filter-clear" label={labels.clearFilters} onclick={handleClearFilters}></lightning-button>
 		</div>
 	</div>
 </template>

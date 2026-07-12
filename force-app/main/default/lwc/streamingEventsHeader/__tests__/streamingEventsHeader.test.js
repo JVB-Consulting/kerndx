@@ -6,11 +6,16 @@
 /**
  * @description Jest unit tests for streamingEventsHeader LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 import {createElement} from 'lwc';
 import LwcEventsHeaderControls from 'c/streamingEventsHeader';
+
+jest.mock('@salesforce/label/c.EventMonitor_Header_ClearEvents', () => ({default: 'Clear events'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Header_DisplayAs', () => ({default: 'Display as'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventUsageMetrics_View_Table', () => ({default: 'Table'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_View_Timeline', () => ({default: 'Timeline'}), {virtual: true});
 
 describe('c-streaming-events-header', () =>
 {
@@ -64,13 +69,15 @@ describe('c-streaming-events-header', () =>
 			expect(filterButton.iconName).toBe('utility:filterList');
 		});
 
-		it('should render view mode menu with table icon initially', async() =>
+		it('should render view mode menu with timeline icon initially, matching the parent default view', async() =>
 		{
+			// The parent (c-streaming-events) renders the timeline view first, so the
+			// 'Display as' menu must show the timeline icon on first load.
 			await Promise.resolve();
 
 			const viewModeMenu = element.shadowRoot.querySelector('lightning-button-menu');
 			expect(viewModeMenu).toBeTruthy();
-			expect(viewModeMenu.iconName).toBe('utility:table');
+			expect(viewModeMenu.iconName).toBe('utility:metrics');
 		});
 
 		it('should render download button', async() =>
@@ -266,12 +273,12 @@ describe('c-streaming-events-header', () =>
 
 	describe('viewModeIconName getter', () =>
 	{
-		it('should return table icon for default view mode', async() =>
+		it('should return timeline icon for the default view mode, matching the parent default', async() =>
 		{
 			await Promise.resolve();
 
 			const menu = element.shadowRoot.querySelector('lightning-button-menu');
-			expect(menu.iconName).toBe('utility:table');
+			expect(menu.iconName).toBe('utility:metrics');
 		});
 
 		it('should return metrics icon when timeline mode is active', async() =>

@@ -12,6 +12,19 @@
 import {createElement} from 'lwc';
 import LwcEventFilters from 'c/streamingEventFilters';
 
+// Mock each filter label to its real value so the findInputByLabel helpers keep locating
+// controls by their rendered label and the assertions stay byte-faithful.
+jest.mock('@salesforce/label/c.EventMonitor_Filter_ChannelLabel', () => ({default: 'Include channel'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_ChannelPlaceholder', () => ({default: 'Select channel'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_PayloadLabel', () => ({default: 'Include payload with keyword'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_PayloadPlaceholder', () => ({default: 'Search in payload content'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_MatchCase', () => ({default: 'Match case'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_AfterToggle', () => ({default: 'Include events after'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_AfterTimeLabel', () => ({default: 'After time'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_BeforeToggle', () => ({default: 'Include events before'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_BeforeTimeLabel', () => ({default: 'Before time'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Filter_ClearButton', () => ({default: 'Clear filters'}), {virtual: true});
+
 describe('c-streaming-event-filters', () =>
 {
 	let element;

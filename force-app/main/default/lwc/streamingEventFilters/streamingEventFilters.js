@@ -24,6 +24,16 @@
  * @date March 2026, May 2026
  */
 import {LightningElement, api} from 'lwc';
+import channelLabel from '@salesforce/label/c.EventMonitor_Filter_ChannelLabel';
+import channelPlaceholder from '@salesforce/label/c.EventMonitor_Filter_ChannelPlaceholder';
+import payloadLabel from '@salesforce/label/c.EventMonitor_Filter_PayloadLabel';
+import payloadPlaceholder from '@salesforce/label/c.EventMonitor_Filter_PayloadPlaceholder';
+import matchCase from '@salesforce/label/c.EventMonitor_Filter_MatchCase';
+import afterToggle from '@salesforce/label/c.EventMonitor_Filter_AfterToggle';
+import afterTimeLabel from '@salesforce/label/c.EventMonitor_Filter_AfterTimeLabel';
+import beforeToggle from '@salesforce/label/c.EventMonitor_Filter_BeforeToggle';
+import beforeTimeLabel from '@salesforce/label/c.EventMonitor_Filter_BeforeTimeLabel';
+import clearFilters from '@salesforce/label/c.EventMonitor_Filter_ClearButton';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -57,6 +67,10 @@ export default class StreamingEventFilters extends LightningElement
 	afterTimeEnabled = false;
 	beforeTime;
 	afterTime;
+
+	labels = {
+		channelLabel, channelPlaceholder, payloadLabel, payloadPlaceholder, matchCase, afterToggle, afterTimeLabel, beforeToggle, beforeTimeLabel, clearFilters
+	};
 
 	// ── @api Properties ──────────────────────────────────────────────────
 

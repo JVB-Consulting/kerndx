@@ -67,6 +67,57 @@ jest.mock('c/utilityLogger', () => ({
 // Mock Apex controller
 jest.mock('@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent', () => ({default: jest.fn().mockResolvedValue({Field1__c: '', Field2__c: ''})}), {virtual: true});
 
+// Restore the real English values for the labels these tests value-assert (the default
+// sfdx-lwc-jest stub resolves each to the bare string 'c.<Name>'). The templated placeholder keeps
+// its {0} form so the real formatTemplateString interpolation is verified end-to-end, and the
+// rich-text registration/notice labels keep their inline anchor markup so the link assertions can
+// check the rendered hrefs.
+jest.mock('@salesforce/label/c.EventMonitor_RegisterSourceTitle', () => ({default: 'Register a streaming event source'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_SubscribeChannelTitle', () => ({default: 'Subscribe to a channel'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_SubscribeAllTitle', () => ({default: 'Subscribe to multiple streaming channels'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_PublishEventTitle', () => ({default: 'Publish a streaming event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Validation_InvalidJson', () => ({default: 'Invalid JSON'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_PayloadHelp_Generic', () => ({default: 'Plain string payload'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_PayloadHelp_Json', () => ({default: 'JSON formatted payload with strings delimited by double quotes'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Form_Filter', () => ({default: 'Filter'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Form_ReplayOption', () => ({default: 'Replay option'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Replay_None', () => ({default: 'No replay'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Replay_Past', () => ({default: 'Replay past events'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Replay_Custom', () => ({default: 'Custom replay ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_FilterOption_AllEvents', () => ({default: 'All events'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_FilterOption_AllCustomEvents', () => ({default: 'All custom events'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_PublishButton', () => ({default: 'Publish'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Placeholder_SelectEvent', () => ({default: 'Select event'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Placeholder_WaitingEventType', () => ({default: 'Waiting for event type'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Placeholder_CdcManualChannel', () => ({default: 'The /data/ChangeEvents channel and custom channels require manual channel input'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Placeholder_CustomManualChannel', () => ({default: 'Custom channels require manual channel input'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Placeholder_NoEventsAvailable', () => ({default: 'No {0}s available'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_Generic',
+		() => ({default: 'Navigate to the&nbsp; <a href="/lightning/o/StreamingChannel/list">Streaming Channel</a>&nbsp;tab to register a generic event.'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_PlatformEvent',
+		() => ({default: 'Navigate to the&nbsp; <a href="/lightning/setup/EventObjects/home">Platform Event</a>&nbsp;page in Setup to register a custom platform event.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_StandardPlatformEvent', () => ({
+	default: 'Standard platform events do not need to be registered. See&nbsp; '
+			+ '<a href="https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_objects_list.htm">documentation</a>.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_ChangeDataCapture', () => ({
+	default: 'Navigate to the&nbsp; <a href="/lightning/setup/CdcObjectEnablement/home">Change Data Capture</a>&nbsp;page in Setup to activate a change data capture event.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_CustomChannelPE', () => ({
+	default: 'Custom channels cannot be declared via the user interface. Follow these&nbsp; '
+			+ '<a href="https://developer.salesforce.com/docs/atlas.en-us.240.0.platform_events.meta/platform_events/platform_events_custom_channel_configure.htm">'
+			+ 'metadata deploy instructions</a>.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Reg_CustomChannelCDC', () => ({
+	default: 'Custom channels cannot be declared via the user interface. Follow these&nbsp; '
+			+ '<a href="https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_custom_channel.htm">metadata deploy instructions</a>.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_Notice_MonitoringEnablement',
+		() => ({default: 'Streaming must be enabled in&nbsp; <a href="/lightning/setup/EventManager/home">Event Manager</a>&nbsp;in order to receive Monitoring Events.'}),
+		{virtual: true});
+
 describe('c-streaming-actions', () =>
 {
 	afterEach(() =>
@@ -1173,8 +1224,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'GenericEvent');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="StreamingChannel"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('href="/lightning/o/StreamingChannel/list"');
 		});
 
 		it('shows Platform event registration link', async() =>
@@ -1186,8 +1238,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'PlatformEvent');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="EventObjects"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('href="/lightning/setup/EventObjects/home"');
 		});
 
 		it('shows Standard Platform event documentation link', async() =>
@@ -1199,8 +1252,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'StandardPlatformEvent');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="developer.salesforce.com"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('developer.salesforce.com');
 		});
 
 		it('shows CDC registration link', async() =>
@@ -1212,8 +1266,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'ChangeDataCaptureEvent');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="CdcObjectEnablement"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('href="/lightning/setup/CdcObjectEnablement/home"');
 		});
 
 		it('shows Custom Channel PE documentation link', async() =>
@@ -1225,8 +1280,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'CustomChannelPE');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="custom_channel"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('platform_events_custom_channel_configure');
 		});
 
 		it('shows Custom Channel CDC documentation link', async() =>
@@ -1238,8 +1294,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'CustomChannelCDC');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="cdc_custom_channel"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('cdc_custom_channel');
 		});
 
 		it('shows Monitoring event setup link', async() =>
@@ -1251,8 +1308,9 @@ describe('c-streaming-actions', () =>
 			simulateComboboxChange(eventTypeCombobox, 'MonitoringEvent');
 			await flushPromises();
 
-			const link = element.shadowRoot.querySelector('a[href*="EventManager"]');
-			expect(link).not.toBeNull();
+			const richText = element.shadowRoot.querySelector('lightning-formatted-rich-text');
+			expect(richText).not.toBeNull();
+			expect(richText.value).toContain('href="/lightning/setup/EventManager/home"');
 		});
 	});
 

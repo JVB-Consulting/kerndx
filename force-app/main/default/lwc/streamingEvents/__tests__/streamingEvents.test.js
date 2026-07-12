@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingEvents LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 import {createElement} from 'lwc';
 import LwcEvents from 'c/streamingEvents';
@@ -20,68 +20,22 @@ jest.mock('@salesforce/schema/User.TimeZoneSidKey', () => ({default: 'User.TimeZ
 
 jest.mock('@salesforce/schema/User.LocaleSidKey', () => ({default: 'User.LocaleSidKey'}), {virtual: true});
 
-// Mock utilityStreaming
-jest.mock('c/utilityStreaming', () => ({
-	timestampSort: jest.fn((a, b) => a.timestamp - b.timestamp), getTimeLabel: jest.fn(() => '2025-12-28 10:30:00')
-}), {virtual: true});
+// Restore the real English values for the labels these tests value-assert (the default
+// sfdx-lwc-jest stub resolves each to the bare string 'c.<Name>'). The two count-badge labels keep
+// their {0}/{1} form so the real formatTemplateString interpolation is verified end-to-end.
+jest.mock('@salesforce/label/c.EventMonitor_StreamingMonitorTitle', () => ({default: 'Streaming Monitor'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_CountBadge_Showing', () => ({default: 'Showing {0} events'}), {virtual: true});
+jest.mock('@salesforce/label/c.EventMonitor_CountBadge_ShowingFiltered', () => ({default: 'Showing {0} of {1} events'}), {virtual: true});
 
-// Create chainable D3 mock for child components (streamingTimeline)
-const createChainableMock = () =>
+// Mock utilityStreaming — the real streamingTimeline child consumes the full utilityStreaming
+// surface, so the mock wraps the actual module and only spies the functions this suite asserts on.
+jest.mock('c/utilityStreaming', () =>
 {
-	const mock = {};
-	mock.append = jest.fn(() => createChainableMock());
-	mock.attr = jest.fn(() => mock);
-	mock.call = jest.fn(() => mock);
-	mock.select = jest.fn(() => createChainableMock());
-	mock.selectAll = jest.fn(() => mock);
-	mock.data = jest.fn(() => mock);
-	mock.join = jest.fn(() => mock);
-	mock.enter = jest.fn(() => mock);
-	mock.exit = jest.fn(() => mock);
-	mock.on = jest.fn(() => mock);
-	mock.text = jest.fn(() => mock);
-	mock.style = jest.fn(() => mock);
-	mock.range = jest.fn(() => mock);
-	mock.domain = jest.fn(() => mock);
-	mock.nice = jest.fn(() => mock);
-	mock.paddingInner = jest.fn(() => mock);
-	mock.paddingOuter = jest.fn(() => mock);
-	mock.tickSize = jest.fn(() => mock);
-	mock.tickFormat = jest.fn(() => mock);
-	mock.ticks = jest.fn(() => mock);
-	mock.bandwidth = jest.fn(() => 20);
-	mock.classed = jest.fn(() => mock);
-	mock.remove = jest.fn(() => mock);
-	mock.filter = jest.fn(() => mock);
-	mock.each = jest.fn(() => mock);
-	mock.merge = jest.fn(() => mock);
-	mock.transition = jest.fn(() => mock);
-	mock.duration = jest.fn(() => mock);
-	return mock;
-};
-
-global.d3 = {
-	select: jest.fn(() => createChainableMock()),
-	scaleLinear: jest.fn(() => createChainableMock()),
-	scaleBand: jest.fn(() => createChainableMock()),
-	scaleTime: jest.fn(() => createChainableMock()),
-	scaleOrdinal: jest.fn(() => createChainableMock()),
-	schemeCategory10: [],
-	axisBottom: jest.fn(() => createChainableMock()),
-	axisLeft: jest.fn(() => createChainableMock()),
-	axisTop: jest.fn(() => createChainableMock()),
-	timeFormat: jest.fn(() => () => '10:30:00'),
-	pointer: jest.fn(() => [
-		100,
-		100
-	]),
-	extent: jest.fn(() => [
-		0,
-		100
-	]),
-	min: jest.fn(() => 0),
-	max: jest.fn(() => 100)
-};
+	const actual = jest.requireActual('c/utilityStreaming');
+	return {
+		...actual, timestampSort: jest.fn(actual.timestampSort), getTimeLabel: jest.fn(actual.getTimeLabel)
+	};
+}, {virtual: true});
 
 const mockEvent1 = {
 	id: 'evt-1', channel: '/event/TestEvent__e', timestamp: 1735380600000, type: 'PlatformEvent', replayId: '12345', payload: '{"field1":"value1"}'
@@ -634,10 +588,12 @@ describe('c-streaming-events', () =>
 			element.addStreamingEvent(mockEvent1);
 			await flushPromises();
 
-			// Mock URL.createObjectURL and document.createElement
+			// Mock URL.createObjectURL/revokeObjectURL and document.createElement
 			const mockUrl = 'blob:test-url';
 			const originalCreateObjectURL = window.URL.createObjectURL;
+			const originalRevokeObjectURL = window.URL.revokeObjectURL;
 			window.URL.createObjectURL = jest.fn(() => mockUrl);
+			window.URL.revokeObjectURL = jest.fn();
 
 			const mockClick = jest.fn();
 			const originalCreateElement = document.createElement.bind(document);
@@ -662,6 +618,50 @@ describe('c-streaming-events', () =>
 
 			// Restore mocks
 			window.URL.createObjectURL = originalCreateObjectURL;
+			window.URL.revokeObjectURL = originalRevokeObjectURL;
+			document.createElement.mockRestore();
+		});
+
+		it('revokes the blob object URL after the download click so the blob is not retained for the page lifetime', async() =>
+		{
+			const element = createComponent();
+			element.subscriptions = [mockSubscription1];
+			element.addStreamingEvent(mockEvent1);
+			await flushPromises();
+
+			const mockUrl = 'blob:test-url';
+			const originalCreateObjectURL = window.URL.createObjectURL;
+			const originalRevokeObjectURL = window.URL.revokeObjectURL;
+			window.URL.createObjectURL = jest.fn(() => mockUrl);
+			window.URL.revokeObjectURL = jest.fn();
+
+			const mockClick = jest.fn();
+			const originalCreateElement = document.createElement.bind(document);
+			jest.spyOn(document, 'createElement').mockImplementation((tagName) =>
+			{
+				if(tagName === 'a')
+				{
+					return {
+						href: '', download: '', click: mockClick
+					};
+				}
+				return originalCreateElement(tagName);
+			});
+
+			const headerControls = element.shadowRoot.querySelector('c-streaming-events-header');
+			headerControls.dispatchEvent(new CustomEvent('download'));
+			await flushPromises();
+
+			expect(window.URL.revokeObjectURL).toHaveBeenCalledWith(mockUrl);
+
+			// The click starts the download read, so the revoke must come after it.
+			const clickOrder = mockClick.mock.invocationCallOrder[0];
+			const revokeOrder = window.URL.revokeObjectURL.mock.invocationCallOrder[0];
+			expect(revokeOrder).toBeGreaterThan(clickOrder);
+
+			// Restore mocks
+			window.URL.createObjectURL = originalCreateObjectURL;
+			window.URL.revokeObjectURL = originalRevokeObjectURL;
 			document.createElement.mockRestore();
 		});
 	});

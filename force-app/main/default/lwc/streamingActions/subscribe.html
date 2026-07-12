@@ -3,34 +3,33 @@
 <!-- Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) -->
 <!-- Modifications copyright (c) 2026 JVB Consulting -->
 <template>
-	<lightning-card title="Subscribe to a channel">
+	<lightning-card title={labels.subscribeChannelTitle}>
 		<div class="slds-var-p-horizontal_large">
 			<form onsubmit={handleSubscribe}>
-				<lightning-combobox data-testid="event-type" label="Event type" onchange={handleSubEventTypeChange} options={subscribeEventTypes} placeholder="Select type"
-				                    value={subEventType}></lightning-combobox>
-				<lightning-combobox data-testid="event-name" disabled={isSubscribeEventNameDisabled} label="Event name" onchange={handleSubEventNameChange}
+				<lightning-combobox data-testid="event-type" label={labels.eventType} onchange={handleSubEventTypeChange} options={subscribeEventTypes}
+				                    placeholder={labels.selectTypePlaceholder} value={subEventType}></lightning-combobox>
+				<lightning-combobox data-testid="event-name" disabled={isSubscribeEventNameDisabled} label={labels.eventName} onchange={handleSubEventNameChange}
 				                    options={subscribeEventNames} placeholder={subEventNamePlaceholder} value={subscribeEventName}></lightning-combobox>
-				<lightning-input disabled={isSubscribeChannelDisabled} label="Streaming channel" name="subChannel" onchange={handleValueChange}
+				<lightning-input disabled={isSubscribeChannelDisabled} label={labels.streamingChannel} name="subChannel" onchange={handleValueChange}
 				                 value={subChannel}></lightning-input>
-				<lightning-combobox disabled={isSubscribeDisabled} label="Replay option" name="subReplayOption" onchange={handleValueChange} options={replayOptions}
+				<lightning-combobox disabled={isSubscribeDisabled} label={labels.replayOption} name="subReplayOption" onchange={handleValueChange} options={replayOptions}
 				                    value={subReplayOption}></lightning-combobox>
-				<lightning-input label="Replay ID" lwc:if={isCustomReplayIdVisible} name="subReplayId" onchange={handleValueChange} required type="number"
+				<lightning-input label={labels.replayId} lwc:if={isCustomReplayIdVisible} name="subReplayId" onchange={handleValueChange} required type="number"
 				                 value={subReplayId}></lightning-input>
 				<div class="slds-align_absolute-center slds-var-m-top_medium">
-					<lightning-button data-testid="subscribe-button" disabled={isSubscribeDisabled} label="Subscribe" type="submit" variant="brand"></lightning-button>
+					<lightning-button data-testid="subscribe-button" disabled={isSubscribeDisabled} label={labels.subscribe} type="submit" variant="brand"></lightning-button>
 				</div>
 				<!-- CDC enablement warning -->
 				<c-notice lwc:if={isCDCSubscription}>
 					<p>
-						Enable Change Data Capture events in&nbsp; <a href="/lightning/setup/CdcObjectEnablement/home">Setup</a>&nbsp;to receive them on the
-						<code>/data/ChangeEvents</code> channel or the
-						single-event channels. This doesn't apply to custom
-						channels you define. </p>
+						<lightning-formatted-rich-text value={labels.noticeCdcEnablement}></lightning-formatted-rich-text>
+					</p>
 				</c-notice>
 				<!-- Event monitoring enablement warning -->
 				<c-notice lwc:elseif={isEventMonitoringSubscription}>
 					<p>
-						Streaming must be enabled in&nbsp; <a href="/lightning/setup/EventManager/home">Event Manager</a>&nbsp;in order to receive Monitoring Events. </p>
+						<lightning-formatted-rich-text value={labels.noticeMonitoringEnablement}></lightning-formatted-rich-text>
+					</p>
 				</c-notice>
 			</form>
 		</div>

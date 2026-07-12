@@ -3,6 +3,28 @@
 /* Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor) */
 /* Modifications copyright (c) 2026 JVB Consulting */
 
+.timeline
+{
+	position : relative;
+}
+
+.timeline-chart
+{
+	display : block;
+	height  : 400px;
+	width   : 100%;
+}
+
+.axis-label
+{
+	font-size : 10px;
+}
+
+.axis-baseline
+{
+	stroke : #181818;
+}
+
 circle
 {
 	cursor       : pointer;
@@ -99,6 +121,7 @@ circle:hover
 	pointer-events : none;
 	position       : fixed;
 	text-align     : center;
+	transform      : translate(-50%, -100%);
 	z-index        : 1000;
 }
 

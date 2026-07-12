@@ -9,8 +9,23 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, June 2026
+ * @date March 2026, July 2026
  */
+
+import {formatTemplateString} from 'c/utilityString';
+import eventTypePushTopic from '@salesforce/label/c.EventMonitor_EventType_PushTopic';
+import eventTypeGeneric from '@salesforce/label/c.EventMonitor_EventType_Generic';
+import eventTypeStandardPlatform from '@salesforce/label/c.EventMonitor_EventType_StandardPlatform';
+import eventTypeCustomPlatform from '@salesforce/label/c.EventMonitor_EventType_CustomPlatform';
+import eventTypeChangeDataCapture from '@salesforce/label/c.EventMonitor_EventType_ChangeDataCapture';
+import eventTypeCustomChannelPlatform from '@salesforce/label/c.EventMonitor_EventType_CustomChannelPlatform';
+import eventTypeCustomChannelChange from '@salesforce/label/c.EventMonitor_EventType_CustomChannelChange';
+import eventTypeMonitoring from '@salesforce/label/c.EventMonitor_EventType_Monitoring';
+import typeLabelPushTopic from '@salesforce/label/c.EventMonitor_TypeLabel_PushTopic';
+import typeLabelGeneric from '@salesforce/label/c.EventMonitor_TypeLabel_Generic';
+import typeLabelChangeEvent from '@salesforce/label/c.EventMonitor_TypeLabel_ChangeEvent';
+import typeLabelPlatformEvent from '@salesforce/label/c.EventMonitor_TypeLabel_PlatformEvent';
+import typeLabelUnknown from '@salesforce/label/c.EventMonitor_TypeLabel_Unknown';
 
 // ── Channel Constants ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -45,14 +60,14 @@ export const FILTER_CUSTOM = 'custom';
  * @type {Readonly<Object<string, {label: string, channelPrefix: string, isCustom: function(string): boolean, publishable?: boolean}>>}
  */
 const REGISTRY = Object.freeze({
-	[EVT_PUSH_TOPIC]: {label: 'PushTopic event', channelPrefix: '/topic/', isCustom: () => true},
-	[EVT_GENERIC]: {label: 'Generic event', channelPrefix: '/u/', isCustom: () => true, publishable: true},
-	[EVT_STD_PLATFORM_EVENT]: {label: 'Standard Platform event', channelPrefix: '/event/', isCustom: () => false},
-	[EVT_PLATFORM_EVENT]: {label: 'Custom Platform event', channelPrefix: '/event/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__e'), publishable: true},
-	[EVT_CDC]: {label: 'Change Data Capture event', channelPrefix: '/data/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__ChangeEvent')},
-	[EVT_CUSTOM_CHANNEL_PE]: {label: 'Custom Channel - Platform event', channelPrefix: '/event/', isCustom: () => true},
-	[EVT_CUSTOM_CHANNEL_CDC]: {label: 'Custom Channel - Change event', channelPrefix: '/data/', isCustom: () => true},
-	[EVT_MONITORING]: {label: 'Monitoring event', channelPrefix: '/event/', isCustom: () => false}
+	[EVT_PUSH_TOPIC]: {label: eventTypePushTopic, channelPrefix: '/topic/', isCustom: () => true},
+	[EVT_GENERIC]: {label: eventTypeGeneric, channelPrefix: '/u/', isCustom: () => true, publishable: true},
+	[EVT_STD_PLATFORM_EVENT]: {label: eventTypeStandardPlatform, channelPrefix: '/event/', isCustom: () => false},
+	[EVT_PLATFORM_EVENT]: {label: eventTypeCustomPlatform, channelPrefix: '/event/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__e'), publishable: true},
+	[EVT_CDC]: {label: eventTypeChangeDataCapture, channelPrefix: '/data/', isCustom: (ch) => typeof ch === 'string' && ch.endsWith('__ChangeEvent')},
+	[EVT_CUSTOM_CHANNEL_PE]: {label: eventTypeCustomChannelPlatform, channelPrefix: '/event/', isCustom: () => true},
+	[EVT_CUSTOM_CHANNEL_CDC]: {label: eventTypeCustomChannelChange, channelPrefix: '/data/', isCustom: () => true},
+	[EVT_MONITORING]: {label: eventTypeMonitoring, channelPrefix: '/event/', isCustom: () => false}
 });
 
 /**
@@ -87,6 +102,10 @@ function resolveDefinition(eventType)
 	const definition = REGISTRY[eventType];
 	if(!definition)
 	{
+		// Developer-only invariant guard: `eventType` is always one of the EVT_* constants in real
+		// usage, so this fires only on a programming error and never reaches an end user — it stays a
+		// plain diagnostic string rather than a subscriber Custom Label.
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 		throw new Error(`Unsupported event type: ${eventType}`);
 	}
 	return definition;
@@ -151,21 +170,24 @@ function classifyEventType(eventData, payload)
 {
 	if(eventData?.event?.type)
 	{
-		return `PushTopic: ${eventData.event.type}`;
+		return formatTemplateString(typeLabelPushTopic, [eventData.event.type]);
 	}
 	if(eventData?.event?.createdDate)
 	{
-		return 'Generic';
+		return typeLabelGeneric;
 	}
 	if(payload?.ChangeEventHeader)
 	{
-		return `Change Event: ${payload.ChangeEventHeader.entityName} ${payload.ChangeEventHeader.changeType}`;
+		return formatTemplateString(typeLabelChangeEvent, [
+			payload.ChangeEventHeader.entityName,
+			payload.ChangeEventHeader.changeType
+		]);
 	}
 	if(payload?.CreatedDate)
 	{
-		return 'Platform Event';
+		return typeLabelPlatformEvent;
 	}
-	return 'Unknown Event';
+	return typeLabelUnknown;
 }
 
 /**
@@ -250,7 +272,9 @@ export function getTimeLabel(time, timeZone, locale)
 {
 	const date = time instanceof Date ? time : typeof time === 'number' ? new Date(time) : null;
 
-	if(!date)
+	// The NaN check honours the "empty string for invalid input" contract for NaN epochs and
+	// Invalid Date instances, which `new Date` coerces to a truthy-but-unformattable object.
+	if(!date || Number.isNaN(date.getTime()))
 	{
 		return '';
 	}
@@ -335,6 +359,45 @@ export function formatCount(value, locale)
 	}
 
 	return numeric.toLocaleString(locale ? locale.replace('_', '-') : ENGLISH_LOCALE);
+}
+
+// ── SVG Geometry ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @description Computes band positions for template-SVG charts (replaces d3.scaleBand, align 0.5):
+ * `step = range / (count − paddingInner + 2·paddingOuter)`, `bandwidth = step·(1 − paddingInner)`,
+ * `position_i = rangeStart + step·paddingOuter + i·step`. A paddingInner/Outer of 1 degenerates to
+ * evenly spaced zero-width lanes (`step = range / (count + 1)`), the event-timeline configuration.
+ *
+ * @param {number} count - Number of bands.
+ * @param {number} rangeStart - Range start in pixels.
+ * @param {number} rangeEnd - Range end in pixels.
+ * @param {number} paddingInner - Inner padding ratio (0-1).
+ * @param {number} paddingOuter - Outer padding ratio.
+ * @returns {{step: number, bandwidth: number, positions: Array<number>}} Layout; empty positions for count < 1.
+ */
+export function computeBandLayout(count, rangeStart, rangeEnd, paddingInner, paddingOuter)
+{
+	if(!Number.isInteger(count) || count < 1)
+	{
+		return {step: 0, bandwidth: 0, positions: []};
+	}
+	const divisions = count - paddingInner + 2 * paddingOuter;
+	const step = divisions > 0 ? (rangeEnd - rangeStart) / divisions : 0;
+	const bandwidth = step * (1 - paddingInner);
+	const positions = Array.from({length: count}, (unused, index) => rangeStart + step * paddingOuter + index * step);
+	return {step, bandwidth, positions};
+}
+
+/**
+ * @description Rounds a coordinate to one decimal place to keep rendered SVG attributes compact.
+ *
+ * @param {number} value - The raw coordinate.
+ * @returns {number} The value rounded to one decimal place.
+ */
+export function roundCoordinate(value)
+{
+	return Math.round(value * 10) / 10;
 }
 
 // ── Sort Comparators ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

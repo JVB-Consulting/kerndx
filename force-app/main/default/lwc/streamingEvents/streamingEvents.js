@@ -18,7 +18,7 @@
  *   - Supports clearing and downloading events
  *   - Handles event selection and modal display
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 import {LightningElement, api, wire} from 'lwc';
 import {getRecord, getFieldValue} from 'lightning/uiRecordApi';
@@ -29,6 +29,21 @@ import {
 	VIEW_MODE_TABLE, VIEW_MODE_TIMELINE, TABLE_COLUMNS, DEFAULT_EVENT_DATA
 } from './constants';
 import {timestampSort, getTimeLabel} from 'c/utilityStreaming';
+import {formatTemplateString} from 'c/utilityString';
+
+import STREAMING_MONITOR_TITLE from '@salesforce/label/c.EventMonitor_StreamingMonitorTitle';
+import EVENT_DETAILS_TITLE from '@salesforce/label/c.EventMonitor_EventDetails_Title';
+import FIELD_LOCAL_TIME from '@salesforce/label/c.EventMonitor_Field_LocalTime';
+import FIELD_CHANNEL from '@salesforce/label/c.EventMonitor_Field_Channel';
+import FIELD_TYPE from '@salesforce/label/c.EventMonitor_Field_Type';
+import FIELD_REPLAY_ID from '@salesforce/label/c.EventMonitor_Field_ReplayId';
+import FIELD_PAYLOAD from '@salesforce/label/c.EventMonitor_Field_Payload';
+import FILTER_WARNING from '@salesforce/label/c.EventMonitor_FilterWarning';
+import COUNT_SHOWING from '@salesforce/label/c.EventMonitor_CountBadge_Showing';
+import COUNT_SHOWING_FILTERED from '@salesforce/label/c.EventMonitor_CountBadge_ShowingFiltered';
+import EMPTY_SUBSCRIBE from '@salesforce/label/c.EventMonitor_Empty_Subscribe';
+import EMPTY_WAITING from '@salesforce/label/c.EventMonitor_Empty_Waiting';
+import EMPTY_NO_MATCH from '@salesforce/label/c.EventMonitor_Empty_NoMatch';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -98,6 +113,18 @@ export default class StreamingEvents extends LightningElement
 
 	tableColumns = TABLE_COLUMNS;
 
+	/** @description Template-bound Custom Labels for the card, modal, and detail fields. */
+	labels = {
+		streamingMonitorTitle: STREAMING_MONITOR_TITLE,
+		eventDetailsTitle: EVENT_DETAILS_TITLE,
+		localTime: FIELD_LOCAL_TIME,
+		channel: FIELD_CHANNEL,
+		type: FIELD_TYPE,
+		replayId: FIELD_REPLAY_ID,
+		payload: FIELD_PAYLOAD,
+		filterWarning: FILTER_WARNING
+	};
+
 	userId = USER_ID;
 	userTimezone;
 	userLocale;
@@ -137,9 +164,12 @@ export default class StreamingEvents extends LightningElement
 		const filteredEvents = this.filteredEvents.length;
 		if(totalEvents === filteredEvents)
 		{
-			return `Showing ${totalEvents} events`;
+			return formatTemplateString(COUNT_SHOWING, [totalEvents]);
 		}
-		return `Showing ${filteredEvents} of ${totalEvents} events`;
+		return formatTemplateString(COUNT_SHOWING_FILTERED, [
+			filteredEvents,
+			totalEvents
+		]);
 	}
 
 	get selectedEventPayload()
@@ -295,9 +325,13 @@ export default class StreamingEvents extends LightningElement
 		const jsonBlob = new Blob([JSON.stringify(this.events)], {
 			type: 'application/octet-stream'
 		});
-		downloadLink.href = window.URL.createObjectURL(jsonBlob);
+		const objectUrl = window.URL.createObjectURL(jsonBlob);
+		downloadLink.href = objectUrl;
 		downloadLink.download = 'events.json';
 		downloadLink.click();
+		// The anchor-download read is synchronous, so the object URL can be freed immediately
+		// rather than being retained for the page's lifetime.
+		window.URL.revokeObjectURL(objectUrl);
 	}
 
 	/**
@@ -370,15 +404,15 @@ export default class StreamingEvents extends LightningElement
 	{
 		if(this.activeSubscriptions.length === 0)
 		{
-			this.emptyStateMessage = 'Start by subscribing to events.';
+			this.emptyStateMessage = EMPTY_SUBSCRIBE;
 		}
 		else if(this.events.length === 0)
 		{
-			this.emptyStateMessage = 'Waiting for events...';
+			this.emptyStateMessage = EMPTY_WAITING;
 		}
 		else if(!this.hasVisibleData)
 		{
-			this.emptyStateMessage = 'No events displayed. Try changing your filters.';
+			this.emptyStateMessage = EMPTY_NO_MATCH;
 		}
 		else
 		{
