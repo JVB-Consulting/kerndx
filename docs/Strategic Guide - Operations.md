@@ -421,16 +421,17 @@ compared to hand-written Apex, and KernDX is no exception. The table below shows
 
 | Concern                | Overhead                                       | Notes                                                 |
 |------------------------|------------------------------------------------|-------------------------------------------------------|
-| **Trigger dispatch**   | ~1 SOQL per trigger invocation                 | Cached after first call in transaction                |
+| **Trigger dispatch**   | ~1 SOQL per transaction                        | First dispatch pays the query; a static cache covers every later trigger invocation in that transaction. Each new transaction pays it again |
 | **Query builder**      | ~1ms SOQL string assembly                      | Optional performance logging adds negligible cost     |
 | **Structured logging** | Platform event publishing per log emission     | ERROR logs bypass buffer for immediate visibility     |
 | **DML builder**        | Works out the right save order (parents before children) for multi-object transactions | Negligible for typical use; benchmark at 10K+ records |
 | **Managed package**    | Pre-compiled code; often marginally faster     | Profile CPU in hot paths if concerned                 |
 | **Namespace prefix**   | Zero runtime cost                              | IDE auto-complete handles verbosity                   |
 
-**Recommendation:** For high-volume triggers (10K+ records), measure framework-managed execution against direct Apex for your own case. In synthetic load tests the overhead is
-typically 5-15ms per trigger invocation for dispatch plus logging, and it is lower in typical production patterns. For most transactions it is negligible, but it becomes measurable
-at scale.
+**Recommendation:** For high-volume triggers (10K+ records), measure framework-managed execution against direct Apex for your own case. KernDX's benchmark artefacts record the
+absolute cost of scenarios run through the framework; none of them measures dispatch plus logging against a direct-Apex control arm, so there is no published per-invocation
+overhead figure. For most transactions
+the overhead is negligible, but it is real and becomes measurable at scale.
 
 > **Key Insight:** KernDX consumes no CPU, SOQL, or DML unless your code explicitly calls it. The framework sits idle in your org until something invokes it. There is no background
 > processing and no automatic resource consumption.
@@ -456,7 +457,7 @@ private static void benchmarkTriggerDispatch()
     Long frameworkMs = System.currentTimeMillis() - startFramework;
 
     // Compare: frameworkMs / iterations = average ms per trigger invocation
-    // Typical result: 5-15ms overhead per invocation
+    // Repeat the same loop with direct DML (no framework) to get your control arm
 }
 ```
 
@@ -471,7 +472,7 @@ watch for, component by component.
 | Framework Component | Limit Consideration                                                                                                       |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------|
 | `QRY_Builder`       | Bind variable parameterisation prevents SOQL injection. `.withCache()` reduces query count.                               |
-| `LOG_Builder`       | Platform event publishing subject to delivery allocation (50K/24hr base, shared with record-change events / Change Data Capture). Buffering reduces consumption. |
+| `LOG_Builder`       | Publishing `LogEntryEvent__e` draws on the hourly platform-event publishing allocation (250K/hour on Enterprise, Performance and Unlimited Editions; 50K/hour on Developer). The Apex-trigger persistence path does not consume the separate 24-hour delivery allocation; that allocation (50K/24hr on Performance and Unlimited, 25K on Enterprise, 10K on Developer, shared with record-change events / Change Data Capture) applies only to streaming subscribers, including KernDX's monitor components while they are open (see "Platform Event Allocations" in the Platform Events Developer Guide). Buffering reduces consumption. |
 | `API_Outbound`      | Callout limits (100/transaction, 120s timeout). Circuit breaker prevents wasted callouts to failing services.             |
 | `TRG_Dispatcher`    | One metadata query per transaction. Handlers share governor limits with trigger context.                                  |
 
