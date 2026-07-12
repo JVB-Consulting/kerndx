@@ -264,6 +264,12 @@ The steps are:
 3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking, so your transaction is not slowed down)
 4. [`TRG_LogEntryEvent`](reference/apex/TRG_LogEntryEvent.md) trigger inserts records into `LogEntry__c`
 
+**The trade-off behind the hand-off:** delivery is deliberately best-effort. The logger is designed never to fail or roll back your business transaction, and the price of that
+guarantee is that a log entry can be silently lost. If the platform-event publish fails, the framework does not retry and does not fall back to writing `LogEntry__c` directly:
+a publish that throws leaves at most a debug line that is visible only while an Apex trace flag is active, and per-event publish errors reported by the platform are not
+inspected at all (those leave no trace whatsoever), so a dropped entry looks exactly like an entry that was never logged. A buffered flush also clears the buffer whether or not the publish succeeded. If a particular record of events is
+evidence you cannot afford to lose, write it to an SObject of your own inside the same transaction rather than relying on the log stream.
+
 ---
 
 ## Apex Logging ([`LOG_Builder`](reference/apex/LOG_Builder.md))
@@ -1287,6 +1293,9 @@ finally
 4. **Check class filter**: If `ClassFilter__c` is set, verify your class matches the pattern
 5. **Check platform event limits**:
    Monitor [event publishing limits](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_event_limits.htm)
+6. **Remember that a failed publish is silent**: if the event publish itself fails, the entry is dropped with no retry and no fallback write. A publish that throws leaves at
+   most a `FAILED TO PUBLISH LOG EVENTS` debug line, visible only while an Apex trace flag is active; a per-event rejection reported by the platform (for example on allocation
+   exhaustion) leaves no trace at all
 
 ### Missing Correlation
 
