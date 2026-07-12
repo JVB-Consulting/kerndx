@@ -53,6 +53,7 @@ async function runUpgrade({force = false} = {})
 	const config = loadConfig('.kerndx/config.yml');
 	const answers = {
 		package_dirs: config.package_dirs,
+		framework_package: config.framework_package !== false,
 		ci_adapter: config.ci_adapter,
 		branches: config.branches,
 		naming: config.naming || {enabled: false},

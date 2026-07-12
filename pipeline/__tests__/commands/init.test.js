@@ -141,6 +141,147 @@ test('runInit scaffolds code-analyzer.yml referencing bundled rulesets', async(t
 	}
 });
 
+test('runInit renders the ingress branch-protection ruleset its next-steps reference', async(t) =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-'));
+	try
+	{
+		process.chdir(dir);
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main']},
+			naming: {enabled: false},
+			slack: {enabled: false},
+			workflows: {}
+		};
+		await runInit({answers, interactive: false});
+
+		assert.ok(fs.existsSync('.kerndx/rulesets/ingress-gate.json'), 'ingress-gate.json rendered');
+		const ruleset = JSON.parse(fs.readFileSync('.kerndx/rulesets/ingress-gate.json', 'utf-8'));
+		assert.equal(ruleset.name, 'Ingress Gate');
+		assert.deepEqual(ruleset.conditions.ref_name.include, ['refs/heads/main']);
+		const checksRule = ruleset.rules.find((r) => r.type === 'required_status_checks');
+		const contexts = checksRule.parameters.required_status_checks.map((c) => c.context);
+		assert.ok(contexts.includes('Static Code Analysis'));
+		assert.ok(!contexts.includes('Naming Validation'), 'naming disabled: its check must not be required');
+
+		const manifest = JSON.parse(fs.readFileSync('.kerndx/manifest.json', 'utf-8'));
+		assert.ok(manifest.files['.kerndx/rulesets/ingress-gate.json'], 'ruleset hashed into the manifest');
+
+		assert.ok(!fs.existsSync('.kerndx/rulesets/release-gate.json'), 'no release branches: release-gate skipped');
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('runInit renders the release-gate ruleset when release branches exist and naming is enforced', async(t) =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-release-'));
+	try
+	{
+		process.chdir(dir);
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main', 'release']},
+			naming: {enabled: true},
+			slack: {enabled: false},
+			workflows: {}
+		};
+		await runInit({answers, interactive: false});
+
+		const ingress = JSON.parse(fs.readFileSync('.kerndx/rulesets/ingress-gate.json', 'utf-8'));
+		const checksRule = ingress.rules.find((r) => r.type === 'required_status_checks');
+		const contexts = checksRule.parameters.required_status_checks.map((c) => c.context);
+		assert.ok(contexts.includes('Naming Validation'), 'naming enabled: its check is required');
+
+		assert.ok(fs.existsSync('.kerndx/rulesets/release-gate.json'), 'release-gate.json rendered');
+		const release = JSON.parse(fs.readFileSync('.kerndx/rulesets/release-gate.json', 'utf-8'));
+		assert.deepEqual(release.conditions.ref_name.include, ['refs/heads/release']);
+
+		const manifest = JSON.parse(fs.readFileSync('.kerndx/manifest.json', 'utf-8'));
+		assert.ok(manifest.files['.kerndx/rulesets/release-gate.json'], 'release ruleset hashed into the manifest');
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('runInit honours the explicit release-branch answer and preserves hand-authored rulesets', async(t) =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-explicit-'));
+	try
+	{
+		process.chdir(dir);
+
+		fs.mkdirSync('.kerndx/rulesets', {recursive: true});
+		fs.writeFileSync('.kerndx/rulesets/ingress-gate.json', '{"name": "Hand Authored"}');
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main', 'release'], release: ['release']},
+			naming: {enabled: false},
+			slack: {enabled: false},
+			workflows: {}
+		};
+		await runInit({answers, interactive: false});
+
+		const preserved = JSON.parse(fs.readFileSync('.kerndx/rulesets/ingress-gate.json', 'utf-8'));
+		assert.equal(preserved.name, 'Hand Authored', 'existing ruleset file must never be overwritten');
+		const manifest = JSON.parse(fs.readFileSync('.kerndx/manifest.json', 'utf-8'));
+		assert.ok(!manifest.files['.kerndx/rulesets/ingress-gate.json'], 'preserved file is not manifest-hashed');
+
+		const release = JSON.parse(fs.readFileSync('.kerndx/rulesets/release-gate.json', 'utf-8'));
+		assert.deepEqual(release.conditions.ref_name.include, ['refs/heads/release'], 'branches.release drives the release gate');
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('runInit scaffolds the hygiene ruleset when the repo does not use the framework', async(t) =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-codeanalyzer-hygiene-'));
+	try
+	{
+		process.chdir(dir);
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			framework_package: false,
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main']},
+			naming: {enabled: false},
+			slack: {enabled: false},
+			workflows: {}
+		};
+		await runInit({answers, interactive: false});
+
+		const yml = fs.readFileSync('code-analyzer.yml', 'utf-8');
+		assert.match(yml, /- \.kerndx-pipeline\/scanner\/kerndx-hygiene-ruleset\.xml/);
+		assert.doesNotMatch(yml, /- \.kerndx-pipeline\/scanner\/kerndx-pmd-ruleset\.xml/);
+
+		const config = fs.readFileSync('.kerndx/config.yml', 'utf-8');
+		assert.match(config, /framework_package: false/);
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
 test('runInit preserves existing code-analyzer.yml (does not overwrite)', async(t) =>
 {
 	const originalCwd = process.cwd();

@@ -9,6 +9,11 @@
   ],
   "additionalProperties": false,
   "properties": {
+	"framework_package": {
+	  "type": "boolean",
+	  "default": true,
+	  "description": "Whether this repo builds on the KernDX managed package / framework. Drives which PMD ruleset the scaffolded code-analyzer.yml references: the full framework ruleset (true) or the framework-agnostic hygiene ruleset (false)."
+	},
 	"package_dirs": {
 	  "type": "array",
 	  "minItems": 1,
@@ -43,6 +48,13 @@
 			"type": "string"
 		  },
 		  "minItems": 1
+		},
+		"release": {
+		  "type": "array",
+		  "items": {
+			"type": "string"
+		  },
+		  "description": "Branches that receive the stricter release gate (code-owner review, last-push approval). Absent on configs written before the release-branch question; those fall back to protected-minus-ingress."
 		}
 	  }
 	},

@@ -1,21 +1,25 @@
 # Salesforce Code Analyzer config — scaffolded by KernDX pipeline init.
 #
-# The two KernDX PMD rulesets ship inside `.kerndx-pipeline/scanner/`:
+# The KernDX PMD rulesets ship inside `.kerndx-pipeline/scanner/`:
 #
-#   - kerndx-pmd-ruleset.xml — full subscriber-side ruleset. Use this in
-#     subscriber CI scans and as the IDE ruleset.
+#   - kerndx-pmd-ruleset.xml — full ruleset for repos that build on the
+#     KernDX framework. Use this in CI scans and as the IDE ruleset.
+#   - kerndx-hygiene-ruleset.xml — framework-agnostic tier: test-quality and
+#     security-review rules that do not require the KernDX framework. Use
+#     this if the repo does not use the KernDX framework.
 #   - kerndx-framework-ruleset.xml — framework-internal subset (used by the
 #     KernDX framework codebase itself). Excludes "use the framework API
 #     instead of the platform primitive" rules. Reference here only if you
 #     are extending the framework rather than consuming it.
 #
-# Add your own custom rulesets to the `custom_rulesets` list. Override
-# individual rule severities under `rules:` (see SameRecordFieldUpdates
-# below for an example).
+# `kerndx init` selected the ruleset below from your answer to the framework
+# question; swap it at any time. Add your own custom rulesets to the
+# `custom_rulesets` list. Override individual rule severities under `rules:`
+# (see SameRecordFieldUpdates below for an example).
 engines:
   pmd:
     custom_rulesets:
-      - .kerndx-pipeline/scanner/kerndx-pmd-ruleset.xml
+      - .kerndx-pipeline/scanner/<%= usesFramework ? 'kerndx-pmd-ruleset.xml' : 'kerndx-hygiene-ruleset.xml' %>
 
 rules:
   flow:

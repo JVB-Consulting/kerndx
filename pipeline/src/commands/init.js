@@ -35,6 +35,8 @@ async function collectAnswers(sessionOpts = {})
 		const package_dirs_raw = rawDirs.split(',').map(s => s.trim()).filter(Boolean);
 		const package_dirs = package_dirs_raw.length === 0 ? ['force-app/main/default'] : package_dirs_raw;
 
+		const framework_package = await session.askYesNo('Does this repo build on the KernDX managed package / framework?', true);
+
 		const ciAdapterName = await session.askChoice('CI tool:', [
 			'gearset',
 			'copado',
@@ -60,14 +62,17 @@ async function collectAnswers(sessionOpts = {})
 		const mainBranch = (await session.askText('Main / production branch [main]: ')) || 'main';
 		const otherProtectedRaw = await session.askText('Other protected branches (comma-separated, or empty): ');
 		const otherProtected = otherProtectedRaw.split(',').map(s => s.trim()).filter(Boolean);
+		const releaseRaw = await session.askText('Release branches (get the stricter release gate; comma-separated, or empty): ');
+		const releaseBranches = releaseRaw.split(',').map(s => s.trim()).filter(Boolean);
 		const branches = {
 			main: mainBranch, ingress: [
 				mainBranch,
 				...otherProtected
-			], protected: [
+			], protected: [...new Set([
 				mainBranch,
-				...otherProtected
-			]
+				...otherProtected,
+				...releaseBranches
+			])], release: releaseBranches
 		};
 
 		const naming = {enabled: await session.askYesNo('Enforce naming standards on Apex/Flows/Objects?', false)};
@@ -89,7 +94,7 @@ async function collectAnswers(sessionOpts = {})
 			validate_reviewers_json: await session.askYesNo('Opt-in: validate-reviewers-json?', false)
 		};
 
-		return {package_dirs, ci_adapter, branches, naming, slack, workflows};
+		return {package_dirs, framework_package, ci_adapter, branches, naming, slack, workflows};
 	}
 	finally
 	{
@@ -124,7 +129,7 @@ function appendHuskyHook()
 	return {mode: 'created', content: tmpl};
 }
 
-function scaffoldCodeAnalyzerYml()
+function scaffoldCodeAnalyzerYml(usesFramework = true)
 {
 	const target = 'code-analyzer.yml';
 	if(fs.existsSync(target))
@@ -132,9 +137,9 @@ function scaffoldCodeAnalyzerYml()
 		return {mode: 'preserved', path: target};
 	}
 	const tmplPath = path.join(TEMPLATES_DIR, 'code-analyzer.yml.eta');
-	const rendered = renderTemplate(tmplPath, {});
+	const rendered = renderTemplate(tmplPath, {usesFramework});
 	fs.writeFileSync(target, rendered);
-	return {mode: 'created', path: target, content: rendered};
+	return {mode: 'created', path: target, content: rendered, ruleset: usesFramework ? 'kerndx-pmd-ruleset.xml' : 'kerndx-hygiene-ruleset.xml'};
 }
 
 function rerenderSubscriberNamingRuleset(configRecord, {shippedXmlPath} = {})
@@ -167,8 +172,12 @@ async function runInit({answers = null, interactive = true} = {})
 
 	const filesWritten = {};
 
+	// Default true when absent: pre-existing configs and answer sets predate the
+	// framework question and were always scaffolded with the full ruleset.
+	const usesFramework = answers.framework_package !== false;
+
 	const configRecord = {
-		package_dirs: answers.package_dirs, ci_adapter: answers.ci_adapter, branches: answers.branches
+		package_dirs: answers.package_dirs, framework_package: usesFramework, ci_adapter: answers.ci_adapter, branches: answers.branches
 	};
 	if(answers.naming)
 	{
@@ -191,7 +200,7 @@ async function runInit({answers = null, interactive = true} = {})
 	writeFileWithDirs('.kerndx/config.yml', configYaml);
 	filesWritten['.kerndx/config.yml'] = hashContent(configYaml);
 
-	const codeAnalyzerResult = scaffoldCodeAnalyzerYml();
+	const codeAnalyzerResult = scaffoldCodeAnalyzerYml(usesFramework);
 	const pmdRulesetResult = rerenderSubscriberNamingRuleset(configRecord);
 	if(pmdRulesetResult.mode === 'rerendered')
 	{
@@ -201,7 +210,10 @@ async function runInit({answers = null, interactive = true} = {})
 	const workflowData = {
 		ingressBranches: answers.branches.ingress,
 		protectedBranches: answers.branches.protected,
-		releaseBranches: answers.branches.protected.filter(b => !answers.branches.ingress.includes(b)),
+		// branches.release is the explicit answer from init's release-branch
+		// question; the protected-minus-ingress fallback keeps configs written
+		// before that question existed working unchanged.
+		releaseBranches: answers.branches.release || answers.branches.protected.filter(b => !answers.branches.ingress.includes(b)),
 		packageDirs: answers.package_dirs,
 		nodeVersion: '20',
 		runsOn: (answers.workflows && answers.workflows.runs_on) || 'ubuntu-latest',
@@ -211,8 +223,9 @@ async function runInit({answers = null, interactive = true} = {})
 		requiredChecks: [
 			'Static Code Analysis',
 			'Secret Scan',
-			'Naming Validation'
+			...(answers.naming && answers.naming.enabled ? ['Naming Validation'] : [])
 		],
+		bypassActors: [],
 		reviewers: {configFile: '.github/reviewers.json', schemaFile: '.github/reviewers.schema.json'}, // Fallback Slack subteam ID used by release-review-assigned when
 		// .github/reviewers.json doesn't define `teams['release-admins']`.
 		// Subscribers can override via answers/config when needed.
@@ -249,6 +262,36 @@ async function runInit({answers = null, interactive = true} = {})
 		filesWritten[out] = hashContent(rendered);
 	}
 
+	// Branch-protection rulesets: the next-steps output points `gh ruleset
+	// create` at these files, so they must actually land on disk. The release
+	// gate only makes sense when a protected branch exists beyond the ingress
+	// set; otherwise its include list would be empty and the ruleset inert.
+	const rulesetsToScaffold = ['ingress-gate'];
+	if(workflowData.releaseBranches.length > 0)
+	{
+		rulesetsToScaffold.push('release-gate');
+	}
+	const rulesetsWritten = [];
+	const rulesetsPreserved = [];
+	for(const name of rulesetsToScaffold)
+	{
+		const out = `.kerndx/rulesets/${name}.json`;
+		// Preserve an existing file, like code-analyzer.yml above: a user may
+		// have hand-authored it (earlier releases printed the gh command
+		// without ever writing the file), and an unconditional overwrite on
+		// upgrade would destroy their bypass actors / required checks.
+		if(fs.existsSync(out))
+		{
+			rulesetsPreserved.push(out);
+			continue;
+		}
+		const tmplPath = path.join(TEMPLATES_DIR, 'rulesets', `${name}.json.eta`);
+		const rendered = renderTemplate(tmplPath, workflowData, {views: path.dirname(tmplPath)});
+		writeFileWithDirs(out, rendered);
+		filesWritten[out] = hashContent(rendered);
+		rulesetsWritten.push(out);
+	}
+
 	const huskyResult = appendHuskyHook();
 	if(huskyResult.mode !== 'already-installed')
 	{
@@ -263,11 +306,12 @@ async function runInit({answers = null, interactive = true} = {})
 	console.log(pc.green('\nScaffold complete.'));
 	if(codeAnalyzerResult.mode === 'created')
 	{
-		console.log(pc.dim('  Scaffolded code-analyzer.yml (references bundled KernDX PMD rulesets)'));
+		console.log(pc.dim(`  Scaffolded code-analyzer.yml (references the bundled ${codeAnalyzerResult.ruleset})`));
 	}
 	else if(codeAnalyzerResult.mode === 'preserved')
 	{
-		console.log(pc.dim('  Existing code-analyzer.yml preserved (verify it references .kerndx-pipeline/scanner/kerndx-pmd-ruleset.xml)'));
+		const expectedRuleset = usesFramework ? 'kerndx-pmd-ruleset.xml' : 'kerndx-hygiene-ruleset.xml';
+		console.log(pc.dim(`  Existing code-analyzer.yml preserved (verify it references .kerndx-pipeline/scanner/${expectedRuleset})`));
 	}
 	if(pmdRulesetResult.mode === 'rerendered')
 	{
@@ -283,8 +327,18 @@ async function runInit({answers = null, interactive = true} = {})
 	{
 		console.log(`  gh secret set ${answers.slack.webhook_env_var || 'SLACK_WEBHOOK_URL'}`);
 	}
-	console.log('  gh ruleset create -F .kerndx/rulesets/ingress-gate.json');
-	console.log('  gh ruleset create -F .kerndx/rulesets/release-gate.json');
+	for(const out of rulesetsWritten)
+	{
+		console.log(`  gh ruleset create -F ${out}`);
+	}
+	for(const out of rulesetsPreserved)
+	{
+		console.log(pc.dim(`  (${out} already exists — preserved; apply it with: gh ruleset create -F ${out})`));
+	}
+	if(!rulesetsToScaffold.includes('release-gate'))
+	{
+		console.log(pc.dim('  (release-gate skipped: no release branches configured)'));
+	}
 	console.log('  git add . && git commit -m "chore: scaffold kerndx pipeline"');
 }
 

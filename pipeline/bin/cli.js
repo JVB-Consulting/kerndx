@@ -26,7 +26,7 @@ cli.command('init')
 
 cli.command('scan')
 .describe('Run SFCA against changed files.')
-.option('--ci', 'exit non-zero on Sev-1 (default: advisory)')
+.option('--ci', 'exit non-zero on Critical/High (severity 1-2) findings (default: advisory)')
 .option('--config', '.kerndx/config.yml path', '.kerndx/config.yml')
 .action(async(opts) =>
 {
