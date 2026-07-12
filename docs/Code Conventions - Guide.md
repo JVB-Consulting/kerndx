@@ -113,11 +113,11 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 ## ApexDoc
 
 **Class:** `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `@example` (blank line between each tag)
-**Method (REQUIRED):** `@description`, `@param` (each), `@return` (if non-void), `@throws`, `@since` (global only), `@example`
+**Method (REQUIRED):** `@description`, `@param` (each), `@return` (if non-void), `@throws`, `@example` (never `@date`/`@since` — those are class-level tags)
 **Properties:** All require `@description`
 **Bidirectional `@see`:** Main class ↔ test class
-**`@since` (REQUIRED on all `global` members):** Classes, methods, properties, inner classes, enums. Format: `@since 1.0`. Not required on `public`/`private`/`protected`.
-**`@date`:** `Month Year` or `Month Year, Month Year` (created, modified)
+**`@since` (class declarations ONLY — never on methods or properties):** REQUIRED on `global` classes, inner classes, and enums. Format: `@since 1.0`. Not required on `public`/`private`/`protected` classes.
+**`@date` (class declarations ONLY — never on methods or properties):** `Month Year` or `Month Year, Month Year` (created, modified — at most two values; refresh the second on edit)
 **`@example`:** Must use ```` ```apex ```` code fences with valid Apex
 
 ```apex
