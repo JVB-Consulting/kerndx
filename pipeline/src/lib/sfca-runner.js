@@ -81,23 +81,22 @@ function checkSfcaPluginPresent()
 
 // --- PMD apex-module version guard -----------------------------------------
 //
-// The custom rulesets under scanner/ are mostly XPath rules evaluated against
-// the Apex AST, plus one standard PMD rule bundled by reference
-// (InvocableClassNoArgConstructor, category/apex/errorprone.xml). KernDX does
-// not pin PMD directly — it arrives transitively through whatever PMD jars the
-// Salesforce Code Analyzer plugin bundles. Three thresholds bracket the safe
-// range:
+// The custom rulesets under scanner/ are XPath rules evaluated against the
+// Apex AST — no standard PMD categories are referenced, so nothing in them
+// requires a specific PMD release beyond the PMD 7 XPathRule contract. KernDX
+// does not pin PMD directly — it arrives transitively through whatever PMD
+// jars the Salesforce Code Analyzer plugin bundles. Three thresholds bracket
+// the safe range:
 //
-//   * minimum  — the rulesets reference a rule that only exists at or above
-//     this version (InvocableClassNoArgConstructor landed in PMD 7.26.0). Below
-//     it the Code Analyzer cannot resolve the reference and the WHOLE ruleset
-//     fails to load, so this is a hard floor surfaced loudly (status 'below').
+//   * minimum  — the earliest PMD 7 apex-module version the XPath rules were
+//     validated against. Below it the Apex AST shapes the XPath expressions
+//     walk are untested, so this is surfaced loudly (status 'below').
 //   * validated — the version the rules were last verified against.
 //   * ceiling  — the next version we have not yet re-validated against; crossing
 //     it warns a human to re-run the deliberate-violation fixtures in case the
 //     Apex AST shifted under the XPath rules. Advisory only — it never blocks.
 
-const PMD_APEX_MODULE_MINIMUM_VERSION = '7.26.0';
+const PMD_APEX_MODULE_MINIMUM_VERSION = '7.19.0';
 const PMD_APEX_MODULE_VALIDATED_VERSION = '7.26.0';
 const PMD_APEX_MODULE_CEILING_VERSION = '7.27.0';
 
@@ -159,8 +158,8 @@ function classifyPmdApexVersion(version)
 			...verdict,
 			status: 'below',
 			message: `PMD apex module ${version} bundled by Salesforce Code Analyzer is older than the `
-					+ `${PMD_APEX_MODULE_MINIMUM_VERSION} minimum the KernDX scanner/ rulesets require `
-					+ `(InvocableClassNoArgConstructor was added in PMD 7.26.0; below it the ruleset cannot load). `
+					+ `${PMD_APEX_MODULE_MINIMUM_VERSION} minimum the KernDX scanner/ rulesets are validated `
+					+ `against (the Apex XPath rules are untested below it). `
 					+ `Upgrade the plugin: sf plugins update.`
 		};
 	}

@@ -740,13 +740,14 @@ and on current builds it silently moves the org onto the degraded read path unti
 
 Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test fixtures and framework source.
 
-> **PMD floor vs. Code Analyzer bundle (2026-07-03).** The kern rulesets require the PMD apex module
-> >= 7.26.0 (`InvocableClassNoArgConstructor` reference; below it the whole ruleset fails to load with
-> `UninstantiableEngineError`). The latest published `code-analyzer` plugin (5.14.0) still bundles
-> pmd-apex **7.25.0**, so every `sf code-analyzer` command in 2.3a–2.3c fails to instantiate the PMD
-> engine until Salesforce ships a plugin bundling PMD >= 7.26.0 (`kerndx doctor` surfaces this as the
-> `below` verdict). Until then run the PMD legs with the standalone `pmd` CLI (>= 7.26.0,
-> `brew install pmd`) — same rulesets, same expected counts:
+> **PMD floor vs. Code Analyzer bundle (updated 2026-07-12).** The kern rulesets now carry no
+> standard-category rule references and load on the PMD apex module >= 7.19.0, which includes the
+> pmd-apex 7.25.0 the current `code-analyzer` plugin (5.14.0) bundles — the `sf code-analyzer`
+> commands in 2.3a–2.3c work again. (Until 2026-07-12 the rulesets referenced
+> `InvocableClassNoArgConstructor`, a rule PMD added in 7.26.0, and one unresolvable reference fails
+> the whole ruleset load with `UninstantiableEngineError`; `kerndx doctor` surfaced this as the
+> `below` verdict.) The standalone `pmd` CLI legs below remain the reference counts and an
+> equivalent alternative:
 >
 > ```bash
 > pmd check -d release-testing/scanner/classes/    -R scanner/kerndx-pmd-ruleset.xml       -f text --no-cache   # 2.3a
@@ -755,8 +756,8 @@ Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test
 > ```
 >
 > The `npm run release:phase2` scanner step (which drives `sf code-analyzer` against the fixture
-> config) fails the same way and its FAIL should be annotated with the pmd-CLI equivalent result.
-> Once a compliant plugin ships, delete this note and return to the `sf code-analyzer` commands below.
+> config) passes the same way. The expected counts below are unchanged by the standard-rule removal:
+> the dropped reference never fired on the fixtures (re-verified 2026-07-12: 2.3a = 40, 2.3b = 0).
 
 #### 2.3a Violation Detection
 

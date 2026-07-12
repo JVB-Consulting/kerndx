@@ -132,22 +132,92 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		});
 	});
 
-	describe('InvocableClassNoArgConstructor', () =>
+	describe('KernNoLegacyAssert', () =>
 	{
-		// Standard PMD rule (category/apex/errorprone.xml) bundled by reference,
-		// added in PMD 7.26.0. This guards that the category reference resolves
-		// (a typo or a PMD downgrade below 7.26.0 fails the whole ruleset load).
-		it('fires on an @InvocableVariable class with no no-arg constructor', () =>
+		it('fires on each legacy System.assert variant', () =>
 		{
-			const output = runPmd('InvocableClassNoArgConstructor-positive.cls');
-			expect(countRuleHits(output, 'InvocableClassNoArgConstructor')).toBe(1);
+			const output = runPmd('KernNoLegacyAssert-positive.cls');
+			expect(countRuleHits(output, 'KernNoLegacyAssert')).toBe(3);
 		});
 
-		it('is silent when an explicit no-arg constructor is present', () =>
+		it('is silent on modern Assert methods', () =>
 		{
-			const output = runPmd('InvocableClassNoArgConstructor-negative.cls');
-			expect(countRuleHits(output, 'InvocableClassNoArgConstructor')).toBe(0);
+			const output = runPmd('KernNoLegacyAssert-negative.cls');
+			expect(countRuleHits(output, 'KernNoLegacyAssert')).toBe(0);
 		});
+	});
+
+	describe('kerndx-hygiene-ruleset', () =>
+	{
+		const {HYGIENE_RULES} = require('../generate-hygiene-ruleset');
+		const HYGIENE = path.resolve(__dirname, '..', 'kerndx-hygiene-ruleset.xml');
+
+		it('fires every framework-agnostic rule and none of the framework-coupled ones', () =>
+		{
+			let output;
+			try
+			{
+				output = execSync(`pmd check -d "${FIXTURES}" -R "${HYGIENE}" -f csv --no-cache`, {
+					encoding: 'utf-8',
+					stdio: [
+						'pipe',
+						'pipe',
+						'pipe'
+					]
+				});
+			}
+			catch(error)
+			{
+				output = (error.stdout || '') + (error.stderr || '');
+			}
+			for(const rule of HYGIENE_RULES)
+			{
+				expect(countRuleHits(output, rule)).toBeGreaterThanOrEqual(1);
+			}
+			const allRules = [...fs.readFileSync(RULESET, 'utf8').matchAll(/<rule name="(Kern[^"]+)"/g)].map((m) => m[1]);
+			const coupledRules = allRules.filter((rule) => !HYGIENE_RULES.includes(rule));
+			expect(coupledRules.length).toBe(allRules.length - HYGIENE_RULES.length);
+			for(const rule of coupledRules)
+			{
+				expect(countRuleHits(output, rule)).toBe(0);
+			}
+		});
+	});
+
+});
+
+// These invariants never execute pmd, so they live OUTSIDE describeIfPmd and
+// run everywhere — including CI runners without a pmd install. They are the
+// enforcement the generator header and CLAUDE.md cite; skipping them would
+// let hygiene-ruleset drift or a standard-category ref land silently.
+describe('ruleset invariants (no pmd required)', () =>
+{
+	const {generateHygieneRuleset} = require('../generate-hygiene-ruleset');
+	const HYGIENE = path.resolve(__dirname, '..', 'kerndx-hygiene-ruleset.xml');
+
+	it('kerndx-hygiene-ruleset.xml is byte-identical to a fresh extraction from the full ruleset', () =>
+	{
+		const committed = fs.readFileSync(HYGIENE, 'utf8');
+		const regenerated = generateHygieneRuleset(fs.readFileSync(RULESET, 'utf8'));
+		expect(committed).toBe(regenerated);
+	});
+
+	// The rulesets must stay loadable on the PMD apex module the Salesforce
+	// Code Analyzer bundles (7.25.0 as of engine 0.43.0). A reference into a
+	// standard category can name a rule that only exists in a newer PMD, and
+	// one unresolvable reference fails the WHOLE ruleset load. Guard: no
+	// standard-category references anywhere — every rule is a KernDX XPath
+	// definition or a reference to one.
+	it.each([
+		'kerndx-pmd-ruleset.xml',
+		'kerndx-framework-ruleset.xml',
+		'kerndx-hygiene-ruleset.xml',
+		'combined-pmd-ruleset.xml',
+		'subscriber-naming-pmd-ruleset.xml'
+	])('%s contains no standard-category rule references', (file) =>
+	{
+		const xml = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+		expect(xml).not.toMatch(/ref="category\//);
 	});
 });
 

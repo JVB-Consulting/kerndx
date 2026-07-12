@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   KernDX Hygiene Ruleset - the framework-agnostic tier
+
+   The subset of the KernDX PMD rules that does not require the KernDX
+   framework: no KernDX classes or managed package are needed to adopt them.
+   Point any PMD 7 (apex module 7.19.0 or newer) or the Salesforce Code
+   Analyzer at this file to get the test-quality and security-review checks
+   on their own. `kerndx init` scaffolds this ruleset when a repo does not
+   build on the KernDX framework; repos that do should use
+   kerndx-pmd-ruleset.xml instead, which contains every rule below plus the
+   framework-integration rules.
+
+   Two rules mention KernDX by name without requiring it:
+   KernNoCoverageTheatre's fourth pattern fires only when the KernDX test
+   builder is actually used, and KernSecurityBypassCallSite matches
+   security-bypass method-name conventions (bypassSharing, withoutSecurity,
+   withSystemMode, ...) wherever they appear - in a non-KernDX codebase a
+   same-named method is flagged for the same review-and-acknowledge reason.
+
+   GENERATED FILE - do not edit by hand. Each rule definition is extracted
+   verbatim from kerndx-pmd-ruleset.xml by scanner/generate-hygiene-ruleset.js
+   (regenerate with: node scanner/generate-hygiene-ruleset.js). A test keeps
+   this file byte-identical to a fresh extraction, so the definitions cannot
+   drift from the source ruleset.
+-->
+<ruleset name="KernDXHygiene"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+   <description>
+      KernDX rules that need no KernDX framework: no legacy System.assert
+      methods, no coverage-theatre test patterns, a written reason on every
+      coverage-rule suppression, no Boolean exceptionThrown try/catch
+      testing, and a reviewed acknowledgement on every security-bypass call
+      site (matched by method-name convention, framework or not).
+   </description>
+
+   <rule name="KernNoLegacyAssert"
+         language="apex"
+         message="Legacy System.assert*() methods are not allowed. Use Assert.isTrue(), Assert.areEqual(), Assert.areNotEqual(), etc."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         The legacy System.assert(), System.assertEquals(), and
+         System.assertNotEquals() methods should be replaced with the modern
+         Assert class methods (Assert.isTrue, Assert.areEqual, etc.) which
+         provide clearer method names and better failure messages.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   lower-case(@FullMethodName) = 'system.assert'
+   or lower-case(@FullMethodName) = 'system.assertequals'
+   or lower-case(@FullMethodName) = 'system.assertnotequals'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <rule name="KernNoCoverageTheatre"
+         language="apex"
+         message="Test method exhibits a coverage-theatre pattern (no assertions, empty catch, Boolean exceptionThrown flag, or Assert.isNotNull after TST_Builder.build())."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         @IsTest methods must prove behaviour with meaningful assertions.
+         This rule flags four coverage-theatre patterns:
+
+         1. A test method with zero Assert.* calls — coverage without
+            verification.
+         2. catch(Exception error) {} — swallows exceptions silently.
+            Use Assert.fail('Should throw ...') + Assert.isInstanceOfType.
+         3. Boolean exceptionThrown = false; try { ... }
+            catch(Exception error) { exceptionThrown = true; }
+            Explicitly forbidden by docs/Code Conventions - Guide.md.
+         4. Assert.isNotNull(record) immediately after
+            (SObject)TST_Builder.of(...).build(). TST_Builder.build()
+            throws if insertion fails, so the non-null assertion adds
+            no coverage. Assert on defaults or derived fields instead.
+
+         Example of non-compliant code:
+
+         Boolean exceptionThrown = false;
+         try { doSomething(); }
+         catch(Exception error) { exceptionThrown = true; }
+         Assert.isTrue(exceptionThrown, 'should throw');
+
+         Example of compliant code:
+
+         try
+         {
+            doSomething();
+            Assert.fail('Expected IllegalArgumentException');
+         }
+         catch(Exception error)
+         {
+            Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect type');
+         }
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+(: Pattern 1 — @IsTest methods with zero assertion-shaped calls. :)
+(: Recognises Assert.* plus any helper whose method name starts with :)
+(: 'assert' (e.g. assertServiceCompleted, assertCallSuccessful). :)
+//Method[
+   ModifierNode/Annotation[lower-case(@Name) = 'istest']
+   and not(.//MethodCallExpression[
+      starts-with(lower-case(@FullMethodName), 'assert.')
+      or starts-with(lower-case(@MethodName), 'assert')
+   ])
+]
+|
+(: Pattern 2 — empty catch block inside an @IsTest method. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //CatchBlockStatement[not(BlockStatement/*)]
+|
+(: Pattern 3 — Boolean exceptionThrown anti-pattern. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //VariableDeclaration[
+      lower-case(@Type) = 'boolean'
+      and lower-case(@Image) = 'exceptionthrown'
+   ]
+|
+(: Pattern 4 — Assert.isNotNull(var) where var was declared from :)
+(: (SObject)TST_Builder.of(...).build() in the preceding statement. :)
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //ExpressionStatement[
+      MethodCallExpression[
+         @FullMethodName = 'Assert.isNotNull'
+         and VariableExpression[1]/@Image =
+            preceding-sibling::VariableDeclarationStatements[1]
+               /VariableDeclaration[
+                  .//MethodCallExpression[@MethodName = 'build']
+                  and .//ReferenceExpression[@Image = 'TST_Builder']
+               ]/@Image
+      ]
+   ]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <rule name="KernNoBooleanExceptionThrown"
+         language="apex"
+         message="The 'Boolean exceptionThrown' try/catch pattern is forbidden. Use Assert.fail('Should throw ...') + Assert.isInstanceOfType(error, ExceptionClass.class, ...) instead."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         The 'Boolean exceptionThrown = false; try { ... }
+         catch(Exception error) { exceptionThrown = true; }
+         Assert.isTrue(exceptionThrown, ...)' anti-pattern is
+         explicitly forbidden by docs/Code Conventions - Guide.md. It obscures intent, loses
+         the exception type, and skips the original error message.
+
+         Use the canonical Apex pattern:
+
+         try
+         {
+            doSomething();
+            Assert.fail('Expected IllegalArgumentException');
+         }
+         catch(Exception error)
+         {
+            Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect type');
+         }
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//VariableDeclaration[
+   lower-case(@Type) = 'boolean'
+   and lower-case(@Image) = 'exceptionthrown'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <rule name="KernCoverageExemptRequiresReason"
+         language="apex"
+         message="@SuppressWarnings('PMD.KernNoCoverageTheatre') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Coverage-theatre suppressions are high-impact and must be
+         reviewed. This rule flags every @SuppressWarnings that contains
+         PMD.KernNoCoverageTheatre (case-insensitive) so reviewers can
+         confirm the adjacent justification comment exists and is
+         substantive (not placeholders like "tricky", "todo", "fixme",
+         "hard to test", or "hack").
+
+         Prefer narrowing suppression to the single method that needs
+         it. Class-level suppressions hide intent across the whole file.
+
+         Example (flagged — always requires review):
+
+         @SuppressWarnings('PMD.KernNoCoverageTheatre')
+         private static void shouldEmitEvent() { ... }
+
+         Example (compliant — reviewer confirms justification comment):
+
+         // Platform event delivery is async; Test.stopTest + CURRENT_RUN
+         // query is the only verification available.
+         @SuppressWarnings('PMD.KernNoCoverageTheatre')
+         private static void shouldEmitPlatformEvent() { ... }
+      </description>
+      <priority>1</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//Annotation[
+   lower-case(@Name) = 'suppresswarnings'
+   and .//AnnotationParameter[
+      contains(
+         translate(string(@Value), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),
+         'pmd.kernnocoveragetheatre'
+      )
+      or contains(
+         translate(string(@Image), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),
+         'pmd.kernnocoveragetheatre'
+      )
+   ]
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <rule name="KernSecurityBypassCallSite"
+         language="apex"
+         message="Security bypass call site — confirm this is intentional and reviewed. Acknowledge with @SuppressWarnings('PMD.KernSecurityBypassCallSite') or // NOPMD with a reason."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Flags KernDX security-bypass call sites: QRY_Builder/DML_Builder
+         withSystemMode(), bypassSharing(), withoutSecurity(),
+         UTIL_ValidationRule bypassObject()/bypassGroup()/bypassRule(),
+         and TRG_Base bypassAction(). These are legitimate, audited APIs —
+         this rule is an inventory, not a violation. Acknowledge expected
+         call sites with @SuppressWarnings('PMD.KernSecurityBypassCallSite')
+         or an inline // NOPMD comment stating the reason; the suppression
+         comment is the reviewable deploy-time acknowledgment artifact.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   @MethodName = 'withSystemMode'
+   or @MethodName = 'bypassSharing'
+   or @MethodName = 'withoutSecurity'
+   or @MethodName = 'bypassObject'
+   or @MethodName = 'bypassGroup'
+   or @MethodName = 'bypassRule'
+   or @MethodName = 'bypassAction'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+</ruleset>

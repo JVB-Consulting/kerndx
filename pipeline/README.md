@@ -18,8 +18,8 @@ After installation you get:
 - **`kerndx preflight`** — combines scan + secret-scan + naming in a Husky pre-push hook
 - **`kerndx doctor`** — checks your install + detects drift in scaffolded files
 - **10 GitHub Actions workflows** scaffolded into `.github/workflows/` — quality gates, secret scanning, naming, release flow
-- **Branch-protection rulesets** for ingress + release branches
-- **ESLint plugin** with 6 LWC behavioral rules
+- **Branch-protection rulesets** rendered to `.kerndx/rulesets/`, ready for `gh ruleset create`
+- **ESLint plugin** with 7 LWC behavioral rules
 
 ## Install
 
@@ -40,8 +40,9 @@ unzip /path/to/KernDX-<version>-pipeline.zip -d .kerndx-pipeline
 ./.kerndx-pipeline/bin/kerndx init
 ```
 
-The `init` command is interactive — it asks for your package directories, CI tool (DevOps Center / Gearset / Copado / AutoRabit / custom), branch-protection preferences, and Slack
-settings. It generates `.github/workflows/`, `.husky/pre-push`, `.kerndx/config.yml`, and `.kerndx/manifest.json`.
+The `init` command is interactive — it asks for your package directories, whether the repo builds on the KernDX framework (which picks the PMD ruleset your CI scans against), CI tool
+(DevOps Center / Gearset / Copado / AutoRabit / custom), branch-protection preferences, and Slack settings. It generates `.github/workflows/`, `.husky/pre-push`, `code-analyzer.yml`,
+`.kerndx/config.yml`, `.kerndx/rulesets/`, and `.kerndx/manifest.json`.
 
 **Step-by-step install guide:** every zip bundle ships an `INSTALL-PIPELINE.md` at the zip root that walks each step in detail (SHA-256 verification, package.json scripts wiring,
 ESLint plugin wire-up, the upgrade flow, Windows fallback, troubleshooting). Unzip and open that file once you've grabbed the bundle.
@@ -166,8 +167,8 @@ node scripts/build-distribution.js --flavor=pipeline --version=<kern-package-ver
 ## Testing
 
 ```bash
-cd pipeline && node --test                          # 287 unit tests
-cd scanner/eslint-plugin-kerndx && node --test      # 6 ESLint rule tests
+cd pipeline && node --test                          # 323 unit tests
+cd scanner/eslint-plugin-kerndx && node --test      # 7 ESLint rule tests
 ```
 
 CI runs both suites via `.github/workflows/pipeline-ci.yml` on every push.

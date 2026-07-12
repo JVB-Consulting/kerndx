@@ -1,24 +1,28 @@
 # KernDX Framework Compliance Scanner
 
-Two PMD rulesets and an ESLint plugin that enforce KernDX framework conventions and configurable subscriber naming standards. Runs in IDEs
+KernDX's PMD rulesets and ESLint plugin enforce framework conventions, universal test quality, and configurable naming standards. They run in IDEs
 (VS Code inline warnings), CI/CD tools (Gearset, Copado, AutoRABIT, CodeScan), and Salesforce Code Analyzer.
 
 **Files:**
 
 | File                                | Scope                                   | What It Enforces                                                                                                                                                                                                                                                                                                                           |
 |-------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`            | Subscriber orgs (full ruleset)          | Every KernDX rule — use this in a subscriber org. Includes the "use the framework API instead of the platform primitive" rules (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, `KernNoInlineDmlInTests`, etc.) which only make sense for subscribers.                                                                         |
-| `kerndx-framework-ruleset.xml`      | Kern framework package itself           | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Includes universal hygiene rules (trigger delegation, inline-SOQL in production, test-quality rules, `Assert.*`, no `System.debug`, etc.). |
+| `kerndx-pmd-ruleset.xml`            | Repos that build on KernDX (full ruleset) | Every KernDX rule — use this when your org runs the framework. Includes the "use the framework API instead of the platform primitive" rules (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, `KernNoInlineDmlInTests`, etc.) which only make sense when the framework is present.                                              |
+| `kerndx-hygiene-ruleset.xml`        | Any Salesforce repo (no framework needed) | Framework-agnostic tier: `KernNoLegacyAssert`, `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`, `KernNoBooleanExceptionThrown`, `KernSecurityBypassCallSite`. Self-contained and generated verbatim from the full ruleset (`generate-hygiene-ruleset.js`); `kerndx init` scaffolds it when a repo does not use the framework. |
+| `kerndx-framework-ruleset.xml`      | Kern framework package itself           | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Keeps the universal rules: trigger delegation, REST resource naming, and the test-quality set.                                             |
 | `subscriber-naming-pmd-ruleset.xml` | Subscriber (configurable)               | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                                                                                                                                                                                          |
 | `combined-pmd-ruleset.xml`          | Subscriber orgs (single-file reference) | Full subscriber ruleset + subscriber naming — use when your tool only accepts one file (IntelliJ/Illuminated Cloud)                                                                                                                                                                                                                        |
 | `eslint-plugin-kerndx/`             | Framework + subscriber naming           | `ComponentBuilder` usage, `console.log` blocking, LWC component naming (`domain[Brand]Feature`), Jest test-quality rules                                                                                                                                                                                                                   |
 | `validate-naming.js`                | Subscriber (standalone)                 | Flow and Custom Object naming (artefacts PMD/ESLint cannot parse)                                                                                                                                                                                                                                                                          |
 
 The framework ruleset references rule definitions in `kerndx-pmd-ruleset.xml` via `<rule ref="…">`,
-so rule text lives in exactly one place. `code-analyzer.yml` in this repo points at
-`kerndx-framework-ruleset.xml` — that is what the framework's own CI runs against. Subscribers
-should set their tooling to `kerndx-pmd-ruleset.xml` (or `combined-pmd-ruleset.xml` if they also
-need subscriber naming).
+so rule text lives in exactly one place; the hygiene ruleset carries verbatim copies of its five
+rules instead (PMD resolves relative references against the working directory, so a reference-based
+file breaks when copied elsewhere) and a generator plus test keep those copies identical to the
+source. `code-analyzer.yml` in this repo points at `kerndx-framework-ruleset.xml` — that is what
+the framework's own CI runs against. Point your tooling at `kerndx-pmd-ruleset.xml` if your org
+runs the framework, `kerndx-hygiene-ruleset.xml` if it does not, or `combined-pmd-ruleset.xml` if
+you also need the naming rules in a single file.
 
 ## Rules
 
@@ -41,7 +45,6 @@ Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informat
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                                                                                       | `UTIL_Email`                                                                               | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                                                                                     | `REST_*` + `API_Dispatcher`                                                                | 3        |
 | `KernNoInlineDmlInTests`           | Inline DML (`insert record;`, etc.) in `_TEST.cls` files outside the framework allowlist                                                                  | `TST_Builder.build()` / `DML_Builder`                                                      | 3        |
-| `InvocableClassNoArgConstructor`   | `@InvocableVariable` class whose only constructor takes arguments (Flow/Process can't instantiate it at run time)                                          | Declare an explicit `public` no-arg constructor alongside the other one                    | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                                                                                        | `Assert.*`                                                                                 | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                                                                                        | `TST_Builder`                                                                              | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = true/false` followed by asserting the flag                                                                                     | `Assert.fail` + `Assert.isInstanceOfType` inside the catch block                           | 5        |
@@ -56,9 +59,6 @@ The four PMD test-quality rules above — `KernNoCoverageTheatre`, `KernCoverage
 `KernNoInlineDmlInTests`, `KernNoBooleanExceptionThrown` — catch the canonical coverage-theatre anti-patterns
 so tests can't silently pad the coverage number without exercising real behaviour.
 
-`InvocableClassNoArgConstructor` is the one rule here that is **not** KernDX-authored: it is PMD's own
-standard Apex rule (`category/apex/errorprone.xml`), bundled by reference. Because it was added in
-**PMD 7.26.0**, the ruleset now requires that version or newer — see [PMD Version Compatibility](#pmd-version-compatibility).
 
 ## Suppressing Rules
 
@@ -214,16 +214,21 @@ export default class Notice extends LightningElement
 
 ## PMD Version Compatibility
 
-The ruleset requires **PMD 7.26.0 or newer** (the PMD `apex` module version, which ships inside SF Code
-Analyzer v5). The floor exists because the ruleset bundles the standard `InvocableClassNoArgConstructor`
-rule, introduced in PMD 7.26.0. On an older PMD the Code Analyzer cannot resolve that rule reference and
-the **entire** ruleset fails to load — so this is a hard requirement, not a soft one. Upgrade with
-`sf plugins update`. The pipeline surfaces a clear version warning before scanning: `kerndx doctor`
-flags an out-of-date PMD, and `kerndx scan` prints the same notice in its preflight.
+The rulesets run on **PMD 7.19.0 or newer** (the PMD `apex` module version; the Salesforce Code Analyzer
+ships its own copy inside the `code-analyzer` plugin). Every rule is a KernDX-authored XPath rule and no
+standard PMD categories are referenced, so the rulesets load on the Code Analyzer's bundled PMD as-is.
+The pipeline still checks the version before scanning: `kerndx doctor` flags a PMD `apex` module older
+than 7.19.0, and `kerndx scan` prints the same notice in its preflight.
 
-The custom KernDX rules themselves target **PMD 7** (`net.sourceforge.pmd.lang.rule.xpath.XPathRule`).
-A **PMD 6** downgrade (rule class `net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is no longer viable
-while `InvocableClassNoArgConstructor` is bundled, since that rule does not exist in PMD 6.
+The rules target **PMD 7** (`net.sourceforge.pmd.lang.rule.xpath.XPathRule`). For a **PMD 6** engine,
+change each rule's class attribute to `net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`; PMD 6 is
+otherwise untested and not recommended.
+
+The rulesets deliberately reference no standard PMD categories (one reference to a rule your tool's
+bundled PMD lacks would stop the whole ruleset loading). If your PMD apex module is 7.26.0 or newer,
+you can enable PMD's own rules directly in your tool's configuration alongside these — for example
+`category/apex/errorprone.xml/InvocableClassNoArgConstructor`, which flags Flow-invocable classes
+missing a zero-argument constructor.
 
 ## Validating Locally
 
