@@ -252,7 +252,7 @@ baseline, so what follows is a directional comparison built on the qualitative r
 **What the research does support, qualitatively:**
 
 - Production bugs cost 10-100x more than development-phase bugs (IBM/NIST/NASA). Frameworks with enforced coverage gates, ApexDoc requirements, and scanner enforcement reduce
-  production-defect rates relative to a no-framework or unenforced-standards baseline. KernDX's 100% per-file Apex coverage gate and [35 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, 4 Node scanners) are concrete enforcement
+  production-defect rates relative to a no-framework or unenforced-standards baseline. KernDX's 100% per-file Apex coverage gate and [36 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 7 ESLint rules, 4 Node scanners) are concrete enforcement
   mechanisms that move this metric in your direction.
 - Developers waste roughly 23% of their time on technical debt (Besker, Martini & Bosch 2018, IEEE, replicated 2019); McKinsey 2020 found 10-20% of new-product budget is diverted
   to debt resolution. Framework-enforced conventions reduce the inconsistent-pattern flavour of debt, but they do not eliminate it.
@@ -456,7 +456,7 @@ authority forces everyone toward the same patterns. Integrated frameworks reduce
 ownership).
 
 **Level 2, the controlled enterprise:** A central architecture function exists, and framework standards are enforced through pull-request reviews and CI pipelines. KernDX ships a
-ready-to-use [Framework Compliance Scanner](Code%20Scanning%20-%20Guide.md): [35 checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, 4 Node scanners) that enforce use of the framework's abstractions (no inline SOQL, no direct
+ready-to-use [Framework Compliance Scanner](Code%20Scanning%20-%20Guide.md): [36 checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 7 ESLint rules, 4 Node scanners) that enforce use of the framework's abstractions (no inline SOQL, no direct
 DML, no `System.debug()`, and so on). Upload the rulesets to your CI/CD tool (Gearset, Copado, AutoRABIT, CodeScan) and enforcement is automatic. Mixed modular stacks are viable at this
 level because the governance mechanisms catch divergence before it compounds, but teams have to build their own linting rules. Integrated frameworks with built-in scanners add
 guard-rails with zero custom tooling.

@@ -172,7 +172,23 @@ function computeExpected(repoRoot)
 	const platformEvents = counts.countPlatformEvents(repoRoot);
 	const customFields = counts.countCustomFields(repoRoot);
 
+	// Scanner checks: one ESLint rule per file under the plugin's rules/, one
+	// PMD rule per `<rule name=` definition in the full ruleset (subsets only
+	// reference or copy these). The four standalone Node validators the guide's
+	// table counts (Flow/Object naming, field naming, secret scan, scanner
+	// parity) have no directly countable unit, so they stay a named constant.
+	const eslintRules = countFiles(path.join(repoRoot, 'scanner', 'eslint-plugin-kerndx', 'rules'), f => f.endsWith('.js'));
+	const pmdRulesetXml = path.join(repoRoot, 'scanner', 'kerndx-pmd-ruleset.xml');
+	const pmdCustomRules = fs.existsSync(pmdRulesetXml)
+		? (fs.readFileSync(pmdRulesetXml, 'utf-8').match(/<rule name="/g) || []).length
+		: 0;
+	const NODE_VALIDATOR_COUNT = 4;
+	const totalScannerChecks = pmdCustomRules + eslintRules + NODE_VALIDATOR_COUNT;
+
 	return {
+		eslintRules,
+		pmdCustomRules,
+		totalScannerChecks,
 		apexProduction,
 		apexTest,
 		apexTotal,
@@ -259,6 +275,18 @@ function parseDocClaims(content)
 		if(labelLc === 'jest test files')
 		{
 			setIfMissing('lwcTestFiles', value, i + 1);
+		}
+		if(labelLc === 'pmd rules (kerndx custom)')
+		{
+			setIfMissing('pmdCustomRules', value, i + 1);
+		}
+		if(labelLc === 'eslint rules (kerndx custom)')
+		{
+			setIfMissing('eslintRules', value, i + 1);
+		}
+		if(labelLc === 'total scanner checks')
+		{
+			setIfMissing('totalScannerChecks', value, i + 1);
 		}
 		if(labelLc === 'developer guides')
 		{

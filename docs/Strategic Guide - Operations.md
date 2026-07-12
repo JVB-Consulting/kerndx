@@ -370,7 +370,7 @@ inert. The real costs of installing the full package are the namespace prefix on
 
 **Security & Compliance Posture:**
 
-- **Internal code scanning:** The package runs [35 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 6 ESLint rules, and 4 Node scanners) on every build, plus Salesforce Code Analyzer; current builds pass with zero critical
+- **Internal code scanning:** The package runs [36 scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) (25 PMD rules, 7 ESLint rules, and 4 Node scanners) on every build, plus Salesforce Code Analyzer; current builds pass with zero critical
   findings. See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for the ruleset contents.
 - **Security posture and code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
   documented compensating-control rationale. On security posture: reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =

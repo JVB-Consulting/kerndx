@@ -170,11 +170,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Metric                       | Count |
 |------------------------------|------:|
 | PMD rules (KernDX custom)    |    25 |
-| ESLint rules (KernDX custom) |     6 |
+| ESLint rules (KernDX custom) |     7 |
 | Node validators              |     4 |
-| Total scanner checks         |    35 |
-
-> These totals count the checks KernDX defines itself. The shipped PMD ruleset also bundles one standard PMD rule (`InvocableClassNoArgConstructor`), so a full scanner run applies 36 checks in total.
+| Total scanner checks         |    36 |
 
 ## Release Testing
 
