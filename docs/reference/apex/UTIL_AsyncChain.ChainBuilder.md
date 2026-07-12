@@ -64,6 +64,12 @@ Persists the chain configuration and enqueues the first step.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
 
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID overload this method delegates to. |
+
 **Example**
 
 ```apex
@@ -90,6 +96,12 @@ Persists the chain configuration and enqueues the first step.
 | `correlationId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The correlation ID to attach to all log entries for this chain. |
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON. |
 
 **Example**
 

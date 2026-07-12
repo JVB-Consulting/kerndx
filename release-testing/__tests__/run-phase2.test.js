@@ -28,7 +28,7 @@ const {exec} = require('child_process');
 const {deployMetadataDir, deployCmdtState, deleteCmdtRecords} = require('../runner/cmdt-deployer');
 
 const {
-	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection76, runSection67, runSection68, runSection69, runSection70, runSection71, runSection72, runSection75, runSection66, runSection65, runSection77
+	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection76, runSection67, runSection68, runSection69, runSection70, runSection71, runSection72, runSection75, runSection66, runSection65, runSection77, runOrchestratedSection, ORCHESTRATED_SECTIONS
 } = require('../runner/run-phase2');
 
 describe('INDEPENDENT_SCRIPTS', () =>
@@ -977,5 +977,169 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 		expect(writtenPaths.some(p => p.includes('phase2-failures') && p.endsWith('section-1-retry.log'))).toBe(true);
 		const firstAttemptWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-1.log'));
 		expect(firstAttemptWrite[1]).toContain('broken on attempt one');
+	});
+});
+
+describe('runOrchestratedSection serial retry + raw-capture', () =>
+{
+	// Orchestrated sections (CMDT fixture cycles, launch + verify splits) used to bypass
+	// the runBatch retry entirely: a FAIL needed a manual isolated rerun and left no raw
+	// output behind (the 1.3.0-3 battery false-FAILed section 66 on a cold org with zero
+	// diagnostics). runOrchestratedSection wraps a whole section function with the same
+	// contract runBatch gives independent scripts: capture every sub-script's raw output
+	// on failure, re-run the full section ONCE serially (fixture deploys included — the
+	// proven manual remedy, automated), and print an uppercase PASS/FAIL summary line the
+	// battery monitor can grep (the sections' own lines are lowercase "n pass, n fail").
+	const fs = require('fs');
+	let writeSpy;
+	let mkdirSpy;
+	let logSpy;
+
+	function mockSequentialOutputs(outputs)
+	{
+		const queue = [...outputs];
+		exec.mockImplementation((cmd, opts, callback) =>
+		{
+			callback(null, queue.shift() || '');
+		});
+	}
+
+	function passLines(count, marker)
+	{
+		return Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|o${i} PASS: ${marker}`).join('\n');
+	}
+
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => undefined);
+		mkdirSpy = jest.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined);
+		logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+	});
+
+	afterEach(() =>
+	{
+		writeSpy.mockRestore();
+		mkdirSpy.mockRestore();
+		logSpy.mockRestore();
+	});
+
+	it('returns a first-attempt PASS untouched and writes no failure log', async() =>
+	{
+		mockSequentialOutputs([passLines(6, 'first attempt')]);
+
+		const results = await runOrchestratedSection(67, runSection67);
+
+		expect(results['section-67'].result).toBe('PASS');
+		expect(results['section-67'].score).toBe('6/6');
+		expect(results['section-67'].retried).toBeUndefined();
+		expect(exec).toHaveBeenCalledTimes(1);
+		expect(writeSpy.mock.calls.map(call => String(call[0])).some(p => p.includes('phase2-failures'))).toBe(false);
+	});
+
+	it('re-runs the full section (fixture deploys included) after a FAIL and records the recovered PASS with a retried flag', async() =>
+	{
+		mockSequentialOutputs([
+			passLines(5, 'under-passing attempt'),
+			passLines(6, 'recovered attempt')
+		]);
+
+		const results = await runOrchestratedSection(67, runSection67);
+
+		expect(results['section-67'].result).toBe('PASS');
+		expect(results['section-67'].score).toBe('6/6');
+		expect(results['section-67'].retried).toBe(true);
+		expect(exec).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenCalledTimes(4);
+	});
+
+	it('keeps FAIL when the retry also fails and captures the raw output of both attempts with sub-script identification', async() =>
+	{
+		mockSequentialOutputs([
+			passLines(5, 'attempt-one'),
+			passLines(4, 'attempt-two')
+		]);
+
+		const results = await runOrchestratedSection(67, runSection67);
+
+		expect(results['section-67'].result).toBe('FAIL');
+		expect(results['section-67'].score).toBe('4/6');
+		expect(results['section-67'].retried).toBe(true);
+
+		const firstWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-67.log'));
+		const retryWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-67-retry.log'));
+		expect(String(firstWrite[0])).toContain('phase2-failures');
+		expect(firstWrite[1]).toContain('attempt-one');
+		expect(firstWrite[1]).toContain('section-67-post-trigger-actions.apex');
+		expect(retryWrite[1]).toContain('attempt-two');
+	});
+
+	it('prints an uppercase FAIL summary line with the final score for the battery monitor to grep', async() =>
+	{
+		mockSequentialOutputs([
+			passLines(5, 'attempt-one'),
+			passLines(4, 'attempt-two')
+		]);
+
+		await runOrchestratedSection(67, runSection67);
+
+		const printed = logSpy.mock.calls.map(call => call.join(' '));
+		expect(printed.some(line => /Section 67.*FAIL.*\(4\/6\)/.test(line))).toBe(true);
+	});
+
+	it('does not retry a section that throws: captures the partial raw output to an aborted log and rethrows', async() =>
+	{
+		mockSequentialOutputs([passLines(2, 'seeded half')]);
+		deleteCmdtRecords.mockImplementationOnce(() =>
+		{
+			throw new Error('CMDT delete failed for kern__MaskingRule.MaskPaymentCard');
+		});
+
+		await expect(runOrchestratedSection(77, runSection77)).rejects.toThrow('CMDT delete failed');
+
+		expect(exec).toHaveBeenCalledTimes(1);
+		expect(deployCmdtState).toHaveBeenCalledTimes(1);
+		const abortedWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-77-aborted.log'));
+		expect(String(abortedWrite[0])).toContain('phase2-failures');
+		expect(abortedWrite[1]).toContain('seeded half');
+	});
+});
+
+describe('ORCHESTRATED_SECTIONS', () =>
+{
+	it('lists every orchestrated section in the exact main() execution order', () =>
+	{
+		expect(ORCHESTRATED_SECTIONS.map(entry => entry.section)).toEqual([
+			3,
+			11,
+			22,
+			27,
+			34,
+			35,
+			42,
+			43,
+			56,
+			76,
+			67,
+			68,
+			69,
+			70,
+			71,
+			72,
+			75,
+			66,
+			65,
+			77
+		]);
+	});
+
+	it('carries a runnable section function and a step header for each entry', () =>
+	{
+		for(const entry of ORCHESTRATED_SECTIONS)
+		{
+			expect(typeof entry.run).toBe('function');
+			expect(typeof entry.header).toBe('string');
+			expect(entry.header.length).toBeGreaterThan(0);
+		}
 	});
 });

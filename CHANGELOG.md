@@ -13,6 +13,12 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.4.0-2] — 2026-07-12
+
+**Subscriber package version id:** `04tfj000000MlrVAAS`
+
+A quality release with two headlines: the framework's user interface is now translatable end to end (every display string across 28 component bundles moved to Custom Labels, 359 new labels, English rendering unchanged), and a systematic correctness sweep of every Lightning component fixed the defects it found, led by an async-chain fix where a continue-on-error chain could be marked Failed once its accumulated step messages grew long. Also in: Chain Monitor live refresh now works in unmanaged and renamed-namespace deploys, record forms report failed saves instead of looking saved, silent failures (clipboard copies, retention updates, job saves) now surface, the Streaming Monitor timeline is native SVG with no chart-library dependency, and lookups survive missing configuration. Backward-compatible: the Apex API and metadata surface are purely additive; a short list of deliberate behaviour changes is in the release notes. For the full tour, see [Kern 1.4 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.4.md).
+
 ## [1.3.0-3] — 2026-07-03
 
 **Subscriber package version id:** `04tfj000000M0ZFAA0`
@@ -41,3 +47,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.1.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.1.0-11
 [1.2.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.2.0-1
 [1.3.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.3.0-3
+[1.4.0-2]: https://github.com/JVB-Consulting/kerndx/tree/v1.4.0-2

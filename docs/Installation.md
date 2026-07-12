@@ -57,7 +57,7 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.3.0-3):** `04tfj000000M0ZFAA0`
+**Current SubscriberPackageVersionId (1.4.0-2):** `04tfj000000MlrVAAS`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
@@ -71,13 +71,13 @@ The same buttons appear on every entry of the [Releases page](https://github.com
 **CLI install**, in production:
 
 ```bash
-sf package install --package 04tfj000000M0ZFAA0 --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000MlrVAAS --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install**, in a sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000M0ZFAA0 --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000MlrVAAS --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
 **Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and

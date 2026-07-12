@@ -86,6 +86,12 @@ const INDEPENDENT_SCRIPTS = [
 	{section: 64, file: 'section-64-edge-asyncjob-launcher.apex', expected: 6}
 ];
 
+// Active only while runOrchestratedSection drives a section function: every runScript
+// call appends its raw result here so a section-level FAIL can dump the output of all
+// sub-scripts (fixture halves, launch + verify) — score aggregation happens above
+// runScript, so runScript alone cannot know an attempt failed.
+let orchestratedCapture = null;
+
 function runScript(scriptPath)
 {
 	return new Promise((resolve) =>
@@ -111,7 +117,12 @@ function runScript(scriptPath)
 					fail++;
 				}
 			}
-			resolve({pass, fail, total: pass + fail, raw: output, error: error?.message});
+			const result = {pass, fail, total: pass + fail, raw: output, error: error?.message};
+			if(orchestratedCapture)
+			{
+				orchestratedCapture.push({scriptPath, result});
+			}
+			resolve(result);
 		});
 	});
 }
@@ -126,6 +137,69 @@ function captureFailureOutput(section, result, isRetry)
 	const fileName = isRetry ? `section-${section}-retry.log` : `section-${section}.log`;
 	const body = (result.error ? `error: ${result.error}\n\n` : '') + (result.raw || '');
 	fs.writeFileSync(path.join(FAILURE_LOG_DIR, fileName), body, 'utf8');
+}
+
+// Orchestrated twin of captureFailureOutput: one log per section attempt, with a
+// per-sub-script header so a launch-half timeout is distinguishable from a verify-half
+// under-pass. `suffix` is '' (first attempt), '-retry', or '-aborted' (section threw).
+function captureOrchestratedFailure(section, captures, suffix)
+{
+	fs.mkdirSync(FAILURE_LOG_DIR, {recursive: true});
+	const body = captures.map(entry => `=== ${entry.scriptPath} ===\n` + (entry.result.error ? `error: ${entry.result.error}\n` : '') + (entry.result.raw || '')).join('\n\n');
+	fs.writeFileSync(path.join(FAILURE_LOG_DIR, `section-${section}${suffix}.log`), body, 'utf8');
+}
+
+// Gives orchestrated sections the same contract runBatch gives independent scripts:
+// raw output captured on failure, ONE serial re-run of the whole section (fixture
+// deploys included — the proven manual isolated-rerun, automated), `retried: true` on
+// the recorded result, and an uppercase PASS/FAIL summary line the battery monitor can
+// grep (the sections' own progress lines are lowercase "n pass, n fail"). A section
+// that THROWS (fixture deploy failure, section 77's clone-delete guard) is never
+// retried: the partial output is captured to an -aborted log and the throw propagates,
+// preserving each section's own abort semantics.
+async function runOrchestratedSection(section, sectionFn)
+{
+	const key = `section-${section}`;
+	let captures;
+
+	async function attempt()
+	{
+		orchestratedCapture = [];
+		try
+		{
+			return await sectionFn();
+		}
+		catch(error)
+		{
+			captureOrchestratedFailure(section, orchestratedCapture, '-aborted');
+			throw error;
+		}
+		finally
+		{
+			captures = orchestratedCapture;
+			orchestratedCapture = null;
+		}
+	}
+
+	const outcome = await attempt();
+	if(outcome[key].result === 'PASS')
+	{
+		console.log(`  Section ${section}: \x1b[32mPASS\x1b[0m (${outcome[key].score})`);
+		return outcome;
+	}
+
+	captureOrchestratedFailure(section, captures, '');
+	console.log(`  Section ${section}: retrying the full section serially after FAIL (${outcome[key].score})...`);
+
+	const retryOutcome = await attempt();
+	retryOutcome[key].retried = true;
+	if(retryOutcome[key].result === 'FAIL')
+	{
+		captureOrchestratedFailure(section, captures, '-retry');
+	}
+	const status = retryOutcome[key].result === 'PASS' ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
+	console.log(`  Section ${section} (retry): ${status} (${retryOutcome[key].score})`);
+	return retryOutcome;
 }
 
 async function runBatch(scripts, concurrent)
@@ -846,6 +920,33 @@ async function runSection77()
 	};
 }
 
+// Declarative registry of every orchestrated (non-runBatch) section, in execution
+// order — the order is load-bearing: CMDT fixture cycles restore shared states and the
+// async launch + verify splits sit late so the org is drained. main() drives each entry
+// through runOrchestratedSection.
+const ORCHESTRATED_SECTIONS = [
+	{section: 3, header: 'Step 2: Section 3 (CMDT state transitions)...', run: runSection3},
+	{section: 11, header: 'Step 3: Section 11 (execution strategies)...', run: runSection11},
+	{section: 22, header: 'Step 4: Section 22 (advanced strategies)...', run: runSection22},
+	{section: 27, header: 'Step 5: Section 27 (mock selection)...', run: runSection27},
+	{section: 34, header: 'Step 6: Section 34 (async chain)...', run: runSection34},
+	{section: 35, header: 'Step 6b: Section 35 (secure-by-default + kill-switch)...', run: runSection35},
+	{section: 42, header: 'Step 6c: Section 42 (BlockDml strategy — CMDT cycle)...', run: runSection42},
+	{section: 43, header: 'Step 6d: Section 43 (RequiredFeatureFlag gate — CMDT cycle)...', run: runSection43},
+	{section: 56, header: 'Step 6e: Section 56 (edge async chain — launch + verify)...', run: runSection56},
+	{section: 76, header: 'Step 6f: Section 76 (masking advisor round-trip — bundle deploys)...', run: runSection76},
+	{section: 67, header: 'Step 6g: Section 67 (post-trigger actions — core behaviour — CMDT cycle)...', run: runSection67},
+	{section: 68, header: 'Step 6h: Section 68 (post-trigger actions — feature-flag gate — CMDT cycle)...', run: runSection68},
+	{section: 69, header: 'Step 6i: Section 69 (post-trigger actions — no-DML guard — CMDT cycle)...', run: runSection69},
+	{section: 70, header: 'Step 6j: Section 70 (post-trigger actions — failure-action policy — CMDT cycle)...', run: runSection70},
+	{section: 71, header: 'Step 6k: Section 71 (CDC change-event header recorder — launch + verify)...', run: runSection71},
+	{section: 72, header: 'Step 6l: Section 72 (CDC BlockDml degrade — launch + verify)...', run: runSection72},
+	{section: 75, header: 'Step 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...', run: runSection75},
+	{section: 66, header: 'Step 6n: Section 66 (log-fingerprint flood control — subscriber API — launch + verify)...', run: runSection66},
+	{section: 65, header: 'Step 6o: Section 65 (framework-wide bypass audit — launch + verify)...', run: runSection65},
+	{section: 77, header: 'Step 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...', run: runSection77}
+];
+
 async function main()
 {
 	console.log('=== KernDX Release Testing — Phase 2 ===\n');
@@ -865,65 +966,12 @@ async function main()
 	console.log('Step 1: Independent scripts (parallel)...');
 	const scriptResults = await runBatch(INDEPENDENT_SCRIPTS, MAX_CONCURRENT);
 
-	console.log('\nStep 2: Section 3 (CMDT state transitions)...');
-	const section3Results = await runSection3();
-
-	console.log('\nStep 3: Section 11 (execution strategies)...');
-	const section11Results = await runSection11();
-
-	console.log('\nStep 4: Section 22 (advanced strategies)...');
-	const section22Results = await runSection22();
-
-	console.log('\nStep 5: Section 27 (mock selection)...');
-	const section27Results = await runSection27();
-
-	console.log('\nStep 6: Section 34 (async chain)...');
-	const section34Results = await runSection34();
-
-	console.log('\nStep 6b: Section 35 (secure-by-default + kill-switch)...');
-	const section35Results = await runSection35();
-
-	console.log('\nStep 6c: Section 42 (BlockDml strategy — CMDT cycle)...');
-	const section42Results = await runSection42();
-
-	console.log('\nStep 6d: Section 43 (RequiredFeatureFlag gate — CMDT cycle)...');
-	const section43Results = await runSection43();
-
-	console.log('\nStep 6e: Section 56 (edge async chain — launch + verify)...');
-	const section56Results = await runSection56();
-
-	console.log('\nStep 6f: Section 76 (masking advisor round-trip — bundle deploys)...');
-	const section76Results = await runSection76();
-
-	console.log('\nStep 6g: Section 67 (post-trigger actions — core behaviour — CMDT cycle)...');
-	const section67Results = await runSection67();
-
-	console.log('\nStep 6h: Section 68 (post-trigger actions — feature-flag gate — CMDT cycle)...');
-	const section68Results = await runSection68();
-
-	console.log('\nStep 6i: Section 69 (post-trigger actions — no-DML guard — CMDT cycle)...');
-	const section69Results = await runSection69();
-
-	console.log('\nStep 6j: Section 70 (post-trigger actions — failure-action policy — CMDT cycle)...');
-	const section70Results = await runSection70();
-
-	console.log('\nStep 6k: Section 71 (CDC change-event header recorder — launch + verify)...');
-	const section71Results = await runSection71();
-
-	console.log('\nStep 6l: Section 72 (CDC BlockDml degrade — launch + verify)...');
-	const section72Results = await runSection72();
-
-	console.log('\nStep 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...');
-	const section75Results = await runSection75();
-
-	console.log('\nStep 6n: Section 66 (log-fingerprint flood control — subscriber API — launch + verify)...');
-	const section66Results = await runSection66();
-
-	console.log('\nStep 6o: Section 65 (framework-wide bypass audit — launch + verify)...');
-	const section65Results = await runSection65();
-
-	console.log('\nStep 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...');
-	const section77Results = await runSection77();
+	const orchestratedResults = {};
+	for(const entry of ORCHESTRATED_SECTIONS)
+	{
+		console.log(`\n${entry.header}`);
+		Object.assign(orchestratedResults, await runOrchestratedSection(entry.section, entry.run));
+	}
 
 	console.log('\nStep 7: Test classes + Scanner...');
 	const [testClassResults, scannerResults] = await Promise.all([
@@ -931,7 +979,7 @@ async function main()
 		runScanner()
 	]);
 
-	const allScripts = {...scriptResults, ...section3Results, ...section11Results, ...section22Results, ...section27Results, ...section34Results, ...section35Results, ...section42Results, ...section43Results, ...section56Results, ...section76Results, ...section67Results, ...section68Results, ...section69Results, ...section70Results, ...section71Results, ...section72Results, ...section75Results, ...section66Results, ...section65Results, ...section77Results};
+	const allScripts = {...scriptResults, ...orchestratedResults};
 	const allPassing = Object.values(allScripts).every(r => r.result === 'PASS');
 
 	let results = {};
@@ -979,8 +1027,10 @@ if(require.main === module)
 module.exports = {
 	INDEPENDENT_SCRIPTS,
 	MAX_CONCURRENT,
+	ORCHESTRATED_SECTIONS,
 	runScript,
 	runBatch,
+	runOrchestratedSection,
 	runSection3,
 	runSection11,
 	runSection22,
