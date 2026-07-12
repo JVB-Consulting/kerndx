@@ -167,7 +167,7 @@ node scripts/build-distribution.js --flavor=pipeline --version=<kern-package-ver
 ## Testing
 
 ```bash
-cd pipeline && node --test                          # 323 unit tests
+cd pipeline && node --test                          # 325 unit tests
 cd scanner/eslint-plugin-kerndx && node --test      # 7 ESLint rule tests
 ```
 

@@ -43,7 +43,7 @@ Ordered by impact. Find your row, read across, and follow the link for more.
 
 | # | What's new | Who it's for | In one line |
 |---|-----------|--------------|-------------|
-| 1 | **[Translatable UI](#translate-the-frameworks-ui-display-strings-are-now-custom-labels)** | Admins · International teams | Every display string across 28 component bundles now comes from Custom Labels, ready for Translation Workbench |
+| 1 | **[Translatable UI](#translate-the-frameworks-ui-display-strings-are-now-custom-labels)** | Admins · International teams | Display strings across 26 component bundles now come from Custom Labels, ready for Translation Workbench |
 | 2 | **[Async-chain failure fix](#async-chains-no-more-spurious-failures-from-long-step-logs)** | Developers · Admins | A continue-on-error chain no longer flips to Failed just because its accumulated step messages grew long |
 | 3 | **[Chain Monitor live refresh](#chain-monitor-live-refresh-in-every-deploy-not-just-managed-installs)** | Admins · Developers | Real-time refresh now works in unmanaged and renamed-namespace deploys, and only chain events trigger it |
 | 4 | **[Record forms you can trust](#record-forms-failed-saves-are-reported-explicit-values-survive)** | Admins · End users | A blocked save now shows an error instead of looking saved; explicit 0, false, and empty values persist as-is |
@@ -59,11 +59,13 @@ Ordered by impact. Find your row, read across, and follow the link for more.
 **Who it's for:** administrators of international orgs, and any team that wants to reword the framework's messages.
 
 Before 1.4, roughly half of the framework's on-screen text was hardcoded English: toasts, dialog titles, placeholders, empty states, validation messages, error text. You could
-not translate it through Translation Workbench and you could not reword it. Now every display string across 28 component bundles comes from a Custom Label: the package ships 898
-labels, 359 more than 1.3, and repeated one-word atoms (Save, Cancel, Yes, No, and their kin) were consolidated so each translates once.
+not translate it through Translation Workbench and you could not reword it. Now the display strings across 26 component bundles come from Custom Labels, with the build checks
+keeping new hardcoded text out of them: the package ships 898 labels, 359 more than 1.3, and repeated one-word atoms (Save, Cancel, Yes, No, and their kin) were consolidated so
+each translates once.
 
 English rendering is byte-identical to 1.3, with one small registered exception: three developer-documentation links inside the Streaming Monitor's register tab moved into rich
-text and now open in the current tab rather than a new one (the rich-text component drops link target attributes).
+text and now open in the current tab rather than a new one (the rich-text component drops link target attributes). One category is not converted yet: image alternative text (the
+description a screen reader announces for an image) still ships as fixed English text, and the bundled scanner flags hardcoded alternative text as a warning rather than an error.
 
 To translate, open Translation Workbench, pick your language, and filter labels by the `kern` namespace. Labels group by component category, so translating one screen at a time
 is practical.
