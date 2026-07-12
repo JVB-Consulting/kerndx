@@ -8,7 +8,7 @@ navOrder: 34
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-07-03 (drift reconciliation against the Kern 1.3 development tree)
+**Last verified:** 2026-07-12 (drift reconciliation against the Kern 1.4 development tree)
 **Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
 
 ---
@@ -43,15 +43,15 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Apex classes (total)            |                  365 | sum of production + test                                                                                                                           |
 | Apex production classes         |                  190 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
 | Apex test classes               |                  175 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
-| Apex test methods               |                3,885 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
+| Apex test methods               |                3,891 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
 | Apex test coverage              |        100% per-file | enforced at every release build by `scripts/evaluate-coverage.js`                                                                                  |
-| Lines of code (production Apex) |                 ~96K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
+| Lines of code (production Apex) |                 ~97K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
 | Lines of code (test Apex)       |                 ~97K | counted from `force-app/main/default/classes/*_TEST.cls`                                                                                           |
-| Lines of code (production LWC)  |                 ~22K | counted from `force-app/main/default/lwc/**/*.js` excluding `.test.js`                                                                             |
-| Lines of code (LWC Jest tests)  |                 ~40K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
-| Lines of code (total)           |                ~255K | sum of the rows above                                                                                                                              |
+| Lines of code (production LWC)  |                 ~24K | counted from `force-app/main/default/lwc/**/*.js` excluding `.test.js`                                                                             |
+| Lines of code (LWC Jest tests)  |                 ~43K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
+| Lines of code (total)           |                ~261K | sum of the rows above                                                                                                                              |
 | Source API version              |                 67.0 | visible in Setup → Installed Packages → Kern → API Version; also in `sfdx-project.json`                                                            |
-| Latest packaged version         |  1.3.0-3 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
+| Latest packaged version         |  1.4.0-2 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
 
 ## Org Apex Usage (Unmanaged)
 
@@ -130,9 +130,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                 |                        Count | Notes                                                             |
 |------------------------|-----------------------------:|-------------------------------------------------------------------|
-| LWC components (total) |                           67 | `force-app/main/default/lwc/**/`                                  |
-| Jest test files        |                           68 | counted from `force-app/main/default/lwc/**/*.test.js`            |
-| Jest test cases        |                       ~2,750 | counted across all Jest test files                                |
+| LWC components (total) |                           68 | `force-app/main/default/lwc/**/`                                  |
+| Jest test files        |                           69 | counted from `force-app/main/default/lwc/**/*.test.js`            |
+| Jest test cases        |                       ~2,912 | counted across all Jest test files                                |
 | Jest test coverage     | 95%+ statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
 
 ## Salesforce Metadata
@@ -192,7 +192,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Metric              | Count |
 |---------------------|------:|
 | Spec files          |    12 |
-| Test cases          |    79 |
+| Test cases          |    80 |
 | Page objects        |    14 |
 | Helper modules      |     7 |
 | CMDT fixture states |    24 |
@@ -203,24 +203,24 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Layer                       |         Tests |  Assertions |
 |-----------------------------|--------------:|------------:|
-| Package Apex tests          | 3,885 methods |      ~7,696 |
-| Package Jest tests          |  ~2,750 cases |      ~4,736 |
+| Package Apex tests          | 3,891 methods |      ~7,729 |
+| Package Jest tests          |  ~2,912 cases |      ~5,054 |
 | Subscriber Apex tests       |   190 methods |        ~349 |
 | Subscriber anonymous Apex   |   74 sections |         411 |
-| Subscriber E2E (Playwright) |      79 cases |        ~331 |
-| **Total**                   |    **~6,978** | **~13,523** |
+| Subscriber E2E (Playwright) |      80 cases |        ~342 |
+| **Total**                   |    **~7,147** | **~13,885** |
 
 ## Activity Snapshot
 
-These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-07-03). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
+These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-07-12). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
-| Published managed-package versions |                  123 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000M0ZFAA0` |
-| Latest packaged version            |  1.3.0-3 (released) | `sfdx-project.json` `packageAliases`                                                    |
+| Published managed-package versions |                  124 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000MlrVAAS` |
+| Latest packaged version            |  1.4.0-2 (released) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 
-> KernDX is a single-maintainer project. Its readiness to install shows up in the 123 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
+> KernDX is a single-maintainer project. Its readiness to install shows up in the 124 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
 
 ## The Other Frameworks We Compared
 
