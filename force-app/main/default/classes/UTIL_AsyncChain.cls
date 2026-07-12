@@ -9,7 +9,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026
+ * @date April 2026, July 2026
  *
  * @since 1.0
  *
@@ -34,6 +34,23 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Default maximum serialized context size in characters.
 	 */
 	private static final Integer DEFAULT_MAX_CONTEXT_SIZE = 32768;
+
+	/**
+	 * @description Maximum length of a step failure message persisted in the StepLog__c copy of the
+	 * step list. The full message is preserved in the step-failure log entry, with an abbreviated
+	 * copy in ErrorMessage__c; this bounded duplicate exists so one oversized message can never
+	 * overflow the serialized step list and corrupt its JSON.
+	 */
+	private static final Integer STEP_MESSAGE_MAX_LENGTH = 255;
+
+	/**
+	 * @description Per-step character reserve the execute() guard withholds from the StepLog__c
+	 * capacity. As steps execute, each entry gains runtime fields that were null-suppressed at build
+	 * time — `,"success":false` (16 characters) plus `,"durationMs":` and up to a 19-digit value
+	 * (33 characters) — and the safety valve cannot drop those. Reserving them up front makes the
+	 * valve's message-dropped rewrite provably fit the field for the whole life of the chain.
+	 */
+	private static final Integer STEP_RUNTIME_RESERVE_LENGTH = 50;
 
 	/**
 	 * @description Platform ceiling for a Queueable enqueue delay, in minutes. System.enqueueJob only
@@ -435,6 +452,34 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		return definition;
+	}
+
+	/**
+	 * @description Serializes the step list for persistence in StepLog__c. When the serialized copy
+	 * would exceed the field capacity even with bounded messages, the per-step message values are
+	 * dropped and the list re-serialized — the JSON document itself is never truncated, because a
+	 * truncated document fails to deserialize at the next step and would override the caller's
+	 * continueOnError intent. The canonical failure records live in ErrorMessage__c and the
+	 * step-failure log entries.
+	 *
+	 * @param steps The step definitions to serialize.
+	 *
+	 * @return Valid step-list JSON that fits within the StepLog__c field capacity — guaranteed in
+	 * combination with the per-step runtime reserve the execute() guard withholds at build time.
+	 */
+	private static String serializeStepLog(List<DTO_StepDefinition> steps)
+	{
+		String serialized = JSON.serialize(steps, true);
+		Integer fieldCapacity = UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.StepLog__c).getLength();
+		if(serialized.length() > fieldCapacity)
+		{
+			for(DTO_StepDefinition stepDefinition : steps)
+			{
+				stepDefinition.message = null;
+			}
+			serialized = JSON.serialize(steps, true);
+		}
+		return serialized;
 	}
 
 	/**
@@ -1413,6 +1458,10 @@ global inherited sharing class UTIL_AsyncChain
 		 *
 		 * @return The ID of the AsyncChainExecution__c record tracking this chain.
 		 *
+		 * @throws UTIL_Exceptions.IllegalStateException If the serialized step list exceeds the
+		 * StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID
+		 * overload this method delegates to.
+		 *
 		 * @since 1.0
 		 *
 		 * @example
@@ -1436,6 +1485,11 @@ global inherited sharing class UTIL_AsyncChain
 		 *
 		 * @return The ID of the AsyncChainExecution__c record tracking this chain.
 		 *
+		 * @throws UTIL_Exceptions.IllegalStateException If the serialized step list exceeds the
+		 * StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist
+		 * its step list intact for its whole life must fail at definition time, never by silently
+		 * truncating the persisted JSON.
+		 *
 		 * @since 1.0
 		 *
 		 * @example
@@ -1451,6 +1505,17 @@ global inherited sharing class UTIL_AsyncChain
 			{
 				throw new UTIL_Exceptions.IllegalStateException('Chain has already been executed. Create a new ChainBuilder via newChain().');
 			}
+
+			String serializedStepList = JSON.serialize(steps, true);
+			Integer stepLogCapacity = UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.StepLog__c).getLength();
+			Integer allowedStepListLength = stepLogCapacity - steps.size() * STEP_RUNTIME_RESERVE_LENGTH;
+			if(serializedStepList.length() > allowedStepListLength)
+			{
+				throw new UTIL_Exceptions.IllegalStateException(
+						'Chain step log overflow: ' + serializedStepList.length() + ' / ' + allowedStepListLength
+						+ ' characters (StepLog__c capacity ' + stepLogCapacity + ' less ' + STEP_RUNTIME_RESERVE_LENGTH
+						+ ' per step reserved for runtime step results). Shorten step names or split the work into multiple chains.');
+			}
 			executed = true;
 
 			initialContext.put(LOG_CONTEXT_KEY, LOG_Builder.serializeContext());
@@ -1464,7 +1529,7 @@ global inherited sharing class UTIL_AsyncChain
 							StartedAt__c = Datetime.now(),
 							CorrelationId__c = correlationId,
 							ContextData__c = JSON.serialize(initialContext),
-							StepLog__c = UTIL_String.abbreviate(JSON.serialize(steps, true), AsyncChainExecution__c.StepLog__c)
+							StepLog__c = serializedStepList
 					);
 			if(steps.isEmpty())
 			{
@@ -2086,7 +2151,7 @@ global inherited sharing class UTIL_AsyncChain
 			stepDefinition.durationMs = stepDurationMs;
 			if(!result.success)
 			{
-				stepDefinition.message = result.message;
+				stepDefinition.message = UTIL_String.abbreviate(result.message, STEP_MESSAGE_MAX_LENGTH);
 			}
 
 			context.setPreviousStepResult(result);
@@ -2094,7 +2159,7 @@ global inherited sharing class UTIL_AsyncChain
 
 			if(!result.success && stepDefinition.continueOnError != true)
 			{
-				execution.StepLog__c = UTIL_String.abbreviate(JSON.serialize(steps, true), AsyncChainExecution__c.StepLog__c);
+				execution.StepLog__c = serializeStepLog(steps);
 				handleStepFailure(execution, context, stepDefinition, result);
 				return;
 			}
@@ -2136,7 +2201,7 @@ global inherited sharing class UTIL_AsyncChain
 			}
 
 			execution.ContextData__c = serializedContext;
-			execution.StepLog__c = UTIL_String.abbreviate(JSON.serialize(steps, true), AsyncChainExecution__c.StepLog__c);
+			execution.StepLog__c = serializeStepLog(steps);
 
 			if(currentStepIndex + 1 >= steps.size())
 			{

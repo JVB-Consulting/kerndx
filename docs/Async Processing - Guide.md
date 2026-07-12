@@ -1083,9 +1083,12 @@ String elapsed = status.durationLabel;  // for example "1m 30s"
 ```
 
 `isRunning()`, `isTerminal()` (Completed, Failed, or Aborted), and `isFailed()` answer the common questions directly.
-The raw `status` is still there as a String if you need it, and it can also read `Delayed` or `Stalled` for a chain that
-is waiting or has stopped making progress. For a chain that is still running, `durationMs` is filled in live from its
-start time, so it matches what the Chain Monitor shows.
+The raw `status` is still there as a String if you need it. The framework writes four values: `Running` (a chain waiting
+on a scheduled delay also shows as Running, with no completed steps yet), `Completed`, `Failed`, and `Aborted`. When a
+step crashes or the next step cannot be enqueued, the chain is marked `Failed` straight away: there is no automatic
+retry, no backoff, and no background job that later revives a chain, so a Failed chain stays Failed until you relaunch
+it yourself. For a chain that is still running, `durationMs` is filled in live from its start time, so it matches what
+the Chain Monitor shows.
 
 A `ChainStatus` is a single-record summary and deliberately carries no per-step list. When you need step-by-step detail,
 open the chain in the Chain Monitor. To look up several chains at once, `getChainStatuses(Set<Id>)` returns a map of Id
@@ -1097,7 +1100,7 @@ to, exactly as `getStatus` does.
 | Field                | Description                                                                          |
 |----------------------|--------------------------------------------------------------------------------------|
 | `ChainName__c`       | Descriptive name from `newChain()`                                                   |
-| `Status__c`          | Running, Completed, Failed, Aborted, Delayed, or Stalled                             |
+| `Status__c`          | Running, Completed, Failed, or Aborted (the picklist also defines Delayed and Stalled, which the framework does not currently write) |
 | `TotalSteps__c`      | Number of steps in the chain                                                         |
 | `CompletedSteps__c`  | Steps that succeeded (failed steps are not counted)                                  |
 | `CurrentStepName__c` | Name of the currently executing step                                                 |

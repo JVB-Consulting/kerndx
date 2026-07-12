@@ -11,7 +11,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026
+ * @date April 2026, June 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -24,6 +24,56 @@ private class UTIL_AsyncChain_TEST
 	 * @description Name used for test chains.
 	 */
 	private static final String TEST_CHAIN_NAME = 'TestChain';
+
+	/**
+	 * @description Length of the deliberately oversized step failure message. Individually it stays
+	 * under the default 32,768-character context soft cap (only the latest result is carried in the
+	 * context), but five of them accumulated in the step list exceed the 131,072-character
+	 * StepLog__c field, so an unbounded copy can never survive repeated continueOnError failures.
+	 */
+	private static final Integer OVERSIZED_MESSAGE_LENGTH = 30000;
+
+	/**
+	 * @description Expected upper bound for the failure-message copy persisted inside StepLog__c.
+	 * Independent oracle for the production bound; the canonical full message lives in
+	 * ErrorMessage__c and the step-failure log entry.
+	 */
+	private static final Integer EXPECTED_STEP_MESSAGE_BOUND = 255;
+
+	/**
+	 * @description Combined fixed JSON overhead, in characters, of the three-step valve-test chain
+	 * outside the two padded step names: the OversizedFailureMessageStep entry (87), the two
+	 * PaddedNameStep entries' fixed fields (65 each), the array brackets/commas (4), and ~180 of
+	 * deliberate headroom. Sizing each padded name as (capacity - this) / 2 lands the build-time
+	 * step list roughly 180 characters under the StepLog__c capacity: small enough to pass the
+	 * build-time guard, but too small to also absorb the failing step's bounded runtime message
+	 * (~300 characters), which forces the mid-chain rewrite over capacity and exercises the
+	 * message-dropping safety valve.
+	 */
+	private static final Integer PADDED_CHAIN_JSON_OVERHEAD = 401;
+
+	/**
+	 * @description Fixed JSON overhead of a two-PaddedNameStep chain (2 x 65 entry fields + 3 array
+	 * characters) plus a 60-character headroom target. Sizing each padded name as
+	 * (capacity - this) / 2 lands the build-time step list ~60 characters under the raw field
+	 * capacity: inside the per-step runtime reserve execute() withholds (2 steps x 50), so the
+	 * guard must reject it even though the raw field could hold it.
+	 */
+	private static final Integer PADDED_PAIR_JSON_OVERHEAD = 193;
+
+	/**
+	 * @description Explicit context cap for the oversized-message chains, giving the 30,000-character
+	 * failure message comfortable room in the persisted previous-step result so ambient LOG-context
+	 * growth can never tip these tests over the default 32,768 soft cap with a misleading
+	 * context-overflow failure.
+	 */
+	private static final Integer OVERSIZED_MESSAGE_CONTEXT_CAP = 60000;
+
+	/**
+	 * @description Step name the next PaddedNameStep construction reports, seeded by each test before
+	 * building its chain (same static-seam pattern as the production simulateCrash flag).
+	 */
+	private static String paddedStepName;
 
 	/**
 	 * @description The API handler class name used by ApiStep tests.
@@ -641,6 +691,205 @@ private class UTIL_AsyncChain_TEST
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should be Completed despite step failure');
 			Assert.areEqual(1, execution.CompletedSteps__c, 'Only the successful step should be counted');
+		}
+	}
+
+	/**
+	 * @description Verifies that repeated continueOnError failures whose messages are each under the
+	 * context soft cap, but together larger than the StepLog__c field, still let the chain complete
+	 * with valid step-log JSON: every persisted failure-message copy is bounded rather than the JSON
+	 * document being truncated, so a later step's deserialize cannot throw and override the caller's
+	 * explicit continueOnError intent.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldCompleteWithValidStepLogWhenAccumulatedFailureMessagesExceedFieldCapacity()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withMaxContextSize(OVERSIZED_MESSAGE_CONTEXT_CAP)
+					.withAsyncOptions(createAsyncOptions(7))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c,
+					'Chain should complete despite the accumulated oversized failure messages — continueOnError intent must survive');
+			Assert.areEqual(1, execution.CompletedSteps__c, 'Only the successful step should be counted');
+			List<UTIL_AsyncChain.DTO_StepDefinition> persistedSteps = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(6, persistedSteps.size(), 'Step log should remain a valid six-entry JSON document');
+			for(Integer index = 0; index < 5; index++)
+			{
+				Assert.isNotNull(persistedSteps[index].message,
+						'Bounded failure message ' + index + ' should be persisted, not dropped');
+				Assert.isTrue(persistedSteps[index].message.length() <= EXPECTED_STEP_MESSAGE_BOUND,
+						'Persisted failure message ' + index + ' should be bounded; was ' + persistedSteps[index].message.length() + ' characters');
+			}
+		}
+	}
+
+	/**
+	 * @description Verifies that execute() reserves runtime headroom: a step list that fits the raw
+	 * StepLog__c field but leaves no room for the per-step success/duration fields added as steps
+	 * execute must be rejected at definition time — otherwise the chain would pass the guard and
+	 * still die on a mid-flight persist even after the safety valve drops every message.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldFailFastWhenStepListLeavesNoRuntimeHeadroom()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer fieldCapacity = AsyncChainExecution__c.StepLog__c.getDescribe().getLength();
+			paddedStepName = 'N'.repeat((fieldCapacity - PADDED_PAIR_JSON_OVERHEAD) / 2);
+
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+						.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+						.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+						.execute();
+				Assert.fail('execute() should throw when the step list leaves no runtime headroom in StepLog__c');
+			}
+			catch(UTIL_Exceptions.IllegalStateException expected)
+			{
+				Assert.isTrue(expected.getMessage().contains(String.valueOf(fieldCapacity)),
+						'Overflow error should state the field capacity. Got: ' + expected.getMessage().left(300));
+			}
+
+			Assert.isTrue(new SEL_AsyncChainExecution().findByChainName(TEST_CHAIN_NAME).isEmpty(),
+					'Runtime-headroom guard must throw before any execution row is inserted');
+		}
+	}
+
+	/**
+	 * @description Verifies the safety valve on the terminal-failure persist: when a halting
+	 * (non-continueOnError) step fails with a near-capacity step list, the Failed record still
+	 * carries valid step-log JSON with messages dropped, step names intact, and the canonical
+	 * failure message in ErrorMessage__c.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldDropStepMessagesOnTerminalFailureWhenStepLogWouldOverflow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer fieldCapacity = AsyncChainExecution__c.StepLog__c.getDescribe().getLength();
+			paddedStepName = 'N'.repeat((fieldCapacity - PADDED_CHAIN_JSON_OVERHEAD) / 2);
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.HaltingOversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+					.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+					.withMaxContextSize(OVERSIZED_MESSAGE_CONTEXT_CAP)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should halt on the non-continueOnError failure');
+			Assert.isTrue(execution.ErrorMessage__c.startsWith('FFF'), 'Canonical failure message should reach ErrorMessage__c');
+			List<UTIL_AsyncChain.DTO_StepDefinition> persistedSteps = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(3, persistedSteps.size(), 'Step log on the Failed record should remain a valid three-entry JSON document');
+			Assert.isNull(persistedSteps[0].message,
+					'Per-step failure messages should be dropped from the terminal persist when the step log would otherwise overflow');
+			Assert.areEqual(false, persistedSteps[0].success, 'Runtime success state should survive the message drop');
+			Assert.areEqual(paddedStepName.length(), persistedSteps[1].stepName.length(),
+					'Step names should survive the message drop un-truncated');
+		}
+	}
+
+	/**
+	 * @description Verifies that execute() rejects a chain whose serialized step list cannot fit the
+	 * StepLog__c field, instead of silently truncating the JSON document at insert time.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldFailFastAtExecuteWhenStepListExceedsFieldCapacity()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer fieldCapacity = AsyncChainExecution__c.StepLog__c.getDescribe().getLength();
+			paddedStepName = 'N'.repeat(fieldCapacity / 2);
+
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+						.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+						.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+						.execute();
+				Assert.fail('execute() should throw when the serialized step list exceeds the StepLog__c capacity');
+			}
+			catch(UTIL_Exceptions.IllegalStateException expected)
+			{
+				Assert.isTrue(expected.getMessage().contains(String.valueOf(fieldCapacity)),
+						'Overflow error should state the field capacity. Got: ' + expected.getMessage().left(300));
+			}
+
+			Assert.isTrue(new SEL_AsyncChainExecution().findByChainName(TEST_CHAIN_NAME).isEmpty(),
+					'Fail-fast guard must throw before any execution row is inserted');
+		}
+	}
+
+	/**
+	 * @description Verifies the mid-chain safety valve: when a progress rewrite of the step list
+	 * would overflow StepLog__c even with bounded messages, the per-step message values are dropped
+	 * from the persisted copy rather than the JSON document ever being truncated. The canonical
+	 * failure records live in ErrorMessage__c and the step-failure log entries.
+	 *
+	 * @date July 2026
+	 */
+	@IsTest
+	private static void shouldDropStepMessagesWhenMidChainStepLogWouldOverflow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer fieldCapacity = AsyncChainExecution__c.StepLog__c.getDescribe().getLength();
+			paddedStepName = 'N'.repeat((fieldCapacity - PADDED_CHAIN_JSON_OVERHEAD) / 2);
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.OversizedFailureMessageStep())
+					.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+					.then(new UTIL_AsyncChain_TEST.PaddedNameStep())
+					.withMaxContextSize(OVERSIZED_MESSAGE_CONTEXT_CAP)
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c,
+					'Chain should complete despite the step log approaching capacity');
+			Assert.areEqual(2, execution.CompletedSteps__c, 'Both padded success steps should be counted');
+			List<UTIL_AsyncChain.DTO_StepDefinition> persistedSteps = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(3, persistedSteps.size(), 'Step log should remain a valid three-entry JSON document');
+			Assert.isNull(persistedSteps[0].message,
+					'Per-step failure messages should be dropped when the step log would otherwise overflow');
+			Assert.areEqual(false, persistedSteps[0].success, 'Runtime success state should survive the message drop');
+			Assert.areEqual(paddedStepName.length(), persistedSteps[1].stepName.length(),
+					'Step names should survive the message drop un-truncated');
 		}
 	}
 
@@ -3039,6 +3288,68 @@ private class UTIL_AsyncChain_TEST
 		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
 		{
 			return UTIL_AsyncChain.failed('Expected failure, continuing');
+		}
+	}
+
+	/**
+	 * @description Step with continueOnError that fails with a large message: individually under the
+	 * default context soft cap, but too large for the StepLog__c field once repeated failures
+	 * accumulate in the step list.
+	 *
+	 * @date July 2026
+	 */
+	public class OversizedFailureMessageStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Constructs an OversizedFailureMessageStep with continueOnError enabled.
+		 */
+		public OversizedFailureMessageStep()
+		{
+			this.continueOnError = true;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.failed('F'.repeat(OVERSIZED_MESSAGE_LENGTH));
+		}
+	}
+
+	/**
+	 * @description Step without continueOnError that fails with the same oversized message, halting
+	 * the chain so the terminal-failure persist path is exercised.
+	 *
+	 * @date July 2026
+	 */
+	public class HaltingOversizedFailureMessageStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.failed('F'.repeat(OVERSIZED_MESSAGE_LENGTH));
+		}
+	}
+
+	/**
+	 * @description Success step whose stepName is supplied by the test, used to pad the serialized
+	 * step list towards the StepLog__c field capacity.
+	 *
+	 * @date July 2026
+	 */
+	public class PaddedNameStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Constructs the step with the test-seeded padded name. Each test seeds
+		 * paddedStepName before building its chain so the step definition carries it; when the
+		 * framework type resolver re-instantiates the step from its class name at runtime, the
+		 * display name comes from the persisted definition, not this instance.
+		 */
+		public PaddedNameStep()
+		{
+			this.stepName = paddedStepName;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
 		}
 	}
 
