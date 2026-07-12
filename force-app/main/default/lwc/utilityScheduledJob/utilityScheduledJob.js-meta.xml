@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>67.0</apiVersion>
+	<description>Shared helpers for the ScheduledJob__c editor, editor-modal and detail components: timezone display-name resolution and DTO_NameValues parsing.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Scheduled Job Utility</masterLabel>
+</LightningComponentBundle>

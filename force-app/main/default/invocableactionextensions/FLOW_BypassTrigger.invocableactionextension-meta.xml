@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <InvocableActionExtension xmlns="http://soap.sforce.com/2006/04/metadata">
     <targets>
-        <targetType>ActionParameter</targetType>
-        <targetName>FLOW_BypassTrigger.DTO_Request.action</targetName>
         <attributes>
-            <key>ProvidedValuesList</key>
             <dataType>String</dataType>
+            <key>ProvidedValuesList</key>
             <value>BYPASS|Bypass, CLEAR|Clear, CLEAR_ALL|Clear All</value>
         </attributes>
+        <targetName>FLOW_BypassTrigger.DTO_Request.action</targetName>
+        <targetType>ActionParameter</targetType>
     </targets>
     <targets>
-        <targetType>ActionParameter</targetType>
-        <targetName>FLOW_BypassTrigger.DTO_Request.bypassType</targetName>
         <attributes>
-            <key>ProvidedValuesList</key>
             <dataType>String</dataType>
+            <key>ProvidedValuesList</key>
             <value>CLASS_NAME|Class, OBJECT_NAME|Object</value>
         </attributes>
+        <targetName>FLOW_BypassTrigger.DTO_Request.bypassType</targetName>
+        <targetType>ActionParameter</targetType>
     </targets>
 </InvocableActionExtension>

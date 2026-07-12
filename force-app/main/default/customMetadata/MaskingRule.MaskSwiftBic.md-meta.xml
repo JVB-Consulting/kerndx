@@ -46,4 +46,16 @@
         <field>Replacement__c</field>
         <value xsi:type="xsd:string">[BIC_REDACTED]</value>
     </values>
+    <values>
+        <field>ReplacesFingerprint__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Replaces__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>ShippedFingerprint__c</field>
+        <value xsi:nil="true"/>
+    </values>
 </CustomMetadata>

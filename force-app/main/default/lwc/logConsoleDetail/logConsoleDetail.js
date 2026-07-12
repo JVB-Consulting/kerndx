@@ -57,6 +57,7 @@ import noLimits from '@salesforce/label/c.LogConsole_NoLimits';
 import noStackTrace from '@salesforce/label/c.LogConsole_NoStackTrace';
 import copy from '@salesforce/label/c.LogConsole_Copy';
 import copied from '@salesforce/label/c.LogConsole_Copied';
+import copyFailed from '@salesforce/label/c.LogConsole_CopyFailed';
 import close from '@salesforce/label/c.LogConsole_Close';
 import actionOpenChain from '@salesforce/label/c.LogConsole_ActionOpenChain';
 import actionOpenRecord from '@salesforce/label/c.LogConsole_ActionOpenRecord';
@@ -138,6 +139,7 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		noStackTrace,
 		copy,
 		copied,
+		copyFailed,
 		close,
 		actionOpenChain,
 		actionOpenRecord,
@@ -811,15 +813,41 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		this.dispatchEvent(new CustomEvent('entryfocus', {detail: {entryId}}));
 	}
 
+	/**
+	 * @description Copies the opened entry's full message to the clipboard, confirming with a toast
+	 * only once the copy actually happened. A failed copy (Clipboard API and its temporary-input
+	 * fallback both failing) surfaces an error toast instead of rejecting.
+	 */
 	async handleCopyMessage()
 	{
-		await copyToClipBoard(this.currentDetail.message);
-		this.showSuccessToast(this.label.copied);
+		try
+		{
+			await copyToClipBoard(this.currentDetail.message);
+			this.showSuccessToast(this.label.copied);
+		}
+		catch
+		{
+			// copyToClipBoard already logged the failure; tell the user the copy did not happen.
+			this.showErrorToast(this.label.copyFailed);
+		}
 	}
 
+	/**
+	 * @description Copies the opened entry's stack trace to the clipboard, confirming with a toast
+	 * only once the copy actually happened. A failed copy (Clipboard API and its temporary-input
+	 * fallback both failing) surfaces an error toast instead of rejecting.
+	 */
 	async handleCopyStack()
 	{
-		await copyToClipBoard(this.currentDetail.stackTrace);
-		this.showSuccessToast(this.label.copied);
+		try
+		{
+			await copyToClipBoard(this.currentDetail.stackTrace);
+			this.showSuccessToast(this.label.copied);
+		}
+		catch
+		{
+			// copyToClipBoard already logged the failure; tell the user the copy did not happen.
+			this.showErrorToast(this.label.copyFailed);
+		}
 	}
 }

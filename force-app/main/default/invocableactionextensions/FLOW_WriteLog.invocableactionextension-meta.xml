@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <InvocableActionExtension xmlns="http://soap.sforce.com/2006/04/metadata">
     <targets>
-        <targetType>ActionParameter</targetType>
-        <targetName>FLOW_WriteLog.DTO_Request.logLevel</targetName>
         <attributes>
-            <key>ProvidedValuesList</key>
             <dataType>String</dataType>
+            <key>ProvidedValuesList</key>
             <value>DEBUG|Debug, INFO|Info, WARN|Warning, ERROR|Error</value>
         </attributes>
+        <targetName>FLOW_WriteLog.DTO_Request.logLevel</targetName>
+        <targetType>ActionParameter</targetType>
     </targets>
 </InvocableActionExtension>

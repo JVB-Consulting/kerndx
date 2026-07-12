@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ReplacesFingerprint__c</fullName>
-    <description>SHA-256 fingerprint of the superseded rule's original shipped behaviour values. The framework only suppresses the predecessor when its live values still match this fingerprint — any customisation you made to the predecessor keeps it running. Package-controlled.</description>
+    <description>SHA-256 fingerprint of the superseded rule&apos;s original shipped behaviour values. The framework only suppresses the predecessor when its live values still match this fingerprint — any customisation you made to the predecessor keeps it running. Package-controlled.</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Fingerprint of the superseded rule's original shipped values. Managed by the package.</inlineHelpText>
+    <inlineHelpText>Fingerprint of the superseded rule&apos;s original shipped values. Managed by the package.</inlineHelpText>
     <label>Replaces Fingerprint</label>
     <length>64</length>
     <required>false</required>
