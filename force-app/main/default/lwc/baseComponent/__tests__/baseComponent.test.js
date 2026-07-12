@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 		// Create mock functions that can be tracked
@@ -559,6 +559,34 @@ describe('baseComponent', () =>
 			element.consoleLog('String value', 'test string');
 
 			expect(mockDebug).toHaveBeenCalledWith('String value', {value: 'test string'});
+		});
+
+		it('logs a zero value instead of dropping it', () =>
+		{
+			element.consoleLog('Zero value', 0);
+
+			expect(mockDebug).toHaveBeenCalledWith('Zero value', {value: 0});
+		});
+
+		it('logs a false value instead of dropping it', () =>
+		{
+			element.consoleLog('False value', false);
+
+			expect(mockDebug).toHaveBeenCalledWith('False value', {value: false});
+		});
+
+		it('logs an empty-string value instead of dropping it', () =>
+		{
+			element.consoleLog('Empty string value', '');
+
+			expect(mockDebug).toHaveBeenCalledWith('Empty string value', {value: ''});
+		});
+
+		it('still logs description-only when the value is omitted or explicitly undefined', () =>
+		{
+			element.consoleLog('Undefined value', undefined);
+
+			expect(mockDebug).toHaveBeenCalledWith('Undefined value');
 		});
 
 		it('should log error via consoleError', () =>

@@ -11,11 +11,22 @@
  *              with the global lightning/modal mock (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, July 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';
 import MaskingExportModal from 'c/maskingExportModal';
+
+// Mock utilityLogger so the copy path (via c/utilitySystem.copyToClipBoard) never reaches the real
+// module-singleton logger or its Apex persistence stub.
+jest.mock('c/utilityLogger', () =>
+{
+	return {
+		__esModule: true, default: {
+			debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn()
+		}
+	};
+}, {virtual: true});
 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_ExportModal_Title', () => ({default: 'Export masking package'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_ExportModal_Download', () => ({default: 'Download package'}), {virtual: true});
@@ -73,6 +84,16 @@ function createModal(props = {})
 function flush()
 {
 	return Promise.resolve();
+}
+
+/**
+ * @description Settles the asynchronous copy path (clipboard promise, fallback, then re-render) by
+ *              draining the macrotask queue once, which lets every queued microtask run first.
+ * @returns {Promise<void>}
+ */
+function settle()
+{
+	return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 /**
@@ -243,20 +264,52 @@ describe('c-masking-export-modal', () =>
 			input.dispatchEvent(new CustomEvent('change', {detail: {value: 'AcmeProd'}}));
 			await flush();
 			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
-			await flush();
+			await settle();
 
 			expect(writeText).toHaveBeenCalledWith('sf project deploy start --metadata-dir metadata -o AcmeProd');
 			expect(textOf(element, 'copy-command-button')).toBe('Copied');
 		});
 
-		it('does not throw and still flips the label when the clipboard API is unavailable', async() =>
+		it('does not claim Copied when the clipboard write fails', async() =>
 		{
-			Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
+			const writeText = jest.fn().mockRejectedValue(new Error('Write denied'));
+			Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
+			// The temporary-input fallback also fails, so the copy never happened.
+			// noinspection JSDeprecatedSymbols
+			document.execCommand = jest.fn().mockReturnValue(false);
 			const element = createModal();
 			await flush();
 
 			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
+			await settle();
+
+			expect(textOf(element, 'copy-command-button')).toBe('Copy command');
+		});
+
+		it('does not claim Copied when the clipboard API is unavailable and the fallback fails', async() =>
+		{
+			Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
+			// noinspection JSDeprecatedSymbols
+			document.execCommand = jest.fn().mockReturnValue(false);
+			const element = createModal();
 			await flush();
+
+			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
+			await settle();
+
+			expect(textOf(element, 'copy-command-button')).toBe('Copy command');
+		});
+
+		it('flips to Copied when the restricted-context fallback copy succeeds', async() =>
+		{
+			Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
+			// noinspection JSDeprecatedSymbols
+			document.execCommand = jest.fn().mockReturnValue(true);
+			const element = createModal();
+			await flush();
+
+			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
+			await settle();
 
 			expect(textOf(element, 'copy-command-button')).toBe('Copied');
 		});
@@ -269,7 +322,7 @@ describe('c-masking-export-modal', () =>
 			await flush();
 
 			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
-			await flush();
+			await settle();
 			expect(textOf(element, 'copy-command-button')).toBe('Copied');
 
 			const input = element.shadowRoot.querySelector('[data-testid="alias-input"]');

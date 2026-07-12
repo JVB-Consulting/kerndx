@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 		// Mock the Apex method - create a trackable function
@@ -26,7 +26,7 @@ const originalConsole = {
 
 // Import after mocks are set up
 import utilityLogger, {
-	LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, _flushLogs
+	LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, setConsoleMirroring, _flushLogs
 } from 'c/utilityLogger';
 
 describe('utilityLogger', () =>
@@ -52,12 +52,19 @@ describe('utilityLogger', () =>
 		performanceTime = 0;
 		mockPerformanceNow = jest.spyOn(performance, 'now').mockImplementation(() => performanceTime);
 
-		// Reset module state by ending any active correlation
-		// This is a workaround since module state persists between tests
-		if(getCorrelationId())
+		// Reset module state by ending every open correlation and restoring the
+		// console-mirroring default (OFF). Module state persists between tests.
+		while(getCorrelationId())
 		{
 			endCorrelation();
 		}
+		setConsoleMirroring(false);
+
+		// Drain any standalone entries a previous test left buffered (error() flushes
+		// immediately through the public path) so entry-count assertions never depend on
+		// describe ordering, then clear the drain's own persist traffic from the mock.
+		error('Reset buffer drain');
+		mockPersistLogs.mockClear();
 	});
 
 	afterEach(() =>
@@ -103,11 +110,14 @@ describe('utilityLogger', () =>
 			expect(utilityLogger.error).toBe(error);
 			expect(utilityLogger.startTimer).toBe(startTimer);
 			expect(utilityLogger.withCorrelation).toBe(withCorrelation);
+			expect(utilityLogger.setConsoleMirroring).toBe(setConsoleMirroring);
 		});
 	});
 
 	describe('debug', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should log debug message to console', () =>
 		{
 			debug('Test debug message');
@@ -123,6 +133,8 @@ describe('utilityLogger', () =>
 
 	describe('info', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should log info message to console', () =>
 		{
 			info('Test info message');
@@ -138,6 +150,8 @@ describe('utilityLogger', () =>
 
 	describe('warn', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should log warning message to console', () =>
 		{
 			warn('Test warning message');
@@ -153,6 +167,8 @@ describe('utilityLogger', () =>
 
 	describe('error', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should log error message to console', () =>
 		{
 			error('Test error message');
@@ -191,6 +207,8 @@ describe('utilityLogger', () =>
 
 	describe('startTimer', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should return timer object with stop method', () =>
 		{
 			const timer = startTimer('testOperation');
@@ -238,6 +256,8 @@ describe('utilityLogger', () =>
 	{
 		describe('startCorrelation', () =>
 		{
+			beforeEach(() => setConsoleMirroring(true));
+
 			it('should generate and return correlation ID', () =>
 			{
 				const correlationId = startCorrelation('Test Action');
@@ -267,6 +287,8 @@ describe('utilityLogger', () =>
 
 		describe('endCorrelation', () =>
 		{
+			beforeEach(() => setConsoleMirroring(true));
+
 			it('should log completion with duration', () =>
 			{
 				performanceTime = 0;
@@ -343,6 +365,8 @@ describe('utilityLogger', () =>
 
 	describe('withCorrelation', () =>
 	{
+		beforeEach(() => setConsoleMirroring(true));
+
 		it('should wrap async function with correlation', async() =>
 		{
 			const asyncFn = jest.fn().mockResolvedValue('result');
@@ -465,8 +489,8 @@ describe('utilityLogger', () =>
 			// Log without starting a correlation - entry will have null correlationId
 			info('Standalone message');
 
-			// Use _flushLogs to trigger the persist (normally would happen via endCorrelation)
-			_flushLogs();
+			// Trigger the persist through the public error path (error() flushes immediately)
+			error('Trigger flush');
 
 			// Wait for promise rejection to be handled
 			await new Promise(resolve => setTimeout(resolve, 10));
@@ -557,8 +581,143 @@ describe('utilityLogger', () =>
 		});
 	});
 
-	describe('_flushLogs (test utility)', () =>
+	describe('context serialisation guard', () =>
 	{
+		it('does not throw on circular context data and records a serialisation fallback', async() =>
+		{
+			const circular = {name: 'loop'};
+			circular.self = circular;
+
+			expect(() => info('Circular payload', circular)).not.toThrow();
+
+			error('Drain buffer');
+			await Promise.resolve();
+
+			const entries = JSON.parse(mockPersistLogs.mock.calls[0][0].entriesJson);
+			expect(entries[0].message).toBe('Circular payload');
+			expect(entries[0].context).toContain('serialisationError');
+		});
+	});
+
+	describe('console mirroring gate', () =>
+	{
+		it('does not mirror entries to the console by default', () =>
+		{
+			info('Silent info');
+			debug('Silent debug');
+			warn('Silent warn');
+
+			expect(console.log).not.toHaveBeenCalled();
+			expect(console.warn).not.toHaveBeenCalled();
+
+			error('Silent error drains the buffer');
+			expect(console.error).not.toHaveBeenCalled();
+		});
+
+		it('mirrors entries to the console when explicitly enabled', () =>
+		{
+			setConsoleMirroring(true);
+
+			info('Mirrored info', {key: 'value'});
+			expect(console.log).toHaveBeenCalledWith('[INFO] Mirrored info', {key: 'value'});
+
+			error('Mirrored error drains the buffer');
+			expect(console.error).toHaveBeenCalledWith('[ERROR] Mirrored error drains the buffer', {});
+		});
+	});
+
+	describe('nested and overlapping correlations', () =>
+	{
+		it('restores the outer correlation when the inner one ends', () =>
+		{
+			const outerId = startCorrelation('Outer Action');
+			const innerId = startCorrelation('Inner Action');
+			expect(getCorrelationId()).toBe(innerId);
+
+			endCorrelation();
+			expect(getCorrelationId()).toBe(outerId);
+
+			endCorrelation();
+			expect(getCorrelationId()).toBeNull();
+		});
+
+		it('reports the outer duration from the outer start after a nested correlation completes', async() =>
+		{
+			performanceTime = 0;
+			startCorrelation('Outer Action');
+			performanceTime = 50;
+			startCorrelation('Inner Action');
+
+			performanceTime = 100;
+			endCorrelation();
+			performanceTime = 200;
+			endCorrelation();
+
+			await Promise.resolve();
+
+			const innerBatch = JSON.parse(mockPersistLogs.mock.calls[0][0].entriesJson);
+			expect(innerBatch[innerBatch.length - 1].message).toBe('[Inner Action] Completed in 50ms');
+
+			const outerBatch = JSON.parse(mockPersistLogs.mock.calls[1][0].entriesJson);
+			expect(outerBatch[outerBatch.length - 1].message).toBe('[Outer Action] Completed in 200ms');
+		});
+
+		it('ends a specific correlation by id and leaves the other one open', async() =>
+		{
+			const firstId = startCorrelation('First Action');
+			const secondId = startCorrelation('Second Action');
+
+			endCorrelation({}, firstId);
+			expect(getCorrelationId()).toBe(secondId);
+
+			await Promise.resolve();
+			const entries = JSON.parse(mockPersistLogs.mock.calls[0][0].entriesJson);
+			const completion = entries.find((entry) => entry.message.includes('Completed'));
+			expect(completion.message).toContain('First Action');
+			expect(completion.correlationId).toBe(firstId);
+
+			endCorrelation();
+			expect(getCorrelationId()).toBeNull();
+		});
+
+		it('ignores an unknown correlation id and keeps the open correlation intact', () =>
+		{
+			const openId = startCorrelation('Still Open');
+
+			endCorrelation({}, 'no-such-correlation-id');
+			expect(getCorrelationId()).toBe(openId);
+
+			endCorrelation();
+			expect(getCorrelationId()).toBeNull();
+		});
+	});
+
+	describe('bounded auto-flush', () =>
+	{
+		it('holds entries below the bound and drains the buffer automatically at the bound', async() =>
+		{
+			const autoFlushBound = 20;
+
+			for(let index = 0; index < autoFlushBound - 1; index++)
+			{
+				info(`Buffered entry ${index}`);
+			}
+			expect(mockPersistLogs).not.toHaveBeenCalled();
+
+			info('Entry at the bound');
+			await Promise.resolve();
+
+			expect(mockPersistLogs).toHaveBeenCalledTimes(1);
+			const entries = JSON.parse(mockPersistLogs.mock.calls[0][0].entriesJson);
+			expect(entries).toHaveLength(autoFlushBound);
+		});
+	});
+
+	describe('_flushLogs (retained on the frozen public contract)', () =>
+	{
+		// _flushLogs predates the released package and stays exported because removing it would
+		// break the frozen public API. These tests cover the export's own contract only — no other
+		// test depends on it as a hook (behavioural tests flush via error()/endCorrelation()).
 		it('should export _flushLogs function', () =>
 		{
 			expect(typeof _flushLogs).toBe('function');

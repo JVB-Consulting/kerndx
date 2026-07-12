@@ -39,7 +39,10 @@ export function formatTemplateString(templateString, substitutes)
 		return EMPTY;
 	}
 
-	return substitutes.reduce((result, value, index) => result.replaceAll(`{${index}}`, String(value)), templateString);
+	// The replacer function inserts the value verbatim — a plain-string replacement would
+	// interpret $-patterns ($$, $&, $`, $') inside substituted values, diverging from
+	// the Apex String.format() behaviour this helper mirrors.
+	return substitutes.reduce((result, value, index) => result.replaceAll(`{${index}}`, () => String(value)), templateString);
 }
 
 /**

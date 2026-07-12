@@ -12,7 +12,7 @@
  *
  * @author Jason van Beukering
  *
- * @date May 2026, June 2026
+ * @date May 2026, July 2026
  */
 import {wire} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -215,6 +215,10 @@ const MAX_DEVELOPER_NAME_LENGTH = 40;
 // to the same name and one target would be silently dropped from the bundle; a short hash suffix keyed on
 // the full field+rule pair keeps each generated target unique.
 const DEVELOPER_NAME_HASH_LENGTH = 6;
+// Per-instance cache for the two expensive derived walks (the decorated field list and the export diff),
+// keyed by the identity of every state reference they read. It lives at module scope, keyed by the
+// component instance, so caching during a getter never writes reactive component state mid-render.
+const derivedFieldStateCache = new WeakMap();
 
 /**
  * @description Maps each stable sensitivity-level key (the engine literal carried in the DTO) to its
@@ -671,7 +675,12 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 */
 	get decoratedRows()
 	{
-		return this.fieldRows.map((row) => this.decorateRow(row));
+		const derivedState = this.derivedFieldState();
+		if(!derivedState.decoratedRows)
+		{
+			derivedState.decoratedRows = this.fieldRows.map((row) => this.decorateRow(row));
+		}
+		return derivedState.decoratedRows;
 	}
 
 	/**
@@ -1429,6 +1438,38 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	{
 		const count = this.scanResults.find((result) => result.apiName === this.selectedObject)?.flaggedFields.length ?? 0;
 		return COVERAGE_SCAN_PROVENANCE.replace('{0}', String(count));
+	}
+
+	/**
+	 * @description The memoised holder for the decorated field list and the export diff, so a render that
+	 * changes none of their inputs reuses the previous walk instead of recomputing both per template
+	 * expression. Every mutation of the inputs in this component replaces the whole reference (fresh object
+	 * or array, never in-place edits), so reference identity is a complete change signal: any replaced
+	 * input starts a fresh holder and both walks recompute lazily.
+	 * @returns {{dependencies: Array, decoratedRows: ?Array<Object>, exportDiff: ?Object}}
+	 */
+	derivedFieldState()
+	{
+		const dependencies = [
+			this.fieldRows,
+			this.overrideByApiName,
+			this.desiredDisabled,
+			this.desiredEnabled,
+			this.desiredExcluded,
+			this.addedFieldRules,
+			this.addedObjectWideRules,
+			this.rulesByDeveloperName,
+			this.objectWideRules,
+			this.selectedObject
+		];
+		const cached = derivedFieldStateCache.get(this);
+		if(cached && cached.dependencies.every((dependency, index) => dependency === dependencies[index]))
+		{
+			return cached;
+		}
+		const fresh = {dependencies, decoratedRows: null, exportDiff: null};
+		derivedFieldStateCache.set(this, fresh);
+		return fresh;
 	}
 
 	/**
@@ -2345,6 +2386,22 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
+	 * @description The masking-configuration diff, memoised alongside the decorated field list — the walk
+	 * reruns only when one of the derived-data inputs is replaced (see derivedFieldState), not per template
+	 * expression per render.
+	 * @returns {{targets: Array<Object>, rulesToActivate: Array<string>}}
+	 */
+	computeExportDiff()
+	{
+		const derivedState = this.derivedFieldState();
+		if(!derivedState.exportDiff)
+		{
+			derivedState.exportDiff = this.buildExportDiff();
+		}
+		return derivedState.exportDiff;
+	}
+
+	/**
 	 * @description Walks every chip's desired state and emits the masking-configuration diff: a ticked
 	 * candidate → create (new active field target), an unticked existing-active chip → disable (the target
 	 * re-emitted with IsActive false), a ticked existing-inactive chip → re-enable. A dormant recommendation
@@ -2352,7 +2409,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 * it binds.
 	 * @returns {{targets: Array<Object>, rulesToActivate: Array<string>}}
 	 */
-	computeExportDiff()
+	buildExportDiff()
 	{
 		const targets = [];
 		const activate = new Set();

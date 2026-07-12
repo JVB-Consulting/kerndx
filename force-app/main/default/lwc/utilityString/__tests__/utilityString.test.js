@@ -68,6 +68,30 @@ describe('formatTemplateString', () =>
 		});
 	});
 
+	describe('dollar-sequence substitutes', () =>
+	{
+		it('should insert a value containing $& verbatim, not the matched placeholder', () =>
+		{
+			const result = formatTemplateString('{0}', ['a$&b']);
+			expect(result).toBe('a$&b');
+		});
+
+		it('should insert a value containing $$ verbatim, not a collapsed $', () =>
+		{
+			const result = formatTemplateString('Cost: {0}', ['$$5']);
+			expect(result).toBe('Cost: $$5');
+		});
+
+		it('should insert values containing $` and $\' verbatim', () =>
+		{
+			const result = formatTemplateString('{0} {1}', [
+				'pre$`fix',
+				'suf$\'fix'
+			]);
+			expect(result).toBe('pre$`fix suf$\'fix');
+		});
+	});
+
 	describe('edge cases', () =>
 	{
 		it('should handle empty template string', () =>

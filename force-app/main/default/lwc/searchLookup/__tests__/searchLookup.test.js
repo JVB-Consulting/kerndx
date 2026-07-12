@@ -7,7 +7,7 @@
  *              requirements, these tests verify module structure and static analysis.
  *
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 // Mock dependencies
@@ -363,6 +363,53 @@ describe('c-search-lookup', () =>
 				const callArgs = context.callControllerMethod.mock.calls[0][1];
 				expect(callArgs.searchParameters.objectName).toBe('Account');
 				expect(callArgs.searchParameters.maxResults).toBe('10');
+			});
+
+			it('getResults issues the search with no parameters when Search Parameters is left unset', async() =>
+			{
+				const context = createMockContext();
+				context.controllerSearchParameters = undefined;
+				context.searchTerm = 'test';
+				context.extractResults = jest.fn((results) => results);
+				await prototype.getResults.call(context);
+				expect(context.callControllerMethod).toHaveBeenCalled();
+				const callArgs = context.callControllerMethod.mock.calls[0][1];
+				expect(callArgs.searchParameters).toStrictEqual({});
+			});
+
+			it('getResults issues the search with no parameters when Search Parameters is blank', async() =>
+			{
+				const context = createMockContext();
+				context.controllerSearchParameters = '';
+				context.searchTerm = 'test';
+				context.extractResults = jest.fn((results) => results);
+				await prototype.getResults.call(context);
+				expect(context.callControllerMethod).toHaveBeenCalled();
+				const callArgs = context.callControllerMethod.mock.calls[0][1];
+				expect(callArgs.searchParameters).toStrictEqual({});
+			});
+
+			it('getResults keeps embedded = characters in parameter values', async() =>
+			{
+				const context = createMockContext();
+				context.controllerSearchParameters = 'filterExpression=Status__c=Open;objectName=Account';
+				context.searchTerm = 'test';
+				context.extractResults = jest.fn((results) => results);
+				await prototype.getResults.call(context);
+				const callArgs = context.callControllerMethod.mock.calls[0][1];
+				expect(callArgs.searchParameters.filterExpression).toBe('Status__c=Open');
+				expect(callArgs.searchParameters.objectName).toBe('Account');
+			});
+
+			it('getResults parses a key with no value and skips empty segments', async() =>
+			{
+				const context = createMockContext();
+				context.controllerSearchParameters = 'flagOnly;;objectName=Account';
+				context.searchTerm = 'test';
+				context.extractResults = jest.fn((results) => results);
+				await prototype.getResults.call(context);
+				const callArgs = context.callControllerMethod.mock.calls[0][1];
+				expect(callArgs.searchParameters).toStrictEqual({flagOnly: undefined, objectName: 'Account'});
 			});
 
 			it('getResults uses executeSearchController when controllerName is set', async() =>

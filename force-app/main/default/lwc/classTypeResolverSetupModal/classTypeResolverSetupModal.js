@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, July 2026
  */
 import LightningModal from 'lightning/modal';
 import {copyToClipBoard} from 'c/utilitySystem';
@@ -30,6 +30,7 @@ import COPY_TEST_ALT_TEXT from '@salesforce/label/c.ClassTypeResolverModal_CopyT
 import DOWNLOAD_TEST_ALT_TEXT from '@salesforce/label/c.ClassTypeResolverModal_DownloadTestAltText';
 import CANCEL_LABEL from '@salesforce/label/c.ClassTypeResolverModal_Cancel';
 import DONE_LABEL from '@salesforce/label/c.ClassTypeResolverModal_Done';
+import COPY_FAILED from '@salesforce/label/c.ClassTypeResolverModal_CopyFailed';
 
 const ICON_COPY = 'utility:copy_to_clipboard';
 const ICON_CHECK = 'utility:check';
@@ -41,6 +42,7 @@ export default class ClassTypeResolverSetupModal extends LightningModal
 	resolverClassName = DEFAULT_CLASS_NAME;
 	resolverCopyIcon = ICON_COPY;
 	testCopyIcon = ICON_COPY;
+	copyErrorMessage = null;
 
 	labels = {
 		title: MODAL_TITLE,
@@ -152,16 +154,46 @@ private class ${name}_TEST
 		this.resolverClassName = event.detail.value;
 	}
 
+	/**
+	 * @description Copies the generated resolver class to the clipboard, flipping the button icon
+	 * to a check only once the copy actually happened. A failed copy (Clipboard API and its
+	 * temporary-input fallback both failing) keeps the copy icon and reports the failure inline,
+	 * so the admin can retry, select the code manually, or use the download action instead.
+	 */
 	async handleCopyResolver()
 	{
-		await copyToClipBoard(this.resolverClassCode);
-		this.resetCopyIcon('resolverCopyIcon');
+		this.copyErrorMessage = null;
+		try
+		{
+			await copyToClipBoard(this.resolverClassCode);
+			this.resetCopyIcon('resolverCopyIcon');
+		}
+		catch
+		{
+			// copyToClipBoard already logged the failure; an in-modal message beats a toast the overlay would swallow.
+			this.copyErrorMessage = COPY_FAILED;
+		}
 	}
 
+	/**
+	 * @description Copies the generated test class to the clipboard, flipping the button icon
+	 * to a check only once the copy actually happened. A failed copy (Clipboard API and its
+	 * temporary-input fallback both failing) keeps the copy icon and reports the failure inline,
+	 * so the admin can retry, select the code manually, or use the download action instead.
+	 */
 	async handleCopyTest()
 	{
-		await copyToClipBoard(this.testClassCode);
-		this.resetCopyIcon('testCopyIcon');
+		this.copyErrorMessage = null;
+		try
+		{
+			await copyToClipBoard(this.testClassCode);
+			this.resetCopyIcon('testCopyIcon');
+		}
+		catch
+		{
+			// copyToClipBoard already logged the failure; an in-modal message beats a toast the overlay would swallow.
+			this.copyErrorMessage = COPY_FAILED;
+		}
 	}
 
 	handleDownloadResolver()

@@ -212,4 +212,76 @@ test.describe.serial('Part 5: Streaming — Setup & Subscribe', () =>
 		const restoredCount = await monitor.getOrgLimitCardCount();
 		expect(restoredCount, 'Clearing the search restores every card').toBe(totalCards);
 	});
+
+	test('V114: Timeline renders events as interactive dots with tooltip and select', async({page}) =>
+	{
+		test.setTimeout(120_000);
+		await navigateToApp(page, 'Kern');
+		const monitor = new StreamingMonitorPage(page);
+		await monitor.navigate();
+
+		// Streaming subscriptions are per-browser-session, so stay self-sufficient when run standalone.
+		const existingCount = await monitor.getActiveSubscriptionCount();
+		if(existingCount === 0)
+		{
+			await monitor.clickSubscribe();
+			await monitor.selectEventType('Custom Platform event');
+			await monitor.selectEventName('Log Entry Event');
+			await monitor.clickSubscribeButton();
+			// With replay -1, an event published before the CometD handshake completes is never
+			// delivered (see V23) — give the fresh subscription time to go live before the probe.
+			await page.waitForTimeout(4000);
+		}
+		const subscribedChannels = (await monitor.getSubscriptionChannels()).map((channel) => channel.trim());
+		expect(subscribedChannels.length, 'Sidebar should list at least one subscribed channel').toBeGreaterThan(0);
+
+		// Namespace-robust probe: managed subscriber orgs expose kern.LOG_Builder; Path-2
+		// (no-namespace) installs and the development org expose the bare class name.
+		try
+		{
+			executeAnonymousApex('kern.LOG_Builder.build().info(\'Timeline e2e dot probe\').emitAt(\'E2E.timelineCheck\');');
+		}
+		catch(namespacedError)
+		{
+			test.info().annotations.push({type: 'notes', description: `kern.LOG_Builder probe failed (${namespacedError.message.split('\n')[0]}); retried with the bare class name`});
+			executeAnonymousApex('LOG_Builder.build().info(\'Timeline e2e dot probe\').emitAt(\'E2E.timelineCheck\');');
+		}
+		await monitor.waitForEvent({timeout: 20_000}).catch(() =>
+		{
+		});
+
+		// The monitor defaults to the timeline view; the native-SVG port renders one dot per event.
+		const chart = page.locator('[data-spec-id="timeline-chart"]');
+		await expect(chart, 'Native-SVG timeline chart renders on the default view').toBeVisible({timeout: 20_000});
+		const dots = page.locator('[data-testid="timeline-dot"]');
+		await expect(dots.first(), 'Timeline renders at least one interactive dot').toBeVisible({timeout: 20_000});
+
+		// The "Showing N events" badge is load-bearing (subscriber guide + this page object) and must
+		// survive the port; the timeline view must also render no table rows.
+		const eventCount = await monitor.getEventCount();
+		expect(eventCount, '"Showing N events" badge should still report events').toBeGreaterThan(0);
+		expect(await page.locator('[data-testid="event-row"]').count(), 'Timeline view renders no table rows').toBe(0);
+
+		// Dot hover shows the detail tooltip: time label, the exact subscribed channel (namespace
+		// included — a hardcoded or stripped kern__ prefix must fail here), and the call-to-action.
+		await dots.first().hover();
+		const tooltip = page.locator('[data-spec-id="timeline-tooltip"]');
+		await expect(tooltip, 'Dot hover shows the data tooltip').toBeVisible();
+		await expect(tooltip, 'Tooltip carries a time label').toContainText(/\d{1,2}:\d{2}/);
+		await expect(tooltip, 'Tooltip carries the click call-to-action').toContainText('Click for more details.');
+		const tooltipText = await tooltip.textContent();
+		expect(subscribedChannels.some((channel) => tooltipText.includes(channel)),
+				`Tooltip should carry one of the subscribed channels verbatim (${subscribedChannels.join(', ')}); got: ${tooltipText}`).toBeTruthy();
+
+		// Dot click dispatches `select` and opens the event-details modal with the datum's channel.
+		// Target the inner section: the modal host always renders its content and toggles
+		// `slds-hide` on the section, while the custom-element host is a zero-box node Playwright
+		// always reports hidden. The tag alternation covers the managed-namespace render
+		// (kern-modal) on subscriber orgs — the part8 chain-step-timeline precedent.
+		await dots.first().click();
+		const modal = page.locator('c-modal section.slds-modal, kern-modal section.slds-modal').filter({hasText: 'Event details'});
+		await expect(modal, 'Dot click opens the Event details modal').toBeVisible({timeout: 10_000});
+		const modalChannel = await modal.getByLabel('Channel').inputValue();
+		expect(subscribedChannels, 'Modal should carry the exact subscribed channel').toContain(modalChannel);
+	});
 });

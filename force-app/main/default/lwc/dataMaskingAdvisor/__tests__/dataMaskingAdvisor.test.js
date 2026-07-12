@@ -3220,3 +3220,72 @@ describe('c-data-masking-advisor — Health Check deep-link auto-scan', () =>
 		expect(feedbackAssessmentCount()).toBe(1);
 	});
 });
+
+describe('c-data-masking-advisor — derived-row memoisation', () =>
+{
+	afterEach(cleanup);
+
+	// Replaces a fixture property with a counting getter so a test can observe whether the component
+	// re-reads the raw analysis data (the decorate + export-diff cascade) on a given render.
+	function countReads(target, propertyName)
+	{
+		const counter = {reads: 0};
+		const value = target[propertyName];
+		Object.defineProperty(target, propertyName, {
+			configurable: true, enumerable: true, get()
+			{
+				counter.reads += 1;
+				return value;
+			}
+		});
+		return counter;
+	}
+
+	it('does not recompute the decorated field list or the export diff on a re-render that changes none of their inputs', async() =>
+	{
+		const analysis = JSON.parse(JSON.stringify(MOCK_ANALYSIS_MIXED));
+		const ssnRow = analysis.fields.find((row) => row.apiName === 'SSN__c');
+		const activeApplied = ssnRow.appliedRules.find((applied) => applied.isActive);
+		const element = await createAdvisor({analysis});
+		await selectMixed(element);
+
+		// heuristicConfidence is read only by the row-decorate walk; the active applied rule's
+		// ruleDeveloperName is read by the decorate chips and the export-diff walk. Neither may run again
+		// for a pure view flip (a card open/close), which changes none of the derived-data inputs.
+		const heuristicConfidenceReads = countReads(ssnRow, 'heuristicConfidence');
+		const appliedRuleNameReads = countReads(activeApplied, 'ruleDeveloperName');
+
+		element.shadowRoot.querySelector('[data-testid="section-manual-review-toggle"]').click();
+		await flush();
+
+		expect(heuristicConfidenceReads.reads).toBe(0);
+		expect(appliedRuleNameReads.reads).toBe(0);
+	});
+
+	it('still applies a chip toggle after a view-only re-render has warmed the derived-data path', async() =>
+	{
+		const element = await createAdvisor();
+		await selectMixed(element);
+		element.shadowRoot.querySelector('[data-testid="section-manual-review-toggle"]').click();
+		await flush();
+
+		toggleChip(fieldChip(element, 'SSN__c', 'Mask_SSN'));
+		await flush();
+
+		expect(fieldChip(element, 'SSN__c', 'Mask_SSN').dataset.desired).toBe('false');
+		expect(textOf(element, 'summary-changes')).toBe('2 changes');
+	});
+
+	it('recomputes the decorated field list when a new object analysis arrives', async() =>
+	{
+		const element = await createAdvisor();
+		await selectMixed(element);
+		expect(rowByApi(element, 'Email')).not.toBeUndefined();
+
+		configureApex({analysis: MOCK_ANALYSIS_NO_OBJECT_WIDE});
+		await selectObject(element, 'ApiCall__c');
+
+		expect(rowByApi(element, 'SSN__c')).not.toBeUndefined();
+		expect(rowByApi(element, 'Email')).toBeUndefined();
+	});
+});

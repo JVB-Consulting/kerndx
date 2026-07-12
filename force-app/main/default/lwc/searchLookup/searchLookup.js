@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, February 2026
+ * @date October 2022, July 2026
  */
 import executeSearchController from '@salesforce/apex/CTRL_ExecuteSearch.executeSearchController';
 import BaseLookup, {DELAY} from 'c/baseLookup';
@@ -18,6 +18,8 @@ import {api} from 'lwc';
 
 /**
  * @description Parses a semicolon-delimited parameter string into a key-value object.
+ * An unset or blank string parses to an empty object, and values keep any embedded
+ * '=' characters (only the first '=' of each pair separates key from value).
  *
  * @param {string} paramString - Semicolon-separated key=value pairs
  *   (e.g. "objectName=Foobar__c;maximumNumberOfResults=10").
@@ -25,7 +27,24 @@ import {api} from 'lwc';
  */
 function parseSearchParameters(paramString)
 {
-	return Object.fromEntries(paramString.split(';').map((pair) => pair.split('=')));
+	if(!paramString)
+	{
+		return {};
+	}
+
+	return Object.fromEntries(paramString.split(';')
+	.filter(Boolean)
+	.map((pair) =>
+	{
+		const separatorIndex = pair.indexOf('=');
+		return separatorIndex === -1 ? [
+			pair,
+			undefined
+		] : [
+			pair.slice(0, separatorIndex),
+			pair.slice(separatorIndex + 1)
+		];
+	}));
 }
 
 /**

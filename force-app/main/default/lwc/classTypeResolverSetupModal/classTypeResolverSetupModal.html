@@ -52,6 +52,9 @@
 				</div>
 			</lightning-tab>
 		</lightning-tabset>
+		<template lwc:if={copyErrorMessage}>
+			<p class="slds-text-color_error slds-var-m-top_x-small" data-testid="copy-error" role="alert">{copyErrorMessage}</p>
+		</template>
 	</lightning-modal-body>
 	<lightning-modal-footer>
 		<lightning-button data-testid="modal-cancel" label={labels.cancelLabel} onclick={handleCancel}></lightning-button>

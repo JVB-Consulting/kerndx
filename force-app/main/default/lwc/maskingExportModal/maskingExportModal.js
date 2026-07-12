@@ -15,10 +15,11 @@
  * download".
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, July 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';
+import {copyToClipBoard} from 'c/utilitySystem';
 import TITLE from '@salesforce/label/c.DataMaskingAdvisor_ExportModal_Title';
 import DOWNLOAD from '@salesforce/label/c.DataMaskingAdvisor_ExportModal_Download';
 import CANCEL from '@salesforce/label/c.DataMaskingAdvisor_ExportModal_Cancel';
@@ -275,16 +276,22 @@ export default class MaskingExportModal extends LightningModal
 	}
 
 	/**
-	 * @description Copies the resolved deploy command to the clipboard (when the API is available) and flips
-	 * the button label to confirm.
+	 * @description Copies the resolved deploy command to the clipboard and flips the button label to
+	 * confirm — only once the copy actually succeeded. A failed copy (Clipboard API and its
+	 * temporary-input fallback both failing) leaves the button re-armed so the admin can retry.
 	 */
-	handleCopyCommand()
+	async handleCopyCommand()
 	{
-		if(navigator.clipboard && navigator.clipboard.writeText)
+		this.copied = false;
+		try
 		{
-			navigator.clipboard.writeText(this.deployCommand);
+			await copyToClipBoard(this.deployCommand);
+			this.copied = true;
 		}
-		this.copied = true;
+		catch
+		{
+			// copyToClipBoard already logged the failure; the button stays re-armed for a retry.
+		}
 	}
 
 	/**

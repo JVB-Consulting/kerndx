@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, March 2026
+ * @date October 2022, July 2026
  */
 import search from '@salesforce/apex/CTRL_Search.search';
 import BaseLookup from 'c/baseLookup';
@@ -46,7 +46,8 @@ export default class SObjectLookup extends BaseLookup
 	/**
 	 * @description Resolves the SLDS icon for the lookup results. Custom objects use the
 	 * explicitly set `iconName` (or empty string); standard objects derive the icon from
-	 * the object API name (e.g., `standard:account`).
+	 * the object API name (e.g., `standard:account`). While the object API name has not
+	 * been provided yet, resolves to an empty string so rendering never throws.
 	 * @returns {string}
 	 */
 	get icon()
@@ -57,7 +58,8 @@ export default class SObjectLookup extends BaseLookup
 			return this.iconName || '';
 		}
 
-		return `standard:${this.objectApiName.toLowerCase()}`;
+		const standardIconName = this.objectApiName?.toLowerCase();
+		return standardIconName ? `standard:${standardIconName}` : '';
 	}
 
 	// ── Rendering ────────────────────────────────────────────────────────

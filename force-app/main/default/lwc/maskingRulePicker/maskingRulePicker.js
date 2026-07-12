@@ -297,6 +297,8 @@ export default class MaskingRulePicker extends LightningElement
 	 */
 	get pickerClass()
 	{
+		// CSS class strings, not display text (scanner false positive on the two-word value).
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text
 		return this.isOpen ? 'rulepick is-open' : 'rulepick';
 	}
 

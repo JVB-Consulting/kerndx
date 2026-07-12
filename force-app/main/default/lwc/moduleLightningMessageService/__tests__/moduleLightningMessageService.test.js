@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  */
 
 // Import from the shared mock
@@ -298,6 +298,25 @@ describe('moduleLightningMessageService', () =>
 			expect(success).toBe(true);
 			expect(subscribe).toHaveBeenCalled();
 			expect(publish).toHaveBeenCalled();
+		});
+
+		it('wires clearSubscriptions exactly once during full module activation', () =>
+		{
+			const wiredHandlers = [];
+			Object.defineProperty(mockComponent, 'clearSubscriptions', {
+				configurable: true, get()
+				{
+					return wiredHandlers[wiredHandlers.length - 1];
+				}, set(handler)
+				{
+					wiredHandlers.push(handler);
+				}
+			});
+
+			initialiseLightningMessageModule(mockComponent);
+
+			expect(wiredHandlers).toHaveLength(1);
+			expect(typeof mockComponent.clearSubscriptions).toBe('function');
 		});
 
 		it('should allow clearing subscriptions', () =>

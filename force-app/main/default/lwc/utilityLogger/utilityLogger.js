@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, July 2026
  *
  * @group Logging
  *
@@ -43,37 +43,81 @@ const CONSOLE_METHODS = Object.freeze({
 	[LogLevel.ERROR]: 'error', [LogLevel.WARN]: 'warn', [LogLevel.DEBUG]: 'log', [LogLevel.INFO]: 'log'
 });
 
+/** @description Number of buffered entries at which the buffer drains to the server automatically. */
+const AUTO_FLUSH_ENTRY_THRESHOLD = 20;
+
 // ── Module State ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** @type {string|null} */
-let activeCorrelationId = null;
-
-/** @type {number|null} */
-let correlationStartMs = null;
-
-/** @type {Object} */
-let correlationMeta = {};
+/**
+ * @description Open correlation frames, innermost last. Each frame carries its own id, start time,
+ * and metadata so nested or overlapping correlations never clobber one another.
+ * @type {{correlationId: string, startMs: number, meta: Object}[]}
+ */
+const correlationFrames = [];
 
 /** @type {Object[]} */
 const pendingEntries = [];
 
+/** @description Console mirroring is opt-in debug tooling — OFF by default in a released package. */
+let isConsoleMirroringEnabled = false;
+
 // ── Internal Helpers ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * @description Appends a structured log entry to the buffer and mirrors it to the browser console.
+ * @description Returns the innermost open correlation frame, or null when none is open.
+ * @returns {{correlationId: string, startMs: number, meta: Object}|null}
+ * @private
+ */
+function getActiveFrame()
+{
+	return correlationFrames.length > 0 ? correlationFrames[correlationFrames.length - 1] : null;
+}
+
+/**
+ * @description Serialises structured context, falling back to a serialisation-error marker for
+ * circular or otherwise unserialisable data so a logging call can never crash its caller.
+ *
+ * @param {Object} context - Structured context to serialise
+ * @returns {string} JSON string of the context, or of a serialisation-error marker
+ * @private
+ */
+function serialiseContext(context)
+{
+	try
+	{
+		return JSON.stringify(context);
+	}
+	catch(serialisationError)
+	{
+		return JSON.stringify({serialisationError: serialisationError.message});
+	}
+}
+
+/**
+ * @description Appends a structured log entry to the buffer, optionally mirrors it to the browser
+ * console (when mirroring is enabled), and drains the buffer once it reaches the auto-flush bound.
  *
  * @param {string} level - One of the LogLevel values
  * @param {string} message - Human-readable log message
- * @param {Object} [data={}] - Arbitrary structured data to attach
+ * @param {Object} data - Arbitrary structured data to attach (every caller supplies it)
+ * @param {Object|null} [frame=getActiveFrame()] - Correlation frame the entry belongs to
  * @private
  */
-function appendEntry(level, message, data = {})
+function appendEntry(level, message, data, frame = getActiveFrame())
 {
 	pendingEntries.push({
-		timestamp: new Date().toISOString(), level, message, correlationId: activeCorrelationId, context: JSON.stringify({...correlationMeta, ...data})
+		timestamp: new Date().toISOString(), level, message, correlationId: frame?.correlationId ?? null, context: serialiseContext({...frame?.meta, ...data})
 	});
 
-	console[CONSOLE_METHODS[level]](`[${level}] ${message}`, data);
+	if(isConsoleMirroringEnabled)
+	{
+		console[CONSOLE_METHODS[level]](`[${level}] ${message}`, data);
+	}
+
+	if(pendingEntries.length >= AUTO_FLUSH_ENTRY_THRESHOLD)
+	{
+		flush();
+	}
 }
 
 /**
@@ -116,41 +160,56 @@ function flush()
  */
 function startCorrelation(actionName, context = {})
 {
-	activeCorrelationId = generateUUID();
-	correlationStartMs = performance.now();
-	correlationMeta = {actionName, startTime: new Date().toISOString(), ...context};
-	appendEntry(LogLevel.INFO, `[${actionName}] Started`);
-	return activeCorrelationId;
+	const frame = {
+		correlationId: generateUUID(), startMs: performance.now(), meta: {actionName, startTime: new Date().toISOString(), ...context}
+	};
+	correlationFrames.push(frame);
+	appendEntry(LogLevel.INFO, `[${actionName}] Started`, {}, frame);
+	return frame.correlationId;
 }
 
 /**
- * @description Closes the active correlation, logs the total duration, and flushes
- * all buffered entries to the server.
+ * @description Closes a correlation, logs its total duration, and flushes all buffered entries
+ * to the server. Called with no arguments it closes the innermost open correlation; pass the ID
+ * returned by {@link startCorrelation} to close a specific correlation when several overlap.
  *
  * @param {Object} [result={}] - Outcome data (e.g. `{success: true}`)
+ * @param {string|null} [correlationId=null] - Specific correlation to close; defaults to the innermost open one
  */
-function endCorrelation(result = {})
+function endCorrelation(result = {}, correlationId = null)
 {
-	if(!activeCorrelationId)
+	const frameIndex = correlationId === null ? correlationFrames.length - 1 : correlationFrames.findIndex((frame) => frame.correlationId === correlationId);
+
+	if(frameIndex < 0)
 	{
 		return;
 	}
 
-	const durationMs = Math.round(performance.now() - correlationStartMs);
-	appendEntry(LogLevel.INFO, `[${correlationMeta.actionName}] Completed in ${durationMs}ms`, {durationMs, ...result});
+	const [endedFrame] = correlationFrames.splice(frameIndex, 1);
+	const durationMs = Math.round(performance.now() - endedFrame.startMs);
+	appendEntry(LogLevel.INFO, `[${endedFrame.meta.actionName}] Completed in ${durationMs}ms`, {durationMs, ...result}, endedFrame);
 	flush();
-
-	activeCorrelationId = null;
-	correlationMeta = {};
 }
 
 /**
- * @description Returns the active correlation ID, or null when no correlation is open.
+ * @description Returns the innermost active correlation ID, or null when no correlation is open.
  * @returns {string|null}
  */
 function getCorrelationId()
 {
-	return activeCorrelationId;
+	return getActiveFrame()?.correlationId ?? null;
+}
+
+/**
+ * @description Turns browser-console mirroring of log entries on or off. Mirroring is OFF by
+ * default in a released package; enable it explicitly while debugging to echo every buffered
+ * entry to the matching `console` method.
+ *
+ * @param {boolean} isEnabled - True to mirror entries to the console
+ */
+function setConsoleMirroring(isEnabled)
+{
+	isConsoleMirroringEnabled = isEnabled === true;
 }
 
 /**
@@ -234,13 +293,13 @@ async function withCorrelation(actionName, asyncFn, context = {})
 	try
 	{
 		const result = await asyncFn(correlationId);
-		endCorrelation({success: true});
+		endCorrelation({success: true}, correlationId);
 		return result;
 	}
 	catch(err)
 	{
 		error(`[${actionName}] Failed`, err);
-		endCorrelation({success: false});
+		endCorrelation({success: false}, correlationId);
 		throw err;
 	}
 }
@@ -256,7 +315,7 @@ function _flushLogs()
 
 // ── Exports ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export {LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, _flushLogs};
+export {LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, setConsoleMirroring, _flushLogs};
 
 /** @type {utilityLogger} */
-export default {LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, _flushLogs};
+export default {LogLevel, startCorrelation, endCorrelation, getCorrelationId, debug, info, warn, error, startTimer, withCorrelation, setConsoleMirroring, _flushLogs};

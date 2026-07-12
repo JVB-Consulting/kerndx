@@ -26,6 +26,10 @@ test.describe.serial('Part 4: Scheduler Execution', () =>
 
 		const detail = await jobs.getDetailComponent();
 		await expect(detail).toBeVisible();
+		// The detail root now also renders during its loading and error states, so prove the
+		// record actually loaded rather than just that the card mounted.
+		await expect(detail.locator('[data-testid="cron-description"]')).toBeVisible();
+		await expect(detail.locator('[data-testid="load-error"]')).toBeHidden();
 
 		executeAnonymousApex(`
 			List<CronTrigger> triggers = [SELECT Id, State FROM CronTrigger WHERE CronJobDetail.Name LIKE '%Purge Test Job%'];
@@ -51,6 +55,10 @@ test.describe.serial('Part 4: Scheduler Execution', () =>
 
 		const detail = await jobs.getDetailComponent();
 		await expect(detail).toBeVisible();
+		// The detail root now also renders during its loading and error states, so prove the
+		// record actually loaded rather than just that the card mounted.
+		await expect(detail.locator('[data-testid="cron-description"]')).toBeVisible();
+		await expect(detail.locator('[data-testid="load-error"]')).toBeHidden();
 
 		await jobs.deleteCurrentRecord();
 	});

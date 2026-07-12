@@ -245,6 +245,15 @@ describe('c-s-object-lookup', () =>
 				context.objectInfo = null;
 				expect(callGetter(context, 'icon')).toBe('standard:account');
 			});
+
+			it('icon returns empty string instead of throwing while objectApiName is not yet provided', () =>
+			{
+				const context = createMockContext();
+				context.objectInfo = null;
+				context.objectApiName = undefined;
+				expect(() => callGetter(context, 'icon')).not.toThrow();
+				expect(callGetter(context, 'icon')).toBe('');
+			});
 		});
 
 		describe('methods', () =>

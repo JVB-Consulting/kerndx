@@ -921,7 +921,7 @@ commands.
 
 ## Phase 3 — Visual Tests (Playwright E2E)
 
-Phase 3 is fully automated by Playwright. The 79 visual checks (numbered V1 through V113, with gaps between
+Phase 3 is fully automated by Playwright. The 80 visual checks (numbered V1 through V114, with gaps between
 part groups) run in a headless browser against the subscriber scratch org.
 
 ### Running Phase 3
@@ -950,7 +950,7 @@ npm run test:e2e:part3
 | `part2-api-config.spec.js`         | V6-V10            | Echo results, API Issues, Streaming Monitor UI, CMDT, Login Frequencies                                                                                                                         |
 | `part3-lwc-integration.spec.js`    | V11-V14           | LWC components, module tests, Account triggers, log entries                                                                                                                                     |
 | `part4-scheduler-exec.spec.js`     | V15-V18           | Job execution (Purge, Login History), cleanup verification                                                                                                                                      |
-| `part5-streaming-setup.spec.js`    | V19-V24, V104-V105 | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events; Org Limits card grid (worst-first bands, sort + search)                                                                          |
+| `part5-streaming-setup.spec.js`    | V19-V24, V104-V105, V114 | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events; Org Limits card grid (worst-first bands, sort + search); native-SVG timeline dots/tooltip/select contract                                                                          |
 | `part6-streaming-advanced.spec.js` | V25-V29, V99-V103 | Generic channel (stale cache), publish, download, cleanup; Event usage metrics (prototype contract, view states, seeded-data roundtrip, Enhanced Usage Metrics toggle, CDC channel-list purity) |
 | `part7-async-chain.spec.js`        | V10-V17           | Async chain execution, polling, record verification, API callout, handler isolation                                                                                                             |
 | `part8-chain-monitor.spec.js`      | V30-V39           | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines                                          |
@@ -1192,13 +1192,14 @@ Notes:
 
 ### Usage-Metrics + Org-Limits Probes (development org)
 
-Three standalone Playwright probes exercise deployed Streaming Event Monitor views directly against a
+Four standalone Playwright probes exercise deployed Streaming Event Monitor views directly against a
 development org (they do not need the subscriber harness):
 
 ```bash
 node release-testing/scripts/usage-metrics-gapfinder.mjs            # prototype data-spec-id contract
 node release-testing/scripts/usage-metrics-robustness-probe.mjs     # 10 hostile-interaction scenarios
 node release-testing/scripts/org-limits-gapfinder.mjs               # Org Limits card-grid prototype contract
+node release-testing/scripts/timeline-gapfinder.mjs                 # streamingTimeline native-SVG mockup contract
 ```
 
 The usage-metrics gap-finder verifies every `data-spec-id` from the validated prototype exists in the live DOM.
@@ -1208,5 +1209,9 @@ and fails on any HIGH-severity anomaly — run it after any change to the Event 
 The org-limits gap-finder does the same prototype-contract check for the "Org limits" card grid,
 driving the empty state (no-match search) and the error state (aborted Aura XHRs) live and
 self-recovering afterwards — coverage the subscriber-org V104/V105 checks cannot produce naturally.
-All three accept `--org=<alias>` and `--headed`; the robustness probe also accepts `--only=A,B` to
+The timeline gap-finder round-trips the `data-spec-id`s from the validated before/after mockup to
+the live timeline: it subscribes to LogEntryEvent, publishes a probe log entry, waits for the first
+native-SVG dot, and hovers it to drive the detail tooltip (pinned to the `.data` variant so the
+crosshair tooltip cannot stand in for it).
+All four accept `--org=<alias>` and `--headed`; the robustness probe also accepts `--only=A,B` to
 run a scenario subset.

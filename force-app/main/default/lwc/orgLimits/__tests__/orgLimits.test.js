@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Jest unit tests for the orgLimits LWC card-grid redesign (PLAN-108). Exercises the
+ * @description Jest unit tests for the orgLimits LWC card-grid redesign. Exercises the
  * worst-first ordering, the 70/90 colour bands, the cosmetic name prettify, client-side search and
  * sort, the locale-aware usage line, the max==0 guard, and the loading/empty/error states.
  * @author Jason van Beukering

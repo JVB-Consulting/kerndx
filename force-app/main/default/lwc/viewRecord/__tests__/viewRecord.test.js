@@ -285,6 +285,28 @@ describe('c-view-record', () =>
 				expect(result.activeSections).toEqual(['FieldSet1']);
 			});
 
+			it('fieldSetsAndActiveSections returns empty arrays when the metadata field values are blank', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetGroup = {FieldSetApiNames__c: '', DefaultActiveSections__c: null};
+				context.fieldApiNamesField = {fieldApiName: 'FieldSetApiNames__c'};
+				context.activeSectionsField = {fieldApiName: 'DefaultActiveSections__c'};
+				const descriptor = Object.getOwnPropertyDescriptor(prototype, 'fieldSetsAndActiveSections');
+				expect(() => descriptor.get.call(context)).not.toThrow();
+				expect(descriptor.get.call(context)).toEqual({fieldSetApiNames: [], activeSections: []});
+			});
+
+			it('fieldSetsAndActiveSections returns empty arrays when the fields are absent from the metadata record', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetGroup = {};
+				context.fieldApiNamesField = {fieldApiName: 'FieldSetApiNames__c'};
+				context.activeSectionsField = {fieldApiName: 'DefaultActiveSections__c'};
+				const descriptor = Object.getOwnPropertyDescriptor(prototype, 'fieldSetsAndActiveSections');
+				expect(() => descriptor.get.call(context)).not.toThrow();
+				expect(descriptor.get.call(context)).toEqual({fieldSetApiNames: [], activeSections: []});
+			});
+
 			it('fieldSetsAndActiveSections returns empty arrays when fields are null', () =>
 			{
 				const context = createMockContext();

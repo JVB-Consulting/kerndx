@@ -5,23 +5,24 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, June 2026
+ * @date December 2025, July 2026
  */
 import {reduceErrors, sortBy, copyToClipBoard, flattenObject, setPropertyOnObject} from 'c/utilitySystem';
 
-// Mock utilityLogger to prevent import errors. Resolve the module reference at the same static
-// point as c/utilitySystem imports it — keeps the mock instance consistent across test files that
-// may call jest.resetModules between suites.
-jest.mock('c/utilityLogger', () =>
-{
-	return {
-		__esModule: true, default: {
-			debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn()
-		}
-	};
-}, {virtual: true});
-
+// c/utilityLogger is deliberately NOT jest.mock'd — the suite spies on the REAL module
+// instance below. An explicit mock of a custom-resolver module is keyed by a raw-specifier
+// module id at registration, but once any earlier suite in the same jest worker has loaded
+// the real module chain, the run-shared resolver cache flips the source's lookup to the
+// absolute path and the mock silently stops intercepting — the source then logs to a second
+// instance the test cannot see (root-caused 2026-07-07 as the intermittent full-suite
+// failure of the clipboard fallback tests). Spying on the per-registry instance is immune:
+// c/utilitySystem and this file share the same object.
 import utilityLogger from 'c/utilityLogger';
+
+jest.spyOn(utilityLogger, 'debug').mockImplementation(() => undefined);
+jest.spyOn(utilityLogger, 'info').mockImplementation(() => undefined);
+jest.spyOn(utilityLogger, 'warn').mockImplementation(() => undefined);
+jest.spyOn(utilityLogger, 'error').mockImplementation(() => undefined);
 
 describe('reduceErrors', () =>
 {
@@ -746,21 +747,8 @@ describe('copyToClipBoard', () =>
 			expect(document.body.removeChild).toHaveBeenCalled();
 		});
 
-		it('should handle execCommand failure gracefully without throwing', async() =>
+		it('rejects with the original error when execCommand throws', async() =>
 		{
-			setupExecCommandFallbackMocks(false);
-
-			// Should not throw even when execCommand fails (error is logged internally)
-			await expect(copyToClipBoard('failing text')).resolves.not.toThrow();
-			// Verify cleanup still happens
-			expect(document.body.removeChild).toHaveBeenCalled();
-		});
-
-		it('logs an error via utilityLogger.error when execCommand throws', async() =>
-		{
-			// Clipboard API rejects, so we fall back to execCommand. Make execCommand
-			// throw synchronously to exercise the inner catch (line 200) that calls
-			// utilityLogger.error. The finally still runs and removes the input.
 			Object.defineProperty(navigator, 'clipboard', {
 				value: {
 					writeText: jest.fn().mockRejectedValue(new Error('Clipboard not available'))
@@ -781,10 +769,23 @@ describe('copyToClipBoard', () =>
 			// @ts-ignore
 			jest.spyOn(document.body, 'removeChild').mockImplementation(() => mockInput);
 
-			await expect(copyToClipBoard('boom text')).resolves.not.toThrow();
+			await expect(copyToClipBoard('boom text')).rejects.toThrow('execCommand blew up');
 
 			expect(utilityLogger.error).toHaveBeenCalledWith('Clipboard fallback failed', expect.any(Error));
+			// Cleanup still happens even though the failure propagates
 			expect(document.body.removeChild).toHaveBeenCalled();
 		});
+
+		it('rejects when the Clipboard API fails and execCommand reports failure', async() =>
+		{
+			setupExecCommandFallbackMocks(false);
+
+			await expect(copyToClipBoard('failing text')).rejects.toThrow('Clipboard copy failed');
+
+			expect(utilityLogger.error).toHaveBeenCalledWith('Clipboard fallback failed', expect.any(Error));
+			// Cleanup still happens even though the failure propagates
+			expect(document.body.removeChild).toHaveBeenCalled();
+		});
+
 	});
 });
