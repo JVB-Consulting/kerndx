@@ -57,12 +57,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.4.0-2):** `04tfj000000MlrVAAS`
+**Current SubscriberPackageVersionId (1.5.0-1):** `04tfj000000MutBAAS`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000M0ZFAA0)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000M0ZFAA0)
+[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000MutBAAS)
+[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000MutBAAS)
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -71,13 +71,13 @@ The same buttons appear on every entry of the [Releases page](https://github.com
 **CLI install**, in production:
 
 ```bash
-sf package install --package 04tfj000000MlrVAAS --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000MutBAAS --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install**, in a sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000MlrVAAS --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000MutBAAS --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
 **Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and

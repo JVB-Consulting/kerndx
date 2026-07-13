@@ -13,6 +13,12 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.5.0-1] — 2026-07-13
+
+**Subscriber package version id:** `04tfj000000MutBAAS`
+
+A single-fix release for the Streaming Monitor. Its Change Data Capture list showed only custom-object change events; the standard ones, such as `AccountChangeEvent`, were missing because discovery looked for them under a publisher that no record on the platform uses. A single lookup now returns both, so the standard channels are back in the list, and every channel is labelled `Standard: <name>` or `Custom: <name>` (from two new Custom Labels) so you can tell them apart at a glance. KernDX publishes each release as a new minor version, so this standalone fix ships as 1.5 rather than a patch, and it carries nothing else. Backward-compatible: the Apex API and metadata surface are purely additive (two new Custom Labels, nothing removed or changed), so upgrading from 1.4 is the standard package upgrade with no migration steps. For the full context, see [Kern 1.5 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.5.md).
+
 ## [1.4.0-2] — 2026-07-12
 
 **Subscriber package version id:** `04tfj000000MlrVAAS`
@@ -48,3 +54,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.2.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.2.0-1
 [1.3.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.3.0-3
 [1.4.0-2]: https://github.com/JVB-Consulting/kerndx/tree/v1.4.0-2
+[1.5.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.5.0-1
