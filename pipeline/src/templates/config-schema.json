@@ -156,10 +156,6 @@
 		  "minimum": 1,
 		  "maximum": 5,
 		  "default": 1
-		},
-		"changed_files_only": {
-		  "type": "boolean",
-		  "default": true
 		}
 	  }
 	},
@@ -180,14 +176,6 @@
 			"maxLength": 200
 		  }
 		}
-	  }
-	},
-	"severity_overrides": {
-	  "type": "object",
-	  "additionalProperties": {
-		"type": "integer",
-		"minimum": 1,
-		"maximum": 5
 	  }
 	},
 	"naming": {
