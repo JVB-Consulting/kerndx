@@ -1641,6 +1641,22 @@ Members: {0}</value>
         <value>Superseded by {0}. Existing bindings still actively mask their objects — deactivating this rule stops masking wherever it is still bound. Rebind those objects to {0} first.</value>
     </labels>
     <labels>
+        <fullName>EventMonitor_ChangeEventChannelCustom</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>CDC channel picklist label prefix for a custom-object change event.</shortDescription>
+        <value>Custom: {0}</value>
+    </labels>
+    <labels>
+        <fullName>EventMonitor_ChangeEventChannelStandard</fullName>
+        <categories>Streaming Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>CDC channel picklist label prefix for a standard-object change event.</shortDescription>
+        <value>Standard: {0}</value>
+    </labels>
+    <labels>
         <fullName>EventMonitor_PayloadTemplateFailed</fullName>
         <categories>Streaming Monitor</categories>
         <language>en_US</language>

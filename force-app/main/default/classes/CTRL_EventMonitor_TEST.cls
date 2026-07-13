@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-/**
-*  https://github.com/pozil/streaming-monito is licensed under the Creative Commons Zero v1.0 Universal
-*/
+// Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
+// Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
+// Modifications copyright (c) 2026 JVB Consulting
 
 /**
  * @description Unit test for related controlled class
@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -312,17 +312,24 @@ private class CTRL_EventMonitor_TEST
 
 		List<CTRL_EventMonitor.ComboBoxItem> changeDataCaptureItems = channels.get(CTRL_EventMonitor.StreamingEventTypes.ChangeDataCaptureEvent.name());
 
+		Boolean foundStandardChangeEvent = false;
 		Boolean foundCustomChangeEvent = false;
 
 		for(CTRL_EventMonitor.ComboBoxItem item : changeDataCaptureItems)
 		{
+			if(item.value == 'AccountChangeEvent')
+			{
+				foundStandardChangeEvent = true;
+				Assert.areEqual('Standard: Account Change Event', item.label, 'Standard change events should carry the Standard: group prefix');
+			}
 			if(item.value == 'Foobar__ChangeEvent')
 			{
 				foundCustomChangeEvent = true;
-				Assert.areEqual('Change Event: Foobar', item.label, 'Custom ChangeEvent label should pass through unmodified');
+				Assert.areEqual('Custom: Change Event: Foobar', item.label, 'Custom change events should carry the Custom: group prefix with the api name unmodified');
 			}
 		}
 
+		Assert.isTrue(foundStandardChangeEvent, 'Standard change events must appear in the CDC channel list from the single-query discovery');
 		Assert.isTrue(foundCustomChangeEvent, 'Custom ChangeEvent channel should be listed without api-name rewriting');
 	}
 

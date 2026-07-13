@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-/**
-* https://github.com/pozil/streaming-monito is licensed under the Creative Commons Zero v1.0 Universal
-*/
+// Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
+// Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
+// Modifications copyright (c) 2026 JVB Consulting
 
 /**
  * @description Controller for the Streaming Monitor component.
@@ -14,7 +14,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class CTRL_EventMonitor
@@ -361,8 +361,7 @@ public inherited sharing class CTRL_EventMonitor
 	{
 		List<ComboBoxItem> comboBoxItems = new List<ComboBoxItem>();
 
-		addChangeEventDefinition(new SEL_EntityDefinition().getAllStandardChangeCaptureEvents(), comboBoxItems);
-		addChangeEventDefinition(new SEL_EntityDefinition().getAllCustomChangeCaptureEvents(), comboBoxItems);
+		addChangeEventDefinition(new SEL_EntityDefinition().getAllChangeCaptureEvents(), comboBoxItems);
 
 		comboBoxItems.sort();
 
@@ -370,18 +369,27 @@ public inherited sharing class CTRL_EventMonitor
 	}
 
 	/**
-	 * @description Will loop through definitions and add them to combo box list. Both standard
-	 * and custom ChangeEvent entities expose their channel api name directly on QualifiedApiName,
-	 * so labels and values pass through unmodified.
+	 * @description Adds each Change Data Capture entity to the combo-box list, grouping the picklist
+	 * with a label-sourced `Standard: ` or `Custom: ` prefix (both translatable Custom Labels) so
+	 * standard and custom change events sort into consistent neighbourhoods instead of interleaving.
+	 * Custom change events are told apart by the `__ChangeEvent` suffix
+	 * (`UTIL_SObjectDescribe.CUSTOM_CHANGE_EVENT_SUFFIX`). The combo-box value is always the entity
+	 * `QualifiedApiName` verbatim — it is the channel api name and must never be rewritten.
 	 *
-	 * @param definitions The entity definitions to process
+	 * @param definitions The change-event entity definitions to process
 	 * @param comboBoxItems The items to which to add definition details
 	 */
 	private static void addChangeEventDefinition(List<EntityDefinition> definitions, List<ComboBoxItem> comboBoxItems)
 	{
 		for(EntityDefinition entity : definitions)
 		{
-			comboBoxItems.add(new ComboBoxItem(entity.Label, entity.QualifiedApiName));
+			String labelTemplate = entity.QualifiedApiName.endsWith(UTIL_SObjectDescribe.CUSTOM_CHANGE_EVENT_SUFFIX)
+					? System.Label.EventMonitor_ChangeEventChannelCustom
+					: System.Label.EventMonitor_ChangeEventChannelStandard;
+
+			String groupedLabel = String.format(labelTemplate, new List<Object> {entity.Label});
+
+			comboBoxItems.add(new ComboBoxItem(groupedLabel, entity.QualifiedApiName));
 		}
 	}
 

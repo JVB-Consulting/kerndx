@@ -56,12 +56,14 @@ test.describe.serial('Part 5: Streaming — Setup & Subscribe', () =>
 		await monitor.navigate();
 
 		// The harness ships a CDC-enabled SubscriberCdcProbe__c (selected on the standard
-		// ChangeEvents channel), so its change event surfaces in the CDC dropdown. The option
-		// label is the __ChangeEvent entity's own label — 'Change Event: <object label>' —
-		// passed through unmodified (CTRL_EventMonitor.addChangeEventDefinition).
+		// ChangeEvents channel), so its change event surfaces in the CDC dropdown. Custom change
+		// events are grouped under a label-sourced 'Custom: ' prefix
+		// (CTRL_EventMonitor.addChangeEventDefinition), so the option reads 'Custom: ' followed by
+		// the entity's own 'Change Event: <object label>' label. The channel value stays the
+		// unmodified __ChangeEvent api name.
 		await monitor.clickSubscribe();
 		await monitor.selectEventType('Change Data Capture event');
-		await monitor.selectEventName('Change Event: Subscriber CDC Probe');
+		await monitor.selectEventName('Custom: Change Event: Subscriber CDC Probe');
 		await monitor.clickSubscribeButton();
 
 		const subCount = await monitor.getActiveSubscriptionCount();

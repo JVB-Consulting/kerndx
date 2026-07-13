@@ -485,7 +485,7 @@ test.describe.serial('Part 6: Event Usage Metrics', () =>
 		await expect(page.locator('[data-spec-id="usage-enhanced-notice"] span').first(), 'Restoring the default settings must re-render the notice').toBeVisible();
 	});
 
-	test('V103: Custom CDC channel list offers only real change events', async({page}) =>
+	test('V103: CDC channel list offers standard and custom change events, and only real change events', async({page}) =>
 	{
 		test.setTimeout(120_000);
 		await navigateToApp(page, 'Kern');
@@ -497,7 +497,9 @@ test.describe.serial('Part 6: Event Usage Metrics', () =>
 
 		// Option labels render inside nested shadow roots (textContent cannot reach them), so the
 		// assertions read each option's data-value — the entity QualifiedApiName — which is also
-		// the exact field the guarded regression polluted with __mdt entities.
+		// the exact field the guarded regression polluted with __mdt entities. Single-query CDC
+		// discovery now surfaces standard change events too (they were silently missing while the
+		// discovery relied on the obsolete 'CDC' publisher).
 		const eventNameCombobox = page.locator('[data-testid="event-name"]').first();
 		await eventNameCombobox.waitFor({state: 'visible', timeout: 10_000});
 		await eventNameCombobox.locator('input, button').first().click();
@@ -506,7 +508,8 @@ test.describe.serial('Part 6: Event Usage Metrics', () =>
 		await page.keyboard.press('Escape');
 
 		test.info().annotations.push({type: 'notes', description: `CDC channel option values: ${optionValues.join(' | ')}`});
-		expect(optionValues, 'The harness-staged probe change event must be offered').toContain('SubscriberCdcProbe__ChangeEvent');
+		expect(optionValues, 'The harness-staged custom probe change event must be offered').toContain('SubscriberCdcProbe__ChangeEvent');
+		expect(optionValues, 'Standard change events must be offered now that single-query discovery restores them').toContain('AccountChangeEvent');
 		const nonChangeEventEntities = optionValues.filter((value) => !value.endsWith('ChangeEvent'));
 		expect(nonChangeEventEntities, 'Every CDC channel option must be a real change-event entity (the guarded regression listed __mdt entities here)').toEqual([]);
 	});

@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
+// Portions adapted from streaming-monitor (https://github.com/pozil/streaming-monitor),
+// Copyright (c) Philippe Ozil (CC0-1.0 — rights waived): the streaming channel-discovery query
+// methods getAllStandardPlatformEvents, getAllCustomPlatformEvents and getAllChangeCaptureEvents
+// derive from his controller's inline SOQL. The remaining selector methods are original KernDX work.
 /**
  * @description Selector for the EntityDefinition SObject. Provides default field configuration
  * and query methods for EntityDefinition records.
@@ -10,10 +14,16 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 public inherited sharing class SEL_EntityDefinition extends SEL_Base
 {
+	/**
+	 * @description Publisher Id under which every Change Data Capture entity — standard and custom
+	 * alike — is registered. Standard change events do not use a separate `CDC` publisher.
+	 */
+	private static final String PUBLISHER_ID_SYSTEM = 'System';
+
 	/**
 	 * @description Picklist value of Private for Sharing Model.
 	 */
@@ -155,60 +165,34 @@ public inherited sharing class SEL_EntityDefinition extends SEL_Base
 	}
 
 	/**
-	 * @description Finds entity definitions for standard Change Data Capture events.
+	 * @description Finds entity definitions for all Change Data Capture events — both standard
+	 * (for example `AccountChangeEvent`) and custom (for example `Foobar__ChangeEvent`). Every
+	 * ChangeEvent entity, standard or custom, is registered under the `System` publisher with the
+	 * same fixed capability shape (Apex-triggerable, not customizable, not searchable, not
+	 * queryable), so a single shape query returns the whole set. There is deliberately no second
+	 * `PublisherId = 'CDC'` query: standard change events publish under `System`, not `CDC`
+	 * (verified in both a namespace-free dev org and a managed subscriber org, where the `CDC`
+	 * publisher matches no rows), so that query would return nothing and only spend SOQL.
 	 *
-	 * @return List of standard Change Data Capture EntityDefinition records
-	 */
-	public List<EntityDefinition> getAllStandardChangeCaptureEvents()
-	{
-		return findByPublisher('CDC');
-	}
-
-	/**
-	 * @description Finds entity definitions for custom Change Data Capture events. Custom
-	 * ChangeEvent entities are published under the `System` publisher with a fixed capability
-	 * shape (Apex-triggerable, not customizable, not searchable, not queryable); the
-	 * `endsWith('ChangeEvent')` (`LIKE '%ChangeEvent'`) predicate also matches standard
-	 * ChangeEvents, so rows are post-filtered to the literal `__ChangeEvent` suffix that only
-	 * custom objects produce.
+	 * The `endsWith('ChangeEvent')` (`LIKE '%ChangeEvent'`) predicate is intentionally broad enough
+	 * to match both classes; callers distinguish custom from standard by the `__ChangeEvent` suffix
+	 * (`UTIL_SObjectDescribe.CUSTOM_CHANGE_EVENT_SUFFIX`). The `QualifiedApiName` is always handed to
+	 * the caller verbatim and never rewritten — a ChangeEvent's channel api name is the
+	 * `QualifiedApiName` itself, so reconstructing it (for example from a `__c` base) would silently
+	 * drop channels.
 	 *
-	 * @return List of custom Change Data Capture EntityDefinition records
+	 * @return All standard and custom Change Data Capture EntityDefinition records, ordered by label.
 	 */
-	public List<EntityDefinition> getAllCustomChangeCaptureEvents()
+	public List<EntityDefinition> getAllChangeCaptureEvents()
 	{
-		List<EntityDefinition> changeEventEntities = query
-				.condition(EntityDefinition.PublisherId).equals('System')
+		return query
+				.condition(EntityDefinition.PublisherId).equals(PUBLISHER_ID_SYSTEM)
 				.condition(EntityDefinition.IsApexTriggerable).equals(true)
 				.condition(EntityDefinition.IsCustomizable).equals(false)
 				.condition(EntityDefinition.IsSearchable).equals(false)
 				.condition(EntityDefinition.IsQueryable).equals(false)
 				.condition(EntityDefinition.QualifiedApiName).endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX)
-				.toList();
-
-		List<EntityDefinition> customChangeEvents = new List<EntityDefinition>();
-
-		for(EntityDefinition changeEventEntity : changeEventEntities)
-		{
-			if(changeEventEntity.QualifiedApiName.endsWith(UTIL_SObjectDescribe.CUSTOM_CHANGE_EVENT_SUFFIX))
-			{
-				customChangeEvents.add(changeEventEntity);
-			}
-		}
-
-		return customChangeEvents;
-	}
-
-	/**
-	 * @description Finds entity definitions with a particular publisher Id.
-	 *
-	 * @param publisherId The value to filter on
-	 *
-	 * @return List of matching EntityDefinition records
-	 */
-	private List<EntityDefinition> findByPublisher(String publisherId)
-	{
-		return query
-				.condition(EntityDefinition.PublisherId).equals(publisherId)
+				.orderBy(EntityDefinition.Label).ascending()
 				.toList();
 	}
 

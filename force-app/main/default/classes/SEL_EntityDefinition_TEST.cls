@@ -48,36 +48,35 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that getAllStandardChangeCaptureEvents returns a list.
+	 * @description Tests that `getAllChangeCaptureEvents` returns both standard and custom
+	 * ChangeEvent entities from a single query, with the `QualifiedApiName` passed through verbatim
+	 * (never rewritten). `TST_Mock` returns registered rows regardless of the query predicate, so
+	 * this test asserts the passthrough contract the caller relies on; the `PublisherId`/capability
+	 * filter itself is proven against a real org by the streaming release tests.
 	 */
 	@IsTest
-	private static void shouldGetAllStandardChangeCaptureEvents()
+	private static void shouldGetAllChangeCaptureEvents()
 	{
-		List<EntityDefinition> results = new SEL_EntityDefinition().getAllStandardChangeCaptureEvents();
-
-		Assert.isNotNull(results, 'Should return list');
-	}
-
-	/**
-	 * @description Tests that getAllCustomChangeCaptureEvents returns only custom ChangeEvent
-	 * entities — standard ChangeEvents and non-ChangeEvent rows are filtered out.
-	 */
-	@IsTest
-	private static void shouldGetAllCustomChangeCaptureEvents()
-	{
+		TST_Mock.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.Label, 'Account Change Event')
+				.withOverride(EntityDefinition.QualifiedApiName, 'AccountChangeEvent')
+				.build();
 		TST_Mock.of(EntityDefinition.SObjectType)
 				.withOverride(EntityDefinition.Label, 'Change Event: Foobar')
 				.withOverride(EntityDefinition.QualifiedApiName, 'Foobar__ChangeEvent')
 				.build();
-		TST_Mock.of(EntityDefinition.SObjectType)
-				.withOverride(EntityDefinition.Label, 'Asset Change Event')
-				.withOverride(EntityDefinition.QualifiedApiName, 'AssetChangeEvent')
-				.build();
 
-		List<EntityDefinition> results = new SEL_EntityDefinition().getAllCustomChangeCaptureEvents();
+		List<EntityDefinition> results = new SEL_EntityDefinition().getAllChangeCaptureEvents();
 
-		Assert.areEqual(1, results.size(), 'Only the custom __ChangeEvent row should survive the filter');
-		Assert.areEqual('Foobar__ChangeEvent', results[0].QualifiedApiName, 'Custom ChangeEvent api name should pass through unmodified');
+		Set<String> apiNames = new Set<String>();
+
+		for(EntityDefinition result : results)
+		{
+			apiNames.add(result.QualifiedApiName);
+		}
+
+		Assert.isTrue(apiNames.contains('AccountChangeEvent'), 'Standard change events must be returned by the single change-capture query');
+		Assert.isTrue(apiNames.contains('Foobar__ChangeEvent'), 'Custom change events must be returned by the same single query, api name unmodified');
 	}
 
 	/**
