@@ -1431,6 +1431,8 @@ These are the building blocks KernDX uses inside its own components. You don't p
 
 ### Streaming Monitor Components
 
+KernDX's Streaming Monitor is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. If you want the monitor on its own, without the framework, install his instead: it is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5) and it is the better choice for that.
+
 | Component                | Purpose                                                 |
 |--------------------------|---------------------------------------------------------|
 | `streamingEvents`        | Event list display                                      |

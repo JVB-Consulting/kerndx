@@ -96,6 +96,8 @@ Subscribe to platform events, Change Data Capture, and custom channels, then wat
 
 See event-driven work that's normally invisible without standing up your own streaming infrastructure (a CometD client) or a separate subscriber app. Publish an event and watch it arrive the moment it's sent, with its full payload.
 
+This tool is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. If you want the monitor on its own, without the framework, install his instead: it is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5) and it is the better choice for that.
+
 <HeroLoop src="/recordings/streaming-monitor.webm" mp4="/recordings/streaming-monitor.mp4" poster="/recordings/streaming-monitor-poster.jpg" caption="Subscribe to a channel, publish an event, and watch it arrive." guide="/lwc-guide#streamingmonitor-event-monitoring" guideLabel="LWC Guide">
 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#streaming-event-monitor) · [Read the full write-up in the LWC Guide](https://docs.jvb-consulting.io/lwc-guide#streamingmonitor-event-monitoring)

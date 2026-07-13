@@ -1,7 +1,7 @@
 # KernDX
 
 [![Coverage](https://img.shields.io/badge/coverage-100%25%20Apex%20%2F%2095%25%20LWC-brightgreen.svg)](./docs/Code%20Conventions%20-%20Guide.md)
-[![Version](https://img.shields.io/badge/version-1.4.0--2-blue.svg)](./RELEASE-PROVENANCE.json)
+[![Version](https://img.shields.io/badge/version-1.5.0--1-blue.svg)](./RELEASE-PROVENANCE.json)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-orange.svg)](./LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://docs.jvb-consulting.io/)
 
@@ -11,7 +11,7 @@
 
 Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.
 
-`105 global API classes` · `190 production classes` · `68 LWC components` · `3,891 tests` · `100% Apex / 95% LWC coverage`
+`105 global API classes` · `190 production classes` · `68 LWC components` · `3,890 tests` · `100% Apex / 95% LWC coverage`
 
 **Most Salesforce open-source ships a library and stops there. KernDX ships the library plus the onboarding, CI, and guardrails that keep it consistent.**
 
@@ -57,7 +57,7 @@ Each has a Fast Start you can finish in under 30 minutes. Jump to the one you ca
 
 KernDX is **one managed package that replaces a dozen separate libraries**: the SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
 
-This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.4.0-2` at this snapshot.
+This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.5.0-1` at this snapshot.
 
 ## Built for AI-assisted development
 
@@ -112,8 +112,8 @@ The constraints are deliberate, documented, and ship as enforceable gates, not g
 |   | **Path 1: Managed package** | **Path 2: Repackage under your namespace** | **Path 3: CI tooling only** |
 | --- | --- | --- | --- |
 | **Who it's for** | Salesforce admins / developers adding KernDX to an existing org. | Teams that want to embed KernDX inside their own managed package. | Teams that want the KernDX CI pipeline without the framework itself. |
-| **What gets installed** | The `kern` managed package at `1.4.0-2`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
-| **Install command** | `sf package install --package 04tfj000000MlrVAAS --target-org <alias>` (04t in `RELEASE-PROVENANCE.json`). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.4.0-2-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
+| **What gets installed** | The `kern` managed package at `1.5.0-1`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
+| **Install command** | `sf package install --package 04tfj000000MutBAAS --target-org <alias>` (04t in `RELEASE-PROVENANCE.json`). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.5.0-1-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
 | **When to choose** | You want the framework as a managed dependency you can swap in days, not weeks. | You're building a managed package and want KernDX inside it as *your* code. | You don't want the framework but you want the conventions enforced in your CI. |
 | **Full guide** | [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package) | [Installation, Path 2](./docs/Installation.md#path-2-repackage-under-your-own-namespace) | [Installation, Path 3](./docs/Installation.md#path-3-ci-tooling-only) · preview [9 workflow examples](./examples/workflows/) |
 
@@ -167,7 +167,7 @@ npm run release:phase2
 
 ## Where to go next
 
-- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.4.0-2`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.4.0-2`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
+- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.5.0-1`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.5.0-1`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
 - [**Release Notes: Kern 1.1**](./release-notes/Release%20Notes%20-%20Kern%201.1.md): what's new since v1.0, grouped by capability, with upgrade notes. **Read this first if you are evaluating an upgrade.**
 - [**Release Notes: Kern 1.0**](./release-notes/Release%20Notes%20-%20Kern%201.0.md): the comprehensive feature reference for the framework 1.1 builds on, grouped by capability. (The top-level [CHANGELOG.md](./CHANGELOG.md) is a sequential per-build log for diagnostic use; the release notes are the subscriber-facing summary.)
 - [Documentation hub](./docs/README.md): learning paths, Fast Starts, Strategic Guides, Apex reference.
@@ -200,6 +200,7 @@ Contact: `jason@jvb-consulting.io`. The framework itself is and remains [BSL 1.1
 - **Framework (Apex, LWC, docs, scripts, metadata):** [Business Source License 1.1](./LICENSE), source-available, with a four-year clock to Apache 2.0 (the Change License).
 - **Standalone CI pipeline tooling under `pipeline/`:** [MIT License](./pipeline/LICENSE), licensed separately so teams and CI vendors can adopt it without inheriting BSL terms.
 - **Third-party-derived files:** KernDX includes Apache 2.0 derivatives (apex-lang, apex-trigger-actions-framework), MIT derivatives (ApexLogger, SObjectIndex, JsonPath), BSD 3-Clause derivatives (Apex-Util describe + unit-of-work utilities), and CC0-1.0 derivatives (streaming-monitor). Each derived file's header carries an SPDX-License-Identifier and upstream attribution; [`NOTICES.md`](./NOTICES.md) is the per-upstream-project attribution document; the [`LICENSE`](./LICENSE) carve-out section enumerates the Apache-2.0 / MIT / BSD-3-Clause files (CC0-1.0 derivatives are relicensed under BSL 1.1 since CC0 imposes no requirement). Full upstream license texts ship under [`LICENSES/`](./LICENSES/).
+- **With thanks to Philippe Ozil:** the Streaming Monitor is adapted from his [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. CC0 asks for no credit; we are giving it anyway. If you want the monitor on its own, without the framework, install his instead: it is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5) and it is the better choice for that.
 
 ## AI coding assistants
 
