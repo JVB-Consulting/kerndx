@@ -190,16 +190,19 @@ because their licensing diverges from the framework default.
 ### streaming-monitor (by Philippe Ozil)
 
 - **Upstream URL:** [github.com/pozil/streaming-monitor](https://github.com/pozil/streaming-monitor)
-- **License:** Creative Commons Zero v1.0 Universal (CC0-1.0) — full text
-  in the upstream LICENSE.md file (also available at
+- **License:** Creative Commons Zero v1.0 Universal (CC0-1.0) — full text at
+  `LICENSES/CC0-1.0.txt` (also in the upstream LICENSE.md file, and at
   [creativecommons.org/publicdomain/zero/1.0](https://creativecommons.org/publicdomain/zero/1.0/)).
   CC0-1.0 is a public-domain dedication that waives all copyright and
   related rights. The kern derivative files are therefore relicensed under
   the Business Source License 1.1 alongside the rest of KernDX and are
   **not** carved out of the root `LICENSE` file.
-- **Original author:** Philippe Ozil. Preserved as a credit line in each
-  derived file's header (CC0-1.0 explicitly waives the right to require
-  attribution; this credit is voluntary).
+- **Original author:** Philippe Ozil (Salesforce). His original tool is free
+  on the AppExchange (listing `a0N3A00000FYEEWUA5`). CC0-1.0 explicitly waives
+  the right to require attribution, so none of the credit below is a licence
+  obligation — we credit him because it is the right thing to do. The credit is
+  preserved as a header line in each derived file and, for reader visibility,
+  in the developer guides and the public README.
 - **Upstream NOTICE file:** None — verified 2026-05-21 that the upstream
   repo (default branch `master`) ships only the LICENSE.md file at the
   canonical top-level path. No NOTICE, NOTICE.txt, NOTICES.md, or COPYRIGHT
@@ -224,6 +227,21 @@ because their licensing diverges from the framework default.
   Each file's header carries `SPDX-License-Identifier: BUSL-1.1` (the
   kern-relicensed identifier), the upstream credit line, the "Adapted
   from streaming-monitor" attribution, and the modifications copyright.
+
+  The `orgLimits/` LWC is intentionally **not** listed here: it is an original
+  KernDX rebuild (a native SLDS card grid, no D3, no shared code) and says so in
+  its own header. Only the org-limits *view concept* traces to the upstream tool.
+
+- **Derived KernDX Apex classes (all under `force-app/main/default/classes/`):**
+
+  | File | Scope of derivation |
+  |------|---------------------|
+  | `CTRL_EventMonitor.cls` | Full — the Streaming Monitor controller (channel discovery, event publishing, org limits, usage metrics) is adapted from his `StreamingMonitorController`. |
+  | `CTRL_EventMonitor_TEST.cls` | Full — companion test, structured after his `StreamingMonitorControllerTest`. |
+  | `SEL_EntityDefinition.cls` | Partial — only the streaming channel-discovery query methods (`getAllStandardPlatformEvents`, `getAllCustomPlatformEvents`, `getAllChangeCaptureEvents`) derive from his controller's inline SOQL; the masking and framework selector methods are original KernDX work. Its header scopes the credit accordingly. |
+
+  As with the LWC components, each carries `SPDX-License-Identifier: BUSL-1.1`
+  and an upstream credit line.
 
 ---
 

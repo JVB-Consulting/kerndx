@@ -1,0 +1,67 @@
+---
+title: "IF_Search"
+type: class
+pageClass: reference
+description: "Generic Interface for searches"
+author: "Jason Van Beukering"
+group: "Selectors"
+date: "February 2026, May 2026"
+since: "1.0"
+category: apex
+---
+
+# IF_Search
+
+**Class** · Group: `Selectors`
+
+<div class="apex-member apex-class">
+
+```apex
+global interface IF_Search
+```
+
+Generic Interface for searches
+
+**Example**
+
+```apex
+public class AccountSearch implements IF_Search
+{
+    public Object search(Object searchTerm, Map<String, Object> searchParameters)
+    {
+        return new SEL_Accounts().findByField(Account.Name, (String)searchTerm);
+    }
+}
+```
+
+</div>
+
+---
+
+## Methods
+
+| Method | Description |
+|--------|-------------|
+| global abstract [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [search](#search)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) searchTerm, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> searchParameters) | Search function to be implemented |
+
+### search
+
+<div class="apex-member">
+
+```apex
+global abstract Object search(Object searchTerm, Map<String, Object> searchParameters)
+```
+
+Search function to be implemented
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `searchTerm` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | Search Term to be used for search/query |
+| `searchParameters` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of search parameters - individual implementations can expect differing parameters. |
+
+**Returns** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) — Response object. Individual implementations can cast to different structures as needed.
+
+</div>
+

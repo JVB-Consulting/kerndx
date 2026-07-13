@@ -110,6 +110,37 @@ MIT, or BSD 3-Clause as enumerated). The Business Source License 1.1 above
 does not modify these terms. See `NOTICES.md` for full upstream attribution
 and original copyright notices.
 
+Acknowledgement of Public-Domain-Derived Files (CC0-1.0)
+
+Separately from the carve-out above, a set of files derive from Philippe Ozil's
+streaming-monitor project (https://github.com/pozil/streaming-monitor), which is
+dedicated to the public domain under CC0-1.0. CC0-1.0 waives all copyright and
+related rights and imposes no attribution requirement, so these files are NOT
+carved out above: they are relicensed under the Business Source License 1.1
+alongside the rest of the Licensed Work, which CC0-1.0 expressly permits.
+
+They are listed here purely as an acknowledgement, not a licence obligation. We
+credit Philippe Ozil because it is the right thing to do, even though CC0-1.0
+does not require it. His original tool is free on the AppExchange (listing
+a0N3A00000FYEEWUA5). The full CC0-1.0 text is shipped at LICENSES/CC0-1.0.txt.
+
+Adapted from streaming-monitor, Copyright (c) Philippe Ozil (rights waived
+under CC0-1.0):
+
+  LWC components (11, under force-app/main/default/lwc/): streamingActions,
+    streamingEventFilters, streamingEvents, streamingEventsHeader,
+    streamingMonitor, streamingSidebar, streamingSubscriptions,
+    streamingTimeline, streamingUsageFilters, streamingUsageMetrics,
+    utilityStreaming.
+
+  Apex classes (under force-app/main/default/classes/): CTRL_EventMonitor.cls
+    and CTRL_EventMonitor_TEST.cls in full, and SEL_EntityDefinition.cls in
+    part (the streaming channel-discovery query methods only).
+
+The orgLimits LWC is an original KernDX rebuild and is deliberately excluded
+from this list. See NOTICES.md for the full per-file enumeration and upstream
+URLs.
+
 Notice
 
 Business Source License 1.1
