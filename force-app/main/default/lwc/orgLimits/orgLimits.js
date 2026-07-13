@@ -1,4 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
+// Original KernDX component — not derived from any third-party source. The idea of surfacing org
+// limits alongside the streaming view appears in Philippe Ozil's streaming-monitor (CC0-1.0), but
+// this is a clean-room rebuild that shares no code with it: that component draws a D3 bar chart into
+// a manual-DOM div, whereas this is a native SLDS card grid (worst-first ordering, client-side sort
+// and search, per-limit usage bars, no D3). The getOrgLimits() Apex it calls lives in — and is
+// credited in — CTRL_EventMonitor.
 
 /**
  * @description LWC component that renders Salesforce org limits as a prioritised SLDS card grid.
