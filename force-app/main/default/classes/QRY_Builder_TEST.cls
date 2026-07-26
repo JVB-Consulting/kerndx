@@ -63,6 +63,26 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that onlyFields replaces a previously seeded field selection instead of
+	 * appending to it, so a query can project narrower than a selector's defaults.
+	 */
+	@IsTest
+	private static void replacesSeededFieldSelectionWithOnlyFields()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.fields(new List<SObjectField> {Foobar__c.Text__c, Foobar__c.Email__c})
+					.onlyFields(new List<SObjectField> {Foobar__c.Name})
+					.toSoql();
+
+			Assert.isTrue(soql.containsIgnoreCase(FIELD_NAME), 'Should contain the replacement field');
+			Assert.isFalse(soql.containsIgnoreCase(FIELD_TEXT), 'Seeded Text__c must be replaced, not kept');
+			Assert.isFalse(soql.containsIgnoreCase(FIELD_EMAIL), 'Seeded Email__c must be replaced, not kept');
+		}
+	}
+
+	/**
 	 * @description Tests that the query builder handles complex conditions with AND and OR logic.
 	 */
 	@IsTest

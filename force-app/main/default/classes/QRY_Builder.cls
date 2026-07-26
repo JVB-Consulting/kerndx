@@ -2598,6 +2598,33 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
+		 * @description Replaces the SELECT field list with the given fields (subqueries and aggregate
+		 * selections, if any, are untouched). Unlike `fields()`,
+		 * which appends to whatever is already seeded on the builder (a selector's `query` getter
+		 * seeds the selector's default field list), this discards the seeded selection first — the
+		 * only way to project narrower than a selector's defaults, e.g. a list view that must not
+		 * haul long-text payload fields. Public-but-not-global so subscribers cannot bind to it;
+		 * promoting it to `global` later is purely additive if application code needs it.
+		 *
+		 * @param objectFields List of SObjectField tokens forming the complete selection
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Builder.QueryPage page = new SEL_AsyncChainExecution().query
+		 *     .onlyFields(new List<SObjectField>{AsyncChainExecution__c.Status__c})
+		 *     .getPage(1, 20);
+		 * ```
+		 */
+		public Builder onlyFields(List<SObjectField> objectFields)
+		{
+			useDefaultFields = false;
+			explicitFields.clear();
+			return addFields(objectFields);
+		}
+
+		/**
 		 * @description Adds fields to the selection without disabling default fields.
 		 *
 		 * @param objectFields List of SObjectField tokens
@@ -2612,7 +2639,7 @@ global inherited sharing class QRY_Builder
 		 *     .addFields(new List<SObjectField>{Account.Phone, Account.Website})
 		 *     .toList();
 		 * ```
-		 
+
 		 */
 		global Builder addFields(List<SObjectField> objectFields)
 		{
