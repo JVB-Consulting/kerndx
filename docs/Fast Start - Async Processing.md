@@ -406,7 +406,7 @@ instead.
 |--------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------|
 | `Failed (Class Not Found: MyStep)`               | Step class is `public`, invisible across the package namespace    | Make the step class `global`, or register a Type Resolver                  |
 | Test assertions fail (Description never stamped) | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest`                |
-| `Status: Running` indefinitely                   | First step threw an unhandled exception before persisting status  | Check the `kern__LogEntry__c` rows for the chain's `correlationId`         |
+| `Status: Running` indefinitely                   | First step threw an unhandled exception before persisting status  | Check the `kern__LogEntry__c` rows for the chain's `correlationId`. A scheduled Chain Watchdog also marks such runs `Stalled` and re-drives the safe ones; the Health Check schedules it in one click |
 | Chain test only runs first step                  | Default `maximumQueueableStackDepth` is 1 in tests                | Pass `.withAsyncOptions(options)` with `maximumQueueableStackDepth` raised |
 | `context.get()` returns null                     | Value not JSON-serialisable, or key spelling mismatch             | Store only Ids, primitives, and simple collections; verify the key         |
 | `Chain has already been executed`                | Reusing a `ChainBuilder` after `.execute()`                       | Build a fresh chain via `kern.UTIL_AsyncChain.newChain(...)`               |

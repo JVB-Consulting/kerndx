@@ -74,11 +74,11 @@ One thing worth knowing: the five tools are launched from the home cards, not pi
 
 Before you rely on the framework, you want to know it is wired up properly. The readiness banner on Kern Home runs a short series of checks the moment the page loads and sorts the results into three groups: **Action required** for anything failing, **Review recommended** for things worth a look, and **Passing** for everything already in good shape. When all of it passes, the banner collapses to a single "all systems operational" line.
 
-The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the trusted site for callouts back to your own org, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, and your data-masking coverage.
+The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the trusted site for callouts back to your own org, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, and whether the stalled-chain recovery job (the Chain Watchdog) is scheduled.
 
-Many of the warnings can be fixed right there. Where a check is flagged because nothing is purging old framework records, for example, one action schedules the recommended clean-up jobs for you and the row flips to Passing without leaving the page.
+Many of the warnings can be fixed right there. Where a check is flagged because nothing is purging old framework records, for example, one action schedules the recommended clean-up jobs for you and the row flips to Passing without leaving the page. The Chain Watchdog row works the same way: one click schedules the recovery job with the recommended defaults.
 
-<HeroLoop src="/recordings/health-check.webm" mp4="/recordings/health-check.mp4" poster="/recordings/health-check-poster.jpg" caption="Apply the recommended retention jobs from the readiness banner and watch the check flip to passing." guide="/utilities-guide#health-check" guideLabel="Utilities Guide">
+<HeroLoop src="/recordings/health-check.webm" mp4="/recordings/health-check.mp4" poster="/recordings/health-check-poster.jpg" caption="Schedule the Chain Watchdog from the readiness banner with one click and watch the check flip to passing." guide="/utilities-guide#health-check" guideLabel="Utilities Guide">
 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#is-your-org-set-up-correctly-health-check) · [Read the full write-up in the Utilities Guide](https://docs.jvb-consulting.io/utilities-guide#health-check)
 
@@ -168,9 +168,9 @@ Exercise a real Apex integration without Postman, throwaway anonymous Apex, or l
 
 Follow an async chain step by step: each step's status, timing, and any error on one timeline.
 
-When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped.
+When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped. And when a run is still going but needs to be stopped, the same screen offers an abort action to the users you have granted it to: it asks for confirmation first, then marks the run Aborted.
 
-<HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
+<HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why. Then stop an in-flight run with the abort action." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#chain-monitor) · [Read the full write-up in the LWC Guide](https://docs.jvb-consulting.io/lwc-guide#chain-monitor-components) · [Async chains in the Async Processing Guide](https://docs.jvb-consulting.io/async-processing-guide#monitoring-async-chain-failures)
 

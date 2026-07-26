@@ -223,7 +223,7 @@ features* are what make the difference in the comparison:
   registration.
 - **Async Patterns.** Decisive features: finalizer hooks; state carries from one background transaction to the next; an emergency off-switch.
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
-- **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a seven-dimension self-diagnostic with
+- **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a nine-dimension self-diagnostic with
   actionable results.
 - **CI / Tooling.** Decisive features: [25 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 6-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
