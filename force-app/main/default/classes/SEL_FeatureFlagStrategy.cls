@@ -40,7 +40,9 @@ public inherited sharing class SEL_FeatureFlagStrategy extends SEL_Base
 	public static final String TYPE_PUBLIC_GROUP = 'Public Group';
 
 	/**
-	 * @description Strategy type that checks assignment to a Permission Set Group.
+	 * @description Strategy type that checks assignment of a Permission Set or a Permission Set Group. The
+	 * target is matched by name against the user's direct assignments, which resolves either kind. The value
+	 * is retained for backward compatibility with existing subscriber strategy records.
 	 */
 	public static final String TYPE_PERMISSION_SET_GROUP = 'Permission Set Group';
 

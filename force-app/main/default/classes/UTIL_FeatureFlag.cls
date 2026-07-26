@@ -30,7 +30,7 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, May 2026
+ * @date November 2025, July 2026
  *
  * @since 1.0
  *
@@ -511,17 +511,17 @@ global inherited sharing class UTIL_FeatureFlag
 	 * As a framework package, most custom permissions will be created by subscribers.
 	 * The Target__c value is interpreted as follows:
 	 *
-	 * 1. Contains `__` (double underscore): Fully-qualified namespaced permission
-	 *    Example: `kern__Admin_Access` or `otherpkg__Some_Permission`
-	 *    Uses FeatureManagement.checkPermission() for running user (namespace-aware).
+	 * - Contains `__` (double underscore): Fully-qualified namespaced permission
+	 *   Example: `kern__Admin_Access` or `otherpkg__Some_Permission`
+	 *   Uses FeatureManagement.checkPermission() for running user (namespace-aware).
 	 *
-	 * 1. Starts with `core.`: Explicit package permission alias
-	 *    Example: `core.Admin_Access` → checks for Kern's Admin_Access permission
-	 *    Uses FeatureManagement.checkPermission() for running user.
+	 * - Starts with `core.`: Explicit package permission alias
+	 *   Example: `core.Admin_Access` → checks for Kern's Admin_Access permission
+	 *   Uses FeatureManagement.checkPermission() for running user.
 	 *
-	 * 1. No prefix (default): LOCAL subscriber permission
-	 *    Example: `Edit_Confidential_Records` → subscriber-created permission
-	 *    Uses SOQL-based checking (FeatureManagement cannot see local permissions).
+	 * - No prefix (default): LOCAL subscriber permission
+	 *   Example: `Edit_Confidential_Records` → subscriber-created permission
+	 *   Uses SOQL-based checking (FeatureManagement cannot see local permissions).
 	 *
 	 * @param strategy The strategy record containing the target custom permission name.
 	 * @param context The user context to evaluate against.
@@ -626,9 +626,14 @@ global inherited sharing class UTIL_FeatureFlag
 	}
 
 	/**
-	 * @description Checks if the user is assigned to the specified Permission Set or Permission Set Group.
+	 * @description Checks if the user is assigned the specified Permission Set or Permission Set Group.
+	 * The target is matched by name against the user's assignments, which resolves both kinds: assigning a
+	 * Permission Set Group produces an assignment backed by an aggregate Permission Set carrying the group's
+	 * developer name, so one name lookup serves both. Only direct assignments match. A Permission Set that
+	 * reaches the user solely through membership of an assigned group is not matched under its own name.
 	 *
-	 * @param strategy The strategy record containing the target Permission Set Group name.
+	 * @param strategy The strategy record containing the target Permission Set API name or Permission Set
+	 *                 Group developer name.
 	 * @param context The user context to evaluate against.
 	 *
 	 * @return `MATCH_TRUE`, `MATCH_FALSE`, or `NO_MATCH` based on assignment and expectation.

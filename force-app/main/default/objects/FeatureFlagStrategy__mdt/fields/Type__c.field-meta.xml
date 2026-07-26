@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Type__c</fullName>
-    <description>The type of evaluation strategy to execute. Determines which logic path is used and dictates the required format for the Target field. Options: Custom Permission (user has permission), Profile (user&apos;s profile matches), Permission Set Group (user is assigned), Public Group (user is member), Hierarchical Custom Setting (field value), List Custom Setting (record field value), Custom Metadata (record field value).</description>
+    <description>The type of evaluation strategy to execute. Determines which logic path is used and dictates the required format for the Target field. Options: Custom Permission (user has permission), Profile (user&apos;s profile matches), Permission Set Group (user is assigned the named permission set or permission set group; only direct assignments match), Public Group (user is member), Hierarchical Custom Setting (field value), List Custom Setting (record field value), Custom Metadata (record field value).</description>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>How to evaluate this rule. Custom Permission: user has it. Profile: user&apos;s profile matches. Permission Set Group: user is assigned. Public Group: user is a member. Custom Setting/Metadata: field value check. Your choice determines the Target field format.</inlineHelpText>
+    <inlineHelpText>How to evaluate this rule. Custom Permission: user has it. Profile: user&apos;s profile matches. Permission Set Group: user is assigned that permission set or group. Public Group: user is a member. Custom Setting/Metadata: field value check. Your choice determines the Target field format.</inlineHelpText>
     <label>Type</label>
     <required>true</required>
     <type>Picklist</type>

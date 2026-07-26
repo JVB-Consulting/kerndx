@@ -141,7 +141,7 @@ The execution priority for this strategy relative to other strategies for the sa
 global String Target__c
 ```
 
-The identifier, name, or path of the item to evaluate. The required format depends on the 'Type' field. For Custom Permission type: unprefixed names check local/subscriber permissions, 'core.' prefix checks package permissions, and 'namespace__' syntax checks fully-qualified namespaced permissions.
+The identifier, name, or path of the item to evaluate. The required format depends on the 'Type' field. For Custom Permission type: unprefixed names check local/subscriber permissions, 'core.' prefix checks package permissions, and 'namespace__' syntax checks fully-qualified namespaced permissions. For Permission Set Group type: the API name of a permission set or the developer name of a permission set group, matched against the user's direct assignments.
 
 **Field Attributes:**
 
@@ -158,7 +158,7 @@ The identifier, name, or path of the item to evaluate. The required format depen
 global String Type__c
 ```
 
-The type of evaluation strategy to execute. Determines which logic path is used and dictates the required format for the Target field. Options: Custom Permission (user has permission), Profile (user's profile matches), Permission Set Group (user is assigned), Public Group (user is member), Hierarchical Custom Setting (field value), List Custom Setting (record field value), Custom Metadata (record field value).
+The type of evaluation strategy to execute. Determines which logic path is used and dictates the required format for the Target field. Options: Custom Permission (user has permission), Profile (user's profile matches), Permission Set Group (user is assigned the named permission set or permission set group; only direct assignments match), Public Group (user is member), Hierarchical Custom Setting (field value), List Custom Setting (record field value), Custom Metadata (record field value).
 
 **Field Attributes:**
 

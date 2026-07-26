@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides static methods to check if a feature is enabled. It reads Custom Metadata records to determine if a feature should be active for the current user or for a specific user (user context evaluati"
 author: "Jason Van Beukering"
 group: "Feature Flags"
-date: "November 2025, May 2026"
+date: "November 2025, July 2026"
 since: "1.0"
 category: apex
 ---
