@@ -513,8 +513,7 @@ public inherited sharing class SEL_CustomPermission
 	 *
 	 * @return The CustomPermission.Id, or null if not found
 	 */
-	@TestVisible
-	private static Id getCustomPermissionId(String apiName, String namespacePrefix)
+	public static Id getCustomPermissionId(String apiName, String namespacePrefix)
 	{
 		String cacheKey = buildPermissionIdCacheKey(apiName, namespacePrefix);
 

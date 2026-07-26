@@ -9,7 +9,7 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, May 2026
+ * @date November 2025, July 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -47,13 +47,15 @@ public class UTIL_FeatureFlag_TEST
 	}
 
 	/**
-	 * @description Verifies that the feature flag is enabled when the running user
-	 * is assigned to the Permission Set Group specified in the strategy.
+	 * @description Verifies that the feature flag is enabled when the running user is assigned the
+	 * plain Permission Set named by the strategy target. The strategy matches an assignment by name,
+	 * so a Permission Set satisfies it just as a Permission Set Group does.
 	 *
 	 * @see UTIL_FeatureFlag.checkPermissionSetGroup
+	 * @see UTIL_FeatureFlag_TEST.userWithAssignedPermissionSetGroupEnablesFlag
 	 */
 	@IsTest
-	private static void userInPermissionSetGroupEnablesFlag()
+	private static void userWithAssignedPermissionSetEnablesFlag()
 	{
 		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
 		TST_Factory.createPermissionSetAssignments(new List<User> {runAsUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
@@ -62,6 +64,83 @@ public class UTIL_FeatureFlag_TEST
 		{
 			assertFlagValue(true);
 		}
+	}
+
+	/**
+	 * @description Verifies that the feature flag is enabled when the running user is assigned the
+	 * Permission Set Group named by the strategy target. Assigning a group produces a
+	 * PermissionSetAssignment backed by an aggregate Permission Set that carries the group's developer
+	 * name, so the one name-based lookup behind the strategy resolves a group as readily as a plain
+	 * Permission Set.
+	 *
+	 * @see UTIL_FeatureFlag.checkPermissionSetGroup
+	 * @see UTIL_FeatureFlag_TEST.userWithAssignedPermissionSetEnablesFlag
+	 */
+	@IsTest
+	private static void userWithAssignedPermissionSetGroupEnablesFlag()
+	{
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		PermissionSetGroup assignedGroup = assignNewGroupContainingReadOnly(runAsUser);
+
+		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
+		strategy.Target__c = assignedGroup.DeveloperName;
+
+		System.runAs(runAsUser)
+		{
+			assertFlagValue(true);
+		}
+	}
+
+	/**
+	 * @description Verifies that the feature flag stays disabled when the strategy targets a Permission Set the
+	 * user holds only through membership of an assigned Permission Set Group. Only a direct assignment carries
+	 * the target name, so the group has to be targeted by its own developer name to enable the flag.
+	 *
+	 * @see UTIL_FeatureFlag.checkPermissionSetGroup
+	 * @see UTIL_FeatureFlag_TEST.userWithAssignedPermissionSetGroupEnablesFlag
+	 */
+	@IsTest
+	private static void permissionSetInsideAssignedGroupDoesNotEnableFlag()
+	{
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		assignNewGroupContainingReadOnly(runAsUser);
+
+		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
+		strategy.Target__c = SEL_PermissionSet.READ_ONLY_PERMISSION_SET_API_NAME;
+
+		System.runAs(runAsUser)
+		{
+			assertFlagValue(false);
+		}
+	}
+
+	/**
+	 * @description Creates a Permission Set Group containing the Read Only Permission Set and assigns it to the
+	 * given user. The group is committed rather than mocked because only the platform builds the aggregate
+	 * Permission Set that carries the group's developer name, and that aggregate is the record the strategy
+	 * matches its target against.
+	 *
+	 * @param assignee The user to assign the new Permission Set Group to
+	 *
+	 * @return The created and assigned Permission Set Group
+	 */
+	private static PermissionSetGroup assignNewGroupContainingReadOnly(User assignee)
+	{
+		String groupName = UTIL_Random.randomName();
+
+		PermissionSetGroup newGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
+				.withOverride(PermissionSetGroup.MasterLabel, groupName)
+				.withOverride(PermissionSetGroup.DeveloperName, groupName)
+				.build();
+
+		TST_Builder.of(PermissionSetGroupComponent.SObjectType)
+				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, newGroup.Id)
+				.withOverride(PermissionSetGroupComponent.PermissionSetId, new SEL_PermissionSet().findByName(SEL_PermissionSet.READ_ONLY_PERMISSION_SET_API_NAME).Id)
+				.build();
+
+		TST_Factory.createPermissionSetAssignments(new List<User> {assignee}, newGroup.DeveloperName);
+
+		return newGroup;
 	}
 
 	/**
@@ -98,13 +177,13 @@ public class UTIL_FeatureFlag_TEST
 	}
 
 	/**
-	 * @description Verifies that the feature flag is disabled when the running user
-	 * is not assigned to the Permission Set Group.
+	 * @description Verifies that the feature flag is disabled when the running user is assigned
+	 * neither the Permission Set nor the Permission Set Group named by the strategy target.
 	 *
 	 * @see UTIL_FeatureFlag.checkPermissionSetGroup
 	 */
 	@IsTest
-	private static void userNotInPermissionSetGroupDisablesFlag()
+	private static void userWithoutAssignedPermissionSetDisablesFlag()
 	{
 		assertFlagValueWithUser(false);
 	}
@@ -772,12 +851,13 @@ public class UTIL_FeatureFlag_TEST
 	}
 
 	/**
-	 * @description Verifies isEnabled(flagName, userId) correctly evaluates Permission Set Group strategy for a specific user.
+	 * @description Verifies isEnabled(flagName, userId) correctly evaluates the assignment strategy
+	 * for a specific user other than the running user.
 	 *
 	 * @see UTIL_FeatureFlag.checkPermissionSetGroup
 	 */
 	@IsTest
-	private static void permissionSetGroupStrategyEvaluatesForSpecificUser()
+	private static void assignedPermissionSetStrategyEvaluatesForSpecificUser()
 	{
 		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
 		TST_Factory.createPermissionSetAssignments(new List<User> {testUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);

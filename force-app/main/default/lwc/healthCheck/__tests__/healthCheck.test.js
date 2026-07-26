@@ -9,6 +9,8 @@ import HealthCheck from 'c/healthCheck';
 import {mockCallControllerMethod, mockShowSuccessToast, mockNavigate} from 'c/componentBuilder';
 import getRetentionProposals from '@salesforce/apex/CTRL_HealthCheck.getRetentionProposals';
 import applyRetentionRecommendations from '@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations';
+import getChainWatchdogProposal from '@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal';
+import scheduleChainWatchdog from '@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog';
 
 /**
  * The runHealthChecks adapter is deliberately NOT jest.mock'd: the lwc jest transformer then
@@ -65,6 +67,27 @@ jest.mock('c/scheduledJobEditorModal', () => ({
 	__esModule: true, default: {open: (...args) => mockScheduledJobEditorModalOpen(...args)}
 }), {virtual: true});
 
+const mockScheduleChainWatchdogModalOpen = jest.fn().mockResolvedValue({action: 'cancel'});
+jest.mock('c/scheduleChainWatchdogModal', () => ({
+	__esModule: true, default: {open: (...args) => mockScheduleChainWatchdogModalOpen(...args)}
+}), {virtual: true});
+
+const MOCK_WATCHDOG_PROPOSAL = {
+	schedulerName: 'Chain Watchdog',
+	schedulerClassName: 'kern.SCHED_ChainWatchdog',
+	cronExpression: '0 0 * * * ?',
+	staleThresholdMinutesParameterName: 'StaleThresholdMinutes',
+	staleThresholdMinutes: '30',
+	batchSizeParameterName: 'BatchSize',
+	batchSize: '50'
+};
+
+const mockGetChainWatchdogProposal = jest.fn().mockResolvedValue(MOCK_WATCHDOG_PROPOSAL);
+jest.mock('@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal', () => ({default: (...args) => mockGetChainWatchdogProposal(...args)}), {virtual: true});
+
+const mockScheduleChainWatchdog = jest.fn().mockResolvedValue('a00xx00000003');
+jest.mock('@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog', () => ({default: (...args) => mockScheduleChainWatchdog(...args)}), {virtual: true});
+
 jest.mock('@salesforce/label/c.HealthCheck_CardTitle', () => ({default: 'Health Check'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_RefreshAltText', () => ({default: 'Refresh health checks'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_AllPassHeading', () => ({default: 'All systems operational.'}), {virtual: true});
@@ -97,6 +120,12 @@ jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RefreshFailedToast', ()
 jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RecordCountSingular', () => ({default: '1 record'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RecordCountPlural', () => ({default: '{0} records'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_DataRetention_DaySuffix', () => ({default: '{0} day retention'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_CheckName', () => ({default: 'Chain Watchdog'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_ScheduleButton', () => ({default: 'Schedule Chain Watchdog'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_CustomizeLink', () => ({default: 'Customize schedule →'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_ModalTitle', () => ({default: 'Schedule Chain Watchdog'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_SuccessToast', () => ({default: 'Created the Chain Watchdog scheduled job.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_NewTitle', () => ({default: 'New Scheduled Job'}), {virtual: true});
 
 const MOCK_RESULTS = [
 	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
@@ -207,6 +236,25 @@ const MOCK_RESULTS_WITH_COVERAGE_WARN = [
 	{name: 'Data Retention', status: 'Pass', detail: 'Scheduled purge jobs are configured.', actionLabel: null, priority: 50}
 ];
 
+const MOCK_RESULTS_WITH_WATCHDOG_WARN = [
+	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
+	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
+	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
+	{name: 'Data Masking', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
+	{name: 'Custom-Object Masking Coverage', status: 'Pass', detail: 'All custom objects with likely-sensitive fields are masked.', actionLabel: null, priority: 46},
+	{name: 'Data Retention', status: 'Pass', detail: 'Scheduled purge jobs are configured.', actionLabel: null, priority: 50},
+	{name: 'Async Chain Abort', status: 'Pass', detail: 'The abort permission set has assignees.', actionLabel: null, priority: 55},
+	{
+		name: 'Chain Watchdog',
+		status: 'Warn',
+		detail: 'No chain watchdog is scheduled. A chain the platform silently drops stays Running forever — the hourly watchdog sweep marks it Stalled '
+				+ 'and fires its error notification so you can recover it.',
+		actionLabel: null,
+		priority: 60
+	}
+];
+
 describe('c-health-check', () =>
 {
 	afterEach(() =>
@@ -235,6 +283,14 @@ describe('c-health-check', () =>
 			if(controllerMethod === applyRetentionRecommendations)
 			{
 				return mockApplyRetentionRecommendations(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === getChainWatchdogProposal)
+			{
+				return mockGetChainWatchdogProposal(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === scheduleChainWatchdog)
+			{
+				return mockScheduleChainWatchdog(parameterMap).catch(() => undefined);
 			}
 			return Promise.resolve(healthCheckResults);
 		});
@@ -1324,5 +1380,178 @@ describe('c-health-check', () =>
 		expect(failItems[1].name).toBe('No Priority');
 		expect(warnItems[0].name).toBe('Warn Has Priority');
 		expect(warnItems[1].name).toBe('Warn No Priority');
+	});
+
+	describe('chain watchdog', () =>
+	{
+		it('should render the watchdog warn row with dual schedule/customize actions', async() =>
+		{
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			const warnSection = element.shadowRoot.querySelector('[data-testid="warn-section"]');
+			expect(warnSection).toBeTruthy();
+
+			const name = warnSection.querySelector('[data-spec-id="watchdog-check-name"]');
+			expect(name).toBeTruthy();
+			expect(name.textContent).toBe('Chain Watchdog');
+
+			const detail = warnSection.querySelector('[data-spec-id="watchdog-warn-detail"]');
+			expect(detail.textContent).toContain('No chain watchdog is scheduled.');
+
+			const scheduleButton = warnSection.querySelector('[data-testid="schedule-watchdog-button"]');
+			expect(scheduleButton).toBeTruthy();
+			expect(scheduleButton.label).toBe('Schedule Chain Watchdog');
+			expect(scheduleButton.variant).toBeUndefined();
+
+			const customizeLink = warnSection.querySelector('[data-testid="customize-watchdog-link"]');
+			expect(customizeLink).toBeTruthy();
+			expect(customizeLink.label).toBe('Customize schedule →');
+			expect(customizeLink.variant).toBe('base');
+		});
+
+		it('should open scheduleChainWatchdogModal with the fetched proposal when Schedule Chain Watchdog is clicked', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce({action: 'cancel'});
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(getChainWatchdogProposal);
+			expect(mockScheduleChainWatchdogModalOpen).toHaveBeenCalledWith({size: 'small', label: 'Schedule Chain Watchdog', proposal: MOCK_WATCHDOG_PROPOSAL});
+		});
+
+		it('should schedule the watchdog with the chosen cron, refresh, and toast when a job is created', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce({action: 'confirm', cronExpression: '0 0 2 * * ?'});
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockScheduleChainWatchdog).toHaveBeenCalledWith({cronExpression: '0 0 2 * * ?'});
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(runHealthChecksAdapter());
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('Created the Chain Watchdog scheduled job.');
+		});
+
+		it('should refresh without a toast when the create returns null because a watchdog already exists', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce({action: 'confirm', cronExpression: '0 0 * * * ?'});
+			mockScheduleChainWatchdog.mockResolvedValueOnce(null);
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockScheduleChainWatchdog).toHaveBeenCalledWith({cronExpression: '0 0 * * * ?'});
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(runHealthChecksAdapter());
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('should surface a failed create through callControllerMethod without a refresh or toast', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce({action: 'confirm', cronExpression: '0 0 * * * ?'});
+			mockScheduleChainWatchdog.mockRejectedValueOnce(new Error('job insert failed'));
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(scheduleChainWatchdog, {cronExpression: '0 0 * * * ?'});
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+		});
+
+		it('should not schedule anything when the confirm dialogue is cancelled', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce({action: 'cancel'});
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockScheduleChainWatchdogModalOpen).toHaveBeenCalledWith({size: 'small', label: 'Schedule Chain Watchdog', proposal: MOCK_WATCHDOG_PROPOSAL});
+			expect(mockScheduleChainWatchdog).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+		});
+
+		it('should not schedule anything when the confirm dialogue is dismissed without a result', async() =>
+		{
+			mockScheduleChainWatchdogModalOpen.mockResolvedValueOnce(undefined);
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockScheduleChainWatchdogModalOpen).toHaveBeenCalledWith({size: 'small', label: 'Schedule Chain Watchdog', proposal: MOCK_WATCHDOG_PROPOSAL});
+			expect(mockScheduleChainWatchdog).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+		});
+
+		it('should keep the confirm dialogue closed when the proposal fetch fails', async() =>
+		{
+			mockGetChainWatchdogProposal.mockRejectedValueOnce(new Error('proposal fetch failed'));
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			const scheduleButton = element.shadowRoot.querySelector('[data-testid="schedule-watchdog-button"]');
+			scheduleButton.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(getChainWatchdogProposal);
+			expect(mockScheduleChainWatchdogModalOpen).not.toHaveBeenCalled();
+		});
+
+		it('should open scheduledJobEditorModal prefilled from the watchdog proposal and refresh when Customize schedule is clicked', async() =>
+		{
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			mockCallControllerMethod.mockClear();
+
+			const customizeLink = element.shadowRoot.querySelector('[data-testid="customize-watchdog-link"]');
+			customizeLink.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockScheduledJobEditorModalOpen).toHaveBeenCalledWith({
+				size: 'medium', label: 'New Scheduled Job', prefill: {
+					schedulerName: 'Chain Watchdog',
+					className: 'kern.SCHED_ChainWatchdog',
+					cronExpression: '0 0 * * * ?',
+					isActive: true,
+					parameterValues: {StaleThresholdMinutes: '30', BatchSize: '50'}
+				}, lockedFields: ['className']
+			});
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(runHealthChecksAdapter());
+		});
+
+		it('should keep the editor closed when the customize proposal fetch fails', async() =>
+		{
+			mockGetChainWatchdogProposal.mockRejectedValueOnce(new Error('proposal fetch failed'));
+			const element = await createComponent(MOCK_RESULTS_WITH_WATCHDOG_WARN);
+
+			const customizeLink = element.shadowRoot.querySelector('[data-testid="customize-watchdog-link"]');
+			customizeLink.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(getChainWatchdogProposal);
+			expect(mockScheduledJobEditorModalOpen).not.toHaveBeenCalled();
+		});
 	});
 });

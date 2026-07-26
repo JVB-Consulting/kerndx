@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header data-spec-id="watchdog-confirm-title" label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<div class="slds-var-p-around_medium" data-testid="schedule-watchdog-root">
+			<p class="slds-var-m-bottom_small" data-spec-id="watchdog-confirm-subtitle" data-testid="watchdog-confirm-subtitle">{labels.subtitle}</p>
+			<div class="slds-size_1-of-2">
+				<lightning-combobox data-spec-id="watchdog-confirm-schedule" data-testid="watchdog-confirm-schedule" label={labels.schedule} onchange={handleScheduleChange}
+				                    options={scheduleOptions} value={selectedCronExpression}></lightning-combobox>
+			</div>
+			<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_small" data-testid="watchdog-defaults-note">{labels.defaultsNote}</p>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" label={labels.cancel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-spec-id="watchdog-confirm-create" data-testid="create-button" label={labels.create} onclick={handleCreate} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

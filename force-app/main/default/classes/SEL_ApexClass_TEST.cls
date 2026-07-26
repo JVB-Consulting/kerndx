@@ -8,12 +8,18 @@
  *
  * @group Selectors
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
 private class SEL_ApexClass_TEST
 {
+	/**
+	 * @description A namespace prefix registered in no org, pairing with a real local class name to prove
+	 * the dotted lookup filters on the prefix.
+	 */
+	private static final String UNKNOWN_NAMESPACE_PREFIX = 'NoSuchNamespace';
+
 	/**
 	 * @description Tests that findSchedulableClassNames returns known Schedulable classes.
 	 */
@@ -37,5 +43,34 @@ private class SEL_ApexClass_TEST
 		Assert.areEqual(2, fields.size(), 'Should return two fields');
 		Assert.isTrue(fields.contains(ApexClass.Name), 'Should contain Name field');
 		Assert.isTrue(fields.contains(ApexClass.NamespacePrefix), 'Should contain NamespacePrefix field');
+	}
+
+	/**
+	 * @description Tests that findByQualifiedName resolves this selector's own runtime class name — the
+	 * dotted, namespace-qualified form in a namespaced deployment and the undotted form in an unmanaged
+	 * one — so the lookup proves itself in whichever shape the deployment produces.
+	 */
+	@IsTest
+	private static void shouldFindApexClassByItsQualifiedName()
+	{
+		ApexClass foundClass = new SEL_ApexClass().findByQualifiedName(SEL_ApexClass.class.getName());
+
+		Assert.isNotNull(foundClass, 'The selector should find its own ApexClass row by its runtime class name');
+	}
+
+	/**
+	 * @description Tests that findByQualifiedName treats the text before the dot as a namespace prefix:
+	 * pairing an unknown prefix with a local class name that does exist proves the dotted form never
+	 * falls back to an unqualified name lookup.
+	 */
+	@IsTest
+	private static void shouldReturnNullForUnknownNamespacePrefix()
+	{
+		String runtimeClassName = SEL_ApexClass.class.getName();
+		String localClassName = runtimeClassName.contains(UTIL_String.DOT) ? runtimeClassName.substringAfterLast(UTIL_String.DOT) : runtimeClassName;
+
+		ApexClass foundClass = new SEL_ApexClass().findByQualifiedName(UNKNOWN_NAMESPACE_PREFIX + UTIL_String.DOT + localClassName);
+
+		Assert.isNull(foundClass, 'An unknown namespace prefix must match nothing, even when the local class name exists');
 	}
 }

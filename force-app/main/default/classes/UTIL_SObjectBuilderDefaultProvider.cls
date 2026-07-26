@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date November 2025, May 2026
+ * @date November 2025, July 2026
  *
  * @since 1.0
  *
@@ -50,6 +50,12 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 * @description Use this text if using the default provider to inject the Record Index into generated values
 	 */
 	public static final String RECORD_INDEX_REPLACEMENT_TEXT = '[index]';
+
+	/**
+	 * @description The largest digit count whose all-nines maximum still fits in an Apex Integer, capping
+	 * the width of generated Integer defaults.
+	 */
+	private static final Integer MAXIMUM_INTEGER_DIGIT_COUNT = 9;
 
 	@TestVisible
 	private static Boolean isMockActive = false;
@@ -161,7 +167,11 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 			{
 				return getGeolocationDefaultValue(fieldDescribe, recordIndex);
 			}
-			when INTEGER, DOUBLE
+			when INTEGER
+			{
+				return getIntegerDefaultValue(fieldDescribe, recordIndex);
+			}
+			when DOUBLE
 			{
 				return getDecimalDefaultValue(fieldDescribe, recordIndex);
 			}
@@ -322,6 +332,31 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	global virtual Location getGeolocationDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
 	{
 		return Location.newInstance(UTIL_Random.nextInteger(-90, 90), UTIL_Random.nextInteger(-90, 90));
+	}
+
+	/**
+	 * @description Provides the default value for an Integer field type. Only standard platform fields
+	 * describe as Integer (custom Number fields always describe as Double), and SObject.put rejects a
+	 * Decimal on them, so the default must be a genuine Integer. The value is sized from the describe's
+	 * digits, the width carrier for standard Integer fields, capped so it always fits an Apex Integer.
+	 *
+	 * @param fieldDescribe The field describe information.
+	 * @param recordIndex The index number (starting from 0) of the record being created.
+	 *
+	 * @return The default Integer value.
+	 *
+	 * @since 1.6
+	 *
+	 * @example
+	 * ```apex
+	 * Integer result = instance.getIntegerDefaultValue(ApexClass.LengthWithoutComments.getDescribe(), 10);
+	 * ```
+ 	 */
+	@SuppressWarnings('ApexUnusedDeclaration')
+	global virtual Integer getIntegerDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
+	{
+		Integer digitCount = Math.min(fieldDescribe.digits, MAXIMUM_INTEGER_DIGIT_COUNT);
+		return UTIL_Random.randomDecimal(digitCount, 0).intValue();
 	}
 
 	/**

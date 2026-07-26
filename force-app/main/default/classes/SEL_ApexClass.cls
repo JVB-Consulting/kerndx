@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date March 2026, May 2026
+ * @date March 2026, July 2026
  */
 public inherited sharing class SEL_ApexClass extends SEL_Base
 {
@@ -69,6 +69,26 @@ public inherited sharing class SEL_ApexClass extends SEL_Base
 		}
 
 		return classNames;
+	}
+
+	/**
+	 * @description Finds the ApexClass row for a class name that may carry a namespace prefix: a dotted
+	 * name matches its local name under that prefix, an undotted name matches under a null prefix (the
+	 * unmanaged deployment shape). Owning this split here keeps callers namespace-robust without each
+	 * re-deriving it.
+	 *
+	 * @param qualifiedClassName The class name, optionally namespace-qualified with a dot.
+	 *
+	 * @return The matching ApexClass row, or null when none exists.
+	 */
+	public ApexClass findByQualifiedName(String qualifiedClassName)
+	{
+		Boolean isNamespaced = qualifiedClassName.contains(UTIL_String.DOT);
+		return (ApexClass)findFirstByFields(new Map<SObjectField, Object>
+		{
+				ApexClass.Name => isNamespaced ? qualifiedClassName.substringAfterLast(UTIL_String.DOT) : qualifiedClassName,
+				ApexClass.NamespacePrefix => isNamespaced ? qualifiedClassName.substringBeforeLast(UTIL_String.DOT) : null
+		});
 	}
 
 	/**

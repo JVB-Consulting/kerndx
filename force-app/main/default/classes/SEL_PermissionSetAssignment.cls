@@ -117,6 +117,26 @@ public inherited sharing class SEL_PermissionSetAssignment extends SEL_Base
 	}
 
 	/**
+	 * @description Checks whether ANY user holds the named permission set — an org-configuration
+	 * existence probe (is the capability granted to someone at all), deliberately not scoped to the
+	 * running user: a health check must not warn for a correctly configured org just because the
+	 * viewer is not a grantee.
+	 *
+	 * @param permissionSetName The API name of the permission set or group
+	 *
+	 * @return True when at least one assignment exists
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean granted = new SEL_PermissionSetAssignment().hasAnyAssignee('AsyncChainAbort');
+	 * ```
+	 */
+	public Boolean hasAnyAssignee(String permissionSetName)
+	{
+		return String.isNotBlank(permissionSetName) && query.condition(FIELD_PERMISSION_SET_NAME).equals(permissionSetName).count() > 0;
+	}
+
+	/**
 	 * @description Checks if a user has ANY of the specified permission sets assigned.
 	 *
 	 * @param userId The user to check

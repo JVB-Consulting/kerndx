@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS class to override default values or define custom required fields for SObjects."
 author: "Jason Van Beukering"
 group: "Testing"
-date: "November 2025, May 2026"
+date: "November 2025, July 2026"
 since: "1.0"
 category: apex
 ---
@@ -60,6 +60,7 @@ global class MyDefaultProvider extends UTIL_SObjectBuilderDefaultProvider
 | global virtual [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getDefaultValue](#getdefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Generates a default value for a given field of an SObject. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getEmailDefaultValue](#getemaildefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for an Email field type. |
 | global virtual [Location](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_system_Location.htm) [getGeolocationDefaultValue](#getgeolocationdefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for a Geolocation field type. |
+| global virtual [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getIntegerDefaultValue](#getintegerdefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for an Integer field type. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getMultiPicklistDefaultValue](#getmultipicklistdefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for a Multipicklist field type. |
 | global virtual [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [getPercentDefaultValue](#getpercentdefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for a Percent field type. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getPhoneDefaultValue](#getphonedefaultvalue)([DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) fieldDescribe, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex) | Provides the default value for a Phone field type. |
@@ -333,6 +334,36 @@ Provides the default value for a Geolocation field type.
 
 ```apex
 Location result = instance.getGeolocationDefaultValue(Account.Name.getDescribe(), 10);
+```
+
+</div>
+
+### getIntegerDefaultValue
+
+<div class="apex-member">
+
+```apex
+global virtual Integer getIntegerDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
+```
+
+Provides the default value for an Integer field type. Only standard platform fields
+describe as Integer (custom Number fields always describe as Double), and SObject.put rejects a
+Decimal on them, so the default must be a genuine Integer. The value is sized from the describe's
+digits, the width carrier for standard Integer fields, capped so it always fits an Apex Integer.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fieldDescribe` | [DescribeFieldResult](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_fields_describe.htm) | The field describe information. |
+| `recordIndex` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The index number (starting from 0) of the record being created. |
+
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The default Integer value.
+
+**Example**
+
+```apex
+Integer result = instance.getIntegerDefaultValue(ApexClass.LengthWithoutComments.getDescribe(), 10);
 ```
 
 </div>

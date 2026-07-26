@@ -38,7 +38,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -966,6 +966,8 @@ global virtual inherited sharing class DML_Transaction
 
 	/**
 	 * @description Performs update operations for registered SObjects, handling dirty relationships.
+	 * In partial mode, skips relationship writes whose parent failed to obtain an Id, so the
+	 * child's existing lookup value is left untouched.
 	 *
 	 * @param databaseProxy The proxy for performing DML operations.
 	 */
@@ -985,8 +987,12 @@ global virtual inherited sharing class DML_Transaction
 						DTO_Relationship relationship = registeredDirtyRelationships[i];
 						if(recordToUpdate == relationship.childRecord)
 						{
-							recordToUpdate.put(relationship.relationshipField, relationship.parentRecord.Id);
 							registeredDirtyRelationships.remove(i);
+							if(allowPartial && relationship.parentRecord.Id == null)
+							{
+								continue;
+							}
+							recordToUpdate.put(relationship.relationshipField, relationship.parentRecord.Id);
 						}
 					}
 				}

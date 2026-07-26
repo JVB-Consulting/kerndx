@@ -21,7 +21,7 @@
  *
  * @group Testing
  *
- * @date October 2025, May 2026
+ * @date October 2025, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -1501,18 +1501,38 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 	}
 
 	/**
-	 * @description Tests getDefaultValue directly returns Decimal for INTEGER field type.
+	 * @description Tests getDefaultValue directly returns Decimal for a zero-scale custom Number field.
+	 * Custom Number fields always describe as DOUBLE whatever their scale, so this exercises the DOUBLE
+	 * branch; only standard platform fields ever describe as INTEGER.
 	 */
 	@IsTest
-	private static void getDefaultValueReturnsDecimalForInteger()
+	private static void getDefaultValueReturnsDecimalForZeroScaleCustomNumber()
 	{
 		UTIL_SObjectBuilderDefaultProvider provider = new UTIL_SObjectBuilderDefaultProvider();
 		DescribeFieldResult fieldDescribe = Foobar__c.NumberInteger__c.getDescribe();
 
 		Object result = provider.getDefaultValue(fieldDescribe, 0);
 
+		Assert.isNotNull(result, 'getDefaultValue should return non-null for a zero-scale custom Number field');
+		Assert.isInstanceOfType(result, Decimal.class, 'getDefaultValue should return Decimal for a zero-scale custom Number field, which describes as DOUBLE');
+	}
+
+	/**
+	 * @description Tests getDefaultValue directly returns a genuine Integer for an INTEGER field type,
+	 * using the standard-field describe as the independent oracle (only standard platform fields describe
+	 * as INTEGER, and SObject.put rejects a Decimal on them). Asserting Integer.class is the
+	 * discriminating check: an Apex Integer also satisfies an instanceof Decimal assertion.
+	 */
+	@IsTest
+	private static void getDefaultValueReturnsIntegerForInteger()
+	{
+		UTIL_SObjectBuilderDefaultProvider provider = new UTIL_SObjectBuilderDefaultProvider();
+		DescribeFieldResult fieldDescribe = ApexClass.LengthWithoutComments.getDescribe();
+
+		Object result = provider.getDefaultValue(fieldDescribe, 0);
+
 		Assert.isNotNull(result, 'getDefaultValue should return non-null for INTEGER');
-		Assert.isInstanceOfType(result, Decimal.class, 'getDefaultValue should return Decimal for INTEGER field');
+		Assert.isInstanceOfType(result, Integer.class, 'getDefaultValue should return Integer for INTEGER field; SObject.put rejects a Decimal on standard Integer-typed fields');
 	}
 
 	/**

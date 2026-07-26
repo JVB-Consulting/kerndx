@@ -22,9 +22,9 @@ name: ci
 
 on:
   pull_request:
-    branches: [master, main]
+    branches: [ master, main ]
   push:
-    branches: [master, main]
+    branches: [ master, main ]
 
 permissions:
   contents: read
@@ -86,6 +86,22 @@ jobs:
         # scripts/__tests__/ Jest suite is omitted from subscriber clones).
         run: npm run test:scripts --if-present
 
+      - name: Boundary gate
+        id: boundary
+        # Diff-triggered knowledge gate (maintainer tooling; absent from the
+        # public source drop, so the step no-ops there). Global-surface /
+        # test-seam / abstraction-name additions must carry a boundary-card
+        # row or a 'no-boundary: <reason>' commit-message tag.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -eu
+          [ -f scripts/check-boundary-gate.js ] || { echo "boundary gate tooling absent - skipping"; exit 0; }
+          case "${BASE_SHA:-}" in ""|0000000000000000000000000000000000000000) echo "no base SHA - skipping"; exit 0;; esac
+          git fetch --no-tags --unshallow 2>/dev/null || true
+          node scripts/check-boundary-gate.js --range "$BASE_SHA..$HEAD_SHA"
+
       - name: Run scanner plugin tests
         id: scanner
         # The scanner package isn't a root workspace child; its eslint peer
@@ -130,6 +146,11 @@ jobs:
             matched=1
             echo "::error title=Script tests failed::A scripts/__tests__ Jest test or validate-strategic-guides failed. Reproduce locally: npm run test:scripts"
             echo "- ❌ **Script tests** — reproduce: \`npm run test:scripts\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.boundary.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Boundary gate failed::A commit added global surface, a test seam, or an abstraction-named class without a boundary-card row or a 'no-boundary: <reason>' tag. Reproduce locally: node scripts/check-boundary-gate.js --range <base>..<head>"
+            echo "- ❌ **Boundary gate** — reproduce: \`node scripts/check-boundary-gate.js --range <base>..<head>\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ steps.scanner.outcome }}" = "failure" ]; then
             matched=1

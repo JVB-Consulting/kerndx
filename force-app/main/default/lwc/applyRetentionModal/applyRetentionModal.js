@@ -8,7 +8,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, July 2026
  */
 /* eslint-disable-next-line kerndx/enforce-component-naming */
 import LightningModal from 'lightning/modal';

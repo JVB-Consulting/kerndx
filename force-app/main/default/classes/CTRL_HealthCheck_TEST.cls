@@ -8,9 +8,9 @@
  *
  * @group Controllers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.EagerlyLoadedDescribeSObjectResult')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.EagerlyLoadedDescribeSObjectResult,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
 private class CTRL_HealthCheck_TEST
 {
@@ -25,6 +25,41 @@ private class CTRL_HealthCheck_TEST
 	private static final String PARAM_OBJECT_NAME = SCHED_PurgeRecords.REQUIRED_PARAMETER_OBJECT_NAME;
 
 	/**
+	 * @description The chain watchdog scheduler class name (namespace-qualified where applicable).
+	 */
+	private static final String WATCHDOG_CLASS = SCHED_ChainWatchdog.class.getName();
+
+	/**
+	 * @description The recommended hourly watchdog cron expression the one-click schedule applies.
+	 */
+	private static final String RECOMMENDED_HOURLY_CRON = '0 0 * * * ?';
+
+	/**
+	 * @description The recommended watchdog stale threshold in minutes, serialized as parameter text.
+	 */
+	private static final String RECOMMENDED_STALE_THRESHOLD_MINUTES = '30';
+
+	/**
+	 * @description The recommended watchdog maximum chains per sweep, serialized as parameter text.
+	 */
+	private static final String RECOMMENDED_BATCH_SIZE = '50';
+
+	/**
+	 * @description A deliberately non-default cron proving the chosen cron wins over the hourly default.
+	 */
+	private static final String CUSTOM_WATCHDOG_CRON = '0 0 3 * * ?';
+
+	/**
+	 * @description The AsyncApexJob job type a System.schedule registration creates.
+	 */
+	private static final String JOB_TYPE_SCHEDULED_APEX = 'ScheduledApex';
+
+	/**
+	 * @description A live AsyncApexJob status — a scheduled-Apex registration waits in Queued.
+	 */
+	private static final String LIVE_SCHEDULED_APEX_STATUS = 'Queued';
+
+	/**
 	 * @description Verifies that runHealthChecks returns results for all checks.
 	 */
 	@IsTest
@@ -32,7 +67,7 @@ private class CTRL_HealthCheck_TEST
 	{
 		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
 
-		Assert.areEqual(7, results.size(), 'Expected seven health check results');
+		Assert.areEqual(9, results.size(), 'Expected nine health check results');
 	}
 
 	/**
@@ -544,6 +579,376 @@ private class CTRL_HealthCheck_TEST
 		Assert.areEqual(String.format(CTRL_HealthCheck.DETAIL_MASKING_POSTURE_HEALTHY, new List<Object> {1}), maskingResult.detail, 'Detail should report the one masked object');
 		Assert.isNull(maskingResult.actionLabel, 'A passing masking result should carry no action');
 		Assert.areEqual(45, maskingResult.priority, 'Data Masking should have priority 45');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check warns when the gating flag is active but nobody holds the
+	 * grant set. Seeds an empty PermissionSetAssignment mock so the probe never reads the org's ambient
+	 * assignments (this class is IsParallel=true and a live smoke may have granted the dev user), and an
+	 * empty SetupEntityAccess mock so install-written profile grants, visible regardless of test-data
+	 * isolation, cannot divert the check to the broad-grant warning.
+	 */
+	@IsTest
+	private static void shouldWarnWhenAbortHasNoAssignees()
+	{
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>());
+		TST_Mock.register(SetupEntityAccess.SObjectType, new List<SetupEntityAccess>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+		CTRL_HealthCheck.DTO_HealthCheckResult abortResult = results[7];
+
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_CheckName, abortResult.name, 'the eighth check is the chain abort capability');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, abortResult.status, 'No assignee means the shipped-off capability is still undiscovered');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_NoAssignees, abortResult.detail, 'The detail names the missing assignment');
+		Assert.isNull(abortResult.actionLabel, 'No action ships until handleAction routes it (spec §6.6)');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check passes when the gating flag is active and at least one
+	 * user holds the grant set. Seeds a single mocked assignment so the pass is proven without any real
+	 * User DML (illegal in this IsParallel=true class) and without depending on ambient org data, plus an
+	 * empty SetupEntityAccess mock so install-written profile grants cannot flip the pass to the
+	 * broad-grant warning in subscriber orgs.
+	 */
+	@IsTest
+	private static void shouldPassAbortCheckWhenConfigured()
+	{
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {abortAssignment()});
+		TST_Mock.register(SetupEntityAccess.SObjectType, new List<SetupEntityAccess>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, results[7].status, 'Flag active + an assignee = configured');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_Configured, results[7].detail, 'The pass detail confirms the capability is usable');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check warns when the gating feature flag is deactivated, short-
+	 * circuiting before the permission-set probe so no assignment seeding is needed.
+	 */
+	@IsTest
+	private static void shouldWarnWhenAbortFlagInactive()
+	{
+		SEL_FeatureFlag.activeFlags.remove(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME);
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, results[7].status, 'A deactivated flag is worth surfacing');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_FlagInactive, results[7].detail, 'The detail names the deactivated flag');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check warns when a profile other than System Administrator
+	 * holds the abort custom permission, the shape an Install for All Users writes into every profile.
+	 * Seeds the grant chain through mocks (a Standard User profile parent) alongside an empty assignment
+	 * mock, proving the broad-grant warning outranks the no-assignee warning.
+	 */
+	@IsTest
+	private static void shouldWarnWhenAbortPermissionHeldByNonAdministratorProfile()
+	{
+		Id profileOwnedParentId = UTIL_Random.randomId(PermissionSet.SObjectType);
+		TST_Mock.of(PermissionSet.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				PermissionSet.Id => profileOwnedParentId,
+				PermissionSet.IsOwnedByProfile => true,
+				PermissionSet.ProfileId => new SEL_Profile().findByName(SEL_Profile.PROFILE_STANDARD_USER).Id
+		}).build();
+		TST_Mock.of(SetupEntityAccess.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				SetupEntityAccess.ParentId => profileOwnedParentId
+		}).build();
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+		CTRL_HealthCheck.DTO_HealthCheckResult abortResult = results[7];
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, abortResult.status, 'A profile-held grant beyond System Administrator silently broadens who can abort');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_BroadlyGranted, abortResult.detail, 'The detail names the broad grant and its install-mode cause');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check stays green when the only profile holding the abort
+	 * custom permission is System Administrator, the expected artifact of an admins-only install. That
+	 * grant must never warn, or every correctly installed org would flag forever. A second,
+	 * permission-set-shaped parent (ProfileId null, the AsyncChainAbort set's own ever-present grant in
+	 * real orgs) rides along to pin the probe's null guard: the designed assignment route must never
+	 * count as a profile grant.
+	 */
+	@IsTest
+	private static void shouldPassAbortCheckWhenOnlySystemAdministratorProfileHoldsPermission()
+	{
+		Id profileOwnedParentId = UTIL_Random.randomId(PermissionSet.SObjectType);
+		Id permissionSetParentId = UTIL_Random.randomId(PermissionSet.SObjectType);
+		TST_Mock.of(PermissionSet.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				PermissionSet.Id => profileOwnedParentId,
+				PermissionSet.IsOwnedByProfile => true,
+				PermissionSet.ProfileId => new SEL_Profile().findByName(SEL_Profile.PROFILE_SYSTEM_ADMIN).Id
+		}).build();
+		TST_Mock.of(PermissionSet.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				PermissionSet.Id => permissionSetParentId,
+				PermissionSet.IsOwnedByProfile => false
+		}).build();
+		TST_Mock.of(SetupEntityAccess.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				SetupEntityAccess.ParentId => profileOwnedParentId
+		}).build();
+		TST_Mock.of(SetupEntityAccess.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				SetupEntityAccess.ParentId => permissionSetParentId
+		}).build();
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {abortAssignment()});
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, results[7].status, 'The System Administrator grant an admins-only install writes is expected and must not warn');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_Configured, results[7].detail, 'The pass detail confirms the capability is usable');
+	}
+
+	/**
+	 * @description Verifies the chain-abort check degrades gracefully when the System Administrator
+	 * profile cannot be resolved by name (standard profile names come back localised for non-English
+	 * users): the broad-grant probe steps aside instead of failing the whole Health Check, and the
+	 * check falls through to the assignee probe. Mirrors the null-guard precedent in
+	 * UTIL_FeatureFlag.checkProfile. The grant chain is fully linked (grant to profile-owned parent
+	 * with a live ProfileId) so an implementation that pressed on with a null administrator Id would
+	 * compare ProfileId against null, warn, and turn this test red.
+	 */
+	@IsTest
+	private static void shouldPassAbortCheckWhenAdministratorProfileCannotBeResolved()
+	{
+		Id profileOwnedParentId = UTIL_Random.randomId(PermissionSet.SObjectType);
+		TST_Mock.register(Profile.SObjectType, new List<Profile>());
+		TST_Mock.of(PermissionSet.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				PermissionSet.Id => profileOwnedParentId,
+				PermissionSet.IsOwnedByProfile => true,
+				PermissionSet.ProfileId => UTIL_Random.randomId(Profile.SObjectType)
+		}).build();
+		TST_Mock.of(SetupEntityAccess.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				SetupEntityAccess.ParentId => profileOwnedParentId
+		}).build();
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {abortAssignment()});
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, results[7].status, 'An unresolvable administrator profile must skip the broad-grant probe, not crash the Health Check');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_Configured, results[7].detail, 'The check falls through to the assignee probe');
+	}
+
+	/**
+	 * @description Builds a non-inserted PermissionSetAssignment mock row. The abort probe counts through
+	 * the TST_Mock registry, which returns the seeded list size, so a bare row is enough to prove presence.
+	 *
+	 * @return A non-inserted PermissionSetAssignment record.
+	 */
+	private static PermissionSetAssignment abortAssignment()
+	{
+		return (PermissionSetAssignment)TST_Builder.of(PermissionSetAssignment.SObjectType).withoutInsertion().build();
+	}
+
+	/**
+	 * @description Verifies the chain-watchdog check warns when neither scheduling path shows a watchdog:
+	 * no active declarative ScheduledJob__c and no live scheduled-Apex platform row. The AsyncApexJob mock
+	 * is seeded empty because platform job rows are visible to tests regardless of test-data isolation, so
+	 * an ambient watchdog schedule in the org would otherwise flip this check to Pass.
+	 */
+	@IsTest
+	private static void shouldWarnWhenChainWatchdogNotScheduled()
+	{
+		TST_Mock.register(ScheduledJob__c.SObjectType, new List<ScheduledJob__c>());
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult watchdogResult = results[8];
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_CheckName, watchdogResult.name, 'the ninth check is the chain watchdog');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, watchdogResult.status, 'an unscheduled watchdog is the operational gap this check surfaces');
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_Missing, watchdogResult.detail, 'the detail names the missing watchdog sweep');
+		Assert.areEqual(48, watchdogResult.priority, 'the chain watchdog should have priority 48');
+		Assert.isNull(watchdogResult.actionLabel, 'no actionLabel ships — healthCheck.js renders schedule/customize from its own template branch');
+	}
+
+	/**
+	 * @description Verifies the chain-watchdog check passes through the declarative path: an active
+	 * ScheduledJob__c targeting SCHED_ChainWatchdog proves the watchdog is scheduled, short-circuiting
+	 * before the platform-job probe ever runs. The AsyncApexJob mock is seeded empty so the Pass can
+	 * only come from the declarative leg: were that leg to regress, the platform probe would read the
+	 * empty mock (never an ambient org schedule, which platform-job visibility would otherwise leak in)
+	 * and the check would warn.
+	 */
+	@IsTest
+	private static void shouldPassChainWatchdogViaDeclarativeScheduledJob()
+	{
+		TST_Mock.register(ScheduledJob__c.SObjectType, new List<ScheduledJob__c> {newWatchdogJob()});
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult watchdogResult = results[8];
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_CheckName, watchdogResult.name, 'the ninth check is the chain watchdog');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, watchdogResult.status, 'an active declarative watchdog job passes the check');
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_Configured, watchdogResult.detail, 'the pass detail confirms the watchdog is scheduled');
+		Assert.isNull(watchdogResult.actionLabel, 'a passing check offers no action');
+	}
+
+	/**
+	 * @description Verifies the chain-watchdog check passes through the platform path: no declarative
+	 * ScheduledJob__c exists, but a live scheduled-Apex AsyncApexJob row for the watchdog class does —
+	 * the trace a hand-run System.schedule leaves. The ApexClass and AsyncApexJob rows are mocked in the
+	 * shape the probe derives; the mock layer answers queries regardless of their filters, so the
+	 * assertion is on the check's outcome.
+	 */
+	@IsTest
+	private static void shouldPassChainWatchdogViaPlatformScheduledApexJob()
+	{
+		TST_Mock.register(ScheduledJob__c.SObjectType, new List<ScheduledJob__c>());
+		ApexClass watchdogClass = registerWatchdogApexClassMock();
+		TST_Mock.of(AsyncApexJob.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				AsyncApexJob.JobType => JOB_TYPE_SCHEDULED_APEX,
+				AsyncApexJob.ApexClassId => watchdogClass.Id,
+				AsyncApexJob.Status => LIVE_SCHEDULED_APEX_STATUS
+		}).build();
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult watchdogResult = results[8];
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_CheckName, watchdogResult.name, 'the ninth check is the chain watchdog');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, watchdogResult.status, 'a live scheduled-Apex platform row passes the check without any declarative job');
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_Configured, watchdogResult.detail, 'the pass detail confirms the watchdog is scheduled');
+	}
+
+	/**
+	 * @description Verifies getChainWatchdogProposal returns the recommended defaults the one-click
+	 * schedule applies: the scheduler label, the namespace-qualified class name, the hourly cron, and
+	 * the parameter names and values the editor-modal prefill needs.
+	 */
+	@IsTest
+	private static void shouldReturnChainWatchdogProposalWithRecommendedDefaults()
+	{
+		CTRL_HealthCheck.DTO_ChainWatchdogProposal proposal = CTRL_HealthCheck.getChainWatchdogProposal();
+
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_SchedulerName, proposal.schedulerName, 'the proposal carries the scheduler display name from the label');
+		Assert.areEqual(WATCHDOG_CLASS, proposal.schedulerClassName, 'the proposal carries the namespace-qualified watchdog class name so the LWC never guesses');
+		Assert.areEqual(RECOMMENDED_HOURLY_CRON, proposal.cronExpression, 'the recommended cron is the hourly sweep');
+		Assert.areEqual(SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES, proposal.staleThresholdMinutesParameterName, 'the parameter name comes from the constant');
+		Assert.areEqual(RECOMMENDED_STALE_THRESHOLD_MINUTES, proposal.staleThresholdMinutes, 'the recommended stale threshold is thirty minutes');
+		Assert.areEqual(SCHED_ChainWatchdog.PARAMETER_BATCH_SIZE, proposal.batchSizeParameterName, 'the batch-size parameter name comes from the public constant');
+		Assert.areEqual(RECOMMENDED_BATCH_SIZE, proposal.batchSize, 'the recommended batch size is fifty chains per sweep');
+	}
+
+	/**
+	 * @description Verifies scheduleChainWatchdog creates one active watchdog ScheduledJob__c carrying
+	 * the chosen cron, the running user's timezone, and the recommended parameters serialized as
+	 * name-value text. The AsyncApexJob mock is seeded empty so an ambient watchdog schedule in the org
+	 * (platform job rows are visible to tests) can never trip the skip guard, and the ScheduledJob__c
+	 * trigger is bypassed so the insert does not System.schedule for real, mirroring the retention
+	 * apply tests.
+	 */
+	@IsTest
+	private static void shouldScheduleChainWatchdogWithChosenCron()
+	{
+		TRG_Base.bypass(ScheduledJob__c.SObjectType);
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+
+		Test.startTest();
+		Id scheduledJobId = CTRL_HealthCheck.scheduleChainWatchdog(CUSTOM_WATCHDOG_CRON);
+		Test.stopTest();
+
+		Assert.isNotNull(scheduledJobId, 'the happy path returns the created job id');
+		ScheduledJob__c createdJob = (ScheduledJob__c)new SEL_ScheduledJob().findById(scheduledJobId);
+		Assert.areEqual(System.Label.HealthCheck_ChainWatchdog_SchedulerName, createdJob.SchedulerName__c, 'the scheduler display name comes from the label');
+		Assert.areEqual(WATCHDOG_CLASS, createdJob.ClassName__c, 'the job targets SCHED_ChainWatchdog, namespace-qualified');
+		Assert.areEqual(CUSTOM_WATCHDOG_CRON, createdJob.CronExpression__c, 'the chosen cron wins over the hourly default');
+		Assert.isTrue(createdJob.IsActive__c, 'the job is created active');
+		Assert.areEqual(UserInfo.getTimeZone().getID(), createdJob.Timezone__c, 'the timezone defaults to the running user so the cron fires at the intended local time');
+
+		DTO_NameValues parameters = (DTO_NameValues)new DTO_NameValues().deserialize(createdJob.Parameters__c);
+		Assert.areEqual(RECOMMENDED_STALE_THRESHOLD_MINUTES, parameters.get(SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES), 'the parameters carry the stale threshold');
+		Assert.areEqual(RECOMMENDED_BATCH_SIZE, parameters.get(SCHED_ChainWatchdog.PARAMETER_BATCH_SIZE), 'the serialized parameters carry the recommended batch size');
+	}
+
+	/**
+	 * @description Verifies a blank cron falls back to the recommended hourly default — the shape the
+	 * one-click schedule path submits when the administrator customizes nothing.
+	 */
+	@IsTest
+	private static void shouldFallBackToHourlyCronWhenSuppliedCronIsBlank()
+	{
+		TRG_Base.bypass(ScheduledJob__c.SObjectType);
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+
+		Test.startTest();
+		Id scheduledJobId = CTRL_HealthCheck.scheduleChainWatchdog(UTIL_String.EMPTY);
+		Test.stopTest();
+
+		Assert.isNotNull(scheduledJobId, 'the blank-cron path still creates the job');
+		ScheduledJob__c createdJob = (ScheduledJob__c)new SEL_ScheduledJob().findById(scheduledJobId);
+		Assert.areEqual(RECOMMENDED_HOURLY_CRON, createdJob.CronExpression__c, 'a blank cron falls back to the recommended hourly sweep');
+	}
+
+	/**
+	 * @description Verifies the skip guard: when a watchdog is already scheduled, a stale button click
+	 * returns null and creates nothing. The unchanged DML-statement count proves no insert ran — the
+	 * ScheduledJob__c mock intercepts the selector reads, so the real table cannot be queried to prove
+	 * absence directly.
+	 */
+	@IsTest
+	private static void shouldSkipSchedulingWhenWatchdogAlreadyScheduled()
+	{
+		TST_Mock.register(ScheduledJob__c.SObjectType, new List<ScheduledJob__c> {newWatchdogJob()});
+		Integer dmlStatementsBeforeCall = Limits.getDmlStatements();
+
+		Id scheduledJobId = CTRL_HealthCheck.scheduleChainWatchdog(RECOMMENDED_HOURLY_CRON);
+
+		Assert.isNull(scheduledJobId, 'an already-scheduled watchdog returns null — a stale button click never creates a duplicate');
+		Assert.areEqual(dmlStatementsBeforeCall, Limits.getDmlStatements(), 'the skip guard must create nothing — no DML runs');
+	}
+
+	/**
+	 * @description Builds a non-inserted, active ScheduledJob__c targeting SCHED_ChainWatchdog with the
+	 * recommended watchdog parameters — the declarative-path proof row. IsActive__c is set true so the
+	 * row mirrors what findActiveByClassName actually matches, even though the mock layer answers
+	 * queries regardless of their filters.
+	 *
+	 * @return A non-inserted active watchdog ScheduledJob__c record with a mock Id.
+	 */
+	private static ScheduledJob__c newWatchdogJob()
+	{
+		DTO_NameValues parameters = new DTO_NameValues(new Map<String, String>
+		{
+				SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES => RECOMMENDED_STALE_THRESHOLD_MINUTES,
+				SCHED_ChainWatchdog.PARAMETER_BATCH_SIZE => RECOMMENDED_BATCH_SIZE
+		});
+
+		return (ScheduledJob__c)TST_Builder.of(ScheduledJob__c.SObjectType)
+				.withOverride(ScheduledJob__c.ClassName__c, WATCHDOG_CLASS)
+				.withOverride(ScheduledJob__c.IsActive__c, true)
+				.withOverride(ScheduledJob__c.Parameters__c, parameters.serialize())
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Registers a mocked ApexClass row for SCHED_ChainWatchdog, split into local name and
+	 * namespace prefix exactly as the platform probe derives them, so the seeded row is realistic in
+	 * both namespaced and unmanaged deployments.
+	 *
+	 * @return The registered mock ApexClass row with a mock Id.
+	 */
+	private static ApexClass registerWatchdogApexClassMock()
+	{
+		Boolean isNamespaced = WATCHDOG_CLASS.contains(UTIL_String.DOT);
+		TST_Mock.MockBuilder watchdogClassBuilder = TST_Mock.of(ApexClass.SObjectType)
+				.withOverride(ApexClass.Name, isNamespaced ? WATCHDOG_CLASS.substringAfterLast(UTIL_String.DOT) : WATCHDOG_CLASS);
+		if(isNamespaced)
+		{
+			watchdogClassBuilder = watchdogClassBuilder.withOverride(ApexClass.NamespacePrefix, WATCHDOG_CLASS.substringBeforeLast(UTIL_String.DOT));
+		}
+		return (ApexClass)watchdogClassBuilder.build();
 	}
 
 	/**

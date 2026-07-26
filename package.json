@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "KernDX — Salesforce managed-package framework",
   "scripts": {
-    "lint": "eslint **/{aura,lwc}/**",
+    "lint": "ESLINT_USE_FLAT_CONFIG=true eslint --config force-app/main/default/lwc/eslint.config.mjs force-app/main/default/lwc",
     "lint:i18n": "node scanner/scan-hardcoded-user-text.js",
     "test:i18n": "node --test scanner/__tests__/scan-hardcoded-user-text.test.js",
     "test": "npm run test:unit",
@@ -76,6 +76,7 @@
     "glob": "^13.0.6",
     "globals": "^16.5.0",
     "husky": "^7.0.4",
+    "js-yaml": "^4.1.0",
     "lint-staged": "^12.3.7",
     "marked": "^15.0.12",
     "prettier": "^2.6.0",

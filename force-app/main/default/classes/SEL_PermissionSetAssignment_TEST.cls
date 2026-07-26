@@ -218,4 +218,15 @@ private class SEL_PermissionSetAssignment_TEST
 
 		Assert.isFalse(hasAny, 'Empty permission set IDs should return false');
 	}
+
+	/**
+	 * @description Tests that hasAnyAssignee reports true for a set someone holds, false for a set nobody holds, and false for a blank name.
+	 */
+	@IsTest
+	private static void shouldReportAnyAssigneeForAssignedSet()
+	{
+		Assert.isTrue(new SEL_PermissionSetAssignment().hasAnyAssignee(SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME), 'Admin set has an assignee in the test context');
+		Assert.isFalse(new SEL_PermissionSetAssignment().hasAnyAssignee('NoSuchPermissionSetName'), 'A set nobody holds reports no assignees');
+		Assert.isFalse(new SEL_PermissionSetAssignment().hasAnyAssignee(null), 'A blank name reports no assignees');
+	}
 }

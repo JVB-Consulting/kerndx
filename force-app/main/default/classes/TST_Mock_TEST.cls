@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -271,6 +271,20 @@ private class TST_Mock_TEST
 
 		Assert.areEqual(1, registered.size(), 'Should have one registered mock');
 		Assert.areEqual(mock.Id, registered[0].Id, 'Registered mock should match built record');
+	}
+
+	/**
+	 * @description Tests that build() succeeds for an SObject whose creatable-required fields include a
+	 * standard Integer-typed field (ApexClass.LengthWithoutComments): the auto-generated default must be
+	 * a genuine Integer, because SObject.put rejects a Decimal on standard Integer-typed fields.
+	 */
+	@IsTest
+	private static void shouldBuildMockForSObjectWithStandardIntegerField()
+	{
+		ApexClass mock = (ApexClass)TST_Mock.of(ApexClass.SObjectType).build();
+
+		Assert.isNotNull(mock.Id, 'Mock should have an Id');
+		Assert.isNotNull(mock.LengthWithoutComments, 'The standard Integer-typed field should carry an auto-generated default');
 	}
 
 	/**

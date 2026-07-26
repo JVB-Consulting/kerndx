@@ -28,7 +28,20 @@ const path = require('node:path');
 const counts = require('./lib/metrics-counts');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const METRICS_FILE = path.join(REPO_ROOT, 'docs', 'Strategic Guide - Metrics.md');
+const METRICS_FILE_RELATIVE = path.join('docs', 'Strategic Guide - Metrics.md');
+
+// Combined Test Coverage rollup rows carry a unit word in the "Tests" column
+// (e.g. `4,064 methods`), so the generic numeric-column parser cannot see them.
+// This map wires each rollup label to the claim key it echoes (or, for the
+// Total row, the sum key) so those cells are read + validated explicitly.
+const ROLLUP_LABEL_KEYS = {
+	'package apex tests': 'rollupApexTestMethods',
+	'package jest tests': 'rollupJestTestCases',
+	'subscriber apex tests': 'rollupSubscriberTestMethods',
+	'subscriber anonymous apex': 'rollupAnonymousApexSections',
+	'subscriber e2e (playwright)': 'rollupE2eFunctionalCases',
+	'total': 'rollupTestsTotal'
+};
 
 function countFiles(dir, predicate)
 {
@@ -50,6 +63,28 @@ function countFiles(dir, predicate)
 		}
 	}
 	return count;
+}
+
+function collectFiles(dir, predicate)
+{
+	const out = [];
+	if(!fs.existsSync(dir))
+	{
+		return out;
+	}
+	for(const entry of fs.readdirSync(dir, {withFileTypes: true}))
+	{
+		const full = path.join(dir, entry.name);
+		if(entry.isDirectory())
+		{
+			out.push(...collectFiles(full, predicate));
+		}
+		else if(entry.isFile() && predicate(full))
+		{
+			out.push(full);
+		}
+	}
+	return out;
 }
 
 function countLwcDirs(repoRoot)
@@ -97,6 +132,125 @@ function countLineStartIsTestMethods(repoRoot)
 		}
 	}
 	return count;
+}
+
+function countLwcJestCases(repoRoot)
+{
+	// Jest test cases = `it(` / `test(` declarations across every LWC *.test.js.
+	// Line-anchored so a dotted variant (`it.each(`, `test.only(`) or an inline
+	// `it(` inside a comment/string is not counted — the doc's "counted across
+	// all Jest test files" figure is the plain per-`it`/`test` declaration count.
+	const dir = path.join(repoRoot, 'force-app', 'main', 'default', 'lwc');
+	const re = /^\s*(it|test)\s*\(/;
+	let count = 0;
+	for(const file of collectFiles(dir, f => f.endsWith('.test.js')))
+	{
+		for(const line of fs.readFileSync(file, 'utf-8').split('\n'))
+		{
+			if(re.test(line))
+			{
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
+function countE2eFunctionalCases(repoRoot)
+{
+	// Functional release-verification e2e cases only: `test(` declarations in the
+	// numbered part specs (`partN-*.spec.js`). The `capture-*` screenshot specs
+	// are excluded, and the line-anchored match ignores `test.setTimeout(...)` /
+	// `test.skip(condition)` modifiers that are not test declarations.
+	const dir = path.join(repoRoot, 'release-testing', 'e2e', 'specs');
+	if(!fs.existsSync(dir))
+	{
+		return 0;
+	}
+	const re = /^\s*test\s*\(/;
+	let count = 0;
+	for(const entry of fs.readdirSync(dir))
+	{
+		if(!/^part\d+.*\.spec\.js$/.test(entry))
+		{
+			continue;
+		}
+		for(const line of fs.readFileSync(path.join(dir, entry), 'utf-8').split('\n'))
+		{
+			if(re.test(line))
+			{
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
+function countAnonymousApexSections(repoRoot)
+{
+	// One "section" = one distinct numeric id among the release-testing section
+	// scripts (`release-testing/scripts/section-<N>...`). A section can span
+	// several files that share a number (setup / cleanup / `b`-suffixed verify
+	// halves), and two sections are load harnesses authored as `.js`; the RUNBOOK
+	// enumerates all of them as sections, so the count is the number of distinct
+	// <N>, not the file count.
+	const dir = path.join(repoRoot, 'release-testing', 'scripts');
+	if(!fs.existsSync(dir))
+	{
+		return 0;
+	}
+	const numbers = new Set();
+	for(const entry of fs.readdirSync(dir))
+	{
+		if(!entry.endsWith('.apex') && !entry.endsWith('.js'))
+		{
+			continue;
+		}
+		const match = entry.match(/^section-(\d+)/);
+		if(match)
+		{
+			numbers.add(parseInt(match[1], 10));
+		}
+	}
+	return numbers.size;
+}
+
+function countPatternInSectionApex(repoRoot, pattern)
+{
+	// Total occurrences of a pattern across the anonymous-Apex section scripts
+	// (release-testing/scripts/section-<N>*.apex). `.js` load harnesses are
+	// excluded — they carry no `PASS:` / `Assert.` assertion markers.
+	const dir = path.join(repoRoot, 'release-testing', 'scripts');
+	if(!fs.existsSync(dir))
+	{
+		return 0;
+	}
+	let count = 0;
+	for(const entry of fs.readdirSync(dir))
+	{
+		if(!/^section-\d+.*\.apex$/.test(entry))
+		{
+			continue;
+		}
+		const matches = fs.readFileSync(path.join(dir, entry), 'utf-8').match(pattern);
+		if(matches)
+		{
+			count += matches.length;
+		}
+	}
+	return count;
+}
+
+function countAnonymousApexPassAssertions(repoRoot)
+{
+	// `PASS:` markers the anonymous-Apex scripts print on a successful assertion.
+	return countPatternInSectionApex(repoRoot, /PASS:/g);
+}
+
+function countAnonymousApexAssertAssertions(repoRoot)
+{
+	// Native `Assert.*` assertion calls in the anonymous-Apex scripts.
+	return countPatternInSectionApex(repoRoot, /Assert\./g);
 }
 
 function computeExpected(repoRoot)
@@ -167,6 +321,19 @@ function computeExpected(repoRoot)
 
 	const e2eSpecFiles = countFiles(path.join(repoRoot, 'release-testing', 'e2e'), f => f.endsWith('.spec.js'));
 
+	const jestTestCases = countLwcJestCases(repoRoot);
+	const e2eFunctionalCases = countE2eFunctionalCases(repoRoot);
+	const anonymousApexSections = countAnonymousApexSections(repoRoot);
+	const anonymousApexAssertionsPass = countAnonymousApexPassAssertions(repoRoot);
+	const anonymousApexAssertionsAssert = countAnonymousApexAssertAssertions(repoRoot);
+
+	// Combined Test Coverage rollup — the countable "Tests" column echoes the five
+	// per-layer metrics; the Total is their exact sum. Each echo is validated
+	// against its own source count, and the total against the sum, so the rollup
+	// cannot silently drift from the per-section rows (the "~<lines>" Assertions
+	// column is a hand-maintained estimate and is intentionally not validated).
+	const rollupTestsTotal = apexTestMethods + jestTestCases + subscriberTestMethods + anonymousApexSections + e2eFunctionalCases;
+
 	const customObjects = counts.countCustomObjects(repoRoot);
 	const cmdtTypes = counts.countCmdtTypes(repoRoot);
 	const platformEvents = counts.countPlatformEvents(repoRoot);
@@ -208,6 +375,17 @@ function computeExpected(repoRoot)
 		subscriberApexTest,
 		subscriberTestMethods,
 		e2eSpecFiles,
+		jestTestCases,
+		e2eFunctionalCases,
+		anonymousApexSections,
+		anonymousApexAssertionsPass,
+		anonymousApexAssertionsAssert,
+		rollupApexTestMethods: apexTestMethods,
+		rollupJestTestCases: jestTestCases,
+		rollupSubscriberTestMethods: subscriberTestMethods,
+		rollupAnonymousApexSections: anonymousApexSections,
+		rollupE2eFunctionalCases: e2eFunctionalCases,
+		rollupTestsTotal,
 		customObjects,
 		cmdtTypes,
 		platformEvents,
@@ -228,9 +406,38 @@ function parseDocClaims(content)
 	}
 
 	const lines = content.split('\n');
+	let inCombinedTable = false;
 	for(let i = 0; i < lines.length; i++)
 	{
 		const line = lines[i];
+
+		// Track the Combined Test Coverage section so its rollup rows — whose
+		// "Tests" cells carry a unit word (`methods`/`cases`/`sections`) or bold
+		// markers and so are invisible to the generic numeric-column parser — can
+		// be read explicitly against ROLLUP_LABEL_KEYS.
+		const heading = line.match(/^##\s+(.*)/);
+		if(heading)
+		{
+			inCombinedTable = /^combined test coverage$/i.test(heading[1].trim());
+		}
+		if(inCombinedTable && /^\|/.test(line))
+		{
+			const cells = line.split('|');
+			if(cells.length >= 4)
+			{
+				const rollupLabel = cells[1].replace(/[`*_]/g, '').trim().toLowerCase();
+				const rollupKey = ROLLUP_LABEL_KEYS[rollupLabel];
+				if(rollupKey)
+				{
+					const numMatch = cells[2].replace(/,/g, '').match(/\d+/);
+					if(numMatch)
+					{
+						setIfMissing(rollupKey, parseInt(numMatch[0], 10), i + 1);
+					}
+				}
+			}
+		}
+
 		const matchRow = line.match(/^\|\s*(.+?)\s*\|\s*([\d,~+\sK%]+)\s*(?:\||$)/);
 		if(!matchRow)
 		{
@@ -340,6 +547,28 @@ function parseDocClaims(content)
 		{
 			setIfMissing('e2eSpecFiles', value, i + 1);
 		}
+		if(labelLc === 'jest test cases')
+		{
+			setIfMissing('jestTestCases', value, i + 1);
+		}
+		if(labelLc === 'test cases')
+		{
+			setIfMissing('e2eFunctionalCases', value, i + 1);
+		}
+		if(labelLc === 'anonymous apex test sections')
+		{
+			setIfMissing('anonymousApexSections', value, i + 1);
+		}
+		// Backticks are stripped from the label, so `PASS:` -> "pass:" and
+		// `Assert.` -> "assert.".
+		if(labelLc === 'anonymous apex assertions (pass:)')
+		{
+			setIfMissing('anonymousApexAssertionsPass', value, i + 1);
+		}
+		if(labelLc === 'anonymous apex assertions (assert.)')
+		{
+			setIfMissing('anonymousApexAssertionsAssert', value, i + 1);
+		}
 		// Salesforce Metadata section. parseDocClaims strips backticks and
 		// underscores from the label, so `__c` -> "c", `__mdt` -> "mdt",
 		// `__e` -> "e".
@@ -363,10 +592,10 @@ function parseDocClaims(content)
 	return claims;
 }
 
-function validate(repoRoot)
+function validate(repoRoot, metricsFile = path.join(repoRoot, METRICS_FILE_RELATIVE))
 {
 	const expected = computeExpected(repoRoot);
-	const content = fs.readFileSync(METRICS_FILE, 'utf-8');
+	const content = fs.readFileSync(metricsFile, 'utf-8');
 	const claims = parseDocClaims(content);
 
 	const violations = [];

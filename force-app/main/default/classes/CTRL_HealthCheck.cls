@@ -3,7 +3,8 @@
  * @description Controller for the Health Check component. Runs diagnostic checks
  * to verify that required post-install configuration (CSP Trusted Site,
  * Platform Cache) is in place, surfaces retention recommendations for
- * framework data objects, and reports the org's data-masking posture.
+ * framework data objects, reports the org's data-masking posture, and offers
+ * one-click scheduling for the chain watchdog.
  *
  * @see CTRL_HealthCheck_TEST
  *
@@ -11,9 +12,9 @@
  *
  * @group Controllers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
-@SuppressWarnings('PMD.CognitiveComplexity')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
 public inherited sharing class CTRL_HealthCheck
 {
 	/**
@@ -57,6 +58,16 @@ public inherited sharing class CTRL_HealthCheck
 	 */
 	private static final String CHECK_CUSTOM_OBJECT_COVERAGE = System.Label.HealthCheck_CustomObjectCoverage_CheckName;
 
+	/**
+	 * @description Display name for the Async Chain Abort capability health check.
+	 */
+	private static final String CHECK_ASYNC_CHAIN_ABORT = System.Label.HealthCheck_AsyncChainAbort_CheckName;
+
+	/**
+	 * @description Display name for the Chain Watchdog health check.
+	 */
+	private static final String CHECK_CHAIN_WATCHDOG = System.Label.HealthCheck_ChainWatchdog_CheckName;
+
 	// Priority ordering (lower = higher priority, sorted to the top of each severity section in the UI).
 	// Platform Cache partitions and the CSP Trusted Site are the most foundational to the package working,
 	// so they outrank resolver / retention configuration if they ever co-appear in the same severity section.
@@ -89,6 +100,16 @@ public inherited sharing class CTRL_HealthCheck
 	 * @description Display priority for the Custom-Object Masking Coverage health check.
 	 */
 	private static final Integer PRIORITY_CUSTOM_OBJECT_COVERAGE = 46;
+
+	/**
+	 * @description Display priority for the Async Chain Abort capability health check.
+	 */
+	private static final Integer PRIORITY_ASYNC_CHAIN_ABORT = 47;
+
+	/**
+	 * @description Display priority for the Chain Watchdog health check.
+	 */
+	private static final Integer PRIORITY_CHAIN_WATCHDOG = 48;
 
 	/**
 	 * @description Display priority for the Data Retention health check.
@@ -235,6 +256,24 @@ public inherited sharing class CTRL_HealthCheck
 	private static final String DEFAULT_CRON = '0 0 2 * * ?';
 
 	/**
+	 * @description Default hourly cron expression for the chain watchdog sweep — the cadence the
+	 * Async Processing guide recommends.
+	 */
+	private static final String WATCHDOG_CRON = '0 0 * * * ?';
+
+	/**
+	 * @description Default stale threshold, in minutes, the one-click watchdog schedule applies.
+	 * Held as a String because scheduled-job parameters serialize as name-value text.
+	 */
+	private static final String WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES = '30';
+
+	/**
+	 * @description Default maximum chains per sweep the one-click watchdog schedule applies.
+	 * Held as a String because scheduled-job parameters serialize as name-value text.
+	 */
+	private static final String WATCHDOG_DEFAULT_BATCH_SIZE = '50';
+
+	/**
 	 * @description Retention recommendations keyed by framework SObjectType. Drives both the
 	 * Data Retention health check and the retention-proposal list returned to the UI.
 	 */
@@ -291,7 +330,9 @@ public inherited sharing class CTRL_HealthCheck
 				checkClassTypeResolver(),
 				checkDataRetention(),
 				checkMaskingPosture(),
-				checkCustomObjectMaskingCoverage()
+				checkCustomObjectMaskingCoverage(),
+				checkAsyncChainAbort(),
+				checkChainWatchdog()
 		};
 	}
 
@@ -692,6 +733,217 @@ public inherited sharing class CTRL_HealthCheck
 	}
 
 	/**
+	 * @description Reports whether the operator chain-abort capability is usable in this org: the
+	 * gating feature flag must be active, the abort custom permission must not be held by profiles
+	 * beyond System Administrator, and at least one user must hold the grant set. Existence
+	 * probes only — never the running user's own assignment, which would warn for a correctly
+	 * configured org whose viewer is simply not a grantee. Ships no action: healthCheck.js routes
+	 * every non-masking action to the resolver modal, so a label here would open the wrong dialog.
+	 *
+	 * @return The check result: Pass when flag active + no broad profile grant + any assignee; Warn otherwise.
+	 */
+	private static DTO_HealthCheckResult checkAsyncChainAbort()
+	{
+		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
+		result.name = CHECK_ASYNC_CHAIN_ABORT;
+		result.priority = PRIORITY_ASYNC_CHAIN_ABORT;
+
+		if(SEL_FeatureFlag.activeFlags.get(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME) == null)
+		{
+			result.status = STATUS_WARN;
+			result.detail = System.Label.HealthCheck_AsyncChainAbort_FlagInactive;
+			return result;
+		}
+
+		if(hasNonAdministratorProfileAbortGrant())
+		{
+			result.status = STATUS_WARN;
+			result.detail = System.Label.HealthCheck_AsyncChainAbort_BroadlyGranted;
+			return result;
+		}
+
+		if(!new SEL_PermissionSetAssignment().hasAnyAssignee(UTIL_AsyncChain.ABORT_PERMISSION_SET_NAME))
+		{
+			result.status = STATUS_WARN;
+			result.detail = System.Label.HealthCheck_AsyncChainAbort_NoAssignees;
+			return result;
+		}
+
+		result.status = STATUS_PASS;
+		result.detail = System.Label.HealthCheck_AsyncChainAbort_Configured;
+		return result;
+	}
+
+	/**
+	 * @description Detects grants of the abort custom permission held by profiles other than System
+	 * Administrator — the signature an Install for All Users writes, which silently lets every user in
+	 * those profiles abort chains. The System Administrator grant an admins-only install writes is the
+	 * expected artifact and never trips this probe. The permission resolves through
+	 * SEL_CustomPermission.getCustomPermissionId with this package's namespace, so a subscriber-local
+	 * or third-package permission that happens to share the DeveloperName can never trip the warning;
+	 * its grants then resolve to their profile-owned permission-set parents. When the System
+	 * Administrator profile cannot be resolved by name (standard profile names come back localised for
+	 * non-English users), the probe steps aside rather than failing the whole Health Check — the
+	 * null-guard precedent in UTIL_FeatureFlag.checkProfile.
+	 *
+	 * @return True when a profile other than System Administrator holds the abort custom permission.
+	 */
+	private static Boolean hasNonAdministratorProfileAbortGrant()
+	{
+		Id abortPermissionId = SEL_CustomPermission.getCustomPermissionId(UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME, UTIL_System.getManagedPackageNamespace());
+		if(abortPermissionId == null)
+		{
+			return false;
+		}
+
+		List<SetupEntityAccess> grants = QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
+				.systemModeInternal()
+				.addField(SetupEntityAccess.ParentId)
+				.condition(SetupEntityAccess.SetupEntityId).equals(abortPermissionId)
+				.bypassSharingInternal()
+				.toList();
+		if(grants.isEmpty())
+		{
+			return false;
+		}
+
+		Set<Id> parentIds = new Set<Id>();
+		for(SetupEntityAccess grant : grants)
+		{
+			parentIds.add(grant.ParentId);
+		}
+
+		Id administratorProfileId = new SEL_Profile().findByName(SEL_Profile.PROFILE_SYSTEM_ADMIN)?.Id;
+		if(administratorProfileId == null)
+		{
+			return false;
+		}
+
+		List<PermissionSet> profileOwnedParents = QRY_Builder.selectFrom(PermissionSet.SObjectType)
+				.systemModeInternal()
+				.addField(PermissionSet.ProfileId)
+				.condition(PermissionSet.Id).isIn(new List<Id>(parentIds))
+				.condition(PermissionSet.IsOwnedByProfile).equals(true)
+				.bypassSharingInternal()
+				.toList();
+		for(PermissionSet parent : profileOwnedParents)
+		{
+			if(parent.ProfileId != null && parent.ProfileId != administratorProfileId)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @description Reports whether a chain watchdog job is scheduled, warning with a one-click
+	 * remedy when it is not. A chain the platform silently drops stays Running forever without a
+	 * watchdog sweep, so an unscheduled watchdog is the operational gap this check surfaces. Ships
+	 * no actionLabel for the same routing reason as the abort check: healthCheck.js renders this
+	 * row's dual schedule/customize actions from its own template branch.
+	 *
+	 * @return The check result: Pass when a watchdog job is scheduled; Warn otherwise.
+	 */
+	private static DTO_HealthCheckResult checkChainWatchdog()
+	{
+		DTO_HealthCheckResult result = new DTO_HealthCheckResult();
+		result.name = CHECK_CHAIN_WATCHDOG;
+		result.priority = PRIORITY_CHAIN_WATCHDOG;
+
+		if(isChainWatchdogScheduled())
+		{
+			result.status = STATUS_PASS;
+			result.detail = System.Label.HealthCheck_ChainWatchdog_Configured;
+			return result;
+		}
+
+		result.status = STATUS_WARN;
+		result.detail = System.Label.HealthCheck_ChainWatchdog_Missing;
+		return result;
+	}
+
+	/**
+	 * @description Decides whether SCHED_ChainWatchdog is scheduled, honouring both scheduling paths
+	 * the Async Processing guide documents: an active declarative ScheduledJob__c for the class, or a
+	 * live scheduled-Apex platform job (a hand-run System.schedule leaves no ScheduledJob__c record,
+	 * and a declarative activation produces the same platform row — the overlap is expected).
+	 *
+	 * @return True when either path shows the watchdog scheduled
+	 */
+	private static Boolean isChainWatchdogScheduled()
+	{
+		String watchdogClassName = SCHED_ChainWatchdog.class.getName();
+
+		if(!new SEL_ScheduledJob().findActiveByClassName(watchdogClassName).isEmpty())
+		{
+			return true;
+		}
+
+		ApexClass watchdogClass = new SEL_ApexClass().findByQualifiedName(watchdogClassName);
+
+		return watchdogClass != null && !new SEL_AsyncApexJob().findLiveScheduledApexByApexClassId(watchdogClass.Id).isEmpty();
+	}
+
+	/**
+	 * @description Returns the chain-watchdog schedule proposal: the defaults the one-click schedule
+	 * applies and the prefill the customize path hands the scheduled job editor. Supplied by Apex so
+	 * the LWC never has to guess the namespace-qualified scheduler class name.
+	 *
+	 * @return The watchdog schedule proposal with recommended defaults
+	 */
+	@AuraEnabled
+	public static DTO_ChainWatchdogProposal getChainWatchdogProposal()
+	{
+		DTO_ChainWatchdogProposal proposal = new DTO_ChainWatchdogProposal();
+		proposal.schedulerName = System.Label.HealthCheck_ChainWatchdog_SchedulerName;
+		proposal.schedulerClassName = SCHED_ChainWatchdog.class.getName();
+		proposal.cronExpression = WATCHDOG_CRON;
+		proposal.staleThresholdMinutesParameterName = SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES;
+		proposal.staleThresholdMinutes = WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES;
+		proposal.batchSizeParameterName = SCHED_ChainWatchdog.PARAMETER_BATCH_SIZE;
+		proposal.batchSize = WATCHDOG_DEFAULT_BATCH_SIZE;
+		return proposal;
+	}
+
+	/**
+	 * @description Creates the active SCHED_ChainWatchdog ScheduledJob__c with the recommended
+	 * defaults, in the same shape applyRetentionRecommendations uses. Skips silently when a watchdog
+	 * is already scheduled through either path, so a stale button click never creates a duplicate.
+	 *
+	 * @param cronExpression Cron to schedule with; blank falls back to the recommended hourly default
+	 *
+	 * @return Id of the created ScheduledJob__c, or null when one was already scheduled
+	 */
+	@AuraEnabled
+	public static Id scheduleChainWatchdog(String cronExpression)
+	{
+		if(isChainWatchdogScheduled())
+		{
+			return null;
+		}
+
+		DTO_NameValues jobParameters = new DTO_NameValues();
+		jobParameters.add(SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES, WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES);
+		jobParameters.add(SCHED_ChainWatchdog.PARAMETER_BATCH_SIZE, WATCHDOG_DEFAULT_BATCH_SIZE);
+
+		List<Id> insertedIds = DML_Builder.newTransaction().withSystemMode().doInsert(new List<ScheduledJob__c>
+		{
+				new ScheduledJob__c(
+						SchedulerName__c = System.Label.HealthCheck_ChainWatchdog_SchedulerName,
+						ClassName__c = SCHED_ChainWatchdog.class.getName(),
+						CronExpression__c = String.isBlank(cronExpression) ? WATCHDOG_CRON : cronExpression,
+						IsActive__c = true,
+						Timezone__c = UserInfo.getTimeZone().getID(),
+						Parameters__c = jobParameters.serialize()
+				)
+		}).execute().getInsertedIds();
+
+		return insertedIds.isEmpty() ? null : insertedIds[0];
+	}
+
+	/**
 	 * @description Queries CspTrustedSite to determine if an active record exists
 	 * with an endpoint URL matching the current org domain.
 	 *
@@ -829,6 +1081,51 @@ public inherited sharing class CTRL_HealthCheck
 		 * @description Cron expression to schedule with. May be overridden by the user via the confirmation dialog picklist.
 		 */
 		@AuraEnabled public String cronExpression;
+	}
+
+	/**
+	 * @description Payload describing the chain-watchdog schedule proposal: the defaults the
+	 * one-click schedule applies and the prefill the customize path hands the scheduled job editor.
+	 * Returned by CTRL_HealthCheck.getChainWatchdogProposal.
+	 */
+	public class DTO_ChainWatchdogProposal
+	{
+		/**
+		 * @description Default SchedulerName__c value applied when creating the ScheduledJob__c record.
+		 */
+		@AuraEnabled public String schedulerName;
+
+		/**
+		 * @description Fully-qualified Apex class name (namespace-aware) for the watchdog scheduler.
+		 * Supplied by Apex so the LWC never has to guess the namespace when pre-populating the
+		 * scheduled job editor modal.
+		 */
+		@AuraEnabled public String schedulerClassName;
+
+		/**
+		 * @description Recommended cron expression (hourly). May be replaced via the confirm dialog picklist.
+		 */
+		@AuraEnabled public String cronExpression;
+
+		/**
+		 * @description Parameter name for the stale threshold, for the editor-modal prefill.
+		 */
+		@AuraEnabled public String staleThresholdMinutesParameterName;
+
+		/**
+		 * @description Recommended stale threshold in minutes, serialized as parameter text.
+		 */
+		@AuraEnabled public String staleThresholdMinutes;
+
+		/**
+		 * @description Parameter name for the sweep batch size, for the editor-modal prefill.
+		 */
+		@AuraEnabled public String batchSizeParameterName;
+
+		/**
+		 * @description Recommended maximum chains per sweep, serialized as parameter text.
+		 */
+		@AuraEnabled public String batchSize;
 	}
 
 	/**

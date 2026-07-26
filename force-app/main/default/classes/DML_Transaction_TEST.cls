@@ -34,7 +34,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -238,6 +238,34 @@ private class DML_Transaction_TEST
 
 		Foobar__c found = (Foobar__c)new SEL_Foobar().findById(child.Id);
 		Assert.areEqual(parent.Id, found.Lookup__c, MSG_VALUE_EQUALITY);
+	}
+
+	/**
+	 * @description Tests that a dirty relationship resolves against a parent whose Id only
+	 * materialises during the same commitWork (parent inserted in the same transaction).
+	 */
+	@IsTest
+	private static void shouldResolveRelationshipWhenParentInsertedSameTransaction()
+	{
+		Foobar__c newParent = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withoutInsertion()
+				.build();
+		Foobar__c child = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doInsert(newParent);
+		dmlTransaction.doUpdate(child, Foobar__c.Lookup__c, newParent);
+
+		Test.startTest();
+
+		dmlTransaction.commitWork();
+
+		Test.stopTest();
+
+		Assert.isNotNull(newParent.Id, 'Parent should have been inserted during commitWork');
+		Foobar__c foundChild = (Foobar__c)new SEL_Foobar().findById(child.Id);
+		Assert.areEqual(newParent.Id, foundChild.Lookup__c, MSG_VALUE_EQUALITY);
 	}
 
 	/**
@@ -467,6 +495,7 @@ private class DML_Transaction_TEST
 	 * @description Tests that a DML failure causes savepoint rollback.
 	 */
 	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
 	private static void shouldRollbackOnFailure()
 	{
 		Foobar__c newRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
@@ -477,20 +506,7 @@ private class DML_Transaction_TEST
 		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.doUpdate(newRecord);
 
-		try
-		{
-			Test.startTest();
-
-			dmlTransaction.commitWork();
-
-			Test.stopTest();
-
-			Assert.fail('Expected DmlException');
-		}
-		catch(Exception error)
-		{
-			Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
-		}
+		commitWorkExpectingDmlException(dmlTransaction);
 	}
 
 	/**
@@ -560,20 +576,7 @@ private class DML_Transaction_TEST
 		testTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
 		testTransaction.doUpdate(TST_Factory.newFoobar());
 
-		try
-		{
-			Test.startTest();
-
-			testTransaction.commitWork();
-
-			Test.stopTest();
-
-			Assert.fail('Expected DmlException');
-		}
-		catch(Exception error)
-		{
-			Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
-		}
+		commitWorkExpectingDmlException(testTransaction);
 
 		List<String> expectedEvents = new List<String>
 		{
@@ -638,6 +641,41 @@ private class DML_Transaction_TEST
 		Assert.isNotNull(child.Id, 'Child should have been inserted despite parent failure');
 		Foobar__c foundChild = (Foobar__c)new SEL_Foobar().findById(child.Id);
 		Assert.isNull(foundChild.Lookup__c, 'Child relationship should not be populated');
+	}
+
+	/**
+	 * @description Tests that an existing child keeps its current lookup value when the replacement
+	 * parent fails to insert in partial mode. Forces the parent failure via invalid email format.
+	 */
+	@IsTest
+	private static void shouldPreserveExistingLookupWhenParentFailsInPartial()
+	{
+		Foobar__c originalParent = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+		Foobar__c child = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Lookup__c, originalParent.Id)
+				.build();
+
+		Foobar__c replacementParent = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Email__c, 'not-a-valid-email')
+				.withoutInsertion()
+				.build();
+
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAllowPartial(true);
+		dmlTransaction.doInsert(replacementParent);
+		dmlTransaction.doUpdate(child, Foobar__c.Lookup__c, replacementParent);
+
+		Test.startTest();
+
+		dmlTransaction.commitWork();
+
+		Test.stopTest();
+
+		Assert.isNull(replacementParent.Id, 'Parent should have failed insertion due to invalid email');
+		Foobar__c foundChild = (Foobar__c)new SEL_Foobar().findById(child.Id);
+		Assert.areEqual(originalParent.Id, foundChild.Lookup__c,
+				'Existing lookup must survive when the replacement parent fails in partial mode');
 	}
 
 	/**
@@ -730,20 +768,7 @@ private class DML_Transaction_TEST
 		dmlTransaction.doUndelete(record);
 		dmlTransaction.doUpdate(invalidRecord);
 
-		try
-		{
-			Test.startTest();
-
-			dmlTransaction.commitWork();
-
-			Test.stopTest();
-
-			Assert.fail('Expected DmlException');
-		}
-		catch(Exception error)
-		{
-			Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
-		}
+		commitWorkExpectingDmlException(dmlTransaction);
 
 		List<Foobar__c> found =
 		[
@@ -954,6 +979,30 @@ private class DML_Transaction_TEST
 		Test.stopTest();
 
 		Assert.isNotNull(record.Id, 'Record should have been inserted');
+	}
+
+	/**
+	 * @description Commits the given transaction inside startTest/stopTest, asserting it throws a
+	 * DmlException.
+	 *
+	 * @param dmlTransaction The configured transaction whose commitWork must fail.
+	 */
+	private static void commitWorkExpectingDmlException(DML_Transaction dmlTransaction)
+	{
+		try
+		{
+			Test.startTest();
+
+			dmlTransaction.commitWork();
+
+			Test.stopTest();
+
+			Assert.fail('Expected DmlException');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
+		}
 	}
 
 	/**

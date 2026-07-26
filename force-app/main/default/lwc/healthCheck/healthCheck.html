@@ -159,6 +159,20 @@
 												</div>
 											</template>
 										</template>
+										<template lwc:elseif={actionItem.isChainWatchdog}>
+											<div class="slds-col slds-grow">
+												<p class="slds-text-body_regular" data-spec-id="watchdog-check-name" data-testid="health-check-name">
+													<strong>{actionItem.name}</strong></p>
+												<p class="slds-text-body_small slds-text-color_weak" data-spec-id="watchdog-warn-detail" data-testid="health-check-detail">
+													{actionItem.detail}</p>
+											</div>
+											<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
+												<lightning-button data-spec-id="watchdog-schedule-button" data-testid="schedule-watchdog-button"
+												                  label={labels.watchdogScheduleButton} onclick={handleScheduleWatchdog}></lightning-button>
+												<lightning-button class="slds-m-top_xx-small" data-spec-id="watchdog-customize-link" data-testid="customize-watchdog-link"
+												                  label={labels.watchdogCustomizeLink} onclick={handleCustomizeWatchdog} variant="base"></lightning-button>
+											</div>
+										</template>
 										<template lwc:else>
 											<div class="slds-col slds-grow">
 												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>

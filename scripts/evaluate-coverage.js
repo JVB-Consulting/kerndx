@@ -43,6 +43,23 @@ const BASELINE_RELATIVE_PATH = 'scripts/coverage-baseline.json';
 /** @description Repo-relative path to the Apex classes directory. */
 const CLASSES_RELATIVE_PATH = 'force-app/main/default/classes';
 
+/**
+ * @description Test suites beyond the derived `<class>_TEST` pair that must run for a class's
+ * targeted coverage to be complete — subjects whose test class was split to stay under the
+ * cognitive-complexity ceiling, or shared engines exercised from a sibling subject's suite.
+ */
+const COMPANION_TEST_SUITES = {
+	UTIL_AsyncChain: ['UTIL_AsyncChainRecovery_TEST', 'UTIL_AsyncChainApi_TEST'],
+	CTRL_ChainMonitor: ['CTRL_ChainMonitorAbort_TEST'],
+	API_Outbound: [
+		'UTIL_AsyncChainApi_TEST',
+		'API_Dispatcher_TEST',
+		'API_PostExample_TEST',
+		'API_PublishGenericEvent_TEST',
+		'UTIL_HttpClient_TEST'
+	]
+};
+
 /** @description Repo-relative path to Jest's raw istanbul coverage output. */
 const JEST_COVERAGE_SUMMARY_PATH = 'coverage/coverage-final.json';
 
@@ -547,7 +564,7 @@ function measureApex(classes, options, deps)
 	{
 		deployApexClasses(classes, options, deps);
 	}
-	const testClasses = classes.map(name => `${name}_TEST`);
+	const testClasses = [...new Set(classes.flatMap(name => [`${name}_TEST`, ...(COMPANION_TEST_SUITES[name] ?? [])]))];
 	const raw = executeApexTests(testClasses, options, deps);
 	const parsed = lib.parseApexCoverage(raw);
 	const exemptCounts = gatherExemptLineCounts(classes, deps);
@@ -759,10 +776,11 @@ function queryLatestTestRunStatus(options, deps)
  */
 function deployApexClasses(classes, options, deps)
 {
-	const metadata = classes.flatMap(name => [
+	const metadata = [...new Set(classes.flatMap(name => [
 		`ApexClass:${name}`,
-		`ApexClass:${name}_TEST`
-	]);
+		`ApexClass:${name}_TEST`,
+		...(COMPANION_TEST_SUITES[name] ?? []).map(suite => `ApexClass:${suite}`)
+	]))];
 	deps.logger.info(`deploying: ${metadata.join(', ')}`);
 	const args = [
 		'project',
