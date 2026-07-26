@@ -17,7 +17,31 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 **Subscriber package version id:** `04tfj000000OKK9AAO`
 
-The async release: chains now look after themselves. A chain that loses its background job is detected and marked Stalled, and once you schedule the new Chain Watchdog (the Health Check creates it in one click) a provably dead chain is restarted from the step where it stopped, with run fencing guaranteeing that a stale leftover job can never corrupt the resumed run. Steps can opt into automatic retry with backoff, a deduplication key stops the same chain running twice at once, a new Failure Category says why whenever a chain leaves the happy path (it stays empty on healthy chains) and every ending writes a log entry, and operations users you nominate can abort a runaway chain from the Chain Monitor, gated by a permission set that ships assigned to nobody plus an org-wide off-switch. The Health Check grows from seven to nine checks, including a warning when an Install for All Users has silently granted the abort permission to every profile; choose Install for Admins Only. Also in: the Chain Monitor list loads a far lighter query and caps page size at 100, logging no longer throws in sessionless contexts such as login handlers and inbound email services, partial-save DML no longer blanks a child's existing lookup when a parent insert fails, the Data Masking Advisor's inventory export now includes every actively masked field, all packaged dialogs render reliably, and the test-data builder generates genuine Integer defaults. Backward-compatible: the global Apex surface is purely additive (one new class and six new methods, nothing removed or changed in signature), with one deliberate behaviour change to note: trigger action bypass names now match case-insensitively, so a bypass that never took effect because of a casing mismatch starts working. For the full tour, see [Kern 1.6 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.6.md).
+The async release: chains now look after themselves. A chain that loses its background job is detected instead of sitting in Running forever, recovery restarts the ones that are provably safe to resume, and the people you nominate can stop a runaway chain from the Chain Monitor.
+
+### Added
+
+- **Stalled-chain detection and recovery.** A chain that loses its background job is marked `Stalled`, and the new Chain Watchdog scheduled job restarts a provably dead chain from the step where it stopped. The Health Check schedules the watchdog in one click. Run fencing guarantees a stale leftover job can never corrupt the resumed run.
+- **Chain abort.** Operations users you nominate can abort a running or stalled chain from the Chain Monitor. Ships switched off: gated by a permission set assigned to nobody, plus an org-wide feature-flag off-switch.
+- **Per-step retry.** A step can opt into automatic retry with backoff (a growing pause between attempts); the chain records `Retries Exhausted` when attempts run out.
+- **Deduplication keys.** A keyed chain never runs twice at once; a second start lands on the run already in flight.
+- **Failure Category.** Every chain that leaves the happy path records why (empty on healthy chains), and every ending writes a log entry.
+- **Health Check grows to nine checks**, including a warning when an Install for All Users has silently granted the abort permission to every profile. Choose Install for Admins Only.
+
+### Fixed
+
+- Logging no longer throws in sessionless contexts such as login handlers and inbound email services.
+- Partial-save DML no longer blanks a child's existing lookup when a parent insert fails.
+- The Data Masking Advisor's inventory export now includes every actively masked field.
+- All packaged dialogs render reliably after a platform update began requiring dialog titles.
+- The test-data builder generates genuine Integer defaults.
+
+### Changed
+
+- The Chain Monitor list loads a far lighter query and caps page size at 100.
+- Trigger action bypass names now match case-insensitively, so a bypass that never took effect because of a casing mismatch starts working. This is the one deliberate behaviour change.
+
+Backward-compatible: the global Apex surface is purely additive (one new class and six new methods, nothing removed or changed in signature). For the full tour, see [Kern 1.6 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.6.md).
 
 ## [1.5.0-1] — 2026-07-13
 
