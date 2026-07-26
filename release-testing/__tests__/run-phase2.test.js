@@ -1129,7 +1129,9 @@ describe('ORCHESTRATED_SECTIONS', () =>
 			75,
 			66,
 			65,
-			77
+			77,
+			78,
+			79
 		]);
 	});
 

@@ -62,16 +62,6 @@ class KernHomePage
 		return titles;
 	}
 
-	async allHealthChecksPassing()
-	{
-		const healthCheck = this.healthCheck();
-		await healthCheck.waitFor({state: 'visible', timeout: 15_000});
-		await waitForSpinnerGone(this.page);
-
-		const allPassBanner = healthCheck.locator('[data-testid="health-check-all-pass"]');
-		return allPassBanner.isVisible();
-	}
-
 	async getHealthCheckActionItems()
 	{
 		const healthCheck = this.healthCheck();
@@ -338,6 +328,68 @@ class KernHomePage
 	{
 		await this.backToApplyLink().click();
 		await this.applyRetentionButton().waitFor({state: 'visible', timeout: 10_000});
+	}
+
+	/**
+	 * @description Locator for the "Schedule Chain Watchdog" button on the Chain Watchdog health check row.
+	 *
+	 * @return {import('@playwright/test').Locator} Schedule button locator scoped to the health check component.
+	 */
+	scheduleWatchdogButton()
+	{
+		return this.healthCheck().locator('[data-testid="schedule-watchdog-button"]').first();
+	}
+
+	/**
+	 * @description Locator for the "Customize schedule" link on the Chain Watchdog health check row.
+	 *
+	 * @return {import('@playwright/test').Locator} Customize link locator scoped to the health check component.
+	 */
+	customizeWatchdogLink()
+	{
+		return this.healthCheck().locator('[data-testid="customize-watchdog-link"]').first();
+	}
+
+	/**
+	 * @description Locator for the "Schedule Chain Watchdog" confirmation dialogue rendered by the health
+	 * check. Filtered by heading text because its footer button test ids (create-button, cancel-button)
+	 * are shared with the scheduled-job editor modal.
+	 *
+	 * @return {import('@playwright/test').Locator} Modal dialog locator filtered by its heading text.
+	 */
+	watchdogConfirmModal()
+	{
+		return this.page.locator('section[role="dialog"]').filter({hasText: 'Schedule Chain Watchdog'}).first();
+	}
+
+	/**
+	 * @description Locator for the watchdog confirmation dialogue's body root element.
+	 *
+	 * @return {import('@playwright/test').Locator} Body root locator scoped to the confirmation dialogue.
+	 */
+	watchdogConfirmRoot()
+	{
+		return this.watchdogConfirmModal().locator('[data-testid="schedule-watchdog-root"]').first();
+	}
+
+	/**
+	 * @description Locator for the schedule picklist inside the watchdog confirmation dialogue.
+	 *
+	 * @return {import('@playwright/test').Locator} Schedule combobox locator scoped to the confirmation dialogue.
+	 */
+	watchdogConfirmSchedule()
+	{
+		return this.watchdogConfirmModal().locator('[data-testid="watchdog-confirm-schedule"]').first();
+	}
+
+	/**
+	 * @description Locator for the Create button in the watchdog confirmation dialogue footer.
+	 *
+	 * @return {import('@playwright/test').Locator} Create button locator scoped to the confirmation dialogue.
+	 */
+	watchdogCreateButton()
+	{
+		return this.watchdogConfirmModal().locator('[data-testid="create-button"]').first();
 	}
 
 	/**

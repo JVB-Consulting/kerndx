@@ -118,6 +118,17 @@ class ChainMonitorPage
 		await waitForSpinnerGone(this.page);
 	}
 
+	async selectRowByChainName(chainName)
+	{
+		const rowTexts = await this.getRowTexts();
+		const index = rowTexts.findIndex(text => text.includes(chainName));
+		if(index < 0)
+		{
+			throw new Error(`No Chain Monitor row found for chain name "${chainName}"`);
+		}
+		await this.selectRow(index);
+	}
+
 	async getDetailChainName()
 	{
 		const heading = this.getDetailPanel().locator('.slds-text-heading_small').first();

@@ -160,6 +160,25 @@ test.describe('admin-tool hero loops', () =>
 		await settle(page, 1300); // the step timeline renders with the failed step flagged
 		await chain.expandErrorAccordion().catch(() => {});
 		await settle(page, 1900); // dwell on the failed step + its error message
+
+		// Second beat (new in 1.6): a run that is still going can be STOPPED from here. Switch to the
+		// seeded in-flight chain — its detail header carries the Abort action — and abort it through
+		// the destructive-confirm dialogue; the status badge flips to Aborted in place.
+		const runningIndex = rowTexts.findIndex(t => t.includes('Running'));
+		if(runningIndex >= 0)
+		{
+			await chain.selectRow(runningIndex);
+			await settle(page, 1400); // dwell on the in-flight detail: steps done, one still running
+			await moveCursorTo(page, '[data-testid="abort-button"]');
+			await settle(page, 700);
+			await page.locator('[data-testid="abort-button"]').first().click();
+			await page.locator('[data-testid="confirm-button"]').first().waitFor({state: 'visible', timeout: 15000});
+			await settle(page, 1500); // dwell on the destructive-confirm dialogue
+			await moveCursorTo(page, '[data-testid="confirm-button"]');
+			await page.locator('[data-testid="confirm-button"]').first().click();
+			await page.locator('[data-testid="status-badge"]').filter({hasText: 'Aborted'}).first().waitFor({state: 'visible', timeout: 15000}).catch(() => {});
+			await settle(page, 2000); // dwell on the Aborted badge + refreshed list
+		}
 	});
 
 	test('log-console', async({page}, testInfo) =>
@@ -310,11 +329,12 @@ test.describe('admin-tool hero loops', () =>
 	test('health-check', async({page}, testInfo) =>
 	{
 		// Differentiator: a readiness banner that surfaces what ISN'T configured yet AND fixes it in
-		// place. It opens flagging Data Retention (no purge jobs scheduled, framework records growing
-		// unbounded); one click schedules the recommended jobs and the row flips to Passing without
-		// leaving the page. The loop must SHOW the not-yet-healthy state prominently first — that is the
-		// point of a readiness check — so we dwell on the flagged card and grab the poster from there,
-		// then film the one-click remediation.
+		// place. 1.6's flagship: the Chain Watchdog check flags that no recovery job watches for stuck
+		// async chains; one click proposes the recommended hourly schedule and the row flips to Passing
+		// without leaving the page. Capture-prep configures retention + grants abort so the watchdog is
+		// the one flagged row: the loop must SHOW the not-yet-healthy state prominently first — that is
+		// the point of a readiness check — so we dwell on the flagged card and grab the poster from
+		// there, then film the one-click remediation.
 		await installOverlay(page);
 		const home = new KernHomePage(page);
 		await page.goto(`${getInstanceUrl()}/lightning/app/kern__Kern`, {waitUntil: 'domcontentloaded'});
@@ -326,25 +346,29 @@ test.describe('admin-tool hero loops', () =>
 		await dismissToasts(page);
 		await settle(page, 1300);
 
-		// Dwell on the banner doing its job: on a freshly-installed org it flags everything that
-		// isn't configured yet — Action required for the foundational pieces (Organisation Cache,
-		// Trusted Site) and Review recommended for the rest (Data Retention, the Class Type Resolver).
-		// This top-of-banner frame becomes the poster (the still a reader sees before pressing play),
-		// so the not-healthy state is what greets them.
+		// Dwell on the banner doing its job: nine checks ran and the Chain Watchdog row warns that
+		// nothing rescues async chains that stall mid-run. This top-of-banner frame becomes the
+		// poster (the still a reader sees before pressing play), so the not-healthy state is what
+		// greets them.
 		await hc.scrollIntoViewIfNeeded();
 		await settle(page, 2600);
 		await page.screenshot({path: testInfo.outputPath('problem-poster.png')});
 		await settle(page, 700);
 
-		// Now fix one in place: the Data Retention check schedules its purge jobs with a single click.
-		await moveCursorTo(page, '[data-testid="apply-retention-button"]');
+		// Now fix it in place: one click opens the proposal with the recommended hourly cron
+		// preselected.
+		await moveCursorTo(page, '[data-testid="schedule-watchdog-button"]');
 		await settle(page, 900);
-		await home.clickApplyRetention();
-		await settle(page, 800); // the confirm modal animates in
-		await moveCursorTo(page, '[data-testid="confirm-button"]');
-		await home.confirmApplyRetention(); // creates the jobs in-context; the card re-runs its checks
-		await home.healthCheckPassingChip('Data Retention').waitFor({state: 'visible', timeout: 30000}).catch(() => {});
-		await settle(page, 2400); // dwell on Data Retention now showing as Passing
+		await home.scheduleWatchdogButton().click();
+		await home.watchdogConfirmRoot().waitFor({state: 'visible', timeout: 20000});
+		await settle(page, 1800); // dwell on the confirm dialogue: schedule picklist + recommended defaults
+
+		// Confirming creates the job in-context; the card re-runs its checks and the row flips.
+		await moveCursorTo(page, 'lightning-modal [data-testid="create-button"]');
+		await home.watchdogCreateButton().click();
+		await home.watchdogConfirmRoot().waitFor({state: 'hidden', timeout: 20000});
+		await home.healthCheckPassingChip('Chain Watchdog').waitFor({state: 'visible', timeout: 30000}).catch(() => {});
+		await settle(page, 2400); // dwell on Chain Watchdog now showing as Passing
 	});
 
 	test('class-type-resolver', async({page}) =>

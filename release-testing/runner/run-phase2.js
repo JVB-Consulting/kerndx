@@ -920,6 +920,71 @@ async function runSection77()
 	};
 }
 
+async function runSection78()
+{
+	// Two scripts because a same-transaction permission-set assignment is not reliably visible to
+	// FeatureManagement.checkPermission (permission-cache staleness — the section-68 flag-gate
+	// precedent), and it keeps the setup-object DML (PermissionSetAssignment, script 78) in a
+	// separate transaction from the non-setup DML (AsyncChainExecution__c seed, script 78b).
+	const strategyScript = path.join(SCRIPTS_DIR, 'section-78-abort-gate.apex');
+	const grantedScript = path.join(SCRIPTS_DIR, 'section-78b-abort-gate-granted.apex');
+	const expectedStrategy = 1;
+	const expectedGranted = 2;
+
+	console.log('  Section 78: running the strategy-resolution gate + permission-set grant...');
+	const strategyResult = await runScript(strategyScript);
+	console.log(`  Section 78 (strategy resolution): ${strategyResult.pass} pass, ${strategyResult.fail} fail`);
+
+	console.log('  Section 78: running the granted gate in a fresh transaction (permission caches rebuilt)...');
+	const grantedResult = await runScript(grantedScript);
+	console.log(`  Section 78 (granted): ${grantedResult.pass} pass, ${grantedResult.fail} fail`);
+
+	const totalPass = strategyResult.pass + grantedResult.pass;
+	const totalExpected = expectedStrategy + expectedGranted;
+
+	return {
+		'section-78': {
+			result: totalPass === totalExpected && strategyResult.fail === 0 && grantedResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Abort gate custom-permission strategy: flag verdict matches the runner\'s real permission state + set granted (78) → granted user resolves core.AbortAsyncChain in a fresh transaction + contradictory-row isTerminal probe through the released API (78b)'
+		}
+	};
+}
+
+async function runSection79()
+{
+	// Launch + verify split (RUNBOOK section 79 note): the launch seeds an audit-back-dated stale
+	// probe and schedules a one-off watchdog CronTrigger on the next minute boundary through the
+	// real platform-scheduler path; the verify runs after the fire window and hard-gates only the
+	// Stalled flip (the stall-notification trail is observational). 79b cleans up the probe and
+	// any lingering CronTrigger, restoring the watchdog-unscheduled baseline.
+	const launchScript = path.join(SCRIPTS_DIR, 'section-79-watchdog-sweep.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-79b-watchdog-sweep-verify.apex');
+	const expectedLaunch = 2;
+	const expectedVerify = 1;
+
+	console.log('  Section 79: seeding the stale probe + scheduling the one-off watchdog sweep...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 79 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 79: waiting 100s for the scheduled sweep to fire...');
+	await new Promise(resolve => setTimeout(resolve, 100_000));
+
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 79 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-79': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Chain Watchdog sweep: audit-back-dated stuck Running probe seeded + one-off watchdog scheduled via the real scheduler (79) → probe marked Stalled after the fire, then cleanup (79b)'
+		}
+	};
+}
+
 // Declarative registry of every orchestrated (non-runBatch) section, in execution
 // order — the order is load-bearing: CMDT fixture cycles restore shared states and the
 // async launch + verify splits sit late so the org is drained. main() drives each entry
@@ -944,7 +1009,9 @@ const ORCHESTRATED_SECTIONS = [
 	{section: 75, header: 'Step 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...', run: runSection75},
 	{section: 66, header: 'Step 6n: Section 66 (log-fingerprint flood control — subscriber API — launch + verify)...', run: runSection66},
 	{section: 65, header: 'Step 6o: Section 65 (framework-wide bypass audit — launch + verify)...', run: runSection65},
-	{section: 77, header: 'Step 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...', run: runSection77}
+	{section: 77, header: 'Step 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...', run: runSection77},
+	{section: 78, header: 'Step 6q: Section 78 (abort gate — core.-prefixed custom-permission strategy — strategy resolution + granted)...', run: runSection78},
+	{section: 79, header: 'Step 6r: Section 79 (chain watchdog sweep — scheduled detection of a stuck chain — launch + verify)...', run: runSection79}
 ];
 
 async function main()
@@ -1047,6 +1114,8 @@ module.exports = {
 	runSection66,
 	runSection65,
 	runSection77,
+	runSection78,
+	runSection79,
 	runTestClasses,
 	runScanner,
 	main

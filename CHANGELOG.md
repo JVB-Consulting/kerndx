@@ -13,6 +13,12 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.6.0-3] — 2026-07-26
+
+**Subscriber package version id:** `04tfj000000OKK9AAO`
+
+The async release: chains now look after themselves. A chain that loses its background job is detected and marked Stalled, and once you schedule the new Chain Watchdog (the Health Check creates it in one click) a provably dead chain is restarted from the step where it stopped, with run fencing guaranteeing that a stale leftover job can never corrupt the resumed run. Steps can opt into automatic retry with backoff, a deduplication key stops the same chain running twice at once, a new Failure Category says why whenever a chain leaves the happy path (it stays empty on healthy chains) and every ending writes a log entry, and operations users you nominate can abort a runaway chain from the Chain Monitor, gated by a permission set that ships assigned to nobody plus an org-wide off-switch. The Health Check grows from seven to nine checks, including a warning when an Install for All Users has silently granted the abort permission to every profile; choose Install for Admins Only. Also in: the Chain Monitor list loads a far lighter query and caps page size at 100, logging no longer throws in sessionless contexts such as login handlers and inbound email services, partial-save DML no longer blanks a child's existing lookup when a parent insert fails, the Data Masking Advisor's inventory export now includes every actively masked field, all packaged dialogs render reliably, and the test-data builder generates genuine Integer defaults. Backward-compatible: the global Apex surface is purely additive (one new class and six new methods, nothing removed or changed in signature), with one deliberate behaviour change to note: trigger action bypass names now match case-insensitively, so a bypass that never took effect because of a casing mismatch starts working. For the full tour, see [Kern 1.6 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.6.md).
+
 ## [1.5.0-1] — 2026-07-13
 
 **Subscriber package version id:** `04tfj000000MutBAAS`
@@ -55,3 +61,5 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.3.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.3.0-3
 [1.4.0-2]: https://github.com/JVB-Consulting/kerndx/tree/v1.4.0-2
 [1.5.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.5.0-1
+[1.6.0-2]: https://github.com/JVB-Consulting/kerndx/tree/v1.6.0-2
+[1.6.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.6.0-3

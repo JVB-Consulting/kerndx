@@ -234,4 +234,48 @@ test.describe.serial('Part 8: Chain Monitor UI', () =>
 		const isVisible = await timeline.isVisible({timeout: 10000}).catch(() => false);
 		expect(isVisible, 'Step timeline should be visible on record page').toBeTruthy();
 	});
+
+	test('V115: Operator abort — permission-present happy path on a stalled chain', async({page}, testInfo) =>
+	{
+		const monitor = new ChainMonitorPage(page);
+		executeAnonymousApex(`
+			Id abortPermissionSetId = [SELECT Id FROM PermissionSet WHERE Name = 'AsyncChainAbort' AND NamespacePrefix = 'kern'].Id;
+			if([SELECT COUNT() FROM PermissionSetAssignment WHERE AssigneeId = :UserInfo.getUserId() AND PermissionSetId = :abortPermissionSetId] == 0)
+			{
+				insert new PermissionSetAssignment(AssigneeId = UserInfo.getUserId(), PermissionSetId = abortPermissionSetId);
+			}
+		`);
+
+		const output = executeAnonymousApex(`
+			kern__AsyncChainExecution__c stalled = new kern__AsyncChainExecution__c(
+					kern__ChainName__c = 'E2E_AbortTarget',
+					kern__Status__c = 'Stalled',
+					kern__TotalSteps__c = 3,
+					kern__CompletedSteps__c = 1,
+					kern__StartedAt__c = Datetime.now().addMinutes(-10),
+					kern__CorrelationId__c = 'e2e-abort-' + String.valueOf(Crypto.getRandomInteger())
+			);
+			insert stalled;
+			System.debug('CHAIN_ID:' + stalled.Id);
+		`);
+		const chainId = output.match(/CHAIN_ID:([a-zA-Z0-9]{15,18})/)[1];
+		testInfo.annotations.push({type: 'notes', description: `Seeded stalled chain ${chainId}`});
+
+		await monitor.navigate();
+		await monitor.selectRowByChainName('E2E_AbortTarget');
+
+		const abortButton = page.locator('[data-testid="abort-button"]');
+		await expect(abortButton).toBeVisible({timeout: 15000});
+		await expect(abortButton).toBeEnabled();
+		await abortButton.click();
+
+		await page.locator('[data-testid="confirm-button"]').click();
+		await expect(page.locator('[data-testid="status-badge"]')).toHaveText('Aborted', {timeout: 15000});
+
+		const records = soqlQuery(`SELECT kern__Status__c, kern__FailureCategory__c, kern__CompletedAt__c
+		                           FROM kern__AsyncChainExecution__c WHERE Id = '${chainId}'`);
+		expect(records[0].kern__Status__c).toBe('Aborted');
+		expect(records[0].kern__FailureCategory__c).toBe('OperatorAbort');
+		expect(records[0].kern__CompletedAt__c).toBeTruthy();
+	});
 });

@@ -21,6 +21,7 @@
 - [Phase 2.5 — Perf History Harvest](#phase-25--perf-history-harvest)
 - [Phase 3 — Visual Tests (Playwright E2E)](#phase-3--visual-tests-playwright-e2e)
 - [Phase 4 — Results Recording](#phase-4--results-recording)
+- [Phase 4.5 — Doc Media Staleness Check (pre-promotion)](#phase-45--doc-media-staleness-check-pre-promotion)
 - [Phase 5 — Extended Load (pre-tag only)](#phase-5--extended-load-pre-tag-only)
 - [Knowledge Org Setup](#knowledge-org-setup)
 - [Enhanced Usage Metrics Setup](#enhanced-usage-metrics-setup)
@@ -117,6 +118,33 @@ spec as component code and fails compile with `LWC1702: Invalid LWC imported ide
 ```bash
 sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <SubscriberPackageVersionId> --wait 15 --no-prompt
 ```
+
+### 1.3b Upgrade Leg (release-day path — required before every promotion)
+
+The fresh install above cannot prove what every EXISTING subscriber experiences on release day: the
+upgrade from the last released version. Upgrades deliver metadata differently from fresh installs —
+new CMDT records, new fields, and supersession semantics (subscriber-controlled CMDT field values are
+never updated in place; changed values ship as successor records) only get exercised on this path.
+The 1.6 line initially skipped this leg because it lived in cycle notes rather than here; it is now a
+hard prerequisite for the promotion decision.
+
+Create a second org and walk the real path — the last RELEASED version first, then the candidate
+(an org already on a beta cannot take another beta, so the leg always starts from the released 04t):
+
+```bash
+cd /tmp/kern-subscriber && sf org create scratch \
+  -f <repo-root>/config/project-scratch-def.json \
+  -a KernUpgradeSubscriber -v DevHub -y 7 --wait 10
+sf package install -o KernUpgradeSubscriber --package <last released 04t> --wait 15 --no-prompt
+sf package install -o KernUpgradeSubscriber --package <candidate 04t> --wait 15 --no-prompt
+```
+
+Then deploy the test artifacts (1.4 with an org-specific CSP trusted site), and run at minimum on
+the upgraded org: `RunLocalTests`, the post-install verify (1.6), and the delta-focused sections and
+e2e parts covering the release's new surface (they double as proof the upgrade delivered the new CMDT
+records, permission sets, and labels). Record the outcome as the upgrade-leg block in the versioned
+results file. Mind the DevHub's active-scratch-org limit — free a superseded org first if creation
+fails with `LIMIT_EXCEEDED`.
 
 ### 1.4 Deploy Subscriber Test Artifacts
 
@@ -332,6 +360,8 @@ Filter output with: `sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f <script> 2>&1 | 
 | 76c | `release-testing/scripts/section-76c-masking-advisor-verify-disabled.apex`    | Verify — disable bundle: probes persist inactive (disable IS the advisor's removal story), MaskPhoneUS dormant again, posture back to Pass(4); re-run once more as the cleanup verification                                                                                                                                               | 3/3      |
 | 76d | `release-testing/scripts/section-76d-masking-advisor-verify-reenabled.apex`   | Verify — re-enable bundle: healthy probe active again (dead probe + MaskPhoneUS untouched → bundle-scoped upserts), posture Pass(5) — the PASS-branch Health Check value change                                                                                                                                                           | 2/2      |
 | 77  | `release-testing/scripts/section-77-masking-cmdt-collision.apex`              | Masking CMDT name-collision tolerance — an org-local clone of a packaged rule's DeveloperName (seeded by the runner) must NOT brick framework DML: inserts survive on the engine's fallback read and mask identically; after the clone is deleted the fast path resumes and the collision WARN (`detail:masking:cmdt-collision:%`) has persisted (orchestrated: seeded 2 + recovered 3)                                                    | 5/5      |
+| 78  | `release-testing/scripts/section-78-abort-gate.apex`                          | Abort gate: core.-prefixed custom-permission strategy resolves against the installed package (78), then re-checks in a fresh transaction after the grant plus the contradictory-row isTerminal probe (78b)                                                                                                                                | 1/1 + 2/2|
+| 79  | `release-testing/scripts/section-79-watchdog-sweep.apex`                      | Chain Watchdog sweep: a probe chain seeded as silently-stuck Running (audit-back-dated 45 min) is picked up by a watchdog scheduled through the real platform scheduler and marked Stalled; verify + cleanup in a second execution after the one-off CronTrigger fires (79b)                                                              | 2/2 + 1/1|
 
 **Section 65 forensic query** for subscribers grepping the audit channel — `kern__ContextData__c` is a
 Long Text Area, which SOQL `LIKE` cannot filter, so pull a window and match client-side:
@@ -428,6 +458,29 @@ sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-77-ma
 (cd ~/.kern-cmdt-staging && sf project delete source -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__MaskingRule.MaskPaymentCard" --no-prompt)
 sleep 30
 sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-77-masking-cmdt-collision.apex 2>&1 | grep USER_DEBUG
+```
+
+**Section 78 note:** run `section-78-abort-gate.apex` then `section-78b-abort-gate-granted.apex` in a SECOND execution — the grant is not visible to permission checks inside the granting transaction. Requires the 1.6.0+ managed package (the `AsyncChainAbort` permission set + `AsyncChainAbort_Enabled` flag). `npm run release:phase2` handles the two executions (`runSection78`); manually:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-78-abort-gate.apex 2>&1 | grep USER_DEBUG
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-78b-abort-gate-granted.apex 2>&1 | grep USER_DEBUG
+```
+
+**Section 79 note:** launch + verify split. `section-79-watchdog-sweep.apex` seeds the stale probe
+(requires the Phase 1.4 audit-field back-dating — the probe's `CreatedDate`/`LastModifiedDate` are
+back-dated 45 minutes to satisfy the shipped stale predicate without a real 30-minute wait) and
+schedules a one-off watchdog via `System.schedule` on the next minute boundary, exercising the real
+scheduler path with the recommended typed parameters. Run `section-79b-watchdog-sweep-verify.apex`
+after the fire time the launch debugs (~90 seconds). 79b hard-gates only the Stalled flip; the
+stall-notification trail is reported observationally (the probe carries no persisted onError handler
+and log persistence is event-driven). 79b's cleanup aborts any lingering CronTrigger and deletes the
+probe + its log entries, returning the org to the watchdog-unscheduled baseline:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-79-watchdog-sweep.apex 2>&1 | grep USER_DEBUG
+sleep 100
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-79b-watchdog-sweep-verify.apex 2>&1 | grep USER_DEBUG
 ```
 
 **Section 67-70 notes (post-trigger actions):** Serial CMDT-state-fixture sections (model: sections 42/43)
@@ -618,6 +671,34 @@ to enqueue, wait for completion, then check results inline (verify queries embed
 Capture the raw log file path if you intend to update baselines (see `release-testing/Testing Protocol.md` for the
 `--logfile` flag). Behaviour assertions are the hard gate — timing warnings are advisory.
 
+**Pending 1.6.0 sections (registered before scripting; author the section scripts with the 1.6.0
+runbook pass):**
+
+- **Active-run deduplication (PLAN-125 / WP4, registered 2026-07-21):** in the subscriber org,
+  observe the three deduplication invariants from the subscriber side —
+  1. a double-start with the same `withDeduplicationKey` value yields ONE run, and the second
+     `execute()` returns the SAME `AsyncChainExecution__c` Id as the first (active-run guard);
+  2. after the first run reaches a terminal status, a same-key re-run starts a FRESH run
+     (key released at every terminal transition — sequential re-runs are deliberately allowed);
+  3. a Stalled chain still blocks a same-key start (the key is state-scoped, not time-scoped —
+     no expiry clock releases it while the run is recoverable).
+  Model: a launch + verify split if the terminal-release leg needs async settling (sections 48-50
+  pattern); otherwise a single orchestrated script.
+
+- **Guaranteed terminal-log emission (PLAN-126 / WP5, registered 2026-07-22):** in the subscriber
+  org, observe that every chain now leaves exactly one terminal `kern__LogEntry__c` —
+  1. a chain that COMPLETES leaves one INFO entry whose `kern__ClassMethod__c` ends
+     `handleChainCompletion` (or `ChainBuilder.execute` for a zero-step chain) and whose
+     `kern__RecordId__c` is the run's `AsyncChainExecution__c` Id — but ONLY when
+     `LogSetting__c.IsEnabled__c` is true and `LogLevelThreshold__c` is at or below INFO;
+  2. a chain that FAILS leaves one ERROR entry (`...handleStepFailure`) that appears at ANY
+     threshold — set `LogLevelThreshold__c = WARN` and confirm the completion entry is ABSENT
+     while the failure entry still appears (the D2/D3 threshold contract);
+  3. the terminal write itself always commits regardless of the signal (best-effort).
+  CAVEAT: hold the exact-delivery assertions under DML-heavy transactions until PLAN-121 **F9**
+  (silent-loss investigation) resolves — script the healthy-transaction cases first.
+  Model: launch + verify split (async settling), sections 48-50 pattern.
+
 ### Run a single load test in isolation
 
 ```bash
@@ -740,14 +821,18 @@ and on current builds it silently moves the org onto the degraded read path unti
 
 Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test fixtures and framework source.
 
-> **PMD floor vs. Code Analyzer bundle (updated 2026-07-12).** The kern rulesets now carry no
-> standard-category rule references and load on the PMD apex module >= 7.19.0, which includes the
-> pmd-apex 7.25.0 the current `code-analyzer` plugin (5.14.0) bundles — the `sf code-analyzer`
-> commands in 2.3a–2.3c work again. (Until 2026-07-12 the rulesets referenced
-> `InvocableClassNoArgConstructor`, a rule PMD added in 7.26.0, and one unresolvable reference fails
-> the whole ruleset load with `UninstantiableEngineError`; `kerndx doctor` surfaced this as the
-> `below` verdict.) The standalone `pmd` CLI legs below remain the reference counts and an
-> equivalent alternative:
+> **PMD floor vs. Code Analyzer bundle (updated 2026-07-15).** The kern rulesets carry no
+> standard-category rule references (removed by policy on 2026-07-12) and load on the PMD apex
+> module >= 7.19.0, which includes the pmd-apex 7.25.0 the current `code-analyzer` plugin (5.14.0)
+> bundles — `sf code-analyzer` loads and fires all 25 Kern rules. Two things to know when running
+> it: passing `code-analyzer.yml` via the `--config-file` flag is REQUIRED (without it `custom_rulesets` never
+> loads and 0 Kern rules run, silently), and sfca is report-by-default (exit 0 even with
+> violations; only `--severity-threshold <n>` makes it fail). (Historical: until 2026-07-12 the
+> rulesets referenced `InvocableClassNoArgConstructor`, a rule PMD added in 7.26.0, and that one
+> unresolvable reference failed the whole ruleset load with `UninstantiableEngineError`;
+> `kerndx doctor` surfaced this as the `below` verdict.) The standalone `pmd` CLI legs below
+> remain the reference counts — an equivalent alternative by choice, not a constraint (the pmd
+> CLI exits 4 on violations by default):
 >
 > ```bash
 > pmd check -d release-testing/scanner/classes/    -R scanner/kerndx-pmd-ruleset.xml       -f text --no-cache   # 2.3a
@@ -922,7 +1007,7 @@ commands.
 
 ## Phase 3 — Visual Tests (Playwright E2E)
 
-Phase 3 is fully automated by Playwright. The 80 visual checks (numbered V1 through V114, with gaps between
+Phase 3 is fully automated by Playwright. The 81 visual checks (numbered V1 through V115, with gaps between
 part groups) run in a headless browser against the subscriber scratch org.
 
 ### Running Phase 3
@@ -954,11 +1039,11 @@ npm run test:e2e:part3
 | `part5-streaming-setup.spec.js`    | V19-V24, V104-V105, V114 | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events; Org Limits card grid (worst-first bands, sort + search); native-SVG timeline dots/tooltip/select contract                                                                          |
 | `part6-streaming-advanced.spec.js` | V25-V29, V99-V103 | Generic channel (stale cache), publish, download, cleanup; Event usage metrics (prototype contract, view states, seeded-data roundtrip, Enhanced Usage Metrics toggle, CDC channel-list purity) |
 | `part7-async-chain.spec.js`        | V10-V17           | Async chain execution, polling, record verification, API callout, handler isolation                                                                                                             |
-| `part8-chain-monitor.spec.js`      | V30-V39           | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines                                          |
+| `part8-chain-monitor.spec.js`      | V30-V39, V115     | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines, operator abort                          |
 | `part9-masking-advisor.spec.js`    | V90-V98           | Data Masking Advisor: landing, add-object flow, rule detail, export, health-check masking posture                                                                                               |
 | `part10-log-console.spec.js`       | V106-V113         | Log Console: launcher tile + namespaced tab, ribbon summary + severity filter, date ranges (needs audit back-dating), endless scroll, sorting, debounced search incl. SOSL body leg, Chain Monitor cross-links, detail drawer + chain-gated timeline |
 
-**Expected:** 79/79 tests passing (13 in part1 after subsequent additions added V1f–V1i and extended V1/V1e).
+**Expected:** 80/80 tests passing (13 in part1 after subsequent additions added V1f–V1i and extended V1/V1e).
 
 Run part10 on its own with:
 
@@ -1066,6 +1151,69 @@ After completing all phases, create a result file in `release-testing/results/` 
 5. Verify the `packageVersion` header in `results/current-run.json` matches the cycle under test (the reporter
    preserves whatever header it finds — a stale value from the previous cycle must be corrected by hand)
 6. Commit the result file
+
+---
+
+## Phase 4.5 — Doc Media Staleness Check (pre-promotion)
+
+The docs site ships screenshots and hero-loop recordings captured from a live org. UI changes silently
+invalidate them — this check runs before **every** promotion / mirror sync so stale media never reaches the
+live site. (Origin: the 1.6.0-2 cycle found 6 of 13 media surfaces stale, including a July-1 full redesign
+of the org-limits panel that no one had flagged.)
+
+**Canonical media location:** `docs-site/assets/stills/` and `docs-site/assets/recordings/` (each loop =
+`.webm` + `.mp4` + `-poster.jpg`). `docs-site/scripts/prepare.mjs` copies `assets/` into the gitignored
+`src/public/` at site build — only ever edit/commit `assets/`.
+
+### Procedure (per asset)
+
+1. Capture date: `git log -1 --format='%h %ad' -- docs-site/assets/<file>` (a re-encode without a reshoot
+   does not reset the clock — use the last commit that actually re-captured the frame).
+2. Candidate commits: `git log --oneline <capture-commit>..HEAD -- <source paths from the table>`.
+3. Empty log → PASS. Otherwise inspect each commit's diff and classify:
+   - **NON-VISUAL** (no re-capture): test/jest files, `@date` headers, `.js-meta.xml` descriptions,
+     formatter reflow, EOF-newline serializer noise, eslint suppressions, aria-only attributes,
+     Custom Label externalisation whose values are byte-identical to the removed literals,
+     error-path-only changes the captured flow never shows.
+   - **VISIBLE** (re-capture required): template/structure changes, new or removed buttons/rows/columns/
+     cards, CSS that changes appearance, label **value** changes, new modals reachable in the captured
+     flow, check-count or card-grid changes on the surface.
+4. Sweep the whole frame, not just the headline bundle: composed child components (read the templates),
+   Custom Label values the frame renders, and the chrome — the hosting FlexiPage, CustomTab, and the
+   `CustomApplication` nav-tab list are all in shot.
+5. Re-capture stale assets against a subscriber org running the release candidate: stills via the e2e
+   `[stills]` project (`release-testing/e2e/specs/capture-stills.spec.js`, seeded by
+   `release-testing/scripts/capture-seed.apex`), hero loops via the hero-loop recording flow. Commit the
+   media **with** the doc changes they illustrate, **before** the mirror sync.
+
+**Capture-state nuance:** a pristine install shows **three** health-check warnings (Chain Abort
+Capability — the `AsyncChainAbort` permission set ships assigned to nobody — plus Chain Watchdog and Data
+Retention). Assign the runner the `AsyncChainAbort` permission set before capturing if the two-warning
+configured-org baseline is wanted in frame.
+
+### Asset → source mapping
+
+| Asset | What the frame shows | Source paths to diff (under `force-app/main/default/` unless noted) |
+| --- | --- | --- |
+| `stills/kern-home.jpg` | Kern Home tile page + readiness banner | `lwc/kernHome`, `lwc/healthCheck`, `classes/CTRL_HealthCheck.cls` |
+| `stills/org-limits.jpg` | Org limits panel | `lwc/orgLimits` |
+| `stills/event-usage.jpg` | Streaming monitor shell, Event Usage panel | `lwc/streamingUsageMetrics`, `lwc/streamingUsageFilters`, `lwc/streamingMonitor`, `lwc/streamingSidebar`, `lwc/streamingSubscriptions`, `lwc/notice`, usage methods of `classes/CTRL_EventMonitor.cls` |
+| `stills/async-timeline.jpg` | `AsyncChainExecution__c` record page (highlights + Step Timeline) | `lwc/chainStepTimeline`, `flexipages/AsyncChainExecution*`, `layouts/AsyncChainExecution*`, its compact layout |
+| `stills/api-calls-picker.jpg`, `stills/api-issues-queue.jpg`, `stills/log-entry.jpg` | Record pages / list views (standard components only) | `objects/ApiCall__c`, `objects/ApiIssue__c`, `objects/LogEntry__c` (list views, layouts), their flexipages, `lwc/retryApiIssue` |
+| `recordings/health-check.*` | Readiness banner, apply-retention flow | `lwc/healthCheck`, `lwc/kernHome`, `lwc/applyRetentionModal`, `lwc/scheduleChainWatchdogModal`, `classes/CTRL_HealthCheck.cls` |
+| `recordings/chain-monitor.*` | Chain Monitor, open-a-failed-run flow | `lwc/chainMonitor`, `lwc/chainMonitorDetail`, `lwc/chainMonitorList`, `lwc/chainStepTimeline`, `lwc/chainAbortModal`, `classes/CTRL_ChainMonitor.cls` |
+| `recordings/streaming-monitor.*` | Subscribe → publish → arrive flow | every `lwc/streaming*` bundle, `lwc/utilityStreaming`, `classes/CTRL_EventMonitor.cls` |
+| `recordings/api-harness.*` | Outbound + inbound harness run | `lwc/apiTestHarnessForm`, `lwc/jsonViewer`, `classes/CTRL_ApiTestHarness.cls` |
+| `recordings/log-console.*` | Grouped problems → filter → correlation timeline | `lwc/logConsole`, `lwc/logConsoleContext`, `lwc/logConsoleDetail`, `lwc/logConsoleTable`, `lwc/jsonViewer`, `classes/CTRL_LogConsole.cls` |
+| `recordings/masking-advisor.*` | Scan → drill-into-an-object flow | `lwc/dataMaskingAdvisor`, every `lwc/masking*` bundle, `classes/CTRL_MaskingAdvisor.cls` |
+| `recordings/scheduled-jobs.*` | Cron builder flow (plain-English schedule, invalid-time rejection) | `lwc/scheduledJobEditor`, `lwc/scheduledJobEditorModal`, `lwc/scheduledJobDetail`, `lwc/cronExpressionEditor`, `lwc/utilityScheduledJob`, `classes/CTRL_ScheduledJob.cls` |
+| `recordings/class-type-resolver.*` | Setup helper opened from the readiness banner | `lwc/classTypeResolverSetupModal` plus the host page (`lwc/kernHome`, `lwc/healthCheck`) |
+
+`*-poster.jpg` files are the first frame of their loop — they go stale with the recording and are
+re-captured together with it. Shared plumbing bundles (`componentBuilder`, `baseComponent`,
+`moduleNotification`, `utilityString`, `utilitySystem`) rarely change rendered output, but a label-value
+change to toast titles or shared text would show in several loops — check them when their `git log` since
+capture is non-empty.
 
 ---
 
