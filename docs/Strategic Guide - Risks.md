@@ -118,7 +118,7 @@ products (Financial Services Cloud, CPQ, Health Cloud) carry the same constraint
 
 **What mitigates the Tier 2 risk:** Infrastructure classes are the most stable and most heavily tested components in the framework. They are covered by [175 Apex test classes](Strategic%20Guide%20-%20Metrics.md#package-codebase) (about 3,885 `@IsTest` methods) plus the
 LWC Jest suite, gated at 100% per-file Apex coverage and 95% statement/branch LWC coverage, enforced at every release build and validated against the subscriber-side [release-testing harness](Strategic%20Guide%20-%20Metrics.md#release-testing) (561
-anonymous-Apex assertions across 74 sections, 190 test methods across 41 subscriber test classes). They change less frequently than handler logic and are validated across every
+anonymous-Apex assertions across 75 sections, 190 test methods across 41 subscriber test classes). They change less frequently than handler logic and are validated across every
 package build ([120 distinct package version IDs](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) declared in `sfdx-project.json`). The risk is real but low-probability. Before adopting, your org should evaluate whether the
 vendor's support responsiveness is acceptable for your SLA, and keep the exit-strategy documentation current.
 

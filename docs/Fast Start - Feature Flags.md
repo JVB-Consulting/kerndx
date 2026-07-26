@@ -435,6 +435,8 @@ Custom Permission strategy to the `NewPricingEngine` flag you created in Tier 2.
 | Hierarchical Custom Setting | `MySettings__c.EnableFeature__c` | Org/profile/user hierarchy       |
 | Custom Metadata             | `Config__mdt.Setting.Field__c`   | Configuration-driven flags       |
 
+Despite its name, the `Permission Set Group` strategy matches a permission set *or* a permission set group, whichever the user is assigned. Use a permission set's API name or a permission set group's developer name as the target.
+
 > **SOQL cost:** each `isEnabled(...)` call usually runs one query (SOQL) behind the scenes. Two cases avoid that query: a namespaced or `core.` Custom Permission check for the running user, and the no-strategy
 > `IsEnabledByDefault__c` fast path. One query per call is fine for everyday synchronous code, but it adds up
 > inside record loops, batches, and scheduled jobs. If you call flags in tight loops, or read several flags off the same Custom

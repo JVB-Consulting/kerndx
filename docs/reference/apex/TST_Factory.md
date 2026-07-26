@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, pro"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, June 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

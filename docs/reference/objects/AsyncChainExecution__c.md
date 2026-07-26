@@ -28,18 +28,39 @@ Tracks async chain executions including state, step definitions, shared context,
 
 | Field | Description |
 |-------|-------------|
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ActiveDeduplicationKey__c](#activededuplicationkey__c) | Active-run deduplication key. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ChainName__c](#chainname__c) | The name assigned to this chain via newChain(). |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [CompletedAt__c](#completedat__c) | When chain execution finished (completed, failed, or aborted). |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CompletedSteps__c](#completedsteps__c) | Number of steps that completed successfully. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ContextData__c](#contextdata__c) | Serialized JSON of the shared chain context (Map of String to Object). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CorrelationId__c](#correlationid__c) | UUID linking this chain execution to all related log entries across async boundaries. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CurrentJobId__c](#currentjobid__c) | Identifier of the queueable job currently executing this chain run. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CurrentStepName__c](#currentstepname__c) | Name of the currently executing or last executed step. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [DurationMs__c](#durationms__c) | Wall-clock duration in milliseconds from chain start to terminal state. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorMessage__c](#errormessage__c) | Error details if chain failed. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureCategory__c](#failurecategory__c) | Why the chain left the happy path. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RunKey__c](#runkey__c) | Internal run-key fence token. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [StartedAt__c](#startedat__c) | When chain execution began. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current chain execution state. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StepLog__c](#steplog__c) | Serialized JSON array logging each step's class name, configuration, execution result, and duration. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TotalSteps__c](#totalsteps__c) | Total number of steps defined in the chain. |
+
+### ActiveDeduplicationKey__c
+
+```apex
+global String ActiveDeduplicationKey__c
+```
+
+Active-run deduplication key. Held while the chain is running or stalled; cleared in the same update that writes any terminal status, so a finished chain frees its key for the next run. The unique index makes a second concurrent start with the same key land on the active run instead of creating a duplicate.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(255), case-insensitive |
+| Required | false |
+| Unique | true |
+| External ID | true |
 
 ### ChainName__c
 
@@ -121,6 +142,23 @@ UUID linking this chain execution to all related log entries across async bounda
 | Unique | true |
 | External ID | true |
 
+### CurrentJobId__c
+
+```apex
+global String CurrentJobId__c
+```
+
+Identifier of the queueable job currently executing this chain run. Stamped at each step's progress write; the watchdog uses it to check whether a live executor still exists before recovering the chain. Shown read-only on the record page for diagnostics.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(18) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
 ### CurrentStepName__c
 
 ```apex
@@ -168,6 +206,48 @@ Error details if chain failed. Includes step name and exception information.
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Long Text Area(32768) |
+
+### FailureCategory__c
+
+```apex
+global String FailureCategory__c
+```
+
+Why the chain left the happy path. Set by the framework at each terminal or stall transition. Empty on healthy chains and on records created before this field existed.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Picklist |
+| Required | false |
+
+**Picklist Values:**
+
+| API Name | Label | Active |
+|----------|-------|--------|
+| `StepException` | Step Exception | Yes |
+| `RetriesExhausted` | Retries Exhausted | Yes |
+| `KillSwitch` | Kill Switch | Yes |
+| `Stalled` | Stalled | Yes |
+| `OperatorAbort` | Operator Abort | Yes |
+
+### RunKey__c
+
+```apex
+global String RunKey__c
+```
+
+Internal run-key fence token. Rotated on initial start and on every watchdog re-drive; the executor re-checks it before each persist so a stale-key zombie cannot corrupt a resumed run. Shown read-only on the record page for diagnostics.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(36) |
+| Required | false |
+| Unique | false |
+| External ID | false |
 
 ### StartedAt__c
 

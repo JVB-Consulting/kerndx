@@ -1274,7 +1274,8 @@ insert job;
 | Field                | Type                          | Description                                                                   |
 |----------------------|-------------------------------|-------------------------------------------------------------------------------|
 | `ChainName__c`       | Text(255), Required           | Chain name from `newChain()`                                                  |
-| `Status__c`          | Picklist                      | Running, Completed, Failed, Delayed, Aborted, Stalled                         |
+| `Status__c`          | Picklist                      | Running, Completed, Failed, Aborted, or Stalled (the picklist also defines Delayed, which the framework does not currently write)                         |
+| `FailureCategory__c` | Picklist                      | Why the chain left the happy path: Step Exception, Retries Exhausted, Kill Switch, Stalled, or Operator Abort (empty on healthy chains) |
 | `TotalSteps__c`      | Number(5,0)                   | Total steps defined in the chain                                              |
 | `CompletedSteps__c`  | Number(5,0)                   | Steps that succeeded (failed steps are not counted)                           |
 | `CurrentStepName__c` | Text(255)                     | Name of the currently executing or last executed step                         |

@@ -2987,15 +2987,21 @@ The card header summarises the overall state. For example, *Review recommended (
 | **Trusted Site**        | Action required    | A Trusted URL is registered for your org domain (Setup &gt; Trusted URLs). Only relevant if you use features that call back into your org, such as streaming channels.                                                                                    |
 | **Class Type Resolver** | Review recommended | A custom type resolver is registered so the framework can locate the Apex classes in your own namespace that you reference in configuration.                                                                                                              |
 | **Data Retention**      | Review recommended | A scheduled purge job exists for each framework data object (Log Entries, API Calls, API Issues, and Async Chain Executions). Without one, these records accumulate indefinitely.                                                                         |
+| **Data Masking**        | Review recommended | Every active masking target points at a live rule, and at least one object in the org carries active masking. Warns on a dead target (active, but its rule is missing or switched off) or when almost nothing is masked yet.                              |
+| **Custom Object Coverage** | Review recommended | Your own custom objects that hold likely-sensitive fields already carry masking. Warns and names any object left unprotected.                                                                                                                         |
+| **Chain Abort Capability** | Review recommended | The abort action is enabled and at least one user holds the Kern Async Chain Abort permission set. Warns when any profile beyond System Administrator holds the abort permission, usually the result of installing the package for All Users, because everyone in those profiles can silently abort chains. |
+| **Chain Watchdog**      | Review recommended | A recurring recovery job (`SCHED_ChainWatchdog`) is scheduled to sweep for stalled chains. Without one, a chain whose background job died is never automatically recovered.                                                                               |
 
 ### Built-in fixes
 
-Two checks can repair the configuration for you, without leaving the page:
+Three checks can repair the configuration for you, without leaving the page:
 
 - **Class Type Resolver → Setup** opens a generator that writes a ready-to-deploy resolver class and its matching test class for you to copy or download.
   See [Type Resolution](#type-resolution-util_typeresolver) for the resolver pattern and how to register it.
 - **Data Retention → Apply Recommended Retention** schedules a nightly purge job for every uncovered object using default retention windows. Choose **Customize each job →** to set
   the retention period and schedule per object before the jobs are created.
+- **Chain Watchdog → Schedule Chain Watchdog** creates the recurring stalled-chain recovery job for you with the recommended defaults: hourly, a 30-minute stale threshold, and up
+  to 50 chains per sweep. Choose **Customize schedule →** to adjust the job before it is created.
 
 ### Administration Tools
 

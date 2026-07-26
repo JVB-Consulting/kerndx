@@ -22,7 +22,7 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 
 **Implements:** [IF_Schedulable](IF_Schedulable.md)
 
-**Known Derived Types:** [SCHED_DeactivateUsers](SCHED_DeactivateUsers.md), [SCHED_PurgeRecords](SCHED_PurgeRecords.md), [IF_Schedulable.getParameterDefinitions()](IF_Schedulable.md#getparameterdefinitions), [IF_Schedulable.setParameterValues(DTO_NameValues)](IF_Schedulable.md#setparametervalues)
+**Known Derived Types:** [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md), [SCHED_DeactivateUsers](SCHED_DeactivateUsers.md), [SCHED_PurgeRecords](SCHED_PurgeRecords.md), [IF_Schedulable.getParameterDefinitions()](IF_Schedulable.md#getparameterdefinitions), [IF_Schedulable.setParameterValues(DTO_NameValues)](IF_Schedulable.md#setparametervalues)
 
 Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definition list. Subscribers extend this class, override getParameterDefinitions() to declare their parameters, and implement execute(SchedulableContext) for job logic. When setParameterValues() is called by the framework, the base class resolves raw string values into typed values (String, Integer, Boolean) based on the DataType declared in getParameterDefinitions(), applying default values where configured. Subclasses read typed values via getTextParameter(), getNumericParameter(), and getBooleanParameter().
 

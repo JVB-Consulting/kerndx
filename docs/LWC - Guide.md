@@ -1297,7 +1297,7 @@ and `scheduledJobEditorModal` for inline editing. The editor embeds `cronExpress
 
 ### healthCheck - Post-Install Diagnostics
 
-After installing KernDX, a few things need to be set up correctly (caches, a trusted site, retention jobs). This component runs 7 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page so the status is visible at a glance.
+After installing KernDX, a few things need to be set up correctly (caches, a trusted site, retention jobs). This component runs 9 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page so the status is visible at a glance.
 
 **Targets:** `lightning__HomePage`
 
@@ -1312,6 +1312,8 @@ After installing KernDX, a few things need to be set up correctly (caches, a tru
 6. **Data Masking**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
    nothing is masked yet; the warning's action opens the [Data Masking Advisor](Data%20Masking%20-%20Guide.md#the-data-masking-advisor)
 7. **Custom Object Coverage**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
+8. **Chain Abort Capability**: whether the Chain Monitor's abort action is enabled and granted to at least one user (Warn when the flag is deactivated, when any profile beyond System Administrator holds the abort permission, usually the footprint of an All Users install, or when nobody holds the Kern Async Chain Abort permission set)
+9. **Chain Watchdog**: whether the stalled-chain recovery job (`SCHED_ChainWatchdog`) is scheduled (Warn when it is not, with a one-click **Schedule Chain Watchdog** action that creates the hourly job with the recommended defaults, plus a **Customize schedule →** link for full control)
 
 **Features:**
 
@@ -1956,7 +1958,7 @@ public with sharing class MyController implements IF_Search
 
 #### healthCheck
 
-**Purpose:** Post-install diagnostics with 7 health checks and actionable warnings
+**Purpose:** Post-install diagnostics with 9 health checks and actionable warnings
 
 **Where to Use:** Home Pages
 
@@ -1966,7 +1968,7 @@ public with sharing class MyController implements IF_Search
 
 **Features:**
 
-- 5 checks: Organisation Cache, Session Cache, Trusted Site, Class Type Resolver, Data Retention
+- 9 checks: Organisation Cache, Session Cache, Trusted Site, Class Type Resolver, Data Retention, Data Masking, Custom Object Coverage, Chain Abort Capability, Chain Watchdog
 - Two-section layout: Action required (fail items) rendered above Review recommended (warn items); all-pass state collapses to a slim green banner
 - Validates resolver classes extend `BaseClassResolver`, and warns if a class exists but is incompatible
 - Setup button on resolver warnings opens a code generator modal

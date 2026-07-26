@@ -37,6 +37,7 @@ Boolean hasKey = context.has('accountId');
 |--------|-------------|
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Retrieves a value from the context by key. |
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getAs](#getas)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) targetType) | Retrieves a value from the context and deserializes it to the specified type. |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getAttempt](#getattempt)() | The 1-based attempt number of the currently executing step. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getChainExecutionId](#getchainexecutionid)() | Returns the ID of the AsyncChainExecution__c record tracking this chain. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getCorrelationId](#getcorrelationid)() | Returns the correlation ID for this chain, used for log correlation across transactions. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getCurrentStepIndex](#getcurrentstepindex)() | Returns the zero-based index of the currently executing step. |
@@ -45,6 +46,7 @@ Boolean hasKey = context.has('accountId');
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)() | Returns the step-level idempotency key for the currently executing step: the chain execution id joined to the step index. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Returns the record-grain idempotency key for a step that fans out over many records: the step-level key joined to the given record id. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) grain) | Returns a custom-grain idempotency key for a step that fans out over a unit that is not a record id (for example a line number or an external key): the step-level key joined to the given grain. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)() | True when no further retry remains for the currently executing step — the strategy's budget is exhausted (or no strategy is configured), so a failure now is final. |
 | global void [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Stores a value in the context under the given key. |
 
 ### get
@@ -98,6 +100,21 @@ Useful for retrieving complex objects that were stored via put() and serialized 
 ```apex
 List<String> names = (List<String>)context.getAs('nameList', List<String>.class);
 ```
+
+</div>
+
+### getAttempt
+
+<div class="apex-member">
+
+```apex
+global Integer getAttempt()
+```
+
+The 1-based attempt number of the currently executing step. 1 on the first
+attempt and for every step without a retry strategy; increments per retry.
+
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The 1-based attempt number of the currently executing step.
 
 </div>
 
@@ -306,6 +323,22 @@ between this overload and the Id overload.
 ```apex
 String lineKey = context.idempotencyKey('orderLine-' + lineNumber);
 ```
+
+</div>
+
+### isFinalAttempt
+
+<div class="apex-member">
+
+```apex
+global Boolean isFinalAttempt()
+```
+
+True when no further retry remains for the currently executing step — the
+strategy's budget is exhausted (or no strategy is configured), so a failure now is final.
+Retry-aware steps should branch on isFinalAttempt() for last-chance side effects, e.g. alerting.
+
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when a failure of the current attempt is final; false when a retry remains.
 
 </div>
 

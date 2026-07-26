@@ -376,7 +376,7 @@ The framework ships seven built-in strategy types. The `Type__c` value is the ex
 | Strategy                    | `Type__c` value               | `Target__c` example                   | Use case                        |
 |-----------------------------|-------------------------------|---------------------------------------|---------------------------------|
 | Custom Permission           | `Custom Permission`           | `Edit_Confidential_Records`           | Permission-based rollout        |
-| Permission Set Group        | `Permission Set Group`        | `Sales_Team`                          | Team-based rollout              |
+| Permission Set or Group     | `Permission Set Group`        | `Sales_Team`                          | Team-based rollout              |
 | Profile                     | `Profile`                     | `System Administrator`                | Profile-scoped features         |
 | Public Group                | `Public Group`                | `Beta_Testers`                        | Opt-in beta programs            |
 | Hierarchical Custom Setting | `Hierarchical Custom Setting` | `My_Settings__c.Enable_Feature__c`    | Org / profile / user precedence |
@@ -384,6 +384,10 @@ The framework ships seven built-in strategy types. The `Type__c` value is the ex
 | Custom Metadata             | `Custom Metadata`             | `My_Config__mdt.RecordName.Enable__c` | Configuration-driven flags      |
 
 </details>
+
+Despite its name, the `Permission Set Group` strategy matches a permission set *or* a permission set group, whichever one the user is assigned. It looks `Target__c` up by name against the user's assignments, and Salesforce gives an assigned permission set group an assignment record carrying the group's own developer name, so one name lookup finds both kinds. Put either a permission set's API name or a permission set group's developer name in `Target__c`. The `Type__c` value stays the literal string `Permission Set Group` for both.
+
+The match is against whatever is *directly* assigned. A permission set that reaches a user only because it sits inside an assigned permission set group will not match under its own name, so target the group instead.
 
 For the Custom Metadata, List Custom Setting, and Hierarchical Custom Setting strategies, `Target__c` is a dotted path that points at a field. The framework reads that field's value and compares it against `ExpectedValue__c`. The Hierarchical Custom Setting strategy follows the standard Salesforce precedence when picking the value: a user-level setting wins over a profile-level one, which wins over the org-level default.
 
@@ -403,8 +407,8 @@ Every strategy resolves to one of three outcomes, and these outcomes drive the
 `ExpectedValue__c` controls how a found condition maps to those outcomes:
 
 - **Left blank** for membership-style strategies (Custom Permission, Profile, Public Group, Permission Set
-  Group): if the user *has* the permission, profile, or membership, the result is match true; if not, the result
-  is no match (so evaluation continues).
+  or Group): if the user *has* the permission, profile, or membership, the result is match true; if not, the
+  result is no match (so evaluation continues).
 - **Set to `true` or `false`** to assert an exact expectation. If the actual condition equals the expected value
   the result is match true; otherwise match false. This lets you write "enabled when the user is *not* in this
   group" by setting `ExpectedValue__c = false`.
@@ -620,7 +624,7 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 | Custom Permission, no prefix (local to your org)            | 1            | 1                         | The package cannot see your org's local permissions through `FeatureManagement`, so it must use SOQL. |
 | Profile                                                    | 1            | 1                         | Resolves the target profile by name.                                                               |
 | Public Group                                               | 1            | 1                         | Group-membership lookup.                                                                           |
-| Permission Set Group                                       | 1            | 1                         | Permission-set-assignment lookup.                                                                  |
+| Permission Set or Group                                    | 1            | 1                         | One assignment lookup by name, matching a permission set or a permission set group.                |
 | Hierarchical Custom Setting                                | 1            | 1 (+ lazy profile lookup) | Reads `SetupOwnerId IN (userId, profileId, orgId)` and picks the highest-precedence non-null.      |
 | List Custom Setting                                        | 1            | 1                         | Single-record lookup by Name.                                                                      |
 | Custom Metadata                                            | 1            | 1                         | Single-record lookup by DeveloperName.                                                             |

@@ -57,27 +57,29 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.5.0-1):** `04tfj000000MutBAAS`
+**Current SubscriberPackageVersionId (1.6.0-3):** `04tfj000000OKK9AAO`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000MutBAAS)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000MutBAAS)
+[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000OKK9AAO)
+[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000OKK9AAO)
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
+
+When the install page asks who to install for, choose **Install for Admins Only**. Installing for All Users writes the chain-abort permission into every profile in your org, silently enabling the Chain Monitor's abort action for everyone; the Health Check will flag it if that happens (see [Post-Install Configuration](#post-install-configuration), item 4). The CLI commands below install for admins only, which is the default.
 
 ---
 
 **CLI install**, in production:
 
 ```bash
-sf package install --package 04tfj000000MutBAAS --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000OKK9AAO --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install**, in a sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000MutBAAS --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000OKK9AAO --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
 **Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and
@@ -106,6 +108,8 @@ What the Health Check looks for, and how to satisfy it:
    Add **Session** cache where you can. Kern keeps per-user data such as encryption keys there. Without it, that data falls back to Org Cache, which uses more of your org-cache allocation and slows down user-specific operations.
 2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org, for example pushing to streaming channels. If you use them, add a Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**). If you don't use those features, you can skip this step.
 3. **Class Type Resolver (optional).** You only need this if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global`. In that case Kern needs a small helper class (a Type Resolver) to find your classes across its namespace; in plain terms, you tell the framework where to look for your code. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you. See also [Integration Gotchas](#integration-gotchas) below.
+4. **Chain abort action (optional).** The Chain Monitor can abort a single runaway async chain, and it ships switched off so no one can stop a chain by accident. To switch it on, assign the **Kern Async Chain Abort** permission set to the operations users who should be allowed to abort a chain, and the action appears for them. A separate org-wide off-switch, the **Async Chain Abort Enabled** feature-flag record, ships active and lets you hide the action for everyone in one step without touching anyone's permissions. The Health Check's **Chain Abort Capability** row reports where you stand; if the package was installed for All Users, every profile already holds the abort permission, and the row warns until you remove those profile grants and rely on the permission set instead. See [Stopping a chain from the Chain Monitor](Async%20Processing%20-%20Guide.md#stopping-a-chain-from-the-chain-monitor) in the Async Processing Guide.
+5. **Stalled-chain recovery (schedule the watchdog).** A background job can die silently and leave an async chain stuck part-way. A scheduled watchdog spots these, marks them `Stalled`, and re-drives the ones it can prove are safe to resume; the rest it flags for you. A managed package cannot ship a scheduled job, so stalled-chain recovery stays dormant until you schedule it. The Health Check's **Chain Watchdog** row spots the gap and schedules the job for you in one click (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). To set it up yourself instead, create a `ScheduledJob__c` record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (cron `0 0 * * * ?`), through the framework's Scheduled Jobs UI (no code needed). Two optional attributes tune it: `StaleThresholdMinutes` (idle minutes before a chain counts as stalled, default 30) and `BatchSize` (chains inspected per sweep, default 50). To schedule it from Apex instead: `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());`. See [Declarative Scheduling with `ScheduledJob__c`](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
 
 To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission) below). For a full walkthrough of every check and what each result means,
 see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.

@@ -45,7 +45,41 @@ public class LoadDataStep extends UTIL_AsyncChain.ChainStep
 
 | Method | Description |
 |--------|-------------|
+| global virtual [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [createRetryStrategy](#createretrystrategy)() | Optional per-step retry strategy. |
 | global abstract [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Execute the step's business logic. |
+
+### createRetryStrategy
+
+<div class="apex-member">
+
+```apex
+global virtual UTIL_Retry.Strategy createRetryStrategy()
+```
+
+Optional per-step retry strategy. Return null (the default) for no retry — a
+failure is final on the first attempt, exactly as before this member existed. Retry TRANSIENT
+failures only (locks, timeouts, 5xx-shaped results): compose
+UTIL_Retry.retryOnlyOnException(...) / dontRetryOnException(...) so deterministic failures are
+never re-burned; a validation error retried N times across a storm of trigger-spawned chains
+costs async budget with zero chance of success. Steps that retry MUST be idempotent — pair with
+ChainContext.idempotencyKey(). Exception filters apply only when the step failed by THROWING;
+a failed StepResult carries no exception, so only the attempt budget gates it.
+
+A chain retrying enough to exhaust queueable stack depth degrades to Stalled and is
+recovered by the watchdog from a fresh root. Backoff has whole-minute granularity — the
+platform's delayed enqueue is minute-based, so any computed backoff over 0 seconds rounds UP
+to the next full minute (a 2-second backoff waits ~1 minute; only withBaseBackoff(0)
+re-enqueues immediately); do not expect sub-minute retry precision.
+
+The backoff delay applies only to the retried attempt's enqueue: it fires exactly once, on
+the retry itself, and the steps after a recovered retry run without any added delay. A chain
+that has retried also carries increased queueable stack-depth headroom for the remainder of
+its run — each retry link genuinely deepens the chain, so the extra depth stays available to
+the hops that follow.
+
+**Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — The retry strategy for this step, or null (the default) for no retry.
+
+</div>
 
 ### work
 

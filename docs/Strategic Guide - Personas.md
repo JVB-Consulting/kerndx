@@ -123,7 +123,7 @@ On larger teams (more than 10 developers) this pays off in review. Reviews are q
 | Library-agnostic PMD ruleset | Shareable for your own CI |
 | 100% per-file Apex coverage gate | Enforced at every release build |
 | 95% LWC statement/branch coverage gate | Enforced |
-| [End-to-end subscriber harness](Strategic%20Guide%20-%20Metrics.md#release-testing) | 561 anonymous-Apex assertions across 74 sections, plus 190 test methods across 41 subscriber test classes |
+| [End-to-end subscriber harness](Strategic%20Guide%20-%20Metrics.md#release-testing) | 561 anonymous-Apex assertions across 75 sections, plus 190 test methods across 41 subscriber test classes |
 | Extended load-test suite + rolling performance-history baselines | Catches performance regressions |
 | Release runbook | A repeatable release process |
 | Recurring drift-audit cycle | Keeps source and org in step |
@@ -302,7 +302,7 @@ KernDX also ships three admin consoles as Lightning tabs:
 - a **Chain Monitor** for asynchronous job chains;
 - a **Data Masking Advisor** for reviewing and exporting your data-masking coverage.
 
-**Operational discipline.** KernDX ships the practices that keep a release trustworthy over time: a release runbook, a recurring drift-audit cycle (re-run every ~4 weeks or before any package build), an end-to-end subscriber harness (561 anonymous-Apex assertions across 74 sections), an extended load-test suite (`npm run test:load:extended`), and rolling performance-history baselines (`npm run test:perf:report`). For the current build identifier, commit count, and package-version count, see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot). As one concrete example of that discipline, an early install-blocker on default-OWD orgs was found and closed in the next package version, and it's visible in the release record.
+**Operational discipline.** KernDX ships the practices that keep a release trustworthy over time: a release runbook, a recurring drift-audit cycle (re-run every ~4 weeks or before any package build), an end-to-end subscriber harness (561 anonymous-Apex assertions across 75 sections), an extended load-test suite (`npm run test:load:extended`), and rolling performance-history baselines (`npm run test:perf:report`). For the current build identifier, commit count, and package-version count, see [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot). As one concrete example of that discipline, an early install-blocker on default-OWD orgs was found and closed in the next package version, and it's visible in the release record.
 
 **When KernDX is not the best fit.** If your main need is log analytics dashboards, `nebula-logger` goes deeper here: alongside its log-browsing components (`logViewer`, `relatedLogEntries`, `logEntryEventStream`) it ships a retention scheduler and admin dashboards that KernDX does not match on the dashboard side. KernDX's Log Console covers the browsing side (past entries searchable and filterable by severity, recurring problems grouped, and a per-operation drilldown), and `LogEntry__c` is fully queryable with masking applied; the gap is the analytics dashboards and the record-page log component, not the browsing screen or the data. Separately, if your admins already live in Flows, TAF's Flow-based bypass (`TriggerActionFlowBypass`) may feel more natural to them.
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency ordering via topological sort, parent-child relationship resolution, and lifecycle hooks for extensi"
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

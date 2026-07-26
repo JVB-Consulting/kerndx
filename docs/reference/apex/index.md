@@ -2,7 +2,7 @@
 
 > Core Apex classes, utilities, and services
 
-**239 items** in this category.
+**240 items** in this category.
 
 ---
 
@@ -11,6 +11,7 @@
 | Name | Description |
 |------|-------------|
 | [IF_Chain](IF_Chain.md) | A container for shared global interfaces used by the async chain orchestration framework. Subscriber |
+| [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md) | A scheduled job that finds async chains stuck with no recent activity and marks them Stalled, firing |
 | [UTIL_AsyncChain](UTIL_AsyncChain.md) | Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress t |
 
 ## Async Processing

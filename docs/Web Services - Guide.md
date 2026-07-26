@@ -1860,6 +1860,10 @@ In your `ApiSetting__mdt` record:
 
 > **Subscriber Setup**: Salesforce treats a call back into your own org as an outbound callout, so it needs to be allowed first. Add a [Remote Site Setting](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_remote_site_settings.htm) for your My Domain URL (Setup > Remote Site Settings > New). Without this, callouts to the current org will fail with a `System.CalloutException`.
 
+> **Only works from a live user session.** [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) signs each call with the current user's session ID, and that session ID exists only while a real user session is active. Asynchronous Apex has none: a scheduled job, a queueable, a batch, a future method, and therefore any step running inside an async chain all run without a user session. The call then goes out with no usable session and your org rejects it, every time, with an HTTP 401 (Unauthorised). To call back into your own org from a background job, authenticate with a stored connection instead: extend [`API_Outbound`](reference/apex/API_Outbound.md) with a Named Credential (a stored, reusable connection definition) or an `ApiCredential__mdt` record, rather than `API_CallCurrentOrg`.
+>
+> Do not reach for retry to paper over that 401 inside a chain. The 401 comes back as an ordinary HTTP response, so the step records a failed result with no thrown exception attached. `withRetry` cannot heal a session that was never going to exist: the call is deterministic, so every attempt returns the same 401, and because there is no exception object, an exception-filtered retry has nothing to match and cannot single the 401 out to skip it. Each attempt simply spends another slice of your retry budget on the same failure. See [Retrying a failed step](Async%20Processing%20-%20Guide.md#retrying-a-failed-step) and [ApiStep: Web Service Integration](Async%20Processing%20-%20Guide.md#apistep-web-service-integration) in the Async Processing Guide.
+
 ---
 
 ## Virtual Methods Reference

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and A"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

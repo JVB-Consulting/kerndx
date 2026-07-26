@@ -51,6 +51,7 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [triggeringRecordFrom](#triggeringrecordfrom)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextKey) | Sets the triggering record ID from a ChainContext key, resolved at execution-time. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withParameter](#withparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a static parameter value to pass to the handler. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withParameterFrom](#withparameterfrom)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextKey) | Maps a handler parameter to a ChainContext key, resolved at execution-time. |
+| global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withRetry](#withretry)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxAttempts, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) baseBackoffSeconds) | Opt-in chain-level retry for this API step. |
 | global override [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Executes the API_Outbound handler via UTIL_HttpClient delegation mode. |
 
 ### credential
@@ -188,6 +189,39 @@ Use this when the parameter value is produced by a prior step in the chain.
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendConfirmation.class)
     .withParameterFrom('recipient', 'customerEmail')
+```
+
+</div>
+
+### withRetry
+
+<div class="apex-member">
+
+```apex
+global UTIL_AsyncChain.ApiStep withRetry(Integer maxAttempts, Integer baseBackoffSeconds)
+```
+
+Opt-in chain-level retry for this API step. When configured, the chain re-runs
+the whole step (a fresh callout) with exponential backoff, and the outbound engine's own
+NextRetry__c rescheduling is suppressed for calls made by this step — one retry authority,
+never two. Without this call the outbound engine keeps sole ownership of retries, exactly
+as before.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxAttempts` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Total attempts including the first (2 = one retry). Null or <= 1 disables. |
+| `baseBackoffSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Base delay fed to UTIL_Retry.exponential(); null = 0. |
+
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
+
+**Example**
+
+```apex
+new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
+    .triggeringRecordFrom('orderId')
+    .withRetry(3, 30)
 ```
 
 </div>

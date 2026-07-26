@@ -37,7 +37,7 @@ Integer done = status.completedSteps;
 |--------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFailed](#isfailed)() | Whether the chain failed. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRunning](#isrunning)() | Whether the chain is currently running. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isTerminal](#isterminal)() | Whether the chain has reached a terminal state from which it will not advance — Completed, Failed or Aborted. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isTerminal](#isterminal)() | Whether the chain has reached a terminal state from which it will not advance — Completed, Failed or Aborted, or any row carrying a completion timestamp. |
 
 ### isFailed
 
@@ -67,9 +67,11 @@ if(status.isFailed()) { escalate(status.errorMessage); }
 global Boolean isRunning()
 ```
 
-Whether the chain is currently running. The reserved Delayed and Stalled
-statuses (defined but not currently written by the framework) would be reported as
-neither running nor terminal.
+Whether the chain is currently running. A Stalled chain reports as neither
+running nor terminal: it is waiting for recovery after a temporary platform limit stopped
+the framework from scheduling its next piece of work, or after the SCHED_ChainWatchdog
+scheduled job found it silently stuck. The reserved Delayed status, which the framework
+does not currently write, is reported the same way.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Running.
 
@@ -90,9 +92,11 @@ global Boolean isTerminal()
 ```
 
 Whether the chain has reached a terminal state from which it will not advance —
-Completed, Failed or Aborted.
+Completed, Failed or Aborted, or any row carrying a completion timestamp. The timestamp
+conjunct covers a rare recovery overwrite that can leave a finished chain reading Stalled:
+the completion timestamp survives that overwrite, so it is the reliable end-of-life signal.
 
-**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Completed, Failed or Aborted.
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Completed, Failed or Aborted, or completedAt is set.
 
 **Example**
 
@@ -116,7 +120,7 @@ if(status.isTerminal()) { notifyDone(status); }
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | The failure message, when the chain has failed; otherwise null. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [executionId](#executionid) | The AsyncChainExecution__c record ID. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [startedAt](#startedat) | When the chain started executing. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The lifecycle status: one of Running, Completed, Failed or Aborted. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [status](#status) | The lifecycle status: one of Running, Completed, Failed, Stalled or Aborted. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [totalSteps](#totalsteps) | The total number of steps in the chain. |
 
 ### chainName
@@ -229,9 +233,15 @@ global String status
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-The lifecycle status: one of Running, Completed, Failed or Aborted. (The status
-picklist also defines Delayed and Stalled, which the framework does not currently write.)
+The lifecycle status: one of Running, Completed, Failed, Stalled or Aborted.
+The framework writes Stalled when a temporary platform limit stops it from scheduling the
+chain's next piece of work: the chain waits for recovery instead of failing. The
+SCHED_ChainWatchdog scheduled job also writes Stalled when its sweep finds a chain
+silently stuck with no recent activity.
+(The picklist also defines Delayed, which the framework does not currently write.)
 Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
+A Stalled value beside a populated completedAt means a recovery overwrite landed on a
+finished chain; isTerminal() reports that row terminal.
 
 ### totalSteps
 
