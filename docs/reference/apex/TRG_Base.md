@@ -5,7 +5,7 @@ pageClass: reference
 description: "The base class for trigger actions, designed to be extended and implement relevant interfaces. This class provides the core functionality for executing trigger actions based on the trigger context, wi"
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, May 2026"
+date: "February 2026, July 2026"
 since: "1.0"
 category: apex
 ---

@@ -687,6 +687,6 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 - [E2E Testing (verify triggers fire end-to-end)](Fast%20Start%20-%20E2E%20Testing.md)
 - [Complete Triggers Guide](Triggers%20-%20Guide.md)
 - [Change Data Capture actions (react to committed changes)](Triggers%20-%20Guide.md#change-data-capture-actions)
-- [Post-trigger actions (run logic once per transaction)](Triggers%20-%20Guide.md#post-trigger-actions)
+- [Post-trigger actions (run logic once, after all trigger actions for a save finish)](Triggers%20-%20Guide.md#post-trigger-actions)
 - [Bypass Mechanisms](Triggers%20-%20Guide.md#bypass-mechanisms)
 - [Feature Flag Integration](Triggers%20-%20Guide.md#feature-flag-integration)

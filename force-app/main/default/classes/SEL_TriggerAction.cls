@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 public inherited sharing class SEL_TriggerAction
 {
@@ -120,6 +120,16 @@ public inherited sharing class SEL_TriggerAction
 
 	private static final String FIELD_TA_BYPASS_EXECUTION = TriggerAction__mdt.BypassExecution__c.getDescribe().name;
 	private static final String FIELD_TS_BYPASS_EXECUTION = TriggerSetting__mdt.BypassExecution__c.getDescribe().name;
+	private static final String FIELD_TA_APEX_CLASS_NAME = TriggerAction__mdt.ApexClassName__c.getDescribe().name;
+	private static final String FIELD_TA_FLOW_NAME = TriggerAction__mdt.FlowName__c.getDescribe().name;
+
+	/**
+	 * @description Cache lifetime for the unfiltered trigger-action registration query behind
+	 * `isRegisteredActionClassName`. Registration rows change only on metadata deploys, so a
+	 * short-lived shared cache avoids re-querying; staleness affects only the advisory
+	 * unmatched-target audit annotation, never dispatch.
+	 */
+	private static final Integer REGISTRATION_CACHE_TTL_SECONDS = 300;
 
 	@TestVisible
 	private static final String OBJECT_NAME_TRIGGER_ACTION = UTIL_SObjectDescribe.getObjectNameFromType(TriggerAction__mdt.SObjectType);
@@ -266,6 +276,58 @@ public inherited sharing class SEL_TriggerAction
 		}
 
 		return triggerActionByObjectNameAndOperationMap.get(objectName)?.get(operation.name()) ?? new List<TriggerAction__mdt>();
+	}
+
+	/**
+	 * @description Checks whether a class name matches at least one registered `TriggerAction__mdt`
+	 * row's resolved action class — the row's `ApexClassName__c`, or the flow-runner class
+	 * (`TRG_InvokeFlow`) when any flow-action row exists, since every flow row dispatches through
+	 * that one class. Comparison is case-insensitive, mirroring Apex class-name semantics, and
+	 * deliberately ignores `BypassExecution__c`: a row that is currently CMDT-bypassed is still a
+	 * real target. Used by the bypass audit to flag bypass targets that can never take effect.
+	 *
+	 * @param actionClassName The action class name to check.
+	 *
+	 * @return `true` when at least one registered row resolves to the given class name, `false`
+	 *         for blank input or when nothing matches.
+	 */
+	public static Boolean isRegisteredActionClassName(String actionClassName)
+	{
+		if(String.isBlank(actionClassName))
+		{
+			return false;
+		}
+		Boolean flowRunnerRequested = actionClassName.equalsIgnoreCase(TRG_InvokeFlow.class.getName());
+		for(TriggerAction__mdt actionRow : queryAllActionRegistrations())
+		{
+			if(String.isNotBlank(actionRow.ApexClassName__c) && actionClassName.equalsIgnoreCase(actionRow.ApexClassName__c))
+			{
+				return true;
+			}
+			if(flowRunnerRequested && String.isNotBlank(actionRow.FlowName__c))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @description Queries the registration-relevant fields of every `TriggerAction__mdt` row
+	 * through the framework cache (`QRY_Builder.withCache`: Platform Cache when available, with
+	 * the engine's per-transaction fallback). Deliberately unfiltered (`BypassExecution__c`
+	 * included): a row that is currently CMDT-bypassed is still a registered target, and
+	 * custom-metadata SOQL does not count against query limits.
+	 *
+	 * @return Every trigger-action row with its class and flow name fields.
+	 */
+	private static List<TriggerAction__mdt> queryAllActionRegistrations()
+	{
+		return QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
+				.systemModeInternal()
+				.fields(new List<String> {FIELD_TA_APEX_CLASS_NAME, FIELD_TA_FLOW_NAME})
+				.withCache(REGISTRATION_CACHE_TTL_SECONDS)
+				.toList();
 	}
 
 	/**

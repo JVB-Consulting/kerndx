@@ -29,7 +29,7 @@ Registers a single trigger action: one Apex class bound to one trigger event (e.
 | Field | Description |
 |-------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [AllowNonSelfInitiated__c](#allownonselfinitiated__c) | Controls whether this action runs during cascading triggers (when a different object's trigger causes this object's trigger to fire). |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [AllowRecursion__c](#allowrecursion__c) | Controls whether this action can execute more than once in the same transaction. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [AllowRecursion__c](#allowrecursion__c) | Controls whether this action can re-enter itself. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ApexClassName__c](#apexclassname__c) | Fully qualified Apex class name that implements the trigger action logic. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [BypassExecution__c](#bypassexecution__c) | When checked, this individual trigger action is completely skipped during trigger execution. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [BypassFeatureFlag__c](#bypassfeatureflag__c) | Optional. |
@@ -70,7 +70,7 @@ Controls whether this action runs during cascading triggers (when a different ob
 global Boolean AllowRecursion__c
 ```
 
-Controls whether this action can execute more than once in the same transaction. When false, the framework tracks execution and skips the action if the same trigger fires again (e.g. an After Update action that updates the same object). Defaults to true (recursion allowed).
+Controls whether this action can re-enter itself. When false, the framework skips the action if an earlier run of the same action is still in progress, most commonly when the action's own DML fires the same trigger again before it finishes (e.g. an After Update action that updates the same object). The action still runs for separate, later operations in the same transaction. Defaults to true (recursion allowed).
 
 **Field Attributes:**
 

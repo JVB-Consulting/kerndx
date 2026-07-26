@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -599,5 +599,73 @@ private class SEL_TriggerAction_TEST
 				'A mis-cased describable override should normalise to the platform-canonical API name');
 		Assert.areEqual('NoSuchEntity__c', preserved,
 				'An override that does not resolve via describe should be returned unchanged');
+	}
+
+	/**
+	 * @description Tests that a class name matching a registered row's `ApexClassName__c` counts
+	 * as registered regardless of casing, mirroring Apex class-name semantics.
+	 *
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void isRegisteredActionClassNameMatchesApexClassNameCaseInsensitively()
+	{
+		TriggerAction__mdt registered = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.ApexClassName__c, 'TRG_RegisteredAction')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {registered});
+
+		Test.startTest();
+		Boolean isRegistered = SEL_TriggerAction.isRegisteredActionClassName('trg_registeredaction');
+		Test.stopTest();
+
+		Assert.isTrue(isRegistered, 'A class name matching a registered row (any casing) should count as registered');
+	}
+
+	/**
+	 * @description Tests that the flow-runner class name counts as registered when any flow-action
+	 * row exists — every flow row dispatches through the one runner class, so its name is the
+	 * action-level bypass key for all flow actions.
+	 *
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void isRegisteredActionClassNameMatchesFlowRunnerWhenFlowRowsExist()
+	{
+		TriggerAction__mdt flowRow = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.FlowName__c, 'Account_SetDefaults')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {flowRow});
+
+		Test.startTest();
+		Boolean isRegistered = SEL_TriggerAction.isRegisteredActionClassName(TRG_InvokeFlow.class.getName());
+		Test.stopTest();
+
+		Assert.isTrue(isRegistered, 'The flow-runner class name should count as registered when any flow-action row exists');
+	}
+
+	/**
+	 * @description Tests that unknown and blank class names do not count as registered.
+	 *
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void isRegisteredActionClassNameReturnsFalseForUnknownOrBlankNames()
+	{
+		TriggerAction__mdt registered = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.ApexClassName__c, 'TRG_RegisteredAction')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {registered});
+
+		Test.startTest();
+		Boolean unknownRegistered = SEL_TriggerAction.isRegisteredActionClassName('TRG_UnknownAction');
+		Boolean blankRegistered = SEL_TriggerAction.isRegisteredActionClassName('');
+		Test.stopTest();
+
+		Assert.isFalse(unknownRegistered, 'An unregistered class name should not count as registered');
+		Assert.isFalse(blankRegistered, 'A blank class name should not count as registered');
 	}
 }

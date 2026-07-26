@@ -38,12 +38,12 @@
 
 ## Overview
 
-This reference contains **265 documented items** across the following categories:
+This reference contains **266 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
 | **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
-| **Apex Classes** | 239 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
+| **Apex Classes** | 240 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
 | **Custom Objects** | 10 | Custom SObjects in the package | [Browse All](objects/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
@@ -433,6 +433,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | Class | Description |
 |-------|-------------|
 | [IF_Chain](apex/IF_Chain.md) | A container for shared global interfaces used by the async chain orchestration framework. |
+| [SCHED_ChainWatchdog](apex/SCHED_ChainWatchdog.md) | A scheduled job that finds async chains stuck with no recent activity and marks them Stalled, firing each chain's per... |
 | [UTIL_AsyncChain](apex/UTIL_AsyncChain.md) | Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. |
 
 ### Omnistudio
@@ -488,7 +489,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [FieldSetGroup__mdt](metadata/FieldSetGroup__mdt.md) | Groups multiple field sets for an object into a single configuration record. |
 | [MaskingRule__mdt](metadata/MaskingRule__mdt.md) | Defines a rule for masking sensitive data in a field — what to look for and what to replace it with. |
 | [MaskingTarget__mdt](metadata/MaskingTarget__mdt.md) | Applies a Masking Rule to a specific field on a specific object. |
-| [PostTriggerAction__mdt](metadata/PostTriggerAction__mdt.md) | Registers a single post-trigger action: one Apex class that runs once at the end of a trigger transaction, after all ... |
+| [PostTriggerAction__mdt](metadata/PostTriggerAction__mdt.md) | Registers a single post-trigger action: one Apex class that runs once after all trigger actions set off by a save hav... |
 | [TriggerAction__mdt](metadata/TriggerAction__mdt.md) | Registers a single trigger action: one Apex class bound to one trigger event (e.g. |
 | [TriggerSetting__mdt](metadata/TriggerSetting__mdt.md) | Parent configuration for all trigger actions on a single object. |
 | [ValidationRule__mdt](metadata/ValidationRule__mdt.md) | Defines an individual validation rule with a formula-based condition, error message, and configuration options. |

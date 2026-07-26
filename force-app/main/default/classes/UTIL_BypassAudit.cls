@@ -29,7 +29,7 @@
  *
  * @group Security
  *
- * @date May 2026, June 2026
+ * @date May 2026, July 2026
  *
  * @since 1.0
  *
@@ -110,6 +110,16 @@ public inherited sharing class UTIL_BypassAudit
 	 */
 	@TestVisible
 	private static final String CONTEXT_ROW_COUNT = 'rowCount';
+
+	/**
+	 * @description Context key flagging a trigger-action bypass audit entry whose target matched
+	 * no registered `TriggerAction__mdt` row at call time — the call compiles and audits, but the
+	 * bypass never takes effect (typo or wrong namespace form). Emission never throws or blocks:
+	 * bypassing a not-yet-deployed or unresolvable action is a legitimate incident-mitigation
+	 * path; the flag restores audit-trail honesty instead of pretending the action was disabled.
+	 * Public (not `@TestVisible`) because `TRG_Base.logBypassEvent` attaches it cross-class.
+	 */
+	public static final String CONTEXT_UNMATCHED_TARGET = 'unmatchedTarget';
 
 	/**
 	 * @description Operation verb recorded by the query surface when a terminal flushes its

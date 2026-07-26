@@ -25,7 +25,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -783,6 +783,151 @@ private class TRG_Base_TEST
 		Map<String, Object> context = findTriggerAuditContext('TRG_SetFoobarDefaults', UTIL_BypassAudit.SURFACE_TRIGGER_ACTION);
 		Assert.isNotNull(context, 'bypassAction should emit a trigger-action audit entry');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
+	}
+
+	/**
+	 * @description Tests that `TRG_Base.bypassAction(String)` flags the audit entry when the
+	 * target matches no registered `TriggerAction__mdt` row — the fail-open case where a typo'd
+	 * or wrongly-namespaced name audits a bypass that never takes effect.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void shouldAnnotateActionBypassAuditWhenTargetMatchesNoRegisteredAction()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TriggerAction__mdt registered = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.ApexClassName__c, 'TRG_SetFoobarDefaults')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {registered});
+
+		Test.startTest();
+		TRG_Base.bypassAction('TRG_NoSuchActionAnywhere');
+		Test.stopTest();
+
+		Map<String, Object> context = findTriggerAuditContext('TRG_NoSuchActionAnywhere', UTIL_BypassAudit.SURFACE_TRIGGER_ACTION);
+		Assert.isNotNull(context, 'bypassAction should still emit a trigger-action audit entry for an unmatched target');
+		Assert.areEqual('true', String.valueOf(context.get(UTIL_BypassAudit.CONTEXT_UNMATCHED_TARGET)),
+				'An action bypass whose target matches no registered TriggerAction__mdt row should carry the unmatched flag');
+	}
+
+	/**
+	 * @description Tests that `TRG_Base.bypassAction(String)` does not flag the audit entry when
+	 * the target matches a registered row, regardless of casing.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void shouldNotAnnotateActionBypassAuditWhenTargetIsRegistered()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TriggerAction__mdt registered = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.ApexClassName__c, 'TRG_SetFoobarDefaults')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {registered});
+
+		Test.startTest();
+		TRG_Base.bypassAction('trg_setfoobardefaults');
+		Test.stopTest();
+
+		Map<String, Object> context = findTriggerAuditContext('trg_setfoobardefaults', UTIL_BypassAudit.SURFACE_TRIGGER_ACTION);
+		Assert.isNotNull(context, 'bypassAction should emit a trigger-action audit entry');
+		Assert.isNull(context.get(UTIL_BypassAudit.CONTEXT_UNMATCHED_TARGET),
+				'A registered target (any casing) should not carry the unmatched flag');
+	}
+
+	/**
+	 * @description Tests that action bypass keys match case-insensitively, mirroring Apex
+	 * class-name semantics — a bypass set with one casing must suppress a dispatcher check
+	 * using another.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see TRG_Base.isActionBypassed
+	 */
+	@IsTest
+	private static void shouldMatchActionBypassCaseInsensitively()
+	{
+		Test.startTest();
+		TRG_Base.bypassAction('trg_setfoobardefaults');
+		Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SETFOOBARDEFAULTS');
+		Test.stopTest();
+
+		Assert.isTrue(isBypassed, 'Action bypass keys should match case-insensitively (Apex class names are case-insensitive)');
+	}
+
+	/**
+	 * @description Tests that `TRG_Base.clearActionBypass(String)` removes a bypass regardless of
+	 * the casing used when it was set.
+	 *
+	 * @see TRG_Base.clearActionBypass
+	 */
+	@IsTest
+	private static void shouldClearActionBypassCaseInsensitively()
+	{
+		TRG_Base.bypassAction('trg_setfoobardefaults');
+
+		Test.startTest();
+		TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
+		Test.stopTest();
+
+		Assert.isFalse(TRG_Base.isActionBypassed('trg_setfoobardefaults'),
+				'clearActionBypass should remove the bypass regardless of casing');
+	}
+
+	/**
+	 * @description Tests that `TRG_Base.clearActionBypass(String)` flags the audit entry when the
+	 * cleared target matches no registered `TriggerAction__mdt` row, mirroring the bypass leg.
+	 *
+	 * @see TRG_Base.clearActionBypass
+	 * @see SEL_TriggerAction.isRegisteredActionClassName
+	 */
+	@IsTest
+	private static void shouldAnnotateActionClearAuditWhenTargetMatchesNoRegisteredAction()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TriggerAction__mdt registered = (TriggerAction__mdt)TST_Builder.of(TriggerAction__mdt.SObjectType)
+				.withOverride(TriggerAction__mdt.ApexClassName__c, 'TRG_SetFoobarDefaults')
+				.withoutInsertion()
+				.build();
+		QRY_Builder.setMock(TriggerAction__mdt.SObjectType, new List<TriggerAction__mdt> {registered});
+
+		Test.startTest();
+		TRG_Base.clearActionBypass('TRG_NoSuchActionAnywhere');
+		Test.stopTest();
+
+		Map<String, Object> context = findTriggerAuditContextWithAction('TRG_NoSuchActionAnywhere', UTIL_BypassAudit.SURFACE_TRIGGER_ACTION, UTIL_BypassAudit.ACTION_CLEAR);
+		Assert.isNotNull(context, 'clearActionBypass should emit a trigger-action CLEAR audit entry');
+		Assert.areEqual('true', String.valueOf(context.get(UTIL_BypassAudit.CONTEXT_UNMATCHED_TARGET)),
+				'A clear whose target matches no registered TriggerAction__mdt row should carry the unmatched flag');
+	}
+
+	/**
+	 * @description Tests that `TRG_Base.clearAllActionBypasses()` never carries the unmatched
+	 * flag: the `ALL` target is not a class name and the registration lookup must be skipped.
+	 *
+	 * @see TRG_Base.clearAllActionBypasses
+	 */
+	@IsTest
+	private static void shouldNotAnnotateClearAllActionBypassesAudit()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		TRG_Base.clearAllActionBypasses();
+		Test.stopTest();
+
+		Map<String, Object> context = findTriggerAuditContextWithAction(UTIL_BypassAudit.TARGET_ALL, UTIL_BypassAudit.SURFACE_TRIGGER_ACTION, UTIL_BypassAudit.ACTION_CLEAR_ALL);
+		Assert.isNotNull(context, 'clearAllActionBypasses should emit a trigger-action CLEAR_ALL audit entry');
+		Assert.isNull(context.get(UTIL_BypassAudit.CONTEXT_UNMATCHED_TARGET),
+				'The clear-all audit entry should never carry the unmatched flag');
 	}
 
 	/**

@@ -29,7 +29,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -456,7 +456,7 @@ global inherited sharing virtual class TRG_Base
 	 */
 	global static void bypassAction(String actionClassName)
 	{
-		TRG_Base.BYPASSED_ACTIONS.add(actionClassName);
+		TRG_Base.BYPASSED_ACTIONS.add(normalizeActionKey(actionClassName));
 		logBypassEvent(BypassAction.BYPASS, BypassType.CLASS_NAME, actionClassName);
 	}
 
@@ -477,7 +477,7 @@ global inherited sharing virtual class TRG_Base
 	 */
 	global static Boolean isActionBypassed(String actionClassName)
 	{
-		return TRG_Base.BYPASSED_ACTIONS.contains(actionClassName);
+		return TRG_Base.BYPASSED_ACTIONS.contains(normalizeActionKey(actionClassName));
 	}
 
 	/**
@@ -496,7 +496,7 @@ global inherited sharing virtual class TRG_Base
 	 */
 	global static void clearActionBypass(String actionClassName)
 	{
-		TRG_Base.BYPASSED_ACTIONS.remove(actionClassName);
+		TRG_Base.BYPASSED_ACTIONS.remove(normalizeActionKey(actionClassName));
 		logBypassEvent(BypassAction.CLEAR, BypassType.CLASS_NAME, actionClassName);
 	}
 
@@ -678,7 +678,26 @@ global inherited sharing virtual class TRG_Base
 		String surface = (scope == BypassType.OBJECT_NAME)
 				? UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT
 				: UTIL_BypassAudit.SURFACE_TRIGGER_ACTION;
-		UTIL_BypassAudit.emit(surface, action.name(), target, null);
+		Map<String, Object> contextExtras = null;
+		if(scope == BypassType.CLASS_NAME && action != BypassAction.CLEAR_ALL && !SEL_TriggerAction.isRegisteredActionClassName(target))
+		{
+			contextExtras = new Map<String, Object> {UTIL_BypassAudit.CONTEXT_UNMATCHED_TARGET => true};
+		}
+		UTIL_BypassAudit.emit(surface, action.name(), target, contextExtras);
+	}
+
+	/**
+	 * @description Normalizes an action bypass key to lower case so bypass, check, and clear
+	 * calls match case-insensitively, mirroring Apex class-name semantics. Null-safe: a null
+	 * input stays null, preserving the pre-normalization behaviour for null targets.
+	 *
+	 * @param actionClassName The raw action class name.
+	 *
+	 * @return The lower-cased bypass key, or null for null input.
+	 */
+	private static String normalizeActionKey(String actionClassName)
+	{
+		return actionClassName?.toLowerCase();
 	}
 
 	/**

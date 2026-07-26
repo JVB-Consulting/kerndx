@@ -128,6 +128,7 @@ For deeper coverage, continue reading the sections below.
     - [Mock harness](#mock-harness)
     - [When to use a flow action vs a record-triggered flow](#when-to-use-a-flow-action-vs-a-record-triggered-flow)
     - [Failure-action strategies](#failure-action-strategies)
+    - [Bulk behaviour and governor limits](#bulk-behaviour-and-governor-limits)
     - [Cross-namespace flow resolution](#cross-namespace-flow-resolution)
     - [Recommended-default pattern matrix](#recommended-default-pattern-matrix)
     - [Audit volume control](#audit-volume-control)
@@ -229,7 +230,7 @@ For deeper coverage, continue reading the sections below.
 | **Developer** | Test trigger actions             | [Testing](#testing)                                               |
 | **Developer** | Use bypass mechanisms            | [What else can it do?](#what-else-can-it-do)                      |
 | **Developer** | React to committed changes (CDC) | [Change Data Capture Actions](#change-data-capture-actions)       |
-| **Developer** | Run logic once per transaction   | [Post-Trigger Actions](#post-trigger-actions)                     |
+| **Developer** | Run logic once, after all trigger actions for a save finish | [Post-Trigger Actions](#post-trigger-actions)                     |
 | **Analyst**   | Configure trigger settings       | [Capability Matrix](#capability-matrix-for-analysts)              |
 | **Analyst**   | Monitor trigger performance      | [Performance Logging](#performance-logging)                       |
 
@@ -913,12 +914,13 @@ Order: 10
 
 **When true:**
 
-- Action can execute multiple times in same transaction
+- Action can run again even while an earlier run of it is still in progress
 - Use when action doesn't cause DML on same object
 
 **When false:**
 
-- Action executes only once per transaction
+- The framework skips the action while an earlier run of it is still in progress (a re-fire set off by its own DML, directly or through a chain of other triggers)
+- The action still runs for separate, later operations in the same transaction
 - Prevents infinite loops
 - Use when action might trigger itself
 
@@ -1194,11 +1196,33 @@ history for the same record.
 > regardless of `FailureAction__c`. The dispatcher only intercepts business-logic exceptions; it never swallows
 > a governor breach.
 
+### Bulk behaviour and governor limits
+
+The framework starts one flow interview per record, synchronously, inside the trigger. That sounds expensive for a
+200-record data load, but Salesforce batches flow element execution across the interviews in a transaction: when the
+same flow runs for many records, a Get Records element issues one query in total, not one per record, and the same
+batching applies to Create and Update elements. Measured against the shipped package in a subscriber org, query and
+DML statement counts stayed constant whether a save carried 1, 10, or 100 records.
+
+Two practical rules follow:
+
+- **Keep queries and DML out of Loop elements.** The batching applies across interviews, not across the iterations of
+  a Loop inside your flow. A Get Records or Update Records element inside a Loop body runs once per iteration, exactly
+  as it would in a native record-triggered flow. Work on the whole collection outside the loop instead.
+- **Watch CPU time, not statement counts.** Each interview adds a few milliseconds of CPU per record per flow action,
+  so one flow action on a 200-record save spends well under a second of the 10-second CPU allowance. The cost only
+  becomes interesting when several flow actions stack on one high-volume object. Set `PerformanceThresholdMs__c` on
+  the row so slow runs surface in the performance log, and move genuinely heavy logic to an Apex action on the same
+  registration row.
+
+Failure isolation stays per record in bulk: a record whose interview throws is logged (or blocked) on its own via
+`FailureAction__c`, and the other records in the save carry on.
+
 ### Cross-namespace flow resolution
 
-`FlowName__c` accepts a **bare flow API name**, never a namespace-qualified name. The framework resolves the namespace
-internally by calling the 2-arg form `Flow.Interview.createInterview(flowName, variables)`, which returns the active
-flow whether it lives in the kern namespace or in your own namespace.
+`FlowName__c` accepts a **bare flow API name**, never a namespace-qualified name. The framework works out the
+namespace itself and calls the namespace-aware form `Flow.Interview.createInterview(namespace, flowName, variables)`,
+which returns the active flow whether it lives in the kern namespace or in your own namespace.
 
 - A `FlowName__c` value of `Account_SetDefaults` resolves to the flow in your own namespace when the dispatching CMDT
   row is in your package, and to the kern-namespace flow when the row is in the kern package. Both work
@@ -1871,6 +1895,8 @@ When several actions on the same object need the same related data, querying it 
 
 **Concept:** Trigger actions act like functions in a pipeline. An early action can cache data in a static variable, and later actions can access that cache.
 
+**Two ways to hold the cache.** The pattern below keeps the cache in typed static variables on the caching action class, which gives later actions strongly typed getters and is the right choice for structured record data. For simple values where a holder class is overkill, the framework already ships a transaction-scoped store: [`UTIL_Cache.inTransaction()`](reference/apex/UTIL_Cache.md) returns a name-keyed store (`put`, `get`, `contains`, `remove`) whose contents live only for the current transaction and are shared by every caller in it.
+
 **Benefits:**
 
 - Avoid SOQL in loops
@@ -2131,6 +2157,7 @@ TRG_Dispatcher.run()
 ### Best Practices for Caching
 
 - **Use Static Variables**: Cache data in `private static` variables
+- **Simple Values**: For one-off values without a holder class, use the framework's transaction-scoped store `UTIL_Cache.inTransaction()`; keep the typed caching action for structured record data
 - **Order Matters**: Caching action must have lower Order__c
 - **Provide Getters**: Expose cached data via public static methods
 - **Handle Nulls**: Return empty collections if cache not populated
@@ -2379,7 +2406,7 @@ TRG_NotifyReviewers:
 
 ### Recursion Prevention
 
-An action that updates the same object can trigger itself, which risks an infinite loop. You can stop that by telling the framework to run an action only once per transaction.
+An action that updates the same object can trigger itself, which risks an infinite loop. You can stop that by telling the framework to skip an action while an earlier run of it is still in progress. The action still runs for separate, later operations in the same transaction.
 
 **How It Works:**
 
@@ -2398,7 +2425,7 @@ TriggerAction__mdt:
 
 - Action performs DML that might retrigger itself
 - Action updates fields that trigger the same action
-- Want to ensure action runs only once per transaction
+- Want the framework to stop that re-entry instead of writing your own guard flag
 
 **Example:**
 
@@ -2543,13 +2570,27 @@ TRG_Base.clearActionBypass('TRG_ValidateAccount');
 TRG_Base.clearAllActionBypasses();
 ```
 
+> **Match the registered class name (casing is forgiven).** `bypassAction` matches the string against the registered
+> class name case-insensitively, but does not otherwise validate it: a misspelt or wrongly-namespaced name compiles
+> and still records a bypass audit entry while the real action keeps running. When that happens, the audit entry
+> carries an `unmatchedTarget` flag in its context, so an ineffective bypass shows up in the audit trail instead of
+> passing silently. When bypassing your own action classes, prefer the compiler-checked form
+> `TRG_Base.bypassAction(TRG_ValidateAccount.class.getName())` over a string literal.
+
+> **Flow actions share one bypass key.** Every flow action dispatches through the framework's built-in runner class,
+> so the action-level key is that runner's name: `kern.TRG_InvokeFlow` when you installed the managed package, or
+> `TRG_InvokeFlow` in an unmanaged deploy. Bypassing it switches off every flow action for the rest of the
+> transaction; to switch off a single flow row, set its `BypassExecution__c` or gate it with a feature flag instead.
+
 #### Bypass Audit Trail
 
 Every call to `TRG_Base.bypass*()` / `clearBypass*()` / `clearAll*Bypasses()` emits a WARN-level
 `LogEntryEvent__e` tagged with `category = 'BypassEvent'` via `UTIL_BypassAudit.emit`. The event captures
 the running user, the action (`BYPASS`, `CLEAR`, `CLEAR_ALL`), the surface (`trigger-object` /
 `trigger-action`), the target (SObject API name or class name), and the optional reason set via
-`TRG_Base.setBypassReason(String)`.
+`TRG_Base.setBypassReason(String)`. When an action-level bypass or clear names a class that matches
+no registered trigger action, the entry also carries `unmatchedTarget: true` in its context: the
+bypass was recorded, but it can never take effect.
 
 The same audit channel covers query (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity` →
 `surface = 'query'`), DML (`DML_Builder.withSystemMode` / `bypassSharing` → `surface = 'dml'`), and validation
@@ -2609,13 +2650,13 @@ TriggerSetting__mdt:
 ```
 
 3. Target Users:
-    - Use `FeatureFlagStrategy__mdt` to target by Profile, Permission Set Group, or custom logic
+    - Use `FeatureFlagStrategy__mdt` to target by Profile, Permission Set or Group, or custom logic
     - Or set `IsEnabledByDefault__c = true` to bypass for all users
 
 **Use Cases:**
 
 - Emergency kill switches, a master off-switch you can flip in an incident (enable the flag to bypass, no deployment required)
-- Targeted bypass for integration users via Permission Set Group strategy
+- Targeted bypass for integration users via a permission set or permission set group strategy
 - Data migration bypass controlled by Feature Flag
 
 > **Tip:** For permission-based bypass, create a Feature Flag with a `Custom Permission` strategy type in `FeatureFlagStrategy__mdt`.
@@ -3551,7 +3592,7 @@ If you configure triggers without writing Apex, this table is your map: each row
 | Performance threshold  | `TriggerSetting__mdt` | `PerformanceThresholdMs__c`                      | Only logs actions exceeding this millisecond threshold                                                                                                                                                    |
 | Action-level bypass    | `TriggerAction__mdt`  | `BypassExecution__c`                             | Disables a single trigger action                                                                                                                                                                          |
 | Execution ordering     | `TriggerAction__mdt`  | `Order__c`                                       | Controls execution sequence within an event                                                                                                                                                               |
-| Recursion control      | `TriggerAction__mdt`  | `AllowRecursion__c`                              | Allows re-execution in the same transaction                                                                                                                                                               |
+| Recursion control      | `TriggerAction__mdt`  | `AllowRecursion__c`                              | Allows an action to run again while an earlier run of it is still in progress                                                                                                                                                               |
 | Self-initiated control | `TriggerAction__mdt`  | `AllowNonSelfInitiated__c`                       | Controls behaviour for framework-initiated DML                                                                                                                                                             |
 | Entry criteria         | `TriggerAction__mdt`  | `EntryCriteriaFormula__c`                        | Formula-based conditional execution                                                                                                                                                                       |
 | Bypass audit trail     | Platform event        | `LogEntryEvent__e` tagged `category=BypassEvent` | Every programmatic bypass call across trigger / query / DML / validation surfaces emits a WARN log with user, action, surface, target, and optional reason; `BypassAudit_Enabled` flag is the kill-switch |
