@@ -13,7 +13,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, June 2026
+ * @date May 2026, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -933,6 +933,30 @@ private class CTRL_MaskingAdvisor_TEST
 				CTRL_MaskingAdvisor.getRegulatedFieldInventory(UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType));
 
 		Assert.isNull(inventoryRowFor(inventory, Account.NumberOfEmployees), 'a non-sensitive field is not in the regulated inventory');
+	}
+
+	/**
+	 * @description Verifies that a field carrying its own active field-level target appears in the
+	 * inventory even when the sensitivity heuristic does not flag it — a deliberately masked field is
+	 * inventory-worthy by definition, and its row reads masked today.
+	 */
+	@IsTest
+	private static void getRegulatedFieldInventoryIncludesFieldLevelMaskedFieldRegardlessOfSensitivity()
+	{
+		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt> {activeTargetFor('Account', 'Account.Site')});
+
+		CTRL_MaskingAdvisor.DTO_ObjectFieldInventory inventory =
+				CTRL_MaskingAdvisor.getRegulatedFieldInventory(UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType));
+
+		CTRL_MaskingAdvisor.DTO_FieldInventoryRow row = inventoryRowFor(inventory, Account.Site);
+		Assert.isNotNull(row, 'a field with its own active field-level rule is inventoried even when not rated sensitive');
+		Assert.areEqual
+				(
+						CTRL_MaskingAdvisor.SENSITIVITY_NOT_SENSITIVE,
+						row.sensitivityLevel,
+						'the premise holds: Site is rated not sensitive, so this row exercises the field-level-target admission branch'
+				);
+		Assert.isTrue(row.maskedToday, 'the field-level target marks the row masked today');
 	}
 
 	/**

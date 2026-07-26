@@ -67,6 +67,7 @@ import FILE_NAME_CSV from '@salesforce/label/c.DataMaskingAdvisor_InventoryExpor
 import FILE_NAME_JSON from '@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FileName_Json';
 import SENSITIVITY_SENSITIVE from '@salesforce/label/c.DataMaskingAdvisor_Sensitivity_Sensitive';
 import SENSITIVITY_POSSIBLY from '@salesforce/label/c.DataMaskingAdvisor_Sensitivity_PossiblySensitive';
+import SENSITIVITY_NOT from '@salesforce/label/c.DataMaskingAdvisor_Sensitivity_NotSensitive';
 
 // Scope and format option values, doubling as the radio-group values and the per-scope cache keys.
 const SCOPE_CUSTOM_VALUE = 'custom';
@@ -93,9 +94,9 @@ const CSV_LINE_BREAK = '\r\n';
 // type is on its allowlist; the anchor's download attribute still names the file .csv, so spreadsheets open
 // it by extension regardless of the Blob's MIME type. Do not change this back to text/csv.
 const CSV_BLOB_MIME_TYPE = 'application/octet-stream';
-// Raw sensitivity level → display label. The inventory only carries the two regulated levels; an unmapped
-// value falls through to its raw form rather than rendering blank.
-const SENSITIVITY_LABELS = {Sensitive: SENSITIVITY_SENSITIVE, PossiblySensitive: SENSITIVITY_POSSIBLY};
+// Raw sensitivity level → display label. The inventory carries the two regulated levels plus NotSensitive
+// for actively field-masked fields; an unmapped value falls through to its raw form rather than rendering blank.
+const SENSITIVITY_LABELS = {Sensitive: SENSITIVITY_SENSITIVE, PossiblySensitive: SENSITIVITY_POSSIBLY, NotSensitive: SENSITIVITY_NOT};
 // The high-confidence regulated level — the sole level kept when the "Sensitive fields only" filter is on.
 const SENSITIVITY_LEVEL_SENSITIVE = 'Sensitive';
 
@@ -594,11 +595,11 @@ export default class MaskingInventoryExportDialog extends LightningModal
 				cursor += 1;
 				try
 				{
-					// eslint-disable-next-line no-await-in-loop -- deliberate pacing: objects are fetched sequentially so the export reports per-object progress without flooding Apex
+					// eslint-disable-next-line no-await-in-loop -- deliberate pacing: sequential fetches report per-object progress without flooding Apex
 					const inventory = await getRegulatedFieldInventory({objectApiName: apiName});
 					(inventory?.rows || []).forEach((row) => rows.push({...row, objectApiName: inventory.objectApiName}));
 				}
-				catch(error)
+				catch
 				{
 					failedCount += 1;
 				}

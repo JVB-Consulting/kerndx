@@ -1,6 +1,86 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
     <labels>
+        <fullName>ChainMonitor_AbortAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort button label in the detail header</shortDescription>
+        <value>Abort</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortCancelButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort modal cancel button label</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort modal confirm button label</shortDescription>
+        <value>Abort chain</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort refusal message when the abort did not commit</shortDescription>
+        <value>The abort could not be recorded. Refresh and try again.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort confirmation body; {0} name {1} progress</shortDescription>
+        <value>{0} has completed {1}. The running step finishes, then the chain stops and cannot be resumed.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort confirmation modal title</shortDescription>
+        <value>Abort this chain?</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortSuccessToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after a recorded abort</shortDescription>
+        <value>Abort recorded. The chain stops at its next step boundary.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortUnavailableChainEnded</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort refusal message when the chain already ended</shortDescription>
+        <value>This chain has already ended and can no longer be aborted.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortUnavailableDisabled</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort refusal message when the capability is off</shortDescription>
+        <value>Aborting chains is switched off for this org. An administrator can enable it by activating the Async Chain Abort Enabled feature flag.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortUnavailableMissingPermission</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort refusal message when the user lacks the permission</shortDescription>
+        <value>You do not have permission to abort chains. Ask an administrator for the Kern Async Chain Abort permission set.</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_CopyFailed</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -2161,12 +2241,148 @@ Members: {0}</value>
         <value>1 check passed.</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_AsyncChainAbort_BroadlyGranted</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when profiles beyond System Administrator hold the permission</shortDescription>
+        <value>Profiles other than System Administrator hold the chain abort permission, which is what installing the package for All Users writes. Anyone in those profiles can abort chains from the Chain Monitor. Remove the profile grants and assign the Kern Async Chain Abort permission set to your operations users instead.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AsyncChainAbort_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health check name for the chain abort capability</shortDescription>
+        <value>Chain Abort Capability</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AsyncChainAbort_Configured</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when the abort capability is usable</shortDescription>
+        <value>The chain abort action is enabled and at least one user holds the Kern Async Chain Abort permission set.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AsyncChainAbort_FlagInactive</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when the gating flag record is inactive</shortDescription>
+        <value>The Async Chain Abort Enabled feature flag is deactivated, so nobody can abort chains from the Chain Monitor.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_AsyncChainAbort_NoAssignees</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when nobody holds the permission set</shortDescription>
+        <value>Nobody is assigned the Kern Async Chain Abort permission set yet, so the abort action in the Chain Monitor is available to no one. Assign the set to your operations users to enable it.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_CardTitle</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Health Check card title</shortDescription>
         <value>Health Check</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain watchdog health check display name</shortDescription>
+        <value>Chain Watchdog</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_Configured</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when a watchdog job is scheduled</shortDescription>
+        <value>A chain watchdog job is scheduled and sweeps for stalled chains.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_CreateButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm-dialog create button label</shortDescription>
+        <value>Create scheduled job</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_CustomizeLink</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Customize schedule link label</shortDescription>
+        <value>Customize schedule →</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_DefaultsNote</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm-dialog note stating the sweep defaults</shortDescription>
+        <value>Stale threshold 30 minutes · up to 50 chains per sweep — adjustable later from Scheduled Jobs.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_Missing</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warn detail when no watchdog job is scheduled</shortDescription>
+        <value>No chain watchdog is scheduled. A chain the platform silently drops stays Running forever — the hourly watchdog sweep marks it Stalled and fires its error notification so you can recover it.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_ModalSubtitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm-dialog subtitle explaining what gets created</shortDescription>
+        <value>Kern will create one active scheduled job that checks hourly for chains with no activity in the last 30 minutes and marks them Stalled, firing each chain&apos;s error notification. Pick a different schedule below, or customize the job for full control.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_ModalTitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm-dialog title (mirrors ScheduleButton value)</shortDescription>
+        <value>Schedule Chain Watchdog</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_ScheduleButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>One-click schedule button label (mirrors ModalTitle value)</shortDescription>
+        <value>Schedule Chain Watchdog</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_ScheduleOptions</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Schedule picklist for the watchdog confirm dialog (pipe-delimited label=cron)</shortDescription>
+        <value>Hourly on the hour=0 0 * * * ?|Every 30 minutes=0 0/30 * * * ?|Every 2 hours=0 0 0/2 * * ?|Nightly 2:00 AM=0 0 2 * * ?</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_SchedulerName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default SchedulerName__c for the watchdog job</shortDescription>
+        <value>Chain Watchdog</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_SuccessToast</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Success toast after the one-click schedule</shortDescription>
+        <value>Created the Chain Watchdog scheduled job.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_ClassTypeResolver_CheckName</fullName>
@@ -3910,7 +4126,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Masked-objects scope note in the inventory export dialog.</shortDescription>
-        <value>These objects are masked object-wide, so only fields independently flagged as regulated appear here, not a row per field.</value>
+        <value>These objects are masked object-wide. Rather than a row per field, a field appears here only when it is independently flagged as regulated or carries its own field-level rule.</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_InventoryExport_SensitiveOnly</fullName>
@@ -3926,7 +4142,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Note shown when the sensitive-only filter removes every row.</shortDescription>
-        <value>No fields are classified Sensitive in this scope. Clear the filter to include possibly-sensitive fields.</value>
+        <value>No fields are classified Sensitive in this scope. Clear the filter to include the remaining fields.</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_InventoryExport_ColumnsHeading_Singular</fullName>
@@ -5271,6 +5487,22 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Status filter option: chain execution stalled</shortDescription>
         <value>Stalled</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusConflict</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Badge text for a contradictory terminal row</shortDescription>
+        <value>Ended — status conflict</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusConflictDetail</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tooltip explaining the contradictory row</shortDescription>
+        <value>This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_ChainName</fullName>

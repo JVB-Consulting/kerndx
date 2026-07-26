@@ -14,7 +14,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, June 2026
+ * @date May 2026, July 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public inherited sharing class CTRL_MaskingAdvisor
@@ -703,15 +703,18 @@ public inherited sharing class CTRL_MaskingAdvisor
 
 	/**
 	 * @description Builds the regulated-field inventory for one object: every maskable field the advisor rates
-	 * `Sensitive` or `PossiblySensitive`, each projected into a spreadsheet-ready row. Unlike
-	 * `assessObjectCoverage`, the inventory lists fields regardless of whether masking already covers them,
-	 * marking each with `maskedToday` — the export is a coverage map across both covered and uncovered fields.
-	 * Scope mirrors the advisor's analysis: the maskable text-shaped field types (`RECOMMENDABLE_FIELD_TYPES`),
-	 * excluding system-managed and computed fields (formulas, auto-numbers) the framework cannot mask. Fields
-	 * the advisor leaves `NotSensitive` — including type-reinforcing "likely miss" fields — are not inventoried;
-	 * the console's interactive "Other" section surfaces those. One object per call: the console iterates the
-	 * chosen scope and assembles the CSV/JSON client-side, keeping each describe within a single transaction's
-	 * limits the way the on-demand scan does.
+	 * `Sensitive` or `PossiblySensitive`, plus any field carrying its own active field-level target — a field
+	 * someone deliberately masks is inventory-worthy by definition — each projected into a spreadsheet-ready
+	 * row. Unlike `assessObjectCoverage`, the inventory lists fields regardless of whether masking already
+	 * covers them, marking each with `maskedToday` — the export is a coverage map across both covered and
+	 * uncovered fields. (A "dead" target — active target, missing or inactive rule — still counts here, as in
+	 * `maskedToday`; the configuration-health surfacing owns that distinction.) Scope mirrors the advisor's
+	 * analysis: the maskable text-shaped field types (`RECOMMENDABLE_FIELD_TYPES`), excluding system-managed
+	 * and computed fields (formulas, auto-numbers) the framework cannot mask. Fields the advisor leaves
+	 * `NotSensitive` with no field-level target — including type-reinforcing "likely miss" fields — are not
+	 * inventoried; the console's interactive "Other" section surfaces those. One object per call: the console
+	 * iterates the chosen scope and assembles the CSV/JSON client-side, keeping each describe within a single
+	 * transaction's limits the way the on-demand scan does.
 	 *
 	 * @param objectApiName The SObject to inventory (for example `CustomerFeedback__c`).
 	 *
@@ -737,7 +740,9 @@ public inherited sharing class CTRL_MaskingAdvisor
 
 		for(DTO_FieldRow row : analysis.fields)
 		{
-			if(!isRegulated(row.sensitivityLevel))
+			// A field someone deliberately masks is inventory-worthy by definition, so an active
+			// field-level target earns a row even when the sensitivity heuristic does not flag it.
+			if(!isRegulated(row.sensitivityLevel) && !hasActiveRule(row.appliedRules))
 			{
 				continue;
 			}
@@ -776,8 +781,9 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description Reports whether a sensitivity level is regulated — `Sensitive` or `PossiblySensitive` —
-	 * so the inventory lists the fields that hold or likely hold regulated data and excludes the rest.
+	 * @description Reports whether a sensitivity level is regulated — `Sensitive` or `PossiblySensitive`.
+	 * One half of the inventory's admission rule: a field earns a row when it is regulated OR carries its
+	 * own active field-level target.
 	 *
 	 * @param sensitivityLevel The field's resolved sensitivity level.
 	 *
@@ -2857,8 +2863,9 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description One regulated field projected into the inventory-export shape — the ten columns the export
-	 * modal previews. `securityClassification` / `complianceGroup` are null for a field carrying no native
+	 * @description One inventoried field projected into the export shape — the ten columns the export modal
+	 * previews: fields rated regulated, plus not-sensitive fields that carry their own active field-level
+	 * target. `securityClassification` / `complianceGroup` are null for a field carrying no native
 	 * classification; the recommended-rule fields are null when no rule matches.
 	 */
 	public class DTO_FieldInventoryRow
@@ -2901,7 +2908,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		public String complianceGroup;
 
 		/**
-		 * @description The field's sensitivity rating (`Sensitive` or `PossiblySensitive`).
+		 * @description The field's sensitivity rating — `Sensitive` or `PossiblySensitive`, or
+		 * `NotSensitive` for a row admitted by its own active field-level target.
 		 */
 		@AuraEnabled
 		public String sensitivityLevel;

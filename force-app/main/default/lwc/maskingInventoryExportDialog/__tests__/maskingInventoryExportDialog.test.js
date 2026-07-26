@@ -64,12 +64,14 @@ jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FileName_Csv',
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FileName_Json', () => ({default: 'regulated-field-inventory.json'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_Sensitive', () => ({default: 'Sensitive'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_PossiblySensitive', () => ({default: 'Possibly Sensitive'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_NotSensitive', () => ({default: 'Not Sensitive'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FormatNote', () => ({default: 'CSV uses readable labels; JSON keeps the raw API values.'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_MaskedScopeNote',
-		() => ({default: 'These objects are masked object-wide, so only independently flagged fields appear here.'}), {virtual: true});
+		() => ({default: 'These objects are masked object-wide. Rather than a row per field, a field appears here only when it is independently flagged as '
+				+ 'regulated or carries its own field-level rule.'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_SensitiveOnly', () => ({default: 'Sensitive fields only'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FilteredEmptyState',
-		() => ({default: 'No fields are classified Sensitive in this scope. Clear the filter to include possibly-sensitive fields.'}), {virtual: true});
+		() => ({default: 'No fields are classified Sensitive in this scope. Clear the filter to include the remaining fields.'}), {virtual: true});
 // The shared field-type label helper (c/maskingFieldTypeLabels) imports these; mocked with friendly values so
 // the CSV/preview assert the readable field type rather than the raw DisplayType.
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_FieldType_Text', () => ({default: 'Text'}), {virtual: true});
@@ -692,6 +694,34 @@ describe('c-masking-inventory-export-dialog — download', () =>
 		expect(parsed).toHaveLength(1);
 		expect(parsed[0].fieldApiName).toBe('CustomerEmail__c');
 		expect(parsed[0].sensitivityLevel).toBe('Sensitive');
+	});
+
+	it('renders the Not Sensitive label for an actively field-masked row, keeps its raw level in JSON, and filters it as non-sensitive', async() =>
+	{
+		getRegulatedFieldInventory.mockImplementation(() => Promise.resolve({
+			objectApiName: 'CustomerFeedback__c', objectLabel: 'Customer Feedback', rows: [
+				{fieldApiName: 'RoutingNote__c', fieldLabel: 'Routing Note', fieldType: 'STRING', isLongTextArea: false, securityClassification: null, complianceGroup: null, sensitivityLevel: 'NotSensitive', recommendedRuleDeveloperName: null, recommendedRuleLabel: null, maskedToday: true, historyTrackingRecommended: false},
+				{fieldApiName: 'CustomerEmail__c', fieldLabel: 'Customer Email', fieldType: 'EMAIL', isLongTextArea: false, securityClassification: 'Confidential', complianceGroup: 'PII', sensitivityLevel: 'Sensitive', recommendedRuleDeveloperName: 'Mask_Email', recommendedRuleLabel: 'Mask Email', maskedToday: true, historyTrackingRecommended: true}
+			]
+		}));
+		const element = await createDialog({maskedApiNames: ['CustomerFeedback__c']});
+		await changeScope(element, 'masked');
+		clickDownload(element);
+		expect(blobParts[0]).toContain('RoutingNote__c');
+		expect(blobParts[0]).toContain('Not Sensitive');
+		expect(blobParts[0]).not.toContain(',NotSensitive,');
+		await changeFormat(element, 'json');
+		clickDownload(element);
+		const unfiltered = JSON.parse(blobParts[1]);
+		expect(unfiltered).toHaveLength(2);
+		const fieldMaskedRow = unfiltered.find(row => row.fieldApiName === 'RoutingNote__c');
+		expect(fieldMaskedRow.sensitivityLevel).toBe('NotSensitive');
+		expect(fieldMaskedRow.maskedToday).toBe(true);
+		await toggleSensitiveOnly(element, true);
+		clickDownload(element);
+		const filtered = JSON.parse(blobParts[2]);
+		expect(filtered).toHaveLength(1);
+		expect(filtered[0].fieldApiName).toBe('CustomerEmail__c');
 	});
 
 	it('drops a column only the filtered-out rows filled from the downloaded CSV header, not just the preview', async() =>
