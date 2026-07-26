@@ -34,6 +34,10 @@
                     <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
+                    <name>hideSlackAction</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
                     <name>numVisibleActions</name>
                     <value>3</value>
                 </componentInstanceProperties>
@@ -195,14 +199,24 @@
                     <name>uiBehavior</name>
                     <value>readonly</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.ErrorMessage__c</fieldItem>
-                <identifier>RecordErrorMessage_cField</identifier>
+                <fieldItem>Record.FailureCategory__c</fieldItem>
+                <identifier>RecordFailureCategory_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-19c97554-acb5-460f-b4a3-bd2966b25418</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.ErrorMessage__c</fieldItem>
+                <identifier>RecordErrorMessage_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-095747f8-ae55-45a7-a883-32c678d79f7b</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -289,6 +303,16 @@
                 <identifier>RecordCorrelationId_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.CurrentJobId__c</fieldItem>
+                <identifier>RecordCurrentJobId_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-4759284e-3df2-42ae-b80e-034f0c090424</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -301,6 +325,26 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.LastModifiedById</fieldItem>
                 <identifier>RecordLastModifiedByIdField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.RunKey__c</fieldItem>
+                <identifier>RecordRunKey_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.ActiveDeduplicationKey__c</fieldItem>
+                <identifier>RecordActiveDeduplicationKey_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-af8298db-ed24-485f-a072-0c7e21647990</name>
@@ -434,6 +478,10 @@
                 <componentInstanceProperties>
                     <name>accordionSections</name>
                     <value>Facet-3fe4804c-2dec-45ff-8be8-7afbfce05e3a</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>allowMultipleSectionsOpen</name>
+                    <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>defaultSectionName</name>

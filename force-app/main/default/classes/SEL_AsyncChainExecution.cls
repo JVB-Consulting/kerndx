@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026, July 2026
+ * @date April 2026, July 2026
  *
  * @since 1.0
  *
@@ -45,6 +45,52 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	public static final String STATUS_ABORTED = 'Aborted';
 
 	/**
+	 * @description Status indicating the chain execution stopped progressing and was flagged as stalled by the watchdog.
+	 */
+	public static final String STATUS_STALLED = 'Stalled';
+
+	/**
+	 * @description Failure category indicating a step failed or crashed during execution.
+	 */
+	public static final String FAILURE_CATEGORY_STEP_EXCEPTION = 'StepException';
+
+	/**
+	 * @description Failure category indicating the AsyncChain feature flag stopped the chain.
+	 */
+	public static final String FAILURE_CATEGORY_KILL_SWITCH = 'KillSwitch';
+
+	/**
+	 * @description Failure category indicating the recovery machinery acted on a chain that lost its background job.
+	 */
+	public static final String FAILURE_CATEGORY_STALLED = 'Stalled';
+
+	/**
+	 * @description Failure category indicating a retrying step exhausted its retry budget without succeeding.
+	 */
+	public static final String FAILURE_CATEGORY_RETRIES_EXHAUSTED = 'RetriesExhausted';
+
+	/**
+	 * @description Failure category recorded when an operator aborts the chain from the Chain Monitor.
+	 */
+	public static final String FAILURE_CATEGORY_OPERATOR_ABORT = 'OperatorAbort';
+
+	/**
+	 * @description The exact fields the Chain Monitor list view reads (`CTRL_ChainMonitor.toChainSummary`).
+	 * The default projection also carries three long-text payload fields (ContextData__c, StepLog__c —
+	 * 131KB each — and ErrorMessage__c) that list rows never display; hauling them per row is a heap
+	 * risk at list page sizes, so `findFiltered` projects this summary list instead.
+	 */
+	private static final List<SObjectField> SUMMARY_FIELDS = new List<SObjectField>
+	{
+			AsyncChainExecution__c.ChainName__c,
+			AsyncChainExecution__c.CompletedSteps__c,
+			AsyncChainExecution__c.DurationMs__c,
+			AsyncChainExecution__c.StartedAt__c,
+			AsyncChainExecution__c.Status__c,
+			AsyncChainExecution__c.TotalSteps__c
+	};
+
+	/**
 	 * @description Constructs a new SEL_AsyncChainExecution selector instance.
 	 *
 	 * @since 1.0
@@ -75,14 +121,19 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	{
 		return new List<SObjectField>
 		{
+				AsyncChainExecution__c.ActiveDeduplicationKey__c,
 				AsyncChainExecution__c.ChainName__c,
 				AsyncChainExecution__c.CompletedAt__c,
 				AsyncChainExecution__c.CompletedSteps__c,
 				AsyncChainExecution__c.ContextData__c,
 				AsyncChainExecution__c.CorrelationId__c,
+				AsyncChainExecution__c.CurrentJobId__c,
 				AsyncChainExecution__c.CurrentStepName__c,
 				AsyncChainExecution__c.DurationMs__c,
 				AsyncChainExecution__c.ErrorMessage__c,
+				AsyncChainExecution__c.FailureCategory__c,
+				AsyncChainExecution__c.LastModifiedDate,
+				AsyncChainExecution__c.RunKey__c,
 				AsyncChainExecution__c.StartedAt__c,
 				AsyncChainExecution__c.Status__c,
 				AsyncChainExecution__c.StepLog__c,
@@ -149,6 +200,50 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
+	 * @description Retrieves stale-candidate chain executions for the watchdog sweep: Running or
+	 * Stalled chains whose last modification is older than the threshold, oldest first, capped at
+	 * the batch size. Bypasses sharing rules: the watchdog is an org-wide framework recovery job,
+	 * and the chains are Private-OWD records owned by whichever user enqueued each chain — a
+	 * sharing-respecting read would silently skip recovery for every chain its automated user does
+	 * not own. Rows are candidates only: a stale Status__c alone is not proof of a dead chain. The
+	 * current sweep marks every candidate this method returns, so advise a generous threshold; a
+	 * liveness check joins the decision in a later stage of the watchdog.
+	 *
+	 * Rows carrying a completion timestamp are excluded outright: a Stalled row with a non-null
+	 * CompletedAt__c is a clobbered terminal row (a legitimate stall has never completed), and
+	 * re-driving it would resurrect a finished chain with its deduplication key already released.
+	 * The filter can only ever exclude a candidate, never re-include one.
+	 *
+	 * @param thresholdMinutes Minutes since the last modification before a chain becomes a candidate.
+	 * @param batchSize Maximum number of candidates to return.
+	 *
+	 * @return Stale-candidate AsyncChainExecution__c records, oldest first; empty when either
+	 * argument is null or the batch size is not positive.
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> staleExecutions = new SEL_AsyncChainExecution().findStaleRunning(30, 50);
+	 * ```
+	 */
+	public List<AsyncChainExecution__c> findStaleRunning(Integer thresholdMinutes, Integer batchSize)
+	{
+		if(thresholdMinutes == null || batchSize == null || batchSize <= 0)
+		{
+			return new List<AsyncChainExecution__c>();
+		}
+
+		Datetime cutoff = Datetime.now().addMinutes(-thresholdMinutes);
+
+		return query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.Status__c).isIn(new List<String> {STATUS_RUNNING, STATUS_STALLED})
+				.andCondition(AsyncChainExecution__c.LastModifiedDate).lessThan(cutoff)
+				.andCondition(AsyncChainExecution__c.CompletedAt__c).isNull()
+				.orderBy(AsyncChainExecution__c.LastModifiedDate).ascending()
+				.withLimit(batchSize)
+				.toList();
+	}
+
+	/**
 	 * @description Retrieves a single AsyncChainExecution__c record by its correlation ID.
 	 *
 	 * @param correlationId The correlation ID to search for.
@@ -166,6 +261,30 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	{
 		return (AsyncChainExecution__c)query
 				.condition(AsyncChainExecution__c.CorrelationId__c).equals(correlationId).getFirst();
+	}
+
+	/**
+	 * @description Finds the run currently holding the given active-run deduplication key. Key
+	 * presence is the activeness signal — terminal transitions clear the key in the same update, so
+	 * no status predicate belongs here. Bypasses sharing because the deduplication guard must see the active run
+	 * regardless of the caller's record visibility; only the matched run is returned.
+	 *
+	 * @since 1.6
+	 *
+	 * @param deduplicationKey The subscriber-supplied deduplication key to resolve.
+	 *
+	 * @return The run holding the key, or null when the key is free.
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c activeRun = new SEL_AsyncChainExecution().findByActiveDeduplicationKey('nightly-sync');
+	 * ```
+	 */
+	public AsyncChainExecution__c findByActiveDeduplicationKey(String deduplicationKey)
+	{
+		return (AsyncChainExecution__c)query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.ActiveDeduplicationKey__c).equals(deduplicationKey)
+				.getFirst();
 	}
 
 	/**
@@ -249,7 +368,9 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 
 	/**
 	 * @description Retrieves a paginated, filtered, and sorted page of AsyncChainExecution__c records.
-	 * Used by the Chain Monitor controller for list view queries. Bypasses sharing rules: the
+	 * Used by the Chain Monitor controller for list view queries. Projects only the summary fields
+	 * the list view reads (`SUMMARY_FIELDS`) — never the long-text payload fields; use
+	 * `findByIdForMonitoring` for full detail. Bypasses sharing rules: the
 	 * console is an org-wide observability surface gated by the framework permission sets, and a
 	 * `with sharing` controller would otherwise silently hide other users' Private-OWD chains.
 	 *
@@ -282,7 +403,7 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 					Integer pageSize
 			)
 	{
-		QRY_Builder.Builder filteredQuery = query.bypassSharingInternal();
+		QRY_Builder.Builder filteredQuery = query.bypassSharingInternal().onlyFields(SUMMARY_FIELDS);
 
 		if(statusFilters?.isEmpty() == false)
 		{

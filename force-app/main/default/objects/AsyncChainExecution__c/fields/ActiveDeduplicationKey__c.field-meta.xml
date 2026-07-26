@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ActiveDeduplicationKey__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Active-run deduplication key. Held while the chain is running or stalled; cleared in the same update that writes any terminal status, so a finished chain frees its key for the next run. The unique index makes a second concurrent start with the same key land on the active run instead of creating a duplicate.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>Identifies the active run of a deduplicated chain. While a value is present, starting another chain with the same key returns this run instead of creating a duplicate. Cleared automatically when the chain finishes. Managed by the framework; shown for diagnostics.</inlineHelpText>
+    <label>Active Deduplication Key</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

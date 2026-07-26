@@ -86,7 +86,9 @@ private class CTRL_ChainMonitor_TEST
 	}
 
 	/**
-	 * @description Sample step log for a running chain (partial execution).
+	 * @description Sample step log for a running chain (partial execution), including the onError
+	 * and onComplete handler entries the framework persists after the step entries — the timeline
+	 * must exclude both.
 	 *
 	 * @return Serialized step log JSON.
 	 */
@@ -95,11 +97,15 @@ private class CTRL_ChainMonitor_TEST
 		UTIL_AsyncChain.DTO_StepDefinition completedStep = buildStep('Step1', 'First Step', true, 400);
 		UTIL_AsyncChain.DTO_StepDefinition pendingStep = buildStep('Step2', 'Second Step', null, null);
 
-		UTIL_AsyncChain.DTO_StepDefinition handlerStep = new UTIL_AsyncChain.DTO_StepDefinition();
-		handlerStep.className = 'CompletionHandler';
-		handlerStep.isCompletionHandler = true;
+		UTIL_AsyncChain.DTO_StepDefinition errorHandlerStep = new UTIL_AsyncChain.DTO_StepDefinition();
+		errorHandlerStep.className = 'ErrorHandler';
+		errorHandlerStep.isErrorHandler = true;
 
-		return buildStepLog(new List<UTIL_AsyncChain.DTO_StepDefinition> {completedStep, pendingStep, handlerStep});
+		UTIL_AsyncChain.DTO_StepDefinition completionHandlerStep = new UTIL_AsyncChain.DTO_StepDefinition();
+		completionHandlerStep.className = 'CompletionHandler';
+		completionHandlerStep.isCompletionHandler = true;
+
+		return buildStepLog(new List<UTIL_AsyncChain.DTO_StepDefinition> {completedStep, pendingStep, errorHandlerStep, completionHandlerStep});
 	}
 
 	@IsTest
@@ -129,6 +135,20 @@ private class CTRL_ChainMonitor_TEST
 		CTRL_ChainMonitor.DTO_ChainPage result = CTRL_ChainMonitor.getChainExecutions(JSON.serialize(request));
 
 		Assert.areEqual(2, result.records.size(), 'Should return chains matching name filter');
+	}
+
+	@IsTest
+	private static void shouldCapClientSuppliedPageSize()
+	{
+		TST_Factory.newChainExecutions(101, SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN);
+
+		CTRL_ChainMonitor.DTO_Request request = new CTRL_ChainMonitor.DTO_Request();
+		request.pageSize = 5000;
+		CTRL_ChainMonitor.DTO_ChainPage result = CTRL_ChainMonitor.getChainExecutions(JSON.serialize(request));
+
+		Assert.areEqual(100, result.records.size(), 'Client-supplied page size must clamp to the server cap');
+		Assert.areEqual(101, result.totalCount, 'Total count should include all records');
+		Assert.isTrue(result.hasMorePages, 'Records beyond the cap should land on the next page');
 	}
 
 	@IsTest
@@ -219,15 +239,16 @@ private class CTRL_ChainMonitor_TEST
 	private static void shouldIdentifyRunningStepInTimeline()
 	{
 		AsyncChainExecution__c execution = TST_Factory.newChainExecution(
-				SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN, stepLogRunning(), 3, 1
+				SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN, stepLogRunning(), 2, 1
 		);
 
 		List<CTRL_ChainMonitor.DTO_StepDetail> steps = CTRL_ChainMonitor.getStepTimeline(execution.Id);
 
-		Assert.areEqual(3, steps.size(), 'Should have 3 steps');
+		Assert.areEqual(2, steps.size(), 'The timeline must show chain steps only: handler entries persisted after the steps are excluded');
 		Assert.areEqual(CTRL_ChainMonitor.STEP_STATUS_SUCCESS, steps[0].stepStatus, 'Completed step should be success');
 		Assert.areEqual(CTRL_ChainMonitor.STEP_STATUS_PENDING, steps[1].stepStatus, 'Unexecuted step should be pending');
-		Assert.areEqual(CTRL_ChainMonitor.STEP_STATUS_PENDING, steps[2].stepStatus, 'Unexecuted step should be pending');
+		Assert.areEqual('First Step', steps[0].name, 'The first timeline entry must be the first chain step');
+		Assert.areEqual('Second Step', steps[1].name, 'The last timeline entry must be the last chain step, not a handler');
 	}
 
 	@IsTest

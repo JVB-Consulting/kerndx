@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RunKey__c</fullName>
+    <description>Internal run-key fence token. Rotated on initial start and on every watchdog re-drive; the executor re-checks it before each persist so a stale-key zombie cannot corrupt a resumed run. Shown read-only on the record page for diagnostics.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Identifies the current run of this chain. The framework issues a new value when the chain starts or is recovered, so leftover jobs from an earlier run can no longer change this record. Managed automatically; shown for diagnostics.</inlineHelpText>
+    <label>Run Key</label>
+    <length>36</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

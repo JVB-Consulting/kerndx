@@ -11,7 +11,7 @@
  *
  * @group Testing
  *
- * @date February 2026, June 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -1279,6 +1279,68 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Revokes every profile-held grant of a custom permission for the duration of the
+	 * test run. Package installs write packaged custom permissions into profiles — the System
+	 * Administrator profile on an admins-only install, every profile on an all-users install — so a
+	 * test user can hold a custom permission through profile membership alone. Deleting the
+	 * profile-owned SetupEntityAccess rows (test DML, rolled back after the run) pins the
+	 * permission to its designed source, permission set assignment, keeping permission-gated
+	 * behaviour tests deterministic in every org and install mode.
+	 *
+	 * @param customPermissionDeveloperName The developer name of the custom permission to revoke from profiles.
+	 *
+	 * @since 1.6
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Factory.revokeProfileCustomPermissionGrants(UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME);
+	 * System.debug('Profile-held grants revoked for the test run');
+	 * ```
+	 */
+	public static void revokeProfileCustomPermissionGrants(String customPermissionDeveloperName)
+	{
+		List<CustomPermission> customPermissions = QRY_Builder.selectFrom(CustomPermission.SObjectType)
+				.condition(CustomPermission.DeveloperName).equals(customPermissionDeveloperName)
+				.toList();
+		if(customPermissions.isEmpty())
+		{
+			return;
+		}
+
+		List<SetupEntityAccess> grants = QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
+				.addField(SetupEntityAccess.ParentId)
+				.condition(SetupEntityAccess.SetupEntityId).isIn(new List<Id>(new Map<Id, CustomPermission>(customPermissions).keySet()))
+				.toList();
+		if(grants.isEmpty())
+		{
+			return;
+		}
+
+		Set<Id> parentIds = new Set<Id>();
+		for(SetupEntityAccess grant : grants)
+		{
+			parentIds.add(grant.ParentId);
+		}
+		Map<Id, PermissionSet> profileOwnedParents = new Map<Id, PermissionSet>((List<PermissionSet>)QRY_Builder.selectFrom(PermissionSet.SObjectType)
+				.condition(PermissionSet.Id).isIn(new List<Id>(parentIds))
+				.condition(PermissionSet.IsOwnedByProfile).equals(true)
+				.toList());
+
+		List<SetupEntityAccess> profileGrants = new List<SetupEntityAccess>();
+		for(SetupEntityAccess grant : grants)
+		{
+			if(profileOwnedParents.containsKey(grant.ParentId))
+			{
+				profileGrants.add(grant);
+			}
+		}
+		if(!profileGrants.isEmpty())
+		{
+			DML_Builder.newTransaction().doDelete(profileGrants).execute();
+		}
+	}
+
+	/**
 	 * @description Assigns the Administrator permission set to the current running user if not already assigned.
 	 * Intended for SeeAllData=true tests where the running user needs record type visibility
 	 * or elevated permissions provided by the package Administrator permission set.
@@ -1904,11 +1966,7 @@ global without sharing class TST_Factory
 	 */
 	public static AsyncChainExecution__c newChainExecution(String status, String chainName)
 	{
-		return (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
-				.withOverride(AsyncChainExecution__c.ChainName__c, chainName)
-				.withOverride(AsyncChainExecution__c.Status__c, status)
-				.withOverride(AsyncChainExecution__c.TotalSteps__c, 1)
-				.withOverride(AsyncChainExecution__c.CompletedSteps__c, 0)
+		return (AsyncChainExecution__c)getChainExecutionBuilder(status, chainName)
 				.withOverride(AsyncChainExecution__c.CorrelationId__c, UTIL_Random.randomUUID())
 				.build();
 	}
@@ -1940,15 +1998,90 @@ global without sharing class TST_Factory
 					Integer completedSteps
 			)
 	{
-		return (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
-				.withOverride(AsyncChainExecution__c.ChainName__c, chainName)
-				.withOverride(AsyncChainExecution__c.Status__c, status)
+		return (AsyncChainExecution__c)getChainExecutionBuilder(status, chainName)
 				.withOverride(AsyncChainExecution__c.StepLog__c, stepLog)
 				.withOverride(AsyncChainExecution__c.TotalSteps__c, totalSteps)
 				.withOverride(AsyncChainExecution__c.CompletedSteps__c, completedSteps)
 				.withOverride(AsyncChainExecution__c.StartedAt__c, Datetime.now().addMinutes(-5))
 				.withOverride(AsyncChainExecution__c.CorrelationId__c, UTIL_Random.randomUUID())
 				.build();
+	}
+
+	/**
+	 * @description Creates an inserted AsyncChainExecution__c record with the given status and chain name,
+	 * applying the given field overrides on top of the standard defaults. Use this for tests that seed
+	 * bespoke execution shapes (timing fields, run keys, step logs, context data) through the shared
+	 * builder route.
+	 *
+	 * @param status The execution status value.
+	 * @param chainName The chain name.
+	 * @param fieldOverrides Field values applied on top of the defaults; an entry for a defaulted field
+	 * (TotalSteps__c, CompletedSteps__c, CorrelationId__c) replaces the default value.
+	 *
+	 * @return The inserted AsyncChainExecution__c record.
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c execution = TST_Factory.newChainExecution('Failed', 'MyChain',
+	 *         new Map<SObjectField, Object> {AsyncChainExecution__c.ErrorMessage__c => 'boom'});
+	 * ```
+	 */
+	public static AsyncChainExecution__c newChainExecution(String status, String chainName, Map<SObjectField, Object> fieldOverrides)
+	{
+		return (AsyncChainExecution__c)getChainExecutionBuilder(status, chainName)
+				.withOverride(AsyncChainExecution__c.CorrelationId__c, UTIL_Random.randomUUID())
+				.withOverrides(fieldOverrides)
+				.build();
+	}
+
+	/**
+	 * @description Creates and inserts a list of AsyncChainExecution__c records with the given status
+	 * and chain name through a single bulk insert. Each record receives its own random correlation ID
+	 * because the field is unique. Use this for tests that seed many executions at once, such as the
+	 * watchdog sweep's batch-clamp coverage, instead of spending one DML statement per row.
+	 *
+	 * @param numberOfExecutions The number of records to create.
+	 * @param status The execution status value applied to every record.
+	 * @param chainName The chain name applied to every record.
+	 *
+	 * @return The inserted AsyncChainExecution__c records.
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> executions = TST_Factory.newChainExecutions(60, 'Running', 'MyChain');
+	 * ```
+	 */
+	public static List<AsyncChainExecution__c> newChainExecutions(Integer numberOfExecutions, String status, String chainName)
+	{
+		List<Object> correlationIds = new List<Object>();
+		for(Integer index = 0; index < numberOfExecutions; index++)
+		{
+			correlationIds.add(UTIL_Random.randomUUID());
+		}
+
+		return getChainExecutionBuilder(status, chainName)
+				.withCycle(AsyncChainExecution__c.CorrelationId__c, correlationIds)
+				.withCount(numberOfExecutions)
+				.buildList();
+	}
+
+	/**
+	 * @description Creates a pre-configured SObjectBuilder for AsyncChainExecution__c carrying the
+	 * defaults shared by every chain-execution factory: chain name, status, one total step, and zero
+	 * completed steps. Callers chain their own correlation strategy, extra overrides, and terminal call.
+	 *
+	 * @param status The execution status value.
+	 * @param chainName The chain name.
+	 *
+	 * @return A TST_Builder.Builder instance.
+	 */
+	private static TST_Builder.Builder getChainExecutionBuilder(String status, String chainName)
+	{
+		return TST_Builder.of(AsyncChainExecution__c.SObjectType)
+				.withOverride(AsyncChainExecution__c.ChainName__c, chainName)
+				.withOverride(AsyncChainExecution__c.Status__c, status)
+				.withOverride(AsyncChainExecution__c.TotalSteps__c, 1)
+				.withOverride(AsyncChainExecution__c.CompletedSteps__c, 0);
 	}
 
 	/**

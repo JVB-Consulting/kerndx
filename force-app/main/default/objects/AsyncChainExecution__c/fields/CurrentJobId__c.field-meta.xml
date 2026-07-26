@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CurrentJobId__c</fullName>
+    <description>Identifier of the queueable job currently executing this chain run. Stamped at each step&apos;s progress write; the watchdog uses it to check whether a live executor still exists before recovering the chain. Shown read-only on the record page for diagnostics.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The background job currently working on this chain. The framework updates it at every step and checks it before recovering a chain that looks stuck. Managed automatically; shown for diagnostics.</inlineHelpText>
+    <label>Current Job ID</label>
+    <length>18</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -11,7 +11,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -59,6 +59,15 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * @description Auto-generated idempotency key for this outbound call.
 	 */
 	private String outboundIdempotencyKey;
+
+	/**
+	 * @description When true, retry() returns immediately: this handler instance performs no
+	 * NextRetry__c self-scheduling. Instance-scoped on purpose — a fresh handler instance always
+	 * starts unsuppressed, and the flag never expires mid-lifecycle (a silently expiring
+	 * suppression would be a worse failure mode than instance reuse, which the framework does not
+	 * do).
+	 */
+	private Boolean selfRetrySchedulingSuppressed = false;
 
 	/**
 	 * @description Overrides the Named Credential name for this handler instance.
@@ -1220,14 +1229,33 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	}
 
 	/**
+	 * @description Framework-internal seam: disables this handler instance's own retry scheduling
+	 * so a caller that owns the retry lifecycle itself (the async chain's per-step retry) is the
+	 * one retry authority, never two. Applies to this instance only — other instances of the same
+	 * service in the same transaction keep scheduling their own retries.
+	 *
+	 * @since 1.6
+	 */
+	public void suppressSelfRetryScheduling()
+	{
+		selfRetrySchedulingSuppressed = true;
+	}
+
+	/**
 	 * @description Initiates a retry if the service call fails, based on retry settings.
 	 * Uses the strategy returned by createRetryStrategy() to determine backoff timing.
+	 * Returns immediately when self-retry scheduling is suppressed for this instance.
 	 *
 	 * If circuit breaker is enabled and OPEN, extends the retry delay to allow time for circuit recovery.
 	 * This prevents retry storms when external service is down.
 	 */
 	private void retry()
 	{
+		if(selfRetrySchedulingSuppressed)
+		{
+			return;
+		}
+
 		UTIL_Retry.Strategy retryStrategy = createRetryStrategy();
 		UTIL_Retry.Context retryContext = UTIL_Retry.newContext((apiCall.Retries__c ?? 0).intValue());
 

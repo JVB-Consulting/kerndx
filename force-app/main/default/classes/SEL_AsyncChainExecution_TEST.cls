@@ -8,7 +8,7 @@
  *
  * @group Async
  *
- * @date April 2026, June 2026, July 2026
+ * @date April 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -59,8 +59,16 @@ private class SEL_AsyncChainExecution_TEST
 		SEL_AsyncChainExecution selector = new SEL_AsyncChainExecution();
 		List<SObjectField> fields = selector.getFields();
 		Assert.isFalse(fields.isEmpty(), 'Default fields should not be empty');
+		Assert.isTrue
+				(
+						fields.contains(AsyncChainExecution__c.ActiveDeduplicationKey__c),
+						'Should contain ActiveDeduplicationKey__c so deduplication lookups return the key on the matched run'
+				);
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.ChainName__c), 'Should contain ChainName__c');
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.CorrelationId__c), 'Should contain CorrelationId__c');
+		Assert.isTrue(fields.contains(AsyncChainExecution__c.CurrentJobId__c), 'Should contain CurrentJobId__c so the watchdog sweep row can probe executor liveness');
+		Assert.isTrue(fields.contains(AsyncChainExecution__c.FailureCategory__c), 'Should contain FailureCategory__c so the Chain Monitor can read the failure taxonomy');
+		Assert.isTrue(fields.contains(AsyncChainExecution__c.LastModifiedDate), 'Should contain LastModifiedDate so the watchdog can read stall age');
 	}
 
 	/**
@@ -149,6 +157,31 @@ private class SEL_AsyncChainExecution_TEST
 	}
 
 	/**
+	 * @description findByActiveDeduplicationKey returns the run holding the key.
+	 */
+	@IsTest
+	private static void shouldFindRunByActiveDeduplicationKey()
+	{
+		String deduplicationKey = UTIL_Random.randomUUID();
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'DeduplicationChain',
+				new Map<SObjectField, Object> {AsyncChainExecution__c.ActiveDeduplicationKey__c => deduplicationKey});
+
+		AsyncChainExecution__c found = new SEL_AsyncChainExecution().findByActiveDeduplicationKey(deduplicationKey);
+		Assert.isNotNull(found, 'The run holding the key should be found');
+		Assert.areEqual(deduplicationKey, found.ActiveDeduplicationKey__c, 'The matched run should carry the key');
+	}
+
+	/**
+	 * @description findByActiveDeduplicationKey returns null when no run holds the key.
+	 */
+	@IsTest
+	private static void shouldReturnNullWhenNoRunHoldsDeduplicationKey()
+	{
+		Assert.isNull(new SEL_AsyncChainExecution().findByActiveDeduplicationKey(UTIL_Random.randomUUID()),
+				'A free key should resolve to no run');
+	}
+
+	/**
 	 * @description Tests that findFiltered returns paginated, filtered, and sorted results.
 	 */
 	@IsTest
@@ -185,6 +218,45 @@ private class SEL_AsyncChainExecution_TEST
 	}
 
 	/**
+	 * @description Tests that findFiltered projects only the summary fields the Chain Monitor list
+	 * reads, excluding the long-text payload fields (ContextData__c, StepLog__c, ErrorMessage__c).
+	 */
+	@IsTest
+	private static void shouldFindFilteredWithSummaryProjection()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, 'PayloadChain',
+				new Map<SObjectField, Object>
+				{
+						AsyncChainExecution__c.ContextData__c => '{"key":"value"}',
+						AsyncChainExecution__c.StepLog__c => '[]',
+						AsyncChainExecution__c.ErrorMessage__c => 'Step failure detail'
+				});
+
+		QRY_Builder.QueryPage page = new SEL_AsyncChainExecution().findFiltered(
+				null, null, AsyncChainExecution__c.CreatedDate, true, 1, 10
+		);
+
+		Assert.areEqual(1, page.records.size(), 'Should return the record');
+		Map<String, Object> populated = page.records[0].getPopulatedFieldsAsMap();
+		Assert.isTrue(populated.containsKey('Id'), 'Id should be projected');
+		Assert.isTrue(
+				populated.containsKey(AsyncChainExecution__c.ChainName__c.getDescribe().getName()),
+				'ChainName__c should be projected');
+		Assert.isTrue(
+				populated.containsKey(AsyncChainExecution__c.Status__c.getDescribe().getName()),
+				'Status__c should be projected');
+		Assert.isFalse(
+				populated.containsKey(AsyncChainExecution__c.ContextData__c.getDescribe().getName()),
+				'ContextData__c must not be hauled by the summary projection');
+		Assert.isFalse(
+				populated.containsKey(AsyncChainExecution__c.StepLog__c.getDescribe().getName()),
+				'StepLog__c must not be hauled by the summary projection');
+		Assert.isFalse(
+				populated.containsKey(AsyncChainExecution__c.ErrorMessage__c.getDescribe().getName()),
+				'ErrorMessage__c must not be hauled by the summary projection');
+	}
+
+	/**
 	 * @description Tests that findFiltered respects pagination boundaries.
 	 */
 	@IsTest
@@ -203,6 +275,91 @@ private class SEL_AsyncChainExecution_TEST
 		Assert.areEqual(5, page.totalRecords, 'Total should be 5');
 		Assert.isTrue(page.hasMorePages, 'Should have more pages');
 		Assert.areEqual(3, page.totalPages, 'Should have 3 pages');
+	}
+
+	/**
+	 * @description Tests that findStaleRunning returns Running and Stalled chains older than the
+	 * threshold, excludes terminal statuses, and truncates to the requested batch size. A negative
+	 * threshold places the cutoff one minute in the future, so every just-inserted row is
+	 * deterministically past the threshold without back-dating audit fields.
+	 *
+	 * @see SEL_AsyncChainExecution.findStaleRunning
+	 */
+	@IsTest
+	private static void shouldFindStaleRunningOnly()
+	{
+		AsyncChainExecution__c runningExecution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'WatchdogRunningChain');
+		AsyncChainExecution__c stalledExecution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'WatchdogStalledChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, 'WatchdogCompletedChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, 'WatchdogFailedChain');
+
+		List<AsyncChainExecution__c> staleExecutions = new SEL_AsyncChainExecution().findStaleRunning(-1, 50);
+
+		Assert.areEqual(2, staleExecutions.size(), 'Only the Running and Stalled chains are stale candidates');
+
+		Set<Id> staleExecutionIds = new Map<Id, AsyncChainExecution__c>(staleExecutions).keySet();
+		Assert.isTrue(staleExecutionIds.contains(runningExecution.Id), 'The past-threshold Running chain is a stale candidate');
+		Assert.isTrue(staleExecutionIds.contains(stalledExecution.Id), 'The past-threshold Stalled chain remains a stale candidate');
+
+		for(AsyncChainExecution__c staleExecution : staleExecutions)
+		{
+			Assert.isNotNull(staleExecution.LastModifiedDate, 'Stale candidates carry LastModifiedDate so the watchdog can read stall age');
+		}
+
+		Assert.areEqual(1, new SEL_AsyncChainExecution().findStaleRunning(-1, 1).size(), 'A batch size below the match count truncates the result');
+	}
+
+	/**
+	 * @description Tests that findStaleRunning excludes chains modified within the threshold
+	 * window: with only just-inserted rows, a 30-minute threshold returns no candidates.
+	 *
+	 * @see SEL_AsyncChainExecution.findStaleRunning
+	 */
+	@IsTest
+	private static void shouldExcludeFreshChainsFromStaleRunning()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'FreshRunningChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'FreshStalledChain');
+
+		Assert.isTrue(new SEL_AsyncChainExecution().findStaleRunning(30, 50).isEmpty(),
+				'Chains modified within the threshold window are not stale candidates');
+	}
+
+	/**
+	 * @description A Stalled row carrying a completion timestamp is a clobbered terminal row, not a
+	 * recovery candidate: the sweep must exclude it, and must still return a genuinely stalled row
+	 * whose timestamp is null — the second half proves the predicate did not disable the sweep.
+	 *
+	 * @see SEL_AsyncChainExecution.findStaleRunning
+	 */
+	@IsTest
+	private static void shouldExcludeCompletedTimestampRowsFromStaleRunning()
+	{
+		AsyncChainExecution__c genuineStall = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'GenuineStall');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'ClobberedTerminal',
+				new Map<SObjectField, Object> {AsyncChainExecution__c.CompletedAt__c => Datetime.now()});
+
+		List<AsyncChainExecution__c> candidates = new SEL_AsyncChainExecution().findStaleRunning(-1, 50);
+
+		Assert.areEqual(1, candidates.size(), 'Only the null-timestamp stall is a candidate');
+		Assert.areEqual(genuineStall.Id, candidates[0].Id, 'The genuine stall must still be swept');
+	}
+
+	/**
+	 * @description Tests that findStaleRunning returns an empty list without querying when the
+	 * threshold or batch size is null, or the batch size is not positive.
+	 *
+	 * @see SEL_AsyncChainExecution.findStaleRunning
+	 */
+	@IsTest
+	private static void shouldReturnEmptyForInvalidStaleRunningArguments()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'GuardedChain');
+
+		SEL_AsyncChainExecution selector = new SEL_AsyncChainExecution();
+		Assert.isTrue(selector.findStaleRunning(null, 50).isEmpty(), 'A null threshold returns no candidates');
+		Assert.isTrue(selector.findStaleRunning(-1, null).isEmpty(), 'A null batch size returns no candidates');
+		Assert.isTrue(selector.findStaleRunning(-1, 0).isEmpty(), 'A non-positive batch size returns no candidates');
 	}
 
 	/**
@@ -267,14 +424,7 @@ private class SEL_AsyncChainExecution_TEST
 		User lowPrivilegeUser = getLowPrivilegeUser();
 		String foreignCorrelationId = UTIL_Random.randomUUID();
 
-		System.runAs(getTestAdmin())
-		{
-			TST_Builder.of(AsyncChainExecution__c.SObjectType)
-					.withOverride(AsyncChainExecution__c.ChainName__c, 'ForeignOwnedChain')
-					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_RUNNING)
-					.withOverride(AsyncChainExecution__c.CorrelationId__c, foreignCorrelationId)
-					.build();
-		}
+		seedForeignOwnedChain(foreignCorrelationId);
 
 		System.runAs(lowPrivilegeUser)
 		{
@@ -305,17 +455,7 @@ private class SEL_AsyncChainExecution_TEST
 	{
 		User lowPrivilegeUser = getLowPrivilegeUser();
 		String foreignCorrelationId = UTIL_Random.randomUUID();
-		Id seededExecutionId;
-
-		System.runAs(getTestAdmin())
-		{
-			seededExecutionId = TST_Builder.of(AsyncChainExecution__c.SObjectType)
-					.withOverride(AsyncChainExecution__c.ChainName__c, 'ForeignOwnedChain')
-					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_RUNNING)
-					.withOverride(AsyncChainExecution__c.CorrelationId__c, foreignCorrelationId)
-					.build()
-					.Id;
-		}
+		Id seededExecutionId = seedForeignOwnedChain(foreignCorrelationId);
 
 		System.runAs(lowPrivilegeUser)
 		{
@@ -328,6 +468,28 @@ private class SEL_AsyncChainExecution_TEST
 			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationIdForMonitoring('   '),
 					'A blank correlation resolves to null without querying');
 		}
+	}
+
+	/**
+	 * @description Seeds a Running chain as the test admin, carrying the given correlation id.
+	 * Used by the tier-A sharing tests so the low-privilege user queries a record it neither
+	 * owns nor shares.
+	 *
+	 * @param correlationId The correlation id to stamp on the seeded chain.
+	 *
+	 * @return The seeded AsyncChainExecution__c Id.
+	 */
+	private static Id seedForeignOwnedChain(String correlationId)
+	{
+		Id seededExecutionId;
+		System.runAs(getTestAdmin())
+		{
+			seededExecutionId = TST_Factory.newChainExecution(
+					SEL_AsyncChainExecution.STATUS_RUNNING, 'ForeignOwnedChain',
+					new Map<SObjectField, Object> {AsyncChainExecution__c.CorrelationId__c => correlationId}
+			).Id;
+		}
+		return seededExecutionId;
 	}
 
 	/**

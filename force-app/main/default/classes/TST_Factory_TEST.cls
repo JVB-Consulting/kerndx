@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date September 2025, May 2026
+ * @date September 2025, July 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -29,7 +29,8 @@ private class TST_Factory_TEST
 		newGroup.MasterLabel = UTIL_Random.randomName();
 		newGroup.DeveloperName = newGroup.MasterLabel;
 
-		// PermissionSetGroup / PermissionSetGroupComponent are Setup objects; TST_Builder does not model them and Test.calculatePermissionSetGroup requires real records.
+		// TST_Builder DOES build and insert Setup objects like these (see UTIL_FeatureFlag_TEST); this test keeps
+		// direct inserts only to exercise TST_Factory in isolation. Never copy this as a TST_Builder-cannot precedent.
 		insert newGroup;
 
 		PermissionSetGroupComponent newComponent = new PermissionSetGroupComponent();
@@ -48,6 +49,46 @@ private class TST_Factory_TEST
 		PermissionSetGroup foundGroup = new SEL_PermissionSetGroup().findByName(newGroup.DeveloperName);
 
 		Assert.areEqual(SEL_PermissionSetGroup.STATUS_UPDATED, foundGroup.Status, 'Status was not recalculated');
+	}
+
+	/**
+	 * @description Seeds a profile-held grant of the FrameworkTestPermission custom permission — the shape
+	 * package installs write into profiles — then verifies the revoke removes exactly the profile-held
+	 * grants while permission-set-held grants (the Administrator permission set ships one for this
+	 * permission) survive.
+	 *
+	 * @see TST_Factory.revokeProfileCustomPermissionGrants
+	 */
+	@IsTest
+	private static void revokeProfileCustomPermissionGrantsRemovesOnlyProfileHeldGrants()
+	{
+		Id permissionId = QRY_Builder.selectFrom(CustomPermission.SObjectType)
+				.condition(CustomPermission.DeveloperName).equals(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION)
+				.getFirst().Id;
+		PermissionSet profileOwned = (PermissionSet)QRY_Builder.selectFrom(PermissionSet.SObjectType)
+				.condition(PermissionSet.ProfileId).equals(UserInfo.getProfileId())
+				.getFirst();
+
+		// A subscriber-org install has already written this exact grant into the admin profile, so the
+		// seed below would collide (DUPLICATE_VALUE) in RunAllTestsInOrg. Revoking first constructs the
+		// scenario deterministically in every org and install mode.
+		TST_Factory.revokeProfileCustomPermissionGrants(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
+
+		// Direct insert mirrors what a package install writes; there is no TST_Builder shape for a
+		// profile-held SetupEntityAccess grant.
+		insert new SetupEntityAccess(ParentId = profileOwned.Id, SetupEntityId = permissionId);
+
+		Test.startTest();
+		TST_Factory.revokeProfileCustomPermissionGrants(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
+		Test.stopTest();
+
+		Assert.areEqual(0, (Integer)QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
+				.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
+				.condition(SetupEntityAccess.ParentId).equals(profileOwned.Id)
+				.count(), 'The profile-held grant is revoked');
+		Assert.isTrue((Integer)QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
+				.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
+				.count() > 0, 'Permission-set-held grants survive the revoke');
 	}
 
 	/**

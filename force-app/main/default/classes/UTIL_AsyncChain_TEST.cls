@@ -3,15 +3,20 @@
  * @description Comprehensive tests for UTIL_AsyncChain — the async chain orchestration framework.
  * Covers the asynchronous execution path via Queueable, ChainBuilder fluent API,
  * ChainContext state management, StepResult factory methods, error/completion handlers,
- * kill switch, mock integration, and edge cases.
+ * kill switch, and edge cases. Recovery-path coverage (run-key fencing, stall
+ * handling, watchdog sweep, re-drive, liveness, resume markers) lives in
+ * UTIL_AsyncChainRecovery_TEST. ApiStep and per-step-retry coverage lives in
+ * UTIL_AsyncChainApi_TEST.
  *
  * @see UTIL_AsyncChain
+ * @see UTIL_AsyncChainRecovery_TEST
+ * @see UTIL_AsyncChainApi_TEST
  *
  * @author Jason van Beukering
  *
  * @group Async
  *
- * @date April 2026, June 2026, July 2026
+ * @date April 2026, July 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -24,6 +29,13 @@ private class UTIL_AsyncChain_TEST
 	 * @description Name used for test chains.
 	 */
 	private static final String TEST_CHAIN_NAME = 'TestChain';
+
+	/**
+	 * @description Step count for the deep-chain completion pin: long enough that completing it
+	 * proves the framework's default AsyncOptions depth (step count + 1) covers every chained
+	 * re-enqueue, not just the shallow two- and three-step chains the other tests drive.
+	 */
+	private static final Integer DEEP_CHAIN_STEP_COUNT = 7;
 
 	/**
 	 * @description Length of the deliberately oversized step failure message. Individually it stays
@@ -43,23 +55,24 @@ private class UTIL_AsyncChain_TEST
 	/**
 	 * @description Combined fixed JSON overhead, in characters, of the three-step valve-test chain
 	 * outside the two padded step names: the OversizedFailureMessageStep entry (87), the two
-	 * PaddedNameStep entries' fixed fields (65 each), the array brackets/commas (4), and ~180 of
+	 * PaddedNameStep entries' fixed fields (65 each), the array brackets/commas (4), and ~265 of
 	 * deliberate headroom. Sizing each padded name as (capacity - this) / 2 lands the build-time
-	 * step list roughly 180 characters under the StepLog__c capacity: small enough to pass the
-	 * build-time guard, but too small to also absorb the failing step's bounded runtime message
-	 * (~300 characters), which forces the mid-chain rewrite over capacity and exercises the
-	 * message-dropping safety valve.
+	 * step list roughly 265 characters under the StepLog__c capacity: past the runtime reserve the
+	 * build-time guard withholds (3 steps x 80), but too small to also absorb the failing step's
+	 * bounded runtime message (~300 characters), which forces the mid-chain rewrite over capacity
+	 * and exercises the message-dropping safety valve.
 	 */
-	private static final Integer PADDED_CHAIN_JSON_OVERHEAD = 401;
+	private static final Integer PADDED_CHAIN_JSON_OVERHEAD = 486;
 
 	/**
 	 * @description Fixed JSON overhead of a two-PaddedNameStep chain (2 x 65 entry fields + 3 array
-	 * characters) plus a 60-character headroom target. Sizing each padded name as
-	 * (capacity - this) / 2 lands the build-time step list ~60 characters under the raw field
-	 * capacity: inside the per-step runtime reserve execute() withholds (2 steps x 50), so the
-	 * guard must reject it even though the raw field could hold it.
+	 * characters) plus a 120-character headroom target. Sizing each padded name as
+	 * (capacity - this) / 2 lands the build-time step list ~120 characters under the raw field
+	 * capacity: inside the per-step runtime reserve execute() withholds (2 steps x 80) while clear
+	 * of the pre-retry 2 x 50 reserve, so the guard must reject it even though the raw field could
+	 * hold it — and only the bumped reserve makes it do so.
 	 */
-	private static final Integer PADDED_PAIR_JSON_OVERHEAD = 193;
+	private static final Integer PADDED_PAIR_JSON_OVERHEAD = 253;
 
 	/**
 	 * @description Explicit context cap for the oversized-message chains, giving the 30,000-character
@@ -74,11 +87,6 @@ private class UTIL_AsyncChain_TEST
 	 * building its chain (same static-seam pattern as the production simulateCrash flag).
 	 */
 	private static String paddedStepName;
-
-	/**
-	 * @description The API handler class name used by ApiStep tests.
-	 */
-	private static final String API_STEP_SERVICE_NAME = API_PostExample.class.getName();
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -123,6 +131,35 @@ private class UTIL_AsyncChain_TEST
 			Assert.areEqual(3, execution.TotalSteps__c, 'Total steps should be 3');
 			Assert.areEqual(3, execution.CompletedSteps__c, 'Completed steps should be 3');
 			Assert.isNotNull(execution.CompletedAt__c, 'CompletedAt should be set');
+		}
+	}
+
+	/**
+	 * @description Verifies a seven-step chain completes end-to-end through the real async path
+	 * under the framework's default AsyncOptions — no builder override, so the depth in force is
+	 * the one execute() derives (step count + 1). Pins the deep-chain envelope: a regression in
+	 * that derivation, or a platform change to chained-queueable depth, fails here before any
+	 * production chain does.
+	 */
+	@IsTest
+	private static void shouldCompleteSevenStepChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = executeSevenStepDefaultOptionsChain();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A seven-step chain under default options must complete');
+			Assert.areEqual(DEEP_CHAIN_STEP_COUNT, execution.TotalSteps__c, 'The record must carry the full chain length');
+			Assert.areEqual(DEEP_CHAIN_STEP_COUNT, execution.CompletedSteps__c, 'Every step of the deep chain must be counted complete');
+			Assert.areEqual(DEEP_CHAIN_STEP_COUNT, parseContextData(execution).get('stepCount'), 'Each step must actually run: SuccessStep increments the counter once per step');
+			Assert.isNotNull(execution.CompletedAt__c, 'Completed is terminal: CompletedAt must be stamped');
+			Assert.isNull(execution.ErrorMessage__c, 'A clean completion must carry no error message');
+			Assert.isNull(execution.FailureCategory__c, 'A clean completion must carry no failure category');
 		}
 	}
 
@@ -187,14 +224,10 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c dummy = new AsyncChainExecution__c(
-					ChainName__c = 'Dummy',
-					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
-					TotalSteps__c = 0,
-					CompletedSteps__c = 0,
-					CorrelationId__c = UTIL_Random.randomUUID()
-			);
-			DML_Builder.newTransaction().doInsert(dummy).execute();
+			AsyncChainExecution__c dummy = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'Dummy', new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 0
+			});
 			DML_Builder.newTransaction().doDelete(dummy).execute();
 
 			Map<String, Object> status = UTIL_AsyncChain.getStatus(dummy.Id);
@@ -215,18 +248,17 @@ private class UTIL_AsyncChain_TEST
 			Datetime startedAt = Datetime.newInstanceGmt(2026, 6, 26, 10, 0, 0);
 			Datetime completedAt = Datetime.newInstanceGmt(2026, 6, 26, 10, 0, 5);
 
-			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
-					CurrentStepName__c = 'FinalStep',
-					CorrelationId__c = correlationId,
-					TotalSteps__c = 3,
-					CompletedSteps__c = 3,
-					ErrorMessage__c = null,
-					StartedAt__c = startedAt,
-					CompletedAt__c = completedAt,
-					DurationMs__c = 4200
-			));
+			AsyncChainExecution__c record = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.CurrentStepName__c => 'FinalStep',
+					AsyncChainExecution__c.CorrelationId__c => correlationId,
+					AsyncChainExecution__c.TotalSteps__c => 3,
+					AsyncChainExecution__c.CompletedSteps__c => 3,
+					AsyncChainExecution__c.ErrorMessage__c => null,
+					AsyncChainExecution__c.StartedAt__c => startedAt,
+					AsyncChainExecution__c.CompletedAt__c => completedAt,
+					AsyncChainExecution__c.DurationMs__c => 4200
+			});
 
 			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
 
@@ -258,15 +290,13 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 3,
-					CompletedSteps__c = 1,
-					StartedAt__c = Datetime.now().addMinutes(-2),
-					DurationMs__c = null
-			));
+			AsyncChainExecution__c record = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 3,
+					AsyncChainExecution__c.CompletedSteps__c => 1,
+					AsyncChainExecution__c.StartedAt__c => Datetime.now().addMinutes(-2),
+					AsyncChainExecution__c.DurationMs__c => null
+			});
 
 			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
 
@@ -289,16 +319,14 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_FAILED,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 3,
-					CompletedSteps__c = 1,
-					ErrorMessage__c = 'Step 2 blew up',
-					StartedAt__c = Datetime.now().addMinutes(-1),
-					DurationMs__c = 60000
-			));
+			AsyncChainExecution__c record = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 3,
+					AsyncChainExecution__c.CompletedSteps__c => 1,
+					AsyncChainExecution__c.ErrorMessage__c => 'Step 2 blew up',
+					AsyncChainExecution__c.StartedAt__c => Datetime.now().addMinutes(-1),
+					AsyncChainExecution__c.DurationMs__c => 60000
+			});
 
 			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(record.Id);
 
@@ -311,6 +339,29 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description A Stalled row carrying a completion timestamp is a clobbered terminal row (the
+	 * accepted lost-abort residual). isTerminal() must report it terminal so subscriber polling
+	 * exits; a genuinely stalled row (null timestamp) stays non-terminal and recoverable.
+	 */
+	@IsTest
+	private static void shouldReportContradictoryStalledRowTerminal()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c contradictory = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME,
+					new Map<SObjectField, Object> {AsyncChainExecution__c.CompletedAt__c => Datetime.now()});
+			AsyncChainExecution__c genuine = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME + '-genuine');
+
+			UTIL_AsyncChain.ChainStatus contradictoryStatus = UTIL_AsyncChain.getChainStatus(contradictory.Id);
+			UTIL_AsyncChain.ChainStatus genuineStatus = UTIL_AsyncChain.getChainStatus(genuine.Id);
+
+			Assert.isTrue(contradictoryStatus.isTerminal(), 'A completion timestamp proves the chain ended, whatever Status__c says');
+			Assert.isFalse(contradictoryStatus.isRunning(), 'A contradictory row is not running');
+			Assert.isFalse(genuineStatus.isTerminal(), 'A genuine stall (null timestamp) stays non-terminal');
+		}
+	}
+
+	/**
 	 * @description Verifies that getChainStatus returns null for a nonexistent execution ID.
 	 */
 	@IsTest
@@ -318,14 +369,10 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c dummy = new AsyncChainExecution__c(
-					ChainName__c = 'Dummy',
-					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
-					TotalSteps__c = 0,
-					CompletedSteps__c = 0,
-					CorrelationId__c = UTIL_Random.randomUUID()
-			);
-			DML_Builder.newTransaction().doInsert(dummy).execute();
+			AsyncChainExecution__c dummy = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'Dummy', new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 0
+			});
 			DML_Builder.newTransaction().doDelete(dummy).execute();
 
 			UTIL_AsyncChain.ChainStatus status = UTIL_AsyncChain.getChainStatus(dummy.Id);
@@ -342,14 +389,12 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c record = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 2,
-					CompletedSteps__c = 2,
-					ErrorMessage__c = null
-			));
+			AsyncChainExecution__c record = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 2,
+					AsyncChainExecution__c.CompletedSteps__c => 2,
+					AsyncChainExecution__c.ErrorMessage__c => null
+			});
 
 			Map<String, Object> status = UTIL_AsyncChain.getStatus(record.Id);
 
@@ -374,14 +419,10 @@ private class UTIL_AsyncChain_TEST
 
 		System.runAs(getTestAdmin())
 		{
-			record = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 1,
-					CompletedSteps__c = 0,
-					StartedAt__c = Datetime.now()
-			));
+			record = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StartedAt__c => Datetime.now()
+			});
 		}
 
 		System.runAs(getLowPrivilegeUser())
@@ -400,29 +441,20 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncChainExecution__c first = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 1,
-					CompletedSteps__c = 1
-			));
-			AsyncChainExecution__c second = persistExecution(new AsyncChainExecution__c(
-					ChainName__c = TEST_CHAIN_NAME,
-					Status__c = SEL_AsyncChainExecution.STATUS_FAILED,
-					CorrelationId__c = UTIL_Random.randomUUID(),
-					TotalSteps__c = 2,
-					CompletedSteps__c = 1,
-					ErrorMessage__c = 'boom'
-			));
-			AsyncChainExecution__c removed = new AsyncChainExecution__c(
-					ChainName__c = 'Removed',
-					Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
-					TotalSteps__c = 0,
-					CompletedSteps__c = 0,
-					CorrelationId__c = UTIL_Random.randomUUID()
-			);
-			DML_Builder.newTransaction().doInsert(removed).execute();
+			AsyncChainExecution__c first = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.CompletedSteps__c => 1
+			});
+			AsyncChainExecution__c second = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 2,
+					AsyncChainExecution__c.CompletedSteps__c => 1,
+					AsyncChainExecution__c.ErrorMessage__c => 'boom'
+			});
+			AsyncChainExecution__c removed = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'Removed', new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => 0
+			});
 			Id missingId = removed.Id;
 			DML_Builder.newTransaction().doDelete(removed).execute();
 
@@ -594,6 +626,30 @@ private class UTIL_AsyncChain_TEST
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should be Failed');
 			Assert.isTrue(execution.ErrorMessage__c.contains('Deliberate failure'), 'Error message should contain failure reason');
 			Assert.areEqual(1, execution.CompletedSteps__c, 'Only the first successful step should be counted');
+		}
+	}
+
+	/**
+	 * @description Verifies that a step returning a failed StepResult stamps the StepException
+	 * failure category alongside the terminal Failed status.
+	 */
+	@IsTest
+	private static void shouldCategoriseStepFailureAsStepException()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.FailingStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should be Failed');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c, 'A step failure must be categorised StepException');
 		}
 	}
 
@@ -1368,6 +1424,35 @@ private class UTIL_AsyncChain_TEST
 		System.runAs(getTestAdmin())
 		{
 			setupDisabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.TrackingStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, execution.Status__c, 'Chain should be Aborted');
+			Assert.isTrue(execution.ErrorMessage__c.contains('Kill switch'), 'Error message should mention kill switch');
+			Map<String, Object> contextData = parseContextData(execution);
+			Assert.isNull(contextData.get('trackingStepExecuted'), 'Step should not have executed');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'markAborted', 'WARN'), 'The kill-switch abort emits exactly one WARN signal at its own site');
+		}
+	}
+
+	/**
+	 * @description Verifies that a kill-switch abort stamps the KillSwitch failure category
+	 * alongside the terminal Aborted status.
+	 */
+	@IsTest
+	private static void shouldCategoriseKillSwitchAbort()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupDisabledFeatureFlag();
 
 			Test.startTest();
 			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
@@ -1378,9 +1463,98 @@ private class UTIL_AsyncChain_TEST
 
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, execution.Status__c, 'Chain should be Aborted');
-			Assert.isTrue(execution.ErrorMessage__c.contains('Kill switch'), 'Error message should mention kill switch');
-			Map<String, Object> contextData = parseContextData(execution);
-			Assert.isNull(contextData.get('trackingStepExecuted'), 'Step should not have executed');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_KILL_SWITCH, execution.FailureCategory__c, 'A kill-switch abort must be categorised KillSwitch');
+		}
+	}
+
+	/**
+	 * @description The operator abort writer stamps the full terminal bookkeeping — Aborted status,
+	 * OperatorAbort category, abbreviated reason, completion timestamp, duration, and the
+	 * deduplication-key release (I2) — and emits exactly one WARN signal at its own site (I1, D12).
+	 */
+	@IsTest
+	private static void shouldAbortRunningChainWithFullBookkeeping()
+	{
+		System.runAs(getTestAdmin())
+		{
+			LOG_Builder.ignoreTestMode = true;
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME,
+					new Map<SObjectField, Object>
+					{
+							AsyncChainExecution__c.StartedAt__c => Datetime.now().addMinutes(-5),
+							AsyncChainExecution__c.ActiveDeduplicationKey__c => 'abort-writer-key'
+					});
+
+			Test.startTest();
+			Boolean aborted = UTIL_AsyncChain.abortExecution(execution.Id, 'Stuck on external system');
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.isTrue(aborted, 'A Running chain is abortable');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, result.Status__c, 'Status must be Aborted');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_OPERATOR_ABORT, result.FailureCategory__c, 'An operator abort is not the kill switch');
+			Assert.isTrue(result.ErrorMessage__c.contains('Stuck on external system'), 'The reason must be recorded');
+			Assert.isNotNull(result.CompletedAt__c, 'An abort is terminal: the completion timestamp must be set');
+			Assert.isNotNull(result.DurationMs__c, 'Duration must be computed from StartedAt');
+			Assert.isNull(result.ActiveDeduplicationKey__c, 'I2: the deduplication key is released in the same update');
+			Assert.areEqual(1, countTerminalLogs(execution.Id, 'abortExecution', 'WARN'), 'Exactly one WARN signal at the abort writer\'s own site');
+		}
+	}
+
+	/**
+	 * @description The writer refuses anything not in {Running, Stalled}: a Completed row is left
+	 * byte-untouched and nothing is emitted (a refusal is not a terminal fact).
+	 */
+	@IsTest
+	private static void shouldRefuseAbortOfTerminalChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			LOG_Builder.ignoreTestMode = true;
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN_NAME);
+
+			Test.startTest();
+			Boolean aborted = UTIL_AsyncChain.abortExecution(execution.Id, 'Too late');
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.isFalse(aborted, 'A Completed chain is not abortable');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, result.Status__c, 'A refused abort must not touch the row');
+			Assert.areEqual(0, countTerminalLogs(execution.Id, 'abortExecution', null), 'A refused abort emits nothing');
+		}
+	}
+
+	/**
+	 * @description An operator abort acts on a Stalled chain exactly as on a Running one: a chain
+	 * parked awaiting recovery is precisely the kind an operator may need to put down (D11).
+	 */
+	@IsTest
+	private static void shouldAbortStalledChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME);
+
+			Test.startTest();
+			Boolean aborted = UTIL_AsyncChain.abortExecution(execution.Id, 'Stalled beyond recovery');
+			Test.stopTest();
+
+			Assert.isTrue(aborted, 'A Stalled chain is abortable');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, queryExecution(execution.Id).Status__c, 'Status must be Aborted');
+		}
+	}
+
+	/**
+	 * @description The writer reports a missing row to the caller as a refusal instead of throwing.
+	 */
+	@IsTest
+	private static void shouldRefuseAbortOfMissingRow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Assert.isFalse(UTIL_AsyncChain.abortExecution(UTIL_Random.randomId(AsyncChainExecution__c.SObjectType), 'gone'), 'A missing row is not abortable');
 		}
 	}
 
@@ -1681,6 +1855,550 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description withDeduplicationKey stamps the key on the run record at start.
+	 */
+	@IsTest
+	private static void shouldStampDeduplicationKeyAtStart()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			AsyncChainExecution__c runningExecution = queryExecution(executionId);
+			Test.stopTest();
+
+			Assert.areEqual(deduplicationKey, runningExecution.ActiveDeduplicationKey__c,
+					'The deduplication key should be stamped on the run record at start');
+		}
+	}
+
+	/**
+	 * @description A deduplication key at exactly the 255-character field limit is accepted at
+	 * build time and stamped intact on the run record.
+	 */
+	@IsTest
+	private static void shouldAcceptDeduplicationKeyAtMaximumLength()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String boundaryKey = 'k'.repeat(255);
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(boundaryKey)
+					.execute();
+			AsyncChainExecution__c runningExecution = queryExecution(executionId);
+			Test.stopTest();
+
+			Assert.areEqual(boundaryKey, runningExecution.ActiveDeduplicationKey__c, 'A boundary-length deduplication key should be stamped intact on the run record');
+		}
+	}
+
+	/**
+	 * @description A blank deduplication key is rejected at build time.
+	 */
+	@IsTest
+	private static void shouldRejectBlankDeduplicationKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_Exceptions.IllegalStateException caught;
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).withDeduplicationKey(' ');
+			}
+			catch(UTIL_Exceptions.IllegalStateException validationError)
+			{
+				caught = validationError;
+			}
+			Assert.isNotNull(caught, 'A blank deduplication key should be rejected');
+			Assert.isTrue(caught.getMessage().contains('must not be blank'), 'The blank-key rejection should carry its build-time message');
+		}
+	}
+
+	/**
+	 * @description A deduplication key longer than the field is rejected at build time; the validation
+	 * ceiling matches the deployed field length (raw describe as the independent oracle).
+	 */
+	@IsTest
+	private static void shouldRejectOversizedDeduplicationKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Assert.areEqual(255, AsyncChainExecution__c.ActiveDeduplicationKey__c.getDescribe().getLength(),
+					'Validation ceiling must match the deployed field length');
+			UTIL_Exceptions.IllegalStateException caught;
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).withDeduplicationKey('k'.repeat(256));
+			}
+			catch(UTIL_Exceptions.IllegalStateException validationError)
+			{
+				caught = validationError;
+			}
+			Assert.isNotNull(caught, 'An oversized deduplication key should be rejected');
+			Assert.isTrue(caught.getMessage().contains('exceeds 255 characters'), 'The oversized-key rejection should carry the limit in its message');
+		}
+	}
+
+	/**
+	 * @description Zero-step chains complete immediately and never stamp the key (D2).
+	 */
+	@IsTest
+	private static void shouldSkipDeduplicationKeyOnZeroStepChain()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withDeduplicationKey(UTIL_Random.randomUUID())
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c completedExecution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completedExecution.Status__c,
+					'A zero-step chain should complete immediately');
+			Assert.isNull(completedExecution.ActiveDeduplicationKey__c,
+					'A zero-step chain should never hold a deduplication key');
+		}
+	}
+
+	/**
+	 * @description A second concurrent start with the same key lands on the active run.
+	 */
+	@IsTest
+	private static void shouldLandSecondStartOnActiveRun()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Test.stopTest();
+
+			Assert.areEqual(firstRunId, secondRunId,
+					'A second start with the same key should land on the active run');
+		}
+	}
+
+	/**
+	 * @description The unique text index is case-insensitive — a case-variant key collides and
+	 * lands on the active run.
+	 */
+	@IsTest
+	private static void shouldCollideCaseInsensitively()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = 'dedup-' + UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey.toLowerCase())
+					.execute();
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey.toUpperCase())
+					.execute();
+			Test.stopTest();
+
+			Assert.areEqual(firstRunId, secondRunId,
+					'Keys differing only in case should collide on the case-insensitive index');
+		}
+	}
+
+	/**
+	 * @description A CorrelationId__c collision is NOT deduplication — it rethrows verbatim (pre-existing
+	 * behaviour, pinned so the deduplication catch can never misattribute it).
+	 */
+	@IsTest
+	private static void shouldRethrowCorrelationIdCollision()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String correlationId = UTIL_Random.randomUUID();
+			Test.startTest();
+			UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute(correlationId);
+			DmlException caught;
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+						.then(new SuccessStep())
+						.execute(correlationId);
+			}
+			catch(DmlException correlationCollision)
+			{
+				caught = correlationCollision;
+			}
+			Test.stopTest();
+
+			Assert.isNotNull(caught, 'A CorrelationId__c collision should rethrow, never deduplicate');
+		}
+	}
+
+	/**
+	 * @description A keyed builder colliding on CorrelationId__c still surfaces the platform error,
+	 * deterministically across message redaction: the disclosed form rethrows at the attribution
+	 * predicate; the redacted form attributes presumptively, finds no run holding the free key, and
+	 * the single retry re-collides — both branches end in the same observable DUPLICATE_VALUE rethrow.
+	 */
+	@IsTest
+	private static void shouldRethrowKeyedCorrelationIdCollision()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String correlationId = UTIL_Random.randomUUID();
+			Test.startTest();
+			UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute(correlationId);
+			DmlException caught;
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+						.then(new SuccessStep())
+						.withDeduplicationKey(UTIL_Random.randomUUID())
+						.execute(correlationId);
+			}
+			catch(DmlException keyedCorrelationCollision)
+			{
+				caught = keyedCorrelationCollision;
+			}
+			Test.stopTest();
+
+			Assert.isNotNull(caught, 'A keyed CorrelationId__c collision should surface, never land on an unrelated run');
+			Assert.areEqual(StatusCode.DUPLICATE_VALUE, caught.getDmlType(0),
+					'The surfaced error should be the duplicate-value collision');
+		}
+	}
+
+	/**
+	 * @description A cross-user collision returns the active run's Id without widening visibility —
+	 * status reads stay sharing-enforced (the shouldNotLeakOtherUsersChainViaGetChainStatus model,
+	 * composed with the deduplication path).
+	 */
+	@IsTest
+	private static void shouldNotWidenVisibilityOnCrossUserCollision()
+	{
+		setupEnabledFeatureFlag();
+		String deduplicationKey = UTIL_Random.randomUUID();
+		String firstRunId;
+		Test.startTest();
+		System.runAs(getTestAdmin())
+		{
+			firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+		}
+		System.runAs(getLowPrivilegeUser())
+		{
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+
+			Assert.areEqual(firstRunId, secondRunId,
+					'The collision should land on the active run regardless of the caller');
+			Assert.isNull(UTIL_AsyncChain.getChainStatus(secondRunId),
+					'The returned Id must not widen visibility — status reads stay sharing-enforced');
+		}
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Completion releases the key in the terminal write; a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnCompletion()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c completedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completedRun.Status__c,
+					'The chain should have completed');
+			Assert.isNull(completedRun.ActiveDeduplicationKey__c,
+					'The terminal write should release the deduplication key');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'A finished run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description A step failure releases the key in the terminal write; a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnStepFailure()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new FailingStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failedRun.Status__c,
+					'The chain should have failed');
+			Assert.isNull(failedRun.ActiveDeduplicationKey__c,
+					'The terminal failure write should release the deduplication key');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'A failed run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description An asynchronous context overflow releases the key in its terminal failure write;
+	 * a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnContextOverflow()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(1)
+					.withInitialContext('key', 'value')
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failedRun.Status__c,
+					'The chain should have failed on context overflow');
+			Assert.isNull(failedRun.ActiveDeduplicationKey__c,
+					'The overflow failure write should release the deduplication key');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'An overflow-failed run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description A kill-switch abort releases the key in its terminal write; a sequential re-run
+	 * is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnKillSwitchAbort()
+	{
+		setupDisabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new TrackingStep())
+					.withDeduplicationKey(deduplicationKey)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c abortedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, abortedRun.Status__c,
+					'The chain should have aborted under the kill switch');
+			Assert.isNull(abortedRun.ActiveDeduplicationKey__c,
+					'The terminal abort write should release the deduplication key');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new TrackingStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'An aborted run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description A completed chain with a completion handler releases the key through the
+	 * handler write-back path; a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnCompletionHandlerWriteBack()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.onComplete(new CompletionHandlerStep())
+					.withDeduplicationKey(deduplicationKey)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c completedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completedRun.Status__c,
+					'The chain should have completed through the handler write-back');
+			Assert.isNull(completedRun.ActiveDeduplicationKey__c,
+					'The handler write-back should leave the deduplication key released');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'A completed run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description A failing completion handler escalates the chain to Failed through the handler
+	 * write-back; the escalation leaves the key released and a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnCompletionHandlerFailureEscalation()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.onComplete(new FailingCompletionHandlerStep())
+					.withDeduplicationKey(deduplicationKey)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c escalatedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, escalatedRun.Status__c,
+					'A failing completion handler should escalate the chain to Failed');
+			Assert.isNull(escalatedRun.ActiveDeduplicationKey__c,
+					'The escalation write-back should leave the deduplication key released');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'An escalated-failed run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description An executor crash releases the key in the Finalizer's terminal failure write;
+	 * a sequential re-run is allowed.
+	 */
+	@IsTest
+	private static void shouldReleaseDeduplicationKeyOnExecutorCrash()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			String deduplicationKey = UTIL_Random.randomUUID();
+			UTIL_AsyncChain.simulateCrash = true;
+
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			try
+			{
+				Test.stopTest();
+				Assert.fail('Simulated crash should have thrown');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Should be the simulated crash exception');
+			}
+			UTIL_AsyncChain.simulateCrash = false;
+
+			AsyncChainExecution__c failedRun = queryExecution(firstRunId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failedRun.Status__c,
+					'The Finalizer should mark the crashed chain Failed');
+			Assert.isNull(failedRun.ActiveDeduplicationKey__c,
+					'The Finalizer failure write should release the deduplication key');
+
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(deduplicationKey)
+					.execute();
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'A crashed run should free its key for a sequential re-run');
+		}
+	}
+
+	/**
+	 * @description Two key-less starts in the same window run concurrently — null keys never
+	 * collide on the deduplication index (the legacy/straddle pin).
+	 */
+	@IsTest
+	private static void shouldRunConcurrentChainsWithoutDeduplicationKeys()
+	{
+		setupEnabledFeatureFlag();
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+			String firstRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute();
+			String secondRunId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute();
+			Test.stopTest();
+
+			Assert.areNotEqual(firstRunId, secondRunId,
+					'Key-less chains must never collide — a null key is exempt from deduplication');
+		}
+	}
+
+	/**
 	 * @description Verifies that DTO_StepDefinition fields are accessible and default values are correct.
 	 */
 	@IsTest
@@ -1859,8 +2577,12 @@ private class UTIL_AsyncChain_TEST
 					.withAsyncOptions(createAsyncOptions(2))
 					.execute();
 
-			AsyncChainExecution__c abortRecord = new AsyncChainExecution__c(Id = executionId);
-			abortRecord.Status__c = SEL_AsyncChainExecution.STATUS_ABORTED;
+			AsyncChainExecution__c abortRecord = (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
+					.withOverride(AsyncChainExecution__c.Id, (Id)executionId)
+					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_ABORTED)
+					.withOptionalField(AsyncChainExecution__c.ChainName__c)
+					.withoutInsertion()
+					.build();
 			DML_Builder.newTransaction().doUpdate(abortRecord).execute();
 			Test.stopTest();
 
@@ -1894,6 +2616,32 @@ private class UTIL_AsyncChain_TEST
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Should fail on context overflow');
 			Assert.isTrue(execution.ErrorMessage__c.contains('overflow'), 'Error should mention overflow');
+		}
+	}
+
+	/**
+	 * @description Verifies that an asynchronous context overflow stamps the StepException
+	 * failure category alongside the terminal Failed status.
+	 */
+	@IsTest
+	private static void shouldCategoriseContextOverflowAsStepException()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(1)
+					.withInitialContext('key', 'value')
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Should fail on context overflow');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c, 'A context overflow must be categorised StepException');
 		}
 	}
 
@@ -2011,6 +2759,290 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description A completed chain emits exactly one guarded INFO terminal signal naming
+	 * handleChainCompletion.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnCompletion()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c,
+					'The chain should complete');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'handleChainCompletion', 'INFO'),
+					'Completion should emit exactly one INFO terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description A chain failed by a step's failed StepResult emits exactly one guarded ERROR
+	 * terminal signal naming handleStepFailure.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnStepFailure()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.FailingStep())
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c,
+					'The chain should fail');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'handleStepFailure', 'ERROR'),
+					'Step failure should emit exactly one ERROR terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description A chain failed by context overflow emits exactly one guarded ERROR terminal
+	 * signal naming markFailed.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnContextOverflow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(1)
+					.withInitialContext('key', 'value')
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c,
+					'The chain should fail on context overflow');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'markFailed', 'ERROR'),
+					'Context overflow should emit exactly one ERROR terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description A zero-step chain, which completes synchronously inside ChainBuilder.execute,
+	 * emits exactly one guarded INFO terminal signal naming that site.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnZeroStepCompletion()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).execute();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c,
+					'The zero-step chain should complete immediately');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'ChainBuilder.execute', 'INFO'),
+					'Zero-step completion should emit exactly one INFO terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description With the log threshold configured above INFO, a completed chain emits no
+	 * completion signal of any level while the chain itself completes untouched — the INFO
+	 * signal honours the configured threshold.
+	 */
+	@IsTest
+	private static void shouldSuppressCompletionSignalBelowThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Engine.logSettingOverride = new LogSetting__c(
+					IsEnabled__c = true,
+					LogLevelThreshold__c = 'WARN',
+					EnablePerformanceLogging__c = false);
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c,
+					'The chain should complete regardless of the log threshold');
+			Assert.areEqual(0, countTerminalLogs(executionId, 'handleChainCompletion', null),
+					'No completion signal of any level should be persisted below the configured threshold');
+		}
+	}
+
+	/**
+	 * @description With the log threshold configured at ERROR, a failed chain still emits its
+	 * ERROR terminal signal — the failure half of the level contract passes the threshold.
+	 */
+	@IsTest
+	private static void shouldEmitFailureSignalAboveThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Engine.logSettingOverride = new LogSetting__c(
+					IsEnabled__c = true,
+					LogLevelThreshold__c = 'ERROR',
+					EnablePerformanceLogging__c = false);
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.FailingStep())
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c,
+					'The chain should fail');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'handleStepFailure', 'ERROR'),
+					'The ERROR failure signal should pass an ERROR-level threshold');
+		}
+	}
+
+	/**
+	 * @description A chain that completes through a successful completion handler emits exactly one
+	 * guarded INFO terminal signal at handleChainCompletion and nothing from the handler write-back:
+	 * the successful write-back is silent by design, keeping the completion signal single.
+	 */
+	@IsTest
+	private static void shouldEmitSingleTerminalLogWithCompletionHandler()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = executeWithCompletionHandler();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c,
+					'The chain should complete through its completion handler');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'handleChainCompletion', 'INFO'),
+					'Completion with a handler should emit exactly one INFO terminal signal at handleChainCompletion');
+			Assert.areEqual(0, countTerminalLogs(executionId, 'HandlerExecutor.execute', null),
+					'The successful handler write-back should emit no terminal signal of any level');
+		}
+	}
+
+	/**
+	 * @description A chain whose completion handler returns a failed StepResult is escalated to
+	 * Failed and emits exactly one guarded ERROR terminal signal at HandlerExecutor.execute,
+	 * strictly after the escalation write-back.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnCompletionHandlerFailure()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.onComplete(new UTIL_AsyncChain_TEST.FailingCompletionHandlerStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c,
+					'The chain should be Failed by the handler escalation');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'HandlerExecutor.execute', 'ERROR'),
+					'The handler escalation should emit exactly one ERROR terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description A crashed completion handler is escalated to Failed by the Finalizer, which
+	 * emits exactly one guarded ERROR terminal signal at HandlerExecutor.Finalizer strictly after
+	 * its recovery write-back.
+	 */
+	@IsTest
+	private static void shouldEmitTerminalLogOnHandlerCrash()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = executeWithCompletionHandler();
+
+			UTIL_AsyncChain.simulateHandlerCrash = true;
+			try
+			{
+				Test.stopTest();
+			}
+			catch(Exception ignored)
+			{
+				Assert.isNotNull(ignored, 'Simulated handler crash should surface an exception');
+			}
+			UTIL_AsyncChain.simulateHandlerCrash = false;
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c,
+					'The handler crash should mark the chain as Failed');
+			Assert.areEqual(1, countTerminalLogs(executionId, 'HandlerExecutor.Finalizer', 'ERROR'),
+					'The handler-crash escalation should emit exactly one ERROR terminal signal naming its site');
+		}
+	}
+
+	/**
+	 * @description When the chain's own work exhausts the DML budget, the terminal write still
+	 * commits — the signal's fate under exhaustion is the logging engine's concern (see
+	 * LOG_Engine.canPublishImmediately).
+	 */
+	@IsTest
+	private static void shouldCompleteChainWhenDmlBudgetExhausted()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Engine.logSettingOverride = new LogSetting__c(
+					IsEnabled__c = true,
+					LogLevelThreshold__c = 'DEBUG',
+					EnablePerformanceLogging__c = false);
+			LOG_Builder.ignoreTestMode = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new DmlBudgetBurnerStep())
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c,
+					'The terminal write must commit even with the signal budget exhausted');
+		}
+	}
+
+	/**
 	 * @description Verifies that then(step, true) allows a pure IF_Chain.Step to continue on error.
 	 */
 	@IsTest
@@ -2069,56 +3101,6 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
-	 * @description Verifies that the Finalizer gracefully fails the chain when enqueue throws.
-	 */
-	@IsTest
-	private static void shouldFailChainWhenFinalizerEnqueueFails()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain_TEST.SuccessStep())
-					.then(new UTIL_AsyncChain_TEST.SuccessStep())
-					.withAsyncOptions(createAsyncOptions(3))
-					.execute();
-
-			UTIL_AsyncChain.simulateEnqueueFailure = true;
-			Test.stopTest();
-			UTIL_AsyncChain.simulateEnqueueFailure = false;
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should fail when enqueue fails');
-			Assert.isTrue(execution.ErrorMessage__c.contains('Finalizer failed to enqueue'), 'Error should mention enqueue failure');
-		}
-	}
-
-	/**
-	 * @description Verifies that the Finalizer fails the chain when handler enqueue throws.
-	 */
-	@IsTest
-	private static void shouldFailChainWhenHandlerEnqueueFails()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-
-			Test.startTest();
-			String executionId = executeWithCompletionHandler();
-
-			UTIL_AsyncChain.simulateEnqueueFailure = true;
-			Test.stopTest();
-			UTIL_AsyncChain.simulateEnqueueFailure = false;
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should fail when handler enqueue fails');
-			Assert.isTrue(execution.ErrorMessage__c.contains('enqueue handler'), 'Error should mention handler enqueue failure');
-		}
-	}
-
-	/**
 	 * @description Verifies that the HandlerExecutor Finalizer marks the chain as Failed when the handler crashes.
 	 */
 	@IsTest
@@ -2145,79 +3127,8 @@ private class UTIL_AsyncChain_TEST
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Handler crash should mark chain as Failed');
 			Assert.isTrue(execution.ErrorMessage__c.contains('Handler crashed'), 'Should mention handler crash');
-		}
-	}
-
-	/**
-	 * @description Verifies that HandlerExecutor.markHandlerFailed handles DML failure gracefully.
-	 */
-	@IsTest
-	private static void shouldHandleDmlFailureInHandlerRecovery()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			LOG_Builder.ignoreTestMode = true;
-
-			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME);
-			Id executionId = execution.Id;
-			DML_Builder.newTransaction().doDelete(execution).execute();
-
-			UTIL_AsyncChain.HandlerExecutor handlerExecutor = new UTIL_AsyncChain.HandlerExecutor
-					(
-							executionId, new UTIL_AsyncChain.ChainContext('test', 'test'), null, 'Failed', null
-					);
-
-			handlerExecutor.markHandlerFailed(executionId, 'Test handler DML failure');
-			Test.getEventBus().deliver();
-
-			List<LogEntry__c> errorLogs = new SEL_LogEntry().getAll();
-			Boolean foundDmlFailureLog = false;
-			for(LogEntry__c log : errorLogs)
-			{
-				if(log.Message__c != null && log.Message__c.contains('Handler Finalizer DML failed'))
-				{
-					foundDmlFailureLog = true;
-				}
-			}
-			Assert.isTrue(foundDmlFailureLog, 'Should emit handler DML failure error log');
-		}
-	}
-
-	/**
-	 * @description Verifies that ChainExecutor.markChainFailedFromFinalizer handles DML failure gracefully.
-	 */
-	@IsTest
-	private static void shouldHandleDmlFailureInFinalizerRecovery()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			LOG_Builder.ignoreTestMode = true;
-
-			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME);
-			Id executionId = execution.Id;
-			DML_Builder.newTransaction().doDelete(execution).execute();
-
-			AsyncOptions options = createAsyncOptions(2);
-			UTIL_AsyncChain.ChainExecutor executor = new UTIL_AsyncChain.ChainExecutor
-					(
-							executionId, 0, 50, 32768, null, null, options
-					);
-
-			executor.markChainFailedFromFinalizer(executionId, 'Test DML failure');
-			Test.getEventBus().deliver();
-
-			List<LogEntry__c> errorLogs = new SEL_LogEntry().getAll();
-			Boolean foundDmlFailureLog = false;
-			for(LogEntry__c log : errorLogs)
-			{
-				if(log.Message__c != null && log.Message__c.contains('Finalizer DML failed'))
-				{
-					foundDmlFailureLog = true;
-				}
-			}
-			Assert.isTrue(foundDmlFailureLog, 'Should emit DML failure error log with original error context');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c,
+					'A completion-handler crash escalation must be categorised StepException');
 		}
 	}
 
@@ -2331,6 +3242,39 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description Verifies that a Queueable crash handled by the Finalizer stamps the
+	 * StepException failure category alongside the terminal Failed status.
+	 */
+	@IsTest
+	private static void shouldCategoriseCrashAsStepException()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			UTIL_AsyncChain.simulateCrash = true;
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.execute();
+			try
+			{
+				Test.stopTest();
+				Assert.fail('Simulated crash should have thrown');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Should be the simulated crash exception');
+			}
+			UTIL_AsyncChain.simulateCrash = false;
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Finalizer should mark chain as Failed');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c, 'A Queueable crash must be categorised StepException');
+		}
+	}
+
+	/**
 	 * @description Verifies that a chain executes with default AsyncOptions when none are provided.
 	 */
 	@IsTest
@@ -2371,7 +3315,7 @@ private class UTIL_AsyncChain_TEST
 			AsyncOptions options = createAsyncOptions(2);
 
 			Test.startTest();
-			System.enqueueJob(new UTIL_AsyncChain.ChainExecutor(execution.Id, 0, 50, 32768, null, null, options), options);
+			System.enqueueJob(new UTIL_AsyncChain.ChainExecutor(execution.Id, 0, 50, 32768, null, null, options, null), options);
 			Test.stopTest();
 
 			AsyncChainExecution__c result = queryExecution(execution.Id);
@@ -2402,585 +3346,13 @@ private class UTIL_AsyncChain_TEST
 			AsyncOptions options = createAsyncOptions(2);
 
 			Test.startTest();
-			System.enqueueJob(new UTIL_AsyncChain.ChainExecutor(executionId, 0, 50, 32768, null, null, options), options);
+			System.enqueueJob(new UTIL_AsyncChain.ChainExecutor(executionId, 0, 50, 32768, null, null, options, null), options);
 			Test.stopTest();
 
 			Boolean existsAfter = QRY_Builder.selectFrom(AsyncChainExecution__c.SObjectType)
 					.condition(AsyncChainExecution__c.Id).equals(executionId)
 					.exists();
 			Assert.isFalse(existsAfter, 'Executor should exit without recreating the deleted execution record');
-		}
-	}
-
-	/**
-	 * @description Verifies that an ApiStep wrapping API_PostExample completes successfully
-	 * within a single-step chain, producing a succeeded StepResult.
-	 */
-	@IsTest
-	private static void shouldCompleteApiStepSuccessfully()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'testValue'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete');
-			Assert.areEqual(1, execution.CompletedSteps__c, 'One step should have completed');
-		}
-	}
-
-	/**
-	 * @description Verifies that static parameters set via withParameter() reach the handler.
-	 */
-	@IsTest
-	private static void shouldPassStaticParametersToApiStepHandler()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'staticValue'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete with static params');
-			SEL_ApiCall.assertServiceCompleted(API_STEP_SERVICE_NAME);
-		}
-	}
-
-	/**
-	 * @description Verifies that withParameterFrom() resolves parameter values from prior step output.
-	 */
-	@IsTest
-	private static void shouldResolveApiStepParametersFromContext()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.withInitialContext('recordId', String.valueOf(record.Id))
-					.withInitialContext('dynamicParam', 'contextValue')
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecordFrom('recordId')
-							.withParameterFrom(API_PostExample.PARAMETER_NAME, 'dynamicParam'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete with context params');
-		}
-	}
-
-	/**
-	 * @description Verifies that triggeringRecordFrom() reads the record ID from ChainContext.
-	 */
-	@IsTest
-	private static void shouldResolveApiStepTriggeringRecordFromContext()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.withInitialContext('recordId', String.valueOf(record.Id))
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecordFrom('recordId')
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete with context record ID');
-		}
-	}
-
-	/**
-	 * @description Verifies that triggeringRecord() passes a literal record ID to the handler.
-	 */
-	@IsTest
-	private static void shouldPassStaticTriggeringRecordToApiStep()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = executeSingleApiStepChain(record);
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete with static record ID');
-		}
-	}
-
-	/**
-	 * @description Verifies that credential() overrides the Named Credential for the handler.
-	 */
-	@IsTest
-	private static void shouldApplyApiStepCredentialOverride()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.credential('AlternateCredential')
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete with credential override');
-		}
-	}
-
-	/**
-	 * @description Verifies that API call results are stored in ChainContext under __apiResult_{index}.
-	 */
-	@IsTest
-	private static void shouldWriteApiStepResultsToContext()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = executeSingleApiStepChain(record);
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Map<String, Object> contextData = parseContextData(execution);
-			Map<String, Object> apiResult = (Map<String, Object>)contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '0');
-			Assert.isNotNull(apiResult, 'API result should be stored in context');
-			Assert.areEqual(true, apiResult.get('success'), 'Success should be true');
-			Assert.isNotNull(apiResult.get('statusCode'), 'Status code should be stored');
-			Assert.isNotNull(apiResult.get('apiCallId'), 'ApiCall ID should be stored');
-		}
-	}
-
-	/**
-	 * @description Verifies that API errors are persisted in the context result for downstream inspection.
-	 */
-	@IsTest
-	private static void shouldPersistApiStepErrorsInContext()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			API_PostExample.simulatedValidationError = 'Simulated validation error for chain testing';
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'), true)
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Map<String, Object> contextData = parseContextData(execution);
-			Map<String, Object> apiResult = (Map<String, Object>)contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '0');
-			Assert.isNotNull(apiResult, 'API result should be stored in context');
-			Assert.areEqual(false, apiResult.get('success'), 'Success should be false');
-			Assert.isNotNull(apiResult.get('apiCallId'), 'ApiCall ID should be stored even on failure');
-			Assert.isNotNull(apiResult.get('errors'), 'Validation errors should be stored in context');
-		}
-	}
-
-	/**
-	 * @description Verifies that a failed web service call produces a failed StepResult with error details.
-	 */
-	@IsTest
-	private static void shouldFailApiStepOnHandlerFailure()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-			API_MockFactory.registerErrorMock(API_STEP_SERVICE_NAME);
-
-			Test.startTest();
-			String executionId = executeSingleApiStepChain(record);
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should fail when API call fails');
-			Assert.isTrue(execution.ErrorMessage__c.contains(API_STEP_SERVICE_NAME), 'Error should reference the handler class');
-		}
-	}
-
-	/**
-	 * @description Verifies that a validation abort (e.g., missing triggering record) produces a failed StepResult.
-	 */
-	@IsTest
-	private static void shouldFailApiStepOnHandlerAbort()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'))
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should fail when API call is aborted');
-		}
-	}
-
-	/**
-	 * @description Verifies that the chain's correlation ID flows through to the ApiCall__c.
-	 */
-	@IsTest
-	private static void shouldPropagateApiStepCorrelationId()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-			String correlationId = 'test-correlation-id';
-
-			Test.startTest();
-			String executionId = executeSingleApiStepChain(record, correlationId);
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(correlationId, execution.CorrelationId__c, 'Chain correlation ID should be set');
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete');
-		}
-	}
-
-	/**
-	 * @description Verifies that an ApiCall__c record is persisted during ApiStep execution.
-	 */
-	@IsTest
-	private static void shouldPersistApiStepApiCallRecord()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			executeSingleApiStepChain(record);
-			Test.stopTest();
-
-			SEL_ApiCall.assertServiceCompleted(API_STEP_SERVICE_NAME);
-		}
-	}
-
-	/**
-	 * @description Verifies that a regular step followed by an ApiStep followed by a regular step
-	 * that reads the API result works correctly in a multi-step chain.
-	 */
-	@IsTest
-	private static void shouldWorkInMultiStepApiStepChain()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.withInitialContext('recordId', String.valueOf(record.Id))
-					.then(new ApiStepContextWriterStep())
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecordFrom('recordId')
-							.withParameterFrom(API_PostExample.PARAMETER_NAME, 'testParam'))
-					.then(new ApiStepResultReaderStep())
-					.withAsyncOptions(createAsyncOptions(4))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Multi-step chain should complete');
-			Assert.areEqual(3, execution.CompletedSteps__c, 'All three steps should complete');
-
-			Map<String, Object> contextData = parseContextData(execution);
-			Assert.areEqual(true, contextData.get('apiResultRead'), 'Downstream step should read API result');
-		}
-	}
-
-	/**
-	 * @description Verifies that two ApiStep instances at different indices don't collide.
-	 */
-	@IsTest
-	private static void shouldSupportMultipleApiStepsInChain()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'first'))
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'second'))
-					.withAsyncOptions(createAsyncOptions(3))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain with multiple ApiSteps should complete');
-			Assert.areEqual(2, execution.CompletedSteps__c, 'Both ApiSteps should complete');
-
-			Map<String, Object> contextData = parseContextData(execution);
-			Assert.isNotNull(contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '0'), 'First ApiStep result should be stored');
-			Assert.isNotNull(contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '1'), 'Second ApiStep result should be stored');
-		}
-	}
-
-	/**
-	 * @description Verifies that a failed API call triggers the chain's onError handler.
-	 */
-	@IsTest
-	private static void shouldInvokeErrorHandlerOnApiStepFailure()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-			API_MockFactory.registerErrorMock(API_STEP_SERVICE_NAME);
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'))
-					.onError(new ApiStepErrorMarkerStep())
-					.withAsyncOptions(createAsyncOptions(2))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'Chain should fail');
-			Map<String, Object> contextData = parseContextData(execution);
-			Assert.areEqual(true, contextData.get('errorHandlerRan'), 'Error handler should have executed');
-		}
-	}
-
-	/**
-	 * @description Verifies that work() returns a clear error when configuration is missing from context.
-	 */
-	@IsTest
-	private static void shouldFailApiStepWhenConfigMissing()
-	{
-		System.runAs(getTestAdmin())
-		{
-			UTIL_AsyncChain.ApiStep step = new UTIL_AsyncChain.ApiStep(API_PostExample.class);
-			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('testExecId', 'testCorrelation');
-			context.currentStepIndex = 0;
-
-			UTIL_AsyncChain.StepResult result = step.work(context);
-
-			Assert.isFalse(result.success, 'Should fail when config is missing');
-			Assert.isTrue(result.message.contains('configuration not found'), 'Error should mention missing config');
-		}
-	}
-
-	/**
-	 * @description Verifies that work() returns a clear error when the handler class name in config
-	 * cannot be resolved by Type.forName() (e.g., subscriber uninstalled or class renamed).
-	 */
-	@IsTest
-	private static void shouldFailApiStepWhenHandlerClassNotFound()
-	{
-		System.runAs(getTestAdmin())
-		{
-			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('testExecId', 'testCorrelation');
-			context.currentStepIndex = 0;
-
-			Map<String, Object> config = new Map<String, Object>
-			{
-					'handlerClassName' => 'NonExistentApiHandler'
-			};
-			context.put(UTIL_AsyncChain.API_STEP_CONFIG_KEY_PREFIX + '0', config);
-
-			UTIL_AsyncChain.ApiStep step = new UTIL_AsyncChain.ApiStep();
-			UTIL_AsyncChain.StepResult result = step.work(context);
-
-			Assert.isFalse(result.success, 'Should fail when handler class not found');
-			Assert.isTrue(result.message.contains('Handler class not found'), 'Error should mention handler class not found');
-			Assert.isTrue(result.message.contains('NonExistentApiHandler'), 'Error should include the class name');
-		}
-	}
-
-	/**
-	 * @description Verifies that the no-arg constructor exists and produces a valid instance for reflection.
-	 */
-	@IsTest
-	private static void shouldInstantiateApiStepViaReflection()
-	{
-		System.runAs(getTestAdmin())
-		{
-			Type apiStepType = Type.forName('UTIL_AsyncChain.ApiStep');
-			Assert.isNotNull(apiStepType, 'ApiStep type should be resolvable');
-
-			Object instance = apiStepType.newInstance();
-			Assert.isNotNull(instance, 'No-arg constructor should produce a valid instance');
-			Assert.isInstanceOfType(instance, IF_Chain.Step.class, 'Instance should implement IF_Chain.Step');
-		}
-	}
-
-	/**
-	 * @description Verifies that the ApiStep constructor rejects non-API_Outbound types.
-	 */
-	@IsTest
-	private static void shouldThrowWhenApiStepReceivesInvalidType()
-	{
-		System.runAs(getTestAdmin())
-		{
-			try
-			{
-				new UTIL_AsyncChain.ApiStep(Account.class);
-				Assert.fail('Should throw TypeException');
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, TypeException.class, 'Incorrect Exception Type');
-			}
-		}
-	}
-
-	/**
-	 * @description Verifies that writeConfig() persists all configuration fields to the initial context map.
-	 */
-	@IsTest
-	private static void shouldWriteAllApiStepConfigFieldsToContext()
-	{
-		System.runAs(getTestAdmin())
-		{
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			UTIL_AsyncChain.ApiStep step = new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-					.credential('TestCredential')
-					.withParameter('param1', 'value1')
-					.withParameterFrom('param2', 'contextKey')
-					.triggeringRecord(record.Id);
-
-			Map<String, Object> initialContext = new Map<String, Object>();
-			step.writeConfig(initialContext, 3);
-
-			Map<String, Object> config = (Map<String, Object>)initialContext.get(UTIL_AsyncChain.API_STEP_CONFIG_KEY_PREFIX + '3');
-			Assert.isNotNull(config, 'Config should be written to context');
-			Assert.areEqual(API_STEP_SERVICE_NAME, config.get('handlerClassName'), 'Handler class name should match');
-			Assert.areEqual('TestCredential', config.get('credential'), 'Credential should be stored');
-			Assert.isNotNull(config.get('staticParams'), 'Static params should be stored');
-			Assert.isNotNull(config.get('contextMappings'), 'Context mappings should be stored');
-			Assert.areEqual(String.valueOf(record.Id), config.get('triggeringRecordId'), 'Triggering record ID should be stored');
-		}
-	}
-
-	/**
-	 * @description Verifies that the ApiStep uses continueOnError when configured via builder overload.
-	 */
-	@IsTest
-	private static void shouldContinueOnApiStepErrorWhenConfigured()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			API_MockFactory.registerErrorMock(API_STEP_SERVICE_NAME);
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'test'), true)
-					.then(new ApiStepSuccessMarkerStep())
-					.withAsyncOptions(createAsyncOptions(3))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Chain should complete despite API failure');
-			Map<String, Object> contextData = parseContextData(execution);
-			Assert.areEqual(true, contextData.get('successMarkerRan'), 'Second step should execute after non-fatal API failure');
-		}
-	}
-
-	/**
-	 * @description Verifies that a chain of two different API_Outbound handlers (POST + GET) executes
-	 * end-to-end, producing independent results at separate context keys. Validates the "entire chain
-	 * is web services" scenario where each step is a callout in its own Queueable transaction.
-	 */
-	@IsTest
-	private static void shouldChainMultipleDifferentApiHandlers()
-	{
-		System.runAs(getTestAdmin())
-		{
-			setupEnabledFeatureFlag();
-			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-			Test.startTest();
-			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-							.triggeringRecord(record.Id)
-							.withParameter(API_PostExample.PARAMETER_NAME, 'chainFirst'))
-					.then(new UTIL_AsyncChain.ApiStep(API_GetPwndPasswords.class)
-							.withParameter(API_GetPwndPasswords.PARAMETER_PASSWORD, 'testpassword'))
-					.withAsyncOptions(createAsyncOptions(3))
-					.execute();
-			Test.stopTest();
-
-			AsyncChainExecution__c execution = queryExecution(executionId);
-			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'All-API chain should complete');
-			Assert.areEqual(2, execution.CompletedSteps__c, 'Both API steps should complete');
-
-			Map<String, Object> contextData = parseContextData(execution);
-			Map<String, Object> postResult = (Map<String, Object>)contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '0');
-			Map<String, Object> getResult = (Map<String, Object>)contextData.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '1');
-
-			Assert.isNotNull(postResult, 'POST step result should be stored');
-			Assert.areEqual(true, postResult.get('success'), 'POST step should succeed');
-			Assert.isNotNull(postResult.get('apiCallId'), 'POST ApiCall ID should be stored');
-
-			Assert.isNotNull(getResult, 'GET step result should be stored');
-			Assert.areEqual(true, getResult.get('success'), 'GET step should succeed');
-			Assert.isNotNull(getResult.get('apiCallId'), 'GET ApiCall ID should be stored');
-
-			Assert.areNotEqual(postResult.get('apiCallId'), getResult.get('apiCallId'), 'Each step should produce a distinct ApiCall record');
 		}
 	}
 
@@ -2994,20 +3366,6 @@ private class UTIL_AsyncChain_TEST
 	private static AsyncChainExecution__c queryExecution(String executionId)
 	{
 		return (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
-	}
-
-	/**
-	 * @description Inserts a pre-populated AsyncChainExecution__c row (owned by the running user) so
-	 * the typed getChainStatus tests can assert deterministic field mappings without running a chain.
-	 *
-	 * @param record The execution record to persist.
-	 *
-	 * @return The same record with its Id populated.
-	 */
-	private static AsyncChainExecution__c persistExecution(AsyncChainExecution__c record)
-	{
-		DML_Builder.newTransaction().doInsert(record).execute();
-		return record;
 	}
 
 	/**
@@ -3054,33 +3412,20 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
-	 * @description Executes a single ApiStep chain wrapping API_PostExample with the given Foobar record.
-	 *
-	 * @param record The Foobar__c record to use as the triggering record.
-	 *
-	 * @return The execution record ID.
-	 */
-	private static String executeSingleApiStepChain(Foobar__c record)
-	{
-		return executeSingleApiStepChain(record, null);
-	}
-
-	/**
-	 * @description Executes a single ApiStep chain wrapping API_PostExample with an optional correlation ID.
-	 *
-	 * @param record The Foobar__c record to use as the triggering record.
-	 * @param correlationId The correlation ID for log tracing, or null for auto-generated.
+	 * @description Builds and executes a seven-step success chain under the framework's default
+	 * AsyncOptions: deliberately no withAsyncOptions call, so the depth in force is the one
+	 * execute() derives (step count + 1) rather than a test-supplied override.
 	 *
 	 * @return The execution record ID.
 	 */
-	private static String executeSingleApiStepChain(Foobar__c record, String correlationId)
+	private static String executeSevenStepDefaultOptionsChain()
 	{
-		UTIL_AsyncChain.ChainBuilder builder = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-				.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
-						.triggeringRecord(record.Id)
-						.withParameter(API_PostExample.PARAMETER_NAME, 'test'))
-				.withAsyncOptions(createAsyncOptions(2));
-		return String.isNotBlank(correlationId) ? builder.execute(correlationId) : builder.execute();
+		UTIL_AsyncChain.ChainBuilder builder = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME);
+		for(Integer stepNumber = 0; stepNumber < DEEP_CHAIN_STEP_COUNT; stepNumber++)
+		{
+			builder.then(new UTIL_AsyncChain_TEST.SuccessStep());
+		}
+		return builder.execute();
 	}
 
 	/**
@@ -3093,6 +3438,38 @@ private class UTIL_AsyncChain_TEST
 	private static Map<String, Object> parseContextData(AsyncChainExecution__c execution)
 	{
 		return String.isNotBlank(execution.ContextData__c) ? (Map<String, Object>)JSON.deserializeUntyped(execution.ContextData__c) : new Map<String, Object>();
+	}
+
+	/**
+	 * @description Counts persisted LogEntry__c rows whose RecordId__c names the given execution,
+	 * whose ClassMethod__c ends with the given emitting-site suffix, and (when a level is given)
+	 * whose LogLevel__c matches — so every terminal-signal test pins the D2 level contract, not
+	 * just the site. The site suffix is deliberately part of the assertion: ClassMethod__c is the
+	 * signal's subscriber-observable payload (Log Console column, runbook forensic grep), so a
+	 * rename that changes it SHOULD fail these tests. Counting per site over the file's
+	 * established getAll() idiom keeps unrelated framework entries from breaking the tests;
+	 * in-test log volume is bounded (clean org, ignoreTestMode-gated publishes).
+	 *
+	 * @param executionId The chain execution record the signal must name.
+	 * @param siteMethodSuffix The emitting site's method-name suffix (e.g. 'handleChainCompletion').
+	 * @param expectedLogLevel The required LogLevel__c value, or null to count any level.
+	 *
+	 * @return The number of matching log entries.
+	 */
+	private static Integer countTerminalLogs(Id executionId, String siteMethodSuffix, String expectedLogLevel)
+	{
+		Integer matches = 0;
+		for(LogEntry__c logEntry : new SEL_LogEntry().getAll())
+		{
+			if(logEntry.RecordId__c == String.valueOf(executionId)
+					&& logEntry.ClassMethod__c != null
+					&& logEntry.ClassMethod__c.endsWith(siteMethodSuffix)
+					&& (expectedLogLevel == null || logEntry.LogLevel__c == expectedLogLevel))
+			{
+				matches++;
+			}
+		}
+		return matches;
 	}
 
 	/**
@@ -3420,6 +3797,13 @@ private class UTIL_AsyncChain_TEST
 	 */
 	public class PureInterfaceStep implements IF_Chain.Step
 	{
+		/**
+		 * @description Records execution in context to prove a pure interface step runs.
+		 *
+		 * @param context The shared chain context.
+		 *
+		 * @return A successful StepResult.
+		 */
 		public UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
 		{
 			context.put('pureInterfaceExecuted', true);
@@ -3428,12 +3812,16 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
-	 * @description Step that writes a test parameter into the chain context for use by downstream ApiSteps.
+	 * @description Test step that self-calibrates one DML_Builder execute's statement cost, then
+	 * burns the transaction's DML statement budget down to exactly that cost — so the terminal
+	 * write consumes the last statements, letting the test verify that the write still commits
+	 * when the chain's own work has exhausted the DML budget (I2).
 	 */
-	public class ApiStepContextWriterStep implements IF_Chain.Step
+	public class DmlBudgetBurnerStep implements IF_Chain.Step
 	{
 		/**
-		 * @description Writes a test parameter to context.
+		 * @description Burns the transaction's DML statement budget down to near-exhaustion, then
+		 * returns successfully so the chain reaches its terminal write with almost no budget left.
 		 *
 		 * @param context The shared chain context.
 		 *
@@ -3441,69 +3829,16 @@ private class UTIL_AsyncChain_TEST
 		 */
 		public UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
 		{
-			context.put('testParam', 'fromPriorStep');
-			return UTIL_AsyncChain.succeeded('Context written');
-		}
-	}
+			Foobar__c burner = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+			Integer statementsBefore = Limits.getDmlStatements();
+			DML_Builder.newTransaction().doInsert(burner).execute();
+			Integer statementsPerExecute = Limits.getDmlStatements() - statementsBefore;
 
-	/**
-	 * @description Step that reads the API result from context to verify downstream access.
-	 */
-	public class ApiStepResultReaderStep implements IF_Chain.Step
-	{
-		/**
-		 * @description Reads API result from context and marks that it was accessible.
-		 *
-		 * @param context The shared chain context.
-		 *
-		 * @return A successful StepResult.
-		 */
-		public UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
-		{
-			Map<String, Object> apiResult = (Map<String, Object>)context.get(UTIL_AsyncChain.API_STEP_RESULT_KEY_PREFIX + '1');
-			if(apiResult != null && (Boolean)apiResult.get('success') == true && apiResult.get('apiCallId') != null)
+			while(Limits.getLimitDmlStatements() - Limits.getDmlStatements() > statementsPerExecute)
 			{
-				context.put('apiResultRead', true);
+				DML_Builder.newTransaction().doUpdate(burner).execute();
 			}
-			return UTIL_AsyncChain.succeeded('Result read');
-		}
-	}
-
-	/**
-	 * @description Error handler step that marks its execution in context for ApiStep tests.
-	 */
-	public class ApiStepErrorMarkerStep implements IF_Chain.Step
-	{
-		/**
-		 * @description Marks that the error handler ran.
-		 *
-		 * @param context The shared chain context.
-		 *
-		 * @return A successful StepResult.
-		 */
-		public UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
-		{
-			context.put('errorHandlerRan', true);
-			return UTIL_AsyncChain.succeeded('Error handled');
-		}
-	}
-
-	/**
-	 * @description Simple success step that marks its execution in context for ApiStep tests.
-	 */
-	public class ApiStepSuccessMarkerStep implements IF_Chain.Step
-	{
-		/**
-		 * @description Marks that this step ran.
-		 *
-		 * @param context The shared chain context.
-		 *
-		 * @return A successful StepResult.
-		 */
-		public UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
-		{
-			context.put('successMarkerRan', true);
-			return UTIL_AsyncChain.succeeded('Marker set');
+			return UTIL_AsyncChain.succeeded('Step completed');
 		}
 	}
 

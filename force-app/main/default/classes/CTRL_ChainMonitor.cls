@@ -14,6 +14,7 @@
  *
  * @date April 2026, July 2026
  */
+@SuppressWarnings('PMD.CyclomaticComplexity')
 public with sharing class CTRL_ChainMonitor
 {
 	/**
@@ -21,6 +22,12 @@ public with sharing class CTRL_ChainMonitor
 	 */
 	@TestVisible
 	private static final Integer DEFAULT_PAGE_SIZE = 20;
+
+	/**
+	 * @description Server-side ceiling for client-supplied page sizes. The page size arrives from
+	 * the client payload, so without a cap a crafted request could page the whole object in one query.
+	 */
+	private static final Integer MAX_PAGE_SIZE = 100;
 
 	/**
 	 * @description Step completed successfully.
@@ -46,6 +53,41 @@ public with sharing class CTRL_ChainMonitor
 	 */
 	@TestVisible
 	private static final String STEP_STATUS_PENDING = 'pending';
+
+	/**
+	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the abort
+	 * action is available to the running user. Stable machine codes, never user-facing text: the
+	 * Chain Monitor maps each ABORT_* code to a Custom Label.
+	 */
+	@TestVisible
+	private static final String ABORT_AVAILABLE = 'Available';
+
+	/**
+	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the chain
+	 * has already finished, so there is nothing to abort.
+	 */
+	@TestVisible
+	private static final String ABORT_CHAIN_NOT_ABORTABLE = 'ChainNotAbortable';
+
+	/**
+	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the
+	 * capability is switched off org-wide.
+	 */
+	@TestVisible
+	private static final String ABORT_CAPABILITY_DISABLED = 'CapabilityDisabled';
+
+	/**
+	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the feature
+	 * flag is live but the running user lacks the permission its strategy names.
+	 */
+	@TestVisible
+	private static final String ABORT_PERMISSION_MISSING = 'PermissionMissing';
+
+	/**
+	 * @description Reason recorded on ErrorMessage__c for an operator abort. Deliberately a literal
+	 * English constant, not a label: it lands on record data, not in the UI copy path.
+	 */
+	private static final String OPERATOR_ABORT_REASON = 'Aborted by operator from the Chain Monitor';
 
 	/**
 	 * @description Map of sortable field names to SObjectField tokens for compile-time safety.
@@ -89,6 +131,7 @@ public with sharing class CTRL_ChainMonitor
 		}
 
 		Integer resolvedPageSize = request.pageSize != null && request.pageSize > 0 ? request.pageSize : DEFAULT_PAGE_SIZE;
+		resolvedPageSize = Math.min(resolvedPageSize, MAX_PAGE_SIZE);
 		Integer resolvedPageNumber = request.pageNumber != null && request.pageNumber > 0 ? request.pageNumber : 1;
 
 		QRY_Builder.QueryPage page = new SEL_AsyncChainExecution().findFiltered
@@ -206,6 +249,55 @@ public with sharing class CTRL_ChainMonitor
 	}
 
 	/**
+	 * @description Aborts a running or stalled chain on the operator's behalf. The feature flag is
+	 * the single gate (its strategy decides who); Apex is the enforcement point, so every refusal
+	 * throws — the Chain Monitor's button state is only a hint. Returns the freshly re-read detail
+	 * so the acting operator's panel repaints without a second round trip.
+	 *
+	 * @param executionId The AsyncChainExecution__c record to abort.
+	 *
+	 * @return The post-abort chain detail.
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.abortChain(executionId);
+	 * ```
+	 */
+	@AuraEnabled
+	public static DTO_ChainDetail abortChain(Id executionId)
+	{
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+
+		if(execution == null)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableChainEnded);
+		}
+
+		String availability = resolveAbortAvailability(execution);
+
+		if(availability == ABORT_CHAIN_NOT_ABORTABLE)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableChainEnded);
+		}
+		if(availability == ABORT_CAPABILITY_DISABLED)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableDisabled);
+		}
+		if(availability == ABORT_PERMISSION_MISSING)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableMissingPermission);
+		}
+
+		if(!UTIL_AsyncChain.abortExecution(executionId, OPERATOR_ABORT_REASON))
+		{
+			// kern-coverage-exempt: race-window guard; abortExecution can refuse after the availability check passed, unreachable in one transaction
+			throw new AuraHandledException(System.Label.ChainMonitor_AbortFailed);
+		}
+
+		return getChainDetail(executionId);
+	}
+
+	/**
 	 * @description Converts an AsyncChainExecution__c record to a summary DTO for the list view.
 	 *
 	 * @param record The AsyncChainExecution__c record.
@@ -247,6 +339,7 @@ public with sharing class CTRL_ChainMonitor
 		detail.executionId = execution.Id;
 		detail.startedAt = execution.StartedAt__c;
 		detail.status = execution.Status__c;
+		detail.abortAvailability = resolveAbortAvailability(execution);
 		detail.totalSteps = execution.TotalSteps__c != null ? execution.TotalSteps__c.intValue() : 0;
 
 		if(execution.DurationMs__c != null)
@@ -264,9 +357,38 @@ public with sharing class CTRL_ChainMonitor
 	}
 
 	/**
+	 * @description Resolves why the abort action is or is not available for this chain and the
+	 * running user, as a stable code. Order matters: a non-abortable status wins (nothing else is
+	 * relevant for a finished chain); an enabled gate means available; an absent-or-inactive flag,
+	 * or a flag with no active strategies, is the org-wide off state; otherwise the flag is live
+	 * and the user simply lacks the permission its strategy names.
+	 *
+	 * @param execution The freshly read execution record.
+	 *
+	 * @return One of the ABORT_* availability codes.
+	 */
+	private static String resolveAbortAvailability(AsyncChainExecution__c execution)
+	{
+		if(execution.Status__c != SEL_AsyncChainExecution.STATUS_RUNNING && execution.Status__c != SEL_AsyncChainExecution.STATUS_STALLED)
+		{
+			return ABORT_CHAIN_NOT_ABORTABLE;
+		}
+
+		if(UTIL_FeatureFlag.isEnabled(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME))
+		{
+			return ABORT_AVAILABLE;
+		}
+
+		FeatureFlag__mdt flag = SEL_FeatureFlag.activeFlags.get(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME);
+		return flag == null || flag.FeatureFlagStrategies__r.isEmpty() ? ABORT_CAPABILITY_DISABLED : ABORT_PERMISSION_MISSING;
+	}
+
+	/**
 	 * @description Parses the StepLog__c JSON into a list of display-ready step DTOs using typed
 	 * deserialization via UTIL_AsyncChain.DTO_StepDefinition. Determines step status based on runtime
-	 * fields, chain status, and step index.
+	 * fields, chain status, and step index. The handler entries the framework persists after the
+	 * step entries are excluded: the timeline shows chain steps only, so its length and indices
+	 * stay aligned with TotalSteps__c / CompletedSteps__c and with the LWC's running-step logic.
 	 *
 	 * @param execution The AsyncChainExecution__c record containing the StepLog__c JSON.
 	 *
@@ -285,7 +407,7 @@ public with sharing class CTRL_ChainMonitor
 		List<UTIL_AsyncChain.DTO_StepDefinition> definitions =
 				(List<UTIL_AsyncChain.DTO_StepDefinition>)JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
 
-		for(UTIL_AsyncChain.DTO_StepDefinition definition : definitions)
+		for(UTIL_AsyncChain.DTO_StepDefinition definition : UTIL_AsyncChain.filterStepEntries(definitions))
 		{
 			DTO_StepDetail step = new DTO_StepDetail();
 
@@ -482,6 +604,14 @@ public with sharing class CTRL_ChainMonitor
 		 */
 		@AuraEnabled
 		public String status;
+
+		/**
+		 * @description Why the abort action is or is not available: Available, ChainNotAbortable,
+		 * CapabilityDisabled, or PermissionMissing. A stable code, not display text; the client
+		 * maps it to a label.
+		 */
+		@AuraEnabled
+		public String abortAvailability;
 
 		/**
 		 * @description Total number of steps in the chain.

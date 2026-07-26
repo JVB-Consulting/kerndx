@@ -14,7 +14,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, July 2026
  *
  * @since 1.0
  *
@@ -148,6 +148,13 @@ global inherited sharing class UTIL_HttpClient
 	 */
 	@TestVisible
 	private static final String KEY_SKIP_PERSISTENCE = KEY_PREFIX + 'skipPersistence';
+
+	/**
+	 * @description Parameter key requesting suppression of the delegate handler's own retry
+	 * scheduling. Set by RequestBuilder.suppressHandlerSelfRetryScheduling() and applied to the
+	 * fresh handler instance at instantiation, before the callout runs.
+	 */
+	private static final String KEY_SUPPRESS_SELF_RETRY = KEY_PREFIX + 'suppressSelfRetryScheduling';
 
 	/**
 	 * @description Parameter key for request replacement tokens (JSON-serialized Map).
@@ -758,6 +765,11 @@ global inherited sharing class UTIL_HttpClient
 			subscriberHandler = (API_Outbound)handlerType.newInstance();
 			subscriberHandler.skipPersistence = true;
 
+			if('true'.equalsIgnoreCase(inputs.get(KEY_SUPPRESS_SELF_RETRY)))
+			{
+				subscriberHandler.suppressSelfRetryScheduling();
+			}
+
 			apiCallRecord.ServiceName__c = handlerName;
 
 			Map<String, String> callerOverrides = new Map<String, String>();
@@ -1025,6 +1037,12 @@ global inherited sharing class UTIL_HttpClient
 		 * @description The subscriber handler type for useHandler() mode.
 		 */
 		private final Type subscriberHandlerType;
+
+		/**
+		 * @description When true, the delegate handler's own NextRetry__c self-scheduling is
+		 * suppressed for this invocation (delegation mode only).
+		 */
+		private Boolean handlerSelfRetrySchedulingSuppressed = false;
 
 		/**
 		 * @description Injectable mock response for this request.
@@ -1806,6 +1824,23 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
+		 * @description Suppresses the delegate handler's own NextRetry__c self-scheduling for this
+		 * invocation: the flag is threaded through the request parameters and applied to the fresh
+		 * handler instance at instantiation, before the callout runs. Framework-internal seam for
+		 * callers that own the retry lifecycle themselves (the async chain's per-step retry) — one
+		 * retry authority, never two. Delegation mode (useHandler) only.
+		 *
+		 * @return This builder for method chaining.
+		 *
+		 * @since 1.6
+		 */
+		public RequestBuilder suppressHandlerSelfRetryScheduling()
+		{
+			handlerSelfRetrySchedulingSuppressed = true;
+			return this;
+		}
+
+		/**
 		 * @description Executes in delegation mode and returns the delegate handler instance.
 		 *
 		 * @return The executed API_Outbound delegate handler
@@ -1976,6 +2011,10 @@ global inherited sharing class UTIL_HttpClient
 			if(subscriberHandlerType != null)
 			{
 				parameters.add(KEY_API_HANDLER_NAME, subscriberHandlerType.getName());
+			}
+			if(handlerSelfRetrySchedulingSuppressed)
+			{
+				parameters.add(KEY_SUPPRESS_SELF_RETRY, 'true');
 			}
 
 			for(String key : subscriberParameters.keySet())

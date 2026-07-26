@@ -926,6 +926,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>AsyncChainExecution__c.ActiveDeduplicationKey__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>AsyncChainExecution__c.CompletedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -946,6 +951,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>AsyncChainExecution__c.CurrentJobId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>AsyncChainExecution__c.CurrentStepName__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -957,6 +967,16 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>AsyncChainExecution__c.ErrorMessage__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>AsyncChainExecution__c.FailureCategory__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>AsyncChainExecution__c.RunKey__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

@@ -100,7 +100,10 @@ describe the work once; the dispatcher decides how to move it.
     - [Chain Builder API](#chain-builder-api)
     - [Context Sharing](#context-sharing)
     - [Error Handling](#error-handling)
+    - [Retrying a failed step](#retrying-a-failed-step)
+    - [Preventing duplicate runs](#preventing-duplicate-runs)
     - [Monitoring](#monitoring)
+    - [Stopping a chain from the Chain Monitor](#stopping-a-chain-from-the-chain-monitor)
     - [Logging Strategy](#logging-strategy)
     - [Log Correlation](#log-correlation)
     - [Step Design Guidance](#step-design-guidance)
@@ -136,6 +139,7 @@ describe the work once; the dispatcher decides how to move it.
     - [Monitoring Scheduled Jobs](#monitoring-scheduled-jobs)
     - [Monitoring Async Job Execution](#monitoring-async-job-execution)
     - [Monitoring Async Chain Failures](#monitoring-async-chain-failures)
+    - [Expected entries in your debug logs](#expected-entries-in-your-debug-logs)
 19. [Testing](#testing)
 20. [Common Pitfalls](#common-pitfalls)
 21. [Anti-Patterns](#anti-patterns)
@@ -952,6 +956,7 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | `.withInitialContext(key, value)` | Seeds the context with a key-value pair (additive)                                |
 | `.withMaxSteps(Integer)`          | Maximum steps allowed (default: 50)                                               |
 | `.withDelayMinutes(Integer)`      | Delays the first step by 0 to 10 minutes, best-effort (see below)                 |
+| `.withDeduplicationKey(String)`   | Blocks a second overlapping run while one with the same key is active (see [Preventing duplicate runs](#preventing-duplicate-runs)) |
 | `.withAsyncOptions(AsyncOptions)` | Sets queueable stack depth (for tests)                                            |
 | `.onError(IF_Chain.Step)`         | Registers a handler that runs when a step fails                                   |
 | `.onComplete(IF_Chain.Step)`      | Registers a handler that runs after all steps succeed                             |
@@ -1011,6 +1016,8 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 | `getCurrentStepIndex()`   | `Integer`    | Zero-based index of the current step                                                 |
 | `getChainExecutionId()`   | `String`     | ID of the `AsyncChainExecution__c` tracking record                                   |
 | `getCorrelationId()`      | `String`     | Correlation ID for log tracing                                                       |
+| `getAttempt()`            | `Integer`    | Which attempt this is for the current step, starting at 1 (see Retrying a failed step) |
+| `isFinalAttempt()`        | `Boolean`    | True on the current step's last allowed attempt (for your own `ChainStep` subclasses) |
 
 ### Error Handling
 
@@ -1052,7 +1059,110 @@ UTIL_AsyncChain.newChain('ResilientChain')
 (`HandlerExecutor`). Callouts are safe here even if the final step performed DML. If this handler throws, the chain is
 marked as Failed.
 
-**Chain statuses:** `Running` → `Completed` | `Failed` | `Aborted`
+**Chain statuses:** `Running` → `Completed` | `Failed` | `Aborted`, with `Stalled` as a recoverable
+in-between state when a chain loses its background job (see [Monitoring](#monitoring)).
+
+### Retrying a failed step
+
+When a step fails for a temporary reason (a locked row, a brief callout timeout, a rate limit), you
+often want it to try again rather than fail the whole chain. By default a step gets one attempt: if it
+throws, the chain stops and is marked `Failed`. A step can opt into automatic retry instead.
+
+You opt in by overriding `createRetryStrategy()` on your step and returning a retry strategy. Return
+`null`, which is the default, and nothing changes: one attempt, no retry, exactly as before. This
+matters on upgrade: a step that was never written to be safe to run twice is never retried behind your
+back.
+
+```apex
+public class ChargeCardStep extends UTIL_AsyncChain.ChainStep
+{
+	public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+	{
+		// ... do the work ...
+		return UTIL_AsyncChain.succeeded();
+	}
+
+	public override UTIL_Retry.Strategy createRetryStrategy()
+	{
+		return UTIL_Retry.exponential().withMaxRetries(2).withBaseBackoff(0);
+	}
+}
+```
+
+Build the strategy with `UTIL_Retry.exponential()` (or `linear()`) and shape it with `withMaxRetries`,
+`withBaseBackoff`, and the other options. To retry only certain failures, wrap it in an allowlist so an
+unexpected exception fails fast instead of being retried pointlessly:
+
+```apex
+public override UTIL_Retry.Strategy createRetryStrategy()
+{
+	return UTIL_Retry.retryOnlyOnException(
+		UTIL_Retry.exponential().withMaxRetries(3),
+		new Set<Type>{ CalloutException.class }
+	);
+}
+```
+
+Prefer this allowlisted form over any "just try N times" shortcut. You decide which failures are worth
+retrying, and a genuine bug surfaces immediately rather than being retried three times first.
+
+**A retry waits at least a minute.** The chain schedules each retry through the platform's delayed-job
+window, which counts in whole minutes and tops out at ten. Any backoff above zero therefore waits a
+full minute at least; a base backoff of `0` re-enqueues immediately. Size your backoff in that light,
+because seconds-level precision is not available here.
+
+**Know which attempt you are on.** Inside `work()`, `context.getAttempt()` gives the attempt number (1
+for the first try) and `context.isFinalAttempt()` is true on the last allowed attempt, so a step can,
+for example, alert someone only when it is about to give up for good. These two read correctly for your
+own `ChainStep` subclasses. `getPreviousStepResult()` on a retried attempt returns that step's own
+previous failed result, so you can see what went wrong last time.
+
+When a chain runs out of retries it is marked `Failed`, and its `FailureCategory__c` reads `Retries
+Exhausted` rather than `Step Exception`, so the audit trail shows the difference between a step that
+failed once and one that used up every attempt.
+
+Before you turn retry on, check the step is safe to repeat:
+
+- Running it twice produces the same result (it is idempotent). If it writes to an outside system,
+  pair it with `idempotencyKey()` so a repeat is not double-counted.
+- A duplicate external side effect is either impossible or harmless.
+- The step still behaves correctly if recovery re-drives the chain while a retry is waiting (see
+  [Preventing duplicate runs](#preventing-duplicate-runs) and [Monitoring](#monitoring)).
+
+### Preventing duplicate runs
+
+Some chains should never run twice at once. A nightly job can fire twice when a schedule overlaps; an
+action button can be double-clicked. Give the chain a deduplication key and the framework lets only one
+run with that key be active at a time.
+
+```apex
+UTIL_AsyncChain.newChain('NightlyAccountSync')
+	.then(new SyncAccountsStep())
+	.withDeduplicationKey('nightly-account-sync')
+	.execute();
+```
+
+While a run with that key is active, a second `execute()` using the same key does not start a new
+chain. It lands on the run already in flight and returns that run's Id, so the caller gets a handle to
+the live chain rather than a duplicate. Keys are compared without regard to case, so `'Nightly'` and
+`'NIGHTLY'` count as the same key. A blank key, or one longer than 255 characters, is rejected when you
+build the chain, not later at run time.
+
+The key is tied to the run's state, never to a clock: there is no expiry timer. The key is released the
+moment the chain reaches any end state (`Completed`, `Failed`, or `Aborted`), so the next scheduled run
+is free to start. A stalled chain keeps its key until recovery finishes or it resolves, which is
+deliberate: releasing it on a timer would reopen the very overlap the key exists to prevent.
+
+**This is not the same as `idempotencyKey()`.** The two sound alike and do opposite jobs. A
+deduplication key stops two runs of the *chain* from overlapping. An idempotency key makes one *step's*
+external side effect safe to replay, so a retry does not double-charge a card or double-post a record.
+Use both together when a chain must not overlap and also contains a step that writes to an outside
+system. If what you need is a limit on how often a chain may run in sequence rather than in parallel,
+read the current run's state with `getChainStatus` and decide in your own code; the deduplication key
+is only about overlap.
+
+A natural key for a scheduled chain is the schedule's own name, so every firing of that schedule shares
+one key and can never lap itself.
 
 ### Monitoring
 
@@ -1082,13 +1192,19 @@ Integer done = status.completedSteps;   // already an Integer, no casting
 String elapsed = status.durationLabel;  // for example "1m 30s"
 ```
 
-`isRunning()`, `isTerminal()` (Completed, Failed, or Aborted), and `isFailed()` answer the common questions directly.
-The raw `status` is still there as a String if you need it. The framework writes four values: `Running` (a chain waiting
-on a scheduled delay also shows as Running, with no completed steps yet), `Completed`, `Failed`, and `Aborted`. When a
-step crashes or the next step cannot be enqueued, the chain is marked `Failed` straight away: there is no automatic
-retry, no backoff, and no background job that later revives a chain, so a Failed chain stays Failed until you relaunch
-it yourself. For a chain that is still running, `durationMs` is filled in live from its start time, so it matches what
-the Chain Monitor shows.
+`isRunning()`, `isTerminal()`, and `isFailed()` answer the common questions directly.
+The raw `status` is still there as a String if you need it. The framework writes five values: `Running` (a chain waiting
+on a scheduled delay also shows as Running, with no completed steps yet), `Completed`, `Failed`, `Aborted`, and
+`Stalled`. A chain goes `Stalled` when it loses the background job that would carry it forward, so recovery is either
+waiting to step in or already acting: the watchdog can revive a stalled chain and let it finish. `isTerminal()` reports
+the end states `Completed`, `Failed`, and `Aborted`, and also any chain that carries a completion timestamp. That last
+case catches the rare row where recovery briefly overwrites an already-finished chain back to `Stalled`: the completion
+timestamp survives, so it stays the reliable end-of-life signal. When a step throws an unhandled exception, the chain is
+marked `Failed` straight away, with no automatic retry and no backoff, so a Failed chain stays Failed until you relaunch
+it yourself: recovery is reserved for a chain that stalls, never one that has already failed. For a chain that is still
+running, `durationMs` is filled in live from its start time, so it matches what the Chain Monitor shows.
+
+**Turn on stalled-chain recovery.** The watchdog that revives stalled chains is itself a scheduled job, and a managed package cannot ship one, so it stays dormant until an admin schedules it. The quickest way is one click: the Health Check on the Kern app's Home tab spots a missing watchdog and schedules it for you (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). Until you do, a stalled chain is still detected, marked `Stalled`, and surfaced to you, but it is not automatically re-driven to completion. Schedule it once, the same declarative way as the built-in housekeeping jobs: create a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (`0 0 * * * ?`); see [Declarative Scheduling with `ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c). Two optional attributes tune it: `StaleThresholdMinutes` (how many minutes a chain may sit idle before it counts as stalled, default 30) and `BatchSize` (how many chains one sweep inspects, default 50). If you would rather schedule it in Apex, `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());` does the same job. The [Installation guide](Installation.md#post-install-configuration) lists this next to the other one-time setup steps.
 
 A `ChainStatus` is a single-record summary and deliberately carries no per-step list. When you need step-by-step detail,
 open the chain in the Chain Monitor. To look up several chains at once, `getChainStatuses(Set<Id>)` returns a map of Id
@@ -1100,7 +1216,9 @@ to, exactly as `getStatus` does.
 | Field                | Description                                                                          |
 |----------------------|--------------------------------------------------------------------------------------|
 | `ChainName__c`       | Descriptive name from `newChain()`                                                   |
-| `Status__c`          | Running, Completed, Failed, or Aborted (the picklist also defines Delayed and Stalled, which the framework does not currently write) |
+| `ActiveDeduplicationKey__c` | The deduplication key while the chain is active, if you set one; cleared when the chain reaches an end state (see [Preventing duplicate runs](#preventing-duplicate-runs)). Empty when no key was set |
+| `Status__c`          | Running, Completed, Failed, Aborted, or Stalled (the picklist also defines Delayed, which the framework does not currently write) |
+| `FailureCategory__c` | Why the chain left the happy path: Step Exception, Retries Exhausted, Kill Switch, Stalled, or Operator Abort. Empty on healthy chains |
 | `TotalSteps__c`      | Number of steps in the chain                                                         |
 | `CompletedSteps__c`  | Steps that succeeded (failed steps are not counted)                                  |
 | `CurrentStepName__c` | Name of the currently executing step                                                 |
@@ -1115,6 +1233,34 @@ to, exactly as `getStatus` does.
 The object has field history tracking enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and
 `CompletedAt__c`, providing a full audit trail of chain progression step by step.
 
+### Stopping a chain from the Chain Monitor
+
+Sometimes a chain is doing the wrong thing and you want it to stop now, not after you have tracked down the cause. The
+Chain Monitor has an **Abort** action for exactly that. It ships switched off, so no one can stop a chain by accident
+until you deliberately turn it on.
+
+**Turning it on.** There is nothing to activate. Assign the **Kern Async Chain Abort** permission set to the operations
+users who should be allowed to abort a chain, and the action appears for them. The feature flag that governs it ships
+active, so the permission set is the only switch you touch to enable the action. One caveat: installing the package for
+All Users writes the abort permission into every profile during the install, so in that case the action is already
+enabled for everyone. Remove those profile grants to bring the action back under the permission set's control.
+
+**Turning it off for everyone.** Deactivate the **Async Chain Abort Enabled** feature-flag record. That is the org-wide
+off-switch: it hides the action for every user in one step, with no deployment and without touching anyone's permission
+set. The Health Check's **Chain Abort Capability** row tells you where you stand, warning while the flag is deactivated,
+while profiles beyond System Administrator hold the abort permission (the footprint of an All Users install), or while
+no one holds the permission set. It passes once the flag is active, no profile beyond System Administrator holds the
+permission, and at least one user holds the set.
+
+**What abort does.** Abort takes effect at the next step boundary. The step that is running is allowed to finish, and
+then the chain stops rather than starting the next one (it can also stop a stalled chain that is waiting on recovery). An
+aborted chain is final: it cannot be resumed, so relaunch it from the start if the work still needs to run. The outcome
+is recorded as `Aborted`, with a failure category of `Operator Abort`.
+
+**A note on live updates.** The admin who presses Abort always sees their own monitor update straight away. On an org
+whose logging is turned down to errors only, a common production setting, other admins watching the same chain will not
+see the abort appear on its own; they refresh the panel to pick it up. A failure still shows up live either way.
+
 ### Logging Strategy
 
 The chain framework keeps logs quiet so the ones that appear matter. Ordinary progress (Status, CompletedSteps,
@@ -1127,8 +1273,22 @@ reserved for events you can act on:
 | Step exception (stack trace) | Error | Step throws an unhandled exception                                  |
 | Step failed but continuing   | Warn  | A `continueOnError` step fails; the log includes the failure reason and duration |
 | Chain crashed                | Error | Finalizer catches unhandled Queueable crash (governor limits)       |
-| Chain aborted                | Warn  | Kill switch active or max steps exceeded                            |
+| Chain completed              | Info  | The chain finished successfully; one entry, so a quiet chain is no longer invisible |
+| Chain failed                 | Error | The chain reached its terminal `Failed` state (the outcome marker, separate from any step-level exception above) |
+| Chain abort requested        | Warn  | An operator aborts a chain; the running step finishes, then the chain stops         |
+| Chain aborted                | Warn  | Kill switch active, max steps exceeded, or an operator aborted it from the Chain Monitor |
 | Execution record deleted     | Warn  | Rare: a record was removed externally while the chain was running                |
+
+**Seeing terminal signals in the Chain Monitor.** Every chain now leaves one log entry when it ends,
+marking how it finished: an INFO entry for a completion, an ERROR entry for a failure, and a WARN entry
+for an abort. This closes the old gap where a healthy chain finished without a trace. Where those
+entries show up depends on your log level. ERROR entries clear the log-level threshold whatever it is
+set to, so a failure is not hidden by a high threshold. A completion (INFO) or an abort (WARN) is
+written only when logging is enabled and the threshold is set to include that level. At the ERROR
+threshold many orgs run in production, completions and aborts are filtered out, so a second admin
+watching the same chain in the Chain Monitor will not see a completion or an abort appear on its own; a
+failure still appears live. The entry is best-effort: the chain records its own outcome first and the
+log follows, so a delivery hiccup never changes the chain's result.
 
 **Performance logging** happens automatically through `UTIL_PerformanceTimer`. Each step is timed, and if a step runs
 longer than the threshold in `LogSetting__c.PerformanceThresholdMs__c`, the framework writes a structured performance log
@@ -1270,6 +1430,15 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 | `.withParameterFrom(paramName, contextKey)` | Resolve a parameter from a prior step's output |
 | `.triggeringRecord(Id)`                     | Static triggering record ID                    |
 | `.triggeringRecordFrom(contextKey)`         | Read triggering record ID from context         |
+| `.withRetry(maxAttempts, baseBackoffSeconds)` | Retry the whole call automatically, up to `maxAttempts` tries (see below) |
+
+**Retrying an API step.** An `ApiStep` can retry a failed call itself, the chain equivalent of a
+`ChainStep` opting in with `createRetryStrategy()`. Pass the total number of attempts including the
+first, and a base backoff in seconds: `.withRetry(3, 30)` allows up to three tries. When you set this,
+the chain owns the retry and the outbound engine's own rescheduling is switched off for that step, so
+the call is retried once by the chain, never twice by both. Leave `withRetry` off and the call behaves
+exactly as before, with the outbound engine keeping sole charge of retries. The same whole-minute
+backoff rule applies as for step retries.
 
 #### Reading Results from Downstream Steps
 
@@ -1491,7 +1660,13 @@ it, the job fires at noon PST, 10 hours later than intended. The scheduler frame
 1. When a `ScheduledJob__c` record is saved via the LWC editor, `Timezone__c` is populated with the authoring user's IANA TimeZoneSidKey
 2. When the trigger schedules the job, the framework automatically adjusts the cron hours (and minutes for half-hour timezones like India UTC+5:30) from the stored timezone to the
    running user's timezone
-3. The adjusted cron is passed to `System.schedule()`, ensuring the job fires at the originally intended absolute time
+3. The adjusted cron is passed to `System.schedule()`, so the job fires at the author's intended local time of day in the running user's timezone
+
+**One caveat, daylight saving.** The timezone offset is worked out once, when the job is scheduled, and
+baked into the stored cron. If the author's zone and the runner's zone move onto or off daylight saving
+on different dates, the job can fire an hour early or late for the weeks when one zone has shifted and
+the other has not, until the job is saved again. For a job that must hit an exact wall-clock time all
+year across such a pair of zones, re-save it after a daylight-saving change.
 
 **Edge cases handled:**
 
@@ -1752,6 +1927,16 @@ ready to schedule, the ones that need a small amount of custom code, and the con
 {"objectName":"LogEntry__c","minimumNumberOfDays":"90","batchSize":"1000"}
 ```
 
+**Purging old chain records safely.** `AsyncChainExecution__c` records build up as chains run, so purge them on a schedule the same way you would application logs, by pointing `SCHED_PurgeRecords` at the object. The setting that matters is the date field: purge by `CompletedAt__c`, not by the default `CreatedDate`.
+
+```json
+{"objectName":"AsyncChainExecution__c","dateFieldName":"CompletedAt__c","minimumNumberOfDays":"30","batchSize":"200"}
+```
+
+`CompletedAt__c` is filled in only when a chain reaches an end state. A chain that is still `Running`, sitting `Stalled` while it waits for recovery, or waiting out a retry backoff has no completion timestamp yet. An age filter compares each record against a cut-off date, and a record whose date field is empty never falls inside that range, so the purge simply skips those in-flight chains and leaves them for the watchdog to recover. Purge by `CreatedDate` instead and you delete exactly those chains the moment they age past the window, taking with them the very records recovery depends on.
+
+One gap to plan around: this configuration-only recipe has no status filter, so it treats a finished `Failed` chain the same as a completed one. Any chain that has reached an end state, successful or failed, is deleted once it is older than your window. If you keep failed chains to investigate later, size the retention window to cover how long you need that history, or export the failures you care about before they age out.
+
 ### Configuration Reference: [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)
 
 | Attribute             | Required | Default | Description                                        |
@@ -1871,6 +2056,16 @@ filtered to that chain's correlation ID, laying the whole run out as a timeline 
 [Monitoring](#monitoring) section above lists every `AsyncChainExecution__c` field, and the
 [Logging Strategy](#logging-strategy) table records the exact events the framework logs. If you already hold a single
 chain's Id, `UTIL_AsyncChain.getStatus(executionId)` returns its live status without running a query.
+
+### Expected entries in your debug logs
+
+With Apex debug logging turned on, a running chain leaves a few `System.TypeException` entries in the log that are thrown and immediately caught inside the framework. These are expected and harmless. Salesforce records an exception in the debug log the instant it is thrown, even when the very next line catches it, so a caught exception the framework relies on still shows up. Knowing where each one comes from lets you tell them apart from a real fault:
+
+- **Type detection.** To read the concrete type name of a value, the framework uses a well-known Apex technique that deliberately provokes and then catches a `System.TypeException`. It runs once when a chain is built, once when the chain context is serialised, and once for every non-primitive value you read back through `getAs(...)`. Each is a single, inexpensive caught exception, not an error.
+- **A retried step.** When a step is set to retry, each failed attempt logs its own exception. Seeing the same exception two or three times in a row while the chain stays healthy and still finishes is the retry doing its job, not one failure repeating uncontrollably.
+- **One entry at the end.** Every chain now writes a terminal `LogEntry__c` as it finishes, subject to your log threshold: INFO for a completion, ERROR for a failure, WARN for an abort (see [Logging Strategy](#logging-strategy) for how the threshold decides which ones you see).
+
+None of these needs any change on your side.
 
 ---
 
