@@ -3,7 +3,6 @@ const {test, expect} = require('@playwright/test');
 const KernHomePage = require('../pages/kern-home.page');
 const LogEntriesPage = require('../pages/log-entries.page');
 const ScheduledJobsPage = require('../pages/scheduled-jobs.page');
-const ApiCallsPage = require('../pages/api-calls.page');
 const ApiTestHarnessPage = require('../pages/api-test-harness.page');
 const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
 const {getInstanceUrl} = require('../helpers/sf-auth');
@@ -26,6 +25,15 @@ const EXPECTED_TOOL_KEYS = [
 	'dataMaskingAdvisor',
 	'logConsole'
 ];
+// Chain Watchdog fast-setup constants (V1j/V1k). The check name and the scheduler name are distinct
+// Custom Labels (HealthCheck_ChainWatchdog_CheckName / _SchedulerName) that both currently read
+// "Chain Watchdog" — kept as separate constants so a label change breaks only the assertion it affects.
+const WATCHDOG_CHECK_NAME = 'Chain Watchdog';
+const WATCHDOG_SCHEDULER_NAME = 'Chain Watchdog';
+const WATCHDOG_CLASS_NAME = 'kern.SCHED_ChainWatchdog';
+const WATCHDOG_DEFAULT_CRON = '0 0 * * * ?';
+const WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES = '30';
+const WATCHDOG_DEFAULT_BATCH_SIZE = '50';
 
 test.describe.serial('Part 1: App Home & Core Pages', () =>
 {
@@ -38,6 +46,18 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		// doesn't hit STORAGE_LIMIT_EXCEEDED when V1b/V1d insert new ScheduledJob records.
 		// Fire-and-forget batch — runs in the background while subsequent tests start.
 		executeAnonymousApex('kern.UTIL_PurgeRecords.deleteAllRecords(\'kern__LogEntry__c\');');
+		// Clear any leftover Chain Watchdog ScheduledJob from an interrupted prior run so V1j
+		// starts from the warn baseline (its in-test tail cleanup only runs when it completes).
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'' + WATCHDOG_CLASS_NAME + '\'];');
+		// Guarantee the Chain Abort Capability check's PASS precondition. The AsyncChainAbort
+		// permission set ships assigned to nobody, so a pristine org WARNS on that check (a third
+		// warn row beyond the two V1 asserts). The canonical cycle reaches part1 only after phase
+		// 2's section 78 has granted the runner the permission set; scoped part1-only runs must not
+		// depend on that ordering, so grant it idempotently here (same grant section 78a performs).
+		executeAnonymousApex(
+				'Id abortPermissionSetId = [SELECT Id FROM PermissionSet WHERE Name = \'AsyncChainAbort\' AND NamespacePrefix = \'kern\'].Id; ' +
+				'if([SELECT COUNT() FROM PermissionSetAssignment WHERE AssigneeId = :UserInfo.getUserId() AND PermissionSetId = :abortPermissionSetId] == 0) ' +
+				'{ insert new PermissionSetAssignment(AssigneeId = UserInfo.getUserId(), PermissionSetId = abortPermissionSetId); }');
 	});
 
 	test('V1: Kern App Home and Health Check', async({page}) =>
@@ -59,9 +79,15 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 			await expect(home.toolLaunchButton(key), `Tool card "${key}" should have a launch button`).toBeVisible();
 		}
 
+		// At this point the org warns on exactly two checks: Data Retention (no purge jobs) and
+		// Chain Watchdog (no recovery job — the beforeAll delete guarantees that warn baseline).
+		// Chain Abort Capability passes only because the beforeAll granted the runner the
+		// AsyncChainAbort permission set; a truly pristine org would show it as a third warning.
 		const actionItems = await home.getHealthCheckActionItems();
-		expect(actionItems.length, 'Fresh subscriber org should have exactly 1 health check warning (Data Retention)').toBe(1);
-		expect(actionItems[0].name).toContain('Data Retention');
+		expect(actionItems.length, 'Subscriber org at the part1 baseline should have exactly 2 health check warnings (Data Retention, Chain Watchdog)').toBe(2);
+		const warningNames = actionItems.map(item => item.name);
+		expect(warningNames.some(name => name.includes('Data Retention')), 'Data Retention should warn on a fresh org').toBeTruthy();
+		expect(warningNames.some(name => name.includes(WATCHDOG_CHECK_NAME)), 'Chain Watchdog should warn on a fresh org').toBeTruthy();
 
 		const warnSectionVisible = await home.warnSection().isVisible();
 		expect(warnSectionVisible, 'Data Retention is a warn-tier check and must render inside the Review-recommended section').toBe(true);
@@ -115,9 +141,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await home.refreshHealthCheck();
 
 		const partialItems = await home.getHealthCheckActionItems();
-		expect(partialItems.length, 'Should still warn with 1 of 4 objects configured').toBe(1);
-		expect(partialItems[0].detail, 'Should not mention Log Entry after its purge job is created').not.toContain('Log Entry');
-		expect(partialItems[0].detail, 'Should still mention API Call').toContain('API Call');
+		expect(partialItems.length, 'Only Data Retention and Chain Watchdog should warn with 1 of 4 objects configured').toBe(2);
+		const retentionItem = partialItems.find(item => item.name.includes('Data Retention'));
+		expect(retentionItem, 'Data Retention should still warn with 1 of 4 objects configured').toBeTruthy();
+		expect(retentionItem.detail, 'Should not mention Log Entry after its purge job is created').not.toContain('Log Entry');
+		expect(retentionItem.detail, 'Should still mention API Call').toContain('API Call');
 
 		insertPurgeJob('kern__ApiCall__c', 'Purge API Calls');
 		insertPurgeJob('kern__ApiIssue__c', 'Purge API Issues');
@@ -125,8 +153,9 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 		await home.refreshHealthCheck();
 
-		const allPassing = await home.allHealthChecksPassing();
-		expect(allPassing, 'All health checks should pass when all 4 purge jobs are configured').toBeTruthy();
+		const remainingItems = await home.getHealthCheckActionItems();
+		expect(remainingItems.length, 'Only the Chain Watchdog warning should remain when all 4 purge jobs are configured').toBe(1);
+		expect(remainingItems[0].name, 'The remaining warning should be Chain Watchdog, proving Data Retention passes').toContain(WATCHDOG_CHECK_NAME);
 
 		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
@@ -137,16 +166,23 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const home = new KernHomePage(page);
 		await home.navigate();
 
+		// Page-error tripwire (see V1e): the Apply modal is equally exposed to lightning-modal
+		// lifecycle throws — a label-less open crashed it in real browsers while e2e stayed green.
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(String(error.message)));
+
 		await home.clickApplyRetention();
 		await home.confirmApplyRetention();
+		expect(pageErrors, `The apply-retention flow must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
 
 		const jobs = soqlQuery('SELECT kern__SchedulerName__c, kern__Parameters__c FROM kern__ScheduledJob__c '
 				+ 'WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\' ORDER BY kern__SchedulerName__c');
 		expect(jobs.length, 'Four purge jobs should have been created').toBe(4);
 
 		await home.refreshHealthCheck();
-		const passing = await home.allHealthChecksPassing();
-		expect(passing, 'Health check should be all green after apply').toBeTruthy();
+		const remainingItems = await home.getHealthCheckActionItems();
+		expect(remainingItems.length, 'Only the Chain Watchdog warning should remain after apply').toBe(1);
+		expect(remainingItems[0].name, 'The remaining warning should be Chain Watchdog, proving Data Retention passes').toContain(WATCHDOG_CHECK_NAME);
 
 		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
@@ -157,12 +193,20 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const home = new KernHomePage(page);
 		await home.navigate();
 
+		// Page-error tripwire: the blank-modal regression threw inside lightning-modal's
+		// renderedCallback ("e.trim is not a function" when the modal's label is not a string).
+		// Sterile automation survives the throw (no mid-open re-render), so visibility checks
+		// alone stay green — the uncaught error is the only universal symptom.
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(String(error.message)));
+
 		await home.clickCustomizeRetention();
 		expect(await home.retentionSubRows().count(), 'Four sub-rows should render').toBe(4);
 
 		await home.setUpButton('kern__LogEntry__c').click();
 		const editor = page.locator('[data-testid="scheduled-job-editor-root"]');
 		await editor.waitFor({state: 'visible', timeout: 15_000});
+		expect(pageErrors, `Opening the Set-up editor must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
 
 		const objectInput = editor.locator('[data-testid="param-objectName"] input');
 		expect(await objectInput.isEditable(), 'Object input should be read-only in locked mode').toBe(false);
@@ -226,6 +270,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const home = new KernHomePage(page);
 		await home.navigate();
 
+		// Same page-error tripwire as V1e: a lightning-modal lifecycle throw leaves a dimmed
+		// backdrop with no modal in real browsers, while sterile runs render anyway.
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(String(error.message)));
+
 		await home.clickCustomizeRetention();
 		const setUpButton = home.setUpButton('kern__LogEntry__c');
 		await setUpButton.waitFor({state: 'visible', timeout: 15_000});
@@ -238,6 +287,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		expect(box, 'Editor root must have a measurable bounding box').not.toBeNull();
 		expect(box.height, `Modal body height must exceed 300px — the lightning-layout-inside-modal bug rendered a 32px shell (actual: ${box.height}px)`).toBeGreaterThan(300);
 		expect(box.width, `Modal body width must exceed 500px for a usable form layout (actual: ${box.width}px)`).toBeGreaterThan(500);
+		expect(pageErrors, `Opening the Set-up editor must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
 	});
 
 	test('V1h: Locked Class Name renders read-only input, not a combobox placeholder', async({page}) =>
@@ -298,6 +348,103 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 						iconWarnings)})`).toEqual([]);
 	});
 
+	test('V1j: Schedule Chain Watchdog one-click creates the recommended hourly job', async({page}) =>
+	{
+		// Feature lands in 1.6.0-2: the subscriber org still runs the 1.6.0-1 package, which has no
+		// Chain Watchdog health check — this test goes green once the org is upgraded to 1.6.0-2.
+		await navigateToApp(page, 'Kern');
+		const home = new KernHomePage(page);
+		await home.navigate();
+
+		// Page-error tripwire (see V1e): the watchdog confirm dialogue is a lightning-modal and is
+		// equally exposed to lifecycle throws that sterile automation survives while real browsers crash.
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(String(error.message)));
+
+		const watchdogRowName = home.healthCheck().locator('[data-testid="health-check-name"]', {hasText: WATCHDOG_CHECK_NAME}).first();
+		await expect(watchdogRowName, 'Chain Watchdog warn row must render on an org with no watchdog job scheduled').toBeVisible();
+		await expect(home.scheduleWatchdogButton(), 'Schedule Chain Watchdog button must render on the warn row').toBeVisible();
+
+		await home.scheduleWatchdogButton().click();
+		await home.watchdogConfirmRoot().waitFor({state: 'visible', timeout: 15_000});
+		await expect(home.watchdogConfirmSchedule(), 'Schedule picklist must render inside the confirm dialogue').toBeVisible();
+
+		// Keep the default schedule: the proposal's recommended hourly cron must arrive preselected.
+		const preselectedCron = await home.watchdogConfirmSchedule().evaluate((el) => el.value);
+		expect(preselectedCron, 'Confirm dialogue must preselect the recommended hourly cron').toBe(WATCHDOG_DEFAULT_CRON);
+
+		await home.watchdogCreateButton().click();
+		await home.watchdogConfirmRoot().waitFor({state: 'hidden', timeout: 15_000});
+		expect(pageErrors, `The one-click schedule flow must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
+
+		// V1d's post-apply style, hardened: the create + re-run round-trip completes after the modal
+		// closes, so refresh until the row flips to a passing chip before asserting the created record.
+		await home.refreshUntilHealthCheckPosture(WATCHDOG_CHECK_NAME, 'pass');
+		await expect(home.healthCheckPassingChip(WATCHDOG_CHECK_NAME), 'Chain Watchdog must render as a passing chip after the one-click schedule').toBeVisible();
+
+		const jobs = soqlQuery('SELECT kern__SchedulerName__c, kern__CronExpression__c, kern__IsActive__c, kern__Parameters__c '
+				+ `FROM kern__ScheduledJob__c WHERE kern__ClassName__c = '${WATCHDOG_CLASS_NAME}'`);
+		expect(jobs.length, 'Exactly one Chain Watchdog scheduled job should have been created').toBe(1);
+		expect(jobs[0].kern__SchedulerName__c, 'The job must carry the recommended scheduler name').toBe(WATCHDOG_SCHEDULER_NAME);
+		expect(jobs[0].kern__IsActive__c, 'The watchdog job must be created active').toBe(true);
+		expect(jobs[0].kern__CronExpression__c, 'Keeping the default must persist the recommended hourly cron').toBe(WATCHDOG_DEFAULT_CRON);
+		expect(jobs[0].kern__Parameters__c, 'Parameters must carry the recommended stale threshold')
+		.toMatch(new RegExp(`"StaleThresholdMinutes"\\s*:\\s*"${WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES}"`));
+		expect(jobs[0].kern__Parameters__c, 'Parameters must carry the recommended batch size')
+		.toMatch(new RegExp(`"BatchSize"\\s*:\\s*"${WATCHDOG_DEFAULT_BATCH_SIZE}"`));
+
+		// Deleting the ScheduledJob__c fires its before-delete trigger, which also aborts the platform
+		// CronTrigger job — the org returns to the watchdog warn baseline for later tests.
+		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'' + WATCHDOG_CLASS_NAME + '\'];');
+	});
+
+	test('V1k: Customize schedule opens the watchdog-prefilled editor and Cancel creates nothing', async({page}) =>
+	{
+		// Feature lands in 1.6.0-2: the subscriber org still runs the 1.6.0-1 package, which has no
+		// Chain Watchdog health check — this test goes green once the org is upgraded to 1.6.0-2.
+		await navigateToApp(page, 'Kern');
+		const home = new KernHomePage(page);
+		await home.navigate();
+
+		// Page-error tripwire (see V1e/V1g): opening the prefilled editor is the same lightning-modal
+		// lifecycle surface whose throws crash real browsers while sterile automation stays green.
+		const pageErrors = [];
+		page.on('pageerror', (error) => pageErrors.push(String(error.message)));
+
+		await home.customizeWatchdogLink().click();
+
+		const editor = page.locator('[data-testid="scheduled-job-editor-root"]');
+		await editor.waitFor({state: 'visible', timeout: 15_000});
+		expect(pageErrors, `Opening the customize editor must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
+
+		// The Scheduler Name field carries no data-testid — it is the first lightning-input in the
+		// editor grid (the locked Class Name input is second and carries data-testid="class-name").
+		const schedulerNameInput = editor.locator('lightning-input').first().locator('input');
+		expect(await schedulerNameInput.inputValue(), 'Scheduler Name must be prefilled from the watchdog proposal').toBe(WATCHDOG_SCHEDULER_NAME);
+
+		const classNameField = editor.locator('[data-testid="class-name"]');
+		const tag = await classNameField.evaluate((el) => el.tagName.toLowerCase());
+		expect(tag, 'Locked mode must render lightning-input (not lightning-combobox)').toBe('lightning-input');
+		const isReadOnly = await classNameField.evaluate((el) => el.readOnly === true || el.getAttribute('read-only') !== null);
+		expect(isReadOnly, 'Locked Class Name lightning-input must be read-only').toBe(true);
+		expect(await classNameField.locator('input').inputValue(), 'Locked Class Name must show the namespaced watchdog class').toBe(WATCHDOG_CLASS_NAME);
+
+		const staleThresholdInput = editor.locator('[data-testid="param-StaleThresholdMinutes"] input');
+		expect(await staleThresholdInput.inputValue(), 'Stale threshold parameter must be prefilled with the recommended default').toBe(WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES);
+		const batchSizeInput = editor.locator('[data-testid="param-BatchSize"] input');
+		expect(await batchSizeInput.inputValue(), 'Batch size parameter must be prefilled with the recommended default').toBe(WATCHDOG_DEFAULT_BATCH_SIZE);
+
+		// V1e clicks footer buttons via evaluate — the modal footer sits outside the body root and
+		// can be off-viewport in headless runs.
+		const cancelButton = page.locator('[data-testid="cancel-button"]').first();
+		await cancelButton.evaluate((el) => el.click());
+		await expect(editor, 'Editor root should be hidden after Cancel').toBeHidden({timeout: 15_000});
+		expect(pageErrors, `The cancel flow must not throw page errors (got: ${JSON.stringify(pageErrors)})`).toEqual([]);
+
+		const jobs = soqlQuery('SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'' + WATCHDOG_CLASS_NAME + '\'');
+		expect(jobs.length, 'Cancel must not create a Chain Watchdog scheduled job').toBe(0);
+	});
+
 	test('V2: Log Entry List and Record', async({page}) =>
 	{
 		const records = soqlQuery('SELECT Id, kern__LogLevel__c FROM kern__LogEntry__c ORDER BY CreatedDate DESC LIMIT 20');
@@ -333,11 +480,7 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		const leftover = soqlQuery('SELECT Id FROM kern__ScheduledJob__c WHERE kern__SchedulerName__c LIKE \'E2E %\'');
 		for(const record of leftover)
 		{
-			executeAnonymousApex(`delete
-            [
-            SELECT Id
-            FROM kern__ScheduledJob__c
-            WHERE Id = '${record.Id}'];`);
+			executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE Id = \'' + record.Id + '\'];');
 		}
 
 		await navigateToApp(page, 'Kern');

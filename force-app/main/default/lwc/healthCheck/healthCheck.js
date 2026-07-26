@@ -11,9 +11,12 @@ import {ComponentBuilder} from 'c/componentBuilder';
 import ClassTypeResolverSetupModal from 'c/classTypeResolverSetupModal';
 import ApplyRetentionModal from 'c/applyRetentionModal';
 import ScheduledJobEditorModal from 'c/scheduledJobEditorModal';
+import ScheduleChainWatchdogModal from 'c/scheduleChainWatchdogModal';
 import runHealthChecks from '@salesforce/apex/CTRL_HealthCheck.runHealthChecks';
 import getRetentionProposals from '@salesforce/apex/CTRL_HealthCheck.getRetentionProposals';
 import applyRetentionRecommendations from '@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations';
+import getChainWatchdogProposal from '@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal';
+import scheduleChainWatchdog from '@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog';
 import CARD_TITLE from '@salesforce/label/c.HealthCheck_CardTitle';
 import REFRESH_ALT_TEXT from '@salesforce/label/c.HealthCheck_RefreshAltText';
 import ALL_PASS_HEADING from '@salesforce/label/c.HealthCheck_AllPassHeading';
@@ -25,6 +28,11 @@ import REVIEW_RECOMMENDED_HEADLINE from '@salesforce/label/c.HealthCheck_ReviewR
 import CHECK_DATA_RETENTION from '@salesforce/label/c.HealthCheck_DataRetention_CheckName';
 import CHECK_MASKING_POSTURE from '@salesforce/label/c.HealthCheck_MaskingPosture_CheckName';
 import CHECK_CUSTOM_OBJECT_COVERAGE from '@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName';
+import CHECK_CHAIN_WATCHDOG from '@salesforce/label/c.HealthCheck_ChainWatchdog_CheckName';
+import WATCHDOG_SCHEDULE_BUTTON from '@salesforce/label/c.HealthCheck_ChainWatchdog_ScheduleButton';
+import WATCHDOG_CUSTOMIZE_LINK from '@salesforce/label/c.HealthCheck_ChainWatchdog_CustomizeLink';
+import WATCHDOG_MODAL_TITLE from '@salesforce/label/c.HealthCheck_ChainWatchdog_ModalTitle';
+import WATCHDOG_SUCCESS_TOAST from '@salesforce/label/c.HealthCheck_ChainWatchdog_SuccessToast';
 import APPLY_BUTTON from '@salesforce/label/c.HealthCheck_DataRetention_ApplyButton';
 import CUSTOMIZE_LINK from '@salesforce/label/c.HealthCheck_DataRetention_CustomizeLink';
 import MODAL_TITLE from '@salesforce/label/c.HealthCheck_DataRetention_ModalTitle';
@@ -45,6 +53,8 @@ import REFRESH_FAILED_TOAST from '@salesforce/label/c.HealthCheck_DataRetention_
 import RECORD_COUNT_SINGULAR from '@salesforce/label/c.HealthCheck_DataRetention_RecordCountSingular';
 import RECORD_COUNT_PLURAL from '@salesforce/label/c.HealthCheck_DataRetention_RecordCountPlural';
 import DAY_SUFFIX from '@salesforce/label/c.HealthCheck_DataRetention_DaySuffix';
+import CLASS_TYPE_RESOLVER_MODAL_TITLE from '@salesforce/label/c.ClassTypeResolverModal_Title';
+import SCHEDULED_JOB_CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
 import {formatTemplateString} from 'c/utilityString';
 
 const PARAMETER_OBJECT_NAME = 'objectName';
@@ -76,7 +86,9 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		backToApplyLink: BACK_TO_APPLY_LINK,
 		customizingHelp: CUSTOMIZING_HELP,
 		failSectionHeading: FAIL_SECTION_HEADING,
-		warnSectionHeading: WARN_SECTION_HEADING
+		warnSectionHeading: WARN_SECTION_HEADING,
+		watchdogScheduleButton: WATCHDOG_SCHEDULE_BUTTON,
+		watchdogCustomizeLink: WATCHDOG_CUSTOMIZE_LINK
 	};
 
 	/**
@@ -191,6 +203,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 				warned: item.status === 'Warn',
 				failed: item.status === 'Fail',
 				isDataRetention: item.name === CHECK_DATA_RETENTION,
+				isChainWatchdog: item.name === CHECK_CHAIN_WATCHDOG,
 				iconName: this.getIconName(item.status),
 				iconVariant: this.getIconVariant(item.status)
 			}));
@@ -234,7 +247,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 			return;
 		}
 
-		await ClassTypeResolverSetupModal.open({size: 'medium'});
+		await ClassTypeResolverSetupModal.open({size: 'medium', label: CLASS_TYPE_RESOLVER_MODAL_TITLE});
 
 		await this.runChecks();
 	}
@@ -261,6 +274,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		const result = await ApplyRetentionModal.open({
 			size: 'medium',
 			proposals,
+			label: MODAL_TITLE,
 			title: MODAL_TITLE,
 			subtitle: MODAL_SUBTITLE.replace('{0}', proposals.length),
 			firstRunWarning: FIRST_RUN_WARNING,
@@ -286,7 +300,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		}
 		else if(result?.action === 'customize')
 		{
-			this.setCustomizeMode(true);
+			await this.setCustomizeMode(true);
 		}
 	}
 
@@ -334,7 +348,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		}
 
 		await ScheduledJobEditorModal.open({
-			size: 'medium', prefill: {
+			size: 'medium', label: SCHEDULED_JOB_CREATE_TITLE, prefill: {
 				schedulerName: proposal.schedulerName, className: proposal.schedulerClassName, cronExpression: proposal.cronExpression, isActive: true, parameterValues: {
 					[PARAMETER_OBJECT_NAME]: proposal.objectApiName, [PARAMETER_MINIMUM_DAYS]: String(proposal.retentionDays)
 				}
@@ -349,7 +363,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 			await this.runChecks();
 			this.retentionProposals = this.decorateProposals(await getRetentionProposals());
 		}
-		catch(error)
+		catch
 		{
 			this.showErrorToast(REFRESH_FAILED_TOAST);
 			return;
@@ -359,6 +373,74 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		{
 			this.isCustomizeMode = false;
 		}
+	}
+
+	/**
+	 * @description Opens the Schedule Chain Watchdog confirmation dialogue and, on confirm, creates
+	 *              the recommended scheduled job with the chosen cron. A null create result means a
+	 *              watchdog was already scheduled (a stale button click): the checks still refresh so
+	 *              the row flips to a passing chip, but no created toast fires.
+	 *
+	 * @return {Promise<void>} Resolves after the schedule-and-refresh flow completes.
+	 */
+	async handleScheduleWatchdog()
+	{
+		// callControllerMethod resolves undefined after surfacing a failed fetch as an error
+		// toast; without the proposal there is nothing to confirm, so the dialogue stays closed.
+		const proposal = await this.callControllerMethod(getChainWatchdogProposal);
+
+		if(!proposal)
+		{
+			return;
+		}
+
+		const result = await ScheduleChainWatchdogModal.open({size: 'small', label: WATCHDOG_MODAL_TITLE, proposal});
+
+		if(result?.action !== 'confirm')
+		{
+			return;
+		}
+
+		const createdId = await this.callControllerMethod(scheduleChainWatchdog, {cronExpression: result.cronExpression});
+
+		// callControllerMethod resolves undefined after surfacing a failed create as an error toast.
+		if(createdId === undefined)
+		{
+			return;
+		}
+
+		await this.runChecks();
+
+		if(createdId)
+		{
+			this.showSuccessToast(WATCHDOG_SUCCESS_TOAST);
+		}
+	}
+
+	/**
+	 * @description Opens the scheduled job editor prefilled with the recommended watchdog defaults
+	 *              (class locked), then re-runs the checks so a save flips the row to a passing chip.
+	 *
+	 * @return {Promise<void>} Resolves after the modal + refresh cycle completes.
+	 */
+	async handleCustomizeWatchdog()
+	{
+		const proposal = await this.callControllerMethod(getChainWatchdogProposal);
+
+		if(!proposal)
+		{
+			return;
+		}
+
+		await ScheduledJobEditorModal.open({
+			size: 'medium', label: SCHEDULED_JOB_CREATE_TITLE, prefill: {
+				schedulerName: proposal.schedulerName, className: proposal.schedulerClassName, cronExpression: proposal.cronExpression, isActive: true, parameterValues: {
+					[proposal.staleThresholdMinutesParameterName]: proposal.staleThresholdMinutes, [proposal.batchSizeParameterName]: proposal.batchSize
+				}
+			}, lockedFields: ['className']
+		});
+
+		await this.runChecks();
 	}
 
 	/**

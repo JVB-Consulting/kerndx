@@ -15,19 +15,19 @@
 			</template>
 			<div class="slds-grid slds-wrap">
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
-					<lightning-input label={label.schedulerName} onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
+					<lightning-input label={labels.schedulerName} onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
 					<template lwc:if={isClassNameLocked}>
-						<lightning-input data-testid="class-name" label={label.className} read-only required value={className}></lightning-input>
+						<lightning-input data-testid="class-name" label={labels.className} read-only required value={className}></lightning-input>
 					</template>
 					<template lwc:else>
-						<lightning-combobox data-testid="class-name" label={label.className} name="className" onchange={handleClassNameChange} options={classOptions}
-						                    placeholder={label.classPlaceholder} required value={className}></lightning-combobox>
+						<lightning-combobox data-testid="class-name" label={labels.className} name="className" onchange={handleClassNameChange} options={classOptions}
+						                    placeholder={labels.classPlaceholder} required value={className}></lightning-combobox>
 					</template>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
-					<lightning-input checked={isActive} label={label.active} message-toggle-active={label.active} message-toggle-inactive={label.inactive}
+					<lightning-input checked={isActive} label={labels.active} message-toggle-active={labels.active} message-toggle-inactive={labels.inactive}
 					                 onchange={handleIsActiveChange} type="toggle"></lightning-input>
 				</div>
 			</div>
@@ -39,7 +39,7 @@
 
 			<template lwc:if={hasParameterDefinitions}>
 				<div class="slds-var-m-top_medium">
-					<h3 class="slds-text-heading_small slds-var-m-bottom_small">{label.parameters}</h3>
+					<h3 class="slds-text-heading_small slds-var-m-bottom_small">{labels.parameters}</h3>
 					<div class="slds-grid slds-wrap">
 						<template for:each={editParameterFields} for:item="parameter">
 							<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small" key={parameter.name}>
@@ -56,7 +56,7 @@
 								<template lwc:elseif={parameter.isToggle}>
 									<lightning-input checked={parameter.toggleChecked} data-parameter-name={parameter.name} data-testid={parameter.testId}
 									                 disabled={parameter.isLocked} field-level-help={parameter.description} label={parameter.label}
-									                 message-toggle-active={label.yes} message-toggle-inactive={label.no} onchange={handleParameterChange}
+									                 message-toggle-active={labels.yes} message-toggle-inactive={labels.no} onchange={handleParameterChange}
 									                 type="toggle"></lightning-input>
 								</template>
 							</div>
@@ -66,12 +66,12 @@
 			</template>
 
 			<div class="slds-var-m-top_medium">
-				<lightning-textarea label={label.description} onchange={handleDescriptionChange} value={description}></lightning-textarea>
+				<lightning-textarea label={labels.description} onchange={handleDescriptionChange} value={description}></lightning-textarea>
 			</div>
 		</div>
 	</lightning-modal-body>
 	<lightning-modal-footer>
-		<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" disabled={isSaving} label={label.cancel} onclick={handleCancel}></lightning-button>
-		<lightning-button data-testid="save-button" disabled={isSaveDisabled} label={label.save} onclick={handleSave} variant="brand"></lightning-button>
+		<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" disabled={isSaving} label={labels.cancel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="save-button" disabled={isSaveDisabled} label={labels.save} onclick={handleSave} variant="brand"></lightning-button>
 	</lightning-modal-footer>
 </template>

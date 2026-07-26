@@ -1770,8 +1770,8 @@ describe('c-scheduled-job-editor-modal', () =>
 			const path = require('path');
 			let templatePath = path.resolve(__dirname, '..', 'scheduledJobEditorModal.html');
 			let template = fs.readFileSync(templatePath, 'utf8');
-			expect(template).toContain('label={label.save}');
-			expect(template).toContain('label={label.cancel}');
+			expect(template).toContain('label={labels.save}');
+			expect(template).toContain('label={labels.cancel}');
 			expect(template).toContain('variant="brand"');
 		});
 

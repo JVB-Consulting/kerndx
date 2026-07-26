@@ -145,6 +145,12 @@ import COVERAGE_SCAN_CLEAN_NOTE from '@salesforce/label/c.DataMaskingAdvisor_Cov
 import COVERAGE_SCAN_LONG_TEXT_SUFFIX from '@salesforce/label/c.DataMaskingAdvisor_CoverageScan_LongTextSuffix';
 import COVERAGE_SCAN_PROVENANCE from '@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Provenance';
 import COVERAGE_SCAN_BACK_TO_SCAN from '@salesforce/label/c.DataMaskingAdvisor_CoverageScan_BackToScan';
+import ADD_OBJECT_DIALOG_TITLE from '@salesforce/label/c.DataMaskingAdvisor_AddObject_Title';
+import INVENTORY_EXPORT_DIALOG_TITLE from '@salesforce/label/c.DataMaskingAdvisor_InventoryExport_Title';
+import EXPORT_MODAL_TITLE from '@salesforce/label/c.DataMaskingAdvisor_ExportModal_Title';
+import REVIEW_DIALOG_TITLE from '@salesforce/label/c.DataMaskingAdvisor_ReviewDialog_Title';
+import ADD_RULE_MENU_TITLE_FIELD from '@salesforce/label/c.DataMaskingAdvisor_AddRuleMenu_Title_Field';
+import ADD_RULE_MENU_TITLE_OBJECT_WIDE from '@salesforce/label/c.DataMaskingAdvisor_AddRuleMenu_Title_ObjectWide';
 
 const HEURISTIC_LOW = 'LOW';
 const HEURISTIC_HIGH = 'HIGH';
@@ -1668,7 +1674,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	{
 		const trigger = event.currentTarget;
 		const selectedApiName = await MaskingAddObjectDialog.open({
-			size: 'small', objectOptions: this.objectOptions, flaggedObjects: this.scanResults, maskedApiNames: this.maskedObjectApiNames
+			size: 'small', label: ADD_OBJECT_DIALOG_TITLE, objectOptions: this.objectOptions, flaggedObjects: this.scanResults, maskedApiNames: this.maskedObjectApiNames
 		});
 		if(selectedApiName)
 		{
@@ -1689,7 +1695,8 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	async handleOpenInventoryExport(event)
 	{
 		const trigger = event.currentTarget;
-		await MaskingInventoryExportDialog.open({size: 'medium', objectOptions: this.objectOptions, maskedApiNames: this.maskedObjectApiNames});
+		await MaskingInventoryExportDialog.open(
+				{size: 'medium', label: INVENTORY_EXPORT_DIALOG_TITLE, objectOptions: this.objectOptions, maskedApiNames: this.maskedObjectApiNames});
 		this.restoreFocus(trigger);
 	}
 
@@ -2117,9 +2124,11 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		const rule = catalogued || {};
 		const managed = origin !== ORIGIN_CONTEXT;
 		const desired = managed ? this.desiredActive(origin, key) : true;
+		const ruleTitle = rule.label || (appliedFallback && appliedFallback.ruleLabel) || ruleDeveloperName;
 		const result = await MaskingRuleDetail.open({
 			size: 'small',
-			ruleLabel: rule.label || (appliedFallback && appliedFallback.ruleLabel) || ruleDeveloperName,
+			label: ruleTitle,
+			ruleLabel: ruleTitle,
 			ruleDeveloperName,
 			ruleDescription: rule.description,
 			ruleActive: catalogued ? rule.isActive === true : Boolean(appliedFallback && appliedFallback.ruleIsActive === true),
@@ -2208,7 +2217,12 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 			return;
 		}
 		const result = await MaskingAddRuleMenu.open({
-			size: 'small', menuScope: 'field', objectApiName: this.selectedObject, fieldLabel: row.label, options: this.addRuleOptionsFor(row)
+			size: 'small',
+			label: ADD_RULE_MENU_TITLE_FIELD.replace('{0}', row.label),
+			menuScope: 'field',
+			objectApiName: this.selectedObject,
+			fieldLabel: row.label,
+			options: this.addRuleOptionsFor(row)
 		});
 		this.applyAddMenuResult(result, (developerName) => this.addFieldRule(apiName, developerName));
 		this.restoreFocus(trigger);
@@ -2224,7 +2238,11 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	{
 		const trigger = event.currentTarget;
 		const result = await MaskingAddRuleMenu.open({
-			size: 'small', menuScope: 'object', objectApiName: this.selectedObject, options: this.addObjectWideOptions
+			size: 'small',
+			label: ADD_RULE_MENU_TITLE_OBJECT_WIDE.replace('{0}', this.selectedObject),
+			menuScope: 'object',
+			objectApiName: this.selectedObject,
+			options: this.addObjectWideOptions
 		});
 		this.applyAddMenuResult(result, (developerName) => this.addObjectWideRule(developerName));
 		this.restoreFocus(trigger);
@@ -2612,6 +2630,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		const groups = this.toExportDiffGroups(diff.targets);
 		const result = await MaskingExportModal.open({
 			size: 'medium',
+			label: EXPORT_MODAL_TITLE,
 			objectApiName: this.selectedObject,
 			fileName: EXPORT_FILE_NAME,
 			addRows: groups.addRows,
@@ -2727,6 +2746,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		}
 		const result = await MaskingReviewDialog.open({
 			size: 'small',
+			label: REVIEW_DIALOG_TITLE,
 			fieldLabel: row.label,
 			fieldApiName: row.apiName,
 			objectApiName: this.selectedObject,

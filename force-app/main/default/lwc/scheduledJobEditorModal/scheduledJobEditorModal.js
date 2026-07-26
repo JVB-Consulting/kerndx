@@ -84,7 +84,10 @@ export default class ScheduledJobEditorModal extends LightningModal
 	 */
 	@api lockedFields = [];
 
-	label = {
+	// Named `labels` (plural, matching every other Kern modal): a field named `label` would
+	// shadow LightningModal's inherited string `label` property with an object, which crashes
+	// the platform's modal aria bookkeeping (label.trim()) and unmounts the modal mid-open.
+	labels = {
 		schedulerName: SCHEDULER_NAME_LABEL,
 		className: CLASS_NAME_LABEL,
 		classPlaceholder: CLASS_NAME_PLACEHOLDER,
