@@ -4,3 +4,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://docs.jvb-consulting.io/sitemap.xml
+# llms.txt: https://docs.jvb-consulting.io/llms.txt

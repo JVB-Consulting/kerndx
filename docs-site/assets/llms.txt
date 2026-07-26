@@ -1,0 +1,77 @@
+# KernDX
+
+> Every Salesforce framework your team keeps rebuilding, in one Apex and LWC library: triggers, queries, DML, inbound and outbound APIs, async processing, validation, logging, data masking, test data, and LWC components, shipped as one managed package with the documentation, conventions, and CI tooling to keep it consistent.
+
+Iron rules for generated code. Read these even if you read nothing else:
+
+1. Read records through selector classes (`SEL_*` on `QRY_Builder`); field-level security is enforced by default.
+2. Write records through `DML_Builder`; it runs with the current user's permissions and record sharing (`USER_MODE`) by default.
+3. Turning a safety check off is a deliberate, audited act. Never bypass silently.
+4. The complete code-generation rules live in one file: https://docs.jvb-consulting.io/ai-agent-instructions
+
+This file covers the latest KernDX release. Earlier release lines keep frozen documentation snapshots on this site under versioned paths; match the documentation to the version installed in your org.
+
+## Start here
+
+- [AI Agent Instructions](https://docs.jvb-consulting.io/ai-agent-instructions): the complete code-generation rules file; load it into your assistant before writing Apex or LWC
+- [AI Agent Onboarding](https://docs.jvb-consulting.io/agents): the tool-neutral entry point for coding agents
+- [Code Conventions](https://docs.jvb-consulting.io/code-conventions-guide): the canonical naming, style, and framework rules
+- [Installation](https://docs.jvb-consulting.io/installation): the three ways to install, from managed package to CI tooling only
+- [Documentation hub](https://docs.jvb-consulting.io/readme): learning paths and the full guide index
+
+## Core capabilities
+
+- [Trigger Actions](https://docs.jvb-consulting.io/fast-start-trigger-actions): metadata-driven trigger framework (`TRG_*`) with an audited bypass and kill switch
+- [Selectors](https://docs.jvb-consulting.io/fast-start-selectors): SOQL query builder (`SEL_*`, `QRY_Builder`) with field-level security on by default
+- [DML](https://docs.jvb-consulting.io/fast-start-dml): writes through `DML_Builder` with batching, async DML, and parent-child save ordering
+- [Outbound APIs](https://docs.jvb-consulting.io/fast-start-outbound-apis): callouts with retry, circuit breaker, idempotency keys, and a dead-letter queue
+- [Inbound APIs](https://docs.jvb-consulting.io/fast-start-inbound-apis): two-class REST routing with DTO marshalling and duplicate-request rejection
+- [Logging](https://docs.jvb-consulting.io/fast-start-logging): platform-event logging (`LOG_*`) with one correlation ID across triggers, async, and HTTP
+- [Async Processing](https://docs.jvb-consulting.io/fast-start-async-processing): chained Queueables with shared state and finalizer recovery
+- [Test Data](https://docs.jvb-consulting.io/fast-start-test-data): builder-pattern factory (`TST_*`) with DML-free selector mocks
+- [Feature Flags](https://docs.jvb-consulting.io/fast-start-feature-flags): metadata-driven flags callable from Apex, Flow, and LWC
+- [Custom Validations](https://docs.jvb-consulting.io/fast-start-custom-validations): metadata validations with shadow mode and a levelled bypass
+- [Resilience](https://docs.jvb-consulting.io/fast-start-resilience): retry, backoff, and circuit breaker on any callout
+- [Security](https://docs.jvb-consulting.io/fast-start-security): user-mode object and field permissions enforced on every read and write
+- [Data Masking](https://docs.jvb-consulting.io/fast-start-data-masking): write-time field redaction with a scanning advisor
+- [LWC](https://docs.jvb-consulting.io/fast-start-lwc): a base component with toasts, Apex calls, navigation, and logging wired in
+- [E2E Testing](https://docs.jvb-consulting.io/fast-start-e2e-testing): browser tests against a real org
+- [Code Scanning](https://docs.jvb-consulting.io/fast-start-code-scanning): the shipped PMD rulesets and ESLint plugin
+
+## Conventions & reference
+
+- [Code Conventions Guide](https://docs.jvb-consulting.io/code-conventions-guide): the full rule set the framework and CI enforce
+- [Apex and LWC reference](https://docs.jvb-consulting.io/reference): the per-class reference; check here whether a class name is part of the framework
+- [Glossary](https://docs.jvb-consulting.io/strategic-guide-glossary): plain-language definitions of the framework's terms
+- [Metrics](https://docs.jvb-consulting.io/strategic-guide-metrics): the measured facts and figures for the current release
+
+## Optional
+
+- [Triggers Guide](https://docs.jvb-consulting.io/triggers-guide)
+- [Selectors Guide](https://docs.jvb-consulting.io/selectors-guide)
+- [DML Guide](https://docs.jvb-consulting.io/dml-guide)
+- [Web Services Guide](https://docs.jvb-consulting.io/web-services-guide)
+- [Resilience Guide](https://docs.jvb-consulting.io/resilience-guide)
+- [Async Processing Guide](https://docs.jvb-consulting.io/async-processing-guide)
+- [Logging Guide](https://docs.jvb-consulting.io/logging-guide)
+- [Security Guide](https://docs.jvb-consulting.io/security-guide)
+- [Data Masking Guide](https://docs.jvb-consulting.io/data-masking-guide)
+- [Validation Guide](https://docs.jvb-consulting.io/validation-guide)
+- [Feature Flags Guide](https://docs.jvb-consulting.io/feature-flags-guide)
+- [Test Data Guide](https://docs.jvb-consulting.io/test-data-guide)
+- [LWC Guide](https://docs.jvb-consulting.io/lwc-guide)
+- [DTOs Guide](https://docs.jvb-consulting.io/dtos-guide)
+- [Utilities Guide](https://docs.jvb-consulting.io/utilities-guide)
+- [Objects and Metadata Guide](https://docs.jvb-consulting.io/objects-metadata-guide)
+- [Administration Tools Guide](https://docs.jvb-consulting.io/administration-tools-guide)
+- [E2E Testing Guide](https://docs.jvb-consulting.io/e2e-testing-guide)
+- [Code Scanning Guide](https://docs.jvb-consulting.io/code-scanning-guide)
+- [Documentation Site Guide](https://docs.jvb-consulting.io/documentation-site-guide)
+- [Strategic Guide: Overview](https://docs.jvb-consulting.io/strategic-guide-overview)
+- [Strategic Guide: Choosing a Framework](https://docs.jvb-consulting.io/strategic-guide-choosing-a-framework)
+- [Strategic Guide: Adoption](https://docs.jvb-consulting.io/strategic-guide-adoption)
+- [Strategic Guide: Architecture and Philosophy](https://docs.jvb-consulting.io/strategic-guide-architecture-philosophy)
+- [Strategic Guide: Operations](https://docs.jvb-consulting.io/strategic-guide-operations)
+- [Strategic Guide: Personas](https://docs.jvb-consulting.io/strategic-guide-personas)
+- [Strategic Guide: Risks](https://docs.jvb-consulting.io/strategic-guide-risks)
+- [Fast Starts index](https://docs.jvb-consulting.io/fast-starts)
