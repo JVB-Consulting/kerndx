@@ -172,4 +172,10 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 			this.userHasSelected = true;
 		}
 	}
+
+	handleChainAbort()
+	{
+		// noinspection JSIgnoredPromiseFromCall
+		this.listComponent?.refresh();
+	}
 }

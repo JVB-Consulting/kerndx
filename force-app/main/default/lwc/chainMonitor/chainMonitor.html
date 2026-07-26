@@ -6,7 +6,7 @@
 				<c-chain-monitor-list onselect={handleSelect}></c-chain-monitor-list>
 			</div>
 			<div class="slds-col slds-size_1-of-2">
-				<c-chain-monitor-detail execution-id={selectedExecutionId}></c-chain-monitor-detail>
+				<c-chain-monitor-detail execution-id={selectedExecutionId} onchainabort={handleChainAbort}></c-chain-monitor-detail>
 			</div>
 		</div>
 	</lightning-card>

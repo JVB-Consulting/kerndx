@@ -1,0 +1,11 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header label={title}></lightning-modal-header>
+	<lightning-modal-body>
+		<p data-testid="abort-modal-body">{body}</p>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button data-testid="cancel-button" label={cancelLabel} onclick={handleCancel}></lightning-button>
+		<lightning-button class="slds-var-m-left_x-small" data-testid="confirm-button" label={confirmLabel} onclick={handleConfirm} variant="destructive"></lightning-button>
+	</lightning-modal-footer>
+</template>

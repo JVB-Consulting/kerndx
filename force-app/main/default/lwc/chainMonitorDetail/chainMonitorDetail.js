@@ -11,7 +11,9 @@ import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {copyToClipBoard} from 'c/utilitySystem';
 import {formatTemplateString} from 'c/utilityString';
+import ChainAbortModal from 'c/chainAbortModal';
 import getChainDetail from '@salesforce/apex/CTRL_ChainMonitor.getChainDetail';
+import abortChain from '@salesforce/apex/CTRL_ChainMonitor.abortChain';
 import viewLogsAction from '@salesforce/label/c.ChainMonitor_ViewLogsAction';
 import copyFailed from '@salesforce/label/c.ChainMonitor_CopyFailed';
 import progressStepsTemplate from '@salesforce/label/c.ChainMonitor_ProgressSteps';
@@ -25,6 +27,21 @@ import correlationIdLabel from '@salesforce/label/c.ChainMonitor_CorrelationIdLa
 import errorSection from '@salesforce/label/c.ChainMonitor_ErrorSection';
 import emptyStateHeading from '@salesforce/label/c.ChainMonitor_EmptyStateHeading';
 import emptyStateBody from '@salesforce/label/c.ChainMonitor_EmptyStateBody';
+import abortAction from '@salesforce/label/c.ChainMonitor_AbortAction';
+import abortModalTitle from '@salesforce/label/c.ChainMonitor_AbortModalTitle';
+import abortModalBody from '@salesforce/label/c.ChainMonitor_AbortModalBody';
+import abortConfirmButton from '@salesforce/label/c.ChainMonitor_AbortConfirmButton';
+import abortCancelButton from '@salesforce/label/c.ChainMonitor_AbortCancelButton';
+import abortSuccessToast from '@salesforce/label/c.ChainMonitor_AbortSuccessToast';
+import abortUnavailableDisabled from '@salesforce/label/c.ChainMonitor_AbortUnavailableDisabled';
+import abortUnavailableMissingPermission from '@salesforce/label/c.ChainMonitor_AbortUnavailableMissingPermission';
+import statusRunning from '@salesforce/label/c.ChainMonitor_StatusRunning';
+import statusCompleted from '@salesforce/label/c.ChainMonitor_StatusCompleted';
+import statusFailed from '@salesforce/label/c.ChainMonitor_StatusFailed';
+import statusAborted from '@salesforce/label/c.ChainMonitor_StatusAborted';
+import statusStalled from '@salesforce/label/c.ChainMonitor_StatusStalled';
+import statusConflict from '@salesforce/label/c.ChainMonitor_StatusConflict';
+import statusConflictDetail from '@salesforce/label/c.ChainMonitor_StatusConflictDetail';
 
 const STATUS_ICONS = {
 	Running: 'standard:activations',
@@ -35,6 +52,16 @@ const STATUS_ICONS = {
 	Delayed: 'standard:shift_scheduling_operation'
 };
 
+const STATUS_LABELS = {
+	Running: statusRunning, Completed: statusCompleted, Failed: statusFailed, Aborted: statusAborted, Stalled: statusStalled
+};
+
+const ABORT_AVAILABLE = 'Available';
+const ABORT_CHAIN_NOT_ABORTABLE = 'ChainNotAbortable';
+const ABORT_UNAVAILABLE_MESSAGES = {
+	CapabilityDisabled: abortUnavailableDisabled, PermissionMissing: abortUnavailableMissingPermission
+};
+
 export default class ChainMonitorDetail extends ComponentBuilder('controller', 'notification', 'navigation')
 {
 	detail = null;
@@ -42,6 +69,7 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 
 	label = {
 		viewLogs: viewLogsAction,
+		abortAction,
 		copyFailed,
 		stepsSection,
 		timingSection,
@@ -81,6 +109,33 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	get statusIconName()
 	{
 		return STATUS_ICONS[this.detail?.status] || 'utility:question';
+	}
+
+	/**
+	 * @description True when the row is a contradictory terminal record: recovery marked it
+	 * `Stalled` yet it already carries a completion timestamp, so it has truly ended and the
+	 * watchdog will not re-drive it. The predecessor status (`markStalled` overwrites both
+	 * `Status__c` and `FailureCategory__c`) is unrecoverable, so the badge stays deliberately
+	 * neutral and never names a prior status.
+	 * @returns {boolean}
+	 */
+	get hasStatusConflict()
+	{
+		return this.detail?.status === 'Stalled' && this.detail?.completedAt != null;
+	}
+
+	get statusLabel()
+	{
+		if(this.hasStatusConflict)
+		{
+			return statusConflict;
+		}
+		return STATUS_LABELS[this.detail?.status] ?? this.detail?.status;
+	}
+
+	get statusTitle()
+	{
+		return this.hasStatusConflict ? statusConflictDetail : '';
 	}
 
 	/**
@@ -133,6 +188,21 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		return !!this.detail?.completedAt;
 	}
 
+	get showAbortButton()
+	{
+		return this.detail?.abortAvailability != null && this.detail.abortAvailability !== ABORT_CHAIN_NOT_ABORTABLE;
+	}
+
+	get isAbortDisabled()
+	{
+		return this.detail?.abortAvailability !== ABORT_AVAILABLE;
+	}
+
+	get abortUnavailableMessage()
+	{
+		return ABORT_UNAVAILABLE_MESSAGES[this.detail?.abortAvailability] ?? '';
+	}
+
 	async loadDetail()
 	{
 		this.isLoading = true;
@@ -178,6 +248,36 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		this.navigate({
 			type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}, state: {c__correlationId: this.detail.correlationId}
 		});
+	}
+
+	/**
+	 * @description Confirms the destructive abort through the modal, records it via the controller,
+	 * and on success replaces the detail with the fresh state, toasts, and notifies the parent so
+	 * the list refreshes. A refused abort resolves undefined (callControllerMethod has already
+	 * toasted the labelled refusal), so the detail stays untouched and no event fires.
+	 */
+	async handleAbort()
+	{
+		const result = await ChainAbortModal.open({
+			size: 'small', label: abortModalTitle, title: abortModalTitle, body: formatTemplateString(abortModalBody, [
+				this.detail.chainName,
+				this.progressLabel
+			]), confirmLabel: abortConfirmButton, cancelLabel: abortCancelButton
+		});
+
+		if(result?.action !== 'confirm')
+		{
+			return;
+		}
+
+		const data = await this.callControllerMethod(abortChain, {executionId: this.currentExecutionId});
+
+		if(data)
+		{
+			this.detail = data;
+			this.showSuccessToast(abortSuccessToast);
+			this.dispatchEvent(new CustomEvent('chainabort', {detail: {executionId: this.currentExecutionId}}));
+		}
 	}
 
 	@api async refresh()

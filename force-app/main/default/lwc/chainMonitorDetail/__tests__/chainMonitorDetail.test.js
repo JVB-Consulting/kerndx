@@ -8,6 +8,12 @@
 import {createElement} from 'lwc';
 // noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
 import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
+import ChainAbortModal from 'c/chainAbortModal';
+
+// Spy-on-real: the static open lives on the real module (lightning/modal resolves to the repo's
+// moduleNameMapper mock), so the interception survives the resolver-cache flip that silently
+// defeats a jest.mock('c/...') of the same module (see moduleController.test.js).
+const mockChainAbortModalOpen = jest.spyOn(ChainAbortModal, 'open').mockResolvedValue({action: 'cancel'});
 
 const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
 
@@ -31,6 +37,32 @@ jest.mock('@salesforce/label/c.ChainMonitor_CorrelationIdLabel', () => ({default
 jest.mock('@salesforce/label/c.ChainMonitor_ErrorSection', () => ({default: 'Error'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_EmptyStateHeading', () => ({default: 'Select a chain'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_EmptyStateBody', () => ({default: 'Choose a chain execution from the list to view step details.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortAction', () => ({default: 'Abort'}), {virtual: true});
+// The modal body carries {0}/{1} placeholders; the real template value keeps the confirm-path body
+// assertion an end-to-end check of formatTemplateString over the chain name and progress label.
+jest.mock('@salesforce/label/c.ChainMonitor_AbortModalBody', () => ({default: '{0} has completed {1}. The running step finishes, then the chain stops and cannot be resumed.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortModalTitle', () => ({default: 'Abort this chain?'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortConfirmButton', () => ({default: 'Abort chain'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortCancelButton', () => ({default: 'Cancel'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortSuccessToast', () => ({default: 'Abort recorded. The chain stops at its next step boundary.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortUnavailableDisabled',
+		() => ({default: 'Aborting chains is switched off for this org. An administrator can enable it by activating the Async Chain Abort Enabled feature flag.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortUnavailableMissingPermission',
+		() => ({default: 'You do not have permission to abort chains. Ask an administrator for the Kern Async Chain Abort permission set.'}), {virtual: true});
+// The five shipped status labels mirror their in-org values (the raw status equals the label text),
+// so the DOM-text assertions verify the badge is wired through Labels, not that a raw value happens
+// to match. The two conflict labels carry the neutral D20 badge + tooltip copy verbatim.
+jest.mock('@salesforce/label/c.ChainMonitor_StatusRunning', () => ({default: 'Running'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusCompleted', () => ({default: 'Completed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusFailed', () => ({default: 'Failed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusAborted', () => ({default: 'Aborted'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusStalled', () => ({default: 'Stalled'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusConflict', () => ({default: 'Ended — status conflict'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusConflictDetail',
+		() => ({default: 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.'}),
+		{virtual: true});
 
 /*
  * Note on `global.__lwcJestMock_getChainDetail`:
@@ -74,6 +106,14 @@ describe('c-chain-monitor-detail', () =>
 	afterAll(() =>
 	{
 		delete global.__lwcJestMock_getChainDetail;
+		delete global.__lwcJestMock_abortChain;
+	});
+
+	beforeEach(() =>
+	{
+		// Re-arm the shared static-open spy each test (moduleController.test.js lifecycle); per-case
+		// overrides use mockResolvedValueOnce and are consumed within their own test.
+		mockChainAbortModalOpen.mockResolvedValue({action: 'cancel'});
 	});
 
 	afterEach(() =>
@@ -359,6 +399,193 @@ describe('c-chain-monitor-detail', () =>
 		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, correlationId: null});
 
 		expect(element.shadowRoot.querySelector('[data-testid="view-logs"]')).toBeFalsy();
+	});
+
+	describe('abort action (D23)', () =>
+	{
+		const MOCK_RUNNING_DETAIL = {
+			...MOCK_DETAIL, status: 'Running', completedAt: null, completedSteps: 2, totalSteps: 5, abortAvailability: 'Available'
+		};
+
+		// A macrotask flush lets the async click handler (modal await + controller await) fully
+		// settle, then two microtask flushes let the re-render land in the DOM.
+		async function flushAbortHandler()
+		{
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			await Promise.resolve();
+			await Promise.resolve();
+		}
+
+		it('shows an enabled abort button when the abort is available', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+
+			const abortButton = element.shadowRoot.querySelector('[data-testid="abort-button"]');
+			expect(abortButton).toBeTruthy();
+			expect(abortButton.disabled).toBeFalsy();
+		});
+
+		it('disables the abort button with the missing-permission tooltip when the user lacks the permission', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_RUNNING_DETAIL, abortAvailability: 'PermissionMissing'});
+
+			const abortButton = element.shadowRoot.querySelector('[data-testid="abort-button"]');
+			expect(abortButton).toBeTruthy();
+			expect(abortButton.disabled).toBe(true);
+			expect(abortButton.title).toBe('You do not have permission to abort chains. Ask an administrator for the Kern Async Chain Abort permission set.');
+		});
+
+		it('disables the abort button with the switched-off tooltip when the capability is disabled', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_RUNNING_DETAIL, abortAvailability: 'CapabilityDisabled'});
+
+			const abortButton = element.shadowRoot.querySelector('[data-testid="abort-button"]');
+			expect(abortButton).toBeTruthy();
+			expect(abortButton.disabled).toBe(true);
+			expect(abortButton.title)
+			.toBe('Aborting chains is switched off for this org. An administrator can enable it by activating the Async Chain Abort Enabled feature flag.');
+		});
+
+		it('hides the abort button when the chain can no longer be aborted', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_RUNNING_DETAIL, abortAvailability: 'ChainNotAbortable'});
+
+			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeFalsy();
+		});
+
+		it('replaces the detail, emits chainabort, and toasts on a confirmed abort', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+			const abortHandler = jest.fn();
+			element.addEventListener('chainabort', abortHandler);
+			mockChainAbortModalOpen.mockResolvedValueOnce({action: 'confirm'});
+			mockCallControllerMethod.mockResolvedValueOnce({...MOCK_RUNNING_DETAIL, status: 'Aborted', abortAvailability: 'ChainNotAbortable'});
+
+			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
+			await flushAbortHandler();
+
+			expect(mockChainAbortModalOpen).toHaveBeenCalledWith({
+				size: 'small',
+				label: 'Abort this chain?',
+				title: 'Abort this chain?',
+				body: 'TestChain has completed 2/5 steps. The running step finishes, then the chain stops and cannot be resumed.',
+				confirmLabel: 'Abort chain',
+				cancelLabel: 'Cancel'
+			});
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(expect.anything(), {executionId: 'a00000000000001AAA'});
+			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Aborted');
+			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeFalsy();
+			expect(abortHandler).toHaveBeenCalledTimes(1);
+			expect(abortHandler.mock.calls[0][0].detail).toEqual({executionId: 'a00000000000001AAA'});
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('Abort recorded. The chain stops at its next step boundary.');
+		});
+
+		it('does not call the controller when the modal is cancelled', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+			mockCallControllerMethod.mockClear();
+
+			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
+			await flushAbortHandler();
+
+			expect(mockChainAbortModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		});
+
+		it('treats a dismissed modal (ESC or backdrop, no action) as a cancel', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+			mockCallControllerMethod.mockClear();
+			mockChainAbortModalOpen.mockResolvedValueOnce(undefined);
+
+			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
+			await flushAbortHandler();
+
+			expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		});
+
+		it('does not emit chainabort or toast when the abort is refused', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+			const abortHandler = jest.fn();
+			element.addEventListener('chainabort', abortHandler);
+			mockChainAbortModalOpen.mockResolvedValueOnce({action: 'confirm'});
+			// callControllerMethod resolves undefined on failure — it has already toasted the error.
+			mockCallControllerMethod.mockResolvedValueOnce(undefined);
+
+			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
+			await flushAbortHandler();
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(expect.anything(), {executionId: 'a00000000000001AAA'});
+			expect(abortHandler).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Running');
+			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeTruthy();
+		});
+	});
+
+	describe('status label and conflict badge (D20)', () =>
+	{
+		const CONFLICT_LABEL = 'Ended — status conflict';
+		const CONFLICT_TOOLTIP = 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.';
+
+		function statusBadge(element)
+		{
+			return element.shadowRoot.querySelector('[data-testid="status-badge"]');
+		}
+
+		it('shows the neutral conflict label and tooltip when a stalled row carries a completion timestamp', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Stalled', completedAt: '2026-07-23T10:00:00.000Z'});
+
+			const badge = statusBadge(element);
+			expect(badge.label).toBe(CONFLICT_LABEL);
+			expect(badge.title).toBe(CONFLICT_TOOLTIP);
+		});
+
+		it('shows the translated Stalled label with no tooltip for a genuine stall with no completion timestamp', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Stalled', completedAt: null});
+
+			const badge = statusBadge(element);
+			expect(badge.label).toBe('Stalled');
+			expect(badge.title).toBe('');
+		});
+
+		it.each([
+			[
+				'Running',
+				'Running'
+			],
+			[
+				'Completed',
+				'Completed'
+			],
+			[
+				'Failed',
+				'Failed'
+			],
+			[
+				'Aborted',
+				'Aborted'
+			]
+		])('renders the %s status through its label', async(status, expected) =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status, completedAt: null});
+
+			const badge = statusBadge(element);
+			expect(badge.label).toBe(expected);
+			expect(badge.title).toBe('');
+		});
+
+		it('falls back to the raw status string for an unmapped status the framework never writes', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Delayed', completedAt: null});
+
+			const badge = statusBadge(element);
+			expect(badge.label).toBe('Delayed');
+			expect(badge.title).toBe('');
+		});
 	});
 
 });

@@ -86,6 +86,20 @@ describe('c-chain-monitor', () =>
 		expect(detail.executionId).toBe('test-id');
 	});
 
+	it('should refresh the list when the detail panel reports an aborted chain', async() =>
+	{
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+		const listRefresh = jest.fn();
+		list.refresh = listRefresh;
+
+		const detail = element.shadowRoot.querySelector('c-chain-monitor-detail');
+		detail.dispatchEvent(new CustomEvent('chainabort', {detail: {executionId: 'aborted-chain-id'}}));
+		await Promise.resolve();
+
+		expect(listRefresh).toHaveBeenCalledTimes(1);
+	});
+
 	it('should refresh list for any record event until a chain has been in view', async() =>
 	{
 		const element = await createComponent();

@@ -15,10 +15,16 @@
 				<div class="slds-media__body">
 					<h2 class="slds-text-heading_small slds-var-m-bottom_xxx-small" data-testid="chain-name">{detail.chainName}</h2>
 					<div class="slds-grid slds-grid_vertical-align-center">
-						<lightning-badge class="slds-var-m-right_small" data-testid="status-badge" label={detail.status}></lightning-badge>
+						<lightning-badge class="slds-var-m-right_small" data-testid="status-badge" label={statusLabel} title={statusTitle}></lightning-badge>
 						<span class="slds-text-body_small slds-text-color_weak" data-testid="progress-label">{progressLabel}</span>
 					</div>
 				</div>
+				<template if:true={showAbortButton}>
+					<div class="slds-media__figure slds-media__figure_reverse">
+						<lightning-button data-testid="abort-button" disabled={isAbortDisabled} icon-name="utility:stop" label={label.abortAction} onclick={handleAbort}
+						                  title={abortUnavailableMessage} variant="destructive-text"></lightning-button>
+					</div>
+				</template>
 				<template if:true={hasCorrelationId}>
 					<div class="slds-media__figure slds-media__figure_reverse">
 						<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs} variant="neutral"></lightning-button>
