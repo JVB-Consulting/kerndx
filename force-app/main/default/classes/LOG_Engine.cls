@@ -1137,7 +1137,7 @@ public inherited sharing class LOG_Engine
 	{
 		DTO_LoggerContext context = new DTO_LoggerContext();
 		context.correlationId = currentCorrelationId;
-		context.parentTransactionId = Request.getCurrent().getRequestId();
+		context.parentTransactionId = Request.getCurrent()?.getRequestId();
 		if(!globalContextData.isEmpty())
 		{
 			context.contextData = globalContextData;
@@ -1996,7 +1996,9 @@ public inherited sharing class LOG_Engine
 		{
 			List<LogEntryEvent__e> events = new List<LogEntryEvent__e>();
 
-			String executionEvent = Request.getCurrent().getQuiddity().name();
+			// Request.getCurrent()/getQuiddity() are null in sessionless contexts (Auth registration
+			// handlers, inbound email services, some guest flows) — a log emit must never throw there
+			String executionEvent = (Request.getCurrent()?.getQuiddity() ?? Quiddity.UNDEFINED).name();
 			String stackTrace = getStackTrace(error);
 
 			for(DTO_LogMessage dtoLogMessage : logMessages)
@@ -2014,7 +2016,7 @@ public inherited sharing class LOG_Engine
 
 				// Correlation fields
 				event.CorrelationId__c = currentCorrelationId;
-				event.TransactionId__c = Request.getCurrent().getRequestId();
+				event.TransactionId__c = Request.getCurrent()?.getRequestId();
 				event.ParentTransactionId__c = currentParentTransactionId;
 				event.Fingerprint__c = currentFingerprint;
 
