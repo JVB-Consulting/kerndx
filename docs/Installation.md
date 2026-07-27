@@ -538,10 +538,10 @@ It ships as a standalone zip that lives entirely in your repo's `.kerndx-pipelin
 
 ### What's Inside
 
-- `@jvb-consulting/kerndx-pipeline` CLI: 8 commands (`init`, `scan`, `naming`, `preflight`, `doctor`, `upgrade`, `classify-ref`, `slack-payload`).
-- ESLint plugin (`eslint-plugin-kerndx`): 6 behavioural rules, with no formatting opinions.
+- `@jvb-consulting/kerndx-pipeline` CLI: 9 commands (`init`, `scan`, `naming`, `preflight`, `doctor`, `upgrade`, `classify-ref`, `secret-scan`, `slack-payload`).
+- ESLint plugin (`eslint-plugin-kerndx`): 7 behavioural rules, with no formatting opinions.
 - Two PMD rulesets: naming and sharing-modifier enforcement.
-- Eleven Eta-rendered GitHub Actions workflow templates: scan, preflight, release-notes, and Slack-bridge wiring.
+- Ten Eta-rendered GitHub Actions workflow templates, including the `sfca-quality-gate` scan, naming validation, secret scanning, and the Slack-bridge alert workflows.
 - `INSTALL-PIPELINE.md`: the full setup guide, bundled inside the zip.
 
 ### Install

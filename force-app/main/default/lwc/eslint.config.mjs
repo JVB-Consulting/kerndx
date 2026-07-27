@@ -75,6 +75,15 @@ export default tseslint.config(// Always use the recommended rule set
 			}
 		},
 
+		// Jest specs assert on rendered DOM: READING innerHTML in an expectation is not the
+		// XSS-sink write @lwc/lwc/no-inner-html guards against, so the rule is off for specs
+		// only. Production components keep it at full strength.
+		{
+			files: ['**/*.test.js'], rules: {
+				'@lwc/lwc/no-inner-html': 'off'
+			}
+		},
+
 		{
 			extends: [...tseslint.configs.recommended], plugins: {
 				import: importPlugin

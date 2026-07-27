@@ -2827,6 +2827,7 @@ async function drainScan(deferred)
 	for(let index = 0; index < deferred.calls.length; index++)
 	{
 		deferred.calls[index].resolve();
+		// eslint-disable-next-line no-await-in-loop -- deliberate sequencing: each deferred resolve must flush before the next, mirroring the component's one-at-a-time fetch
 		await flush();
 	}
 }

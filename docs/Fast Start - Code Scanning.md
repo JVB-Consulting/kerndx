@@ -167,7 +167,7 @@ Violations now appear inline in the IntelliJ editor. The combined file simply re
 
 The same idea applies to your Lightning Web Components (LWC), checked by an ESLint plugin configured in `force-app/main/default/lwc/eslint.config.mjs`.
 
-Three of these rules are **active by default**, because they catch problems in any project: `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`.
+Four of these rules are **active by default**, because they catch problems in any project: `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text` (which ships at the `warn` level, so it flags without failing the run), `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`.
 
 Three more rules push you toward the KernDX component model and ship **commented out**, so they don't start flagging code before you've adopted that model: `kerndx/use-component-builder`, `kerndx/no-console-log`, and `kerndx/enforce-component-naming`. When you're ready for them, uncomment their block in `eslint.config.mjs`:
 
@@ -257,6 +257,7 @@ All 25 KernDX-authored PMD rules:
 | `kerndx/no-jest-theatre`                   | Assertion-less Jest tests, hollow `createElement` assertions | Real `expect(...)` calls that exercise behaviour |
 | `kerndx/no-mutating-shared-fixture`        | Mutation of a `beforeAll(...)` fixture across tests          | Rebuild per-test state in `beforeEach(...)`      |
 | `kerndx/no-coverage-exempt-without-reason` | `kern-coverage-exempt` comments without justification        | Add a substantive platform-limitation reason     |
+| `kerndx/no-hardcoded-user-text`            | Hardcoded user-facing text in toasts, errors, and template bindings | Import the text from a Custom Label (`@salesforce/label/c.X`) |
 
 ### Suppressing rules
 

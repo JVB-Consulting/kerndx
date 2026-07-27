@@ -221,15 +221,24 @@ features* are what make the difference in the comparison:
   failure actions; 18 built-in masking rules; and a Data Masking Advisor console that scans which fields are covered and exports an inventory of regulated fields.
 - **LWC.** Decisive features: five built-in LWC component modules you turn on as needed; clear error messages when a module isn't enabled; invalid modules are rejected at
   registration.
-- **Async Patterns.** Decisive features: finalizer hooks; state carries from one background transaction to the next; an emergency off-switch.
+- **Async Patterns.** Decisive features: several background steps run as one chain, carrying state from one background transaction to the next, with automatic recovery when a
+  background transaction crashes or a step cannot be queued, error and completion handlers, and an emergency off-switch. Three protections are on from the moment you use it: each run
+  carries its own key, so a superseded or duplicate copy of a job cannot write over the live run; every chain that ends, however it ends, writes a final log entry; and a failed run
+  records why it failed. Give a chain a deduplication key (one builder call in code) and a duplicate start of a run already in flight is refused. A step can also opt into a bounded
+  number of retries with a widening delay. Two operator
+  capabilities sit on top, and each needs one deliberate setup step first: a scheduled recovery job that checks whether a chain's work is genuinely still running and safely restarts
+  the ones it can prove died, leaving anything it cannot prove dead untouched and flagging it for a human instead (an admin schedules that job once, the self-diagnostic offers a one-click way to do it, and a restarted run picks
+  up under the framework's default settings rather than the ones its original builder set); and a screen action in the Chain Monitor that stops a running chain at its next step
+  boundary (behind a permission set that ships assigned to nobody, whose holder also needs administrator access to read chain data).
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
 - **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a nine-dimension self-diagnostic with
   actionable results.
-- **CI / Tooling.** Decisive features: [25 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 6-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
+- **CI / Tooling.** Decisive features: [25 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 7-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
   against `force-app/**`, and a secret-scanning gate that blocks committed credentials) plus 2 branch-rule templates + 6 CI-tool adapters, all via `kerndx init`.
 - **Web Services — Outbound.** KernDX ships the broadest implementation of this area among the Apex libraries surveyed. On the mock-library piece, KernDX matches
-  `apex-fluently-httpmock`, a single-purpose HTTP-mock library. Decisive features: full Outbound coverage, plus a built-in mock library that matches the dedicated specialty tool.
+  `apex-fluently-httpmock`, a single-purpose HTTP-mock library, and `revenant` covers one outbound piece KernDX does not (a transactional outbox, described below). Decisive
+  features: the broadest outbound surface of the Apex libraries surveyed, plus a built-in mock library that matches the dedicated specialty tool.
 
 **3. Where another library goes deeper, or ties KernDX on one piece, and why that distinction matters.** "Covers a whole area more broadly" and "matches KernDX on a single piece of
 one area" are two different things, and this guide keeps them apart so each competitor gets the credit it's actually due. The table below summarises the three areas where a
@@ -261,6 +270,10 @@ The first two rows are areas where another library ships a broader implementatio
   bypasses where `apex-libra` emits no audit signal.
 - **`apex-fluently-soql`** (a Query Builder specialist) ties KernDX on 4 Query Builder pieces and 1 Domain Patterns piece. There are no pieces where it goes further on its own.
   The decisive KernDX difference: KernDX writes its bypass audit signal to the event bus, where `apex-fluently-soql`'s signal is SDLC-only.
+- **[`revenant`](https://github.com/madmax983/revenant)** (a durable-workflow specialist) goes further on one Web Services — Outbound piece: a transactional outbox, a queue that
+  only releases the work once the caller's own transaction has committed, so a rolled-back transaction leaves nothing queued and nothing sent. KernDX has no equivalent. Two things
+  bound that credit: the queue holds `revenant` workflow steps rather than outbound requests, so a callout inherits the guarantee only if it runs inside a step, and `revenant`
+  ships no HTTP client at all. On the other seven outbound pieces KernDX leads outright on five and is level on two, so the Outbound area as a whole is KernDX-covered.
 
 **5. Deliberate design trade-offs (per the principle of solving what almost everyone needs).** Three places where KernDX deliberately chose differently from a top-tier specialist
 library:
@@ -275,7 +288,8 @@ library:
   that follows a single user action across triggers, queries, callouts, and jobs (a correlation ID), and framework-wide bypass audit logging. Those guarantees are exactly
   what lets KernDX cover Trigger / Query / DML / Security / Async / LWC broadly.
 
-**6. A note on `fflib`'s activity.** At the snapshot date `fflib` has 1 tagged release, 16 commits in the last 12 months, and roughly 2884 days since its last release. It remains the
+**6. A note on `fflib`'s activity.** At the snapshot date `fflib` has 1 tagged release, 42 commits in the last 12 months (a figure lifted by one 2026 batch that merged long-dormant
+pull requests rather than by a new release cadence), and roughly 2,294 days since its last release. It remains the
 canonical implementation of the Application factory pattern. If you already run `fflib` and need that pattern, keep it; if you have no Domain-layer requirement, you don't need it.
 
 > **Exit strategy.** KernDX transfers at $0 in licence cost. The source is publicly available under BSL 1.1, so you own access to the framework from day one. Three documented ways out: keep using the managed package (zero effort), deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. See [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy) for the full analysis.
@@ -285,7 +299,8 @@ canonical implementation of the Application factory pattern. If you already run 
 The Apex libraries this guide surveyed fall into three groups: full-stack frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`, and [`sf-bedrock`](https://github.com/force-creators/sf-bedrock)); single-capability libraries (the Apex
 Fluently family, 8 libraries, plus `nebula-logger`, `taf`, and [`nebula-triggers`](https://github.com/aidan-harding/nebula-core)); and single-purpose tools (`fflib-mocks`,
 [`mask-sobject`](https://github.com/tprouvot/mask-sobject), [`promise`](https://github.com/codefriar/promise), [`apex-chainable`](https://github.com/rsoesemann/apex-chainable),
-[`apex-promisify`](https://github.com/oguzalp/apex-promisify), [`apex-async-linkable`](https://github.com/scolladon/apex-async-linkable)). The per-area findings above point to the
+[`apex-promisify`](https://github.com/oguzalp/apex-promisify), [`apex-async-linkable`](https://github.com/scolladon/apex-async-linkable),
+[`revenant`](https://github.com/madmax983/revenant)). The per-area findings above point to the
 specific comparisons. For a capability-by-capability comparison with head-to-head trade-offs and pick-by-capability guidance, see
 [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md).
 
@@ -316,9 +331,11 @@ has a longer activity track record than KernDX.
 
 **Recommendation:** Adopt KernDX as-is. Decisive features: KernDX ships the broadest Outbound surface of the Apex libraries surveyed, and ties `apex-fluently-httpmock` on the
 mock-library piece. KernDX ships a circuit breaker (after an external system keeps failing, the framework stops calling it for a cool-off period, then resumes when it recovers),
-retry with backoff, named-credential resolution, idempotency keys (if the exact same request arrives twice, the framework returns the first result again instead of re-running it, and
+retry with backoff, named-credential resolution, idempotency keys (each outbound call can carry an explicit key the receiving system uses to spot a repeat, and on the inbound side,
+if the exact same request arrives twice, the framework returns the first result again instead of re-running it, and
 rejects a repeat that reuses the key with a *different* body, rather than silently masking the change), and an `ApiStep` that bridges an async chain to an outbound call, wired through
-`UTIL_AsyncChain`. If you use HTTP paths other than `API_Outbound`, you can add `apex-fluently-httpmock` for the mock surface; if you're already on KernDX, you get the matching mock
+`UTIL_AsyncChain`, with that step itself able to opt into a bounded number of retries with a widening delay. If you use HTTP paths other than `API_Outbound`, you can add
+`apex-fluently-httpmock` for the mock surface; if you're already on KernDX, you get the matching mock
 via `API_MockFactory`.
 
 ##### AppExchange applications
@@ -340,7 +357,8 @@ Break-Even Point = Migration Cost ÷ (Quarterly Maintenance Savings + Quarterly 
 **Do NOT migrate if:** the codebase is in maintenance mode, break-even is over 6 quarters, or the team is already proficient.
 **Freeze-and-contain:** stop expanding `fflib`; adopt modular libraries for new work; refactor opportunistically.
 
-`fflib` activity at the snapshot date: 1 tagged release, 16 commits in the last 12 months, roughly 2884 days since the last release. `fflib` remains the canonical implementation of
+`fflib` activity at the snapshot date: 1 tagged release, 42 commits in the last 12 months (a figure lifted by one 2026 batch that merged long-dormant pull requests rather than by a
+new release cadence), roughly 2,294 days since the last release. `fflib` remains the canonical implementation of
 the Application factory pattern. See [Migration Checklists](Strategic%20Guide%20-%20Operations.md#migration-checklists) for a worked-example migration cost calculation.
 
 #### Who should read what

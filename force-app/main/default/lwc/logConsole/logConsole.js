@@ -633,6 +633,7 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 	{
 		this.searchTerm = event.target.value;
 		window.clearTimeout(this.searchDebounceTimer);
+		// eslint-disable-next-line @lwc/lwc/no-async-operation -- search debounce: the timer is cleared on every keystroke, so at most one reload fires after typing settles
 		this.searchDebounceTimer = window.setTimeout(() =>
 		{
 			// noinspection JSIgnoredPromiseFromCall

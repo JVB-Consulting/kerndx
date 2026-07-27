@@ -37,6 +37,25 @@ function preflightOrgAvailable()
 
 const SCRIPTS_DIR = path.join(__dirname, '..', 'scripts');
 const RESULTS_PATH = path.join(__dirname, '..', 'results', 'current-run.json');
+
+// Section 79's stale-probe seed writes a back-dated CreatedDate, which an org accepts only
+// after the RUNBOOK Phase 1.4 audit-fields enablement; without it the seed fails compile
+// deep into the run (the 2026-07-26 cycle lost a section attempt to exactly this). This
+// probe turns that gap into a fail-fast at Step 0b with the remediation attached.
+async function preflightAuditBackdating()
+{
+	const result = await runScript(path.join(SCRIPTS_DIR, 'preflight-audit-backdating.apex'));
+	if(result.fail > 0 || result.pass === 0)
+	{
+		const probeLines = (result.raw || '').split('\n').filter(l => l.includes('USER_DEBUG')).join('\n');
+		throw new Error('Audit-field back-dating is not enabled on this org — Section 79 (and Phase-3 part10) will fail.\n' +
+			'  Remediation (RUNBOOK Phase 1.4 — two separate deploys IN THIS ORDER, then the permission set):\n' +
+			'    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step1-security-settings/metadata -o <org>\n' +
+			'    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step2-audit-permset/metadata -o <org>\n' +
+			'    sf org assign permset -o <org> -n KernE2EAuditFieldAccess\n' +
+			`  Probe output:\n${probeLines || '  (no USER_DEBUG output — likely a compile or auth failure; see raw runner output)'}`);
+	}
+}
 const MAX_CONCURRENT = 5;
 
 const INDEPENDENT_SCRIPTS = [
@@ -1025,6 +1044,10 @@ async function main()
 	preflightOrgAvailable();
 	console.log('  CLI alias resolved.\n');
 
+	console.log('Step 0b: Verifying audit-field back-dating enablement (Section 79 prerequisite)...');
+	await preflightAuditBackdating();
+	console.log('  Audit back-dating verified.\n');
+
 	console.log('Step 0: Deploying baseline CMDT state...');
 	const {deployCmdtState} = require('./cmdt-deployer');
 	await deployCmdtState('baseline');
@@ -1118,5 +1141,6 @@ module.exports = {
 	runSection79,
 	runTestClasses,
 	runScanner,
+	preflightAuditBackdating,
 	main
 };
