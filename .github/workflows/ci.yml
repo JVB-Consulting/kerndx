@@ -117,9 +117,16 @@ jobs:
         # user-text eslint rule), .html, and .js-meta.xml. It fails ONLY on a
         # hardcoded subscriber-visible string in a SWEPT area
         # (scanner/i18n-swept-areas.json); every other area is a non-failing warn,
-        # so unswept work never reddens CI. It is deliberately independent of the
-        # broken repo-wide `npm run lint` and the pre-existing non-i18n backlog.
+        # so unswept work never reddens CI.
         run: npm run test:i18n && npm run lint:i18n
+
+      - name: Run component lint
+        id: lint
+        # Full eslint over force-app/main/default/lwc through the LWC flat
+        # config. Wired into CI on 2026-07-26, when the lint script was fixed
+        # (it previously swept vendored research clones instead of the real
+        # components) and its surfaced backlog was cleared to zero.
+        run: npm run lint
 
       - name: Explain failure
         # Turn the generic "All jobs have failed" email into something
@@ -161,6 +168,11 @@ jobs:
             matched=1
             echo "::error title=i18n gate failed::A hardcoded subscriber-visible string in a swept LWC area, or the scanner test failed. Reproduce locally: npm run test:i18n && npm run lint:i18n"
             echo "- ❌ **i18n gate** — reproduce: \`npm run test:i18n && npm run lint:i18n\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.lint.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Component lint failed::eslint reported errors in force-app/main/default/lwc. Reproduce locally: npm run lint"
+            echo "- ❌ **Component lint** — reproduce: \`npm run lint\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$matched" = "0" ]; then
             # Failure came from an earlier step (dependency install or the

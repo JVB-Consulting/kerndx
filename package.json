@@ -89,8 +89,8 @@
     "**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}": [
       "prettier --write"
     ],
-    "**/{aura,lwc}/**": [
-      "eslint"
+    "force-app/main/default/lwc/**/*.js": [
+      "ESLINT_USE_FLAT_CONFIG=true eslint --config force-app/main/default/lwc/eslint.config.mjs"
     ]
   }
 }

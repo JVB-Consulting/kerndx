@@ -28,7 +28,7 @@ const {exec} = require('child_process');
 const {deployMetadataDir, deployCmdtState, deleteCmdtRecords} = require('../runner/cmdt-deployer');
 
 const {
-	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection76, runSection67, runSection68, runSection69, runSection70, runSection71, runSection72, runSection75, runSection66, runSection65, runSection77, runOrchestratedSection, ORCHESTRATED_SECTIONS
+	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection76, runSection67, runSection68, runSection69, runSection70, runSection71, runSection72, runSection75, runSection66, runSection65, runSection77, runOrchestratedSection, ORCHESTRATED_SECTIONS, preflightAuditBackdating
 } = require('../runner/run-phase2');
 
 describe('INDEPENDENT_SCRIPTS', () =>
@@ -85,6 +85,39 @@ describe('MAX_CONCURRENT', () =>
 	it('should be 5', () =>
 	{
 		expect(MAX_CONCURRENT).toBe(5);
+	});
+});
+
+describe('preflightAuditBackdating', () =>
+{
+	it('resolves when the probe reports PASS', async() =>
+	{
+		exec.mockImplementation((cmd, opts, callback) =>
+		{
+			callback(null, 'USER_DEBUG [9]|DEBUG|preflight PASS: audit-field back-dating enabled');
+		});
+
+		await expect(preflightAuditBackdating()).resolves.toBeUndefined();
+	});
+
+	it('throws the Phase 1.4 remediation when the probe reports FAIL', async() =>
+	{
+		exec.mockImplementation((cmd, opts, callback) =>
+		{
+			callback(null, 'USER_DEBUG [12]|DEBUG|preflight FAIL: audit-field back-dating NOT enabled');
+		});
+
+		await expect(preflightAuditBackdating()).rejects.toThrow(/step1-security-settings[\s\S]*KernE2EAuditFieldAccess/);
+	});
+
+	it('throws when the probe produces no verdict at all (compile-failure shape)', async() =>
+	{
+		exec.mockImplementation((cmd, opts, callback) =>
+		{
+			callback(new Error('exit 1'), 'Error (executeCompileFailure): Field is not writeable');
+		});
+
+		await expect(preflightAuditBackdating()).rejects.toThrow(/back-dating/);
 	});
 });
 

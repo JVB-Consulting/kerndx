@@ -112,6 +112,7 @@ This guide is the full reference behind those commands: every rule, every way to
     - [kerndx/no-console-log](#kerndxno-console-log)
     - [kerndx/enforce-component-naming](#kerndxenforce-component-naming)
     - [kerndx/no-coverage-exempt-without-reason](#kerndxno-coverage-exempt-without-reason)
+    - [kerndx/no-hardcoded-user-text](#kerndxno-hardcoded-user-text)
     - [kerndx/no-jest-theatre](#kerndxno-jest-theatre)
     - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
     - [ESLint Setup](#eslint-setup)
@@ -783,7 +784,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 
 ## ESLint Rules (LWC)
 
-PMD reads Apex but not JavaScript, so the checks for Lightning Web Components (LWC) live in a separate ESLint plugin, `eslint-plugin-kerndx`. It enforces the same kinds of framework and naming conventions on the JavaScript side. The plugin contains six rules.
+PMD reads Apex but not JavaScript, so the checks for Lightning Web Components (LWC) live in a separate ESLint plugin, `eslint-plugin-kerndx`. It enforces the same kinds of framework and naming conventions on the JavaScript side. The plugin contains seven rules.
 
 ### kerndx/use-component-builder
 
@@ -904,6 +905,32 @@ throw new Error('unreachable');
 // CORRECT -- cites a specific platform limitation
 // kern-coverage-exempt: jsdom cannot trigger the real navigator.clipboard permission prompt
 throw new Error('unreachable');
+```
+
+### kerndx/no-hardcoded-user-text
+
+**You want to:** keep every message a user sees translatable. Text that appears in the UI (toast titles and messages, error text, display strings bound into a template) must come from a Custom Label (`import myLabel from '@salesforce/label/c.MyLabel'`), never a hardcoded string literal: a hardcoded string cannot be translated or overridden in the org that installs your package. This rule ships at the `warn` level, so it flags violations without failing the lint run.
+
+**What the rule detects:**
+
+- A string literal passed to a toast method (`showToast`, `showErrorToast`, `showSuccessToast`, `showWarningToast`, `showInfoToast`, `notify`), set as the `title` or `message` of a `new ShowToastEvent({...})`, or used as the message of a `throw new Error(...)`. A literal wrapped in `a || 'fallback'` or a ternary is unwrapped and still caught.
+- A multi-word string literal that looks like display text: not a log or console argument, not a DOM or format token, and not token-shaped (an icon name like `utility:info`, an `slds-` class, a `c/` module path). This catches display strings assigned to a constant or getter that feeds an HTML `{binding}`.
+
+HTML templates and `.js-meta.xml` files are covered by the companion Node scanner (hardcoded-display-text detection), not this rule. For a justified literal (an API proper noun, a format token, developer-only text), suppress the single line with `// eslint-disable-next-line kerndx/no-hardcoded-user-text` and say why in the surrounding code.
+
+```javascript
+// VIOLATION -- hardcoded toast text
+this.showErrorToast('Something went wrong. Try again.');
+
+// VIOLATION -- hardcoded display string feeding a template binding
+get emptyStateText()
+{
+   return 'No records to show yet.';
+}
+
+// CORRECT -- text comes from a Custom Label
+import saveFailedMessage from '@salesforce/label/c.SaveFailedMessage';
+this.showErrorToast(saveFailedMessage);
 ```
 
 ### kerndx/no-jest-theatre
@@ -1256,7 +1283,7 @@ If you also use org-specific naming rules:
 
 Violations now appear inline as squiggly underlines while you type. Hover over one to see the rule name and message. The Apex PMD extension supports more than one ruleset out of the box.
 
-**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from `kerndx/use-component-builder`, `kerndx/no-console-log`, and `kerndx/enforce-component-naming` appear inline automatically, with nothing else to set up.
+**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the four rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config.
 
 ### IntelliJ / Illuminated Cloud
 

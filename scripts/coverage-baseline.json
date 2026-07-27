@@ -1,10 +1,11 @@
 {
-  "capturedAt": "2026-07-04T15:22:43.398Z",
+  "capturedAt": "2026-07-26T19:29:10.077Z",
   "apex": {
-    "totalWallClockSeconds": 595.098,
+    "totalWallClockSeconds": 792.145,
     "testSetupClasses": [
       "API_Dispatcher_TEST",
       "API_GetPwndPasswords_TEST",
+      "CTRL_ChainMonitorAbort_TEST",
       "CTRL_ExecuteSearch_TEST",
       "CTRL_FieldSet_TEST",
       "CTRL_Search_TEST",
@@ -30,6 +31,8 @@
       "TRG_SetFoobarDefaults_TEST",
       "TST_BuilderInternal_TEST",
       "TST_Builder_TEST",
+      "UTIL_AsyncChainApi_TEST",
+      "UTIL_AsyncChainRecovery_TEST",
       "UTIL_AsyncChain_TEST",
       "UTIL_AsynchronousJobLauncher_TEST",
       "UTIL_BulkUpdates_TEST",
@@ -108,7 +111,7 @@
       },
       "API_Outbound": {
         "percentage": 100,
-        "coveredLines": 272,
+        "coveredLines": 277,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -144,13 +147,13 @@
       },
       "CTRL_ChainMonitor": {
         "percentage": 100,
-        "coveredLines": 98,
+        "coveredLines": 123,
         "uncoveredLines": 0,
-        "exemptLines": 0
+        "exemptLines": 1
       },
       "CTRL_EventMonitor": {
         "percentage": 100,
-        "coveredLines": 141,
+        "coveredLines": 144,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -173,9 +176,9 @@
         "exemptLines": 0
       },
       "CTRL_HealthCheck": {
-        "percentage": 100,
-        "coveredLines": 248,
-        "uncoveredLines": 0,
+        "percentage": 99.7,
+        "coveredLines": 346,
+        "uncoveredLines": 1,
         "exemptLines": 0
       },
       "CTRL_LogConsole": {
@@ -240,7 +243,7 @@
       },
       "DML_Transaction": {
         "percentage": 100,
-        "coveredLines": 261,
+        "coveredLines": 263,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -468,7 +471,7 @@
       },
       "QRY_Builder": {
         "percentage": 100,
-        "coveredLines": 965,
+        "coveredLines": 969,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -514,6 +517,12 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "SCHED_ChainWatchdog": {
+        "percentage": 100,
+        "coveredLines": 14,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "SCHED_DeactivateUsers": {
         "percentage": 100,
         "coveredLines": 24,
@@ -540,7 +549,7 @@
       },
       "SEL_ApexClass": {
         "percentage": 100,
-        "coveredLines": 21,
+        "coveredLines": 26,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -568,9 +577,15 @@
         "uncoveredLines": 0,
         "exemptLines": 0
       },
+      "SEL_AsyncApexJob": {
+        "percentage": 100,
+        "coveredLines": 13,
+        "uncoveredLines": 0,
+        "exemptLines": 0
+      },
       "SEL_AsyncChainExecution": {
         "percentage": 100,
-        "coveredLines": 38,
+        "coveredLines": 54,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -612,7 +627,7 @@
       },
       "SEL_EntityDefinition": {
         "percentage": 100,
-        "coveredLines": 77,
+        "coveredLines": 66,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -720,7 +735,7 @@
       },
       "SEL_PermissionSetAssignment": {
         "percentage": 100,
-        "coveredLines": 27,
+        "coveredLines": 29,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -780,7 +795,7 @@
       },
       "SEL_TriggerAction": {
         "percentage": 100,
-        "coveredLines": 145,
+        "coveredLines": 165,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -828,7 +843,7 @@
       },
       "TRG_Base": {
         "percentage": 100,
-        "coveredLines": 131,
+        "coveredLines": 136,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -905,9 +920,9 @@
         "exemptLines": 0
       },
       "TST_Factory": {
-        "percentage": 100,
-        "coveredLines": 504,
-        "uncoveredLines": 0,
+        "percentage": 99.6,
+        "coveredLines": 543,
+        "uncoveredLines": 2,
         "exemptLines": 0
       },
       "TST_InvokeFlowMock": {
@@ -930,7 +945,7 @@
       },
       "UTIL_AsyncChain": {
         "percentage": 100,
-        "coveredLines": 568,
+        "coveredLines": 1021,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1038,7 +1053,7 @@
       },
       "UTIL_HttpClient": {
         "percentage": 100,
-        "coveredLines": 455,
+        "coveredLines": 464,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1122,7 +1137,7 @@
       },
       "UTIL_SObjectBuilderDefaultProvider": {
         "percentage": 100,
-        "coveredLines": 361,
+        "coveredLines": 367,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1221,6 +1236,12 @@
         "functions": 100,
         "lines": 100
       },
+      "force-app/main/default/lwc/chainAbortModal/chainAbortModal.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
       "force-app/main/default/lwc/chainMonitor/chainMonitor.js": {
         "statements": 100,
         "branches": 100,
@@ -1230,7 +1251,7 @@
       "force-app/main/default/lwc/chainMonitorDetail/chainMonitorDetail.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 94.1,
+        "functions": 95.8,
         "lines": 100
       },
       "force-app/main/default/lwc/chainMonitorList/chainMonitorList.js": {
@@ -1265,8 +1286,8 @@
       },
       "force-app/main/default/lwc/createForm/createForm.js": {
         "statements": 100,
-        "branches": 98,
-        "functions": 98.9,
+        "branches": 98.3,
+        "functions": 99,
         "lines": 100
       },
       "force-app/main/default/lwc/cronExpressionEditor/constants.js": {
@@ -1318,10 +1339,10 @@
         "lines": 100
       },
       "force-app/main/default/lwc/healthCheck/healthCheck.js": {
-        "statements": 97.3,
-        "branches": 95.3,
-        "functions": 97.3,
-        "lines": 97
+        "statements": 97.8,
+        "branches": 96.1,
+        "functions": 97.4,
+        "lines": 97.6
       },
       "force-app/main/default/lwc/jsonViewer/jsonViewer.js": {
         "statements": 97,
@@ -1473,23 +1494,29 @@
         "functions": 92.3,
         "lines": 100
       },
+      "force-app/main/default/lwc/scheduleChainWatchdogModal/scheduleChainWatchdogModal.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
       "force-app/main/default/lwc/scheduledJobDetail/scheduledJobDetail.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 96.2,
+        "functions": 96,
         "lines": 100
       },
       "force-app/main/default/lwc/scheduledJobEditor/scheduledJobEditor.js": {
         "statements": 100,
         "branches": 97.1,
-        "functions": 96.6,
+        "functions": 96.2,
         "lines": 100
       },
       "force-app/main/default/lwc/scheduledJobEditorModal/scheduledJobEditorModal.js": {
-        "statements": 99.2,
-        "branches": 95.5,
-        "functions": 96.7,
-        "lines": 99.2
+        "statements": 100,
+        "branches": 100,
+        "functions": 96.4,
+        "lines": 100
       },
       "force-app/main/default/lwc/searchLookup/searchLookup.js": {
         "statements": 100,
@@ -1516,7 +1543,7 @@
         "lines": 100
       },
       "force-app/main/default/lwc/streamingEvents/streamingEvents.js": {
-        "statements": 99.2,
+        "statements": 99.3,
         "branches": 98,
         "functions": 100,
         "lines": 99.2
@@ -1546,9 +1573,9 @@
         "lines": 100
       },
       "force-app/main/default/lwc/streamingTimeline/streamingTimeline.js": {
-        "statements": 99.4,
+        "statements": 100,
         "branches": 100,
-        "functions": 97.1,
+        "functions": 100,
         "lines": 100
       },
       "force-app/main/default/lwc/streamingUsageFilters/streamingUsageFilters.js": {
@@ -1578,10 +1605,16 @@
       "force-app/main/default/lwc/utilityLogger/utilityLogger.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 100,
+        "functions": 94.7,
         "lines": 100
       },
       "force-app/main/default/lwc/utilityRandom/utilityRandom.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/utilityScheduledJob/utilityScheduledJob.js": {
         "statements": 100,
         "branches": 100,
         "functions": 100,

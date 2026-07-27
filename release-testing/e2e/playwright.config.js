@@ -56,17 +56,22 @@ module.exports = defineConfig({
 		{
 			name: 'streaming-serial', testMatch: streamingMatch, fullyParallel: false, workers: 1, retries: 0, dependencies: ['independent'], use: sharedUse
 		},
-		// The media-capture projects mutate release-gate state: capture-heroes' kern-home hero
-		// clicks Apply Recommended Retention, creating the 4 purge ScheduledJob__c rows that
-		// part4's V17/V18 assert to zero. Without a dependency they start on the second global
-		// worker in parallel with scheduler-serial and contaminate the battery (caught 2026-07-03:
-		// V17 failed on 4 mid-run jobs and 63 dependent checks never ran). Sequencing them after
-		// streaming-serial keeps `npm run test:e2e` safe; run them alone with --project capture.
-		{
-			name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['streaming-serial'], use: {...sharedUse, permissions: ['clipboard-read', 'clipboard-write'], video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
-		},
-		{
-			name: 'stills', testMatch: /capture-stills\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['capture'], use: {...sharedUse, video: 'off', trace: 'off'}
-		}
+		// The media-capture projects are NOT release gates: they record hero videos/stills and
+		// carry their own seeded-state assumptions (the 2026-07-26 full release run failed 2
+		// capture specs on a missing seeded ERROR entry while every release check passed). They
+		// are defined only when KERNDX_CAPTURE=1, which runner/capture-heroes.js sets, so
+		// `npm run test:e2e` / `release:phase3` can never sweep them into a release verdict.
+		// They also mutate release-gate state: capture-heroes' kern-home hero clicks Apply
+		// Recommended Retention, creating the 4 purge ScheduledJob__c rows that part4's V17/V18
+		// assert to zero (caught 2026-07-03: V17 failed on 4 mid-run jobs and 63 dependent
+		// checks never ran) — one more reason they stay out of the release battery.
+		...(process.env.KERNDX_CAPTURE === '1' ? [
+			{
+				name: 'capture', testMatch: /capture-heroes\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['streaming-serial'], use: {...sharedUse, permissions: ['clipboard-read', 'clipboard-write'], video: {mode: 'on', size: {width: 1280, height: 720}}, trace: 'on'}
+			},
+			{
+				name: 'stills', testMatch: /capture-stills\.spec\.js$/, fullyParallel: false, workers: 1, retries: 0, dependencies: ['capture'], use: {...sharedUse, video: 'off', trace: 'off'}
+			}
+		] : [])
 	]
 });

@@ -91,7 +91,7 @@ jest.mock('@salesforce/label/c.CronExpressionEditor_ValNeitherQuestion', () => (
 		{virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValStructure', () => ({default: 'Invalid cron expression — must have 6 or 7 space-separated fields'}), {virtual: true});
 import {createElement} from 'lwc';
-import {splitCronExpression, validateCronField, validateCronExpression} from '../cronParser';
+import {validateCronExpression} from '../cronParser';
 
 describe('c-cron-expression-editor', () =>
 {
@@ -129,9 +129,9 @@ describe('c-cron-expression-editor', () =>
 
 		it('exports validateCronExpression function', () =>
 		{
-			const {validateCronExpression} = require('c/cronExpressionEditor');
-			expect(validateCronExpression).toBeDefined();
-			expect(typeof validateCronExpression).toBe('function');
+			const {validateCronExpression: exportedValidateCronExpression} = require('c/cronExpressionEditor');
+			expect(exportedValidateCronExpression).toBeDefined();
+			expect(typeof exportedValidateCronExpression).toBe('function');
 		});
 	});
 
