@@ -1,0 +1,49 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div data-testid="log-stream-panel">
+		<div class="slds-grid slds-grid_vertical-align-center">
+			<button aria-expanded={isExpandedText} class="slds-button slds-button_reset slds-grid slds-grid_vertical-align-center stream-toggle" onclick={handleToggle}
+					type="button">
+				<lightning-icon class="slds-var-m-right_xx-small" icon-name={chevronIconName} size="xx-small"></lightning-icon>
+				<span class="slds-text-heading_small" data-testid="log-stream-title">{label.streamTitle}</span>
+			</button>
+			<template if:true={hasEntries}>
+				<span class="slds-text-body_small slds-text-color_weak slds-var-m-left_small" data-testid="stream-last-event">
+					{label.lastEvent}&nbsp;·&nbsp;<lightning-relative-date-time value={lastEventEpochMilliseconds}></lightning-relative-date-time>
+				</span>
+			</template>
+		</div>
+		<template if:false={isCollapsed}>
+			<div class="slds-var-p-top_x-small">
+				<template if:true={hasEntries}>
+					<ul class="stream-list">
+						<template for:each={renderedEntries} for:item="entry">
+							<li class={entry.rowClass} data-testid="log-stream-entry" key={entry.key} title={entry.timestamp}>
+								<span class="slds-text-body_small slds-text-color_weak stream-time">
+									<lightning-relative-date-time value={entry.epochMilliseconds}></lightning-relative-date-time>
+									<span class="stream-time-absolute">
+										<lightning-formatted-date-time hour="2-digit" minute="2-digit" second="2-digit" value={entry.timestamp}></lightning-formatted-date-time>
+									</span>
+								</span>
+								<lightning-badge class={entry.badgeClass} label={entry.logLevel}></lightning-badge>
+								<span class="slds-truncate stream-message slds-text-body_small" title={entry.message}>{entry.message}</span>
+							</li>
+						</template>
+					</ul>
+				</template>
+				<template if:false={hasEntries}>
+					<div class="slds-text-body_small slds-text-color_weak stream-empty" data-testid="log-stream-empty">{label.streamEmpty}</div>
+				</template>
+				<template if:false={isDisconnected}>
+					<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xx-small" data-testid="log-stream-caveat">{label.streamCaveat}</p>
+				</template>
+				<template if:true={isDisconnected}>
+					<p class="slds-text-body_small slds-var-m-top_xx-small">
+						<lightning-icon icon-name="utility:warning" size="xx-small" variant="warning"></lightning-icon>
+						<span data-testid="log-stream-disconnected">{label.streamDisconnected}</span>
+					</p>
+				</template>
+			</div>
+		</template>
+	</div>
+</template>

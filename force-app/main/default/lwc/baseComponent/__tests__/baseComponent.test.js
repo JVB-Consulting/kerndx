@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  */
 
 		// Create mock functions that can be tracked
@@ -441,7 +441,7 @@ describe('baseComponent', () =>
 			element.callControllerMethod(mockMethod, {param: 'value'}, false);
 
 			expect(mockError)
-			.toHaveBeenCalledWith(CALL_CONTROLLER_UNINITIALISED_ERROR, expect.objectContaining({controllerMethod: 'function', parameterMap: {param: 'value'}, isThrow: false}));
+			.toHaveBeenCalledWith(CALL_CONTROLLER_UNINITIALISED_ERROR, expect.objectContaining({controllerMethod: 'function', parameterMap: {param: 'value'}, options: false}));
 		});
 
 		it('should log error when handleWireResponse is called uninitialised', () =>
@@ -456,7 +456,7 @@ describe('baseComponent', () =>
 			const mockMethod = jest.fn();
 			element.callControllerMethod(mockMethod);
 
-			expect(mockError).toHaveBeenCalledWith(CALL_CONTROLLER_UNINITIALISED_ERROR, expect.objectContaining({parameterMap: {}, isThrow: false}));
+			expect(mockError).toHaveBeenCalledWith(CALL_CONTROLLER_UNINITIALISED_ERROR, expect.objectContaining({parameterMap: {}, options: false}));
 		});
 	});
 
@@ -594,7 +594,7 @@ describe('baseComponent', () =>
 			const testError = new Error('Test error');
 			element.consoleError(testError, 'Error context');
 
-			expect(mockError).toHaveBeenCalledWith('Error context', testError);
+			expect(mockError).toHaveBeenCalledWith('Error context', testError, 'baseComponent');
 		});
 
 		it('should use default description in consoleError', () =>
@@ -602,7 +602,46 @@ describe('baseComponent', () =>
 			const testError = new Error('Test error');
 			element.consoleError(testError);
 
-			expect(mockError).toHaveBeenCalledWith('Description', testError);
+			expect(mockError).toHaveBeenCalledWith('Description', testError, 'baseComponent');
+		});
+	});
+
+	describe('componentName', () =>
+	{
+		const readComponentName = (context) => Object.getOwnPropertyDescriptor(BaseComponent.prototype, 'componentName').get.call(context);
+
+		it('names the bundle behind the custom-element tag', () =>
+		{
+			expect(readComponentName({template: {host: {localName: 'c-base-component'}}})).toBe('baseComponent');
+		});
+
+		it('drops the namespace segment of a packaged tag', () =>
+		{
+			expect(readComponentName({template: {host: {localName: 'kern-log-console-detail'}}})).toBe('logConsoleDetail');
+		});
+
+		it('resolves to an empty name when the host element is unavailable', () =>
+		{
+			expect(readComponentName({template: null})).toBe('');
+			expect(readComponentName({template: {}})).toBe('');
+		});
+
+		it('accepts a name a subclass assigns without declaring the property, and logs that name', () =>
+		{
+			const component = Object.create(BaseComponent.prototype);
+
+			// A subclass assigning an undeclared property must keep working: the accessor pair has to
+			// take the assignment rather than throw, or the component crashes where a plain field once
+			// worked. The name it gave itself is then the one attribution uses.
+			expect(() =>
+			{
+				component.componentName = 'orderPanel';
+			}).not.toThrow();
+			expect(component.componentName).toBe('orderPanel');
+
+			BaseComponent.prototype.errorCallback.call(component, new Error('Subclass-named failure'), 'c-child-component');
+
+			expect(mockError).toHaveBeenCalledWith('Component error: Subclass-named failure', expect.objectContaining({errorMessage: 'Subclass-named failure'}), 'orderPanel');
 		});
 	});
 
@@ -639,13 +678,24 @@ describe('baseComponent', () =>
 			testError.name = 'TestError';
 			const testStack = 'c-child-component > c-grandchild-component';
 
-			// Call errorCallback on prototype with empty context (it only uses utilityLogger)
-			BaseComponent.prototype.errorCallback.call({}, testError, testStack);
+			// Call errorCallback on prototype with a stand-in context (it only uses utilityLogger and
+			// the component name), because LWC doesn't expose lifecycle hooks on the element.
+			BaseComponent.prototype.errorCallback.call({componentName: 'orderPanel'}, testError, testStack);
 
-			// Verify utilityLogger.error was called with correct parameters
-			expect(mockError).toHaveBeenCalledWith('Component error', expect.objectContaining({
-				errorMessage: 'Test child component error', errorName: 'TestError', componentStack: 'c-child-component > c-grandchild-component'
-			}));
+			// The error's name travels as exceptionType — the key the server bridge promotes onto the
+			// entry's type field — so an unhandled component error is a typed entry, not just a named one.
+			// The message rides in the persisted text itself, so the entry reads as the failure rather
+			// than as the bare words "Component error" with the real text buried in context JSON.
+			expect(mockError).toHaveBeenCalledWith('Component error: Test child component error', expect.objectContaining({
+				errorMessage: 'Test child component error', exceptionType: 'TestError', componentStack: 'c-child-component > c-grandchild-component'
+			}), 'orderPanel');
+		});
+
+		it('should log the bare phrase when the error carries no message', () =>
+		{
+			BaseComponent.prototype.errorCallback.call({componentName: 'orderPanel'}, new Error(''), 'c-test-component');
+
+			expect(mockError).toHaveBeenCalledWith('Component error', expect.anything(), 'orderPanel');
 		});
 
 		it('should include error stack in log context', () =>
@@ -653,11 +703,11 @@ describe('baseComponent', () =>
 			const testError = new Error('Stack test error');
 			testError.stack = 'Error: Stack test error\n    at someFunction (file.js:10:5)';
 
-			BaseComponent.prototype.errorCallback.call({}, testError, 'c-test-component');
+			BaseComponent.prototype.errorCallback.call({componentName: 'orderPanel'}, testError, 'c-test-component');
 
-			expect(mockError).toHaveBeenCalledWith('Component error', expect.objectContaining({
+			expect(mockError).toHaveBeenCalledWith('Component error: Stack test error', expect.objectContaining({
 				errorStack: expect.stringContaining('Stack test error')
-			}));
+			}), 'orderPanel');
 		});
 	});
 });

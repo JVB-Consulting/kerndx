@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ProblemGroupingMinimumOccurrences__c</fullName>
+    <defaultValue>2</defaultValue>
+    <description>How many times the same error must appear inside the date range you are viewing before the Log Console groups it into Problem summary. The default of 2 keeps one-off errors out of the list. Raise it when the list is still too long to scan; set it to 1 to see every error, including one that has happened only once so far. Nothing is hidden by this number — an error below it simply stays in Individual entries. Leave blank, or set it below 1, to use the default of 2.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>How many repeats before the console lists an error as a problem. Blank = the default of 2. Errors below this number still appear in Individual entries.</inlineHelpText>
+    <label>Problem Grouping Minimum Occurrences</label>
+    <precision>4</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

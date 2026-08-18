@@ -1,12 +1,46 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
 	<lightning-card icon-name="standard:flow" title={label.title}>
+		<div class="slds-grid slds-grid_vertical-align-center" data-testid="operations-control" slot="actions">
+			<template if:true={showOperationsControl}>
+				<lightning-badge class={operationsBadgeClass} data-testid="operations-state-badge" label={operationsBadgeLabel}></lightning-badge>
+				<lightning-button aria-describedby="clear-stalled-unavailable-reason" class="slds-var-m-left_x-small" data-testid="clear-stalled-action"
+								  disabled={isClearStalledDisabled} label={label.clearStalledAction} onclick={handleClearStalled}
+								  title={clearStalledUnavailableMessage}></lightning-button>
+				<span aria-hidden="true" class="slds-assistive-text" data-testid="operations-unavailable-reason" id="clear-stalled-unavailable-reason">{clearStalledUnavailableMessage}</span>
+				<template if:true={showSuspendButton}>
+					<lightning-button aria-describedby="kill-switch-unavailable-reason" class="slds-var-m-left_x-small" data-testid="suspend-action" disabled={isKillSwitchDisabled}
+									  icon-name="utility:warning" label={label.suspendAction} onclick={handleSuspend} title={killSwitchUnavailableMessage}
+									  variant="destructive-text"></lightning-button>
+				</template>
+				<template if:false={showSuspendButton}>
+					<lightning-button aria-describedby="kill-switch-unavailable-reason" class="slds-var-m-left_x-small" data-testid="resume-action" disabled={isKillSwitchDisabled}
+									  label={label.resumeAction} onclick={handleResume} title={killSwitchUnavailableMessage} variant="brand"></lightning-button>
+				</template>
+				<span aria-hidden="true" class="slds-assistive-text" data-testid="operations-unavailable-reason"
+					  id="kill-switch-unavailable-reason">{killSwitchUnavailableMessage}</span>
+			</template>
+		</div>
+
+		<!-- Why a header action is greyed out, in plain sight. The buttons live in the card header,
+			 where a browser suppresses a disabled control's tooltip and no keyboard reader can focus
+			 it, so the reason is repeated here, named by its action, and left IN the accessibility
+			 tree: it is the one path to the reason that depends on neither pointing nor focusing. -->
+		<template if:true={hasUnavailableReasons}>
+			<ul class="action-unavailable-notes slds-text-body_small slds-text-color_weak" data-testid="operations-unavailable-notes">
+				<template for:each={unavailableReasons} for:item="reason">
+					<li data-testid="operations-unavailable-note" key={reason.key}>{reason.text}</li>
+				</template>
+			</ul>
+		</template>
+
 		<div class="slds-grid">
 			<div class="slds-col slds-size_1-of-2 slds-border_right">
 				<c-chain-monitor-list onselect={handleSelect}></c-chain-monitor-list>
 			</div>
 			<div class="slds-col slds-size_1-of-2">
-				<c-chain-monitor-detail execution-id={selectedExecutionId} onchainabort={handleChainAbort}></c-chain-monitor-detail>
+				<c-chain-monitor-detail execution-id={selectedExecutionId} onchainabort={handleChainAbort} onchainlineagenavigate={handleLineageNavigate}
+										onchainrestart={handleChainRestart} onchainretry={handleChainRetry}></c-chain-monitor-detail>
 			</div>
 		</div>
 	</lightning-card>

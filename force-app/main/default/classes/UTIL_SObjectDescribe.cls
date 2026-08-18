@@ -39,7 +39,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -886,7 +886,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @description Display metadata for a single SObject field, surfaced to Lightning components for dynamic
 	 * form rendering.
 	 */
-	public class DTO_FieldInformation
+	public inherited sharing class DTO_FieldInformation
 	{
 		/**
 		 * @description The user-facing label of the field.
@@ -1050,6 +1050,31 @@ global inherited sharing class UTIL_SObjectDescribe
 		}
 
 		return objectDescribe == null & objectType != null ? new UTIL_SObjectDescribe(objectType) : objectDescribe;
+	}
+
+	/**
+	 * @description Whether the CURRENT user context has object-level read access to the given
+	 * SObject. Deliberately performs a fresh platform describe on every call instead of consulting
+	 * the request-cached instances: a DescribeSObjectResult snapshots the permissions of the
+	 * context it was created under, so a cached handle answers for whichever context first
+	 * described the type in the transaction — the wrong answer for any permission gate evaluated
+	 * under System.runAs or a mixed-context transaction. Object-level read only; the cached
+	 * describes remain the home for every other describe read.
+	 *
+	 * @param objectType The SObject type to check.
+	 *
+	 * @return True when the current user context can read the object; false for a null type.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean readable = UTIL_SObjectDescribe.isObjectAccessible(LogEntry__c.SObjectType);
+	 * ```
+	 */
+	public static Boolean isObjectAccessible(SObjectType objectType)
+	{
+		return objectType != null && objectType.getDescribe().isAccessible();
 	}
 
 	/**
@@ -2022,7 +2047,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * This class is intentionally `private` to maintain managed package compatibility - making it `global` would change
 	 * the external inheritance hierarchy of already-released `FieldsMap` and `GlobalDescribeMap` classes.
 	 */
-	private abstract class NamespacedAttributeMap
+	private inherited sharing abstract class NamespacedAttributeMap
 	{
 		/**
 		 * @description The current namespace prefix, derived from this class's package namespace.

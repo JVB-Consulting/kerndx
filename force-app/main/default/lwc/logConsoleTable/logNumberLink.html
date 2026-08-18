@@ -1,0 +1,24 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!--
+* @description Custom datatable cell template for the Log Console `logNumber` column. An entry and a
+* tagged problem each own a LogEntry__c and link to it. A grouped problem is folded at read time, owns
+* no record, and has no log number to show: the standard `url` type renders an empty cell there, and a
+* dash reads as a value that went missing rather than one this kind of row never had, so the cell says
+* the row is grouped instead. The muted stand-in is kept for the remaining case, a row that does own a
+* record but carries no number, where something really is absent.
+*
+* @author Jason van Beukering
+*
+* @date August 2026
+* -->
+<template>
+	<template lwc:if={typeAttributes.recordUrl}>
+		<a href={typeAttributes.recordUrl} rel="noopener" target="_blank">{value}</a>
+	</template>
+	<template lwc:elseif={typeAttributes.isGrouped}>
+		<span class="log-number-grouped">{value}</span>
+	</template>
+	<template lwc:else>
+		<span class="log-number-none">{value}</span>
+	</template>
+</template>

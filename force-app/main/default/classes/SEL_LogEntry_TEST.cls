@@ -8,10 +8,10 @@
  *
  * @group Logging
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class SEL_LogEntry_TEST
 {
 	/**
@@ -887,6 +887,64 @@ private class SEL_LogEntry_TEST
 	}
 
 	/**
+	 * @description Tests that criteria values carrying SOSL string-literal metacharacters reach the
+	 * RETURNING WHERE clause as data and never as syntax. The body leg is the one predicate in this
+	 * selector assembled by string concatenation rather than through QRY_Builder, so the escaping is
+	 * a contract rather than a structural guarantee: each payload below closes its own literal and
+	 * appends a predicate that would match every row, and a trailing backslash would otherwise escape
+	 * the closing quote and break the query outright. Every payload must therefore match nothing,
+	 * while the control proves the same harness does surface a row when the filter genuinely matches
+	 * — so a widening regression cannot hide behind an empty result. Covers both escaped sites: the
+	 * single-value clauses and the IN-list clauses.
+	 */
+	@IsTest
+	private static void shouldNeutraliseSoslMetacharactersInBodyLegCriteria()
+	{
+		LogEntry__c bodyMatch = seedSearchableRow(BASE_NULL_POINTER, LOG_Engine.LEVEL_ERROR, 'generic short message',
+				'a deep body needle for the metacharacter probe', SEED_CORRELATION_ID);
+		Test.setFixedSearchResults(new List<Id> {bodyMatch.Id});
+
+		String quoteBreakout = 'zzz\' OR ' + String.valueOf(LogEntry__c.CorrelationId__c) + ' != \'';
+		String trailingBackslash = 'zzz\\';
+
+		SEL_LogEntry.BrowseCriteria correlationPayload = new SEL_LogEntry.BrowseCriteria();
+		correlationPayload.correlationId = quoteBreakout;
+
+		SEL_LogEntry.BrowseCriteria backslashPayload = new SEL_LogEntry.BrowseCriteria();
+		backslashPayload.correlationId = trailingBackslash;
+
+		SEL_LogEntry.BrowseCriteria userPayload = new SEL_LogEntry.BrowseCriteria();
+		userPayload.userId = quoteBreakout;
+
+		SEL_LogEntry.BrowseCriteria levelListPayload = new SEL_LogEntry.BrowseCriteria();
+		levelListPayload.levels = new List<String> {'WARN\' OR ' + String.valueOf(LogEntry__c.LogLevel__c) + ' != \''};
+
+		SEL_LogEntry.BrowseCriteria eventListPayload = new SEL_LogEntry.BrowseCriteria();
+		eventListPayload.executionEvents = new List<String> {'BATCH_APEX\' OR ' + String.valueOf(LogEntry__c.ExecutionEvent__c) + ' != \''};
+
+		SEL_LogEntry.BrowseCriteria control = new SEL_LogEntry.BrowseCriteria();
+		control.correlationId = SEED_CORRELATION_ID;
+
+		SEL_LogEntry selector = new SEL_LogEntry();
+		Test.startTest();
+		Set<Id> correlationHits = selector.findIdsByBodySosl('needle', correlationPayload, 2000);
+		Set<Id> backslashHits = selector.findIdsByBodySosl('needle', backslashPayload, 2000);
+		Set<Id> userHits = selector.findIdsByBodySosl('needle', userPayload, 2000);
+		Set<Id> levelHits = selector.findIdsByBodySosl('needle', levelListPayload, 2000);
+		Set<Id> eventHits = selector.findIdsByBodySosl('needle', eventListPayload, 2000);
+		Set<Id> controlHits = selector.findIdsByBodySosl('needle', control, 2000);
+		Test.stopTest();
+
+		Assert.areEqual(new Set<Id> {bodyMatch.Id}, controlHits,
+				'Control: a genuinely matching correlation filter must surface the row, so an empty payload result is meaningful');
+		Assert.isTrue(correlationHits.isEmpty(), 'A quote-breakout correlation value must be escaped to data and match nothing');
+		Assert.isTrue(backslashHits.isEmpty(), 'A trailing-backslash correlation value must be escaped rather than escaping the closing quote');
+		Assert.isTrue(userHits.isEmpty(), 'A quote-breakout user id must be escaped to data and match nothing');
+		Assert.isTrue(levelHits.isEmpty(), 'A quote-breakout level in the IN list must be escaped to data and match nothing');
+		Assert.isTrue(eventHits.isEmpty(), 'A quote-breakout execution event in the IN list must be escaped to data and match nothing');
+	}
+
+	/**
 	 * @description Tests that findSortedPageByIds fetches exactly the requested Ids server-side paged, and
 	 * that an empty id set yields an empty page rather than an unbounded query.
 	 */
@@ -1078,6 +1136,91 @@ private class SEL_LogEntry_TEST
 	}
 
 	/**
+	 * @description Tests that the pre-flight scan count sizes exactly the population the fold would scan,
+	 * and nothing else. The count exists to decline a fold that would exhaust the query-row governor, so a
+	 * count over a wider population than the fold scans would decline healthy folds, and one over a narrower
+	 * population would wave through the fold that breaks the view — the failure it guards against cannot be
+	 * caught. Every exclusion the fold applies is asserted here: rollup counter rows, fingerprinted rows,
+	 * rows carrying neither an exception type nor a class method, and rows outside the level scope.
+	 */
+	@IsTest
+	private static void shouldCountOnlyTheRowsTheFoldWouldScan()
+	{
+		seedDerivedOccurrences(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, DERIVED_LINE_ACCOUNT, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_NPE, 2);
+		seedDerivedOccurrences(DERIVED_EXCEPTION_DML, DERIVED_METHOD_OPPORTUNITY, DERIVED_LINE_OPPORTUNITY, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_DML, 3);
+		seedDerivedOccurrences(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, DERIVED_LINE_ACCOUNT, LOG_Engine.LEVEL_INFO, DERIVED_LABEL_NPE, 4);
+		// Structureless rows: no exception type and no class method, so the attribution guard excludes them.
+		seedDerivedOccurrences(null, null, null, LOG_Engine.LEVEL_ERROR, 'a message with no structure', 5);
+		// A rollup counter row and a fingerprinted detail row: neither is a plain forensic row.
+		TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ExceptionType__c, DERIVED_EXCEPTION_NPE)
+				.withOverride(LogEntry__c.ClassMethod__c, DERIVED_METHOD_ACCOUNT)
+				.withOverride(LogEntry__c.OccurrenceCount__c, 9)
+				.build();
+		TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ExceptionType__c, DERIVED_EXCEPTION_NPE)
+				.withOverride(LogEntry__c.ClassMethod__c, DERIVED_METHOD_ACCOUNT)
+				.withOverride(LogEntry__c.Fingerprint__c, TRG_PersistLogEntry.PREFIX_DETAIL + BASE_NULL_POINTER)
+				.build();
+
+		Test.startTest();
+		Integer errorScope = new SEL_LogEntry().countFoldableRowsInWindow(new SEL_LogEntry.BrowseCriteria(), new List<String> {LOG_Engine.LEVEL_ERROR});
+		Integer allLevels = new SEL_LogEntry().countFoldableRowsInWindow(new SEL_LogEntry.BrowseCriteria(), new List<String>());
+		Test.stopTest();
+
+		Assert.areEqual(5, errorScope,
+				'Only the five attributed, plain, ERROR forensic rows should be counted — not the INFO rows, the structureless rows, the rollup counter or the fingerprinted detail');
+		Assert.areEqual(9, allLevels,
+				'An empty level scope should widen the count to the INFO rows too, while still excluding the structureless, rollup and fingerprinted rows');
+	}
+
+	/**
+	 * @description Tests that the pre-flight scan count is bounded by BOTH ends of the CreatedDate window.
+	 * The window is the lever a subscriber actually moves — and a custom range has no upper bound — so a
+	 * count that ignored it would size every request against the whole table and decline folds that are
+	 * safe. The window is placed wholly in the past so rows fall out on each side independently: excluding
+	 * only by the lower bound would leave the windowEnd predicate executed but never proven.
+	 */
+	@IsTest
+	private static void shouldBoundFoldableRowCountToBothEndsOfTheCreatedDateWindow()
+	{
+		Datetime now = Datetime.now();
+		List<LogEntry__c> insideRows = seedDerivedOccurrences(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, DERIVED_LINE_ACCOUNT, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_NPE, 2);
+		for(LogEntry__c insideRow : insideRows)
+		{
+			Test.setCreatedDate(insideRow.Id, now.addDays(-7));
+		}
+		List<LogEntry__c> beforeWindowRows =
+				seedDerivedOccurrences(DERIVED_EXCEPTION_DML, DERIVED_METHOD_OPPORTUNITY, DERIVED_LINE_OPPORTUNITY, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_DML, 3);
+		for(LogEntry__c beforeWindowRow : beforeWindowRows)
+		{
+			Test.setCreatedDate(beforeWindowRow.Id, now.addDays(-20));
+		}
+		// Left at "now", so these sit AFTER windowEnd and can only be excluded by the upper bound.
+		seedDerivedOccurrences(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_OPPORTUNITY, DERIVED_LINE_OPPORTUNITY, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_NPE, 4);
+
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.windowStart = now.addDays(-10);
+		criteria.windowEnd = now.addDays(-5);
+
+		SEL_LogEntry.BrowseCriteria lowerBoundOnly = new SEL_LogEntry.BrowseCriteria();
+		lowerBoundOnly.windowStart = now.addDays(-10);
+
+		Test.startTest();
+		Integer windowed = new SEL_LogEntry().countFoldableRowsInWindow(criteria, new List<String> {LOG_Engine.LEVEL_ERROR});
+		Integer lowerOnly = new SEL_LogEntry().countFoldableRowsInWindow(lowerBoundOnly, new List<String> {LOG_Engine.LEVEL_ERROR});
+		Integer unwindowed = new SEL_LogEntry().countFoldableRowsInWindow(new SEL_LogEntry.BrowseCriteria(), new List<String> {LOG_Engine.LEVEL_ERROR});
+		Test.stopTest();
+
+		Assert.areEqual(2, windowed, 'Only the two rows inside both bounds should be counted');
+		Assert.areEqual(6, lowerOnly,
+				'Dropping only the upper bound must readmit the four rows created now — proving windowEnd, not windowStart, is what excluded them');
+		Assert.areEqual(9, unwindowed, 'With no window at all the count should span every foldable row, proving both bounds narrowed it');
+	}
+
+	/**
 	 * @description Tests that rows sharing an exception type, class method and log level but recorded at
 	 * different line numbers fold into ONE signature — the line number is not part of the grouping key
 	 * (Number fields are not groupable in SOQL), and the folded COUNT spans the lines.
@@ -1129,9 +1272,12 @@ private class SEL_LogEntry_TEST
 		Test.setCreatedDate(rows[1].Id, now.addDays(-1));
 		Test.setCreatedDate(rows[2].Id, now.addDays(-2));
 		SEL_LogEntry.DerivedSignature key = new SEL_LogEntry.DerivedSignature(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, LOG_Engine.LEVEL_ERROR);
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.windowStart = now.addDays(-5);
+		criteria.windowEnd = now.addDays(1);
 
 		Test.startTest();
-		LogEntry__c representative = new SEL_LogEntry().findDerivedRepresentative(key, now.addDays(-5), now.addDays(1));
+		LogEntry__c representative = new SEL_LogEntry().findDerivedRepresentative(key, criteria);
 		Test.stopTest();
 
 		Assert.isNotNull(representative, 'A representative row should be returned for a matching signature');
@@ -1149,9 +1295,12 @@ private class SEL_LogEntry_TEST
 		Datetime now = Datetime.now();
 		seedDerivedOccurrences(DERIVED_EXCEPTION_NPE, null, DERIVED_LINE_ACCOUNT, LOG_Engine.LEVEL_ERROR, DERIVED_LABEL_NPE, 2);
 		SEL_LogEntry.DerivedSignature key = new SEL_LogEntry.DerivedSignature(DERIVED_EXCEPTION_NPE, null, LOG_Engine.LEVEL_ERROR);
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.windowStart = now.addDays(-5);
+		criteria.windowEnd = now.addDays(1);
 
 		Test.startTest();
-		LogEntry__c representative = new SEL_LogEntry().findDerivedRepresentative(key, now.addDays(-5), now.addDays(1));
+		LogEntry__c representative = new SEL_LogEntry().findDerivedRepresentative(key, criteria);
 		Test.stopTest();
 
 		Assert.isNotNull(representative, 'A null-class-method signature should still resolve a representative row (IS NULL match)');
@@ -1167,14 +1316,105 @@ private class SEL_LogEntry_TEST
 	{
 		Datetime now = Datetime.now();
 		SEL_LogEntry.DerivedSignature key = new SEL_LogEntry.DerivedSignature(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, LOG_Engine.LEVEL_ERROR);
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.windowStart = now.addDays(-5);
+		criteria.windowEnd = now.addDays(1);
 
 		Test.startTest();
-		LogEntry__c noMatch = new SEL_LogEntry().findDerivedRepresentative(key, now.addDays(-5), now.addDays(1));
-		LogEntry__c nullSignature = new SEL_LogEntry().findDerivedRepresentative(null, null, null);
+		LogEntry__c noMatch = new SEL_LogEntry().findDerivedRepresentative(key, criteria);
+		LogEntry__c nullSignature = new SEL_LogEntry().findDerivedRepresentative(null, null);
 		Test.stopTest();
 
 		Assert.isNull(noMatch, 'No representative should be returned when no forensic row matches the signature');
 		Assert.isNull(nullSignature, 'A null signature should short-circuit to null');
+	}
+
+	/**
+	 * @description Tests that the fold applies the shared user scope: only rows recorded for the scoped user
+	 * fold into signatures — the same rule the rollup leg's criteria already honor, so a user-filtered
+	 * Problems view never counts another user's derived occurrences.
+	 */
+	@IsTest
+	private static void shouldScopeFoldToUserFilter()
+	{
+		String scopedUser = UTIL_Random.randomId(User.SObjectType);
+		String otherUser = UTIL_Random.randomId(User.SObjectType);
+		newDerivedNullPointerRowBuilder()
+				.withOverride(LogEntry__c.UserId__c, scopedUser)
+				.withCount(2)
+				.buildList();
+		newDerivedDmlRowBuilder()
+				.withOverride(LogEntry__c.UserId__c, otherUser)
+				.withCount(2)
+				.buildList();
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.userId = scopedUser;
+
+		Test.startTest();
+		List<SEL_LogEntry.DerivedSignature> signatures = new SEL_LogEntry().foldDerivedSignaturesInWindow(criteria, 2000, 2, new List<String> {LOG_Engine.LEVEL_ERROR});
+		Test.stopTest();
+
+		Assert.areEqual(1, signatures.size(), 'Only the scoped user\'s rows should fold into a signature');
+		Assert.areEqual(DERIVED_EXCEPTION_NPE, signatures[0].exceptionType, 'The surviving signature should be the scoped user\'s');
+		Assert.areEqual(2, signatures[0].occurrenceCount, 'Only the scoped user\'s occurrences should count');
+	}
+
+	/**
+	 * @description Tests that the fold applies the shared execution-context scope: only rows recorded in the
+	 * scoped context fold into signatures — the same rule the rollup leg's criteria already honor.
+	 */
+	@IsTest
+	private static void shouldScopeFoldToExecutionContextFilter()
+	{
+		newDerivedNullPointerRowBuilder()
+				.withOverride(LogEntry__c.ExecutionEvent__c, Quiddity.AURA.name())
+				.withCount(2)
+				.buildList();
+		newDerivedDmlRowBuilder()
+				.withOverride(LogEntry__c.ExecutionEvent__c, Quiddity.BATCH_APEX.name())
+				.withCount(2)
+				.buildList();
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.executionEvents = new List<String> {Quiddity.AURA.name()};
+
+		Test.startTest();
+		List<SEL_LogEntry.DerivedSignature> signatures = new SEL_LogEntry().foldDerivedSignaturesInWindow(criteria, 2000, 2, new List<String> {LOG_Engine.LEVEL_ERROR});
+		Test.stopTest();
+
+		Assert.areEqual(1, signatures.size(), 'Only the scoped execution context\'s rows should fold into a signature');
+		Assert.areEqual(DERIVED_EXCEPTION_NPE, signatures[0].exceptionType, 'The surviving signature should be the scoped context\'s');
+		Assert.areEqual(2, signatures[0].occurrenceCount, 'Only the scoped context\'s occurrences should count');
+	}
+
+	/**
+	 * @description Tests that findDerivedRepresentative applies the shared correlation scope: with a NEWER
+	 * un-correlated occurrence of the same signature present, a correlation-scoped lookup returns the
+	 * most-recent CORRELATED row — the opened representative always sits inside the filtered view that
+	 * listed the problem.
+	 */
+	@IsTest
+	private static void shouldScopeDerivedRepresentativeToCorrelation()
+	{
+		Datetime now = Datetime.now();
+		String pinnedCorrelation = UTIL_Random.randomUUID();
+		LogEntry__c correlated = (LogEntry__c)newDerivedNullPointerRowBuilder()
+				.withOverride(LogEntry__c.CorrelationId__c, pinnedCorrelation)
+				.build();
+		LogEntry__c uncorrelated = (LogEntry__c)newDerivedNullPointerRowBuilder().build();
+		Test.setCreatedDate(correlated.Id, now.addMinutes(-10));
+		Test.setCreatedDate(uncorrelated.Id, now.addMinutes(-1));
+		SEL_LogEntry.DerivedSignature key = new SEL_LogEntry.DerivedSignature(DERIVED_EXCEPTION_NPE, DERIVED_METHOD_ACCOUNT, LOG_Engine.LEVEL_ERROR);
+		SEL_LogEntry.BrowseCriteria criteria = new SEL_LogEntry.BrowseCriteria();
+		criteria.windowStart = now.addDays(-5);
+		criteria.windowEnd = now.addDays(1);
+		criteria.correlationId = pinnedCorrelation;
+
+		Test.startTest();
+		LogEntry__c representative = new SEL_LogEntry().findDerivedRepresentative(key, criteria);
+		Test.stopTest();
+
+		Assert.isNotNull(representative, 'A correlation-scoped representative should be found');
+		Assert.areEqual(correlated.Id, representative.Id, 'The correlation scope should exclude the newer un-correlated row');
 	}
 
 	/**
@@ -1471,6 +1711,38 @@ private class SEL_LogEntry_TEST
 	}
 
 	/**
+	 * @description Starts a builder for the standard NullPointer derived row (ERROR level, the NPE
+	 * exception/method/label constants) so the scope tests can vary just the scope field under test
+	 * without repeating the identity overrides.
+	 *
+	 * @return The builder, ready for scope-field overrides and build.
+	 */
+	private static TST_Builder.Builder newDerivedNullPointerRowBuilder()
+	{
+		return TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ExceptionType__c, DERIVED_EXCEPTION_NPE)
+				.withOverride(LogEntry__c.ClassMethod__c, DERIVED_METHOD_ACCOUNT)
+				.withOverride(LogEntry__c.ShortMessage__c, DERIVED_LABEL_NPE);
+	}
+
+	/**
+	 * @description Starts a builder for the standard DML derived row (ERROR level, the DML
+	 * exception/method/label constants) — the second, distinct signature the scope tests seed beside the
+	 * NullPointer row so the scope filter has something to exclude.
+	 *
+	 * @return The builder, ready for scope-field overrides and build.
+	 */
+	private static TST_Builder.Builder newDerivedDmlRowBuilder()
+	{
+		return TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ExceptionType__c, DERIVED_EXCEPTION_DML)
+				.withOverride(LogEntry__c.ClassMethod__c, DERIVED_METHOD_OPPORTUNITY)
+				.withOverride(LogEntry__c.ShortMessage__c, DERIVED_LABEL_DML);
+	}
+
+	/**
 	 * @description Retrieves the committed test admin user set up in @TestSetup. Used by the
 	 * tier-A test to seed the LogEntry__c row before the low-privilege user queries it.
 	 *
@@ -1491,5 +1763,118 @@ private class SEL_LogEntry_TEST
 	private static User getLowPrivilegeUser()
 	{
 		return new SEL_User().findByCompanyName(LOW_PRIVILEGE_COMPANY);
+	}
+
+	/**
+	 * @description The newest-rows read spans BOTH reference legs and deduplicates them: an entry
+	 * matched by correlation, one matched only by its record reference, and one matched by both
+	 * return as three rows, newest first through the Id tiebreak on same-transaction timestamps; an
+	 * unrelated forensic row and an occurrence rollup carrying the correlation never appear.
+	 */
+	@IsTest
+	private static void shouldFindNewestRowsAcrossCorrelationAndRecordLegs()
+	{
+		String correlationId = UTIL_Random.randomUUID();
+		Id recordId = UTIL_Random.randomId(AsyncChainExecution__c.SObjectType);
+		LogEntry__c correlationOnly = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.CorrelationId__c, correlationId).build();
+		LogEntry__c recordOnly = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.RecordId__c, recordId).build();
+		LogEntry__c bothReferences = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.CorrelationId__c, correlationId)
+				.withOverride(LogEntry__c.RecordId__c, recordId)
+				.build();
+		TST_Builder.of(LogEntry__c.SObjectType).build();
+		TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.CorrelationId__c, correlationId)
+				.withOverride(LogEntry__c.OccurrenceCount__c, 3)
+				.build();
+
+		List<LogEntry__c> rows = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(correlationId, recordId, 10);
+
+		Assert.areEqual(3, rows.size(), 'Exactly the three referencing forensic rows return, deduplicated across the legs');
+		Assert.areEqual(bothReferences.Id, rows[0].Id, 'The newest row leads: same-timestamp order is pinned by the Id tiebreak');
+		Assert.areEqual(recordOnly.Id, rows[1].Id, 'The record-referenced row follows in insert order');
+		Assert.areEqual(correlationOnly.Id, rows[2].Id, 'The correlation-only row is oldest');
+	}
+
+	/**
+	 * @description The single-leg cap: with a null record reference only the correlation leg reads,
+	 * and it returns the newest rows up to the supplied limit.
+	 */
+	@IsTest
+	private static void shouldCapNewestRowsAtTheRowLimit()
+	{
+		String correlationId = UTIL_Random.randomUUID();
+		TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.CorrelationId__c, correlationId).withCount(2).buildList();
+		LogEntry__c olderOfTheNewest = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.CorrelationId__c, correlationId).build();
+		LogEntry__c newest = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.CorrelationId__c, correlationId).build();
+
+		List<LogEntry__c> rows = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(correlationId, null, 2);
+
+		Assert.areEqual(2, rows.size(), 'The read caps at the supplied row limit');
+		Assert.areEqual(newest.Id, rows[0].Id, 'The newest row survives the cap');
+		Assert.areEqual(olderOfTheNewest.Id, rows[1].Id, 'The second-newest row survives the cap');
+	}
+
+	/**
+	 * @description The cross-leg merge-cap invariant — the property the two-leg design exists to
+	 * establish: when BOTH legs fill to the limit, the final bounded fetch returns the true global
+	 * newest rows across the union, not either leg's slice. Three correlation-only rows inserted
+	 * first and three record-only rows after, read with a limit of three, must yield exactly the
+	 * record-only block newest-first — dropping or inverting the union query's ordering fails this
+	 * while every per-leg witness stays green.
+	 */
+	@IsTest
+	private static void shouldMergeBothLegsAndKeepOnlyTheGlobalNewestRows()
+	{
+		String correlationId = UTIL_Random.randomUUID();
+		Id recordId = UTIL_Random.randomId(AsyncChainExecution__c.SObjectType);
+		TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.CorrelationId__c, correlationId).withCount(3).buildList();
+		LogEntry__c oldestRecordReferenced = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.RecordId__c, recordId).build();
+		LogEntry__c middleRecordReferenced = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.RecordId__c, recordId).build();
+		LogEntry__c newestRecordReferenced = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.RecordId__c, recordId).build();
+
+		List<LogEntry__c> rows = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(correlationId, recordId, 3);
+
+		Assert.areEqual(3, rows.size(), 'The merged read caps at the supplied row limit');
+		Assert.areEqual(newestRecordReferenced.Id, rows[0].Id, 'The global newest row leads the merged result');
+		Assert.areEqual(middleRecordReferenced.Id, rows[1].Id, 'The global second-newest row follows');
+		Assert.areEqual(oldestRecordReferenced.Id, rows[2].Id, 'The record-only block wholly displaces the older correlation leg');
+	}
+
+	/**
+	 * @description Each reference leg skips independently: with a blank correlation the record leg
+	 * still reads alone, and with both references absent the read returns empty without querying.
+	 */
+	@IsTest
+	private static void shouldSkipReferenceLegsIndependently()
+	{
+		Id recordId = UTIL_Random.randomId(AsyncChainExecution__c.SObjectType);
+		LogEntry__c recordReferenced = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType).withOverride(LogEntry__c.RecordId__c, recordId).build();
+
+		List<LogEntry__c> recordLegOnly = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(UTIL_String.EMPTY, recordId, 5);
+		List<LogEntry__c> bothLegsSkipped = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(UTIL_String.EMPTY, null, 5);
+
+		Assert.areEqual(1, recordLegOnly.size(), 'The record leg reads alone when the correlation leg skips');
+		Assert.areEqual(recordReferenced.Id, recordLegOnly[0].Id, 'The record-referenced row returns from the lone leg');
+		Assert.isTrue(bothLegsSkipped.isEmpty(), 'Both legs skipped yields an empty read');
+	}
+
+	/**
+	 * @description Tests the batched representative read's empty contract: a null signature list and an
+	 * empty one each return an empty list without issuing a query, matching the selector convention that
+	 * blank input never becomes an unbounded read. The resolution behaviour itself is proven through the
+	 * problems page in CTRL_LogConsole_TEST.
+	 */
+	@IsTest
+	private static void shouldReturnEmptyRepresentativesForNullOrEmptySignatures()
+	{
+		Integer queriesBefore = Limits.getQueries();
+
+		List<LogEntry__c> forNull = new SEL_LogEntry().findDerivedRepresentatives(null, new SEL_LogEntry.BrowseCriteria());
+		List<LogEntry__c> forEmpty = new SEL_LogEntry().findDerivedRepresentatives(new List<SEL_LogEntry.DerivedSignature>(), null);
+
+		Assert.isTrue(forNull.isEmpty(), 'A null signature list yields an empty read');
+		Assert.isTrue(forEmpty.isEmpty(), 'An empty signature list yields an empty read');
+		Assert.areEqual(queriesBefore, Limits.getQueries(), 'Neither empty-contract call should issue a query');
 	}
 }

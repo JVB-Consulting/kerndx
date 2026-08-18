@@ -1,65 +1,100 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<div class="log-console">
+	<!-- Escape reaches the console from any control inside it, including the drawer, which is what makes
+		 one handler on the root enough to close the drawer from wherever the reader's focus is. -->
+	<div class="log-console" onkeydown={handleKeyDown}>
 		<div class="brandbar">
-			<span class="title">{label.title}</span>
+			<span class="title" data-spec-id="console-title">{label.title}</span>
 		</div>
 
-		<div class="toolrow slds-grid slds-grid_vertical-align-end slds-wrap slds-gutters_xx-small slds-p-around_x-small">
-			<lightning-combobox class="date-range-combobox" dropdown-alignment="left" label={label.dateRange} onchange={handleDateRangeChange} options={dateRangeOptions}
-			                    value={rangePreset}></lightning-combobox>
+		<!-- Aligned to the top of the row, not the bottom: a date input grows its own format hint the moment
+			 it is focused, and a bottom-aligned row answered that by lifting every other control ~20 px, so
+			 the four range boxes stopped lining up as soon as one of them was touched. -->
+		<div class="toolrow slds-grid slds-grid_vertical-align-start slds-wrap slds-gutters_xx-small slds-p-around_x-small">
+			<lightning-combobox class="date-range-combobox" data-spec-id="date-range-control" dropdown-alignment="left" label={label.dateRange} onchange={handleDateRangeChange}
+								options={dateRangeOptions} value={rangePreset}></lightning-combobox>
 			<template lwc:if={isCustomRange}>
-				<lightning-input class="customrange-field slds-m-left_x-small" data-field="fromDate" label={label.fromDate} onchange={handleCustomRangeChange} type="date"
-				                 value={customFromDate}></lightning-input>
-				<lightning-input class="customrange-field" data-field="fromTime" label={label.fromTime} onchange={handleCustomRangeChange} type="time"
-				                 value={customFromTime}></lightning-input>
-				<lightning-input class="customrange-field" data-field="toDate" label={label.toDate} onchange={handleCustomRangeChange} type="date"
-				                 value={customToDate}></lightning-input>
-				<lightning-input class="customrange-field" data-field="toTime" label={label.toTime} onchange={handleCustomRangeChange} type="time"
-				                 value={customToTime}></lightning-input>
+				<lightning-input class="customrange-field slds-m-left_x-small" data-field="fromDate" data-spec-id="custom-range-from-date" label={label.fromDate}
+								 onchange={handleCustomRangeChange} type="date" value={customFromDate}></lightning-input>
+				<!-- step is in seconds on a time input: 1 offers the picker to the second, so a range can be pinned tighter than a minute -->
+				<lightning-input class="customrange-field" data-field="fromTime" data-spec-id="custom-range-from-time" label={label.fromTime} onchange={handleCustomRangeChange}
+								 step="1" type="time" value={customFromTime}></lightning-input>
+				<lightning-input class="customrange-field" data-field="toDate" data-spec-id="custom-range-to-date" label={label.toDate} onchange={handleCustomRangeChange}
+								 type="date" value={customToDate}></lightning-input>
+				<lightning-input class="customrange-field" data-field="toTime" data-spec-id="custom-range-to-time" label={label.toTime} onchange={handleCustomRangeChange} step="1"
+								 type="time" value={customToTime}></lightning-input>
 			</template>
 			<span class="slds-col_bump-left"></span>
-			<lightning-button class="slds-align-bottom" icon-name="utility:refresh" label={label.refresh} onclick={handleRefresh}></lightning-button>
+			<!-- Offset by one label's height rather than bottom-aligned, so the button lines up with the input
+				 BOXES beside it and stays put when one of them grows a hint. -->
+			<lightning-button class="toolrow__action" data-spec-id="refresh-action" icon-name="utility:refresh" label={label.refresh} onclick={handleRefresh}></lightning-button>
 		</div>
 
-		<div class="filterrow slds-grid slds-grid_vertical-align-center slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small slds-p-bottom_x-small">
-			<lightning-button-group>
-				<lightning-button data-view="problems" label={label.viewProblems} onclick={handleViewChange} variant={problemsVariant}></lightning-button>
-				<lightning-button data-view="entries" label={label.viewEntries} onclick={handleViewChange} variant={entriesVariant}></lightning-button>
-			</lightning-button-group>
+		<template lwc:if={customRangeError}>
+			<div class="range-error" data-spec-id="custom-range-error" data-testid="custom-range-error" role="alert">
+				<lightning-icon class="range-error__icon" icon-name="utility:error" size="x-small" variant="error"></lightning-icon>
+				<span>{customRangeError}</span>
+			</div>
+		</template>
 
-			<div aria-label={label.levelGroupLabel} class="level-seg slds-m-left_x-small" role="group">
-				<template for:each={levelToggles} for:item="toggle">
-					<!-- aria-pressed binds a valid true/false string at run time; the inspector cannot prove that for a bound value -->
-					<!--suppress HtmlWrongAttributeValue -->
-					<button aria-pressed={toggle.pressed} class="level-seg-btn" data-level={toggle.level} key={toggle.level} onclick={handleLevelToggle}>
-						{toggle.level}
-					</button>
-				</template>
+		<div class="filterrow slds-grid slds-grid_vertical-align-end slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small slds-p-bottom_x-small">
+			<div class="filter-group">
+				<span class="eyebrow" data-spec-id="view-eyebrow">{label.viewGroupLabel}</span>
+				<div aria-label={label.viewGroupLabel} data-testid="view-group" role="group">
+					<lightning-button-group>
+						<lightning-button data-spec-id="view-toggle-problems" data-view="problems" label={label.viewProblems} onclick={handleViewChange}
+										  variant={problemsVariant}></lightning-button>
+						<lightning-button data-spec-id="view-toggle-entries" data-view="entries" label={label.viewEntries} onclick={handleViewChange}
+										  variant={entriesVariant}></lightning-button>
+					</lightning-button-group>
+				</div>
 			</div>
 
-			<lightning-combobox class="slds-m-left_x-small filter-combobox" label={label.contextFilterLabel} onchange={handleContextChange} options={contextOptions}
-			                    placeholder={label.allContexts} value={executionEvent} variant="label-hidden"></lightning-combobox>
+			<div class="filter-group slds-m-left_x-small">
+				<span class="eyebrow" data-spec-id="levels-eyebrow">{label.levelsGroupLabel}</span>
+				<div aria-label={label.levelGroupLabel} class="level-seg" role="group">
+					<template for:each={levelToggles} for:item="toggle">
+						<!-- aria-pressed binds a valid true/false string at run time; the inspector cannot prove that for a bound value -->
+						<!--suppress HtmlWrongAttributeValue -->
+						<button aria-pressed={toggle.pressed} class="level-seg-btn" data-level={toggle.level} data-spec-id="level-toggle" key={toggle.level}
+								onclick={handleLevelToggle}>
+							{toggle.level}
+						</button>
+					</template>
+				</div>
+			</div>
+
+			<div class="filter-group slds-m-left_x-small">
+				<span class="eyebrow" data-spec-id="context-eyebrow">{label.contextGroupLabel}</span>
+				<lightning-combobox class="filter-combobox" data-spec-id="context-filter" label={label.contextFilterLabel} onchange={handleContextChange} options={contextOptions}
+									placeholder={label.allContexts} value={executionEvent} variant="label-hidden"></lightning-combobox>
+			</div>
 
 			<template lwc:if={correlationId}>
 				<lightning-pill class="slds-m-left_x-small correlation-pill" data-testid="correlation-pill" label={correlationPillLabel}
-				                onremove={handleRemoveCorrelation}></lightning-pill>
+								onremove={handleRemoveCorrelation}></lightning-pill>
 			</template>
 
-			<lightning-input class="slds-m-left_x-small filter-search" label={label.searchPlaceholder} onchange={handleSearch} placeholder={label.searchPlaceholder} type="search"
-			                 value={searchTerm} variant="label-hidden"></lightning-input>
+			<template lwc:if={sourceFilter}>
+				<lightning-pill class="slds-m-left_x-small source-pill" data-testid="source-filter-pill" label={sourceFilterPillLabel}
+								onremove={handleRemoveSourceFilter}></lightning-pill>
+			</template>
 
-			<lightning-button class="slds-m-left_x-small" label={label.clearAll} onclick={handleClearAll} variant="base"></lightning-button>
+			<lightning-input class="slds-m-left_x-small filter-search" data-spec-id="search-input" label={label.searchPlaceholder} onchange={handleSearch}
+							 placeholder={label.searchPlaceholder} type="search" value={searchTerm} variant="label-hidden"></lightning-input>
+
+			<lightning-button class="slds-m-left_x-small" data-spec-id="clear-all-action" label={label.clearAll} onclick={handleClearAll} variant="base"></lightning-button>
 		</div>
 
-		<div class="summary slds-grid slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small">
+		<div class="summary slds-grid slds-gutters_xx-small slds-p-horizontal_x-small" data-spec-id="summary-ribbon">
 			<template for:each={summaryCards} for:item="card">
 				<template lwc:if={card.isSources}>
-					<div class="summary-card summary-card_sources" data-testid="summary-card" key={card.key}>
+					<div class="summary-card summary-card_sources" data-spec-id="summary-top-sources" data-testid="summary-card" key={card.key}>
 						<div class="lab">{card.label}</div>
 						<template lwc:if={card.hasSources}>
 							<template for:each={card.sources} for:item="source">
-								<button class="source-row" data-source={source.name} data-testid="source-row" key={source.key} onclick={handleSourceDrill} type="button">
+								<button class="source-row" data-source={source.name} data-spec-id="top-source-row" data-testid="source-row" key={source.key}
+										onclick={handleSourceDrill} type="button">
 									<span class="rank">{source.rank}</span>
 									<span class="sname">{source.name}</span>
 									<span class="metric">{source.metric}</span>
@@ -72,57 +107,112 @@
 					</div>
 				</template>
 				<template lwc:elseif={card.isLevel}>
-					<button class={card.cardClass} data-level={card.level} data-testid="summary-card" key={card.key} onclick={handleLevelCardFilter} type="button">
-						<div class="lab">{card.label}</div>
-						<div class="val">
+					<!-- A button takes phrasing content only, so the level card's three lines are spans; logConsole.css blocks them out. -->
+					<button class={card.cardClass} data-level={card.level} data-spec-id="summary-level-card" data-testid="summary-card" key={card.key}
+							onclick={handleLevelCardFilter} type="button">
+						<span class="lab">{card.label}</span>
+						<span class="val">
 							<lightning-formatted-number value={card.value}></lightning-formatted-number>
-						</div>
-						<div class="footnote slds-text-color_weak">{card.footnote}</div>
+						</span>
+						<span class="footnote slds-text-color_weak">{card.footnote}</span>
 					</button>
 				</template>
 				<template lwc:else>
-					<div class={card.cardClass} data-testid="summary-card" key={card.key}>
+					<div class={card.cardClass} data-spec-id="summary-total-card" data-testid="summary-card" key={card.key}>
 						<div class="lab">{card.label}</div>
 						<div class="val">
 							<lightning-formatted-number value={card.value}></lightning-formatted-number>
 						</div>
 						<div class="footnote slds-text-color_weak">{card.footnote}</div>
 						<template lwc:if={card.isApproximate}>
-							<div class="approximate-badge" data-testid="totals-approximate" title={label.totalsApproximateHelp}>{label.totalsApproximate}</div>
+							<!-- lightning-helptext rather than a title attribute: a title reaches neither a keyboard nor
+								 a touch device, so the one sentence explaining WHY the number is approximate was the one
+								 thing on this card those readers could not get at. -->
+							<div class="approximate-badge" data-spec-id="totals-approximate" data-testid="totals-approximate">
+								<span>{label.totalsApproximate}</span>
+								<lightning-helptext class="approximate-badge__help" content={card.approximateHelp} data-testid="totals-approximate-help"></lightning-helptext>
+							</div>
 						</template>
 					</div>
 				</template>
 			</template>
+			<template lwc:if={entrySummaryDeclined}>
+				<!-- Quiet, not amber: the total beside it is exact and nothing on screen is wrong — the breakdown
+					 is withheld, and this says what to narrow to get it back. role="status" matches the grouping
+					 bar, the console's other server-decline surface. -->
+				<div class="summary-declined" data-spec-id="entry-summary-declined" data-testid="entry-summary-declined" role="status">{label.entrySummaryTooLarge}</div>
+			</template>
+			<template lwc:if={summaryLoadFailed}>
+				<!-- A ribbon that could not be counted draws nothing, which looks exactly like a window with no
+					 activity in it. This is the one line that tells the two apart; it clears on the next load. -->
+				<div class="summary-declined" data-spec-id="summary-load-failed" data-testid="summary-load-failed" role="status">{label.summaryLoadFailedNote}</div>
+			</template>
 		</div>
 
-		<template lwc:if={resultsTruncated}>
-			<div aria-live="polite" class="cappedbanner" data-testid="capped-banner" role="alert">{resultsTruncatedText}</div>
+		<template lwc:if={occurrencesReconciliation}>
+			<div class="drill-note" data-spec-id="occurrences-reconciliation" data-testid="occurrences-reconciliation" role="status">{occurrencesReconciliation}</div>
+		</template>
+
+		<template lwc:if={groupingStatus}>
+			<div class={groupingStatus.barClass} data-spec-id="derived-status-bar" data-testid="grouping-status-bar" role="status">
+				<!-- Decorative: the sentence beside it says the same thing, so no alternative-text, which is what
+					 makes lightning-icon render itself aria-hidden rather than repeating the bar to a screen reader. -->
+				<lightning-icon class="grouping-bar__icon" icon-name={groupingStatus.icon} size="x-small"></lightning-icon>
+				<span class="grouping-bar__text">{groupingStatus.text}</span>
+				<button class="grouping-bar__action" data-testid="grouping-status-action" onclick={handleGroupingAction} type="button">{groupingStatus.actionLabel}</button>
+			</div>
+		</template>
+
+		<template lwc:if={showCappedBanner}>
+			<!-- Carries the same warning mark as the attention-weight grouping bar it sits under: this is the one
+				 other amber surface in the console, and without an icon it would be the only thing here saying
+				 "attention" by colour alone. -->
+			<div aria-live="polite" class="cappedbanner" data-spec-id="problems-capped-bar" data-testid="capped-banner" role="alert">
+				<lightning-icon class="cappedbanner__icon" icon-name="utility:warning" size="x-small"></lightning-icon>
+				<span>{cappedText}</span>
+			</div>
 		</template>
 
 		<div class="body-row slds-grid">
 			<div class="main slds-col">
-				<div class="listwrap">
+				<!-- Focusable but not a tab stop: closing the drawer puts focus back here, so the reader carries
+					 on from the list rather than from the top of the document. Named after the view it is
+					 showing, so focus landing here announces where the reader has been put rather than nothing
+					 at all, and outlined on focus so a sighted keyboard reader can see it too. -->
+				<div aria-label={listRegionLabel} class="listwrap" data-testid="list-region" role="region" tabindex="-1">
+					<template lwc:if={scopeCaption}>
+						<div class="grouping-scope" data-spec-id="grouping-scope-caption" data-testid="grouping-scope-caption">{scopeCaption}</div>
+					</template>
 					<template lwc:if={isLoading}>
 						<div class="slds-p-around_large slds-align_absolute-center">
 							<lightning-spinner alternative-text={label.loadingAlt} size="small"></lightning-spinner>
 						</div>
 					</template>
 					<template lwc:elseif={isEmpty}>
-						<div class="empty slds-p-around_large slds-text-align_center slds-text-color_weak" data-testid="empty-state" role="status">{label.emptyState}</div>
+						<div class="empty slds-p-around_large slds-text-align_center slds-text-color_weak" data-spec-id={emptySpecId} data-testid={emptyTestId} role="status">
+							<span class="empty__title">{emptyTitle}</span>
+							<span class="empty__hint">{emptyHint}</span>
+						</div>
 					</template>
 					<template lwc:else>
-						<c-log-console-table class="list-table" columns={columns} data={records} enable-infinite-loading is-loading={isLoadingMore} key-field="id"
-						                     max-row-selection="1" onloadmore={handleLoadMore} onrowselection={handleRowSelection} onsort={handleSort} selected-rows={selectedRows}
-						                     sorted-by={sortedBy} sorted-direction={sortDirection}></c-log-console-table>
+						<c-log-console-table class="list-table" columns={columns} data={records} data-spec-id="entry-list" enable-infinite-loading is-loading={isLoadingMore}
+											 key-field="rowKey" max-row-selection="1" onloadmore={handleLoadMore} onrowselection={handleRowSelection} onsort={handleSort}
+											 selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></c-log-console-table>
 					</template>
 				</div>
 			</div>
 
 			<template lwc:if={hasSelection}>
-				<div class="panel" data-testid="detail-panel">
-					<c-log-console-detail detail={selectedDetail} focused-detail={selectedFocusedDetail} occurrence-count={selectedOccurrenceCount} onclose={handleDetailClose}
-					                      onentryfocus={handleEntryFocus} onnavigatechain={handleNavigateChain} onopenrecord={handleOpenRecord} trace={selectedTrace}
-					                      trace-truncated={selectedTraceTruncated} view={view}></c-log-console-detail>
+				<!-- Focusable but not a tab stop: focus is moved here once, when a row's detail lands, so the
+					 drawer's own controls come next in the tab order instead of after every row's link. Named
+					 with the drawer's own Details heading, so the move announces what just opened, and outlined
+					 on focus so the move is visible as well as announced. -->
+				<div aria-label={label.detailsHeading} class="panel" data-testid="detail-panel" role="region" tabindex="-1">
+					<c-log-console-detail detail={selectedDetail} focused-detail={selectedFocusedDetail} namespace-prefix={apexNamespacePrefix}
+										  occurrence-count={selectedOccurrenceCount} onclose={handleDetailClose} onentryfocus={handleEntryFocus}
+										  onnavigatechain={handleNavigateChain} onopenrecord={handleOpenRecord} onviewoccurrences={handleViewOccurrences}
+										  problem-first-seen={selectedFirstSeen} problem-last-seen={selectedLastSeen} provenance={selectedProvenance} trace={selectedTrace}
+										  trace-truncated={selectedTraceTruncated} view={view}></c-log-console-detail>
 				</div>
 			</template>
 		</div>

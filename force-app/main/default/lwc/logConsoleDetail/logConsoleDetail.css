@@ -86,11 +86,41 @@
 	outline : none;
 }
 
+/* Each "<when> (<exact instant>)" pair is one inline-block, so a narrow drawer breaks between the two pairs
+   before it breaks inside one. It can still break inside a pair when a pair alone is wider than the drawer,
+   and there the only break opportunities are the spaces within the relative phrase ("a month / ago"): the
+   no-break space before the bracket keeps the instant with the time it restates, and the instant itself is
+   nowrap below. So a pair too wide to fit rewraps rather than running off the edge. */
+.seen-item
+{
+	display : inline-block;
+}
+
+.seen-exact
+{
+	font-variant-numeric : tabular-nums;
+	white-space          : nowrap;
+}
+
 .codewrap
 {
 	position : relative;
 }
 
+/*
+ * A gutter for blocks this stylesheet cannot pad from the inside — the JSON viewer owns its own padding —
+ * so the copy icon sits beside the block rather than over its first line.
+ */
+.codewrap_gutter
+{
+	padding-right : 2.25rem;
+}
+
+/*
+ * The copy affordance on a message or code block, pinned to the block's top-right corner. The x-small bare
+ * icon is a 10 px box; every block it sits on reserves at least 1.75rem of right padding (the icon plus its
+ * offset, with room to spare), so no text ever runs underneath it.
+ */
 .copybtn
 {
 	position : absolute;
@@ -99,6 +129,154 @@
 	z-index  : 1;
 }
 
+/*
+ * The message card: a light panel whose 3px left accent is the severity axis, so the message reads as
+ * body copy rather than as a terminal transcript. The dark panel below is kept for the stack trace.
+ */
+.msgcard
+{
+	background    : #FCFCFB;
+	border        : 1px solid #DDDBDA;
+	border-left   : 3px solid #DDDBDA;
+	border-radius : 0.25rem;
+	padding       : 0.55rem 0.7rem;
+	position      : relative;
+}
+
+.msgcard[data-level="ERROR"]
+{
+	border-left-color : #BA0517;
+}
+
+.msgcard[data-level="WARN"]
+{
+	border-left-color : #FE9339;
+}
+
+.msgcard[data-level="INFO"]
+{
+	border-left-color : #0B5CAB;
+}
+
+.msgcard[data-level="DEBUG"]
+{
+	border-left-color : #5C5C5C;
+}
+
+.msgcard .mtype
+{
+	color          : #747474;
+	font-size      : 0.64rem;
+	letter-spacing : 0.04em;
+	margin-bottom  : 0.2rem;
+	padding-right  : 1.75rem;
+	text-transform : uppercase;
+}
+
+.msgcard .mtext
+{
+	color         : #1D1D1D;
+	font-family   : "SF Mono", Menlo, Consolas, monospace;
+	font-size     : 0.78rem;
+	max-height    : 230px;
+	overflow      : auto;
+	padding-right : 1.75rem;
+	white-space   : pre-wrap;
+	word-break    : break-word;
+}
+
+/* The provenance mark, matching the one in the list so a row keeps its identity when it opens. Outlined
+   and sentence case, deliberately quiet: the drawer's colour axis is severity, and a filled uppercase mark
+   sitting beside the level badge would compete with the one that carries meaning. Not uppercased in CSS
+   either, since the text is a translated label and casing rules are not the same in every language. */
+.provenance-pill
+{
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.75rem;
+	color         : #747474;
+	font-size     : 0.68rem;
+	padding       : 0.02rem 0.4rem;
+	white-space   : nowrap;
+}
+
+/* Blue, not amber: entries ageing out is the retention policy doing its job, so this explains a dead
+   button rather than reporting a fault. */
+.purged-note
+{
+	align-items   : flex-start;
+	background    : #EEF4FF;
+	border        : 1px solid #B9D4F7;
+	border-radius : 0.25rem;
+	color         : #0A3D73;
+	display       : flex;
+	font-size     : 0.74rem;
+	gap           : 0.45rem;
+	margin-top    : 0.5rem;
+	padding       : 0.4rem 0.5rem;
+}
+
+.purged-note__icon
+{
+	--slds-c-icon-color-foreground-default : currentColor;
+	flex                                   : 0 0 auto;
+	margin-top                             : 0.05rem;
+}
+
+/* The explanatory blocks: why a tagged problem shows one entry against a large count, and how to turn a
+   grouped problem into a tagged one. Quiet card chrome, because these are read once and then ignored by
+   someone who already knows — they must not compete with the entry's own content. */
+.explainer
+{
+	background    : #FBFBFA;
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.25rem;
+	margin-top    : 0.9rem;
+	padding       : 0.6rem 0.7rem;
+}
+
+.explainer__title
+{
+	color       : #16325C;
+	display     : block;
+	font-size   : 0.78rem;
+	font-weight : 700;
+}
+
+.explainer__body
+{
+	color      : #3B3B3B;
+	font-size  : 0.75rem;
+	margin-top : 0.3rem;
+}
+
+/* The consequence of following the advice above it, so it sits after the snippet and stays visibly
+   subordinate to it. */
+.explainer__caveat
+{
+	color      : #747474;
+	font-size  : 0.72rem;
+	margin-top : 0.4rem;
+}
+
+.emptypane
+{
+	border        : 1px dashed #DDDBDA;
+	border-radius : 0.25rem;
+	color         : #747474;
+	font-size     : 0.78rem;
+	padding       : 1.4rem 0.5rem;
+	text-align    : center;
+}
+
+.emptypane .hint
+{
+	display    : block;
+	font-size  : 0.74rem;
+	margin-top : 0.35rem;
+}
+
+/* The wider right padding is the gutter the copy icon is pinned into, so a long line wraps before it
+   reaches the icon instead of disappearing behind it. */
 pre.code
 {
 	background    : #1D1F23;
@@ -109,7 +287,7 @@ pre.code
 	margin        : 0;
 	max-height    : 230px;
 	overflow      : auto;
-	padding       : 0.7rem 0.8rem;
+	padding       : 0.7rem 2.25rem 0.7rem 0.8rem;
 	white-space   : pre-wrap;
 	word-break    : break-word;
 }
@@ -148,6 +326,22 @@ pre.code
 	font-family : "SF Mono", Menlo, Consolas, monospace;
 	font-size   : 0.72rem;
 	word-break  : break-all;
+}
+
+.metagrid .v a
+{
+	color : #0B5CAB;
+}
+
+.metagrid .muted
+{
+	color : #747474;
+}
+
+.copyicon
+{
+	margin-left    : 0.15rem;
+	vertical-align : middle;
 }
 
 .limits2
@@ -285,17 +479,27 @@ pre.code
 	font-variant-numeric : tabular-nums;
 }
 
+.lvlnote
+{
+	color         : #747474;
+	font-size     : 0.66rem;
+	margin-bottom : 0.4rem;
+}
+
+/* The row gap is the warning pin's clearance, not decoration: the pin hangs above its own chip, and on a
+   wrapped strip a tight row gap leaves it floating between two rows, anchored to neither. */
 .minimap
 {
 	align-items   : stretch;
 	background    : #FBFBFB;
 	border        : 1px solid #DDDBDA;
 	border-radius : 0.25rem;
+	column-gap    : 0.15rem;
 	display       : flex;
 	flex-wrap     : wrap;
-	gap           : 0.15rem;
 	margin-bottom : 0.7rem;
 	padding       : 0.5rem 0.55rem;
+	row-gap       : 0.55rem;
 }
 
 .mseg
@@ -356,9 +560,15 @@ pre.code
 	top       : -0.4rem;
 }
 
+/* A real box, not `display: contents`. Dissolving the group made the connector and its chip two independent
+   flex items, so a strip that wrapped could break between them and strand the arrow at the end of a line,
+   pointing at nothing. Kept as one item, the connector always wraps with the chip it introduces. */
 .mseg-group
 {
-	display : contents;
+	align-items : stretch;
+	display     : inline-flex;
+	gap         : 0.15rem;
+	min-width   : 0;
 }
 
 .marrow
@@ -383,6 +593,14 @@ pre.code
 	align-items : center;
 	display     : inline-flex;
 	gap         : 0.3rem;
+}
+
+/* Presentation only: the level names are cased here so they read as the severity badges do everywhere else in
+   the console, while the text assistive technology speaks stays as it was written. */
+.legend .lgtext_level
+{
+	letter-spacing : 0.03em;
+	text-transform : uppercase;
 }
 
 .dot

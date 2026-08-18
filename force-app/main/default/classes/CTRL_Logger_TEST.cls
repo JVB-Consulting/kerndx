@@ -8,7 +8,7 @@
  *
  * @group Logging
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -18,6 +18,38 @@ private class CTRL_Logger_TEST
 	 * @description A representative client-side JavaScript error stack as captured by the LWC logger.
 	 */
 	private static final String CLIENT_STACK = 'Error: boom\n    at submitOrder (c/orderPanel.js:42:13)';
+
+	/**
+	 * @description The LWC bundle a client entry reports itself as coming from.
+	 */
+	private static final String COMPONENT_NAME = 'orderPanel';
+
+	/**
+	 * @description The action a client entry reports itself as performing.
+	 */
+	private static final String ACTION_NAME = 'submitOrder';
+
+	/**
+	 * @description The server message an Aura failure relays from a failed Apex call.
+	 */
+	private static final String APEX_FAILURE_MESSAGE = 'Too many apex pagination cursor rows: 100001';
+
+	/**
+	 * @description The Apex exception class an Aura failure reports alongside its message.
+	 */
+	private static final String APEX_EXCEPTION_TYPE = 'System.LimitException';
+
+	/**
+	 * @description Correlation scoping the grouping test's entries and its problems read, so entries the
+	 * org's own automation logs during the same transaction cannot enter the fold the test measures.
+	 */
+	private static final String GROUPING_TEST_CORRELATION = 'grouping-test';
+
+	/**
+	 * @description The leading segment of a deliberately over-length exception type, long enough that a
+	 * value cut to the field length still proves the most identifying part of the name survived.
+	 */
+	private static final String LONG_EXCEPTION_TYPE_PREFIX = 'System.QueryLocatorIteratorException';
 
 	/**
 	 * @description Resets logger state for test isolation.
@@ -255,6 +287,125 @@ private class CTRL_Logger_TEST
 
 		// Verify
 		Assert.areEqual('action-name-test', LOG_Engine.getCorrelationId(), 'Correlation should be set');
+		Assert.isNotNull(new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/SaveAccount'), 'An entry naming only an action should be labelled with it');
+	}
+
+	/**
+	 * @description Tests that a client entry naming the component it came from is labelled with that
+	 * component instead of the unnamed-source stand-in, so an administrator reading the log can tell
+	 * which component failed, and that the promoted name is not duplicated into the persisted context.
+	 * The same payload carries an exception type, which lands on the entry's type field rather than
+	 * staying a context key, so the labelled entry is also a typed one.
+	 */
+	@IsTest
+	private static void shouldNameTheComponentInTheClassMethod()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'callControllerMethod: ' + APEX_FAILURE_MESSAGE, 'component-name-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				CTRL_Logger.CONTEXT_COMPONENT_NAME => COMPONENT_NAME,
+				LOG_Engine.CONTEXT_ERROR_STACK => CLIENT_STACK,
+				LOG_Engine.CONTEXT_ERROR_MESSAGE => APEX_FAILURE_MESSAGE,
+				LOG_Engine.CONTEXT_EXCEPTION_TYPE => APEX_EXCEPTION_TYPE
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + COMPONENT_NAME);
+		Assert.isNotNull(row, 'The entry should be labelled with the component that produced it');
+		Assert.areEqual('callControllerMethod: ' + APEX_FAILURE_MESSAGE, row.Message__c, 'The failure text should persist as the entry message');
+		Assert.areEqual(CLIENT_STACK, row.StackTrace__c, 'The client JavaScript stack should persist as the stack trace');
+		Assert.areEqual(APEX_EXCEPTION_TYPE, row.ExceptionType__c, 'The Apex exception type should persist as the entry exception type');
+		Assert.isFalse(row.ContextData__c.contains(CTRL_Logger.CONTEXT_COMPONENT_NAME), 'The component name is promoted into the label, not duplicated in context');
+	}
+
+	/**
+	 * @description Tests that a client entry naming both a component and an action is labelled with
+	 * both, so an entry logged inside a named operation still reads as component-then-action.
+	 */
+	@IsTest
+	private static void shouldCombineComponentAndActionInTheClassMethod()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'Submit failed', 'component-action-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				CTRL_Logger.CONTEXT_COMPONENT_NAME => COMPONENT_NAME,
+				LOG_Engine.CONTEXT_ACTION_NAME => ACTION_NAME
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + COMPONENT_NAME + '.' + ACTION_NAME);
+		Assert.isNotNull(row, 'The entry should be labelled with the component and the action');
+		Assert.isFalse(row.ContextData__c?.contains(LOG_Engine.CONTEXT_ACTION_NAME) ?? false, 'Both promoted names belong in the label, not in the context');
+	}
+
+	/**
+	 * @description Tests that a component name the client sent as something other than text cannot be
+	 * promoted into the label and stays in the persisted context, so no client payload is lost and the
+	 * label falls back to the unnamed-source stand-in.
+	 */
+	@IsTest
+	private static void shouldKeepUnusableComponentNameInContext()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'Structured component name', 'unusable-component-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				CTRL_Logger.CONTEXT_COMPONENT_NAME => new Map<String, String> {'bundle' => COMPONENT_NAME}
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + CTRL_Logger.UNKNOWN_SOURCE);
+		Assert.isNotNull(row, 'An entry naming nothing usable should fall back to the unnamed-source label');
+		Assert.isTrue(row.ContextData__c.contains(CTRL_Logger.CONTEXT_COMPONENT_NAME), 'An unpromotable component name must stay in the persisted context');
+	}
+
+	/**
+	 * @description Tests that an action name the client sent as something other than text costs nothing:
+	 * the entry falls back to the unnamed-source label and keeps the value in its context, and the rest
+	 * of the batch still persists — reading such a value as text used to throw and take every entry in
+	 * the same call down with it.
+	 */
+	@IsTest
+	private static void shouldKeepUnusableActionNameInContext()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry structuredActionEntry = createEntry(LoggingLevel.ERROR, 'Structured action name', 'unusable-action-test');
+		structuredActionEntry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => new List<String> {ACTION_NAME}
+		});
+		CTRL_Logger.DTO_ClientLogEntry healthyEntry = createEntry(LoggingLevel.ERROR, 'Well-formed sibling', 'unusable-action-test');
+		healthyEntry.context = JSON.serialize(new Map<String, Object> {CTRL_Logger.CONTEXT_COMPONENT_NAME => COMPONENT_NAME});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {structuredActionEntry, healthyEntry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + CTRL_Logger.UNKNOWN_SOURCE);
+		Assert.isNotNull(row, 'An entry whose action name is not text should fall back to the unnamed-source label');
+		Assert.isTrue(row.ContextData__c.contains(ACTION_NAME), 'An unpromotable action name must stay in the persisted context');
+
+		LogEntry__c siblingRow = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + COMPONENT_NAME);
+		Assert.isNotNull(siblingRow, 'One unreadable name must not cost the other entries in the same batch');
 	}
 
 	/**
@@ -353,6 +504,148 @@ private class CTRL_Logger_TEST
 		Assert.isNotNull(row, 'The entry should persist');
 		Assert.isTrue(row.ContextData__c.contains('frameOne'), 'An unpromotable errorStack value must stay in the persisted context');
 		Assert.isFalse(row.StackTrace__c?.contains('frameOne') ?? false, 'An unpromotable value must not be promoted into the stack trace');
+	}
+
+	/**
+	 * @description Tests that the Apex exception class a failed controller call reported reaches the entry's
+	 * own exception type instead of sitting in the context payload, so the console drawer names the failure
+	 * and problem grouping can key on it, and that the type does not leak onto a following entry that
+	 * reported none.
+	 */
+	@IsTest
+	private static void shouldPromoteClientExceptionTypeAndNotLeakItOntoTheNextEntry()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry failureEntry = createEntry(LoggingLevel.ERROR, APEX_FAILURE_MESSAGE, 'exception-type-test');
+		failureEntry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => 'PromoteType',
+				LOG_Engine.CONTEXT_EXCEPTION_TYPE => APEX_EXCEPTION_TYPE,
+				LOG_Engine.CONTEXT_ERROR_MESSAGE => APEX_FAILURE_MESSAGE
+		});
+		CTRL_Logger.DTO_ClientLogEntry plainEntry = createEntry(LoggingLevel.INFO, 'Follow-up entry', 'exception-type-test');
+		plainEntry.context = JSON.serialize(new Map<String, Object> {LOG_Engine.CONTEXT_ACTION_NAME => 'NoType'});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {failureEntry, plainEntry}));
+		Test.stopTest();
+
+		LogEntry__c failureRow = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/PromoteType');
+		Assert.isNotNull(failureRow, 'The failure entry should persist');
+		Assert.areEqual(APEX_EXCEPTION_TYPE, failureRow.ExceptionType__c, 'The client exception type should persist as the entry exception type');
+		Assert.isFalse(failureRow.ContextData__c.contains(LOG_Engine.CONTEXT_EXCEPTION_TYPE), 'A promoted exception type belongs in its own field, not duplicated in context');
+		Assert.isTrue(failureRow.ContextData__c.contains(LOG_Engine.CONTEXT_ERROR_MESSAGE), 'The remaining client context keys should still persist');
+
+		LogEntry__c plainRow = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/NoType');
+		Assert.isNotNull(plainRow, 'The follow-up entry should persist');
+		Assert.isNull(plainRow.ExceptionType__c, 'The exception type must not leak onto entries that reported none');
+	}
+
+	/**
+	 * @description Tests that a client exception type sent as something other than text is kept in the
+	 * persisted context instead of being dropped, so no client payload is lost when it cannot be promoted.
+	 */
+	@IsTest
+	private static void shouldKeepUnpromotableExceptionTypeInContext()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'Structured exception type', 'unpromotable-type-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => 'StructuredType',
+				LOG_Engine.CONTEXT_EXCEPTION_TYPE => new List<String> {APEX_EXCEPTION_TYPE}
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/StructuredType');
+		Assert.isNotNull(row, 'The entry should persist');
+		Assert.isTrue(row.ContextData__c.contains(APEX_EXCEPTION_TYPE), 'An unpromotable exception type must stay in the persisted context');
+		Assert.isNull(row.ExceptionType__c, 'An unpromotable value must not be promoted into the exception type');
+	}
+
+	/**
+	 * @description Tests that an exception type longer than the field it lands in is cut to fit, so the
+	 * entry that carried it still persists and still names the most identifying part of the type.
+	 */
+	@IsTest
+	private static void shouldCutAnOverlongClientExceptionTypeToTheFieldLength()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Integer fieldLength = LogEntry__c.ExceptionType__c.getDescribe().length;
+		String overlongType = LONG_EXCEPTION_TYPE_PREFIX + 'X'.repeat(fieldLength);
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, 'Overlong exception type', 'overlong-type-test');
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				LOG_Engine.CONTEXT_ACTION_NAME => 'OverlongType',
+				LOG_Engine.CONTEXT_EXCEPTION_TYPE => overlongType
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/OverlongType');
+		Assert.isNotNull(row, 'An over-length exception type must not cost the entry that carried it');
+		Assert.areEqual(fieldLength, row.ExceptionType__c.length(), 'The exception type should be cut to the field length');
+		Assert.isTrue(row.ExceptionType__c.startsWith(LONG_EXCEPTION_TYPE_PREFIX), 'The most identifying part of the type should survive the cut');
+	}
+
+	/**
+	 * @description Tests that client entries sharing an exception type fold into one problem in the console's
+	 * Problems view, counted together. Problem grouping keys on the exception type, so a client failure that
+	 * carries none cannot join the failures it repeats — the promotion is what puts it in the right group.
+	 * The problems read is scoped to this test's correlation, and the selection matches on the full
+	 * identity (exception type AND class method): an org's own automation can log entries in the same
+	 * transaction (a permission-gated trigger action skipping, for one), and in test context that
+	 * entry can even inherit this test's type and correlation from the emit's open per-emit channels,
+	 * so only the class-method half of the identity reliably tells the seeded problem apart.
+	 */
+	@IsTest
+	private static void shouldGroupClientEntriesByTheirPromotedExceptionType()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		List<CTRL_Logger.DTO_ClientLogEntry> entries = new List<CTRL_Logger.DTO_ClientLogEntry>();
+		for(Integer occurrence = 0; occurrence < 2; occurrence++)
+		{
+			CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.ERROR, APEX_FAILURE_MESSAGE, GROUPING_TEST_CORRELATION);
+			entry.context = JSON.serialize(new Map<String, Object>
+			{
+					CTRL_Logger.CONTEXT_COMPONENT_NAME => COMPONENT_NAME,
+					LOG_Engine.CONTEXT_ACTION_NAME => ACTION_NAME,
+					LOG_Engine.CONTEXT_EXCEPTION_TYPE => APEX_EXCEPTION_TYPE
+			});
+			entries.add(entry);
+		}
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(entries));
+		Test.stopTest();
+
+		String expectedClassMethod = LOG_Engine.OperationType.LWC.name() + '/' + COMPONENT_NAME + '.' + ACTION_NAME;
+		CTRL_LogConsole.DTO_LogProblemPage page = CTRL_LogConsole.getLogProblems(JSON.serialize(new Map<String, Object> {'correlationId' => GROUPING_TEST_CORRELATION}));
+		CTRL_LogConsole.DTO_LogProblem grouped = null;
+		for(CTRL_LogConsole.DTO_LogProblem problem : page.records)
+		{
+			if(APEX_EXCEPTION_TYPE.equals(problem.exceptionType) && expectedClassMethod.equals(problem.classMethod))
+			{
+				grouped = problem;
+			}
+		}
+
+		Assert.isNotNull(grouped, 'The client failures should fold into a problem carrying their exception type');
+		Assert.areEqual(2, grouped.occurrenceCount, 'Both occurrences of the same client failure should count towards one problem');
+		Assert.areEqual(expectedClassMethod, grouped.classMethod, 'The problem should name the component and action that failed');
 	}
 
 	/**

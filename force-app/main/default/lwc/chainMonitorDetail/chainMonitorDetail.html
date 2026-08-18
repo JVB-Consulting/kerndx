@@ -7,38 +7,93 @@
 	</template>
 	<template if:true={hasDetail}>
 		<div class="slds-var-p-around_medium" data-testid="chain-detail">
-			<!-- Header with status -->
-			<div class="slds-media slds-media_center slds-var-m-bottom_x-small">
-				<div class="slds-media__figure">
-					<lightning-icon data-testid="status-icon" icon-name={statusIconName} size="medium"></lightning-icon>
-				</div>
-				<div class="slds-media__body">
-					<h2 class="slds-text-heading_small slds-var-m-bottom_xxx-small" data-testid="chain-name">{detail.chainName}</h2>
-					<div class="slds-grid slds-grid_vertical-align-center">
-						<lightning-badge class="slds-var-m-right_small" data-testid="status-badge" label={statusLabel} title={statusTitle}></lightning-badge>
-						<span class="slds-text-body_small slds-text-color_weak" data-testid="progress-label">{progressLabel}</span>
+			<!-- P15: sticky header block (status + actions + progress bar) within the pane's scroll -->
+			<div class="detail-sticky">
+				<!-- Identity row: the pill is dominant, the name secondary (P13), dots per step up to ten (P14/P28).
+					 It holds no buttons — the name wraps at its separators instead of being squeezed by them (U1). -->
+				<div class="slds-media slds-var-m-bottom_x-small" data-testid="detail-identity-row">
+					<div class="slds-media__figure">
+						<lightning-icon data-testid="status-icon" icon-name={statusIconName} size="medium"></lightning-icon>
+					</div>
+					<div class="slds-media__body">
+						<lightning-badge class={statusPillClass} data-testid="status-badge" label={statusLabel} title={statusTitle}></lightning-badge>
+						<div class="identity-line slds-var-m-top_xxx-small">
+							<h2 class="slds-text-heading_small chain-name-secondary" data-testid="chain-name">
+								<template for:each={chainNameSegments} for:item="segment">
+									<span class="chain-name-segment" key={segment.key}>{segment.text}<wbr></span>
+								</template>
+							</h2>
+							<span class="progress-label slds-text-body_small slds-text-color_weak" data-testid="progress-label">{progressLabel}</span>
+							<template if:true={showStepDots}>
+								<span aria-hidden="true" class="step-dots">
+									<template for:each={stepDots} for:item="dot">
+										<span class={dot.dotClass} key={dot.key}></span>
+									</template>
+								</span>
+							</template>
+						</div>
 					</div>
 				</div>
-				<template if:true={showAbortButton}>
-					<div class="slds-media__figure slds-media__figure_reverse">
-						<lightning-button data-testid="abort-button" disabled={isAbortDisabled} icon-name="utility:stop" label={label.abortAction} onclick={handleAbort}
-						                  title={abortUnavailableMessage} variant="destructive-text"></lightning-button>
-					</div>
-				</template>
-				<template if:true={hasCorrelationId}>
-					<div class="slds-media__figure slds-media__figure_reverse">
-						<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs} variant="neutral"></lightning-button>
-					</div>
-				</template>
-			</div>
 
-			<!-- Progress bar -->
-			<div class="slds-var-m-bottom_small">
-				<lightning-progress-bar data-testid="progress-bar" size="x-small" value={progressPercent} variant="circular"></lightning-progress-bar>
+				<!-- Toolbar row: every action wraps on its own, so nothing overlaps the name or clips off the
+					 pane edge at any width. One labelled group for the whole row — never a nested one (U1). -->
+				<template if:true={hasHeaderActions}>
+					<div aria-label={label.actionsGroup} class="detail-toolbar-row slds-var-m-bottom_x-small" data-testid="detail-toolbar-row" role="group">
+						<template if:true={hasActionGroup}>
+							<span class="detail-action-group" data-testid="detail-action-group">
+								<template if:true={showRetryButton}>
+									<lightning-button aria-describedby="retry-unavailable-reason" data-testid="retry-action" disabled={isRetryDisabled} icon-name="utility:refresh"
+													  label={label.retryAction} onclick={handleRetry} title={retryUnavailableMessage}></lightning-button>
+									<span aria-hidden="true" class="slds-assistive-text" data-testid="action-unavailable-reason" id="retry-unavailable-reason">{retryUnavailableMessage}</span>
+								</template>
+								<template if:true={showRestartButton}>
+									<lightning-button aria-describedby="restart-unavailable-reason" data-testid="restart-action" disabled={isRestartDisabled}
+													  icon-name="utility:redo" label={label.restartAction} onclick={handleRestart}
+													  title={restartUnavailableMessage}></lightning-button>
+									<span aria-hidden="true" class="slds-assistive-text" data-testid="action-unavailable-reason" id="restart-unavailable-reason">{restartUnavailableMessage}</span>
+								</template>
+								<template if:true={showAbortButton}>
+									<lightning-button aria-describedby="abort-unavailable-reason" data-testid="abort-button" disabled={isAbortDisabled} icon-name="utility:stop"
+													  label={label.abortAction} onclick={handleAbort} title={abortUnavailableMessage} variant="destructive-text"></lightning-button>
+									<span aria-hidden="true" class="slds-assistive-text" data-testid="action-unavailable-reason" id="abort-unavailable-reason">{abortUnavailableMessage}</span>
+								</template>
+							</span>
+						</template>
+						<template if:true={hasCorrelationId}>
+							<span class="navigation-slot">
+								<template if:true={showActionDivider}>
+									<span aria-hidden="true" class="action-divider" data-testid="action-divider"></span>
+								</template>
+								<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs}
+												  variant="neutral"></lightning-button>
+							</span>
+						</template>
+					</div>
+				</template>
+
+				<!-- Why an action is greyed out, in plain sight: a disabled button takes no focus, so its
+					 tooltip and its assistive description are both out of reach for anyone moving by keyboard,
+					 screen-reader users included (U38). The list therefore stays IN the accessibility tree: it is
+					 the one path to the reason that does not depend on focusing the button. A browse-mode reader
+					 who also lands on the button hears the sentence twice; that repetition is the price of never
+					 hiding the reason from anyone. -->
+				<template if:true={hasUnavailableReasons}>
+					<ul class="action-unavailable-notes slds-text-body_small slds-text-color_weak slds-var-m-bottom_x-small" data-testid="action-unavailable-notes">
+						<template for:each={unavailableReasons} for:item="reason">
+							<li data-testid="action-unavailable-note" key={reason.key}>{reason.text}</li>
+						</template>
+					</ul>
+				</template>
+
+				<!-- Progress bar (kept alongside the P14 dots). Its fill follows the run's outcome, so a
+					 part-way bar on a run that stopped reads differently from one still working. -->
+				<div class="slds-var-m-bottom_small">
+					<lightning-progress-bar class={progressBarClass} data-testid="progress-bar" size="x-small" value={progressPercent} variant="circular"></lightning-progress-bar>
+				</div>
 			</div>
 
 			<!-- Steps -->
-			<lightning-accordion active-section-name={activeSections} allow-multiple-sections-open>
+			<lightning-accordion active-section-name={structuralSections} allow-multiple-sections-open>
 				<lightning-accordion-section label={label.stepsSection} name="steps">
 					<c-chain-step-timeline chain-status={detail.status} data-testid="step-timeline" steps={detail.steps}></c-chain-step-timeline>
 				</lightning-accordion-section>
@@ -50,15 +105,16 @@
 							<dt>{label.started}</dt>
 							<dd data-testid="started-at">
 								<lightning-formatted-date-time day="numeric" hour="2-digit" minute="2-digit" month="short" second="2-digit" value={detail.startedAt}
-								                               year="numeric"></lightning-formatted-date-time>
+															   year="numeric"></lightning-formatted-date-time>
 							</dd>
 						</div>
 						<template if:true={hasCompletedAt}>
 							<div>
-								<dt>{label.completed}</dt>
+								<!-- Whatever ended the run stamps this instant, so the card names the ending (U39) -->
+								<dt>{completionLabel}</dt>
 								<dd data-testid="completed-at">
 									<lightning-formatted-date-time day="numeric" hour="2-digit" minute="2-digit" month="short" second="2-digit" value={detail.completedAt}
-									                               year="numeric"></lightning-formatted-date-time>
+																   year="numeric"></lightning-formatted-date-time>
 								</dd>
 							</div>
 						</template>
@@ -66,26 +122,54 @@
 							<dt>{label.duration}</dt>
 							<dd data-testid="duration">{detail.durationLabel}</dd>
 						</div>
+						<!-- Elapsed time counts every idle minute between an operator's re-drive and the original
+							 start; the active value is what the steps themselves spent running (U13). -->
+						<template if:true={hasActiveDuration}>
+							<div>
+								<dt>{label.activeDuration}</dt>
+								<dd data-testid="active-duration">{detail.activeDurationLabel}</dd>
+							</div>
+						</template>
 						<div>
 							<dt>{label.correlationId}</dt>
-							<dd>
-								<span class="slds-truncate" data-testid="correlation-id" title={detail.correlationId}>{detail.correlationId}</span>
-								<lightning-button-icon alternative-text="Copy correlation ID" data-testid="copy-correlation" icon-name="utility:copy_to_clipboard"
-								                       onclick={handleCopyCorrelation} size="x-small" variant="bare"></lightning-button-icon>
+							<dd class="timing-value-row">
+								<span class="slds-truncate timing-value" data-testid="correlation-id" title={detail.correlationId}>{detail.correlationId}</span>
+								<lightning-button-icon alternative-text={label.copy} class="timing-value-action" data-testid="copy-correlation"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopyCorrelation} size="x-small" title={label.copy}
+													   variant="bare"></lightning-button-icon>
 							</dd>
 						</div>
+						<template if:true={showLineageLink}>
+							<div>
+								<dt>{label.restartedFrom}</dt>
+								<!-- The whole source id, ellipsised by the card the way the correlation id is —
+									 a hard cut to eight characters names no record at all (U41). -->
+								<dd class="timing-value-row">
+									<button class="slds-button slds-button_reset lineage-link slds-truncate timing-value" data-testid="restart-lineage-link"
+											onclick={handleLineageNavigate} title={detail.sourceExecutionId} type="button">{detail.sourceExecutionId}
+									</button>
+								</dd>
+							</div>
+						</template>
 					</dl>
 				</lightning-accordion-section>
+			</lightning-accordion>
 
-				<!-- Error -->
-				<template if:true={hasError}>
+			<!-- Live activity stream (between Timing and Error, per the validated prototype) -->
+			<div class="slds-var-p-around_x-small">
+				<c-chain-log-stream chain-status={detail.status} correlation-id={detail.correlationId} execution-id={detail.executionId}></c-chain-log-stream>
+			</div>
+
+			<!-- Error -->
+			<template if:true={hasError}>
+				<lightning-accordion active-section-name="error" allow-multiple-sections-open>
 					<lightning-accordion-section label={label.errorSection} name="error">
 						<div class="slds-box slds-box_x-small slds-theme_error slds-text-body_small" data-testid="error-message" style="white-space: pre-wrap;">
 							{detail.errorMessage}
 						</div>
 					</lightning-accordion-section>
-				</template>
-			</lightning-accordion>
+				</lightning-accordion>
+			</template>
 		</div>
 	</template>
 	<template if:false={hasDetail}>

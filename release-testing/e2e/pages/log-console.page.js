@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {getInstanceUrl, ensureAuthenticated} = require('../helpers/sf-auth');
 const {soqlQuery} = require('../helpers/sf-cli');
-const {waitForPageLoad} = require('../helpers/sf-navigation');
+const {clickNavTab, waitForPageLoad} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
 
 // Resolved once per process: 'kern__' on a subscriber org, '' on the no-namespace unmanaged org.
@@ -222,6 +222,60 @@ class LogConsolePage
 		return this.root().locator('[data-testid="correlation-pill"]').first();
 	}
 
+	sourceFilterPill()
+	{
+		return this.root().locator('[data-testid="source-filter-pill"]').first();
+	}
+
+	customRangeError()
+	{
+		return this.root().locator('[data-testid="custom-range-error"]').first();
+	}
+
+	occurrencesReconciliation()
+	{
+		return this.root().locator('[data-testid="occurrences-reconciliation"]').first();
+	}
+
+	/**
+	 * @description Removes the pinned correlation by clicking the pill's own remove button, the way a
+	 *              reader drops a deep-linked filter. Tolerant about which mark lightning-pill renders
+	 *              the button with, since that is base-component internals.
+	 */
+	async removeCorrelation()
+	{
+		await this.correlationPill().locator('button.slds-pill__remove, button[title="Remove"], button').first().click();
+		await this.waitForListSettled();
+	}
+
+	/**
+	 * @description Reads the date-range combobox's displayed value — the preset's own label, e.g.
+	 *              `Last 24 hours` or `Custom range…`, which is what the reader sees. lightning-combobox
+	 *              renders its trigger as a button in some releases and an input in others, so the value is
+	 *              taken from whichever of the two this org painted.
+	 *
+	 * @return {Promise<string>} The selected preset's label text.
+	 */
+	async dateRangeLabel()
+	{
+		const trigger = this.root().locator('.date-range-combobox [role="combobox"], .date-range-combobox input').first();
+		const shown = await trigger.evaluate((element) => (element.value ? element.value : element.innerText));
+		return (shown || '').trim();
+	}
+
+	/**
+	 * @description Returns to the console through the navigation bar's Log Console tab rather than by URL.
+	 *              A tab opened by a Chain Monitor hand-off is temporary and keeps the URL it was opened
+	 *              with, so this is the route that re-delivers a spent deep link — going by URL would
+	 *              silently pass whether or not the hand-off state was ever dropped.
+	 */
+	async returnByNavigationTab()
+	{
+		await clickNavTab(this.page, 'Log Console');
+		await this.root().waitFor({state: 'visible', timeout: 60_000});
+		await this.waitForListSettled();
+	}
+
 	async clearAll()
 	{
 		await this.root().getByRole('button', {name: 'Clear all'}).first().click();
@@ -254,6 +308,27 @@ class LogConsolePage
 	{
 		const texts = await this.getRowTexts();
 		return texts.findIndex((text) => text.includes(needle));
+	}
+
+	/**
+	 * @description Finds the first row that is a read-time-grouped problem, or -1 when the list holds
+	 *              none. Keyed on the Log Number cell's grouped pill rather than on any dash in the
+	 *              row text: a tagged problem logged with no source or no execution context carries a
+	 *              dash in those cells too, so text matching would pick a row that has a record behind
+	 *              it and the grouped-problem assertions would then fail for the wrong reason.
+	 */
+	async findGroupedRowIndex()
+	{
+		const rows = this.rows();
+		const count = await rows.count();
+		for(let index = 0; index < count; index++)
+		{
+			if(await rows.nth(index).locator('.log-number-grouped').count() > 0)
+			{
+				return index;
+			}
+		}
+		return -1;
 	}
 
 	/**

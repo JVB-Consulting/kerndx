@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * The provenance pill, drawn to whisper. Outlined rather than filled, sentence case rather than upper,
+ * and inheriting its weight: the list's one colour axis is the log level, and a filled uppercase mark
+ * beside ERROR would anchor the eye against the badge that actually carries meaning. Provenance is
+ * secondary metadata about how a row came to exist, not a severity.
+ *
+ * This is also why the pill is not uppercased in CSS: the text is a translated Custom Label, and
+ * uppercasing is locale-dependent — a rule that reads fine in English mangles other languages.
+ */
+.provenance-pill
+{
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.75rem;
+	color         : #747474;
+	font-size     : 0.68rem;
+	margin-left   : 0.4rem;
+	padding       : 0.02rem 0.4rem;
+	white-space   : nowrap;
+}

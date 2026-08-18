@@ -9,14 +9,17 @@
  *
  * @group Logging
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  *
  * @example
  * ```javascript
  * // From JavaScript (LWC)
  * import persistLogs from '@salesforce/apex/CTRL_Logger.persistLogs';
  * const logs = [
- *     {timestamp: new Date(), level: 'INFO', message: 'User clicked save', correlationId: 'abc-123'}
+ *     {
+ *         timestamp: new Date(), level: 'INFO', message: 'User clicked save', correlationId: 'abc-123',
+ *         context: JSON.stringify({componentName: 'orderPanel', actionName: 'submitOrder'})
+ *     }
  * ];
  * await persistLogs({entries: logs});
  * ```
@@ -24,14 +27,33 @@
 public inherited sharing class CTRL_Logger
 {
 	/**
+	 * @description Context key naming the LWC bundle a client entry came from, such as `orderPanel`.
+	 */
+	@TestVisible
+	private static final String CONTEXT_COMPONENT_NAME = 'componentName';
+
+	/**
+	 * @description Stand-in used in the class/method label when a client entry names neither a
+	 * component nor an action.
+	 */
+	@TestVisible
+	private static final String UNKNOWN_SOURCE = 'unknown';
+
+	/**
+	 * @description Context keys whose values name where a client entry came from, in the order they
+	 * read in the class/method label: the component first, then the action it was performing.
+	 */
+	private static final List<String> SOURCE_CONTEXT_KEYS = new List<String> {CONTEXT_COMPONENT_NAME, LOG_Engine.CONTEXT_ACTION_NAME};
+
+	/**
 	 * @description Persists LWC logs to the logging framework. Accepts a JSON string because LWC
 	 * does not support inner class or Map deserialization for @AuraEnabled parameters. Each
-	 * entry's client context is persisted into `ContextData__c` and a client JavaScript error
-	 * stack, when present, becomes the entry's stack trace.
+	 * entry's client context is persisted into `ContextData__c`, a client JavaScript error
+	 * stack, when present, becomes the entry's stack trace, the exception class the client
+	 * reported becomes the entry's exception type, and the component and action named in that
+	 * context become the entry's class/method label.
 	 *
 	 * @param entriesJson JSON-serialized List of DTO_ClientLogEntry objects to persist.
-	 *
-	 * @date July 2026
 	 */
 	@AuraEnabled
 	public static void persistLogs(String entriesJson)
@@ -57,10 +79,10 @@ public inherited sharing class CTRL_Logger
 				Map<String, Object> contextMap = String.isNotBlank(dtoClientLogEntry.context)
 						? (Map<String, Object>)JSON.deserializeUntyped(dtoClientLogEntry.context)
 						: null;
-				String classMethod = LOG_Engine.OperationType.LWC.name() + '/' + ((String)contextMap?.get(LOG_Engine.CONTEXT_ACTION_NAME) ?? 'unknown');
-				LOG_Builder.LogEntry entry = LOG_Builder.build().at(classMethod);
+				Map<String, String> sourceNames = resolveSourceNames(contextMap);
+				LOG_Builder.LogEntry entry = LOG_Builder.build().at(buildClassMethod(sourceNames));
 
-				attachClientContext(entry, contextMap);
+				attachClientContext(entry, contextMap, sourceNames.keySet());
 
 				switch on dtoClientLogEntry.level
 				{
@@ -88,19 +110,73 @@ public inherited sharing class CTRL_Logger
 	}
 
 	/**
+	 * @description Collects the client context values that name where an entry came from — the
+	 * component and the action — keyed by their context key. Only non-blank text can name either,
+	 * so anything else (an absent key, a number, a nested object) is left out and stays in the
+	 * persisted context rather than being promoted.
+	 *
+	 * @param contextMap The deserialized client context, or null when the client sent none.
+	 *
+	 * @return The usable source names keyed by context key; empty when the entry named nothing.
+	 */
+	private static Map<String, String> resolveSourceNames(Map<String, Object> contextMap)
+	{
+		Map<String, String> sourceNames = new Map<String, String>();
+
+		for(String key : SOURCE_CONTEXT_KEYS)
+		{
+			Object value = contextMap?.get(key);
+
+			if(value instanceof String && String.isNotBlank((String)value))
+			{
+				sourceNames.put(key, (String)value);
+			}
+		}
+
+		return sourceNames;
+	}
+
+	/**
+	 * @description Builds the class/method label for a client entry: the LWC operation type, then
+	 * the component and the action the client named, joined as `LWC/orderPanel.submitOrder`. An
+	 * entry that named only one of the two carries just that one; an entry that named neither falls
+	 * back to `LWC/unknown`.
+	 *
+	 * @param sourceNames The usable source names keyed by context key, from `resolveSourceNames`.
+	 *
+	 * @return The class/method label to stamp on the entry.
+	 */
+	private static String buildClassMethod(Map<String, String> sourceNames)
+	{
+		List<String> sourceSegments = new List<String>();
+
+		for(String key : SOURCE_CONTEXT_KEYS)
+		{
+			if(sourceNames.containsKey(key))
+			{
+				sourceSegments.add(sourceNames.get(key));
+			}
+		}
+
+		return LOG_Engine.OperationType.LWC.name() + '/' + (sourceSegments.isEmpty() ? UNKNOWN_SOURCE : String.join(sourceSegments, '.'));
+	}
+
+	/**
 	 * @description Carries the client-supplied context payload onto the log entry so it persists
-	 * into `ContextData__c`, and promotes the client-side JavaScript error stack into the entry's
-	 * stack trace (the synthetic Apex trace for an LWC entry holds only framework plumbing). The
-	 * action name is excluded because it is already promoted into the classMethod label; the error
-	 * stack is excluded from context only when it was actually promoted into `StackTrace__c` — a
-	 * non-string or blank value cannot be promoted and stays in context so no client data is lost.
+	 * into `ContextData__c`, and promotes two of its values into fields of their own: the
+	 * client-side JavaScript error stack into the entry's stack trace (the synthetic Apex trace for
+	 * an LWC entry holds only framework plumbing), and the exception class the client reported into
+	 * the entry's exception type, which is what problem grouping keys on. A key is left out of the
+	 * persisted context only when its value was actually promoted elsewhere on the entry — the
+	 * component name and action name into the classMethod label, the error stack into
+	 * `StackTrace__c`, the exception class into `ExceptionType__c`. A value that could not be
+	 * promoted (non-text or blank) stays in context so no client data is lost.
 	 *
 	 * @param entry The builder entry being assembled for one client log line.
 	 * @param contextMap The deserialized client context, or null when the client sent none.
-	 *
-	 * @date July 2026
+	 * @param labelledKeys The context keys already promoted into the classMethod label.
 	 */
-	private static void attachClientContext(LOG_Builder.LogEntry entry, Map<String, Object> contextMap)
+	private static void attachClientContext(LOG_Builder.LogEntry entry, Map<String, Object> contextMap, Set<String> labelledKeys)
 	{
 		if(contextMap == null || contextMap.isEmpty())
 		{
@@ -108,18 +184,24 @@ public inherited sharing class CTRL_Logger
 		}
 
 		Object clientStackTrace = contextMap.get(LOG_Engine.CONTEXT_ERROR_STACK);
-		Boolean stackPromoted = clientStackTrace instanceof String && String.isNotBlank((String)clientStackTrace);
+		Object clientExceptionType = contextMap.get(LOG_Engine.CONTEXT_EXCEPTION_TYPE);
+		Set<String> promotedKeys = new Set<String>(labelledKeys);
 
-		if(stackPromoted)
+		if(clientStackTrace instanceof String && String.isNotBlank((String)clientStackTrace))
 		{
 			entry.withStackTraceInternal((String)clientStackTrace);
+			promotedKeys.add(LOG_Engine.CONTEXT_ERROR_STACK);
+		}
+
+		if(clientExceptionType instanceof String && String.isNotBlank((String)clientExceptionType))
+		{
+			entry.withExceptionTypeInternal((String)clientExceptionType);
+			promotedKeys.add(LOG_Engine.CONTEXT_EXCEPTION_TYPE);
 		}
 
 		for(String key : contextMap.keySet())
 		{
-			Boolean promotedKey = key == LOG_Engine.CONTEXT_ACTION_NAME || (key == LOG_Engine.CONTEXT_ERROR_STACK && stackPromoted);
-
-			if(!promotedKey)
+			if(!promotedKeys.contains(key))
 			{
 				entry.withContext(key, contextMap.get(key));
 			}

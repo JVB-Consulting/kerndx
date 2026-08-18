@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+.stream-list
+{
+	max-height : 18rem;
+	overflow-y : auto;
+}
+
+.stream-row
+{
+	align-items : baseline;
+	display     : flex;
+	gap         : 0.5rem;
+	padding     : 0.125rem 0;
+}
+
+.stream-row_error
+{
+	background   : var(--slds-g-color-error-base-95, #FEF1EE);
+	border-left  : 3px solid var(--slds-g-color-error-base-40, #C23934);
+	padding-left : 0.25rem;
+}
+
+.stream-time
+{
+	flex        : 0 0 9.5rem;
+	white-space : nowrap;
+}
+
+.stream-time-absolute
+{
+	color       : var(--slds-g-color-neutral-base-60, #939393);
+	margin-left : 0.375rem;
+}
+
+.stream-empty
+{
+	background    : var(--slds-g-color-neutral-base-95, #F3F3F3);
+	border-radius : 0.25rem;
+	padding       : 0.75rem;
+	text-align    : center;
+}
+
+.stream-message
+{
+	flex      : 1 1 auto;
+	min-width : 0;
+}
+
+.stream-toggle:focus-visible
+{
+	outline        : 2px solid var(--slds-g-color-brand-base-50, #0176D3);
+	outline-offset : 2px;
+}

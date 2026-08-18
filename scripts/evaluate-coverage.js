@@ -50,7 +50,7 @@ const CLASSES_RELATIVE_PATH = 'force-app/main/default/classes';
  */
 const COMPANION_TEST_SUITES = {
 	UTIL_AsyncChain: ['UTIL_AsyncChainRecovery_TEST', 'UTIL_AsyncChainApi_TEST'],
-	CTRL_ChainMonitor: ['CTRL_ChainMonitorAbort_TEST'],
+	CTRL_ChainMonitor: ['CTRL_ChainMonitorAbort_TEST', 'CTRL_ChainMonitorRedrive_TEST'],
 	API_Outbound: [
 		'UTIL_AsyncChainApi_TEST',
 		'API_Dispatcher_TEST',

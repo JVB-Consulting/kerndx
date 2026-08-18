@@ -34,6 +34,35 @@
 	border-bottom : 1px solid #E5E5E5;
 }
 
+/* One label's height, so the button's box sits level with the input boxes beside it. A date input grows
+   a format hint UNDER itself when focused; anything aligned to the bottom of this row moves when that
+   happens, which is what pulled the four custom-range boxes out of line. */
+.toolrow__action
+{
+	margin-top : 1.15rem;
+}
+
+/* The custom range on screen is not the range being queried. Amber rather than red: nothing has failed,
+   the previous window is still showing, and the reader has one box to fix. */
+.range-error
+{
+	align-items   : flex-start;
+	background    : #FFF4CE;
+	border-bottom : 1px solid #F6D18A;
+	color         : #7A5B00;
+	display       : flex;
+	font-size     : 0.78rem;
+	gap           : 0.55rem;
+	padding       : 0.4rem 0.9rem;
+}
+
+.range-error__icon
+{
+	--slds-c-icon-color-foreground-default : currentColor;
+	flex                                   : 0 0 auto;
+	margin-top                             : 0.05rem;
+}
+
 .date-range-combobox
 {
 	min-width : 12rem;
@@ -48,6 +77,26 @@
 {
 	flex      : 1 1 16rem;
 	min-width : 16rem;
+}
+
+/* Each filter control sits under its own quiet eyebrow, so the row reads as three named groups
+   (View / Levels / Context) rather than an unlabelled bank of controls. */
+.filter-group
+{
+	display        : inline-flex;
+	flex-direction : column;
+	gap            : 0.12rem;
+}
+
+.filter-group .eyebrow
+{
+	/* #747474 matches the ribbon eyebrows and is the darkest quiet grey that still clears
+	   WCAG AA 4.5:1 on white; the prototype's #A0A0A0 measured 2.6:1 in the R3 visual pass. */
+	color          : #747474;
+	font-size      : 0.58rem;
+	letter-spacing : 0.05em;
+	padding-left   : 0.1rem;
+	text-transform : uppercase;
 }
 
 .level-seg
@@ -104,12 +153,24 @@
 }
 
 /* Stretch so every ribbon card shares the tallest card's height (the ranked top-sources card),
-   giving the row an aligned bottom edge instead of ragged, differently-sized tiles. */
+   giving the row an aligned bottom edge instead of ragged, differently-sized tiles. The wrap is
+   declared here rather than through a utility class so the mobile rule below can override it. */
 .summary
 {
 	align-items    : stretch;
+	flex-wrap      : wrap;
 	padding-bottom : 0.5rem;
 	padding-top    : 0.5rem;
+}
+
+/* Quiet, like the scope caption: the total beside it is exact, so this explains rather than alarms. */
+.summary-declined
+{
+	align-self : center;
+	color      : #747474;
+	font-size  : 0.72rem;
+	max-width  : 22rem;
+	padding    : 0 0.9rem;
 }
 
 /* A flex column that centres the number/label/footnote inside the stretched height, so the
@@ -126,9 +187,13 @@
 	padding         : 0.4rem 0.7rem;
 }
 
+/* The three lines below are spans inside the clickable level card (a button takes phrasing content
+   only) and divs inside the read-only cards, so each is blocked out explicitly and both spellings
+   stack identically. */
 .summary-card .lab
 {
 	color          : #747474;
+	display        : block;
 	font-size      : 0.66rem;
 	letter-spacing : 0.04em;
 	text-transform : uppercase;
@@ -137,12 +202,14 @@
 .summary-card .val
 {
 	color       : #16325C;
+	display     : block;
 	font-size   : 1.1rem;
 	font-weight : 700;
 }
 
 .summary-card .footnote
 {
+	display   : block;
 	font-size : 0.64rem;
 }
 
@@ -150,17 +217,27 @@
    folded a capped rollup window, so an approximate headline number is never presented as exact. */
 .summary-card .approximate-badge
 {
+	align-items    : center;
 	background     : #FEF1E4;
 	border-radius  : 0.6rem;
 	color          : #8C4B02;
-	cursor         : help;
+	display        : flex;
 	font-size      : 0.6rem;
 	font-weight    : 600;
+	gap            : 0.25rem;
 	letter-spacing : 0.03em;
 	margin-top     : 0.15rem;
 	padding        : 0.05rem 0.45rem;
 	text-transform : uppercase;
 	width          : fit-content;
+}
+
+/* The help icon takes the badge's own colour through the documented SLDS hook, since its svg lives in
+   lightning-helptext's shadow root where a plain fill rule cannot reach it. */
+.summary-card .approximate-badge__help
+{
+	--slds-c-icon-color-foreground-default : currentColor;
+	display                                : inline-flex;
 }
 
 .summary-card_error
@@ -268,11 +345,131 @@
 
 .cappedbanner
 {
+	align-items   : flex-start;
 	background    : #FFF4CE;
 	border-bottom : 1px solid #F6D18A;
 	color         : #7A5B00;
+	display       : flex;
 	font-size     : 0.78rem;
+	gap           : 0.55rem;
 	padding       : 0.4rem 0.9rem;
+}
+
+.cappedbanner__icon
+{
+	--slds-c-icon-color-foreground-default : currentColor;
+	flex                                   : 0 0 auto;
+	margin-top                             : 0.05rem;
+}
+
+/* The grouping status bar. Two weights, and the difference is load-bearing: info (blue) is an outcome an
+   admin configured, so nothing failed; attention (amber) means the list really is missing problems that
+   exist. Colouring a configured choice like a fault teaches people to ignore the colour. */
+.grouping-bar
+{
+	align-items : flex-start;
+	display     : flex;
+	font-size   : 0.78rem;
+	gap         : 0.55rem;
+	padding     : 0.45rem 0.9rem;
+}
+
+.grouping-bar_info
+{
+	background    : #EEF4FF;
+	border-bottom : 1px solid #B9D4F7;
+	color         : #0A3D73;
+}
+
+.grouping-bar_attention
+{
+	background    : #FEF5E8;
+	border-bottom : 1px solid #F0C073;
+	color         : #6D3A02;
+}
+
+/* The icon takes the bar's own text colour through the documented SLDS styling hook, since the svg lives
+   in lightning-icon's shadow root and a plain fill rule cannot reach it. Nudged down to sit on the first
+   line's baseline rather than the top of a wrapped block. */
+.grouping-bar__icon
+{
+	--slds-c-icon-color-foreground-default : currentColor;
+	flex                                   : 0 0 auto;
+	margin-top                             : 0.05rem;
+}
+
+.grouping-bar__text
+{
+	flex      : 1;
+	min-width : 0;
+}
+
+.grouping-bar__action
+{
+	background      : none;
+	border          : 0;
+	color           : inherit;
+	cursor          : pointer;
+	flex            : 0 0 auto;
+	font            : inherit;
+	font-weight     : 600;
+	padding         : 0;
+	text-decoration : underline;
+	white-space     : nowrap;
+}
+
+/* The same ring as the console's other custom buttons: on a tinted bar the agent default can vanish. */
+.grouping-bar__action:focus-visible
+{
+	outline        : 2px solid #1B96FF;
+	outline-offset : 2px;
+}
+
+/* The two places focus is moved to programmatically — onto the drawer when a row opens it, and back onto
+   the list when it closes. Both are tabindex="-1" regions, so nothing marks the move without this: the
+   same ring as the console's other custom focus targets, drawn inside the element because both sit hard
+   against a border. :focus rather than :focus-visible, because the move is scripted and a browser does
+   not always count a scripted focus as keyboard-initiated. */
+.listwrap:focus,
+.panel:focus
+{
+	outline        : 2px solid #1B96FF;
+	outline-offset : -2px;
+}
+
+/* Reconciles a problem's occurrence count with the entries listed under it. Ambient like the scope
+   caption: both numbers on screen are correct, and this only says how they relate. */
+.drill-note
+{
+	border-bottom : 1px solid #E5E5E5;
+	color         : #747474;
+	font-size     : 0.72rem;
+	padding       : 0.35rem 0.9rem;
+}
+
+/* Ambient, never an alarm: the level scope is the standing definition of this tab, not an exception. */
+.grouping-scope
+{
+	border-bottom : 1px solid #E5E5E5;
+	color         : #747474;
+	font-size     : 0.72rem;
+	padding       : 0.35rem 0.9rem;
+}
+
+.empty__title
+{
+	color         : #3B3B3B;
+	display       : block;
+	font-weight   : 600;
+	margin-bottom : 0.35rem;
+}
+
+.empty__hint
+{
+	display   : block;
+	font-size : 0.75rem;
+	margin    : 0 auto;
+	max-width : 34rem;
 }
 
 .body-row
@@ -328,6 +525,19 @@
 	.body-row
 	{
 		position : relative;
+	}
+
+	/* On a narrow screen the ribbon keeps its cards on one line and scrolls sideways: wrapped onto
+	   three or four rows it would push the list itself below the fold before a single log is visible. */
+	.summary
+	{
+		flex-wrap  : nowrap;
+		overflow-x : auto;
+	}
+
+	.summary-card
+	{
+		flex : 0 0 auto;
 	}
 
 	.panel

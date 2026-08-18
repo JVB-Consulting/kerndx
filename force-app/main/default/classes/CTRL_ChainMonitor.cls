@@ -5,18 +5,27 @@
  * receives display-ready DTOs and does not parse the StepLog JSON directly.
  *
  * @see CTRL_ChainMonitor_TEST
+ * @see CTRL_ChainMonitorRedrive_TEST
+ * @see CTRL_ChainMonitorTypes
+ * @see LOG_Builder
  * @see SEL_AsyncChainExecution
+ * @see SEL_LogEntry
  * @see UTIL_AsyncChain
  *
  * @author Jason van Beukering
  *
  * @group Controllers
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  */
-@SuppressWarnings('PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.ExcessiveClassLength')
 public with sharing class CTRL_ChainMonitor
 {
+	/**
+	 * @description Class name for log source attribution on the operator action endpoints.
+	 */
+	private static final String CLASS_NAME = CTRL_ChainMonitor.class.getName();
+
 	/**
 	 * @description Default page size for chain list queries.
 	 */
@@ -55,39 +64,67 @@ public with sharing class CTRL_ChainMonitor
 	private static final String STEP_STATUS_PENDING = 'pending';
 
 	/**
-	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the abort
-	 * action is available to the running user. Stable machine codes, never user-facing text: the
-	 * Chain Monitor maps each ABORT_* code to a Custom Label.
-	 */
-	@TestVisible
-	private static final String ABORT_AVAILABLE = 'Available';
-
-	/**
-	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the chain
-	 * has already finished, so there is nothing to abort.
+	 * @description Abort availability code carried on CTRL_ChainMonitorTypes.DTO_ChainDetail.abortAvailability: the chain
+	 * has already finished, so there is nothing to abort. The action-agnostic codes (available,
+	 * capability disabled, permission missing) live in the shared OPERATOR_* family below.
 	 */
 	@TestVisible
 	private static final String ABORT_CHAIN_NOT_ABORTABLE = 'ChainNotAbortable';
-
-	/**
-	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the
-	 * capability is switched off org-wide.
-	 */
-	@TestVisible
-	private static final String ABORT_CAPABILITY_DISABLED = 'CapabilityDisabled';
-
-	/**
-	 * @description Abort availability code carried on DTO_ChainDetail.abortAvailability: the feature
-	 * flag is live but the running user lacks the permission its strategy names.
-	 */
-	@TestVisible
-	private static final String ABORT_PERMISSION_MISSING = 'PermissionMissing';
 
 	/**
 	 * @description Reason recorded on ErrorMessage__c for an operator abort. Deliberately a literal
 	 * English constant, not a label: it lands on record data, not in the UI copy path.
 	 */
 	private static final String OPERATOR_ABORT_REASON = 'Aborted by operator from the Chain Monitor';
+
+	/**
+	 * @description Availability code shared by the operator action gates (retry, restart,
+	 * clear-stalled, kill-switch toggle): the action is available to the running user. Stable
+	 * machine codes, never user-facing text — the monitor maps every code to a Custom Label.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static final String OPERATOR_AVAILABLE = 'Available';
+
+	/**
+	 * @description Availability code shared by the operator action gates: the action's capability
+	 * flag is absent, inactive, or strategyless — the org-wide off state.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static final String OPERATOR_CAPABILITY_DISABLED = 'CapabilityDisabled';
+
+	/**
+	 * @description Availability code shared by the operator action gates: the capability flag is
+	 * live but the running user lacks the permission its strategy names.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static final String OPERATOR_PERMISSION_MISSING = 'PermissionMissing';
+
+	/**
+	 * @description How many persisted log entries the live-stream seed returns — the most recent
+	 * rows of the chain's correlated trace, rendered as history beneath the live tail. Bounded so
+	 * the seed of a pathological correlation stays a UI-sized payload.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static final Integer LOG_STREAM_SEED_ROW_CAP = 20;
+
+	/**
+	 * @description The statuses of a run that has not finished, and so has no recorded duration to
+	 * show. Both are re-drivable rather than terminal: Running is still working through its steps,
+	 * and Stalled lost its background job but can be picked up again.
+	 */
+	private static final Set<String> UNFINISHED_STATUSES = new Set<String>
+	{
+			SEL_AsyncChainExecution.STATUS_RUNNING,
+			SEL_AsyncChainExecution.STATUS_STALLED
+	};
 
 	/**
 	 * @description Map of sortable field names to SObjectField tokens for compile-time safety.
@@ -107,22 +144,22 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @param requestJson The filter, sort, and pagination parameters.
 	 *
-	 * @return A DTO_ChainPage with records, pagination metadata, and total count.
+	 * @return A CTRL_ChainMonitorTypes.DTO_ChainPage with records, pagination metadata, and total count.
 	 *
 	 * @example
 	 * ```apex
-	 * CTRL_ChainMonitor.DTO_Request request = new CTRL_ChainMonitor.DTO_Request();
+	 * CTRL_ChainMonitorTypes.DTO_Request request = new CTRL_ChainMonitorTypes.DTO_Request();
 	 * request.statusFilters = new List<String>{'Running', 'Failed'};
 	 * request.pageNumber = 1;
-	 * CTRL_ChainMonitor.DTO_ChainPage result = CTRL_ChainMonitor.getChainExecutions(request);
+	 * CTRL_ChainMonitorTypes.DTO_ChainPage result = CTRL_ChainMonitor.getChainExecutions(request);
 	 * ```
 	 */
 	@AuraEnabled
-	public static DTO_ChainPage getChainExecutions(String requestJson)
+	public static CTRL_ChainMonitorTypes.DTO_ChainPage getChainExecutions(String requestJson)
 	{
-		DTO_Request request = String.isBlank(requestJson)
-				? new DTO_Request()
-				: (DTO_Request)JSON.deserialize(requestJson, DTO_Request.class);
+		CTRL_ChainMonitorTypes.DTO_Request request = String.isBlank(requestJson)
+				? new CTRL_ChainMonitorTypes.DTO_Request()
+				: (CTRL_ChainMonitorTypes.DTO_Request)JSON.deserialize(requestJson, CTRL_ChainMonitorTypes.DTO_Request.class);
 
 		SObjectField resolvedSortField = SORTABLE_FIELDS.get(request.sortField);
 		if(resolvedSortField == null)
@@ -140,13 +177,13 @@ public with sharing class CTRL_ChainMonitor
 						request.sortAscending != true, resolvedPageNumber, resolvedPageSize
 				);
 
-		List<DTO_ChainSummary> summaries = new List<DTO_ChainSummary>();
+		List<CTRL_ChainMonitorTypes.DTO_ChainSummary> summaries = new List<CTRL_ChainMonitorTypes.DTO_ChainSummary>();
 		for(SObject record : page.records)
 		{
 			summaries.add(toChainSummary((AsyncChainExecution__c)record));
 		}
 
-		DTO_ChainPage result = new DTO_ChainPage();
+		CTRL_ChainMonitorTypes.DTO_ChainPage result = new CTRL_ChainMonitorTypes.DTO_ChainPage();
 
 		result.hasMorePages = page.hasMorePages;
 		result.pageNumber = page.pageNumber;
@@ -163,15 +200,15 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @param executionId The ID of the AsyncChainExecution__c record.
 	 *
-	 * @return A DTO_ChainDetail with all chain metadata and parsed step details. Null if not found.
+	 * @return A CTRL_ChainMonitorTypes.DTO_ChainDetail with all chain metadata and parsed step details. Null if not found.
 	 *
 	 * @example
 	 * ```apex
-	 * CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(executionId);
+	 * CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(executionId);
 	 * ```
 	 */
 	@AuraEnabled
-	public static DTO_ChainDetail getChainDetail(Id executionId)
+	public static CTRL_ChainMonitorTypes.DTO_ChainDetail getChainDetail(Id executionId)
 	{
 		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
 
@@ -189,21 +226,21 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @param executionId The ID of the AsyncChainExecution__c record.
 	 *
-	 * @return List of DTO_StepDetail representing each step in the chain. Empty list if not found.
+	 * @return List of CTRL_ChainMonitorTypes.DTO_StepDetail representing each step in the chain. Empty list if not found.
 	 *
 	 * @example
 	 * ```apex
-	 * List<CTRL_ChainMonitor.DTO_StepDetail> steps = CTRL_ChainMonitor.getStepTimeline(executionId);
+	 * List<CTRL_ChainMonitorTypes.DTO_StepDetail> steps = CTRL_ChainMonitor.getStepTimeline(executionId);
 	 * ```
 	 */
 	@AuraEnabled(Cacheable=true)
-	public static List<DTO_StepDetail> getStepTimeline(Id executionId)
+	public static List<CTRL_ChainMonitorTypes.DTO_StepDetail> getStepTimeline(Id executionId)
 	{
 		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
 
 		if(execution == null)
 		{
-			return new List<DTO_StepDetail>();
+			return new List<CTRL_ChainMonitorTypes.DTO_StepDetail>();
 		}
 
 		return parseSteps(execution);
@@ -260,11 +297,11 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @example
 	 * ```apex
-	 * CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.abortChain(executionId);
+	 * CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.abortChain(executionId);
 	 * ```
 	 */
 	@AuraEnabled
-	public static DTO_ChainDetail abortChain(Id executionId)
+	public static CTRL_ChainMonitorTypes.DTO_ChainDetail abortChain(Id executionId)
 	{
 		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
 
@@ -279,11 +316,11 @@ public with sharing class CTRL_ChainMonitor
 		{
 			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableChainEnded);
 		}
-		if(availability == ABORT_CAPABILITY_DISABLED)
+		if(availability == OPERATOR_CAPABILITY_DISABLED)
 		{
 			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableDisabled);
 		}
-		if(availability == ABORT_PERMISSION_MISSING)
+		if(availability == OPERATOR_PERMISSION_MISSING)
 		{
 			throw new AuraHandledException(System.Label.ChainMonitor_AbortUnavailableMissingPermission);
 		}
@@ -298,23 +335,294 @@ public with sharing class CTRL_ChainMonitor
 	}
 
 	/**
+	 * @description Re-drives a Failed chain from its failed step on the operator's behalf. The
+	 * feature-flag gate layers over the engine's state resolution and Apex is the enforcement
+	 * point, so every refusal throws its labeled exception — button state in the monitor is only a
+	 * hint. The engine re-resolves on its own fresh read before acting, and a refusal it detects
+	 * there (a race with another actor, or another live run claiming the deduplication key) maps
+	 * through the same labels. An engine failure that is neither a refusal nor a key collision is
+	 * logged and surfaced as the generic retry-failed label.
+	 *
+	 * @param executionId The Failed AsyncChainExecution__c record to re-drive.
+	 *
+	 * @return The freshly re-read detail of the re-driven chain.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.retryChainFromFailedStep(executionId);
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_ChainDetail retryChainFromFailedStep(Id executionId)
+	{
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+
+		if(execution == null)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RetryUnavailableChainEnded);
+		}
+
+		throwOnRetryRefusal(resolveRetryAvailability(execution));
+
+		UTIL_AsyncChain.OperatorActionOutcome outcome;
+		try
+		{
+			outcome = UTIL_AsyncChain.retryChainFromFailedStep(executionId);
+		}
+		catch(Exception failure)
+		{
+			LOG_Builder.build().error(failure).at(CLASS_NAME + '.retryChainFromFailedStep').forRecord(executionId).emit();
+			throw new AuraHandledException(System.Label.ChainMonitor_RetryFailed);
+		}
+
+		if(outcome.refusalCode != null)
+		{
+			throwOnRetryRefusal(outcome.refusalCode);
+		}
+
+		return getChainDetail(outcome.resultId);
+	}
+
+	/**
+	 * @description Restarts a Failed or Aborted chain from its first step on the operator's behalf,
+	 * by cloning to a fresh record — the source row is never mutated. Gate layering, enforcement
+	 * posture, and refusal mapping follow retryChainFromFailedStep exactly; the engine resolves the
+	 * snapshot-presence conjuncts on its own dedicated read. An engine failure that is neither a
+	 * refusal nor a key collision — including a clone context that outgrows its field when the
+	 * rebuild replaces the snapshot's logging-context entry — is logged and surfaced as the generic
+	 * restart-failed label.
+	 *
+	 * @param executionId The Failed or Aborted AsyncChainExecution__c record to restart from.
+	 *
+	 * @return The CLONE's freshly read detail, so the monitor can re-point at the new run.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_ChainDetail cloneDetail = CTRL_ChainMonitor.restartChainFromStart(executionId);
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_ChainDetail restartChainFromStart(Id executionId)
+	{
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+
+		if(execution == null)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RestartUnavailableChainEnded);
+		}
+
+		throwOnRestartRefusal(resolveRestartAvailability(execution));
+
+		UTIL_AsyncChain.OperatorActionOutcome outcome;
+		try
+		{
+			outcome = UTIL_AsyncChain.restartChainFromStart(executionId);
+		}
+		catch(Exception failure)
+		{
+			LOG_Builder.build().error(failure).at(CLASS_NAME + '.restartChainFromStart').forRecord(executionId).emit();
+			throw new AuraHandledException(System.Label.ChainMonitor_RestartFailed);
+		}
+
+		if(outcome.refusalCode != null)
+		{
+			throwOnRestartRefusal(outcome.refusalCode);
+		}
+
+		return getChainDetail(outcome.resultId);
+	}
+
+	/**
+	 * @description Runs the operator clear-stalled sweep on the operator's behalf and returns its
+	 * per-bucket counts for the result toast. The suspension gate lives HERE and only here: the
+	 * engine's clearStalledChains carries no suspension conjunct, because its truthful zero counts
+	 * would be indistinguishable from "nothing stalled" — so this controller resolution is the
+	 * suspension interlock's sole enforcement point. The capability and permission gates layer
+	 * exactly as on the other re-drive actions.
+	 *
+	 * @return The sweep's per-bucket counts.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_ClearStalledResult result = CTRL_ChainMonitor.clearStalledChains();
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_ClearStalledResult clearStalledChains()
+	{
+		throwOnSharedOperatorRefusal(resolveClearStalledAvailability());
+
+		return toClearStalledResult(UTIL_AsyncChain.clearStalledChains());
+	}
+
+	/**
+	 * @description Reads the operations-control state for the monitor's list header: whether chain
+	 * processing is currently enabled, the availability of the kill-switch toggle and the
+	 * clear-stalled sweep for the running user, and — for a user the sweep is open to — how many
+	 * chains are waiting for it, which the sweep's confirmation dialog names before the operator
+	 * commits. Deliberately non-cacheable — the state must repaint truthfully right after a toggle,
+	 * and the monitor re-reads it immediately before opening that dialog so the number is true at
+	 * the moment of the decision.
+	 *
+	 * @return The operations state.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_OperationsState state = CTRL_ChainMonitor.getChainOperationsState();
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_OperationsState getChainOperationsState()
+	{
+		CTRL_ChainMonitorTypes.DTO_OperationsState state = new CTRL_ChainMonitorTypes.DTO_OperationsState();
+
+		state.chainProcessingEnabled = UTIL_AsyncChain.isChainProcessingEnabled();
+		state.killSwitchAvailability = resolveKillSwitchAvailability();
+		state.clearStalledAvailability = resolveClearStalledAvailability();
+		// The waiting count feeds the sweep's confirmation dialog, and it is read through a sharing
+		// bypass, so it is gathered only for a caller the sweep is actually open to.
+		state.stalledChainCount = state.clearStalledAvailability == OPERATOR_AVAILABLE ? new SEL_AsyncChainExecution().countStalledAwaitingSweep() : 0;
+
+		return state;
+	}
+
+	/**
+	 * @description Suspends all async chain processing org-wide on the operator's behalf. The
+	 * engine's hierarchy-setting write is the ONLY DML in this transaction — the endpoint performs
+	 * no other DML by design, because mixing setting DML with object DML is a real production
+	 * hazard that tests cannot witness (System.runAs waives the restriction), so this shape is the
+	 * isolation's only enforcement. The suspension gate deliberately does not apply to the toggle
+	 * itself: resume must stay reachable while suspended.
+	 *
+	 * @return The fresh operations state, so the control repaints without a second round trip.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_OperationsState state = CTRL_ChainMonitor.suspendChainProcessing();
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_OperationsState suspendChainProcessing()
+	{
+		throwOnKillSwitchRefusal(resolveKillSwitchAvailability());
+
+		UTIL_AsyncChain.suspendChainProcessing();
+
+		return getChainOperationsState();
+	}
+
+	/**
+	 * @description Resumes async chain processing on the operator's behalf. Gate, DML isolation,
+	 * and return shape follow suspendChainProcessing exactly; chains that stopped during the
+	 * suspension stay stopped — retry or restart the ones that should run.
+	 *
+	 * @return The fresh operations state, so the control repaints without a second round trip.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_ChainMonitorTypes.DTO_OperationsState state = CTRL_ChainMonitor.resumeChainProcessing();
+	 * ```
+	 */
+	@AuraEnabled
+	public static CTRL_ChainMonitorTypes.DTO_OperationsState resumeChainProcessing()
+	{
+		throwOnKillSwitchRefusal(resolveKillSwitchAvailability());
+
+		UTIL_AsyncChain.resumeChainProcessing();
+
+		return getChainOperationsState();
+	}
+
+	/**
+	 * @description Seeds the detail panel's live log stream with the chain's most recent persisted
+	 * entries, bridging the stream's subscribe-forward blind spot. The seed never throws: it
+	 * degrades to an empty list when the caller's context cannot read LogEntry__c at all, when the
+	 * chain is missing, or when no entries exist — a caller granted only the monitor's read
+	 * surface sees a live-only stream, never framework log rows their permissions deny. Once the
+	 * caller's own object access is established, the read spans BOTH reference legs — the chain's
+	 * correlation id and its record reference — so a chain launched from a transaction with no
+	 * active log correlation (whose entries carry only the record id) still seeds its history; the
+	 * legs share the Log Console posture, spanning every user's framework-owned rows so the trace
+	 * is complete. The chain row itself is read through a correlation-only projection: the default
+	 * projection would haul two 131KB long-texts the detail read has already paid for. The mapped
+	 * message is the entry's short message — the engine derives one from the full message whenever
+	 * the emitter set none, so a persisted framework row always carries it and the long-text bodies
+	 * stay out of the lean projection. The read returns the TRUE newest rows of any trace size
+	 * (same-timestamp ties broken by Id), which this endpoint hands back oldest first.
+	 *
+	 * @param executionId The AsyncChainExecution__c record whose trace to seed from.
+	 *
+	 * @return The most recent persisted entries, oldest first, capped at LOG_STREAM_SEED_ROW_CAP.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * List<CTRL_ChainMonitorTypes.DTO_LogStreamEntry> entries = CTRL_ChainMonitor.getChainLogEntries(executionId);
+	 * ```
+	 */
+	@AuraEnabled
+	public static List<CTRL_ChainMonitorTypes.DTO_LogStreamEntry> getChainLogEntries(Id executionId)
+	{
+		List<CTRL_ChainMonitorTypes.DTO_LogStreamEntry> entries = new List<CTRL_ChainMonitorTypes.DTO_LogStreamEntry>();
+
+		if(!UTIL_SObjectDescribe.isObjectAccessible(LogEntry__c.SObjectType))
+		{
+			return entries;
+		}
+
+		AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForLogStreamSeed(executionId);
+
+		if(execution == null)
+		{
+			return entries;
+		}
+
+		List<LogEntry__c> rows = new SEL_LogEntry().findNewestByCorrelationIdOrRecordId(execution.CorrelationId__c, executionId, LOG_STREAM_SEED_ROW_CAP);
+		for(Integer index = rows.size() - 1; index >= 0; index--)
+		{
+			CTRL_ChainMonitorTypes.DTO_LogStreamEntry entry = new CTRL_ChainMonitorTypes.DTO_LogStreamEntry();
+
+			entry.timestamp = rows[index].CreatedDate;
+			entry.logLevel = rows[index].LogLevel__c;
+			entry.message = rows[index].ShortMessage__c;
+
+			entries.add(entry);
+		}
+
+		return entries;
+	}
+
+	/**
 	 * @description Converts an AsyncChainExecution__c record to a summary DTO for the list view.
 	 *
 	 * @param record The AsyncChainExecution__c record.
 	 *
-	 * @return A populated DTO_ChainSummary.
+	 * @return A populated CTRL_ChainMonitorTypes.DTO_ChainSummary.
 	 */
-	private static DTO_ChainSummary toChainSummary(AsyncChainExecution__c record)
+	private static CTRL_ChainMonitorTypes.DTO_ChainSummary toChainSummary(AsyncChainExecution__c record)
 	{
-		DTO_ChainSummary summary = new DTO_ChainSummary();
+		CTRL_ChainMonitorTypes.DTO_ChainSummary summary = new CTRL_ChainMonitorTypes.DTO_ChainSummary();
 
 		summary.executionId = record.Id;
 		summary.chainName = record.ChainName__c;
 		summary.status = record.Status__c;
-		summary.completedSteps = record.CompletedSteps__c != null ? record.CompletedSteps__c.intValue() : 0;
-		summary.totalSteps = record.TotalSteps__c != null ? record.TotalSteps__c.intValue() : 0;
+		summary.completedSteps = record.CompletedSteps__c?.intValue() ?? 0;
+		summary.totalSteps = record.TotalSteps__c?.intValue() ?? 0;
 		summary.startedAt = record.StartedAt__c;
-		summary.durationMs = record.DurationMs__c?.longValue();
+		summary.durationMs = resolveElapsedMilliseconds(record);
 		summary.durationLabel = UTIL_Date.formatDuration(summary.durationMs);
 
 		return summary;
@@ -325,11 +633,11 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @param execution The AsyncChainExecution__c record.
 	 *
-	 * @return A populated DTO_ChainDetail.
+	 * @return A populated CTRL_ChainMonitorTypes.DTO_ChainDetail.
 	 */
-	private static DTO_ChainDetail toChainDetail(AsyncChainExecution__c execution)
+	private static CTRL_ChainMonitorTypes.DTO_ChainDetail toChainDetail(AsyncChainExecution__c execution)
 	{
-		DTO_ChainDetail detail = new DTO_ChainDetail();
+		CTRL_ChainMonitorTypes.DTO_ChainDetail detail = new CTRL_ChainMonitorTypes.DTO_ChainDetail();
 
 		detail.chainName = execution.ChainName__c;
 		detail.completedAt = execution.CompletedAt__c;
@@ -340,20 +648,72 @@ public with sharing class CTRL_ChainMonitor
 		detail.startedAt = execution.StartedAt__c;
 		detail.status = execution.Status__c;
 		detail.abortAvailability = resolveAbortAvailability(execution);
-		detail.totalSteps = execution.TotalSteps__c != null ? execution.TotalSteps__c.intValue() : 0;
+		detail.retryAvailability = resolveRetryAvailability(execution);
+		detail.restartAvailability = resolveRestartAvailability(execution);
+		detail.sourceExecutionId = execution.SourceExecution__c;
+		detail.totalSteps = execution.TotalSteps__c?.intValue() ?? 0;
 
-		if(execution.DurationMs__c != null)
-		{
-			detail.durationMs = execution.DurationMs__c.longValue();
-		}
-		else if(execution.StartedAt__c != null && execution.Status__c == SEL_AsyncChainExecution.STATUS_RUNNING)
-		{
-			detail.durationMs = Datetime.now().getTime() - execution.StartedAt__c.getTime();
-		}
-
+		detail.durationMs = resolveElapsedMilliseconds(execution);
 		detail.durationLabel = UTIL_Date.formatDuration(detail.durationMs);
 		detail.steps = parseSteps(execution);
+		detail.activeDurationMs = sumStepDurations(detail.steps);
+		detail.activeDurationLabel = UTIL_Date.formatDuration(detail.activeDurationMs);
 		return detail;
+	}
+
+	/**
+	 * @description How long a run has taken, for the one duration both the list row and the Timing
+	 * card show. A run that finished recorded the answer when it ended, so that value wins. A run
+	 * that has not finished records nothing, so its answer is the time since it started, which keeps
+	 * growing until the run ends: that is the number a stuck-chain triage reads off a Running or a
+	 * Stalled row. A completion timestamp means the run ended whatever its status says, so
+	 * counting on from its start is never right for one: an operator-aborted row and a stalled row
+	 * that recovery clobbered both carry that timestamp, and both stop here rather than reporting a
+	 * total that would climb forever.
+	 *
+	 * @param execution The chain execution row, projecting DurationMs__c, StartedAt__c,
+	 * CompletedAt__c and Status__c.
+	 *
+	 * @return The run's duration in milliseconds, or null when the row records none and none can
+	 * honestly be derived.
+	 */
+	private static Long resolveElapsedMilliseconds(AsyncChainExecution__c execution)
+	{
+		if(execution.DurationMs__c != null)
+		{
+			return execution.DurationMs__c.longValue();
+		}
+
+		Boolean stillGoing = execution.StartedAt__c != null && execution.CompletedAt__c == null && UNFINISHED_STATUSES.contains(execution.Status__c);
+
+		return stillGoing ? Datetime.now().getTime() - execution.StartedAt__c.getTime() : null;
+	}
+
+	/**
+	 * @description Adds up what the steps themselves spent running. A re-driven chain keeps its
+	 * original start, so its wall-clock duration counts every idle minute an operator took before
+	 * pressing Retry; this total is the same run with the waiting taken out. Steps that never ran
+	 * record no duration and contribute nothing, and a step that ran more than once contributes
+	 * only its latest attempt — the step log keeps one entry per step, so an earlier attempt's
+	 * duration is overwritten by a retry and cleared outright by an operator re-drive.
+	 *
+	 * @param steps The parsed step details of one execution.
+	 *
+	 * @return The summed step duration in milliseconds, or null when no step recorded one.
+	 */
+	private static Long sumStepDurations(List<CTRL_ChainMonitorTypes.DTO_StepDetail> steps)
+	{
+		Long total = null;
+
+		for(CTRL_ChainMonitorTypes.DTO_StepDetail step : steps)
+		{
+			if(step.durationMs != null)
+			{
+				total = (total ?? 0) + step.durationMs;
+			}
+		}
+
+		return total;
 	}
 
 	/**
@@ -374,13 +734,234 @@ public with sharing class CTRL_ChainMonitor
 			return ABORT_CHAIN_NOT_ABORTABLE;
 		}
 
-		if(UTIL_FeatureFlag.isEnabled(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME))
+		return resolveCapabilityAvailability(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Resolves why the retry action is or is not available for this chain and the
+	 * running user, layering the capability gate over the engine's state resolution: a state
+	 * refusal wins (nothing else matters for an ineligible chain), then the capability flag decides
+	 * available, org-wide off, or missing permission — the abort resolution order exactly. The
+	 * engine's state half parses the row's step log and context; that cost is bounded because
+	 * availability rides only the single-record detail read, never the list projection. Within one
+	 * detail read the step log is consequently parsed more than once — the engine resolver and the
+	 * step-timeline mapping each parse independently — an accepted cost: sharing one parse would
+	 * couple the engine resolver's signature to the controller's rendering.
+	 *
+	 * @param execution The freshly read execution record.
+	 *
+	 * @return The layered availability code.
+	 */
+	private static String resolveRetryAvailability(AsyncChainExecution__c execution)
+	{
+		return layerCapabilityGate(UTIL_AsyncChain.resolveRetryAvailability(execution), UTIL_AsyncChain.REDRIVE_FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Resolves why the restart action is or is not available for this chain and the
+	 * running user — the retry layering with the engine's restart state resolution.
+	 *
+	 * @param execution The freshly read execution record.
+	 *
+	 * @return The layered availability code.
+	 */
+	private static String resolveRestartAvailability(AsyncChainExecution__c execution)
+	{
+		return layerCapabilityGate(UTIL_AsyncChain.resolveRestartAvailability(execution), UTIL_AsyncChain.REDRIVE_FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Resolves why the clear-stalled sweep is or is not available for the running
+	 * user. The suspension conjunct is resolved HERE because the engine deliberately carries none
+	 * (its zero counts could not distinguish a suspension refusal from an empty org), making this
+	 * resolution the suspension interlock's sole enforcement point; the capability gate then
+	 * layers as on every re-drive action.
+	 *
+	 * @return The availability code.
+	 */
+	private static String resolveClearStalledAvailability()
+	{
+		if(!UTIL_AsyncChain.isChainProcessingEnabled())
 		{
-			return ABORT_AVAILABLE;
+			return UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED;
 		}
 
-		FeatureFlag__mdt flag = SEL_FeatureFlag.activeFlags.get(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME);
-		return flag == null || flag.FeatureFlagStrategies__r.isEmpty() ? ABORT_CAPABILITY_DISABLED : ABORT_PERMISSION_MISSING;
+		return resolveCapabilityAvailability(UTIL_AsyncChain.REDRIVE_FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Resolves why the kill-switch toggle is or is not available for the running user.
+	 * Deliberately NO suspension conjunct: the toggle must stay reachable while processing is
+	 * suspended, or resume would be impossible.
+	 *
+	 * @return The availability code.
+	 */
+	private static String resolveKillSwitchAvailability()
+	{
+		return resolveCapabilityAvailability(UTIL_AsyncChain.KILL_SWITCH_TOGGLE_FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Layers the capability gate over an engine state resolution: a state refusal
+	 * passes through untouched, and only an eligible state consults the flag.
+	 *
+	 * @param stateAvailability The engine's chain-state availability code.
+	 * @param featureFlagName The capability flag gating the action.
+	 *
+	 * @return The layered availability code.
+	 */
+	private static String layerCapabilityGate(String stateAvailability, String featureFlagName)
+	{
+		return stateAvailability == OPERATOR_AVAILABLE ? resolveCapabilityAvailability(featureFlagName) : stateAvailability;
+	}
+
+	/**
+	 * @description Resolves the capability half of an operator gate from its feature flag: an
+	 * enabled gate is available; an absent-or-inactive flag, or a flag with no active strategies,
+	 * is the org-wide off state; otherwise the flag is live and the running user simply lacks the
+	 * permission its strategy names — the order the shipped abort flow established, and every
+	 * action gate (abort included) resolves its capability half through this one member.
+	 *
+	 * @param featureFlagName The capability flag gating the action.
+	 *
+	 * @return Available, CapabilityDisabled, or PermissionMissing.
+	 */
+	private static String resolveCapabilityAvailability(String featureFlagName)
+	{
+		if(UTIL_FeatureFlag.isEnabled(featureFlagName))
+		{
+			return OPERATOR_AVAILABLE;
+		}
+
+		FeatureFlag__mdt flag = SEL_FeatureFlag.activeFlags.get(featureFlagName);
+		return flag == null || flag.FeatureFlagStrategies__r.isEmpty() ? OPERATOR_CAPABILITY_DISABLED : OPERATOR_PERMISSION_MISSING;
+	}
+
+	/**
+	 * @description Maps every non-available retry availability code to its labeled refusal; returns
+	 * silently on Available. Both the pre-action resolution and the engine's own fresh-read refusal
+	 * route through this one mapping, so a code has exactly one label. The chain-ended label is the
+	 * mapping's tail: ChainNotRetryable and any code outside the enumerated family land there,
+	 * because refresh-and-rescan is the honest advice for a state the monitor does not recognise.
+	 *
+	 * @param availability The availability code to map.
+	 */
+	private static void throwOnRetryRefusal(String availability)
+	{
+		if(availability == OPERATOR_AVAILABLE)
+		{
+			return;
+		}
+		throwOnSharedOperatorRefusal(availability);
+		if(availability == UTIL_AsyncChain.REDRIVE_STEP_NOT_IDEMPOTENT)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RetryUnavailableStepNotIdempotent);
+		}
+		if(availability == UTIL_AsyncChain.REDRIVE_FAILURE_PERMANENT)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RetryUnavailablePermanent);
+		}
+		if(availability == UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RetryUnavailableContext);
+		}
+		throw new AuraHandledException(System.Label.ChainMonitor_RetryUnavailableChainEnded);
+	}
+
+	/**
+	 * @description Maps every non-available restart availability code to its labeled refusal;
+	 * returns silently on Available. Both the pre-action resolution and the engine's own fresh-read
+	 * refusal route through this one mapping, so a code has exactly one label. The chain-ended
+	 * label is the mapping's tail: ChainNotRestartable and any code outside the enumerated family
+	 * land there, because refresh-and-rescan is the honest advice for a state the monitor does not
+	 * recognise.
+	 *
+	 * @param availability The availability code to map.
+	 */
+	private static void throwOnRestartRefusal(String availability)
+	{
+		if(availability == OPERATOR_AVAILABLE)
+		{
+			return;
+		}
+		throwOnSharedOperatorRefusal(availability);
+		if(availability == UTIL_AsyncChain.RESTART_NOT_DECLARED)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RestartUnavailableNotDeclared);
+		}
+		if(availability == UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RestartUnavailableContext);
+		}
+		throw new AuraHandledException(System.Label.ChainMonitor_RestartUnavailableChainEnded);
+	}
+
+	/**
+	 * @description Maps the availability codes every re-drive action shares — suspension, duplicate
+	 * run, and the two capability-layer refusals — to their labeled exceptions; codes outside the
+	 * shared family pass through untouched for the caller's own mapping. The clear-stalled endpoint
+	 * uses this mapping directly: its resolver can only return shared-family codes.
+	 *
+	 * @param availability The availability code to map.
+	 */
+	private static void throwOnSharedOperatorRefusal(String availability)
+	{
+		if(availability == UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RedriveUnavailableSuspended);
+		}
+		if(availability == UTIL_AsyncChain.REDRIVE_DUPLICATE_RUN)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RedriveUnavailableDuplicateRun);
+		}
+		if(availability == OPERATOR_CAPABILITY_DISABLED)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RedriveUnavailableDisabled);
+		}
+		if(availability == OPERATOR_PERMISSION_MISSING)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_RedriveUnavailableMissingPermission);
+		}
+	}
+
+	/**
+	 * @description Maps the kill-switch toggle's refusal codes to their labeled exceptions; returns
+	 * silently on Available. The toggle's resolver returns only the capability-layer codes, so this
+	 * mapping is exhaustive by construction.
+	 *
+	 * @param availability The availability code to map.
+	 */
+	private static void throwOnKillSwitchRefusal(String availability)
+	{
+		if(availability == OPERATOR_CAPABILITY_DISABLED)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_KillSwitchUnavailableDisabled);
+		}
+		if(availability == OPERATOR_PERMISSION_MISSING)
+		{
+			throw new AuraHandledException(System.Label.ChainMonitor_KillSwitchUnavailableMissingPermission);
+		}
+	}
+
+	/**
+	 * @description Converts the engine's clear-stalled tally to the @AuraEnabled DTO the monitor's
+	 * result toast reads. A wrap rather than a re-exposure: the engine carrier's fields are not
+	 * Aura-serializable, and the controller owns the client-facing shape.
+	 *
+	 * @param outcome The engine's tally.
+	 *
+	 * @return The mapped counts DTO.
+	 */
+	private static CTRL_ChainMonitorTypes.DTO_ClearStalledResult toClearStalledResult(UTIL_AsyncChain.ClearStalledResult outcome)
+	{
+		CTRL_ChainMonitorTypes.DTO_ClearStalledResult result = new CTRL_ChainMonitorTypes.DTO_ClearStalledResult();
+
+		result.candidates = outcome.candidates;
+		result.redriven = outcome.redriven;
+		result.markedFailed = outcome.markedFailed;
+		result.remainingStalled = outcome.remainingStalled;
+
+		return result;
 	}
 
 	/**
@@ -392,12 +973,12 @@ public with sharing class CTRL_ChainMonitor
 	 *
 	 * @param execution The AsyncChainExecution__c record containing the StepLog__c JSON.
 	 *
-	 * @return List of DTO_StepDetail. Empty list if StepLog is blank.
+	 * @return List of CTRL_ChainMonitorTypes.DTO_StepDetail. Empty list if StepLog is blank.
 	 */
 	@TestVisible
-	private static List<DTO_StepDetail> parseSteps(AsyncChainExecution__c execution)
+	private static List<CTRL_ChainMonitorTypes.DTO_StepDetail> parseSteps(AsyncChainExecution__c execution)
 	{
-		List<DTO_StepDetail> results = new List<DTO_StepDetail>();
+		List<CTRL_ChainMonitorTypes.DTO_StepDetail> results = new List<CTRL_ChainMonitorTypes.DTO_StepDetail>();
 
 		if(String.isBlank(execution.StepLog__c))
 		{
@@ -409,7 +990,7 @@ public with sharing class CTRL_ChainMonitor
 
 		for(UTIL_AsyncChain.DTO_StepDefinition definition : UTIL_AsyncChain.filterStepEntries(definitions))
 		{
-			DTO_StepDetail step = new DTO_StepDetail();
+			CTRL_ChainMonitorTypes.DTO_StepDetail step = new CTRL_ChainMonitorTypes.DTO_StepDetail();
 
 			step.className = definition.className;
 			step.stepName = definition.stepName;
@@ -447,286 +1028,4 @@ public with sharing class CTRL_ChainMonitor
 		return results;
 	}
 
-	/**
-	 * @description Request DTO for the chain list view. Encapsulates filter, sort, and pagination
-	 * parameters in a single object instead of individual method parameters.
-	 */
-	public class DTO_Request
-	{
-		/**
-		 * @description Status values to filter on. Null or empty returns all statuses.
-		 */
-		@AuraEnabled
-		public List<String> statusFilters;
-
-		/**
-		 * @description Chain name search string (LIKE filter). Null or blank returns all names.
-		 */
-		@AuraEnabled
-		public String nameFilter;
-
-		/**
-		 * @description Field name to sort by. Must be a key in SORTABLE_FIELDS. Defaults to CreatedDate.
-		 */
-		@AuraEnabled
-		public String sortField;
-
-		/**
-		 * @description Sort ascending when true, descending when false or null.
-		 */
-		@AuraEnabled
-		public Boolean sortAscending;
-
-		/**
-		 * @description Number of records per page. Defaults to 20.
-		 */
-		@AuraEnabled
-		public Integer pageSize;
-
-		/**
-		 * @description The 1-based page number. Defaults to 1.
-		 */
-		@AuraEnabled
-		public Integer pageNumber;
-	}
-
-	/**
-	 * @description Paginated response DTO for the chain list view. Wraps summary records with
-	 * pagination metadata from QRY_Builder.QueryPage.
-	 */
-	public class DTO_ChainPage
-	{
-		/**
-		 * @description The chain summary records for the current page.
-		 */
-		@AuraEnabled
-		public List<DTO_ChainSummary> records;
-
-		/**
-		 * @description Total number of records matching the filter criteria.
-		 */
-		@AuraEnabled
-		public Integer totalCount;
-
-		/**
-		 * @description The current 1-based page number.
-		 */
-		@AuraEnabled
-		public Integer pageNumber;
-
-		/**
-		 * @description Total number of pages available.
-		 */
-		@AuraEnabled
-		public Integer totalPages;
-
-		/**
-		 * @description True if there are more pages after the current page.
-		 */
-		@AuraEnabled
-		public Boolean hasMorePages;
-	}
-
-	/**
-	 * @description Summary DTO for the chain list view. Contains only the fields needed for table display.
-	 */
-	public class DTO_ChainSummary
-	{
-		/**
-		 * @description The AsyncChainExecution__c record ID.
-		 */
-		@AuraEnabled
-		public Id executionId;
-
-		/**
-		 * @description The chain name.
-		 */
-		@AuraEnabled
-		public String chainName;
-
-		/**
-		 * @description The current chain status.
-		 */
-		@AuraEnabled
-		public String status;
-
-		/**
-		 * @description Number of steps that completed successfully.
-		 */
-		@AuraEnabled
-		public Integer completedSteps;
-
-		/**
-		 * @description Total number of steps in the chain.
-		 */
-		@AuraEnabled
-		public Integer totalSteps;
-
-		/**
-		 * @description When the chain started.
-		 */
-		@AuraEnabled
-		public Datetime startedAt;
-
-		/**
-		 * @description Duration in milliseconds.
-		 */
-		@AuraEnabled
-		public Long durationMs;
-
-		/**
-		 * @description Human-readable duration label.
-		 */
-		@AuraEnabled
-		public String durationLabel;
-	}
-
-	/**
-	 * @description Full detail DTO for the chain detail view. Includes parsed step definitions
-	 * and computed timing values.
-	 */
-	public class DTO_ChainDetail
-	{
-		/**
-		 * @description The AsyncChainExecution__c record ID.
-		 */
-		@AuraEnabled
-		public Id executionId;
-
-		/**
-		 * @description The chain name.
-		 */
-		@AuraEnabled
-		public String chainName;
-
-		/**
-		 * @description The current chain status.
-		 */
-		@AuraEnabled
-		public String status;
-
-		/**
-		 * @description Why the abort action is or is not available: Available, ChainNotAbortable,
-		 * CapabilityDisabled, or PermissionMissing. A stable code, not display text; the client
-		 * maps it to a label.
-		 */
-		@AuraEnabled
-		public String abortAvailability;
-
-		/**
-		 * @description Total number of steps in the chain.
-		 */
-		@AuraEnabled
-		public Integer totalSteps;
-
-		/**
-		 * @description Number of steps that completed successfully.
-		 */
-		@AuraEnabled
-		public Integer completedSteps;
-
-		/**
-		 * @description Error message if the chain failed.
-		 */
-		@AuraEnabled
-		public String errorMessage;
-
-		/**
-		 * @description When the chain started.
-		 */
-		@AuraEnabled
-		public Datetime startedAt;
-
-		/**
-		 * @description When the chain completed.
-		 */
-		@AuraEnabled
-		public Datetime completedAt;
-
-		/**
-		 * @description Duration in milliseconds. Computed live for running chains.
-		 */
-		@AuraEnabled
-		public Long durationMs;
-
-		/**
-		 * @description Human-readable duration label.
-		 */
-		@AuraEnabled
-		public String durationLabel;
-
-		/**
-		 * @description Correlation ID for log tracing.
-		 */
-		@AuraEnabled
-		public String correlationId;
-
-		/**
-		 * @description Parsed step definitions with display-ready status.
-		 */
-		@AuraEnabled
-		public List<DTO_StepDetail> steps;
-	}
-
-	/**
-	 * @description Step detail DTO representing a single step in the chain timeline. Includes
-	 * pre-computed status icon and variant for direct rendering in the LWC.
-	 */
-	public class DTO_StepDetail
-	{
-		/**
-		 * @description Display name (stepName if set, otherwise className).
-		 */
-		@AuraEnabled
-		public String name;
-
-		/**
-		 * @description The Apex class name.
-		 */
-		@AuraEnabled
-		public String className;
-
-		/**
-		 * @description The custom step name.
-		 */
-		@AuraEnabled
-		public String stepName;
-
-		/**
-		 * @description Whether the step succeeded. Null if not yet executed.
-		 */
-		@AuraEnabled
-		public Boolean success;
-
-		/**
-		 * @description Whether this step continues on error.
-		 */
-		@AuraEnabled
-		public Boolean continueOnError;
-
-		/**
-		 * @description Step duration in milliseconds.
-		 */
-		@AuraEnabled
-		public Long durationMs;
-
-		/**
-		 * @description Human-readable duration label.
-		 */
-		@AuraEnabled
-		public String durationLabel;
-
-		/**
-		 * @description Error message if the step failed.
-		 */
-		@AuraEnabled
-		public String errorMessage;
-
-		/**
-		 * @description Semantic step status: success, warning, failed, handler, running, or pending.
-		 * The LWC maps this to appropriate icons and variants.
-		 */
-		@AuraEnabled
-		public String stepStatus;
-	}
 }

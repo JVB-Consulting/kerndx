@@ -1,10 +1,22 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
-/* Strict 2-column grid for timing section */
+/* Timing as a compact metadata card strip (M0 P22) */
 .timing-grid
 {
 	display               : grid;
-	gap                   : 0.5rem 1rem;
-	grid-template-columns : 1fr 1fr;
+	gap                   : 0.5rem;
+	grid-template-columns : repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+/* min-width:0 is a guard, not the fix: with minmax(10rem, 1fr) tracks the cards already size to their track,
+   but a bare 1fr would let a card's automatic minimum (its content width) widen it past the track. The clipping
+   itself is solved inside the card by the flex value row below. */
+.timing-grid > div
+{
+	background    : var(--slds-g-color-neutral-base-95, #F8F8F8);
+	border        : 1px solid var(--slds-g-color-border-base-1, #E5E5E5);
+	border-radius : 0.25rem;
+	min-width     : 0;
+	padding       : 0.5rem;
 }
 
 .timing-grid dt
@@ -19,4 +31,184 @@
 {
 	font-size : 0.8125rem;
 	margin    : 0;
+}
+
+/* A value that shares its line with a copy affordance. The value takes the leftover width and ellipsises
+   (slds-truncate needs a block box that is allowed to shrink — inline boxes ignore overflow, which is why
+   a 36-character correlation id would run past the card edge with the icon wrapped underneath it), while
+   the affordance keeps its intrinsic width beside the value. The full value stays selectable and is
+   repeated in the element's title. */
+.timing-value-row
+{
+	align-items : center;
+	display     : flex;
+	gap         : 0.25rem;
+	min-width   : 0;
+}
+
+.timing-value
+{
+	display   : block;
+	flex      : 1 1 auto;
+	min-width : 0;
+}
+
+.timing-value-action
+{
+	flex : 0 0 auto;
+}
+
+/* Sticky header block: status, actions, and the progress bar stay in view while the pane scrolls (M0 P15) */
+.detail-sticky
+{
+	background : var(--slds-g-color-neutral-base-100, #FFFFFF);
+	position   : sticky;
+	top        : 0;
+	z-index    : 2;
+}
+
+/* Dominant status pill above the secondary chain name (M0 P13) */
+.status-pill
+{
+	font-size      : 0.8125rem;
+	font-weight    : 700;
+	letter-spacing : 0.03125rem;
+	text-transform : uppercase;
+}
+
+/* The name, the progress phrase and the dots share one wrapping line, spaced with gap rather than
+   directional margins so a right-to-left org gets the mirror image for free. Baseline alignment
+   keeps the dots on the last line of a name that wrapped. */
+.identity-line
+{
+	align-items : baseline;
+	column-gap  : 0.5rem;
+	display     : flex;
+	flex-wrap   : wrap;
+	min-width   : 0;
+}
+
+/* The name wraps rather than truncating: nothing is hidden behind a hover-only tooltip. It breaks
+   at the <wbr> after each separator first, and overflow-wrap is the safety net for one long token. */
+.chain-name-secondary
+{
+	flex          : 0 1 auto;
+	font-weight   : 400;
+	margin        : 0;
+	min-width     : 0;
+	overflow-wrap : anywhere;
+}
+
+/* SLDS has no no-wrap utility: 'Step 3 of 4' must never break into a three-line sliver, so it
+   holds its intrinsic width and the name wraps instead. */
+.progress-label
+{
+	flex        : none;
+	white-space : nowrap;
+}
+
+/* Every action wraps individually. The operator group keeps its DOM identity but lays its buttons
+   out as direct toolbar items (display: contents), so it has no box of its own — layout assertions
+   target the buttons, never the wrapper. */
+.detail-toolbar-row
+{
+	align-items : center;
+	display     : flex;
+	flex-wrap   : wrap;
+	gap         : 0.5rem;
+	min-width   : 0;
+}
+
+.detail-action-group
+{
+	display : contents;
+}
+
+.navigation-slot
+{
+	align-items : center;
+	display     : inline-flex;
+	gap         : 0.5rem;
+}
+
+/* Spacing lives inside the rule: this scoped selector outweighs the template's SLDS margin utility,
+   so a utility class on the list would be inert. Same pattern as the container's notes list. */
+.action-unavailable-notes
+{
+	list-style    : none;
+	margin        : 0;
+	padding-block : 0 0.5rem;
+	padding-inline: 0;
+}
+
+.lineage-link
+{
+	cursor     : pointer;
+	text-align : start;
+}
+
+.lineage-link:focus-visible
+{
+	outline        : 2px solid var(--slds-g-color-brand-base-50, #0176D3);
+	outline-offset : 2px;
+}
+
+/* The progress bar's fill follows the run's outcome through the base component's own styling hook,
+   so a failed or aborted run stops looking like one still working. Every hue repeats what the
+   status pill already says in words, so nothing is carried by colour alone. */
+.progress-bar_success
+{
+	--slds-c-progress-bar-color-background-fill : var(--slds-g-color-success-base-50, #2E844A);
+}
+
+.progress-bar_error
+{
+	--slds-c-progress-bar-color-background-fill : var(--slds-g-color-error-base-40, #C23934);
+}
+
+.progress-bar_warning
+{
+	--slds-c-progress-bar-color-background-fill : var(--slds-g-color-warning-base-50, #DD7A01);
+}
+
+/* One dot per step beside the progress phrase, up to ten (M0 P14/P28) */
+.step-dots
+{
+	display : inline-flex;
+	flex    : none;
+	gap     : 0.1875rem;
+}
+
+.step-dot
+{
+	background    : var(--slds-g-color-neutral-base-80, #D8DDE6);
+	border-radius : 50%;
+	display       : inline-block;
+	height        : 0.5rem;
+	width         : 0.5rem;
+}
+
+.step-dot_done
+{
+	background : var(--slds-g-color-success-base-50, #2E844A);
+}
+
+.step-dot_failed
+{
+	background : var(--slds-g-color-error-base-40, #C23934);
+}
+
+.step-dot_running
+{
+	background : var(--slds-g-color-brand-base-50, #0176D3);
+}
+
+/* Rule between the operator action group and the View logs navigation action. A border rather than
+   a background, so it survives forced-colors mode; a logical inline start, so it mirrors in RTL. */
+.action-divider
+{
+	align-self          : center;
+	block-size          : 1.375rem;
+	border-inline-start : 1px solid var(--slds-g-color-border-base-1, #D8DDE6);
+	inline-size         : 0;
 }

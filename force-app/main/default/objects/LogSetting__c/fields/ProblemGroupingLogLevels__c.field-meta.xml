@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ProblemGroupingLogLevels__c</fullName>
+    <defaultValue>&quot;ERROR;WARN&quot;</defaultValue>
+    <description>Which log levels the Log Console may group on its own: ERROR, WARN, INFO or DEBUG. Separate several with a semicolon or a comma. This does not change which levels are captured — that is Log Level Threshold — only which of the captured entries the console may gather into problems. It is a cost ceiling as much as a filter: the grouping is a live query run each time someone opens Problem summary, and most orgs record far more INFO and DEBUG than errors, so adding those levels makes the query much larger and, past a point, the console stops grouping altogether and says so on screen. The console&apos;s own level filter narrows within this list and can never widen it, so viewing a level that is not listed here shows tagged problems only. Leave blank for the default, ERROR;WARN — a value holding no level the framework recognises falls back to the same default.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Levels the console may group on its own, for example ERROR;WARN. Blank = the default ERROR;WARN. This is not Log Level Threshold: it changes grouping, not what is captured. Adding INFO or DEBUG can make the grouping query too large to run.</inlineHelpText>
+    <label>Problem Grouping Log Levels</label>
+    <length>255</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ProblemGroupingDisabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Check this box to stop the Log Console grouping repeated errors on its own. In its Problem summary view, errors that were logged without a fingerprint are gathered into one row with a count — same error, same class and method, same level — and the grouping is worked out at the moment you open the list. Check the box and Problem summary shows only the problems your developers tagged with a fingerprint in code; the list does not go empty. This setting changes what the Log Console displays, never what is logged: every entry is still written, still listed under Individual entries, and nothing is deleted. Leave it unchecked (the default) to keep the grouping on — it stays on through package upgrades until you check this box.</description>
+    <inlineHelpText>Check to stop the Log Console grouping repeated errors on its own; Problem summary then lists only the problems tagged in code. Unchecked (the default) = grouping on. Nothing is logged differently and nothing is deleted.</inlineHelpText>
+    <label>Problem Grouping Disabled</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

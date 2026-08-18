@@ -32,7 +32,7 @@
  *
  * @group Logging
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.UnusedLocalVariable,ApexUnusedDeclaration,PMD.CyclomaticComplexity,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -528,6 +528,44 @@ private class LOG_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that serializeContext(correlationId) produces a context document FOR the
+	 * supplied correlation id without reading or touching the live transaction context: the live
+	 * correlation stays exactly what it was (handing another execution its identity must never
+	 * re-tag the logs this transaction emits afterwards), the document is minimal (no transaction
+	 * lineage, no live context data), and hydrating it adopts the supplied id.
+	 *
+	 * @see LOG_Builder.serializeContext
+	 * @see LOG_Builder.hydrateContext
+	 */
+	@IsTest
+	private static void serializeContextForSuppliedCorrelationLeavesLiveContextUntouched()
+	{
+		String liveCorrelationId = 'live-correlation-123';
+		String suppliedCorrelationId = 'supplied-correlation-456';
+		LOG_Builder.setCorrelationId(liveCorrelationId);
+		LOG_Builder.setGlobalContext('liveKey', 'liveValue');
+
+		Test.startTest();
+
+		String serialized = LOG_Builder.serializeContext(suppliedCorrelationId);
+
+		Assert.areEqual(liveCorrelationId, LOG_Engine.currentCorrelationId, 'Serializing for a supplied id must not re-tag the live transaction correlation');
+		Map<String, Object> document = (Map<String, Object>)JSON.deserializeUntyped(serialized);
+		Assert.areEqual(suppliedCorrelationId, document.get('correlationId'), 'The document must carry the supplied correlation id');
+		Assert.isFalse(serialized.contains('parentTransactionId'), 'The document is minimal: no transaction lineage rides it, not even as a null field');
+		Assert.isFalse(serialized.contains('contextData'), 'The document is minimal: no live context data rides it, not even as a null field');
+
+		LOG_Engine.currentCorrelationId = null;
+		LOG_Engine.globalContextData.clear();
+		LOG_Builder.hydrateContext(serialized);
+
+		Test.stopTest();
+
+		Assert.areEqual(suppliedCorrelationId, LOG_Engine.currentCorrelationId, 'Hydrating the document must adopt the supplied correlation id');
+		Assert.isTrue(LOG_Engine.globalContextData.isEmpty(), 'A minimal document must hydrate no context data');
+	}
+
+	/**
 	 * @description Tests that hydrateContext handles null/blank input gracefully.
 	 *
 	 * @see LOG_Builder.hydrateContext
@@ -916,23 +954,14 @@ private class LOG_Builder_TEST
 		LOG_Builder.suspendSaving();
 		LOG_Builder.build().debug('Test message for flush').at(CLASS_METHOD).emit();
 
-		// Flush should catch the simulated exception and not throw
-		Exception caughtException;
-		try
-		{
-			LOG_Builder.flushBuffer();
-		}
-		catch(Exception error)
-		{
-			caughtException = error;
-		}
+		// Flush must swallow the simulated publish failure: a throw here fails the test with the real error
+		LOG_Builder.flushBuffer();
 
 		LOG_Builder.resumeSaving();
 		LOG_Engine.simulatePublishFailure = false;
 
 		Test.stopTest();
 
-		Assert.isNull(caughtException, 'Publish failure should be caught and not propagate');
 		Assert.areEqual(0, LOG_Engine.getBufferSize(), 'Buffer should be cleared even on failure');
 	}
 
@@ -950,22 +979,14 @@ private class LOG_Builder_TEST
 
 		Test.startTest();
 
-		// Direct logging (not suspended) should also catch publish failures
-		Exception caughtException;
-		try
-		{
-			LOG_Builder.build().debug('Test direct publish failure').at(CLASS_METHOD).emit();
-		}
-		catch(Exception error)
-		{
-			caughtException = error;
-		}
+		// Direct logging (not suspended) must swallow the publish failure too: a throw here fails the test with the real error
+		LOG_Builder.build().debug('Test direct publish failure').at(CLASS_METHOD).emit();
 
 		LOG_Engine.simulatePublishFailure = false;
 
 		Test.stopTest();
 
-		Assert.isNull(caughtException, 'Direct publish failure should be caught and not propagate');
+		Assert.isTrue(LOG_Engine.simulatePublishFailure == false, 'The direct publish path swallowed the simulated failure and the test reached its assertions');
 	}
 
 	/**
@@ -1357,6 +1378,12 @@ private class LOG_Builder_TEST
 	 * @description Tests that withFingerprintInternal length-caps an oversized pre-composed key by
 	 * SHA-256 hashing it (the same 200-char budget the subscriber path enforces), so a future
 	 * framework caller cannot overflow the 216-char Fingerprint__c field and sink the persist batch.
+	 *
+	 * The key is supplied padded, which also pins the setter's trim — and pins it in the one place
+	 * nothing downstream can cover for: the hash is taken inside the setter, so a setter that skipped
+	 * the trim would hash the padded string and store that hash instead. The persist boundary
+	 * normalizes too, but by then the key is a 64-character hash well inside the budget, so it would
+	 * pass the wrong hash through untouched.
 	 */
 	@IsTest
 	private static void shouldLengthCapOversizedKeyViaInternalSetter()
@@ -1366,7 +1393,9 @@ private class LOG_Builder_TEST
 		String expectedDetailKey = 'detail:' + UTIL_Crypto.generateSHA256Hash(oversized);
 
 		Test.startTest();
-		LOG_Builder.build().warn('Oversized internal fingerprint').withFingerprintInternal(oversized).emitAt('BuilderTest.internalCap');
+		LOG_Builder.build().warn('Oversized internal fingerprint')
+				.withFingerprintInternal(UTIL_String.SPACE + oversized + UTIL_String.SPACE)
+				.emitAt('BuilderTest.internalCap');
 		Test.stopTest();
 
 		Boolean cappedDetailFound = false;
@@ -1377,7 +1406,31 @@ private class LOG_Builder_TEST
 				cappedDetailFound = true;
 			}
 		}
-		Assert.isTrue(cappedDetailFound, 'withFingerprintInternal must SHA-256 hash an oversized key, producing ' + expectedDetailKey);
+		Assert.isTrue(cappedDetailFound, 'withFingerprintInternal must trim a padded key before hashing it, producing ' + expectedDetailKey);
+	}
+
+	/**
+	 * @description Tests the storable-shape rule both fingerprint setters and the persist boundary
+	 * share. Edge whitespace is trimmed because Salesforce strips it on save, so a key stored as sent
+	 * would live under a value no lookup of the key as sent could match — and every persist of it
+	 * would be refused. A key past the raw budget is hashed rather than truncated, so the prefixed
+	 * `detail:`/`rollup:` key still fits the field and keys differing only past the cut stay apart.
+	 * A reserved-prefix key is left readable here: only the subscriber-facing normalizer hashes those.
+	 */
+	@IsTest
+	private static void shouldPutFingerprintKeysIntoStorableShape()
+	{
+		String oversized = 'y'.repeat(LOG_Builder.MAXIMUM_RAW_FINGERPRINT_LENGTH + 1);
+		String reserved = LOG_Builder.RESERVED_FINGERPRINT_PREFIX + 'framework-key';
+		String bareKey = 'padded-key';
+
+		Assert.areEqual(bareKey, LOG_Builder.normalizeStoredFingerprintKey(UTIL_String.SPACE + bareKey + UTIL_String.SPACE),
+				'Edge whitespace must be trimmed, because Salesforce strips it on save');
+		Assert.areEqual(UTIL_Crypto.generateSHA256Hash(oversized), LOG_Builder.normalizeStoredFingerprintKey(oversized),
+				'A key past the raw budget must be hashed so its prefixed form still fits the field');
+		Assert.areEqual(reserved, LOG_Builder.normalizeStoredFingerprintKey(reserved),
+				'A reserved-prefix key stays readable — only the subscriber normalizer hashes it');
+		Assert.isNull(LOG_Builder.normalizeStoredFingerprintKey(UTIL_String.SPACE), 'A key that is only whitespace must normalize to null');
 	}
 
 	/**
@@ -1471,5 +1524,39 @@ private class LOG_Builder_TEST
 
 		Assert.areNotEqual(clientStackTrace, logEntry.StackTrace__c, 'A real exception trace must win over the caller-supplied override');
 		Assert.areEqual(thrownStackTrace, logEntry.StackTrace__c, 'The exception trace should persist verbatim');
+	}
+
+	/**
+	 * @description Tests that a real exception's own type wins over a caller-supplied exception-type
+	 * override — the override names the failure only on entries that carry no exception of their own, so
+	 * a genuine Apex failure is never relabelled with a type relayed from elsewhere.
+	 *
+	 * @see LOG_Builder.LogEntry.withExceptionTypeInternal
+	 */
+	@IsTest
+	private static void exceptionTypeWinsOverExceptionTypeOverride()
+	{
+		String relayedExceptionType = System.LimitException.class.getName();
+		String thrownExceptionType;
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+
+		try
+		{
+			throw new IllegalArgumentException('Forced test exception');
+		}
+		catch(Exception caughtError)
+		{
+			thrownExceptionType = caughtError.getTypeName();
+			LOG_Builder.build().error(caughtError).withExceptionTypeInternal(relayedExceptionType).at(CLASS_METHOD).emit();
+		}
+
+		Test.stopTest();
+
+		LogEntry__c logEntry = new SEL_LogEntry().findByMethod(CLASS_METHOD);
+
+		Assert.areNotEqual(relayedExceptionType, logEntry.ExceptionType__c, 'A real exception type must win over the caller-supplied override');
+		Assert.areEqual(thrownExceptionType, logEntry.ExceptionType__c, 'The exception type should persist verbatim');
 	}
 }

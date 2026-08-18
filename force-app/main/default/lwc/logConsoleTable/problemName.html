@@ -1,0 +1,20 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!--
+* @description Custom datatable cell template for the Log Console `problemName` column: the problem's
+* message, followed by a "Tagged" pill when a developer fingerprinted it in code.
+*
+* One pill, not two. Grouping is what the console does by default, so on a busy org nearly every row is
+* grouped and a badge on all of them would dilute itself into wallpaper. Tagging is deliberate developer
+* intent, and that is the exception worth marking. A grouped row stays identifiable without a badge: it
+* carries no log number, because it has no record of its own.
+*
+* @author Jason van Beukering
+*
+* @date August 2026
+* -->
+<template>
+	<span>{value}</span>
+	<template lwc:if={typeAttributes.isTagged}>
+		<span class="provenance-pill" data-spec-id="problem-provenance-pill">{typeAttributes.taggedLabel}</span>
+	</template>
+</template>

@@ -38,7 +38,15 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Abort confirmation body; {0} name {1} progress</shortDescription>
-        <value>{0} has completed {1}. The running step finishes, then the chain stops and cannot be resumed.</value>
+        <value>{0} has completed {1}. No further steps start, and the chain cannot be resumed. A step already running is not interrupted, so a hung step keeps the chain from stopping until it ends.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortModalProgress</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Progress fragment composed into the abort dialog body, e.g. 2/5 steps</shortDescription>
+        <value>{0}/{1} steps</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_AbortModalTitle</fullName>
@@ -46,7 +54,7 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Abort confirmation modal title</shortDescription>
-        <value>Abort this chain?</value>
+        <value>Abort chain</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_AbortSuccessToast</fullName>
@@ -81,12 +89,420 @@
         <value>You do not have permission to abort chains. Ask an administrator for the Kern Async Chain Abort permission set.</value>
     </labels>
     <labels>
+        <fullName>ChainMonitor_ActionCancelButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Cancel button of the chain action confirm dialog</shortDescription>
+        <value>Cancel</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Operations control clear-stalled action name</shortDescription>
+        <value>Clear stalled</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button of the clear-stalled dialog</shortDescription>
+        <value>Clear stalled chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Clear-stalled failure message when the sweep did not complete</shortDescription>
+        <value>The action could not be completed. Refresh and try again.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body of the clear-stalled confirm dialog</shortDescription>
+        <value>Stalled chains waiting: {0}. They are checked oldest first. A chain proven to have stopped is re-driven. A chain that cannot be checked, such as one with no executor job on record, is left exactly as it is. The result says how many fell into each group.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the clear-stalled confirm dialog</shortDescription>
+        <value>Clear stalled chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ClearStalledResultToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Clear-stalled result toast with the per-bucket sweep counts</shortDescription>
+        <value>{0} stalled chains checked: {1} re-driven, {2} marked failed, {3} still waiting.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_Copy</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name and tooltip of the correlation id copy icon</shortDescription>
+        <value>Copy</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_CopyFailed</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Error toast shown when copying to the clipboard fails</shortDescription>
         <value>Couldn&apos;t copy to the clipboard. Try again or copy the value manually.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_KillSwitchUnavailableDisabled</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Kill-switch refusal message when the capability is off</shortDescription>
+        <value>The kill-switch control is switched off for this org.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_KillSwitchUnavailableMissingPermission</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Kill-switch refusal message when the user lacks the permission</shortDescription>
+        <value>You do not have permission to change chain processing.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LogStreamCaveat</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stream helper line explaining which log levels stream</shortDescription>
+        <value>Only errors always stream. Other levels depend on the org&apos;s log settings.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LogStreamDisconnected</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stream notice when the live event feed is disconnected</shortDescription>
+        <value>Live stream disconnected. Entries still record; refresh to catch up.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LogStreamEmpty</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stream empty state when no entries have streamed</shortDescription>
+        <value>Nothing streamed yet for this chain.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LogStreamLastEvent</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Prefix of the stream header last-event indicator</shortDescription>
+        <value>Last event</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LogStreamTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the live activity stream panel</shortDescription>
+        <value>Live activity</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ProcessingEnabledBadge</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Operations badge while chain processing is enabled</shortDescription>
+        <value>Chains enabled</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ProcessingSuspendedBadge</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Operations badge while chain processing is suspended</shortDescription>
+        <value>Chains suspended</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RedriveUnavailableDisabled</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Re-drive refusal message when the capability is off</shortDescription>
+        <value>Re-drive actions are switched off for this org.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RedriveUnavailableDuplicateRun</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Re-drive refusal message when another run holds the deduplication key</shortDescription>
+        <value>Another run of this chain is active and holds its deduplication key. Wait for it to finish.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RedriveUnavailableMissingPermission</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Re-drive refusal message when the user lacks the permission</shortDescription>
+        <value>You do not have permission to re-drive chains.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RedriveUnavailableSuspended</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Re-drive refusal message while chain processing is suspended</shortDescription>
+        <value>Chain processing is suspended. Resume it before re-driving chains.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain detail restart action name</shortDescription>
+        <value>Restart from start</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button of the restart dialog</shortDescription>
+        <value>Restart chain</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Restart failure message when the restart did not complete</shortDescription>
+        <value>The action could not be completed. Refresh and try again.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body of the restart confirm dialog</shortDescription>
+        <value>{0} runs again from step 1 as a new chain with a fresh context. This record is kept for audit.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the restart confirm dialog</shortDescription>
+        <value>Restart chain from start</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartSuccessToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after a restart is accepted</shortDescription>
+        <value>Restart started. {0} is running again from step 1, and its new run is selected.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartUnavailableChainEnded</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Restart refusal message when the chain state does not permit it</shortDescription>
+        <value>This chain cannot be restarted from its current state.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartUnavailableContext</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Restart refusal message when the starting context was not captured</shortDescription>
+        <value>The chain&apos;s starting context was not captured, so it cannot be restarted.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartUnavailableNotDeclared</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Restart refusal message when the chain never declared allowRestart</shortDescription>
+        <value>This chain was not built to allow restarts.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartedFrom</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing label of the restart lineage entry</shortDescription>
+        <value>Restarted from</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ResumeAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Operations control resume action name</shortDescription>
+        <value>Resume chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ResumeConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button of the resume dialog</shortDescription>
+        <value>Resume chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ResumeModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body of the resume confirm dialog</shortDescription>
+        <value>New chains run again. Chains stopped during the suspension stay stopped; restart the ones that should run.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ResumeModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the resume confirm dialog</shortDescription>
+        <value>Resume chain processing</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ResumedToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after chain processing resumes</shortDescription>
+        <value>Chain processing resumed.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain detail retry action name</shortDescription>
+        <value>Retry from failed step</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button of the retry dialog</shortDescription>
+        <value>Retry chain</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryFailed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry failure message when the retry did not complete</shortDescription>
+        <value>The action could not be completed. Refresh and try again.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body of the retry confirm dialog</shortDescription>
+        <value>{0} resumes at its failed step. Steps that already completed do not run again.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the retry confirm dialog</shortDescription>
+        <value>Retry chain from failed step</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetrySuccessToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after a retry is accepted</shortDescription>
+        <value>Retry started. {0} resumes at its failed step.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryUnavailableChainEnded</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry refusal message when the chain can no longer be retried</shortDescription>
+        <value>This chain can no longer be retried. Refresh to see its current state.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryUnavailableContext</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry refusal message when the saved context is unavailable</shortDescription>
+        <value>The chain&apos;s saved context is not available, so it cannot resume from the failed step.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryUnavailablePermanent</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry refusal message when the failure was declared permanent</shortDescription>
+        <value>The step declared this failure permanent, so retrying it cannot succeed.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RetryUnavailableStepNotIdempotent</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry refusal message when the failed step is not declared idempotent</shortDescription>
+        <value>The failed step does not declare itself safe to re-run, so retry is not available.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SuspendAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Operations control suspend action name</shortDescription>
+        <value>Suspend chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SuspendConfirmButton</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm button of the suspend dialog</shortDescription>
+        <value>Suspend chains</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SuspendModalBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body of the suspend confirm dialog</shortDescription>
+        <value>Every running chain stops at its next step and new chains stop at once, org-wide, until you resume.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SuspendModalTitle</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the suspend confirm dialog</shortDescription>
+        <value>Suspend chain processing</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_SuspendedToast</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast after chain processing suspends</shortDescription>
+        <value>Chain processing suspended.</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_ViewLogsAction</fullName>
@@ -2334,7 +2750,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Warn detail when no watchdog job is scheduled</shortDescription>
-        <value>No chain watchdog is scheduled. A chain the platform silently drops stays Running forever — the hourly watchdog sweep marks it Stalled and fires its error notification so you can recover it.</value>
+        <value>No chain watchdog is scheduled. A chain the platform drops stays Running forever, with nothing to flag it. Schedule the watchdog so an hourly sweep marks a stopped chain Stalled and sends its error notification.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_ChainWatchdog_ModalSubtitle</fullName>
@@ -2430,7 +2846,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Custom-object masking coverage health check display name</shortDescription>
-        <value>Masking coverage (custom objects)</value>
+        <value>Masking Coverage (Custom Objects)</value>
     </labels>
     <labels>
         <fullName>HealthCheck_CustomObjectCoverage_Healthy</fullName>
@@ -2517,7 +2933,7 @@ Members: {0}</value>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Customize-mode headline; {0} = number of jobs being customised</shortDescription>
+        <shortDescription>Customize-mode headline; {0} = number of jobs being customized</shortDescription>
         <value>Data Retention — customizing {0} jobs</value>
     </labels>
     <labels>
@@ -2630,7 +3046,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Display name for the Data Masking posture health check</shortDescription>
-        <value>Masking configuration</value>
+        <value>Masking Configuration</value>
     </labels>
     <labels>
         <fullName>HealthCheck_MaskingPosture_DeadConfig</fullName>
@@ -2661,24 +3077,24 @@ Members: {0}</value>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Detail message when Organisation Cache is allocated. {0} = partition name.</shortDescription>
-        <value>Organisation Cache is allocated to the {0} partition.</value>
+        <shortDescription>Detail message when Org Cache is allocated. {0} = partition name.</shortDescription>
+        <value>Org Cache is allocated to the {0} partition.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_OrgCache_CheckName</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Organisation Cache health check display name</shortDescription>
-        <value>Organisation Cache</value>
+        <shortDescription>Org Cache health check display name</shortDescription>
+        <value>Org Cache</value>
     </labels>
     <labels>
         <fullName>HealthCheck_OrgCache_NotAllocated</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Detail message when Organisation Cache is not allocated. {0} = partition name.</shortDescription>
-        <value>Allocate Organisation Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this cache to remember state between requests — without it, automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working.</value>
+        <shortDescription>Detail message when Org Cache is not allocated. {0} = partition name.</shortDescription>
+        <value>Allocate Org Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this cache to remember state between requests — without it, automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_PassingPrefix</fullName>
@@ -2791,6 +3207,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Kern Home administration tools section heading</shortDescription>
         <value>Administration Tools</value>
+    </labels>
+    <labels>
+        <fullName>KernHome_ToolOpenButtonWithName</fullName>
+        <categories>Kern Home</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Tool card launch button label; {0} = tool name</shortDescription>
+        <value>Open {0}</value>
     </labels>
     <labels>
         <fullName>KernHome_ApiTestHarness_Description</fullName>
@@ -3110,7 +3534,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Metadata grid label for the parent transaction id</shortDescription>
-        <value>Parent txn</value>
+        <value>Parent transaction</value>
     </labels>
     <labels>
         <fullName>LogConsole_MetaSource</fullName>
@@ -3158,7 +3582,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Empty state when the entry has no stack trace</shortDescription>
-        <value>No stack trace for this entry.</value>
+        <value>No stack trace recorded for this entry.</value>
     </labels>
     <labels>
         <fullName>LogConsole_TabChain</fullName>
@@ -3206,7 +3630,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Banner shown when the result set hit the candidate cap</shortDescription>
-        <value>Showing the first {0}. Narrow the filters to see the rest.</value>
+        <value>Counted the first {0} matches, and there may be more. Narrow the filters to see the rest.</value>
     </labels>
     <labels>
         <fullName>LogConsole_ClearAll</fullName>
@@ -3473,6 +3897,14 @@ Members: {0}</value>
         <value>rows</value>
     </labels>
     <labels>
+        <fullName>LogConsole_EntrySummaryTooLarge</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>All-entries ribbon note when the range is too large to break down</shortDescription>
+        <value>This range holds too many entries to break down by level and source. Narrow the range or the level filter to see the breakdown.</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_TotalOccurrences</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3591,6 +4023,30 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Assistive label for the log-level filter button group</shortDescription>
         <value>Log levels</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ViewGroupLabel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the view toggle in the filter row</shortDescription>
+        <value>View</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LevelsGroupLabel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the log-level toggles in the filter row</shortDescription>
+        <value>Levels</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ContextGroupLabel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the execution-context picklist in the filter row</shortDescription>
+        <value>Context</value>
     </labels>
     <labels>
         <fullName>LogConsole_DateRange</fullName>
@@ -4593,6 +5049,166 @@ Members: {0}</value>
         <value>{0}s</value>
     </labels>
     <labels>
+        <fullName>LogConsole_MessageCaption</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Message card caption when no exception type was recorded</shortDescription>
+        <value>{0} message</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Context tab empty state when the entry captured no context</shortDescription>
+        <value>This entry was logged without any request details.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoContextHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Context tab empty state hint: what request details are and who attaches them</shortDescription>
+        <value>A developer can attach details like the record being worked on or the values that came in, at the point the log line is written.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ViewOccurrences</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail action that lists the entries behind a grouped problem</shortDescription>
+        <value>View occurrences</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineFromTransaction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline breadcrumb naming the parent by its position in the trace</shortDescription>
+        <value>from transaction {0}</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineFromEarlierTransaction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline breadcrumb when the parent is outside the loaded trace</shortDescription>
+        <value>from an earlier transaction</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineCapOfTotalNoChain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline cap row when more transactions exist and no chain is registered</shortDescription>
+        <value>Showing the first {0} of {1} transactions.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineCapTruncatedNoChain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline cap row for a truncated trace when no chain is registered</shortDescription>
+        <value>This trace is very long, so only its earliest entries are shown here.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoStackTraceHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stack trace tab empty state hint: why this entry has none</shortDescription>
+        <value>Stack traces are captured for exceptions; this entry was logged without one.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NoStackTraceSourceHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stack trace tab hint naming where the entry was logged from</shortDescription>
+        <value>Only an error logged with an exception carries a stack trace. This entry was logged at {0}, which is where to look in your code.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineAllLevels</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline caption: the timeline ignores the console level filter</shortDescription>
+        <value>This timeline shows every entry in this correlation, including any levels your filter hides.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupedLogNumber</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log Number cell text for a problem the console grouped at read time</shortDescription>
+        <value>Grouped</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupedContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Context cell text for a grouped problem, which has no single context</shortDescription>
+        <value>Any context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RowSuffixSingular</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular of the row-count unit in the ribbon and top sources</shortDescription>
+        <value>row</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_LogRowSingular</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Singular of the entries-in-window total card footnote</shortDescription>
+        <value>log row</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TaggedOnlySuffix</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marks a level card that counts tagged problems alone</shortDescription>
+        <value>(tagged only)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeInverted</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom range refused because the end comes before the start</shortDescription>
+        <value>The To date and time must come after the From date and time.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_RangeIncomplete</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Custom range not applied because one of its boxes is empty</shortDescription>
+        <value>Fill in all four boxes to apply a custom range.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OccurrencesReconciliation</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Relates a problem occurrence count to the entries listed under it</shortDescription>
+        <value>This problem was counted {0} times in this window. The list shows the {1} entries still on file from its source and level.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_SummaryLoadFailed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when the summary ribbon counts could not be read</shortDescription>
+        <value>These counts could not be read. Refresh to try again.</value>
+    </labels>
+    <labels>
         <fullName>ScheduledJobDetail_LoadFailed</fullName>
         <categories>Scheduled Jobs</categories>
         <language>en_US</language>
@@ -5545,6 +6161,78 @@ Members: {0}</value>
         <value>Duration</value>
     </labels>
     <labels>
+        <fullName>ChainMonitor_ActiveDuration</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing card term for the time a chain&apos;s steps spent running</shortDescription>
+        <value>Active run time</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ActionsGroup</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Accessible name of the chain detail header&apos;s action toolbar</shortDescription>
+        <value>Chain actions</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_EndedLabel</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing card term for when a contradictory terminal row ended</shortDescription>
+        <value>Ended</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ProgressStepsStopped</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Progress phrase for a run that ended before every step ran</shortDescription>
+        <value>Stopped after {0} of {1} steps</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_DurationElapsed</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List duration cell for a run that has not finished yet</shortDescription>
+        <value>{0} elapsed</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ListEmptyHeading</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the chain list empty state</shortDescription>
+        <value>No chains to show</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ListEmptyBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain list empty state when the search and filters match nothing</shortDescription>
+        <value>No chain runs match your search and status filters. Clear the search, or select more statuses.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ListNoStatusBody</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain list empty state when no status is selected</shortDescription>
+        <value>No statuses are selected, so no chain run can match. Select at least one status.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ActionUnavailableNote</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Header note pairing a greyed-out action with its reason</shortDescription>
+        <value>{0}: {1}</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_ClearAll</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -5597,8 +6285,8 @@ Members: {0}</value>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Progress badge beside the chain status, e.g. 3/5 steps</shortDescription>
-        <value>{0}/{1} steps</value>
+        <shortDescription>Progress phrase beside the chain status, e.g. Step 3 of 5</shortDescription>
+        <value>Step {0} of {1}</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_CorrelationCopied</fullName>
@@ -7439,5 +8127,245 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Affirmative value in the step popover.</shortDescription>
         <value>Yes</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ProvenanceTagged</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Badge marking a problem the developer tagged in code</shortDescription>
+        <value>Tagged</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupingScopeCaption</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Caption naming the log levels problem grouping covers</shortDescription>
+        <value>Problem grouping covers {0}. Problems tagged in code appear at every level.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupingDisabled</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status bar when problem grouping is switched off in settings</shortDescription>
+        <value>Problem grouping is off, so this list shows only the errors you have tagged yourself.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupingSkippedSearch</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status bar when a search term suppresses problem grouping</shortDescription>
+        <value>Problem grouping cannot apply your search, so these are your tagged problems only. Individual entries searches every word of every log.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupingSkippedLevelScope</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status bar when the viewed levels sit outside the grouping scope</shortDescription>
+        <value>Problem grouping is set up for {0}, and the levels you are viewing are not among them. Showing tagged problems only.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_GroupingSkippedTooLarge</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status bar when the date range is too large to group</shortDescription>
+        <value>This date range holds too many entries for the console to group them, so only your tagged problems are shown.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionOpenLogSettings</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action opening Log Settings from a grouping status bar</shortDescription>
+        <value>Open Log Settings</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionSearchAllEntries</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action switching to the entries view to search every log</shortDescription>
+        <value>Search every log in Individual entries</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionNarrowDateRange</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action prompting a narrower date range</shortDescription>
+        <value>Narrow the date range</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionOpenLatestOccurrence</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action opening the newest entry behind a grouped problem</shortDescription>
+        <value>Open latest occurrence</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TotalsPartialHelp</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Help text when a whole leg is absent from the totals</shortDescription>
+        <value>Part of this list could not be worked out for this date range, so these totals count only what was available. The real totals are higher.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ProblemsEmpty</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when grouping ran and matched no problems</shortDescription>
+        <value>No repeating problems match these filters.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ProblemsEmptyHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state hint explaining what Problem summary shows</shortDescription>
+        <value>Problem summary shows errors that repeat often enough to be worth grouping. Individual entries lists the log entries themselves.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ProblemsEmptyNoGrouping</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state when grouping did not run and nothing is tagged</shortDescription>
+        <value>No problems match these filters.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ProblemsEmptyNoGroupingHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Empty state hint pointing at the status bar above it</shortDescription>
+        <value>Problem grouping is not running right now — the message above says why — so only problems you have tagged yourself can appear here.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_EmptyStateHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Entries empty state hint suggesting which filter to relax</shortDescription>
+        <value>Widen the date range, or clear a level or search filter.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_DerivedNoOccurrence</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Drawer note when no entry behind a grouped problem can open</shortDescription>
+        <value>None of the entries behind this problem can be opened right now, so only the grouped summary is shown.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_StackUnavailable</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stack trace tab empty state for a grouped problem</shortDescription>
+        <value>No entry is available to show a stack trace from.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_StackUnavailableHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Stack trace tab hint: the entries are outside the view</shortDescription>
+        <value>This problem is a grouped summary; the entries behind it are outside what you are currently viewing.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TaggedCountExplained</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading explaining one entry beside a higher count</shortDescription>
+        <value>Why there is one entry and a count of {0}</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TaggedCountExplainedHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Body explaining that repeats are counted, not deleted</shortDescription>
+        <value>This problem is tagged in your code, so the first time it happened was kept in full and every repeat since has been counted rather than stored again. Nothing was deleted — the count is what your code has reported, and the entry below it is the one kept for detail.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TrackProblem</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the affordance for tagging a grouped problem</shortDescription>
+        <value>Track this as a named problem</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TrackProblemHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Why tagging a grouped problem is worth doing</shortDescription>
+        <value>Right now this problem is worked out each time you open the list, from its source, error type and level together. Give it a name of your own in code and it is counted as it happens instead, under that name — so it stays one problem even if the class or method is renamed.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TrackProblemCaveat</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What tagging changes about how the errors are stored</shortDescription>
+        <value>Tagging changes how these errors are stored: the first occurrence is kept in full, and all future repeats are logged as lightweight running counters instead of separate records. Entries already logged stay exactly as they are.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TrackProblemExceptionNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What to replace in the tagging snippet&apos;s exception argument</shortDescription>
+        <value>Replace caughtException with the exception variable your catch block declares.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NameSource</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading of the affordance for naming an unattributed source</shortDescription>
+        <value>Name the source of these errors</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NameSourceHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Why an unattributed problem should name its source</shortDescription>
+        <value>These entries were logged without saying where they came from, so everything throwing this error is grouped together here, however many different places that is. Add the class and method where you log it and they separate out.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_NameSourceCaveat</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What to replace in the generated snippet</shortDescription>
+        <value>Replace MyClass.myMethod with the class and method doing the logging. Entries already logged keep the grouping they have now.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ListLoadFailed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading shown when the log list could not be read</shortDescription>
+        <value>The log list couldn&apos;t be loaded.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ListLoadFailedHint</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What to do after the log list fails to load</shortDescription>
+        <value>Narrow the date range or the filters, then refresh.</value>
     </labels>
 </CustomLabels>

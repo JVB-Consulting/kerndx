@@ -40,6 +40,9 @@ Controls logging behaviour: log level threshold, class filtering, performance lo
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaskerPerformanceThresholdMs__c](#maskerperformancethresholdms__c) | Minimum masking duration in milliseconds before a trigger batch is logged as a performance entry. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaxContextDataSize__c](#maxcontextdatasize__c) | Maximum character length for serialized context data attached to log entries. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Minimum duration in milliseconds before a webservice/API operation is logged as a performance entry. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ProblemGroupingDisabled__c](#problemgroupingdisabled__c) | Check this box to stop the Log Console grouping repeated errors on its own. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ProblemGroupingLogLevels__c](#problemgroupingloglevels__c) | Which log levels the Log Console may group on its own: ERROR, WARN, INFO or DEBUG. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [ProblemGroupingMinimumOccurrences__c](#problemgroupingminimumoccurrences__c) | How many times the same error must appear inside the date range you are viewing before the Log Console groups it into Problem summary. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [QueryPerformanceThresholdMs__c](#queryperformancethresholdms__c) | Minimum duration in milliseconds before a SOQL query is logged as a performance entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [SuppressClassMethod__c](#suppressclassmethod__c) | Comma-separated class name patterns to suppress (denylist). |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TriggerPerformanceThresholdMs__c](#triggerperformancethresholdms__c) | Minimum duration in milliseconds before a trigger action handler is logged as a performance entry. |
@@ -241,6 +244,57 @@ Minimum duration in milliseconds before a webservice/API operation is logged as 
 | Unique | false |
 | External ID | false |
 | Default Value | 10000 |
+
+### ProblemGroupingDisabled__c
+
+```apex
+global Boolean ProblemGroupingDisabled__c
+```
+
+Check this box to stop the Log Console grouping repeated errors on its own. In its Problem summary view, errors that were logged without a fingerprint are gathered into one row with a count — same error, same class and method, same level — and the grouping is worked out at the moment you open the list. Check the box and Problem summary shows only the problems your developers tagged with a fingerprint in code; the list does not go empty. This setting changes what the Log Console displays, never what is logged: every entry is still written, still listed under Individual entries, and nothing is deleted. Leave it unchecked (the default) to keep the grouping on — it stays on through package upgrades until you check this box.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Checkbox |
+| Default Value | false |
+
+### ProblemGroupingLogLevels__c
+
+```apex
+global String ProblemGroupingLogLevels__c
+```
+
+Which log levels the Log Console may group on its own: ERROR, WARN, INFO or DEBUG. Separate several with a semicolon or a comma. This does not change which levels are captured — that is Log Level Threshold — only which of the captured entries the console may gather into problems. It is a cost ceiling as much as a filter: the grouping is a live query run each time someone opens Problem summary, and most orgs record far more INFO and DEBUG than errors, so adding those levels makes the query much larger and, past a point, the console stops grouping altogether and says so on screen. The console's own level filter narrows within this list and can never widen it, so viewing a level that is not listed here shows tagged problems only. Leave blank for the default, ERROR;WARN — a value holding no level the framework recognises falls back to the same default.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(255) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+| Default Value | "ERROR;WARN" |
+
+### ProblemGroupingMinimumOccurrences__c
+
+```apex
+global Decimal ProblemGroupingMinimumOccurrences__c
+```
+
+How many times the same error must appear inside the date range you are viewing before the Log Console groups it into Problem summary. The default of 2 keeps one-off errors out of the list. Raise it when the list is still too long to scan; set it to 1 to see every error, including one that has happened only once so far. Nothing is hidden by this number — an error below it simply stays in Individual entries. Leave blank, or set it below 1, to use the default of 2.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Number(4,0) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+| Default Value | 2 |
 
 ### QueryPerformanceThresholdMs__c
 

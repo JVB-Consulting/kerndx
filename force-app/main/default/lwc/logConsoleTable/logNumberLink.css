@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * The stand-in for a log number a grouped problem cannot have. Muted so it reads as "not applicable"
+ * rather than as content, and never underlined, so it is not mistaken for the link its neighbours are.
+ */
+.log-number-none
+{
+	color : #747474;
+}
+
+/*
+ * What a grouped problem carries instead of a log number. Outlined and quiet, matching the provenance
+ * pill in the Problem column: this is metadata about how the row came to exist, not a severity, and the
+ * list's one colour axis is the log level. Never underlined, so it is not mistaken for the link its
+ * neighbours are.
+ */
+.log-number-grouped
+{
+	border        : 1px solid #DDDBDA;
+	border-radius : 0.75rem;
+	color         : #747474;
+	font-size     : 0.68rem;
+	padding       : 0.02rem 0.4rem;
+	white-space   : nowrap;
+}

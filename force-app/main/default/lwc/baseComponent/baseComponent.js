@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  */
 import utilityLogger from 'c/utilityLogger';
 import {formatTemplateString} from 'c/utilityString';
@@ -44,6 +44,22 @@ function missingModuleMessage(moduleName, methodName)
 		moduleName,
 		methodName
 	]);
+}
+
+/**
+ * @description Names the LWC bundle behind a custom-element tag by dropping the namespace segment
+ * and camel-casing the rest (`kern-log-console` becomes `logConsole`), so a log entry can name the
+ * component that produced it. Yields an empty string when no tag is available.
+ *
+ * @param {string} [tagName] The host element's tag name
+ * @returns {string} The bundle name behind the tag
+ * @private
+ */
+function toBundleName(tagName)
+{
+	const [, ...segments] = String(tagName).toLowerCase().split('-');
+
+	return segments.map((segment, index) => (index === 0 ? segment : `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)).join('');
 }
 
 /**
@@ -166,6 +182,33 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	@api get componentMessageContext()
 	{
 		return this.messageContext;
+	}
+
+	/**
+	 * @description Name of this component's LWC bundle, taken from its custom-element tag
+	 * (`kern-log-console` becomes `logConsole`). Logging passes it to the server so a persisted
+	 * entry names the component it came from. Empty when the host element is not available.
+	 *
+	 * @type {string}
+	 */
+	get componentName()
+	{
+		return toBundleName(this.template?.host?.localName);
+	}
+
+	/**
+	 * @description Accepts a name assigned straight onto the component (`this.componentName = ...`),
+	 * which a subclass may do without declaring the property. The value is installed as an own
+	 * property of the instance, so the assignment behaves exactly as a plain field would and the
+	 * name a component gives itself wins over the tag-derived default for log attribution.
+	 *
+	 * @param {string} value The name to attribute this component's log entries to
+	 */
+	set componentName(value)
+	{
+		Object.defineProperty(this, 'componentName', {
+			value, writable: true, enumerable: true, configurable: true
+		});
 	}
 
 	@api clearActiveSubscriptions()
@@ -321,12 +364,14 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	 * Requires the 'controller' module.
 	 * @param {Function} controllerMethod Imported Apex method
 	 * @param {Object} parameterMap Apex method parameters
-	 * @param {boolean} isThrow Whether to re-throw caught errors
+	 * @param {boolean|{silent?: boolean, isThrow?: boolean}} options Either the `isThrow` boolean
+	 *     (re-throw caught errors) or an options object, where `silent` logs the failure without
+	 *     showing a toast
 	 * @returns {Promise<*>|void}
 	 */
-	@api callControllerMethod = (controllerMethod, parameterMap = {}, isThrow = false) =>
+	@api callControllerMethod = (controllerMethod, parameterMap = {}, options = false) =>
 	{
-		utilityLogger.error(UNINITIALISED_ERRORS.callControllerMethod, {controllerMethod: typeof controllerMethod, parameterMap, isThrow});
+		utilityLogger.error(UNINITIALISED_ERRORS.callControllerMethod, {controllerMethod: typeof controllerMethod, parameterMap, options});
 	};
 
 	/**
@@ -389,15 +434,17 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	// ── Lifecycle Hooks ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * @description LWC lifecycle hook invoked when an error occurs in a descendant component.
+	 * @description LWC lifecycle hook invoked when an error occurs in a descendant component. The
+	 * persisted message carries the error's own text, so the log entry reads as the failure itself
+	 * rather than as a generic phrase with the real text reachable only through the context JSON.
 	 * @param {Error} error The error object
 	 * @param {string} stack The component stack trace
 	 */
 	errorCallback(error, stack)
 	{
-		utilityLogger.error('Component error', {
-			errorMessage: error.message, errorName: error.name, errorStack: error.stack, componentStack: stack
-		});
+		utilityLogger.error(error.message ? `Component error: ${error.message}` : 'Component error', {
+			errorMessage: error.message, exceptionType: error.name, errorStack: error.stack, componentStack: stack
+		}, this.componentName);
 	}
 
 	/**
@@ -436,14 +483,14 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	}
 
 	/**
-	 * @description Logs an error with structured context. Delegates to utilityLogger for
-	 * server-side persistence.
+	 * @description Logs an error with structured context, naming this component so the persisted
+	 * entry can be attributed to it. Delegates to utilityLogger for server-side persistence.
 	 *
 	 * @param {Error} error The error object
 	 * @param {string} description Description of the error context
 	 */
 	@api consoleError = (error, description = 'Description') =>
 	{
-		utilityLogger.error(description, error);
+		utilityLogger.error(description, error, this.componentName);
 	};
 }

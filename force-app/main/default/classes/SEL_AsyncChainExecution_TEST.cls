@@ -8,7 +8,7 @@
  *
  * @group Async
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -25,6 +25,41 @@ private class SEL_AsyncChainExecution_TEST
 	 * - Salesforce profile) set up in @TestSetup and used by the tier-A regression test.
 	 */
 	private static final String LOW_PRIVILEGE_COMPANY = 'SEL_AsyncChainExecution_TEST-low-privilege';
+
+	/**
+	 * @description Name used for the restart-projection witness's seeded chain.
+	 */
+	private static final String RESTART_PROJECTION_CHAIN_NAME = 'RestartProjectionChain';
+
+	/**
+	 * @description Snapshot document the restart-projection witness seeds and expects back through
+	 * the restart-time read's extended projection.
+	 */
+	private static final String RESTART_PROJECTION_SNAPSHOT = '{"seedKey":"seed-value"}';
+
+	/**
+	 * @description Step-log document the operator-sweep projection witness seeds and expects back
+	 * through the candidate read — the positive half of the projection proof.
+	 */
+	private static final String PROJECTION_GUARD_STEP_LOG = '[{"className":"ProjectionGuardStep"}]';
+
+	/**
+	 * @description How many of the rows shouldCountOnlyGenuineStallsAwaitingSweep seeds are still
+	 * waiting for the operator sweep: the two stalled rows with no completion timestamp.
+	 */
+	private static final Integer STALLS_AWAITING_SWEEP = 2;
+
+	/**
+	 * @description Context document the operator-sweep projection witness seeds and must NOT get
+	 * back through either sweep read — the negative half of the projection proof.
+	 */
+	private static final String PROJECTION_GUARD_CONTEXT = '{"seed":"value"}';
+
+	/**
+	 * @description Error message the operator-sweep projection witness seeds and must NOT get
+	 * back through the candidate read — the second long-text payload the projection sheds.
+	 */
+	private static final String PROJECTION_GUARD_ERROR_MESSAGE = 'Seeded error message for the projection witness';
 
 	/**
 	 * @description Commits both a test-admin and a low-privilege user in @TestSetup's separate
@@ -69,6 +104,58 @@ private class SEL_AsyncChainExecution_TEST
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.CurrentJobId__c), 'Should contain CurrentJobId__c so the watchdog sweep row can probe executor liveness');
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.FailureCategory__c), 'Should contain FailureCategory__c so the Chain Monitor can read the failure taxonomy');
 		Assert.isTrue(fields.contains(AsyncChainExecution__c.LastModifiedDate), 'Should contain LastModifiedDate so the watchdog can read stall age');
+	}
+
+	/**
+	 * @description The default projection must carry the re-drive gating markers — AllowRestart__c,
+	 * SourceExecution__c, and DeclaredDeduplicationKey__c are a checkbox, a lookup id, and a short
+	 * text, negligible per row, and the retry re-claim reads the declared key off the monitoring row
+	 * — but deliberately EXCLUDE InitialContextData__c: a third 131KB long-text would otherwise ride
+	 * every executor hop and monitor detail read for restart-declared chains (the SUMMARY_FIELDS
+	 * heap-guard precedent), so only a dedicated restart-time finder may project the snapshot.
+	 */
+	@IsTest
+	private static void shouldProjectRestartMarkersWithoutInitialContextSnapshot()
+	{
+		List<SObjectField> fields = new SEL_AsyncChainExecution().getFields();
+		Assert.isTrue(fields.contains(AsyncChainExecution__c.AllowRestart__c), 'Should contain AllowRestart__c so re-drive gates read the declaration off the monitoring row');
+		Assert.isTrue(fields.contains(AsyncChainExecution__c.SourceExecution__c), 'Should contain SourceExecution__c so restart lineage rides the monitoring row');
+		Assert.isTrue
+				(
+						fields.contains(AsyncChainExecution__c.DeclaredDeduplicationKey__c),
+						'Should contain DeclaredDeduplicationKey__c so the retry re-claim reads the declared key'
+				);
+		Assert.isFalse
+				(
+						fields.contains(AsyncChainExecution__c.InitialContextData__c),
+						'Must exclude the InitialContextData__c snapshot: a third 131KB long-text on every default read is a heap risk'
+				);
+	}
+
+	/**
+	 * @description The restart-time read must project the InitialContextData__c snapshot the
+	 * default projection deliberately excludes — it is the only query that ever pulls the 131KB
+	 * snapshot, and the restart action reads the snapshot off exactly this row — while still
+	 * carrying the default projection beside it.
+	 *
+	 * @see SEL_AsyncChainExecution.findByIdForRestart
+	 */
+	@IsTest
+	private static void shouldProjectInitialContextSnapshotOnRestartRead()
+	{
+		AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, RESTART_PROJECTION_CHAIN_NAME, new Map<SObjectField, Object>
+		{
+				AsyncChainExecution__c.AllowRestart__c => true,
+				AsyncChainExecution__c.InitialContextData__c => RESTART_PROJECTION_SNAPSHOT
+		});
+
+		Test.startTest();
+		AsyncChainExecution__c restartRead = new SEL_AsyncChainExecution().findByIdForRestart(execution.Id);
+		Test.stopTest();
+
+		Assert.isNotNull(restartRead, 'The restart read should find the chain execution');
+		Assert.areEqual(RESTART_PROJECTION_SNAPSHOT, restartRead.InitialContextData__c, 'The restart read must project the snapshot the default projection excludes');
+		Assert.areEqual(true, restartRead.AllowRestart__c, 'The restart read must still carry the default projection fields');
 	}
 
 	/**
@@ -343,6 +430,186 @@ private class SEL_AsyncChainExecution_TEST
 
 		Assert.areEqual(1, candidates.size(), 'Only the null-timestamp stall is a candidate');
 		Assert.areEqual(genuineStall.Id, candidates[0].Id, 'The genuine stall must still be swept');
+	}
+
+	/**
+	 * @description Tests that findStalledForOperatorSweep returns only Stalled rows with no
+	 * completion timestamp — Running rows are the watchdog's concern, and a Stalled row carrying
+	 * CompletedAt__c is a clobbered terminal row — and applies no staleness threshold: the
+	 * operator asked for a sweep NOW, so every genuine stall is a candidate regardless of age.
+	 *
+	 * @see SEL_AsyncChainExecution.findStalledForOperatorSweep
+	 */
+	@IsTest
+	private static void shouldFindOnlyGenuineStallsForOperatorSweep()
+	{
+		AsyncChainExecution__c genuineStall = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'OperatorGenuineStall');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'OperatorRunningChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, 'OperatorFailedChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'OperatorClobberedTerminal',
+				new Map<SObjectField, Object> {AsyncChainExecution__c.CompletedAt__c => Datetime.now()});
+
+		List<AsyncChainExecution__c> candidates = new SEL_AsyncChainExecution().findStalledForOperatorSweep(50);
+
+		Assert.areEqual(1, candidates.size(), 'Only the genuine stall is an operator-sweep candidate');
+		Assert.areEqual(genuineStall.Id, candidates[0].Id, 'A just-stalled chain is a candidate immediately: the operator sweep applies no staleness threshold');
+	}
+
+	/**
+	 * @description The clear-stalled dialog names how many chains are waiting before the operator
+	 * commits, so the count has to match the population findStalledForOperatorSweep takes: stalled
+	 * rows with no completion timestamp, and nothing else.
+	 *
+	 * @see SEL_AsyncChainExecution.countStalledAwaitingSweep
+	 */
+	@IsTest
+	private static void shouldCountOnlyGenuineStallsAwaitingSweep()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'CountableStallOne');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'CountableStallTwo');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, 'CountableRunningChain');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'CountableClobberedTerminal',
+				new Map<SObjectField, Object> {AsyncChainExecution__c.CompletedAt__c => Datetime.now()});
+
+		Integer waiting = new SEL_AsyncChainExecution().countStalledAwaitingSweep();
+
+		Assert.areEqual(STALLS_AWAITING_SWEEP, waiting, 'Only stalled rows with no completion timestamp are waiting for the sweep');
+	}
+
+	/**
+	 * @description Tests that findStalledForOperatorSweep truncates to the batch size and returns
+	 * an empty list without querying for a null or non-positive batch size.
+	 *
+	 * @see SEL_AsyncChainExecution.findStalledForOperatorSweep
+	 */
+	@IsTest
+	private static void shouldBoundAndGuardOperatorSweepBatch()
+	{
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'OperatorStallOne');
+		TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'OperatorStallTwo');
+
+		Assert.areEqual(1, new SEL_AsyncChainExecution().findStalledForOperatorSweep(1).size(), 'A batch size below the match count truncates the result');
+		Assert.isTrue(new SEL_AsyncChainExecution().findStalledForOperatorSweep(null).isEmpty(), 'A null batch size returns empty instead of querying unbounded');
+		Assert.isTrue(new SEL_AsyncChainExecution().findStalledForOperatorSweep(0).isEmpty(), 'A non-positive batch size returns empty instead of querying unbounded');
+	}
+
+	/**
+	 * @description Tier-A — proves findStalledForOperatorSweep returns a stalled chain the
+	 * running user neither owns nor shares: the operator sweep is an org-wide recovery surface,
+	 * and who may run it is decided by the Chain Monitor's permission gates, not by record
+	 * ownership.
+	 *
+	 * Catches: a future refactor that drops the sharing bypass from findStalledForOperatorSweep
+	 * would silently empty the operator sweep for every chain the operator does not own — with
+	 * every other test still green, because they all seed and sweep as the same user.
+	 *
+	 * @see SEL_AsyncChainExecution.findStalledForOperatorSweep
+	 */
+	@IsTest
+	private static void shouldFindForeignStalledChainsForOperatorSweep()
+	{
+		User lowPrivilegeUser = getLowPrivilegeUser();
+		Id foreignStalledId;
+		System.runAs(getTestAdmin())
+		{
+			foreignStalledId = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'ForeignStalledChain').Id;
+		}
+
+		System.runAs(lowPrivilegeUser)
+		{
+			List<AsyncChainExecution__c> candidates = new SEL_AsyncChainExecution().findStalledForOperatorSweep(50);
+
+			Assert.areEqual(1, candidates.size(), 'A stalled chain owned by another user must still be an operator-sweep candidate');
+			Assert.areEqual(foreignStalledId, candidates[0].Id, 'The candidate must be the foreign-owned stall');
+		}
+	}
+
+	/**
+	 * @description Tests the operator sweep's two heap-guard projections. The candidate read
+	 * carries everything the sweep's decision legs consult — StepLog__c included, for the
+	 * detect-mark leg's handler resolution — but deliberately NEITHER ContextData__c (131KB) NOR
+	 * ErrorMessage__c (32KB), the two long-text payloads no leg reads off a candidate row. The
+	 * tally read projects Status__c alone. Field access on an unqueried field throws, which is
+	 * exactly the witness.
+	 *
+	 * @see SEL_AsyncChainExecution.findStalledForOperatorSweep
+	 * @see SEL_AsyncChainExecution.findByIdsForSweepTally
+	 */
+	@IsTest
+	private static void shouldProjectOperatorSweepReadsWithoutLongTextPayloads()
+	{
+		AsyncChainExecution__c seeded = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, 'ProjectionGuardChain', new Map<SObjectField, Object>
+		{
+				AsyncChainExecution__c.StepLog__c => PROJECTION_GUARD_STEP_LOG,
+				AsyncChainExecution__c.ContextData__c => PROJECTION_GUARD_CONTEXT,
+				AsyncChainExecution__c.ErrorMessage__c => PROJECTION_GUARD_ERROR_MESSAGE
+		});
+
+		AsyncChainExecution__c candidate = new SEL_AsyncChainExecution().findStalledForOperatorSweep(50)[0];
+		Assert.areEqual(PROJECTION_GUARD_STEP_LOG, candidate.StepLog__c, 'StepLog__c must stay on the candidate projection: the detect-mark leg reads it');
+		try
+		{
+			String unprojected = candidate.ContextData__c;
+			Assert.fail('Should throw SObjectException: ContextData__c must not ride the candidate projection, but read ' + unprojected);
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+		try
+		{
+			String unprojected = candidate.ErrorMessage__c;
+			Assert.fail('Should throw SObjectException: ErrorMessage__c must not ride the candidate projection, but read ' + unprojected);
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+
+		List<AsyncChainExecution__c> statuses = new SEL_AsyncChainExecution().findByIdsForSweepTally(new Set<Id> {seeded.Id});
+		Assert.areEqual(1, statuses.size(), 'The tally read must return the requested row');
+		Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, statuses[0].Status__c, 'The tally read must carry the status it classifies on');
+		Assert.isTrue(new SEL_AsyncChainExecution().findByIdsForSweepTally(new Set<Id>()).isEmpty(), 'An empty id set returns empty instead of querying');
+		try
+		{
+			String unprojected = statuses[0].StepLog__c;
+			Assert.fail('Should throw SObjectException: the tally projection is Status__c only, but read ' + unprojected);
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+	}
+
+	/**
+	 * @description Tests the live-stream seed's correlation-only projection: the seed reads one
+	 * field to key its correlated-trace read, so neither long-text payload may ride the row, and
+	 * a missing id resolves null instead of throwing.
+	 *
+	 * @see SEL_AsyncChainExecution.findByIdForLogStreamSeed
+	 */
+	@IsTest
+	private static void shouldProjectLogStreamSeedReadAsCorrelationOnly()
+	{
+		AsyncChainExecution__c seeded = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_FAILED, 'StreamSeedChain', new Map<SObjectField, Object>
+		{
+				AsyncChainExecution__c.StepLog__c => PROJECTION_GUARD_STEP_LOG
+		});
+
+		AsyncChainExecution__c row = new SEL_AsyncChainExecution().findByIdForLogStreamSeed(seeded.Id);
+
+		Assert.areEqual(seeded.CorrelationId__c, row.CorrelationId__c, 'The seed read must carry the correlation id it keys the trace on');
+		try
+		{
+			String unprojected = row.StepLog__c;
+			Assert.fail('Should throw SObjectException: the seed projection is CorrelationId__c only, but read ' + unprojected);
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+		AsyncChainExecution__c missing = new SEL_AsyncChainExecution().findByIdForLogStreamSeed(UTIL_Random.randomId(AsyncChainExecution__c.SObjectType));
+		Assert.isNull(missing, 'A missing row resolves null instead of throwing');
 	}
 
 	/**

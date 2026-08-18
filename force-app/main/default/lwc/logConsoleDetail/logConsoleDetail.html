@@ -5,43 +5,97 @@
 			<div class="slds-p-around_small detail-header">
 				<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-start">
 					<div class="dhead-chips">
-						<span class="log-level-badge" data-level={detail.level} data-testid="level-badge">{detail.level}</span>
-						<span class="log-number" data-testid="log-number">{detail.logNumber}</span>
+						<span class="log-level-badge" data-level={detail.level} data-spec-id="detail-level-badge" data-testid="level-badge">{detail.level}</span>
+						<template lwc:if={showLogNumber}>
+							<span class="log-number" data-spec-id="detail-log-number" data-testid="log-number">{detail.logNumber}</span>
+						</template>
+						<template lwc:if={isTaggedProblem}>
+							<span class="provenance-pill" data-spec-id="detail-provenance-pill" data-testid="provenance-pill">{label.provenanceTagged}</span>
+						</template>
 						<template lwc:if={isProblemsView}>
-							<span class={countPillClass} data-testid="count-pill">&times; <lightning-formatted-number value={occurrenceCount}></lightning-formatted-number></span>
+							<span class={countPillClass} data-spec-id="detail-count-pill" data-testid="count-pill">&times; <lightning-formatted-number
+									value={occurrenceCount}></lightning-formatted-number></span>
 						</template>
 					</div>
-					<lightning-button-icon alternative-text={label.close} data-testid="close-button" icon-name="utility:close" onclick={handleClose} title={label.close}
-					                       variant="bare"></lightning-button-icon>
+					<lightning-button-icon alternative-text={label.close} data-spec-id="detail-close" data-testid="close-button" icon-name="utility:close" onclick={handleClose}
+										   title={label.close} variant="bare"></lightning-button-icon>
 				</div>
 
-				<h2 class="slds-text-heading_small slds-m-top_x-small detail-heading" data-testid="heading" tabindex="-1">{detail.shortMessage}</h2>
+				<h2 class="slds-text-heading_small slds-m-top_x-small detail-heading" data-spec-id="detail-heading" data-testid="heading" tabindex="-1">{detail.shortMessage}</h2>
 
-				<p class="slds-text-color_weak slds-text-body_small slds-m-top_xxx-small" data-testid="seen-line">
+				<!-- A relative time on its own ("Logged a month ago") cannot be lined up against a deployment, an
+					 integration log or another system's record of the same moment, so the exact instant sits beside
+					 it: seconds included, because entries inside one transaction are seconds apart, and with the
+					 zone named, because an instant with no zone beside it is not an instant.
+
+					 Every gap here is an explicit &nbsp; because the template compiler strips the whitespace
+					 between elements: written as ordinary spaces, this renders "Logged a month ago(Aug 16, 2026,
+					 10:31:02 AM EDT)· Last seen". Each one is inside the fragment it spaces, so it appears only
+					 when that fragment does. -->
+				<p class="slds-text-color_weak slds-text-body_small slds-m-top_xxx-small" data-spec-id="detail-seen-line" data-testid="seen-line">
 					<template lwc:if={isProblemsView}>
-						{label.firstSeen}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>&nbsp;&middot; {label.lastSeen}&nbsp;<lightning-relative-date-time
-							value={lastSeenValue}></lightning-relative-date-time>
+						<span class="seen-item">{label.firstSeen}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>
+							<template lwc:if={firstSeenValue}>
+								<span class="seen-exact">&nbsp;(<lightning-formatted-date-time data-testid="first-seen-exact" day="numeric" hour="2-digit" minute="2-digit"
+																							   month="short" second="2-digit" time-zone-name="short" value={firstSeenValue}
+																							   year="numeric"></lightning-formatted-date-time>)</span>
+							</template>&nbsp;</span>
+						<span class="seen-item">&middot; {label.lastSeen}&nbsp;<lightning-relative-date-time value={lastSeenValue}></lightning-relative-date-time>
+							<template lwc:if={lastSeenValue}>
+								<span class="seen-exact">&nbsp;(<lightning-formatted-date-time data-testid="last-seen-exact" day="numeric" hour="2-digit" minute="2-digit"
+																							   month="short" second="2-digit" time-zone-name="short" value={lastSeenValue}
+																							   year="numeric"></lightning-formatted-date-time>)</span>
+							</template></span>
 					</template>
 					<template lwc:else>
-						{label.logged}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>
+						<span class="seen-item">{label.logged}&nbsp;<lightning-relative-date-time value={firstSeenValue}></lightning-relative-date-time>
+							<template lwc:if={firstSeenValue}>
+								<span class="seen-exact">&nbsp;(<lightning-formatted-date-time data-testid="logged-exact" day="numeric" hour="2-digit" minute="2-digit"
+																							   month="short" second="2-digit" time-zone-name="short" value={firstSeenValue}
+																							   year="numeric"></lightning-formatted-date-time>)</span>
+							</template></span>
 					</template>
 				</p>
 
 				<div class="slds-grid slds-grid_vertical-align-center slds-m-top_x-small detail-actions">
 					<template lwc:if={showChainButton}>
-						<lightning-button class="slds-m-right_xx-small" data-testid="action-open-chain" label={label.actionOpenChain} onclick={handleOpenChain}
-						                  variant="neutral"></lightning-button>
+						<lightning-button class="slds-m-right_xx-small" data-spec-id="detail-action-open-chain" data-testid="action-open-chain" label={label.actionOpenChain}
+										  onclick={handleOpenChain} variant="neutral"></lightning-button>
 					</template>
-					<lightning-button data-testid="action-open-record" label={label.actionOpenRecord} onclick={handleOpenRecord} variant="neutral"></lightning-button>
+					<template lwc:if={showOpenRecordButton}>
+						<lightning-button data-spec-id="detail-action-open-record" data-testid="action-open-record" label={label.actionOpenRecord} onclick={handleOpenRecord}
+										  variant="neutral"></lightning-button>
+					</template>
+					<template lwc:if={showOpenLatestButton}>
+						<!-- Same action as Open record, under the name that is true here: a grouped problem has no
+							 record of its own, so what opens is the most recent entry behind it. -->
+						<lightning-button data-spec-id="detail-action-open-latest" data-testid="action-open-latest" disabled={openLatestDisabled}
+										  label={label.actionOpenLatestOccurrence} onclick={handleOpenRecord} variant="neutral"></lightning-button>
+					</template>
+					<template lwc:if={showOccurrencesButton}>
+						<lightning-button class="slds-m-left_xx-small" data-spec-id="detail-action-view-occurrences" data-testid="action-view-occurrences"
+										  label={label.viewOccurrences} onclick={handleViewOccurrences} variant="neutral"></lightning-button>
+					</template>
 				</div>
+
+				<template lwc:if={isPurgedGroup}>
+					<!-- Says why the button above is dead, next to the button. Info, not alarm: the entries ageing
+						 out is the retention policy working, not a fault. -->
+					<div class="purged-note" data-spec-id="derived-detail-purged" data-testid="derived-purged-note" role="status">
+						<lightning-icon class="purged-note__icon" icon-name="utility:clock" size="x-small"></lightning-icon>
+						<span>{label.derivedNoOccurrence}</span>
+					</div>
+				</template>
 			</div>
 
 			<lightning-tabset active-tab-value={activeTab} variant="scoped">
-				<lightning-tab label={label.tabOverview} onactive={handleTabActive} value="overview">
+				<lightning-tab data-spec-id="detail-tab-overview" label={label.tabOverview} onactive={handleTabActive} value="overview">
 					<template lwc:if={hasMessage}>
-						<div class="codewrap slds-m-bottom_small">
-							<lightning-button class="copybtn" data-testid="copy-message" label={label.copy} onclick={handleCopyMessage} variant="neutral"></lightning-button>
-							<pre class="code" data-testid="message-code">{detail.message}</pre>
+						<div class="msgcard slds-m-bottom_small" data-level={detail.level} data-spec-id="message-card" data-testid="message-card">
+							<div class="mtype" data-spec-id="message-caption" data-testid="message-caption">{messageCaption}</div>
+							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-message" icon-name="utility:copy_to_clipboard"
+												   onclick={handleCopyMessage} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+							<div class="mtext" data-spec-id="message-text" data-testid="message-code">{detail.message}</div>
 						</div>
 					</template>
 					<template lwc:else>
@@ -49,14 +103,51 @@
 					</template>
 
 					<div class="sech">{label.detailsHeading}</div>
-					<div class="metagrid" data-testid="metagrid">
-						<span class="k">{label.metaLogNumber}</span><span class="v">{detail.logNumber}</span>
-						<span class="k">{label.metaSource}</span><span class="v" data-testid="meta-source">{sourceLabel}</span>
-						<span class="k">{label.metaContext}</span><span class="v">{detail.executionEvent}</span>
-						<span class="k">{label.metaUser}</span><span class="v" data-testid="meta-user">{userLabel}</span>
-						<span class="k">{label.metaCorrelation}</span><span class="v">{detail.correlationId}</span>
-						<span class="k">{label.metaTransaction}</span><span class="v">{detail.transactionId}</span>
-						<span class="k">{label.metaParentTransaction}</span><span class="v">{detail.parentTransactionId}</span>
+					<div class="metagrid" data-spec-id="details-grid" data-testid="metagrid">
+						<!-- Every value cell dashes when it has nothing to show. An empty cell in a key/value grid
+							 reads as data that went missing, which is the wrong conclusion this console must never
+							 invite; the dash says the entry simply never recorded one. -->
+						<span class="k">{label.metaLogNumber}</span>
+						<span class="v" data-spec-id="details-log-number" data-testid="meta-log-number">
+							<template lwc:if={detail.logNumber}>{detail.logNumber}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
+						<span class="k">{label.metaSource}</span>
+						<span class="v" data-spec-id="details-source" data-testid="meta-source">
+							<template lwc:if={sourceLabel}>{sourceLabel}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
+						<!-- The list's display name, not the stored value: AURA here and "Aura / LWC" in the row
+							 behind the drawer read as two different things. -->
+						<span class="k">{label.metaContext}</span>
+						<span class="v" data-spec-id="details-context" data-testid="meta-context">
+							<template lwc:if={contextDisplayName}>{contextDisplayName}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
+						<span class="k">{label.metaUser}</span>
+						<span class="v" data-spec-id="details-user" data-testid="meta-user">
+							<template lwc:if={hasUserLink}><a data-testid="meta-user-link" href={userRecordUrl}>{userLabel}</a></template>
+							<template lwc:else>{userLabel}</template>
+						</span>
+						<span class="k">{label.metaCorrelation}</span>
+						<span class="v" data-spec-id="details-correlation" data-testid="meta-correlation">
+							<template lwc:if={hasCorrelation}>
+								{detail.correlationId}
+								<lightning-button-icon alternative-text={label.copy} class="copyicon" data-testid="copy-correlation" icon-name="utility:copy_to_clipboard"
+													   onclick={handleCopyCorrelation} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+							</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
+						<span class="k">{label.metaTransaction}</span>
+						<span class="v" data-spec-id="details-transaction" data-testid="meta-transaction">
+							<template lwc:if={detail.transactionId}>{detail.transactionId}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
+						<span class="k">{label.metaParentTransaction}</span>
+						<span class="v" data-spec-id="details-parent-transaction" data-testid="meta-parent-transaction">
+							<template lwc:if={detail.parentTransactionId}>{detail.parentTransactionId}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
 					</div>
 
 					<div class="sech">{label.limitsHeading} <span class="slds-text-color_weak only-used">{label.limitsOnlyUsed}</span></div>
@@ -70,6 +161,8 @@
 												value={limitBar.maximum}></lightning-formatted-number> ({limitBar.percentage}%)</span>
 									</div>
 									<div aria-label={limitBar.name} aria-valuemax="100" aria-valuemin="0" aria-valuenow={limitBar.percentage} class="lbartrack" role="progressbar">
+										<!-- limitBar is the iterator item, not an element name; the inspector reads the bound data-level as a CSS element selector -->
+										<!--suppress CssInvalidHtmlTagReference -->
 										<span class="lbarfill" data-level={limitBar.level} data-testid="limit-fill" style={limitBar.barStyle}></span>
 									</div>
 								</div>
@@ -79,49 +172,129 @@
 					<template lwc:else>
 						<span class="slds-text-color_weak" data-testid="no-limits">{label.noLimits}</span>
 					</template>
+
+					<template lwc:if={showTaggedCountNote}>
+						<!-- The count is a running total, but only the first occurrence was kept in full — so a large
+							 count sits beside exactly one openable entry. Unexplained, that reads as data loss. -->
+						<div class="explainer" data-spec-id="tagged-count-note" data-testid="tagged-count-note">
+							<span class="explainer__title">{taggedCountHeading}</span>
+							<p class="explainer__body">{label.taggedCountExplainedHint}</p>
+						</div>
+					</template>
+
+					<template lwc:if={showTrackBlock}>
+						<div class="explainer" data-spec-id="track-signature" data-testid="track-signature">
+							<span class="explainer__title">{label.trackProblem}</span>
+							<p class="explainer__body">{label.trackProblemHint}</p>
+							<div class="codewrap">
+								<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-snippet" icon-name="utility:copy_to_clipboard"
+													   onclick={handleCopySnippet} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+								<pre class="code" data-spec-id="track-snippet" data-testid="track-snippet">{apexSnippet}</pre>
+							</div>
+							<template lwc:if={snippetPassesException}>
+								<!-- Only when the snippet actually names caughtException: it is a stand-in for whatever the
+									 reader's own catch block calls the exception, and pasted as-is it fails with "Variable
+									 does not exist". The name-source block below carries the same note. -->
+								<p class="explainer__caveat" data-testid="track-exception-note">{label.trackProblemExceptionNote}</p>
+							</template>
+							<p class="explainer__caveat">{label.trackProblemCaveat}</p>
+						</div>
+					</template>
+
+					<template lwc:if={isUnattributedGroup}>
+						<!-- A different move for a different shape: with no source recorded, everything throwing this
+							 error is one problem here, so naming the source has to come before naming the problem. -->
+						<div class="explainer" data-spec-id="name-the-source" data-testid="name-the-source">
+							<span class="explainer__title">{label.nameSource}</span>
+							<p class="explainer__body">{label.nameSourceHint}</p>
+							<div class="codewrap">
+								<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-snippet" icon-name="utility:copy_to_clipboard"
+													   onclick={handleCopySnippet} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+								<pre class="code" data-spec-id="name-source-snippet" data-testid="name-source-snippet">{apexSnippet}</pre>
+							</div>
+							<template lwc:if={snippetPassesException}>
+								<!-- The zero-config shape IS a catch block with no source, so this snippet names caughtException
+									 too — and has two stand-ins to explain, not one. -->
+								<p class="explainer__caveat" data-testid="track-exception-note">{label.trackProblemExceptionNote}</p>
+							</template>
+							<p class="explainer__caveat">{label.nameSourceCaveat}</p>
+						</div>
+					</template>
 				</lightning-tab>
 
-				<lightning-tab label={label.tabStackTrace} onactive={handleTabActive} value="stack">
+				<lightning-tab data-spec-id="detail-tab-stack" label={label.tabStackTrace} onactive={handleTabActive} value="stack">
 					<template lwc:if={hasStackTrace}>
 						<div class="codewrap">
-							<lightning-button class="copybtn" data-testid="copy-stack" label={label.copy} onclick={handleCopyStack} variant="neutral"></lightning-button>
-							<pre class="code" data-testid="stack-code">{detail.stackTrace}</pre>
+							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-stack" icon-name="utility:copy_to_clipboard"
+												   onclick={handleCopyStack} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+							<pre class="code" data-spec-id="stack-code" data-testid="stack-code">{detail.stackTrace}</pre>
+						</div>
+					</template>
+					<!-- Two different absences, and the shipped line only covers one of them. "This entry was logged
+						 without a stack trace" is a fact about an entry; a grouped problem whose entries are all gone
+						 has no entry for it to be a fact about. -->
+					<template lwc:elseif={showStackUnavailable}>
+						<div class="emptypane" data-spec-id="stack-unavailable" data-testid="stack-unavailable">
+							{label.stackUnavailable}<span class="hint">{label.stackUnavailableHint}</span>
+						</div>
+					</template>
+					<!-- Only an entry logged with an exception carries frames, so this is the resting state for
+						 every DEBUG, INFO and WARN entry rather than a rare one. Saying only "no stack trace" leaves
+						 the reader nowhere to go, so the hint names the source the entry DID record. -->
+					<template lwc:else>
+						<div class="emptypane" data-spec-id="stack-empty" data-testid="no-stack">
+							{label.noStackTrace}<span class="hint" data-spec-id="stack-hint">{stackTraceHint}</span>
+						</div>
+					</template>
+				</lightning-tab>
+
+				<lightning-tab data-spec-id="detail-tab-context" label={label.tabContext} onactive={handleTabActive} value="context">
+					<template lwc:if={hasContext}>
+						<div class="codewrap codewrap_gutter">
+							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-context" icon-name="utility:copy_to_clipboard"
+												   onclick={handleCopyContext} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+							<c-json-viewer data-spec-id="context-code" json-text={detail.contextJson}></c-json-viewer>
 						</div>
 					</template>
 					<template lwc:else>
-						<span class="slds-text-color_weak" data-testid="no-stack">{label.noStackTrace}</span>
+						<div class="emptypane" data-spec-id="context-empty" data-testid="no-context">
+							{label.noContext}<span class="hint" data-spec-id="context-hint">{label.noContextHint}</span>
+						</div>
 					</template>
 				</lightning-tab>
 
-				<lightning-tab label={label.tabContext} onactive={handleTabActive} value="context">
-					<c-json-viewer json-text={detail.contextJson}></c-json-viewer>
-				</lightning-tab>
-
-				<lightning-tab label={label.tabTimeline} onactive={handleTabActive} value="timeline">
+				<lightning-tab data-spec-id="detail-tab-timeline" label={label.tabTimeline} onactive={handleTabActive} value="timeline">
 					<div class="tlhead">
-						<span class="ttl">{timelineTitle}<template lwc:if={hasCorrelation}> &middot; <span class="cid">{correlationId}</span></template></span>
+						<span class="ttl" data-spec-id="timeline-title">{timelineTitle}<template lwc:if={hasCorrelation}> &middot; <span
+								class="cid">{correlationId}</span></template></span>
 						<template lwc:if={showChainButton}>
-							<button class="chain-viewfull" data-testid="timeline-open-chain" onclick={handleOpenChain} type="button">{label.actionOpenChain} &rarr;</button>
+							<button class="chain-viewfull" data-spec-id="timeline-open-chain" data-testid="timeline-open-chain" onclick={handleOpenChain} type="button">
+								{label.actionOpenChain} &rarr;
+							</button>
 						</template>
 					</div>
 
 					<template lwc:if={timelineNote}>
-						<div class="note plain" data-testid="timeline-note">{timelineNote}</div>
+						<div class="note plain" data-spec-id="timeline-note" data-testid="timeline-note">{timelineNote}</div>
 					</template>
 
 					<template lwc:if={hasMultipleEntries}>
 						<div class="ovhead">
-							<span class="lab">{label.timelineOverview}</span>
-							<span class="stat" data-testid="overview-stat">{overviewStat}</span>
+							<span class="lab" data-spec-id="timeline-overview-label">{label.timelineOverview}</span>
+							<span class="stat" data-spec-id="timeline-overview-stat" data-testid="overview-stat">{overviewStat}</span>
 						</div>
-						<div class="minimap" data-testid="minimap">
+						<!-- The timeline is scoped to the correlation and never applies the console's level filter,
+							 so its entry count can exceed the list's for the same correlation. Said out loud, that is
+							 a useful property; left unsaid, the two numbers simply contradict each other. -->
+						<div class="lvlnote" data-spec-id="timeline-all-levels" data-testid="all-levels-note">{label.timelineAllLevels}</div>
+						<div class="minimap" data-spec-id="timeline-minimap" data-testid="minimap">
 							<template for:each={overviewSegments} for:item="segment">
 								<span class="mseg-group" key={segment.key}>
 									<template lwc:if={segment.showArrow}>
 										<span class="marrow">&rarr;</span>
 									</template>
-									<button class={segment.segmentClass} data-testid="minimap-segment" data-transaction-id={segment.firstId} onclick={handleJumpToTransaction}
-									        type="button">
+									<button class={segment.segmentClass} data-spec-id="minimap-segment" data-testid="minimap-segment" data-transaction-id={segment.firstId}
+											onclick={handleJumpToTransaction} type="button">
 										<span class="mq">{segment.segmentLabel}</span>
 										<span class="mc">{segment.countLabel}</span>
 										<template lwc:if={segment.showWarnPin}>
@@ -131,29 +304,31 @@
 								</span>
 							</template>
 						</div>
-						<div class="legend">
+						<div class="legend" data-spec-id="timeline-legend">
 							<template for:each={legendItems} for:item="item">
-								<span class="lg" key={item.key}><span class={item.dotClass}></span>{item.text}</span>
+								<span class="lg" key={item.key}><span class={item.dotClass}></span><span class={item.textClass}>{item.text}</span></span>
 							</template>
 						</div>
 					</template>
 
-					<div class="groups" data-testid="timeline-groups">
+					<div class="groups" data-spec-id="timeline-groups" data-testid="timeline-groups">
 						<template for:each={transactionGroups} for:item="group">
 							<div class="txn-wrap" key={group.key}>
 								<template lwc:if={group.showGap}>
-									<div class="gapnote" data-testid="gap-note">&#9203; {group.gapLabel}</div>
+									<div class="gapnote" data-spec-id="timeline-gap-note" data-testid="gap-note">&#9203; {group.gapLabel}</div>
 								</template>
 								<div class="txn">
-									<button aria-expanded={group.expandedAttr} class={group.headClass} data-testid="txn-head" data-transaction-id={group.transactionId}
-									        onclick={handleToggleTransaction} type="button">
+									<!-- aria-expanded binds a valid true/false string at run time; the inspector cannot prove that for a bound value -->
+									<!--suppress HtmlWrongAttributeValue -->
+									<button aria-expanded={group.expandedAttr} class={group.headClass} data-spec-id="transaction-head" data-testid="txn-head"
+											data-transaction-id={group.transactionId} onclick={handleToggleTransaction} type="button">
 										<span class={group.chevronClass}>&#9654;</span>
 										<span class="tq">{group.quiddityLabel}</span>
 										<span class="toff">{group.offsetLabel}</span>
 										<span class="tdur">&middot; {group.durationLabel}</span>
 										<span class={group.badgeClass}>{group.level}</span>
 										<template lwc:if={group.crumb}>
-											<span class="crumb">&#8627; {group.crumb}</span>
+											<span class="crumb" data-spec-id="transaction-crumb">&#8627; {group.crumb}</span>
 										</template>
 										<span class="tcount">{group.countLabel}</span>
 									</button>
@@ -161,7 +336,8 @@
 										<ul class="tentries">
 											<template for:each={group.entries} for:item="entry">
 												<li class={entry.rowClass} key={entry.key}>
-													<button class="tent-summary" data-entry-id={entry.entryId} data-testid="timeline-entry" onclick={handleFocusHop} type="button">
+													<button class="tent-summary" data-entry-id={entry.entryId} data-spec-id="timeline-entry" data-testid="timeline-entry"
+															onclick={handleFocusHop} type="button">
 														<span aria-label={entry.nodeLabel} class={entry.nodeClass}></span>
 														<span class="tent-main">
 															<span class="elvl" data-level={entry.level}>{entry.level}</span>
@@ -174,7 +350,7 @@
 														<span class="eoff">{entry.offsetLabel}</span>
 													</button>
 													<template lwc:if={entry.isFocused}>
-														<div class="focuscard" data-testid="focus-card">
+														<div class="focuscard" data-spec-id="timeline-focus-card" data-testid="focus-card">
 															<div class="fc-type">{entry.focus.typeLabel}</div>
 															<div class="fc-msg">{entry.focus.message}</div>
 															<template lwc:if={entry.focus.loading}>
@@ -196,7 +372,7 @@
 															</template>
 															<template lwc:if={entry.focus.showOpenRecord}>
 																<button class="chain-viewfull fc-open" data-entry-id={entry.focus.entryId} data-testid="focus-open-record"
-																        onclick={handleOpenFocusedRecord} type="button">{label.actionOpenRecord} &rarr;
+																		onclick={handleOpenFocusedRecord} type="button">{label.actionOpenRecord} &rarr;
 																</button>
 															</template>
 														</div>
@@ -211,10 +387,12 @@
 					</div>
 
 					<template lwc:if={showCapRow}>
-						<div class="caprow" data-testid="cap-row">
+						<div class="caprow" data-spec-id="timeline-cap-row" data-testid="cap-row">
 							{capRowText}
 							<template lwc:if={showChainButton}>
-								<button class="chain-viewfull" data-testid="cap-open-chain" onclick={handleOpenChain} type="button">{label.actionOpenChain} &rarr;</button>
+								<button class="chain-viewfull" data-spec-id="cap-open-chain" data-testid="cap-open-chain" onclick={handleOpenChain} type="button">
+									{label.actionOpenChain} &rarr;
+								</button>
 							</template>
 						</div>
 					</template>

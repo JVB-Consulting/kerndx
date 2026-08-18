@@ -8,8 +8,9 @@ navOrder: 18
 **Package Type:** Managed Package
 **API Version:** 67.0
 
-> **Note if your org uses a custom namespace:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`). See
-> the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **Target Audience:**
 
@@ -98,6 +99,7 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
 16. [The Log Console](#the-log-console)
     - [Where It Lives](#where-it-lives)
     - [The Two Views](#the-two-views)
+    - [Problem Grouping](#problem-grouping)
     - [The Summary Ribbon](#the-summary-ribbon)
     - [Filters, Search, and Date Range](#filters-search-and-date-range)
     - [The Detail Drawer](#the-detail-drawer)
@@ -379,7 +381,7 @@ The first occurrence is kept in full: that is the row whose **Fingerprint** star
 - **To count how often it happened:** SUM **Occurrence Count** over rows whose Fingerprint starts with `rollup:`. The sampled occurrence is already included in that count, so the rollup rows alone are the true total. Counting detail and rollup rows together double-counts, so do not add them.
 - A detail row's **Created Date** is the oldest retained sample, not the most recent. If your log purge job removes it, the next occurrence simply re-creates it. Rollup rows are counts, not forensic records, so their message reflects the window's first occurrence.
 
-You rarely need to do this reading by hand. [The Log Console](#the-log-console)'s **Problem summary** view performs the fold for you: one row per fingerprint, carrying the sample's message and the summed occurrence count. The rules above matter when you build your own reports or queries over the raw rows.
+You rarely need to do this reading by hand. [The Log Console](#the-log-console)'s **Problem summary** view does it for you: one row per fingerprint, carrying the sample's message and the summed occurrence count. It also groups recurring entries that were never fingerprinted, working each problem out from the entries themselves as it reads (see [Problem Grouping](#problem-grouping)). The rules above matter when you build your own reports or queries over the raw rows.
 
 **Framework bypass audit** uses this mechanism automatically. (A "bypass" is when a developer turns off a safety check; the framework records who did it, on which surface, and against what target.) Each distinct bypass identity keeps exactly one detail row in retained logs plus daily counters, so a bypass that fires inside a hot loop can no longer flood the log table. A *new* bypass identity appearing in production, such as a new code path or a new user, still lands loudly as a fresh detail row, so you are not blind to genuinely new activity.
 
@@ -985,15 +987,223 @@ whose click triggered it. That breadth is exactly why access is gated to adminis
 
 Two buttons at the top switch how the same window of logs is read:
 
-- **Problem summary** (the default) folds the window into distinct problems: one row per recurring event, with its total occurrence count and when it last fired. This is the
-  reading side of [Log Grouping & Flood Control](#log-grouping--flood-control): events logged with a fingerprint group into a single row, the daily counters supply the count, and
-  the kept sample supplies the message, level, and source. The framework's own bypass audit is fingerprinted for you, so it appears here automatically. Rows sort by occurrence
-  count, so the noisiest problem sits at the top.
-- **Individual entries** shows the flat rows, newest first: every kept entry, including the ones logged without a fingerprint (which the Problem summary does not group). The
-  counter rows that only hold a tally stay out of this list, so everything you see is a real, inspectable entry.
+- **Problem summary** (the default) folds the window into distinct problems: one row per recurring event, with its total occurrence count and when it last fired. Rows reach it
+  two ways. Events logged with a fingerprint group into a single row, where the daily counters supply the count and the kept sample supplies the message, level, and source (the
+  reading side of [Log Grouping & Flood Control](#log-grouping--flood-control)); those rows carry a **Tagged** badge. Errors and warnings it can attribute are grouped as it reads,
+  gathering entries that share a source, an error type and a level. [Problem Grouping](#problem-grouping) covers both, and what controls them. The framework's own bypass audit
+  is fingerprinted for you, so it appears here automatically. Rows sort by severity, worst first; within a severity, the most frequent problem sits at the top.
+- **Individual entries** shows the flat rows, newest first: every kept entry, including the ones no problem row covers. The counter rows that only hold a tally stay out of this
+  list, so everything you see is a real, inspectable entry.
 
 Every column in both views is sortable, and sorting happens on the server, so it orders the full result in your date range, not just the rows you have scrolled through. The
 **Log Number** column links straight to the `LogEntry__c` record.
+
+### Problem Grouping
+
+Most production problems are not one bad log line. They are the same failure repeating. Problem
+summary is built for that: instead of a wall of near-identical rows, it shows one row per problem,
+with how many times it happened and when it last fired.
+
+Two different things put a row there, and it is worth knowing which is which.
+
+**The console groups your logs for you.** When you open Problem summary, the console reads the
+entries in your date range and gathers together the ones that share the same source, the same error
+type, and the same level. Nothing is written, nothing is deleted, and every occurrence stays a full
+entry you can still open from Individual entries. This happens on any org with no code change and no
+setup at all, and it is on unless somebody turns it off.
+
+The error type it groups on is the entry's `ExceptionType__c`: the Apex exception class where one was thrown, and for an entry logged from a Lightning web component either the
+JavaScript error's name or the Apex type relayed from a failed server call. Failures from your components therefore group the same way Apex ones do, and the same field is what you
+filter or report on when you want one kind of error.
+
+**Or you name a problem yourself in code.** When you tag an event with a fingerprint, the framework
+stops storing every repeat and starts counting them instead (this is
+[Log Grouping & Flood Control](#log-grouping--flood-control)). Those problems carry a **Tagged**
+badge in the list, and they appear whatever level they were logged at.
+
+| | Grouped for you | Tagged in code |
+|---|---|---|
+| How the problem forms | The console works it out each time you open the list | Your code names it with `withFingerprint(...)` |
+| What is stored | Every occurrence stays a full, openable entry | The first occurrence is kept in full, later repeats become daily counters |
+| What holds the problem together | Its source, error type and level, taken together | The key you chose, on its own |
+| How the row is marked | **Grouped** in the Log Number column, and *Any context* in the Context column | A **Tagged** badge |
+| What the count means | The entries still on file inside the window you selected | Every repeat your code has reported, added up across its counter rows |
+
+The two never overlap, so nothing is counted twice: an entry the framework has already folded into a
+counter is never grouped again at read time.
+
+Because the counts are measured differently, they can move differently. A grouped problem's count
+falls when your purge job removes the entries behind it, since it counts what is still on file. A
+tagged problem's count does not, and it can be far higher than the one entry you can open, because
+it is the tally your code reported.
+
+**Three things keep an entry out of the grouped half:**
+
+- **It has to say something about itself.** Grouping needs an entry to carry either the source it
+  came from or the type of error that occurred. An entry with neither (a bare `warn('something
+  happened')` with no `.at(...)`) has nothing to group on, so it stays in Individual entries. The
+  drawer offers you a one-line fix for this, described below.
+- **It has to repeat.** A one-off is not a problem. By default something must happen at least twice
+  inside your date range before it earns a row.
+- **It has to be at a level grouping covers.** Out of the box that is ERROR and WARN, which is where
+  problems worth chasing live and what keeps the reading cheap on a busy org. Whenever grouping runs, a
+  caption above the list tells you which levels are covered: *"Problem grouping covers ERROR and WARN.
+  Problems tagged in code appear at every level."* When grouping is skipped, the status bar described
+  below takes that spot instead. Switch on a level outside that scope and its entries still appear in
+  Individual entries, and your tagged problems still appear here, but nothing at that level is grouped
+  for you. Its card in the ribbon says so, marked **(tagged only)**.
+
+#### Settings
+
+Three fields on `LogSetting__c` control grouping (Setup > Custom Settings > Log Setting). Like the
+rest of that object they are hierarchical, so you can set a value for the whole org and override it
+for a profile or a single user. None of them changes what gets logged, and none of them deletes
+anything: they only change what the console does when it reads.
+
+| Field | Type | Default | What it does |
+|---|---|---|---|
+| `ProblemGroupingDisabled__c` | Checkbox | unchecked (grouping on) | Tick it to stop the console grouping your logs. Problem summary then lists only the problems you tagged in code. This is the off-switch to reach for in an incident: no deployment, effective on the next read. |
+| `ProblemGroupingMinimumOccurrences__c` | Number | 2 | How many times something must happen inside your date range before it counts as a problem. Leave it blank for 2. Raise it on a noisy org to see only what repeats a lot. |
+| `ProblemGroupingLogLevels__c` | Text(255) | `ERROR;WARN` | Which log levels grouping is allowed to look at. Separate them with semicolons or commas, either works. Leave it blank for `ERROR;WARN`. |
+
+`ProblemGroupingLogLevels__c` is a ceiling, not a preference. The console's own level buttons narrow
+within it and can never widen it, so setting it to `ERROR` means INFO is never grouped no matter what
+you switch on in the toolbar. That is deliberate: the setting is what bounds the cost of the read.
+A level the framework does not recognise is ignored rather than passed on, so a typo can narrow the
+scope but never widen it, and a value with no usable level in it falls back to `ERROR;WARN` rather
+than switching the feature off quietly.
+
+#### When Grouping Does Not Run
+
+Grouping can be skipped, and when it is, Problem summary says so in a bar above the list rather than
+showing you a short list and letting you assume it is the whole story. In all four cases the problems
+you tagged in code are still listed, so the view is never empty of everything.
+
+| What happened | What the console says | The action it offers |
+|---|---|---|
+| Somebody ticked `ProblemGroupingDisabled__c` | "Problem grouping is off, so this list shows only the errors you have tagged yourself." | **Open Log Settings** |
+| You have typed a search term | "Problem grouping cannot apply your search, so these are your tagged problems only. Individual entries searches every word of every log." | **Search every log in Individual entries** |
+| The levels you are viewing sit outside `ProblemGroupingLogLevels__c` | "Problem grouping is set up for ERROR and WARN, and the levels you are viewing are not among them. Showing tagged problems only." | **Open Log Settings** |
+| The date range holds too many entries to read in one pass | "This date range holds too many entries for the console to group them, so only your tagged problems are shown." | **Narrow the date range** |
+
+Search is the one that surprises people, so it is worth saying plainly why: grouping has to gather
+entries by their source and error type, and it cannot do that and match free text inside a message
+body at the same time. Individual entries can, which is where the console points you.
+
+The empty state tells you which situation you are in too. If grouping ran and simply found nothing
+repeating, you get *"No repeating problems match these filters."* If grouping did not run and you
+have nothing tagged, you get *"No problems match these filters."* with a line pointing back at the
+bar above it. An empty grid never leaves you guessing whether your logs went missing.
+
+#### Opening a Grouped Problem
+
+Click a grouped row and the drawer shows the problem rather than a single entry:
+
+- **Overview** carries the message from the most recent occurrence, the occurrence count, and
+  **First seen** and **Last seen** with both the relative time and the exact instant.
+- **Open latest occurrence** opens the newest entry behind the problem, with its own stack trace,
+  context and timeline.
+- **View occurrences** takes you to Individual entries filtered to that problem's source and level,
+  with a line reconciling the two numbers, for example: *"This problem was counted 16 times in this
+  window. The list shows the 16 entries still on file from its source and level."*
+- **Track this as a named problem** is the tagging affordance, covered next. When the entries were
+  logged without a source you get **Name the source of these errors** instead, which hands you the
+  same snippet without the fingerprint line, shaped around `.emitAt(...)` so the entries gain a source
+  to group on.
+- If nothing behind the problem can be opened (your purge job removed the entries between the reading
+  and the click), the drawer says *"None of the entries behind this problem can be opened right now,
+  so only the grouped summary is shown."* and shows the summary rather than failing. The Stack trace
+  tab says the same thing in its own words.
+
+#### Tagging a Problem in Code
+
+Grouping works out a problem from its source, error type and level. That is a good identity until
+someone renames the class or moves the method, at which point the old problem stops and a new one
+starts. Tagging gives the problem a name you own instead, and the name survives a refactor.
+
+The drawer writes the code for you. Open a grouped problem, expand **Track this as a named problem**,
+and copy the snippet. It is built from that problem's own level, error type and source, so it pastes
+straight into the code that produced it and compiles as it stands. It looks like this:
+
+```apex
+kern.LOG_Builder.build()
+	.error(caughtException)
+	.withFingerprint('PaymentSync.run:System.CalloutException')
+	.emitAt('PaymentSync.run');
+```
+
+Replace `caughtException` with whatever your `catch` block calls the exception. Two things to know
+before you paste it:
+
+- **Tagging changes how those errors are stored.** From then on the first occurrence is kept in full
+  and every repeat becomes a lightweight counter rather than its own record. That is the point (it is
+  what stops a hot loop flooding the table), but it does mean you can no longer open each occurrence
+  individually. Entries already logged are untouched.
+- **A fingerprint groups by your key alone.** It carries no level and no error type, so tagging merges
+  across levels where grouping separates by them. If you want an ERROR and a WARN of the same event
+  counted separately, give them different keys.
+
+#### When the Range Is Too Big to Group
+
+Grouping reads the entries in your window to work the problems out, so a wide window over a busy org
+eventually asks for more than one request can safely read. Rather than failing the page, the console
+declines in advance and tells you.
+
+**Problem summary stops grouping when the window you have selected holds more than about 35,000
+entries that grouping would look at**, meaning untagged entries at the covered levels that carry a
+source or an error type. You still get your tagged problems, and the status bar above the list tells
+you what happened. Three things bring grouping back, cheapest first: narrow the levels you are viewing
+with the console's own level buttons, narrow the date range, or tighten the
+`ProblemGroupingLogLevels__c` scope. Note that this counts entries inside the window, not rows in the
+table, so a very large log table with a quarter-hour window is entirely fine.
+
+There is a separate, similar limit on the other view. **Individual entries stops breaking its summary
+ribbon down by level and source above roughly 22,000 entries in the window.** When that happens the
+ribbon still shows you the exact total and says *"This range holds too many entries to break down by
+level and source. Narrow the range or the level filter to see the breakdown."* The list itself keeps
+working normally, and a search-scoped ribbon is not affected at all.
+
+#### A Worked Example
+
+Overnight, a payment gateway starts timing out. Your integration class catches the exception and logs
+it once per failed order, and by morning there are 900 of them.
+
+You open the Log Console, leave the range on the last 24 hours, and switch nothing else. Problem
+summary shows one ERROR row:
+
+```text
+Log Number   Message                             Level   Source            Count   Last seen
+Grouped      Gateway timed out after 30000 ms    ERROR   PaymentSync.run     900   4 minutes ago
+```
+
+One row, not 900. You click it, read the newest occurrence's message, open that occurrence to see the
+stack trace and the correlation timeline, and click **View occurrences** to scan the individual
+failures for a pattern in the order sizes.
+
+Nothing was configured to make that happen, and nothing was lost: all 900 entries are still there in
+Individual entries.
+
+Now you decide this one is worth watching properly. You expand **Track this as a named problem**, copy
+the snippet, and paste it into the `catch` block:
+
+```apex
+try
+{
+	gateway.charge(order);
+}
+catch(CalloutException e)
+{
+	kern.LOG_Builder.build()
+		.error(e)
+		.withFingerprint('PaymentSync.run:System.CalloutException')
+		.emitAt('PaymentSync.run');
+	throw e;
+}
+```
+
+Next time the gateway has a bad night you get one full entry plus a running count instead of 900
+rows, the problem keeps its name if you rename the class, and the row carries a **Tagged** badge so
+you can see at a glance that somebody chose to watch it.
 
 ### The Summary Ribbon
 
@@ -1005,9 +1215,10 @@ Across the top, a ribbon summarises the whole window regardless of how far you h
 
 The cards are shortcuts, not just numbers: click a level card to narrow the list to that level, or click a source to drill into it.
 
-**When totals show as approximate.** A very busy window can hold more grouped activity than the console reads in one pass. When that happens, the total card carries a
-**Totals approximate** badge: the counts cover the most recent activity, and the true total may be higher. The badge is the console being honest about a best-effort number instead
-of presenting it as exact. Narrow the date range and it disappears.
+**When totals show as approximate.** Two different things can leave the number best-effort, and the badge's help text tells you which one you are looking at. A very busy window
+can hold more grouped activity than the console reads in one pass, so the counts cover the most recent activity only and the true total is higher. Or part of the list could not be
+worked out for the date range at all, in which case its share is missing from the totals rather than trimmed, and the help text says so instead. Either way the
+**Totals approximate** badge is the console being honest about a best-effort number instead of presenting it as exact. Narrow the date range and it disappears.
 
 ### Filters, Search, and Date Range
 
@@ -1061,12 +1272,16 @@ The link works in the other direction too: the Chain Monitor's detail panel has 
 deep link like that lands on Individual entries with all four levels on and the widest rolling window, so an older chain's rows are still visible, and the pinned correlation shows
 as a removable pill, so you can see, and clear, exactly what is filtering the list.
 
+For a single chain the Chain Monitor also carries its own [live activity stream](Async%20Processing%20-%20Guide.md#the-live-activity-stream): the run's entries, seeded newest-first
+and then streaming in as they happen. The console remains the place to browse, search, and diagnose across chains and everything else your code logged.
+
 ### What the Log Console Does Not Do
 
 - **It never changes your data.** Browsing, filtering, and drilling are reads. There is no edit, delete, or purge in the console.
 - **It reads this framework's log table only.** It shows `LogEntry__c` rows. Salesforce debug logs and other packages' log stores do not appear here.
-- **The Problem summary groups fingerprinted events.** An entry logged without a fingerprint appears in Individual entries but is not folded into a problem row. Give your
-  recurring events a [fingerprint](#log-grouping--flood-control) and the grouping works for you.
+- **Grouping needs something to group on.** An entry that records neither its source nor an error type has no shape the console can recognise, so it appears in Individual
+  entries but never in a problem row. Log it with `.emitAt('Class.method')`, or give the event a [fingerprint](#log-grouping--flood-control), and it joins the problems.
+  Grouping also stays inside the log levels it is configured for, and stands down on a date range too large to read in one pass; see [Problem Grouping](#problem-grouping).
 - **It is not an analytics dashboard.** For charts, trends, and scheduled reporting, build reports and dashboards on `LogEntry__c` (see
   [Querying Log Entries](#querying-log-entries)). The console is for finding and diagnosing problems now.
 
@@ -1155,6 +1370,9 @@ override it for a profile or an individual user (Org, then Profile, then User). 
 | `LogLevelThreshold__c`                  | Text(10)  | DEBUG   | Minimum level to log (DEBUG, INFO, WARN, ERROR)                                                                   |
 | `ClassFilter__c`                        | Text(255) | blank   | Comma-separated class name patterns with trailing `*` wildcard (e.g., `API_*,SVC_Payment*`). Blank = all classes. |
 | `MaxContextDataSize__c`                 | Number    | 32768   | Max characters for ContextData__c                                                                                 |
+| `ProblemGroupingDisabled__c`            | Checkbox  | false   | Stops [the Log Console grouping your logs into problems](#problem-grouping). Tagged problems still appear. Nothing is logged differently and nothing is deleted. |
+| `ProblemGroupingMinimumOccurrences__c`  | Number    | 2       | How many times something must happen inside the date range before it counts as a problem. Blank means 2.          |
+| `ProblemGroupingLogLevels__c`           | Text(255) | ERROR;WARN | Which log levels problem grouping may look at, separated by semicolons or commas. Blank means ERROR;WARN.      |
 | `EnablePerformanceLogging__c`           | Checkbox  | true    | Enable general performance logging                                                                                |
 | `PerformanceThresholdMs__c`             | Number    | 10000   | Threshold for general timers (ms)                                                                                 |
 | `EnableQueryPerformanceLogging__c`      | Checkbox  | true    | Enable query performance logging                                                                                  |

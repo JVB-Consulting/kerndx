@@ -9,7 +9,7 @@
  *
  * @group Async
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  *
  * @since 1.0
  *
@@ -34,6 +34,74 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Default maximum serialized context size in characters.
 	 */
 	private static final Integer DEFAULT_MAX_CONTEXT_SIZE = 32768;
+
+	/**
+	 * @description Suffix appended to ErrorMessage__c when a failing chain's context outgrew the
+	 * ContextData__c field and was therefore not persisted at all: the failure persist stores the
+	 * complete context or none, never a truncated document, and this marker is the record's only
+	 * trace of that loss — without a stored context, a retry from the failed step has no state to
+	 * resume from.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static final String CONTEXT_NOT_PRESERVED_MARKER = '[Context too large to preserve: retry from failed step unavailable]';
+
+	/**
+	 * @description Failure message written when a step cannot be recreated from its class name in a
+	 * hop: {0} is the class name, {1} the platform's own message. States the rule a subscriber
+	 * needs — the class must exist, be a chain step, and declare no constructor of its own (from
+	 * inside the package the platform reaches only the implicit constructor of a class that declares
+	 * none, or a global constructor on a global class).
+	 */
+	@TestVisible
+	private static final String STEP_NOT_CREATABLE_MESSAGE =
+			'Failed (Cannot create step {0}) — the framework recreates each step by class name, so the class must exist, be a chain step, '
+			+ 'and declare no constructor of its own (only a global class may declare a global one). Cause: {1}';
+
+	/**
+	 * @description Announcement a launch writes when it could not give its chain the transaction's
+	 * log correlation because an earlier chain in the same transaction already holds it: {0} is the
+	 * chain name, {1} the correlation this chain is recorded under, {2} the transaction correlation.
+	 * Filed under the transaction correlation on purpose — a reader who only knows the correlation
+	 * their own service started can follow this entry to the chain it launched.
+	 *
+	 * @since 1.7
+	 */
+	private static final String CORRELATION_MINTED_MESSAGE =
+			'Chain {0} recorded under a new correlation {1}: correlation {2} is already attached to an earlier chain in this transaction.';
+
+	/**
+	 * @description Refusal raised when a launch supplies a correlation another chain execution
+	 * already holds: {0} is the correlation, {1} the holder named as precisely as the transaction
+	 * can. CorrelationId__c is a unique index and the platform redacts which field and which record
+	 * collided, so without this the caller gets an unattributed duplicate-value error; this states
+	 * the rule and the way out instead.
+	 *
+	 * @since 1.7
+	 */
+	private static final String CORRELATION_COLLISION_MESSAGE =
+			'Correlation {0} is already attached to {1}. A chain run owns its correlation exclusively, so give this chain '
+			+ 'one of its own: pass a distinct id to execute(correlationId).';
+
+	/**
+	 * @description Holder wording for a correlation whose owning run was launched in THIS
+	 * transaction, where the launch registry can name it exactly: {0} is that run's record id.
+	 *
+	 * @since 1.7
+	 */
+	private static final String CORRELATION_HOLDER_NAMED = 'chain execution {0}';
+
+	/**
+	 * @description Holder wording for a correlation attached outside this transaction. Deliberately
+	 * unnamed rather than looked up: the run holding it may be one this caller is not allowed to
+	 * see, which is the very reason the platform redacts the record id from the duplicate-value
+	 * error in the first place. Naming it would leak across that boundary, so the refusal spends its
+	 * words on the rule and the remedy instead.
+	 *
+	 * @since 1.7
+	 */
+	private static final String CORRELATION_HOLDER_UNNAMED = 'another chain execution';
 
 	/**
 	 * @description Maximum length of a step failure message persisted in the StepLog__c copy of the
@@ -125,11 +193,175 @@ global inherited sharing class UTIL_AsyncChain
 	public static final String ABORT_PERMISSION_SET_NAME = 'AsyncChainAbort';
 
 	/**
+	 * @description Developer name of the feature flag gating the operator re-drive capability —
+	 * retry from the failed step, restart from the start, and clear stalled. The flag's strategy
+	 * names the re-drive custom permission; the controller reads this constant, so the gate has
+	 * exactly one spelling.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_FEATURE_FLAG_NAME = 'AsyncChainRedrive_Enabled';
+
+	/**
+	 * @description Developer name of the custom permission the re-drive flag's strategy checks.
+	 * The re-drive test suite resolves grants of this permission by this constant, so the gate has
+	 * exactly one spelling.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_CUSTOM_PERMISSION_NAME = 'RedriveAsyncChain';
+
+	/**
+	 * @description API name of the permission set that is the designed source of the re-drive
+	 * custom permission. Package installs also write the permission into profiles; this permission
+	 * set is the assignment route the framework recommends.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_PERMISSION_SET_NAME = 'AsyncChainRedrive';
+
+	/**
+	 * @description Developer name of the feature flag gating the operator kill-switch toggle —
+	 * suspending and resuming all chain processing. A separate gate from re-drive on purpose: the
+	 * toggle's blast radius is org-wide, so it carries its own flag, permission and permission set.
+	 *
+	 * @since 1.7
+	 */
+	public static final String KILL_SWITCH_TOGGLE_FEATURE_FLAG_NAME = 'AsyncChainKillSwitch_Enabled';
+
+	/**
+	 * @description Developer name of the custom permission the kill-switch flag's strategy checks.
+	 * The re-drive test suite resolves grants of this permission by this constant, so the gate has
+	 * exactly one spelling.
+	 *
+	 * @since 1.7
+	 */
+	public static final String KILL_SWITCH_TOGGLE_CUSTOM_PERMISSION_NAME = 'ManageAsyncChainKillSwitch';
+
+	/**
+	 * @description API name of the permission set that is the designed source of the kill-switch
+	 * custom permission. Package installs also write the permission into profiles; this permission
+	 * set is the assignment route the framework recommends.
+	 *
+	 * @since 1.7
+	 */
+	public static final String KILL_SWITCH_TOGGLE_PERMISSION_SET_NAME = 'AsyncChainKillSwitch';
+
+	/**
 	 * @description Statuses an operator abort may act on. Delayed is reserved and never written.
 	 */
 	private static final Set<String> ABORTABLE_STATUSES = new Set<String>
 	{
 			SEL_AsyncChainExecution.STATUS_RUNNING, SEL_AsyncChainExecution.STATUS_STALLED
+	};
+
+	/**
+	 * @description Availability code: the chain's state permits the operator re-drive action.
+	 * Machine code shared by the resolver, the action's own re-resolution, and the Chain Monitor's
+	 * label mapping — never shown to a user directly.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_AVAILABLE = 'Available';
+
+	/**
+	 * @description Availability code: the chain is not in the Failed state the retry action
+	 * re-enters — live rows and other terminal rows are never retry candidates.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_CHAIN_NOT_RETRYABLE = 'ChainNotRetryable';
+
+	/**
+	 * @description Availability code: the failed step never declared itself safe to execute more
+	 * than once, so re-running it could double its side effects.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_STEP_NOT_IDEMPOTENT = 'StepNotIdempotent';
+
+	/**
+	 * @description Availability code: the failed step declared its failure permanent, so a re-run
+	 * cannot succeed; the operator's recourse is a restart from the start or a code fix.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_FAILURE_PERMANENT = 'FailurePermanent';
+
+	/**
+	 * @description Availability code: the chain's persisted context or step log is absent or does
+	 * not parse, so there is no trustworthy state to resume from.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_CONTEXT_UNAVAILABLE = 'ContextUnavailable';
+
+	/**
+	 * @description Availability code: chain processing is suspended org-wide, and re-driving into
+	 * the kill switch would only manufacture runs the next executor entry consult aborts.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_PROCESSING_SUSPENDED = 'ChainProcessingSuspended';
+
+	/**
+	 * @description Availability code: another live run currently holds the chain's declared
+	 * deduplication key, so re-claiming it would break the concurrency lock the key exists for.
+	 *
+	 * @since 1.7
+	 */
+	public static final String REDRIVE_DUPLICATE_RUN = 'DuplicateRun';
+
+	/**
+	 * @description Availability code: the chain's state permits the operator restart action.
+	 * Machine code shared by the resolver, the action's own re-resolution, and the Chain Monitor's
+	 * label mapping — never shown to a user directly.
+	 *
+	 * @since 1.7
+	 */
+	public static final String RESTART_AVAILABLE = 'Available';
+
+	/**
+	 * @description The step index a restart clone's executor resumes at. A restart is a run from the
+	 * beginning by definition, so this is always the first entry — unlike the watchdog re-drive and
+	 * the operator retry, which each derive their index from the persisted step log.
+	 *
+	 * @since 1.7
+	 */
+	private static final Integer RESTART_RESUME_INDEX = 0;
+
+	/**
+	 * @description Availability code: the chain is not in a state a restart may act on — only a
+	 * run that ended badly, Failed or Aborted, can be re-run from the start.
+	 *
+	 * @since 1.7
+	 */
+	public static final String RESTART_CHAIN_NOT_RESTARTABLE = 'ChainNotRestartable';
+
+	/**
+	 * @description Availability code: the chain never declared allowRestart() at build time, so
+	 * re-running the whole chain could double its side effects; restart stays hidden until the
+	 * author opts in.
+	 *
+	 * @since 1.7
+	 */
+	public static final String RESTART_NOT_DECLARED = 'RestartNotDeclared';
+
+	/**
+	 * @description Availability code: the chain's as-built context snapshot or step log is absent,
+	 * unparseable, or holds no runnable step definitions, so no clone can be built from it.
+	 *
+	 * @since 1.7
+	 */
+	public static final String RESTART_CONTEXT_UNAVAILABLE = 'ContextUnavailable';
+
+	/**
+	 * @description Statuses an operator restart may act on: the two bad endings. Completed chains
+	 * are never re-run through the monitor, and live chains already have an executor.
+	 */
+	private static final Set<String> RESTARTABLE_STATUSES = new Set<String>
+	{
+			SEL_AsyncChainExecution.STATUS_FAILED, SEL_AsyncChainExecution.STATUS_ABORTED
 	};
 
 	/**
@@ -183,10 +415,70 @@ global inherited sharing class UTIL_AsyncChain
 	private static final Integer WATCHDOG_CANDIDATE_QUERY_RESERVE = 3;
 
 	/**
+	 * @description Ceiling on the candidates one operator clear-stalled invocation inspects.
+	 * Deliberately decoupled from the watchdog's configured batch size and sized below both the
+	 * watchdog's own ceiling and the 50-enqueue synchronous limit: the operator sweep runs inside
+	 * an @AuraEnabled transaction that carries ambient work the scheduled context does not, so it
+	 * keeps a wider margin. The binding constraint is heap, not enqueues: a full batch of
+	 * candidate rows rides the operator's 6MB synchronous heap — half the async watchdog's —
+	 * which is why the candidate and tally projections also shed the long-text payloads no sweep
+	 * leg reads. Candidates beyond the ceiling stay in place — still Stalled, still candidates —
+	 * and the operator can simply run the action again.
+	 */
+	@TestVisible
+	private static final Integer MAX_OPERATOR_SWEEP_CANDIDATES = 40;
+
+	/**
+	 * @description The operator sweep's own bookend reads — the candidate selector and the
+	 * outcome tally. clearStalledChains refuses at entry when the remaining query budget cannot
+	 * cover even these two, returning truthful zero counts instead of running either read into an
+	 * uncatchable LimitException: the caller's transaction may arrive with its query budget
+	 * already spent, the same ambient-consumption premise the DML reserve documents.
+	 */
+	private static final Integer OPERATOR_SWEEP_MINIMUM_QUERIES = 2;
+
+	/**
+	 * @description Synchronous query budget the operator sweep proves before each candidate: the
+	 * watchdog's per-candidate reserve plus one more query, so the outcome tally's single
+	 * post-sweep read stays affordable even when this gate fires — the tally turns the sweep's
+	 * work into the truthful counts the operator sees, so it must never be the call that dies on
+	 * the very budget the gate was protecting.
+	 */
+	private static final Integer OPERATOR_CANDIDATE_QUERY_RESERVE = WATCHDOG_CANDIDATE_QUERY_RESERVE + 1;
+
+	/**
+	 * @description DML-statement budget the operator sweep proves before each candidate. A swept
+	 * candidate spends at most two statements — a re-drive's rotation write and its job-id stamp,
+	 * or a single mark, park, or degrade write — and one more is held as margin because the
+	 * operator sweep runs inside an @AuraEnabled transaction whose request may carry DML of its
+	 * own, unlike the scheduled sweep's dedicated transaction. The scheduled sweep carries no DML
+	 * reserve on purpose: its batch clamp and dedicated transaction bound its worst case, while
+	 * the operator path must prove headroom it cannot assume. When the remaining budget drops
+	 * below this reserve, the sweep leaves its remaining candidates untouched (see
+	 * clearStalledChains) instead of running a decision leg into an uncatchable LimitException.
+	 */
+	private static final Integer OPERATOR_CANDIDATE_DML_RESERVE = 3;
+
+	/**
 	 * @description The platform's pre-execution/executing AsyncApexJob statuses — the set that
 	 * proves a stamped executor job is still alive. Completed, Aborted and Failed are dead.
 	 */
 	private static final Set<String> LIVE_JOB_STATUSES = new Set<String> {'Queued', 'Processing', 'Preparing', 'Holding'};
+
+	/**
+	 * @description The chain execution each correlation was attached to by a launch in THIS
+	 * transaction. CorrelationId__c is a unique index, so one correlation drives exactly one run:
+	 * a service that starts a log correlation and then launches several chains would have every
+	 * launch after the first collide on that index. The no-argument execute() consults this registry
+	 * before adopting the active correlation — the first launch adopts it, later launches in the
+	 * same transaction record their own — and the collision refusal reads it to name the run holding
+	 * a correlation the caller supplied itself. Only successful inserts are registered: a launch that
+	 * deduplicated onto a running chain never attached its correlation to anything. Scoped to the
+	 * transaction by nature, which is exactly why the refusal also has an unnamed-holder form.
+	 *
+	 * @since 1.7
+	 */
+	private static final Map<String, Id> EXECUTION_IDS_BY_CORRELATION_ID = new Map<String, Id>();
 
 	/**
 	 * @description Flag to simulate an unhandled Queueable crash for testing the Finalizer recovery path.
@@ -571,6 +863,10 @@ global inherited sharing class UTIL_AsyncChain
 			{
 				definition.continueOnError = true;
 			}
+			if(chainStep.isIdempotent() == true)
+			{
+				definition.isIdempotent = true;
+			}
 		}
 
 		return definition;
@@ -637,6 +933,10 @@ global inherited sharing class UTIL_AsyncChain
 
 	/**
 	 * @description Instantiates a ChainStep from its class name using the framework type resolver.
+	 * The step is recreated by class name in every hop, so a subscriber step class must be
+	 * creatable across the package boundary: the platform only reaches the implicit constructor
+	 * of a class that declares none (or a global constructor on a global class) — a step that
+	 * declares its own public constructor cannot be recreated, which the failure message states.
 	 *
 	 * @param stepDefinition The step definition containing the class name to instantiate.
 	 *
@@ -653,10 +953,7 @@ global inherited sharing class UTIL_AsyncChain
 		}
 		catch(Exception error)
 		{
-			throw new UTIL_Exceptions.ConfigurationException
-					(
-							'Failed (Class Not Found: ' + stepDefinition.className + ') — ensure the class exists and has a public no-arg constructor.'
-					);
+			throw new UTIL_Exceptions.ConfigurationException(String.format(STEP_NOT_CREATABLE_MESSAGE, new List<String> {stepDefinition.className, error.getMessage()}));
 		}
 	}
 
@@ -694,6 +991,34 @@ global inherited sharing class UTIL_AsyncChain
 		 * @since 1.0
 		 */
 		global String stepName;
+
+		/**
+		 * @description Declares whether this step is safe to execute more than once — override to
+		 * return true only when a repeat run of work() cannot double the step's side effects, either
+		 * because the work is naturally idempotent or because the step guards itself (e.g. via
+		 * ChainContext.idempotencyKey()). Read on the instance the chain was built with, persisted
+		 * into the run's step log, and consulted by the Chain Monitor's retry-from-failed-step gate;
+		 * the default false keeps retry hidden until the author opts in. The declaration never
+		 * changes how the chain runs. It is a method rather than a field so the declaration needs no
+		 * constructor: the framework recreates every step by class name in each hop, and a step
+		 * class that declares its own constructor cannot be recreated across the package boundary.
+		 *
+		 * @return True when a repeat run of this step is safe; false (the default) otherwise.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * public override Boolean isIdempotent()
+		 * {
+		 *     return true;
+		 * }
+		 * ```
+		 */
+		global virtual Boolean isIdempotent()
+		{
+			return false;
+		}
 
 		/**
 		 * @description Execute the step's business logic.
@@ -734,8 +1059,11 @@ global inherited sharing class UTIL_AsyncChain
 		 * UTIL_Retry.retryOnlyOnException(...) / dontRetryOnException(...) so deterministic failures are
 		 * never re-burned; a validation error retried N times across a storm of trigger-spawned chains
 		 * costs async budget with zero chance of success. Steps that retry MUST be idempotent — pair with
-		 * ChainContext.idempotencyKey(). Exception filters apply only when the step failed by THROWING;
-		 * a failed StepResult carries no exception, so only the attempt budget gates it.
+		 * ChainContext.idempotencyKey(). Exception filters match the failure's exception wherever one
+		 * exists: a step that THROWS and a step that RETURNS failed(exception) are filtered identically.
+		 * Only a message-only failed(message) carries no exception, so nothing but the attempt budget
+		 * gates it; a step that recognises a deterministic message-only failure should return
+		 * failedPermanently(...) instead, which refuses retry outright whatever this strategy answers.
 		 *
 		 * A chain retrying enough to exhaust queueable stack depth degrades to Stalled and is
 		 * recovered by the watchdog from a fresh root. Backoff has whole-minute granularity — the
@@ -802,11 +1130,22 @@ global inherited sharing class UTIL_AsyncChain
 		global Exception error {get; private set;}
 
 		/**
-		 * @description Package-private constructor. Use outer class factory methods: succeeded() / failed().
+		 * @description True when the step declared this failure permanent: the failure is
+		 * deterministic, so the chain refuses any retry regardless of the configured retry
+		 * budget and records the failure with category StepException. Never null: false on
+		 * every result except one built by failedPermanently().
+		 *
+		 * @since 1.7
+		 */
+		global Boolean permanentFailure {get; private set;}
+
+		/**
+		 * @description Package-private constructor. Use outer class factory methods: succeeded() / failed() / failedPermanently().
 		 */
 		@TestVisible
 		private StepResult()
 		{
+			permanentFailure = false;
 		}
 	}
 
@@ -920,6 +1259,50 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
+	 * @description Creates a permanently failed step result from a message: a failure the step
+	 * knows is deterministic (a validation verdict, a rejected business rule, a client error that
+	 * can never succeed on re-send), so the chain must not spend retry budget on it. The retry
+	 * strategy is never consulted, the chain fails on this attempt, and FailureCategory__c
+	 * records StepException.
+	 *
+	 * @param message A human-readable description of the deterministic failure.
+	 *
+	 * @return A StepResult with success false, the provided message, and the permanent flag set.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * return UTIL_AsyncChain.failedPermanently('Order was cancelled upstream');
+	 * ```
+	 */
+	global static StepResult failedPermanently(String message)
+	{
+		StepResult result = failed(message);
+		result.permanentFailure = true;
+		return result;
+	}
+
+	/**
+	 * @description Creates a permanently failed step result from an exception, for a caught
+	 * failure the step recognises as deterministic. The exception rides the result exactly as
+	 * with failed(exception); the permanent flag additionally refuses any retry, outranking
+	 * both the attempt budget and every exception filter.
+	 *
+	 * @param error The exception that caused the deterministic failure.
+	 *
+	 * @return A StepResult with success false, the exception message and reference, and the permanent flag set.
+	 *
+	 * @since 1.7
+	 */
+	global static StepResult failedPermanently(Exception error)
+	{
+		StepResult result = failed(error);
+		result.permanentFailure = true;
+		return result;
+	}
+
+	/**
 	 * @description Shared state container passed between chain steps. Provides key-value storage
 	 * for inter-step communication and access to chain metadata such as execution ID and correlation ID.
 	 *
@@ -968,6 +1351,16 @@ global inherited sharing class UTIL_AsyncChain
 		 */
 		@TestVisible
 		private Boolean finalAttempt;
+
+		/**
+		 * @description The current step's retry strategy, stashed by the executor before each
+		 * work() so isFinalAttempt(error) can consult the strategy's exception filters. Declared
+		 * transient on purpose: strategies are code, not state — a filter's Set<Type> should not
+		 * ride the platform's serialization of a handler enqueue — and a handler probing after the
+		 * failure correctly reads final from the null stash.
+		 */
+		@TestVisible
+		private transient UTIL_Retry.Strategy currentRetryStrategy;
 
 		/**
 		 * @description The result of the most recently completed step.
@@ -1169,9 +1562,13 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description True when no further retry remains for the currently executing step — the
-		 * strategy's budget is exhausted (or no strategy is configured), so a failure now is final.
-		 * Retry-aware steps should branch on isFinalAttempt() for last-chance side effects, e.g. alerting.
+		 * @description True when no further retry remains for the currently executing step, judged
+		 * by the strategy's attempt budget alone. The stamp is written before work() runs, so it
+		 * cannot know which exception the attempt will fail with, and a strategy wrapped in an
+		 * exception filter can still refuse the retry afterwards; when that happens the framework
+		 * corrects the stamp before dispatching the failure, so an onError handler always reads
+		 * true for a failure that was final. To ask "would failing with THIS exception be final?"
+		 * from inside work(), use isFinalAttempt(error).
 		 *
 		 * @return True when a failure of the current attempt is final; false when a retry remains.
 		 *
@@ -1180,6 +1577,37 @@ global inherited sharing class UTIL_AsyncChain
 		global Boolean isFinalAttempt()
 		{
 			return finalAttempt ?? true;
+		}
+
+		/**
+		 * @description True when failing the current attempt with the given exception would be
+		 * final. Unlike isFinalAttempt(), which reads the attempt budget alone and cannot know
+		 * that an exception filter would refuse the retry, this overload consults the current
+		 * step's full strategy, filters included, with the exception you are about to fail with.
+		 * Call it from inside work(), before returning or throwing, when a last-chance side
+		 * effect (release a lock, write a marker, alert someone) must run exactly when no retry
+		 * will follow. Outside work() — in an onError handler — no strategy is in scope and the
+		 * probe reads true, which is correct there: a dispatched failure is final.
+		 *
+		 * @param error The exception the step is about to fail with, or null for a message-only failure.
+		 *
+		 * @return True when a failure with this exception ends the step's attempts.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * if(context.isFinalAttempt(caught)) { releaseLock(); }
+		 * return UTIL_AsyncChain.failed(caught);
+		 * ```
+		 */
+		global Boolean isFinalAttempt(Exception error)
+		{
+			if(currentRetryStrategy == null)
+			{
+				return true;
+			}
+			return !currentRetryStrategy.shouldRetry(UTIL_Retry.newContext(getAttempt() - 1).withCustomData(error));
 		}
 
 		/**
@@ -1308,6 +1736,26 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
+	 * @description Serializes the failing chain's context for terminal persistence, refusing to truncate:
+	 * a context that no longer fits the field is not stored at all, so re-drive validation can reject
+	 * cleanly instead of parsing a cut-off document. The failure path cannot throw - the chain is
+	 * already failing - which is why absence, marked in ErrorMessage__c, is the honest degradation.
+	 *
+	 * @param context The chain context at failure time.
+	 *
+	 * @return The full serialized context, or null when it exceeds the ContextData__c field length.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static String serializeContextForFailurePersist(ChainContext context)
+	{
+		String serialized = context.serialize();
+		Integer fieldLength = UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.ContextData__c).length;
+		return serialized != null && serialized.length() > fieldLength ? null : serialized;
+	}
+
+	/**
 	 * @description Fluent builder for configuring and executing an async chain.
 	 * Provides methods for adding steps, setting context, configuring error/completion handlers, and executing the chain.
 	 *
@@ -1379,6 +1827,25 @@ global inherited sharing class UTIL_AsyncChain
 		 * which the insert treats as no key.
 		 */
 		private String deduplicationKey;
+
+		/**
+		 * @description Whether the chain author declared the chain safe to restart from step 1.
+		 * Set by allowRestart(); false until declared.
+		 */
+		private Boolean restartDeclared = false;
+
+		/**
+		 * @description Whether this launch's correlation was minted by the framework rather than
+		 * supplied by the caller or inherited from the transaction. A freshly minted UUID cannot
+		 * already be attached to a run, so a duplicate on such a launch is never the correlation
+		 * index. That is what lets the keyed retry path tell a genuine correlation clash from a
+		 * deduplication collision whose winner lookup came back empty, which can happen when the key
+		 * is released and re-claimed around the lookup: without it, a launch whose correlation could
+		 * not possibly have collided would be refused with the correlation rule.
+		 *
+		 * @since 1.7
+		 */
+		private Boolean correlationMintedByFramework = false;
 
 		/**
 		 * @description Guards against accidental double-execution of the same builder.
@@ -1661,6 +2128,33 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
+		 * @description Declares this chain safe to restart from its first step. A restart re-runs
+		 * EVERY step, so declare it only when the whole chain can run twice without doubling its
+		 * side effects. The declaration stamps the run record at start and captures the as-built
+		 * initial context beside it; the Chain Monitor's restart action is offered only for declared
+		 * runs and replays that snapshot, never the evolved context a partial run left behind. Off
+		 * by default, so restart stays hidden until the author opts in — the declaration never
+		 * changes how the chain runs.
+		 *
+		 * @return This builder, for chaining.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * String runId = UTIL_AsyncChain.newChain('NightlyAccountSync')
+		 *     .then(new SyncStep())
+		 *     .allowRestart()
+		 *     .execute();
+		 * ```
+		 */
+		global ChainBuilder allowRestart()
+		{
+			this.restartDeclared = true;
+			return this;
+		}
+
+		/**
 		 * @description Registers an error handler step that executes when any step fails
 		 * (unless the failing step has continueOnError set to true).
 		 *
@@ -1724,14 +2218,22 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Executes the chain with an auto-generated correlation ID.
-		 * Persists the chain configuration and enqueues the first step.
+		 * @description Executes the chain, giving it the transaction's log correlation when one is
+		 * active and a fresh one otherwise. Persists the chain configuration and enqueues the first step.
+		 *
+		 * First-adopter rule: a correlation can be attached to exactly one chain run, so only the
+		 * FIRST chain launched under an active correlation adopts it. Later launches in the same
+		 * transaction — the shape a service that starts a correlation and then kicks off several
+		 * chains produces — are recorded under a correlation of their own and announce it once, under
+		 * the transaction's correlation, so the whole transaction still reads as one story. Before
+		 * this rule the second launch failed on the unique index with an unattributed database error.
 		 *
 		 * @return The ID of the AsyncChainExecution__c record tracking this chain.
 		 *
 		 * @throws UTIL_Exceptions.IllegalStateException If the serialized step list exceeds the
 		 * StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID
-		 * overload this method delegates to.
+		 * overload this method delegates to — or if the active correlation is already attached to a
+		 * chain run started in an EARLIER transaction, which the first-adopter rule cannot see.
 		 *
 		 * @since 1.0
 		 *
@@ -1744,8 +2246,25 @@ global inherited sharing class UTIL_AsyncChain
 		 */
 		global String execute()
 		{
-			String existingCorrelationId = LOG_Builder.correlationId;
-			return execute(String.isNotBlank(existingCorrelationId) ? existingCorrelationId : UTIL_Random.randomUUID());
+			String activeCorrelationId = LOG_Builder.correlationId;
+			if(String.isBlank(activeCorrelationId))
+			{
+				correlationMintedByFramework = true;
+				return execute(UTIL_Random.randomUUID());
+			}
+			if(!EXECUTION_IDS_BY_CORRELATION_ID.containsKey(activeCorrelationId))
+			{
+				return execute(activeCorrelationId);
+			}
+
+			String mintedCorrelationId = UTIL_Random.randomUUID();
+			correlationMintedByFramework = true;
+			String executionId = execute(mintedCorrelationId);
+			if(EXECUTION_IDS_BY_CORRELATION_ID.containsKey(mintedCorrelationId))
+			{
+				announceMintedCorrelation(chainName, mintedCorrelationId, activeCorrelationId, executionId);
+			}
+			return executionId;
 		}
 
 		/**
@@ -1759,7 +2278,8 @@ global inherited sharing class UTIL_AsyncChain
 		 * @throws UTIL_Exceptions.IllegalStateException If the serialized step list exceeds the
 		 * StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist
 		 * its step list intact for its whole life must fail at definition time, never by silently
-		 * truncating the persisted JSON.
+		 * truncating the persisted JSON — or if the supplied correlation ID is already attached to
+		 * another chain run, since a run owns its correlation exclusively.
 		 *
 		 * @since 1.0
 		 *
@@ -1807,17 +2327,25 @@ global inherited sharing class UTIL_AsyncChain
 			{
 				execution.Status__c = SEL_AsyncChainExecution.STATUS_COMPLETED;
 				execution.CompletedAt__c = Datetime.now();
-				DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
+				insertRunRecord(execution);
+				EXECUTION_IDS_BY_CORRELATION_ID.put(correlationId, execution.Id);
 				emitTerminalLog(LoggingLevel.INFO, 'Chain completed: ' + chainName + ' (no steps)', CLASS_NAME + '.ChainBuilder.execute', execution.Id);
 				return execution.Id;
 			}
 
+			if(restartDeclared)
+			{
+				execution.AllowRestart__c = true;
+				execution.InitialContextData__c = execution.ContextData__c;
+			}
 			execution.ActiveDeduplicationKey__c = deduplicationKey;
+			execution.DeclaredDeduplicationKey__c = deduplicationKey;
 			String activeRunId = insertGuardedByDeduplicationKey(execution);
 			if(activeRunId != null)
 			{
 				return activeRunId;
 			}
+			EXECUTION_IDS_BY_CORRELATION_ID.put(correlationId, execution.Id);
 
 			AsyncOptions options = asyncOptions != null ? asyncOptions : new AsyncOptions();
 
@@ -1828,18 +2356,8 @@ global inherited sharing class UTIL_AsyncChain
 
 			ChainExecutor executor = new ChainExecutor(execution.Id, 0, maxSteps, maxContextSize, errorHandler, completionHandler, options, execution.RunKey__c);
 
-			if(firstStepDelayMinutes != null && firstStepDelayMinutes > 0)
-			{
-				System.enqueueJob(executor, firstStepDelayMinutes);
-			}
-			else if(asyncOptions != null)
-			{
-				System.enqueueJob(executor, options);
-			}
-			else
-			{
-				System.enqueueJob(executor);
-			}
+			Id executorJobId = System.enqueueJob(executor, buildFirstEnqueueOptions(options, firstStepDelayMinutes));
+			stampExecutorJobId(execution, executorJobId);
 
 			return execution.Id;
 		}
@@ -1851,7 +2369,11 @@ global inherited sharing class UTIL_AsyncChain
 		 * here too. The winner lookup and single retry disambiguate: a run holding the key means the
 		 * start deduplicates onto it (correct landing); an empty lookup means the winner released the
 		 * key — or the collision was never on the deduplication index — and the insert is re-attempted
-		 * exactly once, so a second failure surfaces the real platform error.
+		 * exactly once. A second failure gets the same lookup a second time, so a launch that raced a
+		 * new key holder still lands on it, and a launch cleared of the deduplication index twice
+		 * whose correlation could actually have collided is refused by that rule instead of surfacing
+		 * an unattributed database error (see asRetryFailure for why a framework-minted correlation
+		 * is exempt). The one extra query is spent only on an already-failing start.
 		 *
 		 * @param execution The fully-populated run record to insert.
 		 *
@@ -1860,66 +2382,97 @@ global inherited sharing class UTIL_AsyncChain
 		 */
 		private String insertGuardedByDeduplicationKey(AsyncChainExecution__c execution)
 		{
+			String activeRunId = null;
 			try
 			{
 				DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
 			}
 			catch(DmlException insertError)
 			{
-				String activeRunId = resolveActiveRun(insertError);
-				if(activeRunId != null)
+				activeRunId = resolveActiveRun(insertError, execution.CorrelationId__c);
+				if(activeRunId == null)
 				{
-					return activeRunId;
+					try
+					{
+						DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
+					}
+					catch(DmlException retryError)
+					{
+						activeRunId = resolveRacedRun(retryError);
+						if(activeRunId == null)
+						{
+							throw asRetryFailure(retryError, execution.CorrelationId__c);
+						}
+					}
 				}
-				DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
 			}
-			return null;
+			return activeRunId;
+		}
+
+		/**
+		 * @description Resolves a SECOND failed start to the run that claimed the deduplication key
+		 * while this launch was re-attempting. The retry exists because the first failure's winner
+		 * lookup came back empty, meaning the key was free at that moment; if the retry then fails on
+		 * a duplicate too, either another launch took the key in between (a real race, and the start
+		 * belongs on that run) or the key was never the colliding index at all. Only a duplicate is
+		 * worth a lookup — any other platform failure is a different problem and must reach the caller
+		 * as it was reported. An empty answer here is the second clearance of the deduplication index,
+		 * which leaves CorrelationId__c as the only unique index that can have collided.
+		 *
+		 * @param retryError The exception the re-attempted insert raised.
+		 *
+		 * @return The racing winner's Id, or null when no run holds the key.
+		 *
+		 * @since 1.7
+		 */
+		private String resolveRacedRun(DmlException retryError)
+		{
+			return isDuplicateValueFailure(retryError) ? new SEL_AsyncChainExecution().findByActiveDeduplicationKey(deduplicationKey)?.Id : null;
+		}
+
+		/**
+		 * @description Reads a start that failed TWICE, once the winner lookup has come back empty
+		 * both times. A correlation the framework minted for this launch cannot already be attached
+		 * to anything, so its failure is left exactly as the platform reported it — the winner lookup
+		 * disagreeing with the index is a deduplication race, not a correlation clash, and calling it
+		 * one would send the caller after the wrong field. A correlation the caller supplied, or one
+		 * inherited from the transaction, is the only remaining candidate and is refused by that rule.
+		 *
+		 * @param retryError The exception the re-attempted insert raised.
+		 * @param correlationId The correlation the failed insert tried to attach.
+		 *
+		 * @return The typed refusal, or the platform's own exception.
+		 *
+		 * @since 1.7
+		 */
+		private Exception asRetryFailure(DmlException retryError, String correlationId)
+		{
+			return correlationMintedByFramework ? retryError : asCorrelationCollision(retryError, correlationId);
 		}
 
 		/**
 		 * @description Resolves a failed insert to the run currently holding the key. A chain started
 		 * without a deduplication key can never collide on the deduplication index, so its failures
-		 * always rethrow verbatim before any attribution — the keyless CorrelationId__c collision
-		 * keeps its pre-existing uncaught behaviour structurally, independent of message wording.
-		 * Keyed failures rethrow unless the predicate presumptively attributes them to the
-		 * deduplication index.
+		 * never reach the winner lookup; keyed failures reach it only when the predicate
+		 * presumptively attributes them to the deduplication index. Everything else leaves through
+		 * the correlation reading, which turns the one collision a chain launch can suffer on the
+		 * other unique index into a refusal that names the rule, and passes anything else along
+		 * exactly as the platform reported it. A keyed failure that survives the retry is finished off
+		 * by resolveRacedRun, so both message forms end at the same refusal.
 		 *
 		 * @param insertError The exception the failed insert raised.
+		 * @param correlationId The correlation the failed insert tried to attach.
 		 *
 		 * @return The winner's Id, or null when the key has already been released.
 		 */
-		private String resolveActiveRun(DmlException insertError)
+		private String resolveActiveRun(DmlException insertError, String correlationId)
 		{
 			if(String.isBlank(deduplicationKey) || !isActiveDeduplicationKeyCollision(insertError))
 			{
-				throw insertError;
+				throw asCorrelationCollision(insertError, correlationId);
 			}
 			AsyncChainExecution__c activeRun = new SEL_AsyncChainExecution().findByActiveDeduplicationKey(deduplicationKey);
 			return activeRun?.Id;
-		}
-
-		/**
-		 * @description True when a failed insert presumptively collides on the deduplication index: a
-		 * DUPLICATE_VALUE whose message does NOT name CorrelationId__c (resolved through the describe
-		 * cache, so the match is exact in both namespaced and unmanaged deploys). The check is
-		 * negative because that is what survives the platform's message variability: field API names
-		 * embed verbatim in localized platform messages, while redaction blanks the field position
-		 * entirely for callers without org-wide record access — so a positive match on the
-		 * deduplication field's name would fail for exactly those callers. Enumeration assumption:
-		 * AsyncChainExecution__c carries exactly two unique indexes (CorrelationId__c and
-		 * ActiveDeduplicationKey__c); a future unique field must join the negative list. Under
-		 * redaction a keyed CorrelationId__c collision can attribute here — the caller's winner
-		 * lookup and single retry disambiguate it safely.
-		 *
-		 * @param insertError The exception the failed insert raised.
-		 *
-		 * @return True for a presumptive deduplication-index collision.
-		 */
-		private Boolean isActiveDeduplicationKeyCollision(DmlException insertError)
-		{
-			return insertError.getNumDml() > 0
-					&& insertError.getDmlType(0) == StatusCode.DUPLICATE_VALUE
-					&& !insertError.getDmlMessage(0).contains(UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.CorrelationId__c));
 		}
 
 		/**
@@ -1947,6 +2500,155 @@ global inherited sharing class UTIL_AsyncChain
 			return persistedDefinitions;
 		}
 
+	}
+
+	/**
+	 * @description Builds the AsyncOptions for the chain's FIRST enqueue: a clone of the effective
+	 * options carrying an optional one-hop delay. A clone is mandatory - the effective options may be
+	 * the caller's own object, which rides the executor baton to every later hop, and a delay left on
+	 * it would repeat on each of them (the Finalizer retry path documents the same hazard).
+	 * The property copy is EXHAUSTIVE for API 67.0 (maximumQueueableStackDepth,
+	 * minimumQueueableDelayInMinutes, duplicateSignature) - re-audit this list on every
+	 * apiVersion bump, or a property added by a newer API is silently stripped from the
+	 * first hop.
+	 * Internal seam: AsyncOptions cannot be inspected after submission, so this method is the only possible witness of the built options — used only by UTIL_AsyncChain_TEST.
+	 *
+	 * @param effectiveOptions The options the chain runs under (caller-supplied or framework default).
+	 * @param firstStepDelayMinutes The withDelayMinutes value, or null for an immediate start.
+	 *
+	 * @return A first-enqueue-only AsyncOptions instance.
+	 *
+	 * @since 1.7
+	 */
+	@TestVisible
+	private static AsyncOptions buildFirstEnqueueOptions(AsyncOptions effectiveOptions, Integer firstStepDelayMinutes)
+	{
+		AsyncOptions firstEnqueueOptions = new AsyncOptions();
+		firstEnqueueOptions.maximumQueueableStackDepth = effectiveOptions.maximumQueueableStackDepth;
+		firstEnqueueOptions.duplicateSignature = effectiveOptions.duplicateSignature;
+		if(firstStepDelayMinutes != null && firstStepDelayMinutes > 0)
+		{
+			firstEnqueueOptions.minimumQueueableDelayInMinutes = firstStepDelayMinutes;
+		}
+		return firstEnqueueOptions;
+	}
+
+	/**
+	 * @description Inserts a run record on the one launch path that has no deduplication guard to
+	 * shelter under — a chain with no steps, which completes on the spot and therefore never claims
+	 * a deduplication key. Its only unique index in play is the correlation, so any duplicate here
+	 * is that collision and gets the same refusal a chain with steps would give.
+	 *
+	 * @param execution The fully-populated run record to insert.
+	 *
+	 * @since 1.7
+	 */
+	private static void insertRunRecord(AsyncChainExecution__c execution)
+	{
+		try
+		{
+			DML_Builder.newTransaction().systemModeInternal().doInsert(execution).execute();
+		}
+		catch(DmlException insertError)
+		{
+			throw asCorrelationCollision(insertError, execution.CorrelationId__c);
+		}
+	}
+
+	/**
+	 * @description Reads a failed launch insert as a correlation collision when it can only be one,
+	 * and passes everything else through untouched. Attribution is by elimination, not by message
+	 * text: the platform redacts both the colliding field and the record holding it from most
+	 * callers, so a launch that has already been cleared of the deduplication index and still
+	 * reports a duplicate can only have hit CorrelationId__c, the object's one other unique index.
+	 * Anything that is not a duplicate — a validation rule, a value the field cannot hold — is a
+	 * different problem entirely and is handed back exactly as the platform reported it, because
+	 * dressing it up as a correlation clash would send the caller hunting the wrong thing.
+	 * Enumeration assumption: a future unique field on AsyncChainExecution__c breaks the
+	 * elimination and must be reflected here.
+	 *
+	 * @param insertError The exception the failed insert raised.
+	 * @param correlationId The correlation the failed insert tried to attach.
+	 *
+	 * @return The typed refusal for a correlation collision, or the original exception.
+	 *
+	 * @since 1.7
+	 */
+	private static Exception asCorrelationCollision(DmlException insertError, String correlationId)
+	{
+		if(!isDuplicateValueFailure(insertError))
+		{
+			return insertError;
+		}
+		Id holderId = EXECUTION_IDS_BY_CORRELATION_ID.get(correlationId);
+		String holder = holderId == null
+				? CORRELATION_HOLDER_UNNAMED
+				: String.format(CORRELATION_HOLDER_NAMED, new List<String> {holderId});
+		return new UTIL_Exceptions.IllegalStateException(String.format(CORRELATION_COLLISION_MESSAGE, new List<String> {correlationId, holder}), insertError);
+	}
+
+	/**
+	 * @description Announces, once, that a launch had to record its chain under a correlation of its
+	 * own because the transaction's was already attached to an earlier chain. Emitted after the run
+	 * exists and pointed at it, while the transaction's correlation is still the active one, so the
+	 * entry lands in the story the caller is already reading and leads from there to the new chain.
+	 *
+	 * @param chainName The chain the launch started.
+	 * @param mintedCorrelationId The correlation the chain is recorded under.
+	 * @param activeCorrelationId The transaction's correlation, already attached to an earlier chain.
+	 * @param executionId The run record the announcement points at.
+	 *
+	 * @since 1.7
+	 */
+	private static void announceMintedCorrelation(String chainName, String mintedCorrelationId, String activeCorrelationId, String executionId)
+	{
+		LOG_Builder.build()
+				.info(String.format(CORRELATION_MINTED_MESSAGE, new List<String> {chainName, mintedCorrelationId, activeCorrelationId}))
+				.at(CLASS_NAME + '.announceMintedCorrelation')
+				.forRecord(executionId)
+				.emit();
+	}
+
+	/**
+	 * @description True when a failed write presumptively collides on the deduplication index: a
+	 * DUPLICATE_VALUE whose message does NOT name CorrelationId__c (resolved through the describe
+	 * cache, so the match is exact in both namespaced and unmanaged deploys). The check is
+	 * negative because that is what survives the platform's message variability: field API names
+	 * embed verbatim in localized platform messages, while redaction blanks the field position
+	 * entirely for callers without org-wide record access — so a positive match on the
+	 * deduplication field's name would fail for exactly those callers. Enumeration assumption:
+	 * AsyncChainExecution__c carries exactly two unique indexes (CorrelationId__c and
+	 * ActiveDeduplicationKey__c); a future unique field must join the negative list. Two callers:
+	 * the guarded first insert (where, under redaction, a keyed CorrelationId__c collision can
+	 * attribute here — the winner lookup and single retry disambiguate it safely) and the operator
+	 * retry's key re-claim update (which writes no CorrelationId__c, so every DUPLICATE_VALUE
+	 * there is the deduplication index).
+	 *
+	 * @param duplicateError The exception the failed write raised.
+	 *
+	 * @return True for a presumptive deduplication-index collision.
+	 */
+	private static Boolean isActiveDeduplicationKeyCollision(DmlException duplicateError)
+	{
+		return isDuplicateValueFailure(duplicateError)
+				&& !duplicateError.getDmlMessage(0).contains(UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.CorrelationId__c));
+	}
+
+	/**
+	 * @description True when a failed write is a unique-index collision at all, as opposed to any
+	 * other write failure a subscriber validation rule or an oversized value can raise. Every
+	 * unique-index reading in this class starts here, so none of them can mistake an unrelated
+	 * platform failure for a duplicate.
+	 *
+	 * @param writeError The exception the failed write raised.
+	 *
+	 * @return True for a duplicate-value failure carrying at least one row error.
+	 *
+	 * @since 1.7
+	 */
+	private static Boolean isDuplicateValueFailure(DmlException writeError)
+	{
+		return writeError.getNumDml() > 0 && writeError.getDmlType(0) == StatusCode.DUPLICATE_VALUE;
 	}
 
 	/**
@@ -2043,6 +2745,15 @@ global inherited sharing class UTIL_AsyncChain
 		 * with retryMaxAttempts — the pair is whole or absent.
 		 */
 		private Integer retryBackoffSeconds;
+
+		/**
+		 * @description Status codes eligible for chain-level retry, or null (the default) to keep
+		 * the released retry-any behaviour. Build-time only; persisted as a JSON string in the
+		 * step config and re-stashed by work() beside the retry pair, because the config map
+		 * reaches work() both as the in-memory build map and as a deserializeUntyped round trip,
+		 * and a JSON string is the one shape that arrives identically through both.
+		 */
+		private Set<Integer> retryableStatusCodes;
 
 		/**
 		 * @description No-argument constructor for reflection-based instantiation by the chain executor.
@@ -2214,6 +2925,37 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
+		 * @description Restricts chain-level retry to the given HTTP status codes, the ApiStep
+		 * sibling of UTIL_HttpClient's retryOn. A failed call whose status is outside the set is
+		 * declared permanently failed: the chain fails on that attempt without spending the
+		 * remaining retry budget, because the status proved the failure deterministic (a 400
+		 * returns 400 however often it is re-sent). Without this call every failed status
+		 * retries, exactly as before. A failure with no status code at all (the transport threw
+		 * before any response arrived) always stays retryable: without a status, nothing proves
+		 * the failure deterministic. An explicitly-passed empty set therefore stops every
+		 * status-bearing failure from retrying. Has no effect unless withRetry(...) enabled
+		 * chain-level retry, matching the UTIL_HttpClient family.
+		 *
+		 * @param statusCodes The status codes eligible for retry.
+		 *
+		 * @return This ApiStep for method chaining.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
+		 *     .withRetry(3, 30)
+		 *     .retryOn(new Set<Integer> {500, 503})
+		 * ```
+		 */
+		global ApiStep retryOn(Set<Integer> statusCodes)
+		{
+			this.retryableStatusCodes = statusCodes;
+			return this;
+		}
+
+		/**
 		 * @description Builds the chain-level retry strategy from the configuration stash work()
 		 * reads before the callout: exponential backoff with maxAttempts - 1 retries. Null when
 		 * withRetry was never configured, which preserves the pre-existing single-attempt behaviour
@@ -2228,6 +2970,40 @@ global inherited sharing class UTIL_AsyncChain
 			return retryMaxAttempts == null || retryMaxAttempts <= 1
 					? null
 					: UTIL_Retry.exponential().withMaxRetries(retryMaxAttempts - 1).withBaseBackoff(retryBackoffSeconds ?? 0);
+		}
+
+		/**
+		 * @description Decides whether a failed call's status excludes it from chain-level retry:
+		 * true only when chain retry is configured, a retryOn filter was set, the response carried
+		 * a numeric status inside Integer range, and that status is not in the filter. Every
+		 * unfilterable status — blank, non-numeric, or too many digits for an Integer (isNumeric
+		 * cannot see range, so valueOf can still throw) — fails open to retryable: without a
+		 * provable status nothing proves the failure deterministic, and a statusless transport
+		 * failure must never read permanent.
+		 *
+		 * @param failedStatusCode The failed call's status code as recorded by the outbound engine.
+		 *
+		 * @return True when the failure must not be retried.
+		 */
+		@TestVisible
+		private Boolean isPermanentByStatusFilter(String failedStatusCode)
+		{
+			if(retryMaxAttempts == null || retryMaxAttempts <= 1 || retryableStatusCodes == null)
+			{
+				return false;
+			}
+			if(String.isBlank(failedStatusCode) || !failedStatusCode.isNumeric())
+			{
+				return false;
+			}
+			try
+			{
+				return !retryableStatusCodes.contains(Integer.valueOf(failedStatusCode));
+			}
+			catch(System.TypeException statusOutsideIntegerRange)
+			{
+				return false;
+			}
 		}
 
 		/**
@@ -2268,6 +3044,10 @@ global inherited sharing class UTIL_AsyncChain
 				config.put('retryMaxAttempts', retryMaxAttempts);
 				config.put('retryBackoffSeconds', retryBackoffSeconds);
 			}
+			if(retryableStatusCodes != null)
+			{
+				config.put('retryableStatusCodes', JSON.serialize(retryableStatusCodes));
+			}
 
 			initialContext.put(API_STEP_CONFIG_KEY_PREFIX + stepIndex, config);
 		}
@@ -2295,9 +3075,16 @@ global inherited sharing class UTIL_AsyncChain
 
 			retryMaxAttempts = (Integer)config.get('retryMaxAttempts');
 			retryBackoffSeconds = (Integer)config.get('retryBackoffSeconds');
+			String persistedRetryableStatusCodes = (String)config.get('retryableStatusCodes');
+			retryableStatusCodes = persistedRetryableStatusCodes == null
+					? null
+					: (Set<Integer>)JSON.deserialize(persistedRetryableStatusCodes, Set<Integer>.class);
 
 			String handlerClassName = (String)config.get('handlerClassName');
-			Type resolvedHandlerType = Type.forName(handlerClassName);
+			// Resolver-aware lookup: a raw Type.forName here only sees the kern namespace, so a
+			// subscriber-owned handler would survive then() as a name and die at rehydration. The
+			// find variant returns null on a miss, preserving this step's graceful failure result.
+			Type resolvedHandlerType = UTIL_System.findTypeForClassName(handlerClassName, API_Outbound.class);
 
 			if(resolvedHandlerType == null)
 			{
@@ -2384,6 +3171,10 @@ global inherited sharing class UTIL_AsyncChain
 			{
 				errorMessage += ': ' + errors;
 			}
+			if(isPermanentByStatusFilter(handler.result.statusCode))
+			{
+				return UTIL_AsyncChain.failedPermanently(errorMessage);
+			}
 			return UTIL_AsyncChain.failed(errorMessage);
 		}
 	}
@@ -2414,6 +3205,13 @@ global inherited sharing class UTIL_AsyncChain
 		public Boolean continueOnError;
 
 		/**
+		 * @description Whether the step author declared the step safe to execute more than once.
+		 * Copied from ChainStep.isIdempotent at build time; null = false (suppressed from JSON, so
+		 * healthy step logs stay byte-identical to those persisted before this field existed).
+		 */
+		public Boolean isIdempotent;
+
+		/**
 		 * @description Whether this step succeeded. Set at runtime after step execution.
 		 */
 		public Boolean success;
@@ -2434,6 +3232,12 @@ global inherited sharing class UTIL_AsyncChain
 		 * before this field existed deserialize with a null attempt and read as attempt 1).
 		 */
 		public Integer attempt;
+
+		/**
+		 * @description Whether the step's terminal failure was declared permanent (failedPermanently).
+		 * Set at runtime only on the terminal failure persist; null = false (suppressed from JSON).
+		 */
+		public Boolean permanentFailure;
 
 		/**
 		 * @description True for onError() handler.
@@ -2600,7 +3404,7 @@ global inherited sharing class UTIL_AsyncChain
 			restorePreviousStepResult(context);
 
 			DTO_StepDefinition stepDefinition = steps[currentStepIndex];
-			String displayName = String.isNotBlank(stepDefinition.stepName) ? stepDefinition.stepName : stepDefinition.className;
+			String displayName = resolveStepDisplayName(stepDefinition);
 			StepResult result;
 			String executorClass = CLASS_NAME + '.ChainExecutor.execute';
 
@@ -2615,6 +3419,7 @@ global inherited sharing class UTIL_AsyncChain
 				step = instantiateStep(stepDefinition);
 				UTIL_Retry.Strategy preWorkStrategy = resolveRetryStrategy(step);
 				context.currentAttempt = attemptNumber;
+				context.currentRetryStrategy = preWorkStrategy;
 				context.finalAttempt = preWorkStrategy == null
 						|| !preWorkStrategy.shouldRetry(UTIL_Retry.newContext(attemptNumber - 1));
 				result = step.work(context);
@@ -2663,9 +3468,12 @@ global inherited sharing class UTIL_AsyncChain
 				execution.CompletedSteps__c = (execution.CompletedSteps__c == null ? 0 : execution.CompletedSteps__c) + 1;
 			}
 			execution.CurrentStepName__c = UTIL_String.abbreviate(displayName, AsyncChainExecution__c.CurrentStepName__c);
-			// Watchdog liveness stamp: the id of the queueable job doing this step's work. It persists only
-			// through the progress write's intended field list — terminal writes leave the last known executor's
-			// job id in place — and HandlerExecutor never stamps it (handlers are notifications, not chain executors).
+			// Watchdog liveness stamp: the id of the queueable job doing this step's work. CurrentJobId__c
+			// has exactly two writer methods — stampExecutorJobId, called at first enqueue and at every
+			// watchdog or operator re-enqueue, and the progress write in persistProgressAndChainNext,
+			// whose intended field list carries this assignment — so terminal writes leave the last known
+			// executor's job id in place, and HandlerExecutor never stamps it (handlers are
+			// notifications, not chain executors).
 			execution.CurrentJobId__c = queueableContext.getJobId();
 
 			String serializedContext = serializeContextWithinLimit(execution, context);
@@ -2774,17 +3582,29 @@ global inherited sharing class UTIL_AsyncChain
 			// continues on its final attempt. Resolved again post-work on purpose: for ApiStep the
 			// strategy only materialises during work().
 			UTIL_Retry.Strategy retryStrategy = resolveRetryStrategy(step);
-			if(retryStrategy != null
+			if(result.permanentFailure != true
+					&& retryStrategy != null
 					&& retryStrategy.shouldRetry(UTIL_Retry.newContext(attemptNumber - 1).withCustomData(result.error)))
 			{
 				scheduleRetry(execution, context, stepDefinition, retryStrategy, attemptNumber);
 				return true;
 			}
 
+			// Every path below is a denied retry, so the failure is final; the pre-work stamp could not
+			// know that, so correct it before the failure dispatch hands this context to any handler.
+			// Standing rule: a path that denies a retry re-stamps finalAttempt first, or documents why not.
+			context.finalAttempt = true;
+
 			if(stepDefinition.continueOnError != true)
 			{
+				// Stamp the declared-permanent marker before this terminal StepLog serialization:
+				// handleStepFailure persists the serialized copy verbatim and never re-serializes.
+				if(result.permanentFailure == true)
+				{
+					stepDefinition.permanentFailure = true;
+				}
 				execution.StepLog__c = serializeStepLog(persistedDefinitions);
-				String failureCategory = retryStrategy != null && attemptNumber > 1
+				String failureCategory = result.permanentFailure != true && retryStrategy != null && attemptNumber > 1
 						? SEL_AsyncChainExecution.FAILURE_CATEGORY_RETRIES_EXHAUSTED
 						: SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION;
 				handleStepFailure(execution, context, stepDefinition, result, failureCategory);
@@ -2996,7 +3816,7 @@ global inherited sharing class UTIL_AsyncChain
 		{
 			try
 			{
-				markStalledAndNotify(executionId, errorMessage, errorHandler, true, capturedRunKey);
+				markStalledAndNotify(executionId, errorMessage, errorHandler, true, capturedRunKey, false);
 			}
 			catch(Exception dmlError)
 			{
@@ -3021,15 +3841,28 @@ global inherited sharing class UTIL_AsyncChain
 		 */
 		private void handleStepFailure(AsyncChainExecution__c execution, ChainContext context, DTO_StepDefinition stepDefinition, StepResult result, String failureCategory)
 		{
-			String failedStepName = String.isNotBlank(stepDefinition.stepName) ? stepDefinition.stepName : stepDefinition.className;
+			String failedStepName = resolveStepDisplayName(stepDefinition);
+			String persistedContext = serializeContextForFailurePersist(context);
+			String terminalMessage = result.message;
+			if(persistedContext == null)
+			{
+				Integer reservedLength =
+						UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.ErrorMessage__c).length - CONTEXT_NOT_PRESERVED_MARKER.length() - UTIL_String.SPACE.length();
+				String abbreviatedBase = UTIL_String.abbreviate(terminalMessage, reservedLength);
+				// Blank, not just null: a step that fails with an empty message would otherwise leave the
+				// marker behind a separator with nothing in front of it. The platform happens to trim that
+				// leading space when it saves the long text area, so the record looks right either way —
+				// this builds the message correctly rather than relying on that.
+				terminalMessage = (String.isBlank(abbreviatedBase) ? UTIL_String.EMPTY : abbreviatedBase + UTIL_String.SPACE) + CONTEXT_NOT_PRESERVED_MARKER;
+			}
 			execution.CurrentStepName__c = UTIL_String.abbreviate(failedStepName, AsyncChainExecution__c.CurrentStepName__c);
 			execution.Status__c = SEL_AsyncChainExecution.STATUS_FAILED;
 			execution.FailureCategory__c = failureCategory;
-			execution.ErrorMessage__c = UTIL_String.abbreviate(result.message, AsyncChainExecution__c.ErrorMessage__c);
+			execution.ErrorMessage__c = UTIL_String.abbreviate(terminalMessage, AsyncChainExecution__c.ErrorMessage__c);
 			execution.CompletedAt__c = Datetime.now();
 			execution.ActiveDeduplicationKey__c = null;
 			setDuration(execution);
-			execution.ContextData__c = UTIL_String.abbreviate(context.serialize(), AsyncChainExecution__c.ContextData__c);
+			execution.ContextData__c = persistedContext;
 
 			List<SObjectField> failureFields = new List<SObjectField>
 			{
@@ -3660,9 +4493,11 @@ global inherited sharing class UTIL_AsyncChain
 	 *
 	 * The liveness decision then routes on the stamped CurrentJobId__c:
 	 * - No usable stamp (null, or text that is not a valid job id) means CANNOT-CHECK, never proof
-	 *   of death: single-step chains never progress-write and pre-upgrade rows never stamped a job
-	 *   id, so there is no correlation to probe. The sweep degrades to detect-mark-notify and
-	 *   never re-drives what it cannot prove dead.
+	 *   of death. Every chain started on a package version that stamps at enqueue (see
+	 *   stampExecutorJobId) carries a stamp, so an unstamped row is one started before stamping
+	 *   existed, or one whose start caught the enqueue failure — there is no correlation to
+	 *   probe. The sweep degrades to detect-mark-notify — it marks the row Stalled and notifies,
+	 *   nothing more — and never re-drives what it cannot prove dead.
 	 * - A live job means slow-but-alive: once the budget gates have passed, the sweep leaves the
 	 *   row completely untouched — no double-drive, no mark — because duplicate execution of a
 	 *   live chain is a worse defect than the stall it would fix. Under exhausted budget even a
@@ -3672,10 +4507,12 @@ global inherited sharing class UTIL_AsyncChain
 	 *   probe-and-re-drive leg runs behind the same per-chain try/log discipline as the mark leg —
 	 *   see redriveWhenProvablyDead — so one broken row cannot abort the rest of the sweep.
 	 *
-	 * Residual the threshold carries: the stamped job id is the LAST progress writer's, which lags
-	 * the live executor by one step, so the probe can read a dead predecessor while its successor
-	 * still runs. The staleness threshold is load-bearing here — configured longer than the
-	 * longest legitimate step, the one-step lag window can never look stale.
+	 * Residual the threshold carries: the stamped job id is the LAST stamping writer's — the
+	 * enqueue-time stamp (stampExecutorJobId, at first enqueue and at every watchdog or operator
+	 * re-enqueue), then each progress write. From the second step onward that id lags the live
+	 * executor by one step, so the probe can read a dead predecessor while its successor still
+	 * runs. The staleness threshold is load-bearing here — configured longer than the longest
+	 * legitimate step, the one-step lag window can never look stale.
 	 *
 	 * @param stale The stale candidate returned by the selector.
 	 */
@@ -3689,7 +4526,7 @@ global inherited sharing class UTIL_AsyncChain
 		}
 		if(!(stale.CurrentJobId__c instanceof Id))
 		{
-			markStalledFromWatchdog(stale, WATCHDOG_STALL_REASON, resolvePersistedErrorHandler(stale));
+			markStalledFromWatchdog(stale, WATCHDOG_STALL_REASON, resolvePersistedErrorHandler(stale), false);
 			return;
 		}
 		redriveWhenProvablyDead(stale);
@@ -3699,12 +4536,16 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Parks a candidate a budget gate refused: the row is routed through the shared
 	 * mark sequence with the given parked reason and deliberately NO onError notification —
 	 * notifying costs a queueable slot the async gate just proved absent (and with the query
-	 * budget this low, any extra work only deepens the shortage). Parking is not a dead end: the
-	 * row stays Stalled, which keeps it inside the selector's candidate population — but the park
-	 * write itself refreshes LastModifiedDate, so the row re-enters candidacy only after it
-	 * re-ages past the staleness threshold, not automatically on the very next sweep. Once it
-	 * re-ages, a budget-rich sweep re-processes it, and the single-fire guard still suppresses
-	 * re-notification because the row no longer transitions into Stalled.
+	 * budget this low, any extra work only deepens the shortage). By the same budget argument the
+	 * park withholds the unhandled-stall signal too — the ERROR-level stall entry markStalled
+	 * records when a chain stalls with no handler: a handler withheld by budget necessity must
+	 * never read as a chain that has no handler, so the park's stall entry stays at WARN even for
+	 * a handler-less chain. Parking is not a dead end: the row stays Stalled, which keeps it
+	 * inside the selector's candidate population — but the park write itself refreshes
+	 * LastModifiedDate, so the row re-enters candidacy only after it re-ages past the staleness
+	 * threshold, not automatically on the very next sweep. Once it re-ages, a budget-rich sweep
+	 * re-processes it, and the single-fire guard still suppresses re-notification because the row
+	 * no longer transitions into Stalled.
 	 *
 	 * Residual: the parked reason is transient by design. ErrorMessage__c records only the LATEST
 	 * sweep decision, so a later budget-rich sweep overwrites the parked reason with the stall
@@ -3716,7 +4557,7 @@ global inherited sharing class UTIL_AsyncChain
 	 */
 	private static void parkWithReason(AsyncChainExecution__c stale, String reason)
 	{
-		markStalledFromWatchdog(stale, reason, null);
+		markStalledFromWatchdog(stale, reason, null, true);
 	}
 
 	/**
@@ -3765,17 +4606,21 @@ global inherited sharing class UTIL_AsyncChain
 	 * Status is one of the platform's pre-execution/executing set (Queued, Processing, Preparing,
 	 * Holding); Completed, Aborted and Failed are dead.
 	 *
-	 * False means "no live proof for THIS job id", NOT proof the chain is dead: the record's stamped
-	 * id is the LAST progress writer's job, which lags the live executor by one step, and
-	 * single-step chains carry null. Callers deciding recovery must therefore treat a null jobId as
-	 * CANNOT-CHECK (degrade, never re-drive) and pair any re-drive decision with a generous
-	 * staleness threshold — longer than the longest legitimate step. A well-formed id that matches
-	 * no AsyncApexJob row probes as no-row and is likewise treated as dead; because the framework
+	 * False means "no live proof for THIS job id", NOT proof the chain is dead. The record's
+	 * stamped id is the LAST stamping writer's job — the enqueue-time stamp (stampExecutorJobId,
+	 * at first enqueue and at every watchdog or operator re-enqueue), then each progress write —
+	 * so from the second step onward it lags the live executor by one step, and rows created
+	 * before the package version that introduced stamping — or by a start that caught its enqueue
+	 * failure (see stampExecutorJobId) — carry null.
+	 * Callers deciding recovery must therefore treat a null asyncApexJobId as CANNOT-CHECK
+	 * (degrade, never re-drive) and pair any re-drive decision with a generous staleness
+	 * threshold — longer than the longest legitimate step. A well-formed id that matches no
+	 * AsyncApexJob row probes as no-row and is likewise treated as dead; because the framework
 	 * stamps the id from its own executor context, that shape is reachable only through a manual
 	 * edit of the stamp or the platform purging old AsyncApexJob rows — and in both cases re-drive
 	 * is the correct outcome.
 	 *
-	 * @param asyncApexJobId The stamped executor job id to probe, or null when no progress write has stamped one.
+	 * @param asyncApexJobId The stamped executor job id to probe, or null when no stamp has landed (a row created before stamping existed).
 	 *
 	 * @return True when the job exists and holds a live status; false for a null id, an absent row, or a dead status.
 	 */
@@ -3807,12 +4652,16 @@ global inherited sharing class UTIL_AsyncChain
 	 * @param stale The stale candidate returned by the selector.
 	 * @param reason The stall reason to record on the candidate.
 	 * @param notificationHandler The onError handler to notify once per stall transition, or null for none.
+	 * @param notificationWithheld True when the caller passed null for notificationHandler on
+	 * purpose rather than because none exists — a budget park skips the notification to save the
+	 * async budget even when the chain has a registered handler. Only a false value can produce
+	 * the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
 	 */
-	private static void markStalledFromWatchdog(AsyncChainExecution__c stale, String reason, DTO_StepDefinition notificationHandler)
+	private static void markStalledFromWatchdog(AsyncChainExecution__c stale, String reason, DTO_StepDefinition notificationHandler, Boolean notificationWithheld)
 	{
 		try
 		{
-			markStalledAndNotify(stale.Id, reason, notificationHandler, false, null);
+			markStalledAndNotify(stale.Id, reason, notificationHandler, false, null, notificationWithheld);
 		}
 		catch(Exception dmlError)
 		{
@@ -3836,6 +4685,22 @@ global inherited sharing class UTIL_AsyncChain
 	private static DTO_StepDefinition resolvePersistedErrorHandler(AsyncChainExecution__c execution)
 	{
 		return findPersistedErrorHandler(parseStepLog(execution.StepLog__c));
+	}
+
+	/**
+	 * @description Resolves the human-readable name of a step entry: the author-supplied stepName
+	 * when there is one, the implementing class name otherwise. Single-sourced because the fallback
+	 * decides what an admin reads in the performance timer, in a failure's ErrorMessage__c, and in
+	 * the operator re-drive log — three surfaces that must never disagree about what a step is
+	 * called.
+	 *
+	 * @param stepDefinition The step entry to name.
+	 *
+	 * @return The step's display name.
+	 */
+	private static String resolveStepDisplayName(DTO_StepDefinition stepDefinition)
+	{
+		return String.isNotBlank(stepDefinition.stepName) ? stepDefinition.stepName : stepDefinition.className;
 	}
 
 	/**
@@ -3911,10 +4776,11 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Re-drives one provably-dead re-drive candidate on behalf of the watchdog sweep:
 	 * rotates RunKey__c (fencing any zombie executor that later wakes with the old key), sets the
 	 * chain back to Running, and enqueues a rehydrated executor at the derived resume point under
-	 * the new key. RunKey__c has exactly three writers — ChainBuilder.execute()'s initial stamp,
-	 * this rotation, and markRedriveCandidateFailed's terminal-authoritative rotation — the sweep
-	 * is the rotation authority; no executor write set ever carries the field (see
-	 * buildSparseUpdate).
+	 * the new key. RunKey__c has exactly five writers — two insert-time minting sites
+	 * (ChainBuilder.execute()'s initial stamp and restartChainFromStart's clone) and three
+	 * rotations (this one, markRedriveCandidateFailed's terminal-authoritative rotation, and
+	 * retryChainFromFailedStep's operator rotation) — no executor write set ever carries the field
+	 * (see buildSparseUpdate).
 	 *
 	 * Preconditions the caller owns: the liveness decision (Status__c alone is never proof of a
 	 * dead executor — pair the selector candidacy with the AsyncApexJob probe) and the async-budget
@@ -3940,11 +4806,20 @@ global inherited sharing class UTIL_AsyncChain
 	 * chain legitimately built with a larger builder-time cap must not deterministically overflow
 	 * the moment recovery re-runs it under the default.
 	 *
-	 * If the re-enqueue itself fails after the rotation persisted, the chain is left Running under
-	 * the new key with no live executor — exactly the shape the next sweep detects and re-drives:
-	 * the stamped CurrentJobId__c is untouched by the rotation write set and still probes dead. The
-	 * sweep-side catch (redriveWhenProvablyDead) logs that failure per chain and moves on, so the
-	 * enqueue failure costs the sweep nothing beyond this one candidate's delay.
+	 * A successful re-enqueue immediately stamps the fresh executor's job id onto the record
+	 * (stampExecutorJobId), before the WARN emission, so the liveness probe tracks the re-driven
+	 * executor from the moment it is enqueued. That closes the window between re-enqueue and the
+	 * first progress write, when the record used to carry only the dead predecessor's id: the
+	 * probe now proves the re-driven executor's own life or death, so a live-but-slow recovery is
+	 * left untouched and a recovery that dies before its first progress write is re-detected
+	 * through its own job id, not through a proxy that happens to probe dead.
+	 *
+	 * If the re-enqueue itself fails after the rotation persisted, the stamp never runs and the
+	 * chain is left Running under the new key with no live executor — exactly the shape the next
+	 * sweep detects and re-drives: the dead predecessor's stamp is untouched by the rotation write
+	 * set and still probes dead. The sweep-side catch (redriveWhenProvablyDead) logs that failure
+	 * per chain and moves on, so the enqueue failure costs the sweep nothing beyond this one
+	 * candidate's delay.
 	 *
 	 * Residual (bounded, self-limiting): the executor's persist fence re-reads before, not
 	 * atomically with, its write — no FOR UPDATE — so a zombie's in-flight progress write can land
@@ -3982,22 +4857,9 @@ global inherited sharing class UTIL_AsyncChain
 		};
 		DML_Builder.newTransaction().systemModeInternal().doUpdate(buildSparseUpdate(fresh, redriveFields)).execute();
 
-		Integer effectiveMaxContextSize = Math.max(DEFAULT_MAX_CONTEXT_SIZE, fresh.ContextData__c?.length() ?? 0);
-		AsyncOptions options = new AsyncOptions();
-		options.maximumQueueableStackDepth = stepEntries.size() + 1;
-		System.enqueueJob
-				(
-						new ChainExecutor
-								(
-										fresh.Id, nextIndex, DEFAULT_MAX_STEPS, effectiveMaxContextSize,
-										findPersistedErrorHandler(persistedDefinitions),
-										findPersistedCompletionHandler(persistedDefinitions),
-										options, fresh.RunKey__c
-								),
-						options
-				);
+		enqueueRecoveryExecutor(fresh, nextIndex, persistedDefinitions, stepEntries.size());
 
-		LOG_Builder.build().warn('Chain re-driven by watchdog: run key rotated, executor re-enqueued at step index ' + nextIndex)
+		LOG_Builder.build().warn('Chain re-driven by watchdog after a stall: resuming at step ' + resolveStepDisplayName(stepEntries[nextIndex]))
 				.at(CLASS_NAME + '.redriveStalledChain')
 				.forRecord(fresh.Id)
 				.emit();
@@ -4164,8 +5026,9 @@ global inherited sharing class UTIL_AsyncChain
 	 * The degrade is terminal-authoritative: the write set rotates RunKey__c together with the
 	 * terminal fields, so a zombie executor that later wakes with the pre-degrade key is fenced
 	 * off the record and cannot overwrite the actionable Failed with its own late state. This is
-	 * the third RunKey__c writer, beside ChainBuilder.execute()'s initial stamp and
-	 * redriveStalledChain's rotation (see buildSparseUpdate).
+	 * one of RunKey__c's exactly five writers, beside the two insert-time minting sites
+	 * (ChainBuilder.execute, restartChainFromStart's clone) and the other two rotations
+	 * (redriveStalledChain, retryChainFromFailedStep) — see buildSparseUpdate.
 	 *
 	 * When the candidate's persisted step log resolves an onError handler, the degrade notifies
 	 * then fails: the notification routes through the shared recovery-notification enqueue with
@@ -4221,8 +5084,11 @@ global inherited sharing class UTIL_AsyncChain
 	 * boundary: the running step finishes, every terminal write site then refuses the finished
 	 * work's persist against the committed Aborted row. Emits exactly one WARN terminal signal,
 	 * strictly after the DML, at its own site so operator aborts are distinguishable from
-	 * kill-switch aborts. Does not touch RunKey__c: aborting is a status transition, not a
-	 * rotation, and RunKey__c keeps its exactly-three writers.
+	 * kill-switch aborts. The signal carries the reason verbatim, with no prefix of its own: the
+	 * reason is already a full sentence naming the actor, and the Chain Monitor's live activity panel
+	 * shows this text to an admin, where a prefix of the framework's own said the same thing twice.
+	 * Does not touch RunKey__c: aborting is a status transition, not a rotation, and RunKey__c keeps
+	 * its exactly-five writers.
 	 *
 	 * @param executionId The AsyncChainExecution__c record to abort.
 	 * @param reason The operator-supplied reason, recorded on ErrorMessage__c (abbreviated).
@@ -4260,43 +5126,710 @@ global inherited sharing class UTIL_AsyncChain
 
 		DML_Builder.newTransaction().systemModeInternal().doUpdate(buildSparseUpdate(execution, abortFields)).execute();
 
-		emitTerminalLog(LoggingLevel.WARN, 'Chain aborted by operator: ' + reason, CLASS_NAME + '.abortExecution', executionId);
+		emitTerminalLog(LoggingLevel.WARN, reason, CLASS_NAME + '.abortExecution', executionId);
 
 		return true;
 	}
 
 	/**
-	 * @description The one shared stall sequence, used by both the Finalizer and the watchdog
-	 * sweep: fresh re-read, optional run-key fence, prior-status snapshot, sparse
-	 * {Status, FailureCategory, ErrorMessage} write, then the conditional single-fire onError notification. The
-	 * guard is per-transition, not per-chain: the notification fires only on an actual change into
-	 * Stalled observed in that same fresh re-read, so a chain already Stalled that is marked again
-	 * never re-notifies, while a chain re-driven back to Running that stalls again notifies again.
-	 * The bare markStalled writer carries no fence or deduplication of its own — every caller goes through
-	 * this sequence, never the bare writer. A failed stall write propagates to the caller before
-	 * the notification step, so the notification is skipped and the caller owns the failure
-	 * logging.
+	 * @description Outcome of a Chain Monitor operator action. refusalCode carries the availability
+	 * code the action's own fresh-read re-resolution refused on, or null when the action ran;
+	 * resultId carries the record the caller should surface next — the retried execution itself, or
+	 * null on refusal. CTRL_ChainMonitor maps every non-null refusalCode to a labeled exception:
+	 * Apex is the enforcement point, and button state in the monitor is only a hint.
 	 *
-	 * The unfenced (watchdog) path additionally refuses terminal rows on the fresh re-read: a
-	 * candidate that reached Completed, Failed or Aborted since the sweep's selector read must not
-	 * be marked back to Stalled or notified — the sweep is a recovery authority over recoverable
-	 * rows only. The fenced Finalizer path keeps its fence-only semantics: its authorization is
-	 * run-key equality, exactly as before.
-	 * Both paths refuse an already-Aborted row before the fence-split: an operator abort does not
-	 * rotate the run key, so the Finalizer's fence alone cannot see it.
+	 * @since 1.7
+	 */
+	public inherited sharing class OperatorActionOutcome
+	{
+		/**
+		 * @description The availability code the action refused on, or null when the action ran.
+		 */
+		public String refusalCode;
+
+		/**
+		 * @description The record the caller should surface after a successful action; null on refusal.
+		 */
+		public Id resultId;
+	}
+
+	/**
+	 * @description Builds the refusal outcome of an operator action.
 	 *
-	 * Residual: notification delivery is at-least-once. The single-fire guard deduplicates per observed
-	 * transition into Stalled, but a re-driven chain that stalls again legitimately notifies
-	 * again, and an enqueued notification is not un-sent if later writes fail. onError handlers
-	 * must tolerate duplicate stall notifications.
+	 * @param refusalCode The availability code the action's fresh-read re-resolution refused on.
+	 *
+	 * @return The refusal outcome, with no result record.
+	 */
+	private static OperatorActionOutcome buildOperatorRefusal(String refusalCode)
+	{
+		OperatorActionOutcome outcome = new OperatorActionOutcome();
+		outcome.refusalCode = refusalCode;
+		return outcome;
+	}
+
+	/**
+	 * @description Builds the success outcome of an operator action.
+	 *
+	 * @param resultId The record the caller should surface after the action.
+	 *
+	 * @return The success outcome, with no refusal code.
+	 */
+	private static OperatorActionOutcome buildOperatorSuccess(Id resultId)
+	{
+		OperatorActionOutcome outcome = new OperatorActionOutcome();
+		outcome.resultId = resultId;
+		return outcome;
+	}
+
+	/**
+	 * @description Resolves whether the chain's STATE permits a retry from its failed step — the
+	 * chain-state half of the gate, on the row the caller already holds. The capability-flag and
+	 * custom-permission codes are layered by CTRL_ChainMonitor exactly as the abort flow layers
+	 * them; retryChainFromFailedStep re-resolves on its own fresh read before acting, so this
+	 * resolution is a UI hint and Apex stays the enforcement point.
+	 *
+	 * Refusal order, most-specific last: not Failed; processing suspended; context or step log
+	 * absent, unparseable, or recording no terminal failed step (no trustworthy state to resume
+	 * from); failed step declared its failure permanent (a re-run cannot succeed — permanence
+	 * outranks the idempotency declaration); failed step never declared isIdempotent (re-running
+	 * an undeclared step could double its side effects; pre-upgrade rows always land here, never
+	 * null-eligible).
+	 *
+	 * @param execution The chain execution row to resolve, read through the monitoring projection.
+	 *
+	 * @return An availability code: Available, or the specific refusal.
+	 *
+	 * @since 1.7
+	 */
+	public static String resolveRetryAvailability(AsyncChainExecution__c execution)
+	{
+		if(execution == null || execution.Status__c != SEL_AsyncChainExecution.STATUS_FAILED)
+		{
+			return REDRIVE_CHAIN_NOT_RETRYABLE;
+		}
+		if(!isChainProcessingEnabled())
+		{
+			return REDRIVE_PROCESSING_SUSPENDED;
+		}
+		if(String.isBlank(execution.ContextData__c) || String.isBlank(execution.StepLog__c))
+		{
+			return REDRIVE_CONTEXT_UNAVAILABLE;
+		}
+		List<DTO_StepDefinition> stepEntries = filterStepEntries(parseStepLog(execution.StepLog__c) ?? new List<DTO_StepDefinition>());
+		Integer failedIndex = findTerminalFailedIndex(stepEntries);
+		if(failedIndex == null || !contextParsesCleanly(execution))
+		{
+			return REDRIVE_CONTEXT_UNAVAILABLE;
+		}
+		if(stepEntries[failedIndex].permanentFailure == true)
+		{
+			return REDRIVE_FAILURE_PERMANENT;
+		}
+		if(stepEntries[failedIndex].isIdempotent != true)
+		{
+			return REDRIVE_STEP_NOT_IDEMPOTENT;
+		}
+		return REDRIVE_AVAILABLE;
+	}
+
+	/**
+	 * @description Finds the terminal failed entry in the filtered step entries: the LAST entry
+	 * whose marker says it failed without continuing — the step the chain died on. An empty list —
+	 * which is what an unparseable step log resolves to at every call site — has no such entry and
+	 * returns null, so the resolver's call order stays safe when parsing failed upstream.
+	 *
+	 * @param stepEntries The filtered chain-step entries; empty when the step log did not parse.
+	 *
+	 * @return The zero-based index of the terminal failed entry, or null when none exists.
+	 */
+	private static Integer findTerminalFailedIndex(List<DTO_StepDefinition> stepEntries)
+	{
+		for(Integer index = stepEntries.size() - 1; index >= 0; index--)
+		{
+			if(stepEntries[index].success == false && stepEntries[index].continueOnError != true)
+			{
+				return index;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @description True when the row's persisted context parses as a JSON OBJECT — the one shape
+	 * the executor's hydration can rebuild a chain context from. The failure persist stores the
+	 * complete context or none, so anything else here means the row predates that rule or was
+	 * edited by hand — either way there is no trustworthy state to resume from. Parse-only
+	 * acceptance is deliberately NOT enough: a valid JSON list would pass a parse probe, rotate
+	 * the run key, flip the row to Running, and then die at executor entry — a Running row with
+	 * no live executor. Retry and restart answer this same question through the one shared
+	 * predicate (parseContextObject).
+	 *
+	 * @param execution The chain execution row whose ContextData__c to probe.
+	 *
+	 * @return True when the context parses as a JSON object.
+	 */
+	private static Boolean contextParsesCleanly(AsyncChainExecution__c execution)
+	{
+		return parseContextObject(execution.ContextData__c) != null;
+	}
+
+	/**
+	 * @description Re-drives a Failed chain from its failed step on an operator's request — the one
+	 * path that may re-enter a Failed row, and deliberately NEW machinery beside the watchdog's:
+	 * qualifiesForRedrive stays Running/Stalled-only, so nothing automatic can ever resurrect a
+	 * terminal chain. Reads fresh through the monitoring selector and re-resolves availability
+	 * before acting (the abort double-check posture — the caller's earlier resolution may have
+	 * raced another actor), refusing with the code instead of throwing; CTRL_ChainMonitor turns
+	 * every refusal into its labeled exception.
+	 *
+	 * The action is ONE sparse update: the failed entry's runtime markers reset (success, message,
+	 * attempt and duration — a fresh attempt budget for the re-run), RunKey__c rotates (fencing any
+	 * zombie executor holding the old key; one of the field's exactly five writers), Status__c returns to
+	 * Running, and the terminal bookkeeping clears — CompletedAt__c, DurationMs__c,
+	 * FailureCategory__c and ErrorMessage__c — in the SAME update, because a Running row with
+	 * CompletedAt__c set is purge-eligible while watchdog-invisible, and stale diagnostics would
+	 * outlive the state they described. A declared deduplication key re-claims into
+	 * ActiveDeduplicationKey__c in the same update; a DUPLICATE_VALUE collision attributed to the
+	 * deduplication index (see isActiveDeduplicationKeyCollision) means another live run holds the
+	 * key and refuses with DuplicateRun — any other DmlException rethrows.
+	 *
+	 * The re-run executes under the framework-default envelope exactly as a watchdog re-drive does:
+	 * builder-time overrides are not persisted, and the context cap is the larger of the default
+	 * and the persisted context's size. Only the failed step re-executes — entries whose markers
+	 * survived keep them, so prior work is never repeated. The fresh executor's job id stamps
+	 * through stampExecutorJobId before the WARN emission, keeping the liveness probe on the
+	 * re-driven executor from the moment it exists.
+	 *
+	 * @param executionId The Failed AsyncChainExecution__c record to re-drive.
+	 *
+	 * @return The action outcome: refusalCode null and resultId = the execution id on success.
+	 *
+	 * @since 1.7
+	 */
+	public static OperatorActionOutcome retryChainFromFailedStep(Id executionId)
+	{
+		AsyncChainExecution__c fresh = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+		String availability = resolveRetryAvailability(fresh);
+		if(availability != REDRIVE_AVAILABLE)
+		{
+			return buildOperatorRefusal(availability);
+		}
+
+		List<DTO_StepDefinition> persistedDefinitions = parseStepLog(fresh.StepLog__c);
+		List<DTO_StepDefinition> stepEntries = filterStepEntries(persistedDefinitions);
+		Integer failedIndex = findTerminalFailedIndex(stepEntries);
+		DTO_StepDefinition failedEntry = stepEntries[failedIndex];
+		failedEntry.success = null;
+		failedEntry.message = null;
+		failedEntry.attempt = null;
+		failedEntry.durationMs = null;
+
+		fresh.RunKey__c = UTIL_Random.randomUUID();
+		fresh.Status__c = SEL_AsyncChainExecution.STATUS_RUNNING;
+		fresh.CompletedAt__c = null;
+		fresh.DurationMs__c = null;
+		fresh.FailureCategory__c = null;
+		fresh.ErrorMessage__c = null;
+		fresh.StepLog__c = serializeStepLog(persistedDefinitions);
+		List<SObjectField> retryFields = new List<SObjectField>
+		{
+				AsyncChainExecution__c.RunKey__c,
+				AsyncChainExecution__c.Status__c,
+				AsyncChainExecution__c.CompletedAt__c,
+				AsyncChainExecution__c.DurationMs__c,
+				AsyncChainExecution__c.FailureCategory__c,
+				AsyncChainExecution__c.ErrorMessage__c,
+				AsyncChainExecution__c.StepLog__c
+		};
+		if(String.isNotBlank(fresh.DeclaredDeduplicationKey__c))
+		{
+			fresh.ActiveDeduplicationKey__c = fresh.DeclaredDeduplicationKey__c;
+			retryFields.add(AsyncChainExecution__c.ActiveDeduplicationKey__c);
+		}
+
+		try
+		{
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(buildSparseUpdate(fresh, retryFields)).execute();
+		}
+		catch(DmlException updateError)
+		{
+			if(isActiveDeduplicationKeyCollision(updateError))
+			{
+				return buildOperatorRefusal(REDRIVE_DUPLICATE_RUN);
+			}
+			throw updateError;
+		}
+
+		enqueueRecoveryExecutor(fresh, failedIndex, persistedDefinitions, stepEntries.size());
+
+		LOG_Builder.build().warn('Chain retried by operator from failed step: ' + resolveStepDisplayName(failedEntry))
+				.at(CLASS_NAME + '.retryChainFromFailedStep')
+				.forRecord(fresh.Id)
+				.emit();
+
+		return buildOperatorSuccess(fresh.Id);
+	}
+
+	/**
+	 * @description Resolves whether the chain's STATE permits a restart from the start — the
+	 * chain-state half of the gate, on the row the caller already holds. Consults ONLY
+	 * default-projection fields: the caller's monitoring row deliberately does not carry the
+	 * InitialContextData__c snapshot, so snapshot presence is resolved by restartChainFromStart
+	 * itself on its dedicated read — this resolution is a UI hint, and Apex stays the enforcement
+	 * point. The capability-flag and custom-permission codes are layered by CTRL_ChainMonitor
+	 * exactly as the abort flow layers them.
+	 *
+	 * Refusal order: not Failed or Aborted (only a run that ended badly may be re-run); processing
+	 * suspended; allowRestart never declared (re-running a whole undeclared chain could double its
+	 * side effects — pre-upgrade rows always land here, never null-eligible).
+	 *
+	 * @param execution The chain execution row to resolve, read through the monitoring projection.
+	 *
+	 * @return An availability code: Available, or the specific refusal.
+	 *
+	 * @since 1.7
+	 */
+	public static String resolveRestartAvailability(AsyncChainExecution__c execution)
+	{
+		if(execution == null || !RESTARTABLE_STATUSES.contains(execution.Status__c))
+		{
+			return RESTART_CHAIN_NOT_RESTARTABLE;
+		}
+		if(!isChainProcessingEnabled())
+		{
+			return REDRIVE_PROCESSING_SUSPENDED;
+		}
+		if(execution.AllowRestart__c != true)
+		{
+			return RESTART_NOT_DECLARED;
+		}
+		return RESTART_AVAILABLE;
+	}
+
+	/**
+	 * @description Restarts a Failed or Aborted chain from its first step on an operator's request
+	 * — by CLONING to a fresh record, never by mutating the source: the terminal row keeps its
+	 * status, diagnostics and purge eligibility as the audit record of the run that ended badly.
+	 * Reads fresh through the dedicated restart projection (the only query that ever pulls the
+	 * snapshot), re-resolves availability, and resolves the snapshot-presence and step-log
+	 * conjuncts here — the monitoring-row hint cannot see the snapshot by design.
+	 *
+	 * The clone is built from DECLARATIONS, never from runtime state: a definition-only step log
+	 * (an allowlist copy of the configuration properties, so any runtime marker a future release
+	 * adds is unset by construction), the as-built InitialContextData__c snapshot as its context —
+	 * with the snapshot's logging-context entry REPLACED so the clone's steps hydrate the clone's
+	 * own fresh correlation id, never the source's — a fresh RunKey__c minted at insert (one of
+	 * the field's five writers), counters at zero, the declaration fields copied so the clone is
+	 * itself restartable, and SourceExecution__c stamped so the restart tree stays queryable. A
+	 * declared deduplication key re-claims at insert; a DUPLICATE_VALUE collision attributed to
+	 * the deduplication index refuses with DuplicateRun — any other DmlException rethrows.
+	 *
+	 * Order is mandatory, not an optimisation target: insert (the executor constructor needs the
+	 * record id), then enqueue at index 0 under the framework-default envelope, then
+	 * stampExecutorJobId (the job id exists only after the enqueue; the stamp is the sparse
+	 * single-field update). The paired lineage logs — WARN on the source, INFO on the clone — emit
+	 * strictly after all DML.
+	 *
+	 * @param executionId The Failed or Aborted AsyncChainExecution__c record to restart from.
+	 *
+	 * @return The action outcome: refusalCode null and resultId = the CLONE's id on success.
+	 *
+	 * @since 1.7
+	 */
+	public static OperatorActionOutcome restartChainFromStart(Id executionId)
+	{
+		AsyncChainExecution__c source = new SEL_AsyncChainExecution().findByIdForRestart(executionId);
+		String availability = resolveRestartAvailability(source);
+		if(availability != RESTART_AVAILABLE)
+		{
+			return buildOperatorRefusal(availability);
+		}
+		Map<String, Object> snapshotMap = parseContextObject(source.InitialContextData__c);
+		List<DTO_StepDefinition> definitionEntries = buildDefinitionOnlyEntries(parseStepLog(source.StepLog__c) ?? new List<DTO_StepDefinition>());
+		List<DTO_StepDefinition> cloneStepEntries = filterStepEntries(definitionEntries);
+		if(snapshotMap == null || cloneStepEntries.isEmpty())
+		{
+			return buildOperatorRefusal(RESTART_CONTEXT_UNAVAILABLE);
+		}
+
+		String cloneCorrelationId = UTIL_Random.randomUUID();
+		AsyncChainExecution__c clone = new AsyncChainExecution__c(
+				ChainName__c = source.ChainName__c,
+				Status__c = SEL_AsyncChainExecution.STATUS_RUNNING,
+				StartedAt__c = Datetime.now(),
+				CompletedSteps__c = 0,
+				TotalSteps__c = source.TotalSteps__c,
+				CorrelationId__c = cloneCorrelationId,
+				RunKey__c = UTIL_Random.randomUUID(),
+				AllowRestart__c = true,
+				SourceExecution__c = source.Id,
+				DeclaredDeduplicationKey__c = source.DeclaredDeduplicationKey__c,
+				ActiveDeduplicationKey__c = source.DeclaredDeduplicationKey__c,
+				InitialContextData__c = source.InitialContextData__c,
+				StepLog__c = serializeStepLog(definitionEntries),
+				ContextData__c = rebuildInitialContextForClone(snapshotMap, cloneCorrelationId));
+
+		try
+		{
+			DML_Builder.newTransaction().systemModeInternal().doInsert(clone).execute();
+		}
+		catch(DmlException insertError)
+		{
+			if(isActiveDeduplicationKeyCollision(insertError))
+			{
+				return buildOperatorRefusal(REDRIVE_DUPLICATE_RUN);
+			}
+			throw insertError;
+		}
+
+		enqueueRecoveryExecutor(clone, RESTART_RESUME_INDEX, definitionEntries, cloneStepEntries.size());
+
+		LOG_Builder.build().warn('Chain restarted from the Chain Monitor as ' + clone.Id)
+				.at(CLASS_NAME + '.restartChainFromStart')
+				.forRecord(source.Id)
+				.emit();
+		LOG_Builder.build().info('Chain restarted from ' + source.Id)
+				.at(CLASS_NAME + '.restartChainFromStart')
+				.forRecord(clone.Id)
+				.emit();
+
+		return buildOperatorSuccess(clone.Id);
+	}
+
+	/**
+	 * @description Counts of what one operator clear-stalled sweep did, for the Chain Monitor's
+	 * result toast. The buckets classify each candidate's post-sweep status: redriven counts the
+	 * rows a proven-dead candidate's re-drive flipped back to Running, markedFailed counts the
+	 * unrecoverable degrades, and remainingStalled holds everything the sweep could not or would
+	 * not move — budget-refused candidates, CANNOT-CHECK detect-marks, and live-executor skips
+	 * alike; the per-candidate log entries carry each row's specific reason.
+	 *
+	 * @since 1.7
+	 */
+	public inherited sharing class ClearStalledResult
+	{
+		/**
+		 * @description How many stalled candidates the sweep inspected, bounded by
+		 * MAX_OPERATOR_SWEEP_CANDIDATES; always the sum of the other three counts.
+		 */
+		public Integer candidates = 0;
+
+		/**
+		 * @description How many candidates were proven dead and re-driven — Running again.
+		 */
+		public Integer redriven = 0;
+
+		/**
+		 * @description How many candidates were unrecoverable and terminally failed.
+		 */
+		public Integer markedFailed = 0;
+
+		/**
+		 * @description How many candidates still await recovery: refused by a budget gate,
+		 * detect-marked because liveness could not be checked, skipped because a live executor
+		 * still runs, left untouched because the calling context cannot read the row (the acting
+		 * legs re-read sharing-respecting and never write what they cannot see — and that skip is
+		 * silent, so this count is its only trace), or gone from the tally's re-read entirely.
+		 */
+		public Integer remainingStalled = 0;
+	}
+
+	/**
+	 * @description Runs the watchdog sweep's per-candidate decision path over every currently
+	 * stalled chain, on operator demand from the Chain Monitor: every gate the scheduled sweep
+	 * applies, applies here — the same liveness proof, the same budget parks, the same
+	 * unrecoverable degrade — because every candidate routes through the same per-candidate
+	 * member (sweepCandidate), never a second decision site. Two operator-specific bounds wrap
+	 * that shared path: the candidate ceiling (MAX_OPERATOR_SWEEP_CANDIDATES), an entry guard
+	 * that returns truthful zero counts when the transaction cannot afford even the sweep's own
+	 * two reads, and the per-candidate query and DML reserves, which leave the remaining tail
+	 * completely untouched — still Stalled, still candidates for the next invocation or the next
+	 * scheduled sweep — rather than spending park writes out of a budget already proven short.
+	 * When a reserve stops the sweep early, the summary log entry says so and after how many
+	 * candidates: the counts alone cannot distinguish a budget stop from a sweep that found only
+	 * live or unprovable chains.
+	 *
+	 * Package-internal on purpose: CTRL_ChainMonitor is the enforcement point for the
+	 * feature-flag, custom-permission, and suspension gates — the same package-internal posture
+	 * as abort, plus the suspension interlock that abort deliberately does not carry (stopping
+	 * things during a suspension stays coherent; re-driving into one does not).
+	 *
+	 * @return The per-bucket counts for the operator's result toast.
+	 *
+	 * @since 1.7
+	 */
+	public static ClearStalledResult clearStalledChains()
+	{
+		if(UTIL_Limits.soqlQueries().remaining() < OPERATOR_SWEEP_MINIMUM_QUERIES)
+		{
+			LOG_Builder.build().warn('Stalled chains cleared by operator: refused at entry, the transaction cannot afford the sweep\'s own candidate and tally reads')
+					.at(CLASS_NAME + '.clearStalledChains')
+					.emit();
+			return new ClearStalledResult();
+		}
+
+		List<AsyncChainExecution__c> stalledCandidates = new SEL_AsyncChainExecution().findStalledForOperatorSweep(MAX_OPERATOR_SWEEP_CANDIDATES);
+		Integer sweptCandidates = 0;
+		for(Integer index = 0; index < stalledCandidates.size(); index++)
+		{
+			if(UTIL_Limits.soqlQueries().remaining() < OPERATOR_CANDIDATE_QUERY_RESERVE || UTIL_Limits.dmlStatements().remaining() < OPERATOR_CANDIDATE_DML_RESERVE)
+			{
+				break;
+			}
+			sweepCandidate(stalledCandidates[index]);
+			sweptCandidates++;
+		}
+
+		ClearStalledResult result = tallyClearStalledOutcome(stalledCandidates);
+
+		String summaryMessage = 'Stalled chains cleared by operator: ' + result.candidates + ' candidates, ' + result.redriven + ' re-driven, '
+				+ result.markedFailed + ' marked failed, ' + result.remainingStalled + ' remaining';
+		if(sweptCandidates < result.candidates)
+		{
+			summaryMessage += ' (budget gate stopped the sweep after ' + sweptCandidates + ' of ' + result.candidates + ' candidates)';
+		}
+		LOG_Builder.build().warn(summaryMessage)
+				.at(CLASS_NAME + '.clearStalledChains')
+				.emit();
+
+		return result;
+	}
+
+	/**
+	 * @description Classifies what the sweep did with each candidate from a single post-sweep
+	 * re-read of their current statuses: Running means a re-drive landed, Failed means the
+	 * unrecoverable degrade fired, and everything else — including rows the re-read no longer
+	 * returns — still awaits recovery. A post-sweep status cannot distinguish a budget park from
+	 * a detect-mark (both leave the row Stalled), so those share the remaining bucket and the
+	 * per-candidate log entries carry the specific reasons. The re-read projects Status__c only
+	 * and respects sharing (findByIdsForSweepTally documents both choices): the classification
+	 * reads nothing else, and a row this read cannot see is by construction a row no acting leg
+	 * touched — subtraction lands it in remainingStalled either way.
+	 *
+	 * @param stalledCandidates The candidates the sweep inspected.
+	 *
+	 * @return The per-bucket counts; candidates always equals the sum of the other three.
+	 */
+	private static ClearStalledResult tallyClearStalledOutcome(List<AsyncChainExecution__c> stalledCandidates)
+	{
+		ClearStalledResult result = new ClearStalledResult();
+		result.candidates = stalledCandidates.size();
+		for(AsyncChainExecution__c swept : new SEL_AsyncChainExecution().findByIdsForSweepTally(new Map<Id, AsyncChainExecution__c>(stalledCandidates).keySet()))
+		{
+			if(swept.Status__c == SEL_AsyncChainExecution.STATUS_RUNNING)
+			{
+				result.redriven++;
+			}
+			else if(swept.Status__c == SEL_AsyncChainExecution.STATUS_FAILED)
+			{
+				result.markedFailed++;
+			}
+		}
+		result.remainingStalled = result.candidates - result.redriven - result.markedFailed;
+		return result;
+	}
+
+	/**
+	 * @description Whether async chain processing is currently enabled — the AsyncChain feature
+	 * flag resolved through its strategies, including the runtime-switch hierarchy setting the
+	 * Chain Monitor's suspend and resume actions write. Package-internal consumers (the operator
+	 * availability gates, the monitor's operations state) consult this instead of the private
+	 * flag constant; the executor's own entry consult stays where it is, at the boundary that
+	 * aborts a running chain.
+	 *
+	 * @return True when chain processing is enabled for the running user's context.
+	 *
+	 * @since 1.7
+	 */
+	public static Boolean isChainProcessingEnabled()
+	{
+		return UTIL_FeatureFlag.isEnabled(FEATURE_FLAG_NAME);
+	}
+
+	/**
+	 * @description Suspends all async chain processing org-wide by writing the org-default
+	 * runtime-switch row to disabled: running chains stop at their next executor entry (the
+	 * kill-switch abort) and new chains stop at once, until resumeChainProcessing. User- and
+	 * profile-level rows override the org default with hierarchy semantics. The setting write is
+	 * the ONLY DML this method performs — hierarchy-setting DML stays isolated from object DML
+	 * in one transaction, per the runtime-switch precedent; the WARN entry publishes as a
+	 * platform event and costs the transaction no DML.
+	 *
+	 * @since 1.7
+	 */
+	public static void suspendChainProcessing()
+	{
+		writeChainProcessingSwitch(false);
+
+		LOG_Builder.build().warn('Chain processing suspended by operator: running chains stop at their next step boundary, new chains stop at once')
+				.at(CLASS_NAME + '.suspendChainProcessing')
+				.emit();
+	}
+
+	/**
+	 * @description Resumes async chain processing by rewriting the org-default runtime-switch row
+	 * to enabled: new chains run again at once. Chains that stopped during the suspension stay
+	 * stopped — restart or retry the ones that should run. Setting-DML isolation and the
+	 * no-DML-cost WARN follow suspendChainProcessing exactly.
+	 *
+	 * @since 1.7
+	 */
+	public static void resumeChainProcessing()
+	{
+		writeChainProcessingSwitch(true);
+
+		LOG_Builder.build().warn('Chain processing resumed by operator')
+				.at(CLASS_NAME + '.resumeChainProcessing')
+				.emit();
+	}
+
+	/**
+	 * @description Writes the ORG-default runtime-switch row. getOrgDefaults() returns an unsaved
+	 * instance with a null Id when the setting was never initialised, so the write pins
+	 * SetupOwnerId to the organisation id — the org hierarchy node, never the running user's own
+	 * node — and upsert covers create-and-update in one shape.
+	 *
+	 * @param enabled The ChainsEnabled__c value to persist on the org-default row.
+	 */
+	private static void writeChainProcessingSwitch(Boolean enabled)
+	{
+		AsyncChainRuntimeSwitch__c orgDefault = AsyncChainRuntimeSwitch__c.getOrgDefaults();
+		if(orgDefault.Id == null)
+		{
+			orgDefault.SetupOwnerId = UserInfo.getOrganizationId();
+		}
+		orgDefault.ChainsEnabled__c = enabled;
+		DML_Builder.newTransaction().systemModeInternal().doUpsert(orgDefault).execute();
+	}
+
+	/**
+	 * @description Parses a persisted context document into its map form, refusing corruption:
+	 * null when the document is blank, is not JSON, or is not a JSON object — the shapes a chain
+	 * context cannot be rebuilt from. The ONE parse-strictness predicate for both operator
+	 * re-entry paths: the restart clone builds from the map it returns, and the retry gate
+	 * (contextParsesCleanly) accepts a row only when this returns non-null, so the two gates can
+	 * never drift apart in what they admit.
+	 *
+	 * @param contextDocument The persisted context document (ContextData__c or InitialContextData__c).
+	 *
+	 * @return The document as a map, or null when no trustworthy context exists.
+	 */
+	private static Map<String, Object> parseContextObject(String contextDocument)
+	{
+		if(String.isBlank(contextDocument))
+		{
+			return null;
+		}
+		try
+		{
+			return (Map<String, Object>)JSON.deserializeUntyped(contextDocument);
+		}
+		catch(Exception parseError)
+		{
+			return null;
+		}
+	}
+
+	/**
+	 * @description Builds the clone's definition-only step log entries: for each persisted entry a
+	 * NEW definition copying ONLY the configuration properties — className, stepName,
+	 * continueOnError, isIdempotent and the handler flags. An ALLOWLIST by design, never a
+	 * denylist scrub: every runtime marker, including any marker a future release adds, is unset
+	 * by construction, so executed state can never ride into a fresh clone.
+	 *
+	 * @param persistedDefinitions The source run's parsed step log.
+	 *
+	 * @return New definition entries carrying configuration only.
+	 */
+	private static List<DTO_StepDefinition> buildDefinitionOnlyEntries(List<DTO_StepDefinition> persistedDefinitions)
+	{
+		List<DTO_StepDefinition> definitionEntries = new List<DTO_StepDefinition>();
+		for(DTO_StepDefinition persisted : persistedDefinitions)
+		{
+			DTO_StepDefinition definition = new DTO_StepDefinition();
+			definition.className = persisted.className;
+			definition.stepName = persisted.stepName;
+			definition.continueOnError = persisted.continueOnError;
+			definition.isIdempotent = persisted.isIdempotent;
+			definition.isErrorHandler = persisted.isErrorHandler;
+			definition.isCompletionHandler = persisted.isCompletionHandler;
+			definitionEntries.add(definition);
+		}
+		return definitionEntries;
+	}
+
+	/**
+	 * @description Rebuilds the as-built snapshot as the clone's starting context: every snapshot
+	 * value survives untouched except the reserved logging-context entry, which is REPLACED with a
+	 * minimal document carrying the clone's own correlation id — two live runs sharing a
+	 * correlation id would corrupt the log trace and the monitor deep-links, so the clone's steps
+	 * must hydrate the clone's identity, never the source's. The replacement document comes from
+	 * the logging framework's own serializer (LOG_Builder.serializeContext for a supplied id), so
+	 * its shape can never drift from what the executor's hydration reads.
+	 *
+	 * Builds its own copy rather than editing the caller's map: a method named for rebuilding a
+	 * value should not quietly rewrite its argument.
+	 *
+	 * @param snapshotMap The parsed as-built snapshot.
+	 * @param cloneCorrelationId The clone's freshly minted correlation id.
+	 *
+	 * @return The serialized starting context for the clone.
+	 */
+	private static String rebuildInitialContextForClone(Map<String, Object> snapshotMap, String cloneCorrelationId)
+	{
+		Map<String, Object> cloneContext = new Map<String, Object>(snapshotMap);
+		cloneContext.put(LOG_CONTEXT_KEY, LOG_Builder.serializeContext(cloneCorrelationId));
+		return JSON.serialize(cloneContext);
+	}
+
+	/**
+	 * @description The one shared stall sequence. Both stall writers — the Finalizer (after a
+	 * transient enqueue failure) and the watchdog sweep — route through here; nothing calls the
+	 * bare markStalled writer directly, because that writer carries no fence and no notification
+	 * deduplication of its own. The sequence: a fresh re-read of the execution record, an
+	 * authorization check, a prior-status snapshot, the sparse Status__c / FailureCategory__c /
+	 * ErrorMessage__c write, then the conditional notification step. A failed stall write
+	 * propagates to the caller before the notification step, so the notification is skipped and
+	 * the caller owns the failure logging.
+	 *
+	 * Authorization differs by caller. The Finalizer passes enforceRunKeyFence=true and is
+	 * authorized by run-key equality against the fresh read (see buildSparseUpdate for why
+	 * executor writes must fence). The watchdog passes false — the sweep is the recovery
+	 * authority and needs no fence — but it refuses rows that reached a terminal status
+	 * (Completed, Failed or Aborted) between its selector read and this re-read: it may only
+	 * touch recoverable rows. Both callers refuse an already-Aborted row before that split,
+	 * because an operator abort does not rotate the run key, so the Finalizer's fence alone
+	 * cannot detect it.
+	 *
+	 * The notification guard is per-transition, not per-chain: it fires only on an actual change
+	 * into Stalled observed in the same fresh re-read. A chain already Stalled that is marked
+	 * again never re-notifies; a chain re-driven back to Running that stalls again legitimately
+	 * notifies again. On a genuine transition with no resolvable handler and none withheld, the
+	 * stall log entry is recorded at ERROR instead of WARN (see markStalled) so an unhandled
+	 * stall surfaces by default.
+	 *
+	 * Residual: notification delivery is at-least-once. An enqueued notification is not un-sent
+	 * if later writes fail, so onError handlers must tolerate duplicate stall notifications.
 	 *
 	 * @param executionId The chain execution record ID.
 	 * @param errorMessage The stall reason.
 	 * @param notificationHandler The onError handler definition to notify once per transition, or null for none.
 	 * @param enforceRunKeyFence Whether the write is fenced by a captured run key (the Finalizer) or unfenced (the watchdog).
 	 * @param fenceRunKey The run key captured at enqueue time; compared against the fresh read when the fence is enforced.
+	 * @param notificationWithheld True when the caller passed null for notificationHandler on
+	 * purpose rather than because none exists — a budget park skips the notification to save the
+	 * async budget even when the chain has a registered handler. Only a false value can produce
+	 * the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
 	 */
-	private static void markStalledAndNotify(Id executionId, String errorMessage, DTO_StepDefinition notificationHandler, Boolean enforceRunKeyFence, String fenceRunKey)
+	private static void markStalledAndNotify
+			(
+					Id executionId,
+					String errorMessage,
+					DTO_StepDefinition notificationHandler,
+					Boolean enforceRunKeyFence,
+					String fenceRunKey,
+					Boolean notificationWithheld
+			)
 	{
 		AsyncChainExecution__c execution = (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
 		if(execution == null || (enforceRunKeyFence && fenceRunKey != execution.RunKey__c)) // null == null passes (upgrade-safe)
@@ -4313,8 +5846,9 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		Boolean stallTransition = execution.Status__c != SEL_AsyncChainExecution.STATUS_STALLED;
+		Boolean unhandledStallTransition = stallTransition && notificationHandler == null && !notificationWithheld;
 
-		markStalled(execution, errorMessage);
+		markStalled(execution, errorMessage, unhandledStallTransition);
 
 		if(stallTransition)
 		{
@@ -4323,15 +5857,18 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
-	 * @description Marks the execution as Stalled with the given reason and logs a warning.
+	 * @description Marks the execution as Stalled with the given reason and logs the stall — at
+	 * ERROR when the transition is a genuine unhandled stall, at WARN otherwise.
 	 * Stalled is non-terminal — the chain awaits recovery — so CompletedAt__c and DurationMs__c
 	 * stay unset and no performance log is emitted; a later re-drive finishes the chain and
 	 * stamps its terminal fields then.
 	 *
 	 * @param execution The AsyncChainExecution__c record to update.
 	 * @param message The stall reason to record.
+	 * @param unhandledStallTransition True for a genuine transition into Stalled with no resolvable onError handler and no notification withheld by a budget park
+	 * (see parkWithReason) — the one case recorded at ERROR so it stands out; every other stall keeps WARN.
 	 */
-	private static void markStalled(AsyncChainExecution__c execution, String message)
+	private static void markStalled(AsyncChainExecution__c execution, String message, Boolean unhandledStallTransition)
 	{
 		execution.Status__c = SEL_AsyncChainExecution.STATUS_STALLED;
 		execution.FailureCategory__c = SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED;
@@ -4345,8 +5882,10 @@ global inherited sharing class UTIL_AsyncChain
 		};
 		DML_Builder.newTransaction().systemModeInternal().doUpdate(buildSparseUpdate(execution, stallFields)).execute();
 
-		LOG_Builder.build().warn('Chain stalled: ' + message)
-				.at(CLASS_NAME + '.markStalled')
+		LOG_Builder.LogEntry stallLog = unhandledStallTransition
+				? LOG_Builder.build().error('Chain stalled with no onError handler registered: ' + message)
+				: LOG_Builder.build().warn('Chain stalled: ' + message);
+		stallLog.at(CLASS_NAME + '.markStalled')
 				.forRecord(execution.Id)
 				.emit();
 	}
@@ -4415,12 +5954,15 @@ global inherited sharing class UTIL_AsyncChain
 	 * in-memory execution record. Executor persists must never update the loaded record directly:
 	 * an update DML writes every queried field back, so a full-record write would silently revert
 	 * a concurrent run-key rotation (RunKey__c) or an external abort (Status__c) committed after
-	 * this executor's read. RunKey__c belongs in no executor write set — its exactly three writers
-	 * are ChainBuilder.execute()'s initial insert, redriveStalledChain's rotation write set, and
-	 * markRedriveCandidateFailed's terminal-authoritative rotation (the sweep is the rotation
-	 * authority); Status__c belongs only in the write sets of status-transition sites;
-	 * CurrentJobId__c belongs only in the progress write's set, so terminal writes leave the last
-	 * known executor's job id in place for the watchdog's liveness check. Precondition: every
+	 * this executor's read. RunKey__c belongs in no executor write set — its exactly five writers
+	 * are two insert-time minting sites (ChainBuilder.execute()'s initial insert,
+	 * restartChainFromStart's clone insert) and three rotations (redriveStalledChain's rotation
+	 * write set, markRedriveCandidateFailed's terminal-authoritative rotation,
+	 * retryChainFromFailedStep's operator rotation) — rotation never rides an executor persist;
+	 * Status__c belongs only in the write sets of status-transition sites; CurrentJobId__c has
+	 * exactly two writer methods — stampExecutorJobId, called at first enqueue and at every
+	 * watchdog or operator re-enqueue, and the progress write's set — so terminal writes leave the
+	 * last known executor's job id in place for the watchdog's liveness check. Precondition: every
 	 * intended field must be queried-or-assigned on the in-memory record, or the copy would stamp
 	 * an unintended null.
 	 *
@@ -4440,6 +5982,92 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
+	 * @description Stamps the just-enqueued executor's AsyncApexJob id onto the run record so the
+	 * watchdog's liveness probe (isExecutorLive) can prove death for chains that have not yet
+	 * reached a progress write: a chain still on its first step, a single-step chain that never
+	 * progress-writes at all, or a chain just re-driven. CurrentJobId__c has exactly two writer
+	 * methods — this one and the progress write. This one is called from all four CHAIN-ENTRY
+	 * enqueues, the points where a chain starts or restarts running: the first enqueue
+	 * (ChainBuilder.execute), the watchdog re-drive (redriveStalledChain), the operator retry
+	 * (retryChainFromFailedStep) and the operator restart's clone (restartChainFromStart). The
+	 * file's other enqueues deliberately do not stamp: the mid-chain hop and the retry link inside
+	 * ChainExecutor.Finalizer are already tracked by the progress write (whose one-step lag is
+	 * documented at isExecutorLive), and the handler enqueue never stamps because handlers are
+	 * notifications, not chain executors.
+	 *
+	 * Runs after the enqueue succeeded, an ordering that keeps the stamp safe at every call site.
+	 * At first enqueue — same transaction as the run-record insert — an enqueue failure that
+	 * propagates uncaught rolls the whole start back, so no stamp can outlive its job; a caller
+	 * that catches that failure instead commits a Running row with a null stamp, which the sweep
+	 * treats as CANNOT-CHECK — degrade, never proof of death (see sweepCandidate); and because the
+	 * row is invisible outside the start transaction until it commits, no concurrent run-key
+	 * rotation can interleave with the stamp. At a watchdog re-drive enqueue, an enqueue failure
+	 * means the stamp never runs, so the dead predecessor's stamp stays in place and still probes
+	 * dead — the next sweep re-detects the row (see redriveStalledChain). At the operator retry an
+	 * enqueue failure that propagates uncaught rolls the whole action back, so the row simply stays
+	 * Failed (see retryChainFromFailedStep). At the operator restart the clone insert shares that
+	 * transaction, so the same rollback removes the clone entirely and no unstamped orphan survives
+	 * (see restartChainFromStart). A caller that catches either failure instead commits the row it
+	 * had reached — a Running chain with a null stamp — which the sweep treats as CANNOT-CHECK,
+	 * exactly as at first enqueue. The sparse write carries only CurrentJobId__c per the
+	 * executor-persist discipline (see buildSparseUpdate). A delayed first enqueue stamps too: the
+	 * job holds a live Queued status through its delay window, so the probe reads slow-but-alive,
+	 * never a false re-drive.
+	 *
+	 * @param execution The run record to stamp: the just-inserted row at a first enqueue or a restart clone, or the fresh re-read at a re-drive.
+	 * @param executorJobId The enqueued executor's AsyncApexJob id.
+	 */
+	private static void stampExecutorJobId(AsyncChainExecution__c execution, Id executorJobId)
+	{
+		execution.CurrentJobId__c = executorJobId;
+		DML_Builder.newTransaction().systemModeInternal().doUpdate(buildSparseUpdate(execution, new List<SObjectField> {AsyncChainExecution__c.CurrentJobId__c})).execute();
+	}
+
+	/**
+	 * @description Enqueues a rehydrated executor for a chain re-entering execution, and stamps the
+	 * job id — the ONE recovery envelope shared by all three re-entry paths (the watchdog re-drive,
+	 * the operator retry, the operator restart). It exists so that envelope has a single definition:
+	 * a re-entering run executes under FRAMEWORK DEFAULTS, because the original run's AsyncOptions
+	 * and builder overrides were never persisted. That is the documented recovery-defaults semantics
+	 * the subscriber guides state, so it must not drift per path. Concretely: DEFAULT_MAX_STEPS, a
+	 * context cap floored at the persisted document's own length (so a context already larger than
+	 * the default is never truncated on resume), a stack depth reserving one hop per remaining entry
+	 * plus the executor itself, and one AsyncOptions instance serving as BOTH the enqueue options
+	 * and the baton the executor carries forward. Handlers are resolved from the persisted
+	 * definitions rather than re-derived, so a re-entering run keeps the handlers it was built with.
+	 *
+	 * The stamp lands strictly AFTER the enqueue — the job id does not exist before it — and is a
+	 * single-field sparse update, so it can never revert a concurrent rotation (see
+	 * stampExecutorJobId for the per-call-site failure analysis).
+	 *
+	 * Precondition the caller owns: the record's run-key rotation (or its insert) is already
+	 * committed, so the key this executor is fenced on is the key the row now carries.
+	 *
+	 * @param execution The run record whose executor is enqueued; supplies the id, the context document and the authoritative run key.
+	 * @param resumeIndex The step index the executor resumes at.
+	 * @param persistedDefinitions The persisted definition list the error and completion handlers are resolved from.
+	 * @param remainingStepCount The number of chain-step entries the run still has to execute.
+	 */
+	private static void enqueueRecoveryExecutor(AsyncChainExecution__c execution, Integer resumeIndex, List<DTO_StepDefinition> persistedDefinitions, Integer remainingStepCount)
+	{
+		Integer effectiveMaxContextSize = Math.max(DEFAULT_MAX_CONTEXT_SIZE, execution.ContextData__c?.length() ?? 0);
+		AsyncOptions options = new AsyncOptions();
+		options.maximumQueueableStackDepth = remainingStepCount + 1;
+		Id executorJobId = System.enqueueJob
+				(
+						new ChainExecutor
+								(
+										execution.Id, resumeIndex, DEFAULT_MAX_STEPS, effectiveMaxContextSize,
+										findPersistedErrorHandler(persistedDefinitions),
+										findPersistedCompletionHandler(persistedDefinitions),
+										options, execution.RunKey__c
+								),
+						options
+				);
+		stampExecutorJobId(execution, executorJobId);
+	}
+
+	/**
 	 * @description Persists the previous step result into the context data map for cross-transaction access.
 	 *
 	 * @param context The chain context to update.
@@ -4451,7 +6079,8 @@ global inherited sharing class UTIL_AsyncChain
 		{
 				'success' => result.success,
 				'message' => result.message,
-				'data' => result.data
+				'data' => result.data,
+				'permanentFailure' => result.permanentFailure
 		};
 		context.put(PREVIOUS_RESULT_KEY, resultMap);
 	}
@@ -4470,6 +6099,7 @@ global inherited sharing class UTIL_AsyncChain
 			previous.success = (Boolean)resultMap.get('success');
 			previous.message = (String)resultMap.get('message');
 			previous.data = resultMap.get('data');
+			previous.permanentFailure = resultMap.get('permanentFailure') == true;
 			context.setPreviousStepResult(previous);
 			context.data.remove(PREVIOUS_RESULT_KEY);
 		}

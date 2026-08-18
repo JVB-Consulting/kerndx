@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ExceptionType__c</fullName>
-    <description>Fully qualified Apex exception class name (e.g., System.DmlException).</description>
+    <description>The type of the failure this entry records: a fully qualified Apex exception class name (e.g., System.DmlException), or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call.</description>
     <externalId>false</externalId>
-    <inlineHelpText>The exception type that was caught, if applicable</inlineHelpText>
+    <inlineHelpText>The error type that was caught, if applicable: an Apex exception class or, for component entries, the JavaScript error name.</inlineHelpText>
     <label>Exception Type</label>
     <length>80</length>
     <required>false</required>

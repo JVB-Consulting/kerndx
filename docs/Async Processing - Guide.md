@@ -7,6 +7,10 @@ navOrder: 34
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building schedulable jobs, batch processing, and asynchronous operations with automatic strategy selection
@@ -104,6 +108,11 @@ describe the work once; the dispatcher decides how to move it.
     - [Preventing duplicate runs](#preventing-duplicate-runs)
     - [Monitoring](#monitoring)
     - [Stopping a chain from the Chain Monitor](#stopping-a-chain-from-the-chain-monitor)
+    - [Re-driving a failed chain](#re-driving-a-failed-chain)
+    - [Restarting a chain from the start](#restarting-a-chain-from-the-start)
+    - [Clearing stalled chains](#clearing-stalled-chains)
+    - [The operations control](#the-operations-control)
+    - [The live activity stream](#the-live-activity-stream)
     - [Logging Strategy](#logging-strategy)
     - [Log Correlation](#log-correlation)
     - [Step Design Guidance](#step-design-guidance)
@@ -115,7 +124,12 @@ describe the work once; the dispatcher decides how to move it.
         - [Standalone vs. Chain Execution](#standalone-vs-chain-execution)
         - [Error Handling](#error-handling-1)
     - [Testing Chains](#testing-chains)
-15. [Scheduler Framework](#scheduler-framework)
+15. [Common Patterns](#common-patterns)
+    - [Protecting a struggling integration with a circuit breaker](#protecting-a-struggling-integration-with-a-circuit-breaker)
+    - [Pausing for an approval: two chains and a hand-off](#pausing-for-an-approval-two-chains-and-a-hand-off)
+    - [Running a chain on a schedule](#running-a-chain-on-a-schedule)
+    - [Calling an external system only after the transaction commits](#calling-an-external-system-only-after-the-transaction-commits)
+16. [Scheduler Framework](#scheduler-framework)
     - [Scheduler Architecture](#scheduler-architecture)
     - [Declarative Scheduling with ScheduledJob__c](#declarative-scheduling-with-scheduledjob__c)
         - [How It Works](#how-it-works)
@@ -125,30 +139,30 @@ describe the work once; the dispatcher decides how to move it.
         - [Timezone Awareness](#timezone-awareness)
     - [Built-in Schedulers](#built-in-schedulers)
     - [Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers)
-16. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
+17. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
     - [Why Correlation Matters](#why-correlation-matters)
     - [Correlation Flow](#correlation-flow)
     - [Queueable Pattern with Correlation](#queueable-pattern-with-correlation)
     - [Batch Apex Pattern with Correlation](#batch-apex-pattern-with-correlation)
     - [Key Correlation Methods](#key-correlation-methods)
-17. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+18. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
     - [What Can Be Scheduled?](#what-can-be-scheduled)
     - [Configuration Reference: SCHED_PurgeRecords](#configuration-reference-sched_purgerecords)
     - [Configuration Reference: SCHED_DeactivateUsers](#configuration-reference-sched_deactivateusers)
-18. [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
+19. [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
     - [Monitoring Scheduled Jobs](#monitoring-scheduled-jobs)
     - [Monitoring Async Job Execution](#monitoring-async-job-execution)
     - [Monitoring Async Chain Failures](#monitoring-async-chain-failures)
     - [Expected entries in your debug logs](#expected-entries-in-your-debug-logs)
-19. [Testing](#testing)
-20. [Common Pitfalls](#common-pitfalls)
-21. [Anti-Patterns](#anti-patterns)
-22. [Best Practices](#best-practices)
+20. [Testing](#testing)
+21. [Common Pitfalls](#common-pitfalls)
+22. [Anti-Patterns](#anti-patterns)
+23. [Best Practices](#best-practices)
     - [For Developers](#for-developers)
     - [For Architects](#for-architects)
     - [For Administrators](#for-administrators)
-23. [Related Documentation](#related-documentation)
-24. [Summary](#summary)
+24. [Related Documentation](#related-documentation)
+25. [Summary](#summary)
 
 </details>
 
@@ -164,6 +178,7 @@ describe the work once; the dispatcher decides how to move it.
 | **Developer** | Create a scheduled job            | [Scheduler Framework](#scheduler-framework)                                |
 | **Developer** | Implement custom processing       | [Processing logic](#how-do-i-write-the-processing-logic)                   |
 | **Developer** | Build multi-step async workflows  | [Async Chain Orchestration](#async-chain-orchestration)                    |
+| **Developer** | Reuse proven chain patterns       | [Common Patterns](#common-patterns)                                        |
 | **Analyst**   | Know what's available             | [Capability Matrix](#capability-matrix-for-analysts)                       |
 | **Analyst**   | Configure scheduled jobs          | [ScheduledJob Configuration](#declarative-scheduling-with-scheduledjob__c) |
 
@@ -931,6 +946,8 @@ public class TransformDataStep extends UTIL_AsyncChain.ChainStep
 | `UTIL_AsyncChain.succeeded(message, data)` | Success with message and payload data |
 | `UTIL_AsyncChain.failed(message)`          | Failure with descriptive message      |
 | `UTIL_AsyncChain.failed(exception)`        | Failure from caught exception         |
+| `UTIL_AsyncChain.failedPermanently(message)`   | Failure that must never be retried, whatever the retry budget |
+| `UTIL_AsyncChain.failedPermanently(exception)` | Permanent failure from a caught exception             |
 
 ### Chain Builder API
 
@@ -955,8 +972,10 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | `.then(IF_Chain.Step, Boolean)`   | Appends a step with explicit `continueOnError` control                            |
 | `.withInitialContext(key, value)` | Seeds the context with a key-value pair (additive)                                |
 | `.withMaxSteps(Integer)`          | Maximum steps allowed (default: 50)                                               |
+| `.withMaxContextSize(Integer)`    | Maximum serialised context size in characters (default: 32768)                    |
 | `.withDelayMinutes(Integer)`      | Delays the first step by 0 to 10 minutes, best-effort (see below)                 |
 | `.withDeduplicationKey(String)`   | Blocks a second overlapping run while one with the same key is active (see [Preventing duplicate runs](#preventing-duplicate-runs)) |
+| `.allowRestart()`                 | Declares the chain safe to restart from its first step and captures the as-built context (see [Restarting a chain from the start](#restarting-a-chain-from-the-start)) |
 | `.withAsyncOptions(AsyncOptions)` | Sets queueable stack depth (for tests)                                            |
 | `.onError(IF_Chain.Step)`         | Registers a handler that runs when a step fails                                   |
 | `.onComplete(IF_Chain.Step)`      | Registers a handler that runs after all steps succeed                             |
@@ -1017,7 +1036,8 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 | `getChainExecutionId()`   | `String`     | ID of the `AsyncChainExecution__c` tracking record                                   |
 | `getCorrelationId()`      | `String`     | Correlation ID for log tracing                                                       |
 | `getAttempt()`            | `Integer`    | Which attempt this is for the current step, starting at 1 (see Retrying a failed step) |
-| `isFinalAttempt()`        | `Boolean`    | True on the current step's last allowed attempt (for your own `ChainStep` subclasses) |
+| `isFinalAttempt()`        | `Boolean`    | True on the current step's last allowed attempt, judged from the attempt budget (see Retrying a failed step) |
+| `isFinalAttempt(error)`   | `Boolean`    | True when failing with that exact exception would be final, filters included (see Retrying a failed step) |
 
 ### Error Handling
 
@@ -1025,6 +1045,9 @@ public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext con
 in its own fresh transaction (`HandlerExecutor`), so it starts with clean governor limits and can make callouts even when
 the failed step already performed DML. It receives the full context, including the failure result from the step that
 broke.
+Inside the handler, `getAttempt()` and `isFinalAttempt()` reflect the failure that triggered
+it: a failure that reached your handler was final, and `isFinalAttempt()` reads true even when
+a filter refused the retry with budget still remaining.
 
 ```apex
 public class NotifyAdminStep extends UTIL_AsyncChain.ChainStep
@@ -1073,6 +1096,15 @@ You opt in by overriding `createRetryStrategy()` on your step and returning a re
 matters on upgrade: a step that was never written to be safe to run twice is never retried behind your
 back.
 
+Retry treats a thrown exception and a returned failed result the same way. A step that returns
+`failed(exception)` is filtered by the same exception allowlists and denylists as a step that
+throws; only a message-only `failed(message)` carries no exception, so nothing but the attempt
+budget decides it. When a step recognises a failure that can never succeed on a re-run (a
+validation verdict, a record already rejected upstream), return
+`UTIL_AsyncChain.failedPermanently(message)` instead: the chain fails on that attempt without
+spending the remaining budget, and the audit category reads `Step Exception` rather than
+`Retries Exhausted`, because the budget was refused, not used up.
+
 ```apex
 public class ChargeCardStep extends UTIL_AsyncChain.ChainStep
 {
@@ -1113,13 +1145,21 @@ because seconds-level precision is not available here.
 
 **Know which attempt you are on.** Inside `work()`, `context.getAttempt()` gives the attempt number (1
 for the first try) and `context.isFinalAttempt()` is true on the last allowed attempt, so a step can,
-for example, alert someone only when it is about to give up for good. These two read correctly for your
-own `ChainStep` subclasses. `getPreviousStepResult()` on a retried attempt returns that step's own
+for example, alert someone only when it is about to give up for good.
+`isFinalAttempt()` is judged from the attempt budget alone, before your code runs, so it cannot
+know that an exception filter will refuse the retry afterwards. To ask "would failing with this
+exact exception be final?", call `context.isFinalAttempt(error)` with the exception you are
+about to fail with: it consults your strategy's filters too, so the give-up alert fires on the
+attempt that really is the last one. Both read correctly for your own `ChainStep` subclasses.
+`getPreviousStepResult()` on a retried attempt returns that step's own
 previous failed result, so you can see what went wrong last time.
 
 When a chain runs out of retries it is marked `Failed`, and its `FailureCategory__c` reads `Retries
 Exhausted` rather than `Step Exception`, so the audit trail shows the difference between a step that
 failed once and one that used up every attempt.
+A failure declared permanent with `failedPermanently(...)`, and a first-attempt failure whose
+exception the filter refuses, both read `Step Exception`: in neither case was the budget used
+up.
 
 Before you turn retry on, check the step is safe to repeat:
 
@@ -1128,6 +1168,12 @@ Before you turn retry on, check the step is safe to repeat:
 - A duplicate external side effect is either impossible or harmless.
 - The step still behaves correctly if recovery re-drives the chain while a retry is waiting (see
   [Preventing duplicate runs](#preventing-duplicate-runs) and [Monitoring](#monitoring)).
+
+A step that passes this checklist can say so: override `isIdempotent()` in the step to return `true`. The
+declaration never changes how the chain runs; it unlocks the Chain Monitor's operator retry for the step, described in
+[Re-driving a failed chain](#re-driving-a-failed-chain). Keep it an override, not a constructor: the framework
+creates each step from its class name on every hop, and a step class that declares its own constructor cannot be
+created that way from inside the package (see the note under the example below).
 
 ### Preventing duplicate runs
 
@@ -1199,12 +1245,23 @@ on a scheduled delay also shows as Running, with no completed steps yet), `Compl
 waiting to step in or already acting: the watchdog can revive a stalled chain and let it finish. `isTerminal()` reports
 the end states `Completed`, `Failed`, and `Aborted`, and also any chain that carries a completion timestamp. That last
 case catches the rare row where recovery briefly overwrites an already-finished chain back to `Stalled`: the completion
-timestamp survives, so it stays the reliable end-of-life signal. When a step throws an unhandled exception, the chain is
-marked `Failed` straight away, with no automatic retry and no backoff, so a Failed chain stays Failed until you relaunch
-it yourself: recovery is reserved for a chain that stalls, never one that has already failed. For a chain that is still
+timestamp survives, so it stays the reliable end-of-life signal. When a step without a retry strategy throws an unhandled exception, or a failure is refused by
+the step's retry filters, the chain is marked `Failed` straight away, with no further attempt
+and no backoff. Automatic recovery still never touches a Failed chain: the watchdog revives chains that stall, not ones
+that have already failed. What a Failed chain can get is operator attention, and only when it opted in: if the failed
+step declares itself safe to re-run, the Chain Monitor offers [a retry from the failed step](#re-driving-a-failed-chain),
+and a chain built with `allowRestart()` can be [restarted from the start as a new run](#restarting-a-chain-from-the-start).
+Both actions ship switched off and stay unavailable until those declarations are made. For a chain that is still
 running, `durationMs` is filled in live from its start time, so it matches what the Chain Monitor shows.
 
 **Turn on stalled-chain recovery.** The watchdog that revives stalled chains (it safely restarts the ones it can prove died and flags anything it cannot prove dead for a person) is itself a scheduled job, and a managed package cannot ship one, so it stays dormant until an admin schedules it. The quickest way is one click: the Health Check on the Kern app's Home tab spots a missing watchdog and schedules it for you (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). Until you do, only one class of stall surfaces on its own: a chain whose next step could not be queued is marked `Stalled` immediately, but a run whose background job died without leaving a trace stays on `Running` until the watchdog's sweep picks it up, restarting it when it can prove the job died or marking it `Stalled` when it cannot, and neither class is re-driven until the watchdog is scheduled. Schedule it once, the same declarative way as the built-in housekeeping jobs: create a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (`0 0 * * * ?`); see [Declarative Scheduling with `ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c). Two optional attributes tune it: `StaleThresholdMinutes` (how many minutes a chain may sit idle before it counts as stalled, default 30) and `BatchSize` (how many chains one sweep inspects, default 50). If you would rather schedule it in Apex, `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());` does the same job. The [Installation guide](Installation.md#post-install-configuration) lists this next to the other one-time setup steps.
+
+The first time a chain with no `onError` handler registered goes `Stalled`, that stall is recorded at ERROR level, so it
+stands out in the Log Console even when nobody is watching the Chain Monitor. Chains with a handler keep the WARN-level
+entry alongside their notification. Two stalls stay at WARN whatever handlers the chain has: a chain that was already
+`Stalled` and gets marked again, and a chain the watchdog parks because your org has run out of background-job capacity.
+In the parked case the notification was held back to protect that capacity, not because the chain lacks a handler, so it
+is deliberately not reported as one.
 
 A `ChainStatus` is a single-record summary and deliberately carries no per-step list. When you need step-by-step detail,
 open the chain in the Chain Monitor. To look up several chains at once, `getChainStatuses(Set<Id>)` returns a map of Id
@@ -1227,6 +1284,10 @@ to, exactly as `getStatus` does.
 | `StepLog__c`         | JSON log of each step: className, success, durationMs, message (enriched at runtime) |
 | `CorrelationId__c`   | Correlation ID for log tracing                                                       |
 | `ContextData__c`     | Serialized chain context (JSON)                                                      |
+| `AllowRestart__c`    | Whether the chain was built with `allowRestart()` and may be restarted from the start (see [Restarting a chain from the start](#restarting-a-chain-from-the-start)) |
+| `InitialContextData__c` | The initial context as built, captured only for chains that declare `allowRestart()`; a restart replays this snapshot, never the evolved context |
+| `SourceExecution__c` | On a restarted run, the record it was restarted from; empty otherwise                |
+| `DeclaredDeduplicationKey__c` | The deduplication key the chain was built with, kept after the run ends so a re-drive can re-claim it |
 | `StartedAt__c`       | When the chain started                                                               |
 | `CompletedAt__c`     | When the chain finished                                                              |
 
@@ -1245,6 +1306,10 @@ active, so the permission set is the only switch you touch to enable the action.
 All Users writes the abort permission into every profile during the install, so in that case the action is already
 enabled for everyone. Remove those profile grants to bring the action back under the permission set's control.
 
+To give an operations user view-only access to the Chain Monitor, assign the Kern Async Chain Monitor Read Only
+permission set. It grants read access to chain records and the monitor tab and nothing else; pair it with the Kern
+Async Chain Abort set for users who may also stop chains.
+
 **Turning it off for everyone.** Deactivate the **Async Chain Abort Enabled** feature-flag record. That is the org-wide
 off-switch: it hides the action for every user in one step, with no deployment and without touching anyone's permission
 set. The Health Check's **Chain Abort Capability** row tells you where you stand, warning while the flag is deactivated,
@@ -1253,13 +1318,175 @@ no one holds the permission set. It passes once the flag is active, no profile b
 permission, and at least one user holds the set.
 
 **What abort does.** Abort takes effect at the next step boundary. The step that is running is allowed to finish, and
-then the chain stops rather than starting the next one (it can also stop a stalled chain that is waiting on recovery). An
-aborted chain is final: it cannot be resumed, so relaunch it from the start if the work still needs to run. The outcome
-is recorded as `Aborted`, with a failure category of `Operator Abort`.
+then the chain stops rather than starting the next one (it can also stop a stalled chain that is waiting on recovery).
+An aborted chain cannot be resumed from where it stopped. If the work still needs to run, a chain built with
+`allowRestart()` can be [restarted from the start as a new run](#restarting-a-chain-from-the-start); any other chain you
+relaunch yourself. The outcome is recorded as `Aborted`, with a failure category of `Operator Abort`.
 
 **A note on live updates.** The admin who presses Abort always sees their own monitor update straight away. On an org
 whose logging is turned down to errors only, a common production setting, other admins watching the same chain will not
 see the abort appear on its own; they refresh the panel to pick it up. A failure still shows up live either way.
+
+### Re-driving a failed chain
+
+Sometimes a chain fails on a step you know is safe to try again: the outside system was down for an hour, or a row was
+locked by a job that has long since finished. Rather than rebuilding and relaunching the whole chain, the Chain Monitor
+can re-drive a Failed run from exactly the step that failed. Steps that already completed do not run again, the chain
+keeps its record and its tracking ID, and the failed step's retry attempts start again from zero.
+
+The action stays unavailable until two people opt in: the step's author and your administrator.
+
+**The step author declares the step safe to re-run.** Retry is only offered when the step that failed answers
+`true` from `isIdempotent()`:
+
+```apex
+public class RefreshExchangeRatesStep extends UTIL_AsyncChain.ChainStep
+{
+	public override Boolean isIdempotent()
+	{
+		return true;
+	}
+
+	public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+	{
+		// fetch and upsert the day's rates; running this twice writes the same values
+		return UTIL_AsyncChain.succeeded();
+	}
+}
+```
+
+Declare it only when a repeat run of `work()` cannot double the step's side effects, either because the work is
+naturally safe to repeat or because the step guards itself with `idempotencyKey()` (see
+[Step Design Guidance](#step-design-guidance)). The declaration never changes how the chain runs; it is consulted only
+when an operator asks to re-drive. Chains that ran before the declaration existed are never eligible.
+
+> **Do not declare a constructor on a step class.** The framework creates every step from its class name in each hop,
+> and from inside the package it can only use the constructor Apex provides when a class declares none (or a `global`
+> constructor on a `global` class). A step with its own `public` constructor fails on its first hop with a message
+> that names this rule. Set anything the step needs by overriding a method, as `isIdempotent()` does above.
+
+**The administrator grants the action.** Assign the **Kern Async Chain Redrive** permission set to the operations users
+who may recover chains; it ships assigned to nobody. One set covers all three recovery actions: retry, restart, and
+clearing stalled chains. Pair it with the **Kern Async Chain Monitor Read Only** set, which grants the chain data,
+tabs, and monitor access the actions work on. As with abort, an org-wide off-switch ships alongside: deactivate the **Async Chain
+Redrive Enabled** feature-flag record to hide all three actions for everyone without touching anyone's permission sets.
+
+**What a retry refuses, and why.** The retry button appears on Failed chains and explains itself when it cannot act;
+the checks run again on the server when you confirm, so the answer holds even when the screen is stale:
+
+- **The step never declared itself safe to re-run.** The framework will not repeat a step whose author did not promise
+  a repeat is safe.
+- **The step declared the failure permanent.** A failure recorded through `failedPermanently(...)` cannot succeed on a
+  re-run, so retrying it is refused, whatever the step declares.
+- **The chain's saved context is not available.** A retry resumes with the context the run had when it failed. If that
+  context was never persisted (for example it outgrew its field on the failure path, which the framework records rather
+  than truncating) or does not read back cleanly, resuming would run the remaining steps against wrong state, so the
+  action is refused.
+- **Chain processing is suspended.** Re-driving a chain into a suspension would only create a run that stops at
+  once; resume processing first (see [The operations control](#the-operations-control)).
+- **Another run of this chain holds its deduplication key.** The re-driven run re-claims the chain's declared key, so
+  while a live run holds it the retry is refused, exactly as a duplicate `execute()` would be (see
+  [Preventing duplicate runs](#preventing-duplicate-runs)). This one check surfaces only when you confirm, as an error
+  message rather than on the button.
+
+A re-driven run executes under the framework's default settings (maximum steps, context-size cap, queueable options)
+rather than the settings its original builder set, which are not persisted; its steps, its error and completion
+handlers, and its context all carry over, and a context already larger than the default cap is never trimmed to fit. [The live activity stream](#the-live-activity-stream) shows the re-driven
+run's entries as it progresses.
+
+### Restarting a chain from the start
+
+Retry resumes a run; restart begins a new one. When a chain declares `.allowRestart()` at build time, the Chain Monitor
+can restart a Failed or Aborted run from its first step as a fresh chain: a new record, a new tracking ID, and the
+context the chain was originally built with. The original record is not touched; it keeps its status and its
+diagnostics as the audit record, and the new run carries a **Restarted from** reference that re-opens the original in
+the monitor. When you confirm, the monitor moves you to the new run.
+
+```apex
+UTIL_AsyncChain.newChain('NightlyAccountSync')
+	.then(new SyncAccountsStep())
+	.withInitialContext('runDate', String.valueOf(Date.today()))
+	.allowRestart()
+	.execute();
+```
+
+A restart re-runs every step, so declare it only when the whole chain can run twice without doubling its side effects.
+The declaration does two things at build time: it marks the run restartable, and it captures the initial context
+exactly as built. A restart replays that snapshot, never the evolved context a partial run left behind, so a restarted
+run starts from the same place the original did; [context written by steps](#context-sharing) along the way is
+deliberately not carried over.
+
+The same **Kern Async Chain Redrive** permission set and **Async Chain Redrive Enabled** feature flag govern restart.
+The button explains two refusals up front: the chain never declared `allowRestart()` (chains from before the
+declaration existed are never eligible), or chain processing is suspended. Two more checks run when you confirm and
+refuse with an error message: the captured context must read back cleanly, and no other run of the chain may hold its
+deduplication key. Completed chains are never restartable: the work succeeded, and running it again is a decision for
+a new chain. Like a re-driven run, a restarted run executes under the framework's default settings rather than the
+ones its original builder set.
+
+### Clearing stalled chains
+
+The watchdog sweeps stalled chains on a schedule; during an incident you may not want to wait for the next sweep. The
+**Clear stalled** button in the Chain Monitor's header runs the same sweep on demand: each stalled chain the sweep
+reaches is checked, re-driven when the framework can prove its background job died, marked failed when its saved run
+state is beyond repair, and left waiting when nothing can be proven. The checks are the scheduled watchdog's own, applied in the same
+order with the same caution, so the button never does anything the watchdog would not have done at its next sweep.
+
+The result comes back as a toast: how many stalled chains were checked, how many re-driven, how many marked failed, and
+how many are still waiting. One click inspects up to 40 stalled chains (the scheduled sweep's own ceiling is 50 per
+run); if more are stalled, run it again. A chain the sweep cannot prove anything about is left exactly as it was, so
+the action is safe to repeat.
+
+Clear stalled is covered by the same **Kern Async Chain Redrive** permission set as retry and restart, and it refuses
+while chain processing is suspended: re-driving chains during a suspension would only stop them again at once.
+One pairing to know about: the sweep re-reads each chain with your permissions, so a stalled chain your user cannot see
+is left untouched and counted as still waiting. The **Kern Async Chain Monitor Read Only** set grants View All on chain
+records, so operators holding it see and sweep every stalled chain.
+
+### The operations control
+
+The Chain Monitor's header carries an operations control: a badge showing whether chain processing is enabled, the
+**Clear stalled** button, and a **Suspend** or **Resume** action. Suspend is the kill switch (the master off-switch you
+can flip in an incident without a deployment) made operable from the screen: it stops all chain processing org-wide
+until someone resumes it.
+
+Suspending is a hard stop, not a pause. Every running chain stops at its next step boundary and is recorded as
+`Aborted` with a failure category of `Kill Switch`; a chain launched during the suspension is recorded as `Aborted`
+before its first step runs. Resuming lets new chains run again, but
+the chains that were stopped during the suspension stay stopped: re-drive or restart the ones that should run. The
+confirmation dialogues say as much before you commit to either side.
+
+Suspend and resume sit behind their own grant, deliberately separate from the re-drive actions: an operator trusted to
+recover one chain is not thereby trusted to stop every chain in the org. Assign the **Kern Async Chain Kill Switch**
+permission set (it ships assigned to nobody), with its own org-wide off-switch in the **Async Chain Kill Switch
+Enabled** feature-flag record. The toggle itself stays available while processing is suspended, so resuming never locks
+itself out. Under the hood the control writes the same switch the [Kill Switch](#kill-switch) section describes, so an
+admin can reach the same state from Setup when the monitor is not to hand.
+
+### The live activity stream
+
+A chain's detail panel ends with **Live activity**: the run's log entries, streaming in as they happen. It opens seeded
+with the newest entries already recorded for the chain (up to 20). Entries are matched both by the chain's tracking ID
+and by direct reference to the chain record, so ones logged outside the chain's own transactions (the watchdog's
+verdicts, an operator's abort) appear too. New entries then arrive live over the platform's event bus, newest first.
+
+Three caveats keep it honest, and the expanded stream prints the first beneath its entries:
+
+- **Only errors always stream.** Other levels depend on the org's log settings: live delivery rides the same log
+  events your org publishes, and those respect the org's logging threshold. On an org logging errors only (a common
+  production setting), INFO and WARN entries never arrive live; they are still recorded, and a refresh shows them.
+- **A healthy chain may stream nothing.** The chain framework logs quietly by design: ordinary progress is tracked on
+  the chain record, not written to the log (see [Logging Strategy](#logging-strategy)), so silence usually means
+  nothing is wrong.
+- **The stream is best-effort.** If the live feed drops, the panel says so in place of the caveat; entries keep
+  recording server-side, and refreshing catches you up.
+
+On a Failed chain the stream starts collapsed so the step timeline and the error stay in view; expand it when you want
+the log detail. The stream reads and never writes. Seeing entries requires read access on the framework's log object
+(`LogEntry__c`), which none of the chain permission sets grants: it ships in the **Kern Administrator** set, the same
+access the [Log Console](Logging%20-%20Guide.md#the-log-console) needs, so an operator without it sees an empty
+stream. With it, the seed shows matching entries across all users, the same as the Log Console, and each row carries
+only the entry's time, level, and short message.
 
 ### Logging Strategy
 
@@ -1273,6 +1500,8 @@ reserved for events you can act on:
 | Step exception (stack trace) | Error | Step throws an unhandled exception                                  |
 | Step failed but continuing   | Warn  | A `continueOnError` step fails; the log includes the failure reason and duration |
 | Chain crashed                | Error | Finalizer catches unhandled Queueable crash (governor limits)       |
+| Chain stalled, no handler    | Error | A chain goes `Stalled` for the first time with no `onError` handler to notify |
+| Chain stalled                | Warn  | Every other stall, including a repeat mark on a chain that was already `Stalled`, and a watchdog park caused by exhausted background-job capacity |
 | Chain completed              | Info  | The chain finished successfully; one entry, so a quiet chain is no longer invisible |
 | Chain failed                 | Error | The chain reached its terminal `Failed` state (the outcome marker, separate from any step-level exception above) |
 | Chain abort requested        | Warn  | An operator aborts a chain; the running step finishes, then the chain stops         |
@@ -1318,6 +1547,17 @@ UTIL_AsyncChain.newChain('MyChain')
 	.then(new MyStep())
 	.execute('my-custom-correlation-id');
 ```
+
+**Launching several chains at once.** A correlation ID belongs to one chain run, so when your code
+starts a correlation and then launches two or more chains in the same transaction, only the first
+chain is recorded under it. Each of the others gets a correlation of its own on its tracking record,
+and the framework writes one log entry under your original correlation naming that new ID. The new ID
+identifies that run in the Chain Monitor; its log entries stay under your original correlation, so
+one search in **Log Entries** still brings back the whole action rather than one chain at a time.
+
+If you supply the correlation IDs yourself, give each chain a different one. Reusing an ID that
+another chain already holds is refused straight away, with a message naming the ID and telling you
+how to fix it, rather than a database error you have to decode.
 
 ### Step Design Guidance
 
@@ -1385,11 +1625,27 @@ bulk.
 ### Kill Switch
 
 If chains start misbehaving in production, you want to stop them without a deployment. The `FeatureFlag.AsyncChain`
-custom metadata record is that master off-switch you can flip in an incident. When you disable it, any running chain
-aborts at once with the message "Kill switch active" and no further steps are enqueued.
+custom metadata record is that master off-switch you can flip in an incident. While it resolves to disabled, a running
+chain aborts at its next step boundary with the message "Kill switch active" and no further steps are enqueued; a
+chain launched during the stop is recorded as `Aborted` before its first step runs.
 
 It is read through `UTIL_FeatureFlag.isEnabled('AsyncChain')` and ships enabled by default, so chains work out of the
-box.
+box. There are two ways to flip it:
+
+- **From the Chain Monitor.** The [operations control](#the-operations-control)'s **Suspend** and **Resume** actions
+  are this switch made operable from the screen, behind their own permission set.
+- **From Setup.** The flag resolves through a hierarchy custom setting, `AsyncChainRuntimeSwitch__c`, whose
+  `ChainsEnabled__c` checkbox decides the answer: no setting record means chains run (the shipped default), an
+  org-level record with the box unticked is the kill switch, and with the box ticked chains run. Suspend and Resume
+  write exactly that org-level record. Deactivating the `AsyncChain` flag record itself is still the bluntest way to
+  switch chains off.
+
+Because it is a hierarchy setting, profile- and user-level records override the org default for those users' chain
+transactions: you can exempt one integration user from a suspension, or stop chains for a single user, by adding a
+record at that level.
+
+The [Feature Flags guide](Feature%20Flags%20-%20Guide.md#framework-owned-flags) records how the flag record's own
+fields interact with the setting after an upgrade, and which edits to avoid.
 
 ### ApiStep: Web Service Integration
 
@@ -1431,6 +1687,7 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 | `.triggeringRecord(Id)`                     | Static triggering record ID                    |
 | `.triggeringRecordFrom(contextKey)`         | Read triggering record ID from context         |
 | `.withRetry(maxAttempts, baseBackoffSeconds)` | Retry the whole call automatically, up to `maxAttempts` tries (see below) |
+| `.retryOn(new Set<Integer>{...})`             | Retry only these HTTP status codes; anything else fails permanently (see below) |
 
 **Retrying an API step.** An `ApiStep` can retry a failed call itself, the chain equivalent of a
 `ChainStep` opting in with `createRetryStrategy()`. Pass the total number of attempts including the
@@ -1439,6 +1696,12 @@ the chain owns the retry and the outbound engine's own rescheduling is switched 
 the call is retried once by the chain, never twice by both. Leave `withRetry` off and the call behaves
 exactly as before, with the outbound engine keeping sole charge of retries. The same whole-minute
 backoff rule applies as for step retries.
+By default every failed status is retried. To spend the budget only on failures that might
+heal, add `.retryOn(new Set<Integer>{500, 503})`: a failed call whose status is outside the
+set fails permanently on that attempt, because a deterministic status (a 400 returns 400
+however often you re-send it) can never be cured by retrying. A failure with no status code at
+all, where the transport gave out before any response arrived, always stays retryable.
+`retryOn` has no effect without `withRetry`.
 
 #### Reading Results from Downstream Steps
 
@@ -1475,8 +1738,12 @@ same:
 
 When the API call fails, the `ApiStep` returns `UTIL_AsyncChain.failed()` carrying the handler's error messages. Your
 chain's `onError()` handler then fires (if you configured one), and the `ApiCall__c` record is still saved for audit.
-Retries that happen inside the step's own transaction run normally via `UTIL_HttpClient`. Async retries are not
-scheduled, because the chain, not the handler, owns what happens on failure.
+Synchronous retries inside the step's own transaction still run normally via `UTIL_HttpClient`.
+Whether asynchronous retries are scheduled depends on who owns the retry: with `withRetry`
+configured the chain owns it and the outbound engine's own rescheduling is switched off for
+that step; without `withRetry` the outbound engine keeps sole charge, exactly as for a
+standalone call. With `withRetry` configured, your `onError` handler fires only after the
+attempts are spent or the failure is declared permanent.
 
 Use `continueOnError` when a failed API call should not stop the chain:
 
@@ -1492,8 +1759,9 @@ one step, also provide `AsyncOptions` (the platform built-in `System.AsyncOption
 `maximumQueueableStackDepth` to match your chain's depth. That tells the platform it may run the chained Queueables one
 after another inside the test.
 
-The `AsyncChain` feature flag ships with `IsEnabledByDefault__c = true`, so chains are on by default. You don't need to
-seed anything to enable them in your tests.
+Chains are on out of the box, so you don't need to seed anything to enable them in your tests. The `AsyncChain` flag
+resolves through the `AsyncChainRuntimeSwitch__c` hierarchy setting, and with no setting record in place the answer is
+that chains run.
 
 ```apex
 @IsTest
@@ -1526,6 +1794,361 @@ private static void shouldCompleteThreeStepChain()
 > context and hands it to each step. If you need to read or assert on the context, do it from inside your step's
 > `work(ChainContext context)` override (where the context is handed to you), then check the chain's outcome with
 > `UTIL_AsyncChain.getStatus(executionId)`.
+
+---
+
+## Common Patterns
+
+The chain building blocks in this guide are designed to compose with the rest of the framework and the
+platform. Each pattern below is complete, copy-ready code built only from the public pieces this guide
+has already introduced.
+
+### Protecting a struggling integration with a circuit breaker
+
+When a downstream system starts failing, every new chain you launch at it burns async runs and retry
+budget just to fail again. A circuit breaker stops that: after repeated failures the framework pauses
+calls to the failing system for a cool-off period, then resumes once it recovers.
+
+Chains do not need breaker machinery of their own. Gate the launch point with
+[`UTIL_CircuitBreaker`](Resilience%20-%20Guide.md#circuit-breaker-util_circuitbreaker), and let the
+chain's own completion and failure handlers record outcomes on the shared circuit:
+
+```apex
+public with sharing class Recipe_ChainCircuitBreaker_DEMO
+{
+	public static final String CIRCUIT_NAME = 'OrderExport';
+
+	public static UTIL_CircuitBreaker.Breaker monitorCircuit()
+	{
+		return UTIL_CircuitBreaker.monitor(CIRCUIT_NAME)
+				.withFailureThreshold(3)
+				.withTimeout(120);
+	}
+
+	public static String launch()
+	{
+		if(!monitorCircuit().allowRequest())
+		{
+			return null; // you own this branch: skip, park the work, or surface it to the user
+		}
+		return UTIL_AsyncChain.newChain('Order Export')
+				.then(new ExportStep())
+				.onError(new RecordExportFailure())
+				.onComplete(new RecordExportSuccess())
+				.execute();
+	}
+
+	public with sharing class ExportStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	public with sharing class RecordExportFailure extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			monitorCircuit().recordFailure();
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	public with sharing class RecordExportSuccess extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			monitorCircuit().recordSuccess();
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+}
+```
+
+Three things make the composition work:
+
+- **The launch point owns the "open" decision.** Only you know what an open circuit should mean here:
+  skip the run, park the work for later, or tell the user. The framework cannot make that call for you,
+  which is why the `else` branch is yours.
+- **The handlers are the feedback loop.** `onError` records the failure, `onComplete` records the
+  success. With `withFailureThreshold(3)`, three failed chains open the circuit and `allowRequest()`
+  starts returning false; after the 120-second cool-off the breaker lets a probe through and closes
+  again once calls succeed. The thresholds live on each `monitor()` call (only the counts and state
+  are shared), which is why the recipe funnels every touch through the one configured method.
+- **The circuit is shared across transactions.** Breaker state lives in Platform Cache, so a failure
+  recorded by one chain's handler protects every later transaction that checks the same circuit name,
+  with no extra plumbing.
+
+Three caveats. The breaker only learns what the handlers tell it: register both `onError` and
+`onComplete`, or outcomes go uncounted. A chain stopped by the [kill switch](#kill-switch) runs neither
+handler, so those runs never reach the breaker. And a Platform Cache eviction resets the counts: treat
+the breaker as a pressure-relief valve, not an exact meter.
+
+See [Error Handling](#error-handling) for how `onError` behaves generally, and the
+[Resilience Guide](Resilience%20-%20Guide.md#combining-retry-and-circuit-breaker) for combining the
+breaker with retries inside a single callout.
+
+### Pausing for an approval: two chains and a hand-off
+
+A chain cannot sleep for days while a human decides. When your process has an approval in the middle,
+end the first chain at the gate and start a second one when the decision lands. The record waiting for
+the approval is your durable state, and it is also the join between the two legs.
+
+The first leg prepares the work and stops:
+
+```apex
+public with sharing class Recipe_ApprovalHandOff_DEMO
+{
+	public static String startFirstLeg(Id recordId)
+	{
+		return UTIL_AsyncChain.newChain('Order Approval - Preparation')
+				.withInitialContext('recordId', recordId)
+				.then(new PrepareStep())
+				.execute();
+	}
+
+	public with sharing class PrepareStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded('Prepared; waiting on approval');
+		}
+	}
+
+	public with sharing class ContinueStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+}
+```
+
+The second leg is an invocable that a record-triggered flow calls when the approval field changes.
+The shipped Flow action covers only asynchronous web-service calls, which is why this pattern brings
+its own invocable; it is a dozen lines:
+
+```apex
+public with sharing class Recipe_ApprovalContinuation_DEMO
+{
+	public class Request
+	{
+		@InvocableVariable(required=true) public Id recordId;
+	}
+
+	@InvocableMethod(label='Continue After Approval')
+	public static void start(List<Request> requests)
+	{
+		if(requests.size() != 1)
+		{
+			throw new IllegalArgumentException('Continue After Approval handles one request per invocation.');
+		}
+		UTIL_AsyncChain.newChain('Order Approval - Continuation')
+				.withInitialContext('recordId', requests[0].recordId)
+				.then(new Recipe_ApprovalHandOff_DEMO.ContinueStep())
+				.execute();
+	}
+}
+```
+
+Three facts shape the hand-off:
+
+- **The record carries the story, not the chain.** Chain context does not survive the gap: whatever
+  the continuation needs must live on the record (or be re-queried from it) and re-enter through
+  `withInitialContext`. If you want to navigate back to the first leg later, store the run Id that
+  `startFirstLeg` returns in a field on the waiting record.
+- **Each leg keeps its own tracking identifier.** A chain run owns its correlation ID exclusively, so
+  the two legs are separate runs with separate identifiers. The record joins them: log entries written
+  for the record tell the whole story in one place. Each leg's
+  [live activity stream](#the-live-activity-stream) follows only its own run, so look the legs up
+  separately in the Chain Monitor, or query the record's log entries for both.
+- **Nothing times the gap out.** If the approval never comes, nothing runs and nothing alerts. Put the
+  deadline on the waiting record (a scheduled path or an escalation flow), not on the chain.
+
+Wire it up declaratively: a record-triggered flow on the approval field change passes the record Id to
+the `Continue After Approval` action. See [Context Sharing](#context-sharing) for what belongs in
+initial context, and [Monitoring](#monitoring) for finding both runs in the Chain Monitor.
+
+### Running a chain on a schedule
+
+When you want a chain every night, you do not need new machinery: a small schedulable builds the chain,
+and a [`ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c) record decides when it runs,
+with what parameters, in which timezone. Admins change the schedule without a deployment.
+
+```apex
+@SuppressWarnings('PMD.AvoidGlobalModifier')
+global inherited sharing class Recipe_ScheduledChain_DEMO extends SCHED_Base
+{
+	public static final String DEDUPLICATION_KEY = 'NightlyOrderExport';
+
+	public override List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
+	{
+		return new List<DTO_ScheduledParameterDefinition>{
+				DTO_ScheduledParameterDefinition.of('batchLimit').asNumeric().withDefault('200')
+		};
+	}
+
+	public void execute(SchedulableContext context)
+	{
+		startExport(getNumericParameter('batchLimit'));
+	}
+
+	public static String startExport(Integer batchLimit)
+	{
+		return UTIL_AsyncChain.newChain('Nightly Order Export')
+				.withInitialContext('batchLimit', batchLimit)
+				.withDeduplicationKey(DEDUPLICATION_KEY)
+				.then(new ExportStep())
+				.execute();
+	}
+
+	public with sharing class ExportStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+}
+```
+
+Then schedule it as a configuration record, the same declarative path as every scheduled job here:
+
+```apex
+ScheduledJob__c nightlyExport = new ScheduledJob__c(
+		SchedulerName__c = 'Nightly Order Export',
+		ClassName__c = 'Recipe_ScheduledChain_DEMO',
+		CronExpression__c = '0 0 3 * * ?',
+		IsActive__c = true,
+		Parameters__c = new DTO_NameValues(new Map<String, String>{ 'batchLimit' => '200' }).serialize()
+);
+DML_Builder.newTransaction().doInsert(nightlyExport).execute();
+```
+
+Three details carry the pattern:
+
+- **The record is the schedule.** Inserting it schedules the class; deactivating it aborts the job. The
+  class stays `global` because the framework instantiates it across the namespace boundary, and the
+  chain assembly lives in its own method so the run Id stays observable to callers and tests.
+- **Parameters flow from configuration to context.** The record's `Parameters__c` feeds the typed
+  accessors (`getNumericParameter` here), which feed `withInitialContext`. Change the batch limit on
+  the record and the next run picks it up, no deployment involved.
+- **Overlap is a non-event.** If last night's run is somehow still active at three in the morning,
+  `withDeduplicationKey` hands the new request the active run instead of starting a duplicate. See
+  [Preventing duplicate runs](#preventing-duplicate-runs) for the key's full behaviour.
+
+For scheduled work that is not a chain (a batch job, a one-off cleanup), see
+[Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers); the two examples
+are siblings on the same declarative path.
+
+### Calling an external system only after the transaction commits
+
+An order completes, and your billing system must hear about it. The tempting shape, calling out first
+and saving second, has two famous failure modes: the ghost call (the callout fires, then the save
+rolls back, and the far system now believes something your database does not) and the silently lost
+intent (fire-and-forget delivery nobody notices failing). This pattern closes both, and converts the
+remaining case, committed data whose delivery keeps failing, into a loud one.
+
+The platform hands chains the two guarantees this pattern needs. Callouts are forbidden inside a
+trigger, so the callout-first shape is off the table to begin with. And an enqueue is
+transaction-bound: if the save rolls back, the enqueue rolls back with it, and no call ever fires.
+
+Three pieces, all composition. The one-line trigger file that hands control to the framework:
+
+```apex
+trigger TRG_Case on Case (after update)
+{
+	new TRG_Dispatcher().run();
+}
+```
+
+The trigger action that detects the transition and starts ONE chain per trigger invocation (the
+platform hands very large saves to the trigger in batches of 200, each starting its own chain),
+carrying one web-service step per closed case:
+
+```apex
+public with sharing class Recipe_CommittedDelivery_DEMO extends TRG_Base implements IF_Trigger.AfterUpdate
+{
+	public static final String STATUS_CLOSED = 'Closed';
+	public static final String CHAIN_NAME = 'Closed Case Delivery';
+	public static final Set<Integer> RETRYABLE_STATUSES = new Set<Integer>{ 500, 502, 503, 504 };
+
+	public void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)
+	{
+		Map<Id, Case> oldById = new Map<Id, Case>((List<Case>) oldRecords);
+		List<Case> justClosed = new List<Case>();
+		for(Case currentCase : (List<Case>) newRecords)
+		{
+			if(currentCase.Status == STATUS_CLOSED && oldById.get(currentCase.Id)?.Status != STATUS_CLOSED)
+			{
+				justClosed.add(currentCase);
+			}
+		}
+		if(justClosed.isEmpty())
+		{
+			return;
+		}
+		UTIL_AsyncChain.ChainBuilder delivery = UTIL_AsyncChain.newChain(CHAIN_NAME);
+		for(Case closedCase : justClosed)
+		{
+			delivery.then(new UTIL_AsyncChain.ApiStep(Recipe_CaseDelivery_SERVICE.class)
+					.triggeringRecord(closedCase.Id)
+					.withRetry(3, 60)
+					.retryOn(RETRYABLE_STATUSES));
+		}
+		delivery.execute();
+	}
+}
+```
+
+And the delivery service, an ordinary outbound handler with one addition: it stamps a record-grain
+idempotency key before sending, so an at-least-once delivery cannot double-apply (the far system can
+recognise a repeat delivery for the same case and return the first result instead of re-running it).
+Its request and response DTOs are the standard outbound shape from the
+[Web Services Guide](Web%20Services%20-%20Guide.md):
+
+```apex
+public with sharing class Recipe_CaseDelivery_SERVICE extends API_Outbound
+{
+	public static final String IDEMPOTENCY_KEY_PREFIX = 'case-delivery-';
+
+	public override void configure()
+	{
+		super.configure();
+		requestPayload = new DTO_Request();
+		responsePayload = new DTO_Response();
+		defaultMockBody = '{"status": "received"}';
+	}
+
+	public override void prepareRequest()
+	{
+		super.prepareRequest();
+		apiCall.IdempotencyKey__c = IDEMPOTENCY_KEY_PREFIX + apiCall.TriggeringRecordId__c;
+	}
+}
+```
+
+Register the pieces as configuration: a `TriggerSetting` record for `Case`; a `TriggerAction` record
+with `Event__c = After Update`, `ApexClassName__c = Recipe_CommittedDelivery_DEMO`, and
+`FailureAction__c = LogAndContinue`, so a delivery hiccup never blocks the save; and the service's own
+`ApiSetting` record (class name, endpoint, Log Issues). The [Triggers Guide](Triggers%20-%20Guide.md)
+walks through the trigger records, and the [Web Services Guide](Web%20Services%20-%20Guide.md) the
+service record.
+
+After commit comes the loud half. Each step retries only the statuses worth retrying (`retryOn` keeps
+deterministic client errors out of the retry budget). The failure reason lands on the call record. A
+delivery that exhausts its retries is set aside as an `ApiIssue__c` record for inspection rather than
+silently lost; that safety net is on when the service's `ApiSetting` record has Log Issues enabled, as
+the registration above does. The chain's terminal state and log entry name what happened, and the
+[watchdog](#monitoring-async-chain-failures) flags anything silently stuck. See
+[ApiStep: Web Service Integration](#apistep-web-service-integration) for the step's full surface.
+
+Two warnings. Do not reach for "Publish Immediately" platform events for this job: they fire even when
+the publishing transaction rolls back, the exact opposite of what this pattern promises. And a chain
+carries up to 50 steps by default; if one save can close more than that, raise the ceiling with
+`withMaxSteps` or split the batch.
 
 ---
 
@@ -1687,8 +2310,8 @@ Four common housekeeping jobs ship ready to use. You schedule them by configurat
 |----------------------------------------------------------------------------------|---------------------------|-------------------------------------------------------------------|
 | [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | Delete old records        | `objectName`, `minimumNumberOfDays`, `dateFieldName`, `batchSize` |
 | [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | Deactivate inactive users | `profileNames`, `minimumNumberOfDays`, `batchSize`                |
-| [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | Process queued callouts   | `batchSize`                                                       |
-| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)       | Process login records     | `batchSize`                                                       |
+| [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | Process queued callouts   | None                                                              |
+| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)       | Process login records     | None (batch size set by an `AsynchronousJobSetting__mdt` record)  |
 
 > **See Also:** [`DTO_NameValues`](reference/apex/DTO_NameValues.md) for attribute parsing utilities.
 
@@ -1884,13 +2507,16 @@ public with sharing class MyBatchProcessor implements Database.Batchable<SObject
 
 All methods are available on [`LOG_Builder`](reference/apex/LOG_Builder.md):
 
-| Method                           | When to Use                         | Description                             |
-|----------------------------------|-------------------------------------|-----------------------------------------|
-| `startCorrelation()`             | Start of user action/API call       | Generates new CorrelationId             |
-| `serializeContext()`             | Before enqueuing async job          | Returns JSON string of current context  |
-| `hydrateContext(String)`         | Start of async job execute()        | Restores context from serialized string |
-| `setCorrelationId(String)`       | When receiving external correlation | Sets specific ID from external system   |
-| `setParentTransactionId(String)` | Manual parent linking               | Links to specific parent transaction    |
+| Method                           | When to Use                            | Description                                                  |
+|----------------------------------|----------------------------------------|--------------------------------------------------------------|
+| `startCorrelation()`             | Start of user action/API call          | Generates new CorrelationId                                  |
+| `serializeContext()`             | Before enqueuing async job             | Returns JSON string of current context                       |
+| `serializeContext(String)`       | Giving a separate run its own identity | Returns JSON context carrying the correlation id you pass in |
+| `hydrateContext(String)`         | Start of async job execute()           | Restores context from serialized string                      |
+| `setCorrelationId(String)`       | When receiving external correlation    | Sets specific ID from external system                        |
+| `setParentTransactionId(String)` | Manual parent linking                  | Links to specific parent transaction                         |
+
+The one-argument form matters when a restarted run should read as its own story rather than a continuation of the one that spawned it. Pass the new correlation id and the job you hand it to gets a clean logging identity, with none of the current transaction's lineage attached.
 
 ---
 
@@ -1918,7 +2544,7 @@ ready to schedule, the ones that need a small amount of custom code, and the con
 | `objectName`          | **Yes**  | -             | API name of object to purge (e.g., `LogEntry__c`) |
 | `minimumNumberOfDays` | No       | 90            | Records older than this are deleted               |
 | `dateFieldName`       | No       | `CreatedDate` | Field to check age against                        |
-| `batchSize`           | No       | 200           | Records per batch transaction                     |
+| `batchSize`           | No       | 2000          | Records per batch transaction                     |
 | `allOrNothing`        | No       | false         | If true, rollback batch on any error              |
 
 **Example Parameters__c value** (set via `DTO_NameValues`)**:**
@@ -1943,7 +2569,7 @@ One gap to plan around: this configuration-only recipe has no status filter, so 
 |-----------------------|----------|---------|----------------------------------------------------|
 | `profileNames`        | **Yes**  | -       | Pipe-separated profile names (e.g., `Standard User |Chatter User`) |
 | `minimumNumberOfDays` | No       | 180     | Days since last login                              |
-| `batchSize`           | No       | 200     | Records per batch transaction                      |
+| `batchSize`           | No       | 2000    | Records per batch transaction                      |
 | `allOrNothing`        | No       | false   | If true, rollback batch on any error               |
 
 **Example Parameters__c value** (set via `DTO_NameValues`)**:**

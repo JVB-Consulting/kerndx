@@ -37,7 +37,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -1518,5 +1518,22 @@ private class UTIL_SObjectDescribe_TEST
 		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> withExclusion = UTIL_SObjectDescribe.getAllFieldInformation('Case', textTypes, true);
 		Assert.isNull(withExclusion.get('CaseNumber'), 'the auto-number field Salesforce assigns is excluded as system-managed');
 		Assert.isNotNull(withExclusion.get('Subject'), 'a writable text field is still included');
+	}
+
+	/**
+	 * @description Tests that isObjectAccessible answers object-level read access for the current
+	 * context and resolves a null type to false instead of throwing. The live-versus-cached
+	 * discrimination — a request-cached describe handle answers for whichever context first
+	 * described the type, the wrong answer under System.runAs — is witnessed end to end by the
+	 * Chain Monitor's stream-seed gate test, which runs a permission-less user against a primed
+	 * transaction.
+	 *
+	 * @see UTIL_SObjectDescribe.isObjectAccessible
+	 */
+	@IsTest
+	private static void shouldAnswerObjectAccessibilityForCurrentContext()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(Account.SObjectType), 'The running test context can read a standard object');
+		Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(null), 'A null type resolves false instead of throwing');
 	}
 }

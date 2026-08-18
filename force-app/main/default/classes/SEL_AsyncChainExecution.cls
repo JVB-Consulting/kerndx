@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  *
  * @since 1.0
  *
@@ -78,11 +78,14 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	 * @description The exact fields the Chain Monitor list view reads (`CTRL_ChainMonitor.toChainSummary`).
 	 * The default projection also carries three long-text payload fields (ContextData__c, StepLog__c —
 	 * 131KB each — and ErrorMessage__c) that list rows never display; hauling them per row is a heap
-	 * risk at list page sizes, so `findFiltered` projects this summary list instead.
+	 * risk at list page sizes, so `findFiltered` projects this summary list instead. CompletedAt__c is
+	 * a timestamp, not a payload: the list row needs it to tell a run still going from one that has
+	 * ended, which is what decides whether its duration cell counts on from the start.
 	 */
 	private static final List<SObjectField> SUMMARY_FIELDS = new List<SObjectField>
 	{
 			AsyncChainExecution__c.ChainName__c,
+			AsyncChainExecution__c.CompletedAt__c,
 			AsyncChainExecution__c.CompletedSteps__c,
 			AsyncChainExecution__c.DurationMs__c,
 			AsyncChainExecution__c.StartedAt__c,
@@ -106,7 +109,10 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Returns the default fields for AsyncChainExecution__c queries.
+	 * @description Returns the default fields for AsyncChainExecution__c queries. Deliberately
+	 * excludes InitialContextData__c: a third 131KB long-text would otherwise ride every executor
+	 * hop and Chain Monitor detail read for restart-declared chains (the SUMMARY_FIELDS heap-guard
+	 * precedent), so a restart-time read must project the snapshot explicitly.
 	 *
 	 * @return List of SObjectField tokens to include in queries.
 	 *
@@ -122,6 +128,7 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 		return new List<SObjectField>
 		{
 				AsyncChainExecution__c.ActiveDeduplicationKey__c,
+				AsyncChainExecution__c.AllowRestart__c,
 				AsyncChainExecution__c.ChainName__c,
 				AsyncChainExecution__c.CompletedAt__c,
 				AsyncChainExecution__c.CompletedSteps__c,
@@ -129,11 +136,13 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 				AsyncChainExecution__c.CorrelationId__c,
 				AsyncChainExecution__c.CurrentJobId__c,
 				AsyncChainExecution__c.CurrentStepName__c,
+				AsyncChainExecution__c.DeclaredDeduplicationKey__c,
 				AsyncChainExecution__c.DurationMs__c,
 				AsyncChainExecution__c.ErrorMessage__c,
 				AsyncChainExecution__c.FailureCategory__c,
 				AsyncChainExecution__c.LastModifiedDate,
 				AsyncChainExecution__c.RunKey__c,
+				AsyncChainExecution__c.SourceExecution__c,
 				AsyncChainExecution__c.StartedAt__c,
 				AsyncChainExecution__c.Status__c,
 				AsyncChainExecution__c.StepLog__c,
@@ -176,6 +185,64 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	{
 		return (AsyncChainExecution__c)query
 				.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.Id).equals(executionId)
+				.getFirst();
+	}
+
+	/**
+	 * @description Retrieves a single AsyncChainExecution__c record for the Chain Monitor's
+	 * restart action, projecting the InitialContextData__c snapshot on top of the default field
+	 * list. This is the ONLY query that ever pulls the snapshot: a third 131KB long-text on the
+	 * default projection would ride every executor hop and monitor detail read for
+	 * restart-declared chains, so the snapshot loads exactly once, at the moment a restart
+	 * actually needs it. Bypasses sharing for the same reason as findByIdForMonitoring — the
+	 * monitor is an org-wide observability surface over Private-OWD rows, and who may restart at
+	 * all is decided by the feature-flag and permission gates in CTRL_ChainMonitor.
+	 *
+	 * @param executionId The ID of the AsyncChainExecution__c record.
+	 *
+	 * @return The matching AsyncChainExecution__c record with the snapshot projected, or null if not found.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c source = new SEL_AsyncChainExecution().findByIdForRestart(executionId);
+	 * ```
+	 */
+	public AsyncChainExecution__c findByIdForRestart(Id executionId)
+	{
+		return (AsyncChainExecution__c)query
+				.bypassSharingInternal()
+				.addField(AsyncChainExecution__c.InitialContextData__c)
+				.condition(AsyncChainExecution__c.Id).equals(executionId)
+				.getFirst();
+	}
+
+	/**
+	 * @description Retrieves ONLY the correlation id of a chain execution, for the Chain Monitor's
+	 * live-stream seed: the seed needs one field to key its correlated-trace read, and the default
+	 * projection would haul two 131KB long-text payloads into the request's heap right after the
+	 * detail read already paid for them. Bypasses sharing for the same reason as
+	 * findByIdForMonitoring — the monitor is an org-wide observability surface over Private-OWD
+	 * rows, gated by the framework permission sets.
+	 *
+	 * @param executionId The ID of the AsyncChainExecution__c record.
+	 *
+	 * @return The matching row projecting CorrelationId__c only, or null if not found.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForLogStreamSeed(executionId);
+	 * ```
+	 */
+	public AsyncChainExecution__c findByIdForLogStreamSeed(Id executionId)
+	{
+		return (AsyncChainExecution__c)query
+				.bypassSharingInternal()
+				.onlyFields(new List<SObjectField> {AsyncChainExecution__c.CorrelationId__c})
 				.condition(AsyncChainExecution__c.Id).equals(executionId)
 				.getFirst();
 	}
@@ -244,6 +311,115 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
+	 * @description Retrieves the candidates for the Chain Monitor's operator clear-stalled sweep:
+	 * Stalled chains with no completion timestamp, oldest first, capped at the batch size. Two
+	 * deliberate differences from findStaleRunning, the scheduled sweep's finder: no staleness
+	 * threshold (the operator asked for a sweep NOW, and the shared per-candidate liveness probe —
+	 * not row age — is what separates a dead chain from a slow one), and no Running rows (only the
+	 * scheduled watchdog decides when a Running chain has aged into a stall candidate). Rows
+	 * carrying a completion timestamp are excluded outright — a Stalled row with a non-null
+	 * CompletedAt__c is a clobbered terminal row, and re-driving it would resurrect a finished
+	 * chain whose deduplication key was already released. Bypasses sharing for the same reason as
+	 * findStaleRunning: recovery is an org-wide framework concern over Private-OWD rows.
+	 *
+	 * The projection is the default field list MINUS the two long-text payloads no sweep decision
+	 * leg reads off a candidate row — ContextData__c (131KB) and ErrorMessage__c (32KB); the
+	 * acting legs take their own fresh full re-reads before consulting or writing either. A full
+	 * batch of default-projection rows would haul both into the operator's 6MB synchronous heap —
+	 * the same heap risk SUMMARY_FIELDS documents for list page sizes. StepLog__c stays: the
+	 * detect-mark leg resolves the notification handler from the candidate row itself.
+	 *
+	 * @param batchSize Maximum number of candidates to return.
+	 *
+	 * @return Stalled-candidate AsyncChainExecution__c records, oldest first; empty when the batch
+	 * size is null or not positive.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> stalledChains = new SEL_AsyncChainExecution().findStalledForOperatorSweep(40);
+	 * ```
+	 */
+	public List<AsyncChainExecution__c> findStalledForOperatorSweep(Integer batchSize)
+	{
+		if(batchSize == null || batchSize <= 0)
+		{
+			return new List<AsyncChainExecution__c>();
+		}
+
+		List<SObjectField> candidateProjection = new List<SObjectField>(getFields());
+		candidateProjection.remove(candidateProjection.indexOf(AsyncChainExecution__c.ContextData__c));
+		candidateProjection.remove(candidateProjection.indexOf(AsyncChainExecution__c.ErrorMessage__c));
+
+		return query.bypassSharingInternal()
+				.onlyFields(candidateProjection)
+				.condition(AsyncChainExecution__c.Status__c).equals(STATUS_STALLED)
+				.andCondition(AsyncChainExecution__c.CompletedAt__c).isNull()
+				.orderBy(AsyncChainExecution__c.LastModifiedDate).ascending()
+				.withLimit(batchSize)
+				.toList();
+	}
+
+	/**
+	 * @description Counts the chains waiting for the Chain Monitor's operator clear-stalled sweep,
+	 * over exactly the population findStalledForOperatorSweep takes: Stalled rows with no
+	 * completion timestamp. The clear-stalled dialog names this number before the operator commits,
+	 * so it has to describe the same rows the sweep will act on. Deliberately unbounded, unlike the
+	 * candidate read: the count answers how many chains are waiting, not how many one invocation
+	 * inspects, so the dialog's wording says the sweep works through them oldest first rather than
+	 * promising it clears them all. Bypasses sharing for the same reason as
+	 * findStalledForOperatorSweep: recovery is an org-wide framework concern over Private-OWD rows.
+	 *
+	 * @return How many stalled chain executions are waiting for the sweep; zero when none are.
+	 *
+	 * @example
+	 * ```apex
+	 * Integer waiting = new SEL_AsyncChainExecution().countStalledAwaitingSweep();
+	 * ```
+	 */
+	public Integer countStalledAwaitingSweep()
+	{
+		return query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.Status__c).equals(STATUS_STALLED)
+				.andCondition(AsyncChainExecution__c.CompletedAt__c).isNull()
+				.count();
+	}
+
+	/**
+	 * @description Retrieves ONLY the statuses of the given chain executions, for the operator
+	 * sweep's outcome tally: the tally classifies each inspected candidate by its post-sweep
+	 * status and reads nothing else, so hauling the default projection's long-text payloads a
+	 * second time — beside the still-referenced candidate list — would double the sweep's heap
+	 * peak for no reader (the SUMMARY_FIELDS rationale). Deliberately respects sharing: every
+	 * acting sweep leg re-reads its candidate through the same sharing-respecting default read,
+	 * so a row this tally cannot see is by construction a row no leg touched — it counts as
+	 * still awaiting recovery under either read posture, and the smaller bypass surface wins.
+	 *
+	 * @param executionIds The IDs of the chain executions to classify.
+	 *
+	 * @return The matching rows projecting Status__c only; empty when the id set is null or empty.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> statuses = new SEL_AsyncChainExecution().findByIdsForSweepTally(executionIds);
+	 * ```
+	 */
+	public List<AsyncChainExecution__c> findByIdsForSweepTally(Set<Id> executionIds)
+	{
+		if(executionIds == null || executionIds.isEmpty())
+		{
+			return new List<AsyncChainExecution__c>();
+		}
+
+		return query.onlyFields(new List<SObjectField> {AsyncChainExecution__c.Status__c})
+				.condition(AsyncChainExecution__c.Id).isIn(new List<Id>(executionIds))
+				.toList();
+	}
+
+	/**
 	 * @description Retrieves a single AsyncChainExecution__c record by its correlation ID.
 	 *
 	 * @param correlationId The correlation ID to search for.
@@ -269,11 +445,11 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	 * no status predicate belongs here. Bypasses sharing because the deduplication guard must see the active run
 	 * regardless of the caller's record visibility; only the matched run is returned.
 	 *
-	 * @since 1.6
-	 *
 	 * @param deduplicationKey The subscriber-supplied deduplication key to resolve.
 	 *
 	 * @return The run holding the key, or null when the key is free.
+	 *
+	 * @since 1.6
 	 *
 	 * @example
 	 * ```apex
@@ -297,8 +473,6 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	 * @param correlationId The CorrelationId__c to probe for a registered chain.
 	 *
 	 * @return True when a chain execution carries the correlation id; false for a blank id or no match.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -325,8 +499,6 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	 * @param correlationId The CorrelationId__c carried by the deep link.
 	 *
 	 * @return The matching AsyncChainExecution__c record, or null for a blank id or no match.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex

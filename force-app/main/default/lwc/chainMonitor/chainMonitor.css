@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/* Why a header action is greyed out, read as a plain run of lines rather than a bulleted list: the
+   markers would read as a set of choices, and these are statements about the buttons above them.
+   The spacing lives here rather than on SLDS padding utilities because the list reset in this same
+   rule would otherwise win the cascade against them and leave the notes flush to the card edge.
+   Logical properties, so a right-to-left org gets the mirror image for free. */
+.action-unavailable-notes
+{
+	list-style     : none;
+	margin         : 0;
+	padding-block  : 0 0.5rem;
+	padding-inline : 0.75rem;
+}

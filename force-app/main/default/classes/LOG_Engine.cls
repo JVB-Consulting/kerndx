@@ -36,7 +36,7 @@
  *
  * @group Logging
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
 public inherited sharing class LOG_Engine
@@ -342,6 +342,13 @@ public inherited sharing class LOG_Engine
 	 */
 	public static final String CONTEXT_ERROR_STACK = 'errorStack';
 	/**
+	 * @description Context key carrying the exception class a client-side failure reported — the Apex
+	 * exception name an Aura failure relays, or the JavaScript error name. Promoted into
+	 * `ExceptionType__c` by `CTRL_Logger` so an LWC failure names its type the way a server-side one
+	 * does and joins the same problem grouping.
+	 */
+	public static final String CONTEXT_EXCEPTION_TYPE = 'exceptionType';
+	/**
 	 * @description Context key for validation context class name.
 	 */
 	public static final String CONTEXT_CONTEXT_CLASS_NAME = 'contextClassName';
@@ -410,6 +417,15 @@ public inherited sharing class LOG_Engine
 	 * JavaScript stack relayed by `CTRL_Logger`). A real exception's own trace always wins over it.
 	 */
 	private static String currentStackTrace;
+
+	/**
+	 * @description Per-emit exception-type override channel — set by `LOG_Builder.LogEntry.emitInternal`
+	 * just before the log call and cleared in its finally, mirroring the stack-trace channel. Used when
+	 * the failure's type is known but no Apex exception carries it, such as the exception class a
+	 * client-side failure reported and `CTRL_Logger` relays. A real exception's own type always wins
+	 * over it.
+	 */
+	private static String currentExceptionType;
 
 	/**
 	 * @description Transaction-scoped parent-transaction id stamped onto every emitted
@@ -484,6 +500,19 @@ public inherited sharing class LOG_Engine
 	 * owned suspension and its lifecycle is left untouched.
 	 */
 	private static Boolean eventContextDidSuspendSaving = false;
+
+	/**
+	 * @description Running count of DML statements consumed by the framework's own log
+	 * persistence — `TRG_PersistLogEntry.persist` reached via `dispatchEvents` in event-trigger
+	 * context, the only engine egress that moves `Limits.getDmlStatements()` (publishing is
+	 * metered by `Limits.getPublishImmediateDML()` instead). Read by
+	 * `UTIL_PostTriggerAction.runOne` through `getFrameworkLogPersistenceDmlStatements` so the
+	 * post-action no-DML guard discounts the engine's own persistence from its measured delta —
+	 * a post-action that logs must not be blamed for DML the logger itself performed.
+	 * Engine-owned and transaction-scoped, the same ownership shape as the event-trigger-context
+	 * re-entrancy state above.
+	 */
+	private static Integer frameworkLogPersistenceDmlStatements = 0;
 
 	/**
 	 * @description Application log buffer. Accumulates `LogEntryEvent__e` events while
@@ -1119,6 +1148,27 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
+	 * @description Sets the exception type applied to events built during the current emit call.
+	 * Public-but-not-global so subscribers route through `LOG_Builder`; used by the LWC logging bridge
+	 * to name the failure a client reported when no Apex exception carries that name. Capped to the
+	 * `ExceptionType__c` field length so an over-long name costs its own text, never the whole entry.
+	 *
+	 * @param exceptionType The caller-supplied exception class name.
+	 */
+	public static void setCurrentExceptionType(String exceptionType)
+	{
+		currentExceptionType = UTIL_String.abbreviate(exceptionType, UTIL_SObjectDescribe.getCachedFieldDescribe(LogEntryEvent__e.ExceptionType__c).length);
+	}
+
+	/**
+	 * @description Clears the per-emit exception-type override so it cannot leak into later entries.
+	 */
+	public static void clearCurrentExceptionType()
+	{
+		currentExceptionType = null;
+	}
+
+	/**
 	 * @description Sets the parent transaction ID for hierarchical tracking.
 	 *
 	 * @param parentTransactionId The parent's transaction ID
@@ -1142,6 +1192,24 @@ public inherited sharing class LOG_Engine
 		{
 			context.contextData = globalContextData;
 		}
+		return JSON.serializePretty(context, true);
+	}
+
+	/**
+	 * @description Serializes a logging context FOR the supplied correlation id: a minimal
+	 * document carrying only that identity — no transaction lineage and no live context data,
+	 * because the document is written for a DIFFERENT execution and outlives this request. The
+	 * live transaction context is never read or touched: mutating it instead (set, serialize,
+	 * restore) would re-tag every log this transaction emits after the restore point.
+	 *
+	 * @param correlationId The correlation id the serialized context carries.
+	 *
+	 * @return String JSON carrying exactly the supplied correlationId.
+	 */
+	public static String serializeContext(String correlationId)
+	{
+		DTO_LoggerContext context = new DTO_LoggerContext();
+		context.correlationId = correlationId;
 		return JSON.serializePretty(context, true);
 	}
 
@@ -1561,7 +1629,10 @@ public inherited sharing class LOG_Engine
 	 * persisted to `LogEntry__c` via `TRG_PersistLogEntry.persist` (direct DML, no publish, loop-safe);
 	 * otherwise they publish normally as `LogEntryEvent__e`. Both the immediate path
 	 * (`publishEventsTo`) and the buffered flush path (`safePublish`) route through here so the
-	 * publish-suppression decision is made in exactly one place.
+	 * publish-suppression decision is made in exactly one place. The DML statements the persist
+	 * consumes are accumulated onto `frameworkLogPersistenceDmlStatements` (in a `finally`, so a
+	 * failing persist still accounts for what it consumed) — the post-action no-DML guard reads
+	 * that count to discount framework-owned log DML.
 	 *
 	 * @param events The events to dispatch.
 	 *
@@ -1571,7 +1642,15 @@ public inherited sharing class LOG_Engine
 	{
 		if(isInEventTriggerContext())
 		{
-			TRG_PersistLogEntry.persist(events);
+			Integer dmlStatementsBefore = Limits.getDmlStatements();
+			try
+			{
+				TRG_PersistLogEntry.persist(events);
+			}
+			finally
+			{
+				frameworkLogPersistenceDmlStatements += Limits.getDmlStatements() - dmlStatementsBefore;
+			}
 			return null;
 		}
 		return EventBus.publishWithAccessLevel(events, AccessLevel.SYSTEM_MODE);
@@ -1688,6 +1767,23 @@ public inherited sharing class LOG_Engine
 	public static Integer getAuditBufferSize()
 	{
 		return auditLogBuffer.size();
+	}
+
+	/**
+	 * @description Returns the running count of DML statements consumed by the framework's own
+	 * log persistence in this transaction — the direct-DML path that replaces publishing inside
+	 * a platform-event / change-event trigger dispatch. `UTIL_PostTriggerAction.runOne` samples
+	 * this before and after a post-action's `execute(context)` so the no-DML contract guard
+	 * discounts the engine's own persistence and blames the post-action only for DML it
+	 * performed itself. Public-but-not-global so subscribers cannot bind to it.
+	 *
+	 * @return The DML statements consumed so far by framework log persistence.
+	 *
+	 * @date August 2026
+	 */
+	public static Integer getFrameworkLogPersistenceDmlStatements()
+	{
+		return frameworkLogPersistenceDmlStatements;
 	}
 
 	/**
@@ -1829,7 +1925,7 @@ public inherited sharing class LOG_Engine
 	/**
 	 * @description Represents a list of messages to be logged
 	 */
-	private class DTO_LogMessages
+	private inherited sharing class DTO_LogMessages
 	{
 		/**
 		 * @description Contains error for this logger (if one was provided)
@@ -2006,7 +2102,7 @@ public inherited sharing class LOG_Engine
 				LogEntryEvent__e event = dtoLogMessage.getEvent();
 
 				event.ClassMethod__c = classMethod;
-				event.ExceptionType__c = error?.getTypeName();
+				event.ExceptionType__c = error?.getTypeName() ?? currentExceptionType;
 				event.ExecutionEvent__c = executionEvent;
 				event.Limits__c = getDebugLimits();
 				event.LineNumber__c = error?.getLineNumber();
@@ -2119,7 +2215,7 @@ public inherited sharing class LOG_Engine
 	/**
 	 * @description DTO representing a message to be logged
 	 */
-	private class DTO_LogMessage
+	private inherited sharing class DTO_LogMessage
 	{
 		/**
 		 * @description Object Record Id associated to this message
@@ -2184,7 +2280,7 @@ public inherited sharing class LOG_Engine
 	/**
 	 * @description Processor implementation that handles the publishing of Log Entry Events
 	 */
-	private class LoggerProcessor implements IF_Async.Processable
+	private inherited sharing class LoggerProcessor implements IF_Async.Processable
 	{
 		/**
 		 * @description Publishes the Log Events provided
@@ -2209,7 +2305,7 @@ public inherited sharing class LOG_Engine
 	 * Provides structured, typed access to correlation and context data.
 	 */
 	@TestVisible
-	private class DTO_LoggerContext
+	private inherited sharing class DTO_LoggerContext
 	{
 		public String correlationId;
 		public String parentTransactionId;
@@ -2221,7 +2317,7 @@ public inherited sharing class LOG_Engine
 	 * Avoids misusing semantically-specific exceptions like CalloutException.
 	 */
 	@TestVisible
-	private class TestSimulatedException extends Exception
+	private inherited sharing class TestSimulatedException extends Exception
 	{
 	}
 }

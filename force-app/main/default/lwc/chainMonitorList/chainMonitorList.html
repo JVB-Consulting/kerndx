@@ -9,11 +9,11 @@
 		<div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_x-small slds-gutters_x-small">
 			<div class="slds-col slds-grow">
 				<lightning-input label={label.nameFilter} oncommit={handleNameSearch} placeholder={label.nameFilterPlaceholder} type="search" value={nameFilter}
-				                 variant="label-hidden"></lightning-input>
+								 variant="label-hidden"></lightning-input>
 			</div>
 			<div class="slds-col slds-shrink-none">
 				<lightning-button-icon alternative-text="Toggle status filters" icon-name="utility:filterList" onclick={handleToggleFilters} size="medium"
-				                       variant="border-filled"></lightning-button-icon>
+									   variant="border-filled"></lightning-button-icon>
 			</div>
 		</div>
 
@@ -22,21 +22,37 @@
 			<div class="filter-tray slds-var-m-bottom_x-small">
 				<div class="filter-row">
 					<lightning-checkbox-group label={label.statusFilter} onchange={handleStatusChange} options={statusOptions} value={statusFilters}
-					                          variant="label-hidden"></lightning-checkbox-group>
+											  variant="label-hidden"></lightning-checkbox-group>
 					<lightning-button class="slds-shrink-none" label={toggleAllLabel} onclick={handleToggleAllStatuses} variant="base"></lightning-button>
 				</div>
 			</div>
 		</template>
 
 		<!-- Table -->
-		<lightning-datatable columns={columns} data={records} key-field="executionId" max-row-selection="1" onrowselection={handleRowSelection} onsort={handleSort}
-		                     selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
+		<template if:true={hasRecords}>
+			<lightning-datatable columns={columns} data={records} key-field="executionId" max-row-selection="1" onrowselection={handleRowSelection} onsort={handleSort}
+								 selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
 
-		<!-- Pagination -->
-		<div class="slds-grid slds-grid_align-center slds-var-m-top_x-small">
-			<lightning-button disabled={noPrevious} icon-name="utility:chevronleft" label={label.previous} onclick={handlePrevious}></lightning-button>
-			<span class="slds-var-p-horizontal_medium slds-align-middle slds-text-body_small">{pageLabel}</span>
-			<lightning-button disabled={noNext} icon-name="utility:chevronright" icon-position="right" label={label.next} onclick={handleNext}></lightning-button>
-		</div>
+			<!-- Pagination: only where there is something to page through. An empty result has no page to
+				 name, and a paginator over bare column headers reads as "Page 1 of 0". -->
+			<div class="slds-grid slds-grid_align-center slds-var-m-top_x-small" data-testid="list-paginator">
+				<lightning-button disabled={noPrevious} icon-name="utility:chevronleft" label={label.previous} onclick={handlePrevious}></lightning-button>
+				<span class="slds-var-p-horizontal_medium slds-align-middle slds-text-body_small">{pageLabel}</span>
+				<lightning-button disabled={noNext} icon-name="utility:chevronright" icon-position="right" label={label.next} onclick={handleNext}></lightning-button>
+			</div>
+		</template>
+
+		<!-- Empty state: says which of the two reasons emptied the list, and how to get out of it.
+			 Held back while the first read is still in flight so it never flashes over a load. -->
+		<template if:false={hasRecords}>
+			<template if:false={isLoading}>
+				<div class="slds-illustration slds-illustration_small slds-var-p-around_large" data-testid="list-empty-state">
+					<div class="slds-text-longform">
+						<h3 class="slds-text-heading_medium slds-text-color_weak">{label.emptyStateHeading}</h3>
+						<p class="slds-text-body_regular slds-text-color_weak">{emptyStateBody}</p>
+					</div>
+				</div>
+			</template>
+		</template>
 	</div>
 </template>

@@ -12,7 +12,7 @@
  *
  * @group Async
  *
- * @date July 2026
+ * @date July 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 private class CTRL_ChainMonitorAbort_TEST
@@ -24,19 +24,18 @@ private class CTRL_ChainMonitorAbort_TEST
 	@TestSetup
 	private static void setupTestUsers()
 	{
-		// Package installs write the AbortAsyncChain custom permission INTO profiles (the System
-		// Administrator profile on an admins-only install, every profile on an all-users install),
-		// so profile membership alone made the "bystander" a permission holder in subscriber orgs
-		// and both refusal tests failed there. Revoking the profile-held grants (test DML, rolled
-		// back after the run) pins the permission to its designed source — the AsyncChainAbort
-		// permission set — so grantee and bystander differ ONLY by that assignment in every org
-		// and install mode. The Kern Administrator permission set on both users is for the
-		// post-refusal row re-reads: view-all-records visibility over the privately-owned
-		// execution rows through the sharing-enforced selector, not for the refusal path itself.
-		TST_Factory.revokeProfileCustomPermissionGrants(UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME);
-		User grantee = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_SYSTEM_ADMIN, GRANTEE_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+		// Package installs write the AbortAsyncChain custom permission INTO profiles: the System
+		// Administrator profile on an admins-only install (the default), every profile on an all-users
+		// install. Both witness users therefore live on the Standard User profile, which the default
+		// install leaves grant-free, so grantee and bystander differ only by the AsyncChainAbort assignment —
+		// and nothing here touches an org-level setup row: the profile grants are shared state that
+		// every parallel test class can see, and deleting them collides on the row lock. The Kern
+		// Administrator permission set on both users is for the post-refusal row re-reads: view-all-
+		// records visibility over the privately-owned execution rows through the sharing-enforced
+		// selector, not for the refusal path itself.
+		User grantee = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, GRANTEE_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 		TST_Factory.createPermissionSetAssignments(new List<User> {grantee}, UTIL_AsyncChain.ABORT_PERMISSION_SET_NAME);
-		TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_SYSTEM_ADMIN, BYSTANDER_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+		TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, BYSTANDER_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 	}
 
 	private static User getGrantee()
@@ -44,9 +43,18 @@ private class CTRL_ChainMonitorAbort_TEST
 		return new SEL_User().findByCompanyName(GRANTEE_COMPANY);
 	}
 
+	/**
+	 * @description The bystander, asserted to be one: on an all-users install the profile grant makes
+	 * every user a permission holder, and a refusal test run there is not testing a bystander — it says
+	 * so instead of editing the org's setup rows to manufacture one.
+	 *
+	 * @return The bystander user, guaranteed to lack the abort custom permission.
+	 */
 	private static User getBystander()
 	{
-		return new SEL_User().findByCompanyName(BYSTANDER_COMPANY);
+		User bystander = new SEL_User().findByCompanyName(BYSTANDER_COMPANY);
+		Assert.isFalse(SEL_CustomPermission.hasPackagePermission(bystander.Id, UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME), 'This org grants ' + UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME + ' to the Standard User profile (an all-users package install), so no bystander exists to prove the refusal against; run this suite in an org installed for admins only');
+		return bystander;
 	}
 
 	/**
@@ -93,10 +101,10 @@ private class CTRL_ChainMonitorAbort_TEST
 		System.runAs(getGrantee())
 		{
 			Test.startTest();
-			CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
+			CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
 			Test.stopTest();
 
-			Assert.areEqual(CTRL_ChainMonitor.ABORT_AVAILABLE, detail.abortAvailability, 'A Running chain is abortable for a holder of the abort permission');
+			Assert.areEqual(CTRL_ChainMonitor.OPERATOR_AVAILABLE, detail.abortAvailability, 'A Running chain is abortable for a holder of the abort permission');
 		}
 	}
 
@@ -112,10 +120,10 @@ private class CTRL_ChainMonitorAbort_TEST
 		System.runAs(getBystander())
 		{
 			Test.startTest();
-			CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
+			CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
 			Test.stopTest();
 
-			Assert.areEqual(CTRL_ChainMonitor.ABORT_PERMISSION_MISSING, detail.abortAvailability, 'Without the custom permission the reason is the missing permission');
+			Assert.areEqual(CTRL_ChainMonitor.OPERATOR_PERMISSION_MISSING, detail.abortAvailability, 'Without the custom permission the reason is the missing permission');
 		}
 	}
 
@@ -131,7 +139,7 @@ private class CTRL_ChainMonitorAbort_TEST
 		System.runAs(getGrantee())
 		{
 			Test.startTest();
-			CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
+			CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
 			Test.stopTest();
 
 			Assert.areEqual(CTRL_ChainMonitor.ABORT_CHAIN_NOT_ABORTABLE, detail.abortAvailability, 'A Completed chain is not abortable, permission or not');
@@ -153,10 +161,10 @@ private class CTRL_ChainMonitorAbort_TEST
 			SEL_FeatureFlag.activeFlags.remove(UTIL_AsyncChain.ABORT_FEATURE_FLAG_NAME);
 
 			Test.startTest();
-			CTRL_ChainMonitor.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
+			CTRL_ChainMonitorTypes.DTO_ChainDetail detail = CTRL_ChainMonitor.getChainDetail(execution.Id);
 			Test.stopTest();
 
-			Assert.areEqual(CTRL_ChainMonitor.ABORT_CAPABILITY_DISABLED, detail.abortAvailability, 'An inactive flag reads as the org-wide off state');
+			Assert.areEqual(CTRL_ChainMonitor.OPERATOR_CAPABILITY_DISABLED, detail.abortAvailability, 'An inactive flag reads as the org-wide off state');
 		}
 	}
 
@@ -173,7 +181,7 @@ private class CTRL_ChainMonitorAbort_TEST
 		System.runAs(getGrantee())
 		{
 			Test.startTest();
-			CTRL_ChainMonitor.DTO_ChainDetail result = CTRL_ChainMonitor.abortChain(execution.Id);
+			CTRL_ChainMonitorTypes.DTO_ChainDetail result = CTRL_ChainMonitor.abortChain(execution.Id);
 			Test.stopTest();
 
 			AsyncChainExecution__c row = queryExecution(execution.Id);

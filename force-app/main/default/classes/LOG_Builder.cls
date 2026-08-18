@@ -73,12 +73,13 @@
  *
  * @see LoggingLevel
  * @see LOG_Builder_TEST
+ * @see TRG_PersistLogEntry
  *
  * @author Jason van Beukering
  *
  * @group Logging
  *
- * @date October 2024, July 2026
+ * @date October 2024, August 2026
  *
  * @since 1.0
  *
@@ -243,6 +244,29 @@ global inherited sharing class LOG_Builder
 	global static String serializeContext()
 	{
 		return LOG_Engine.serializeContext();
+	}
+
+	/**
+	 * @description Serializes a logging context carrying the SUPPLIED correlation id — for
+	 * handing a different execution its own logging identity (for example, a restarted chain's
+	 * fresh run) without reading or touching this transaction's live context. The document is
+	 * minimal on purpose: it carries no transaction lineage and no live context data, because it
+	 * is written for another execution and outlives this request.
+	 *
+	 * @param correlationId The correlation id the serialized context carries.
+	 *
+	 * @return String JSON context for the supplied correlation id, ready for hydrateContext.
+	 *
+	 * @since 1.7
+	 *
+	 * @example
+	 * ```apex
+	 * String cloneLogContext = LOG_Builder.serializeContext(cloneCorrelationId);
+	 * ```
+	 */
+	global static String serializeContext(String correlationId)
+	{
+		return LOG_Engine.serializeContext(correlationId);
 	}
 
 	/**
@@ -415,7 +439,7 @@ global inherited sharing class LOG_Builder
 	 * scope.close();
 	 * ```
 	 */
-	global class LogScope
+	global inherited sharing class LogScope
 	{
 		/**
 		 * @description Whether this scope has already been closed.
@@ -537,24 +561,47 @@ global inherited sharing class LOG_Builder
 	 */
 	private static String normalizeFingerprintKey(String key)
 	{
-		if(String.isBlank(key))
+		String normalized = normalizeStoredFingerprintKey(key);
+		if(normalized == null)
 		{
 			return null;
 		}
-		String trimmed = key.trim();
-		if(trimmed.startsWith(RESERVED_FINGERPRINT_PREFIX))
-		{
-			return UTIL_Crypto.generateSHA256Hash(trimmed);
-		}
-		return capFingerprintLength(trimmed);
+		return normalized.startsWith(RESERVED_FINGERPRINT_PREFIX) ? UTIL_Crypto.generateSHA256Hash(normalized) : normalized;
+	}
+
+	/**
+	 * @description Puts a fingerprint key into the exact shape `LogEntry__c.Fingerprint__c` can hold:
+	 * blank → null, edge whitespace trimmed, anything past the raw budget SHA-256 hashed. Both halves
+	 * matter to the database, and for opposite reasons — Salesforce strips a text field's edge
+	 * whitespace on save, so an untrimmed key is stored under a value no lookup of the untrimmed key
+	 * can ever match, while a key past the budget makes the prefixed `detail:`/`rollup:` key longer
+	 * than the field and the row is refused outright.
+	 *
+	 * Every producer of a stored fingerprint runs its key through here, so one rule governs the whole
+	 * lifecycle: `withFingerprint`, `withFingerprintInternal`, and the persist side
+	 * (`TRG_PersistLogEntry.groupEvents`), which normalizes again because it also receives events
+	 * nothing in this class ever touched — a `LogEntryEvent__e` published directly carries whatever
+	 * its own 216-character field accepted.
+	 *
+	 * @param key The raw key to put into storable shape.
+	 *
+	 * @return The storable key, or null when the key is blank.
+	 */
+	public static String normalizeStoredFingerprintKey(String key)
+	{
+		return String.isBlank(key) ? null : capFingerprintLength(key.trim());
 	}
 
 	/**
 	 * @description Length-caps a fingerprint key to the raw budget by SHA-256 hashing anything
-	 * longer, so the prefixed `detail:`/`rollup:` keys always fit the Fingerprint__c field. Shared
-	 * by the subscriber normalizer and the framework-internal setter so neither path can overflow.
+	 * longer, so the prefixed `detail:`/`rollup:` keys always fit the Fingerprint__c field. Hashing
+	 * rather than truncating is the point: a cut would silently collapse distinct events whose keys
+	 * differ only past it.
 	 *
-	 * @param key The already-trimmed or pre-composed key to length-check.
+	 * The length half of `normalizeStoredFingerprintKey`, which is its only caller and which has
+	 * already trimmed the key by the time it arrives here.
+	 *
+	 * @param key The already-trimmed key to length-check.
 	 *
 	 * @return The key unchanged when within budget, otherwise its SHA-256 hash.
 	 */
@@ -598,7 +645,7 @@ global inherited sharing class LOG_Builder
 	 *     .emit();
 	 * ```
 	 */
-	global class LogEntry
+	global inherited sharing class LogEntry
 	{
 		/**
 		 * @description Brief summary message for the log entry.
@@ -650,6 +697,12 @@ global inherited sharing class LOG_Builder
 		 * or null to let the engine calculate one. Ignored when an exception is logged.
 		 */
 		private String stackTrace;
+
+		/**
+		 * @description Caller-supplied exception class name persisted as the entry's exception type, or
+		 * null to leave the type unset. Ignored when an exception is logged.
+		 */
+		private String exceptionType;
 
 		/**
 		 * @description Sets the log level to DEBUG with the given message.
@@ -887,10 +940,12 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Framework-internal fingerprint setter that skips subscriber normalization so
-		 * the framework can stamp reserved-prefix keys verbatim (e.g. bypass-audit fingerprints), but
-		 * still length-caps an oversized key (SHA-256 hash beyond the raw budget) so the framework can
-		 * never overflow the Fingerprint__c field. Public-but-not-global so subscribers cannot bind to it.
+		 * @description Framework-internal fingerprint setter that skips the reserved-prefix hashing so
+		 * the framework can stamp reserved-prefix keys verbatim (e.g. bypass-audit fingerprints), while
+		 * still putting the key into storable shape — trimmed and length-capped by
+		 * `normalizeStoredFingerprintKey` — so a framework key can never be refused by the database for
+		 * a shape the subscriber setter would have fixed. Public-but-not-global so subscribers cannot
+		 * bind to it.
 		 *
 		 * @param key The pre-composed framework fingerprint key.
 		 *
@@ -898,7 +953,7 @@ global inherited sharing class LOG_Builder
 		 */
 		public LogEntry withFingerprintInternal(String key)
 		{
-			this.fingerprintKey = capFingerprintLength(key);
+			this.fingerprintKey = normalizeStoredFingerprintKey(key);
 			return this;
 		}
 
@@ -919,6 +974,24 @@ global inherited sharing class LOG_Builder
 		public LogEntry withStackTraceInternal(String stackTrace)
 		{
 			this.stackTrace = stackTrace;
+			return this;
+		}
+
+		/**
+		 * @description Framework-internal variant that names the entry's exception type when no Apex
+		 * exception carries that name. Used by `CTRL_Logger` to persist the exception class a
+		 * client-side failure reported, so an LWC failure names its type the way a server-side one does
+		 * and folds into the same problem grouping. Ignored when the entry logs a real exception — the
+		 * exception's own type always wins. Public-but-not-global so subscribers cannot bind to it;
+		 * subscriber Apex names a type by logging the exception itself through the global surface.
+		 *
+		 * @param exceptionType The exception class name to persist; blank values are ignored.
+		 *
+		 * @return This LogEntry for chaining
+		 */
+		public LogEntry withExceptionTypeInternal(String exceptionType)
+		{
+			this.exceptionType = exceptionType;
 			return this;
 		}
 
@@ -1009,8 +1082,8 @@ global inherited sharing class LOG_Builder
 		 * entry through either the application-log path (`LOG_Engine.log`) or the audit-log path
 		 * (`LOG_Engine.logAudit`) depending on `isAudit`. Per-entry context is temporarily set as
 		 * global context for the duration of the log call, then cleaned up to prevent leaking
-		 * into subsequent logs; the per-emit fingerprint and stack-trace channels follow the same
-		 * set-then-clear lifecycle.
+		 * into subsequent logs; the per-emit channels follow the same lifecycle, opened by
+		 * `openEmitChannels` and closed by `closeEmitChannels` in the finally.
 		 *
 		 * @param isAudit `true` to route to the audit buffer; `false` for the application buffer.
 		 */
@@ -1024,15 +1097,7 @@ global inherited sharing class LOG_Builder
 				LOG_Engine.setGlobalContext(key, context.get(key));
 			}
 
-			if(String.isNotBlank(fingerprintKey))
-			{
-				LOG_Engine.setCurrentFingerprint(fingerprintKey);
-			}
-
-			if(String.isNotBlank(stackTrace))
-			{
-				LOG_Engine.setCurrentStackTrace(stackTrace);
-			}
+			openEmitChannels();
 
 			try
 			{
@@ -1067,9 +1132,43 @@ global inherited sharing class LOG_Builder
 					LOG_Engine.clearGlobalContext(key);
 				}
 
-				LOG_Engine.clearCurrentFingerprint();
-				LOG_Engine.clearCurrentStackTrace();
+				closeEmitChannels();
 			}
+		}
+
+		/**
+		 * @description Opens the per-emit channels this entry carries — its fingerprint, its stack trace
+		 * and its exception type — on the engine, so every event built during the log call picks them up.
+		 * A channel is opened only when this entry supplies a value for it, leaving the others untouched.
+		 * `emitInternal` closes all three in its finally, so a channel can never carry into a later entry.
+		 */
+		private void openEmitChannels()
+		{
+			if(String.isNotBlank(fingerprintKey))
+			{
+				LOG_Engine.setCurrentFingerprint(fingerprintKey);
+			}
+
+			if(String.isNotBlank(stackTrace))
+			{
+				LOG_Engine.setCurrentStackTrace(stackTrace);
+			}
+
+			if(String.isNotBlank(exceptionType))
+			{
+				LOG_Engine.setCurrentExceptionType(exceptionType);
+			}
+		}
+
+		/**
+		 * @description Closes every per-emit channel `openEmitChannels` can open, whether this entry
+		 * opened it or not, so the next entry emitted in the same transaction starts from a clean engine.
+		 */
+		private void closeEmitChannels()
+		{
+			LOG_Engine.clearCurrentFingerprint();
+			LOG_Engine.clearCurrentStackTrace();
+			LOG_Engine.clearCurrentExceptionType();
 		}
 	}
 }

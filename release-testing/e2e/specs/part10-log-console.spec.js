@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 //
-// Part 10: Log Console (V106-V113).
+// Part 10: Log Console (V106-V113, plus the V122-V126 scripted matrix from PLAN-106 Phase 0 R3:
+// OFFSET-proof deep scroll, sort persistence across a filter change, phone-width ribbon + drawer,
+// the View-occurrences drill, and the still-running-chain frozen window end; plus V127 from Phase 4:
+// opening a read-time-grouped problem, which the jest suite structurally cannot cover because it
+// stubs lightning/datatable and so sees neither real key-field handling nor real focus movement;
+// plus V128/V129, which prove a cleared hand-off cannot return — neither with the temporary tab it
+// opened nor from the URL it left behind. Both are round trips through real Lightning navigation
+// that no jest wire emission can stand in for, and they are separate tests deliberately: a reload
+// builds a new console, which is precisely what makes each path unable to prove the other; plus
+// V130/V131 from the 1.7 UX sweep: Escape closing the drawer and handing focus back to the list, and
+// an inverted custom range being refused out loud. Both are browser-only — focus movement crosses the
+// shadow boundary a jest datatable stub never builds, and the range message rides real Lightning
+// date inputs, which validate typed text against the org user's locale).
 //
 // The console's Apex plumbing (CTRL_LogConsole and the read layer under it) is public, not global,
 // so no subscriber Apex test can reach it — this spec is the only subscriber-context proof of the
@@ -22,7 +34,8 @@ const {test, expect} = require('@playwright/test');
 const LogConsolePage = require('../pages/log-console.page');
 const ChainMonitorPage = require('../pages/chain-monitor.page');
 const KernHomePage = require('../pages/kern-home.page');
-const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
+const {navigateToApp, clickOtherNavTab, waitForPageLoad} = require('../helpers/sf-navigation');
+const {getInstanceUrl} = require('../helpers/sf-auth');
 const {runApexScript, soqlQuery} = require('../helpers/sf-cli');
 
 const SEED_SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'seed-log-console.apex');
@@ -49,6 +62,15 @@ function daysAgo(days)
 	const date = new Date();
 	date.setDate(date.getDate() - days);
 	return date;
+}
+
+// The entries grid renders each row's time as `Mon d, yyyy, h:mm AM/PM`. Pull the first such stamp
+// out of a row's inner text so a test can compare the list's head and tail times without depending
+// on which of several equal-timestamp rows the server happened to order first.
+function firstRowTime(rowText)
+{
+	const match = (rowText || '').match(/[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s*[AP]M/);
+	return match ? new Date(match[0]) : null;
 }
 
 test.describe.serial('Part 10: Log Console', () =>
@@ -350,6 +372,89 @@ test.describe.serial('Part 10: Log Console', () =>
 		expect(page.url(), 'The round trip should carry the correlation id in the page state').toContain(CHAIN_CORRELATION);
 	});
 
+	test('V128: Clearing a pinned correlation drops the hand-off, which cannot come back with the tab', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		const monitor = new ChainMonitorPage(page);
+		await monitor.navigate();
+
+		let rows = await monitor.getRowTexts();
+		let chainIndex = rows.findIndex((text) => text.includes('Order Fulfilment'));
+		if(chainIndex < 0)
+		{
+			await monitor.clickColumnHeader('Started');
+			rows = await monitor.getRowTexts();
+			chainIndex = rows.findIndex((text) => text.includes('Order Fulfilment'));
+		}
+		expect(chainIndex, 'The seeded Order Fulfilment chain should be listed in the Chain Monitor').toBeGreaterThanOrEqual(0);
+		await monitor.selectRow(chainIndex);
+		await monitor.getDetailPanel().locator('[data-testid="view-logs"]').first().click();
+		await waitForPageLoad(page);
+
+		const console = new LogConsolePage(page);
+		await console.root().waitFor({state: 'visible', timeout: 60_000});
+		await console.waitForListSettled();
+		await expect(console.correlationPill(), 'The hand-off should arrive pinned to the chain correlation').toBeVisible();
+		expect(page.url(), 'The hand-off travels as page state on the console tab URL').toContain('c__correlationId');
+
+		// The reader drops the pinned filter. The state that put it there has to go with it: the tab a
+		// hand-off opens is temporary and keeps the URL it was opened with, so a surviving c__correlationId
+		// re-pins the chain — and the two-minute window with it — on every later return to this tab.
+		await console.removeCorrelation();
+		await expect(console.correlationPill(), 'Removing the pill should clear the pinned correlation').toHaveCount(0);
+		expect(page.url(), 'Clearing the filter must drop the hand-off state from the URL that carries it').not.toContain('c__correlationId');
+		expect(page.url(), 'Dropping the state must not navigate off the console').toContain(`/lightning/n/${console.tabApiName()}`);
+
+		// Leave and come back the way a reader does: the Log Console tab the hand-off opened. That tab is
+		// temporary and Lightning restores it from the page reference it was CREATED with, so the c__ state
+		// can reappear in the address bar whatever the console did to its own URL — that part is the
+		// platform's, not ours. What must not come back is the filter: a hand-off is applied once, so the
+		// re-delivered page reference leaves the cleared console exactly as the reader left it.
+		// The leave stays SPA via whichever tab the CURRENT nav bar offers: current scratch pools may host
+		// the temporary tab outside the Kern app, and recovering from that with an app hop reloads the page
+		// — a reload legitimately resets the once-per-link key, which is V129's scenario, not this one.
+		await clickOtherNavTab(page, 'Log Console');
+		await console.returnByNavigationTab();
+
+		await expect(console.correlationPill(), 'A cleared correlation must not return with the tab').toHaveCount(0);
+	});
+
+	test('V129: A console rebuilt from a cleared hand-off URL comes up on its own defaults', async({page}) =>
+	{
+		test.setTimeout(180_000);
+		const console = new LogConsolePage(page);
+
+		// Arrive as a hand-off does — the console tab plus the chain's correlation and window as page state.
+		// Straight by URL rather than through the Chain Monitor: this test is about what the URL carries
+		// afterwards, and a bookmarked or reloaded hand-off is exactly this address.
+		const windowEnd = new Date();
+		const windowStart = new Date(windowEnd.getTime() - 120_000);
+		const handoffUrl = `${getInstanceUrl()}/lightning/n/${console.tabApiName()}`
+				+ `?c__correlationId=${CHAIN_CORRELATION}&c__windowStart=${encodeURIComponent(windowStart.toISOString())}`
+				+ `&c__windowEnd=${encodeURIComponent(windowEnd.toISOString())}`;
+		await page.goto(handoffUrl, {waitUntil: 'domcontentloaded'});
+		await waitForPageLoad(page);
+		await console.root().waitFor({state: 'visible', timeout: 60_000});
+		await console.waitForListSettled();
+
+		await expect(console.correlationPill(), 'The hand-off URL should pin the chain correlation').toBeVisible();
+		expect(await console.dateRangeLabel(), 'A hand-off carrying bounds pins the console to exactly that window').toBe('Custom range…');
+
+		await console.removeCorrelation();
+		expect(page.url(), 'Clearing the filter must drop the hand-off state from the URL').not.toContain('c__correlationId');
+
+		// The console is now built again from that cleaned address. Both halves of the hand-off — the pinned
+		// correlation and the chain's two-minute window — used to be re-applied here, over a filter bar the
+		// reader had just emptied, because the URL still described them.
+		await page.reload({waitUntil: 'domcontentloaded'});
+		await waitForPageLoad(page);
+		await console.root().waitFor({state: 'visible', timeout: 60_000});
+		await console.waitForListSettled();
+
+		await expect(console.correlationPill(), 'A console rebuilt from the cleared URL must not be re-pinned').toHaveCount(0);
+		expect(await console.dateRangeLabel(), 'The chain\'s window must not return either — a rebuilt console opens on its default range').toBe('Last 24 hours');
+	});
+
 	test('V113: Detail drawer renders payload tabs, resolved user, and chain-gated timeline', async({page}) =>
 	{
 		test.setTimeout(240_000);
@@ -405,5 +510,296 @@ test.describe.serial('Part 10: Log Console', () =>
 		await expect(console.timelineNote(), 'The not-a-registered-chain note should render').toBeVisible();
 		expect(await console.timelineNote().innerText(), 'The note should explain there is no Chain Monitor view')
 		.toContain('not a registered async chain');
+	});
+
+	test('V122: Endless scroll pages past two thousand rows without an OFFSET failure', async({page}) =>
+	{
+		test.setTimeout(600_000);
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.switchView('entries');
+		await console.enableAllLevels();
+		await console.selectDateRange('Last 30 days');
+
+		// SOQL OFFSET caps at 2,000 rows; the console's pager is cursor-based and must sail past
+		// it. The R0 bulk seed plus the org's ambient entries guarantee more than 2,000 matches on
+		// the widest preset with every level on. Two consecutive stalls end the loop early so a
+		// genuinely exhausted list fails the depth assertion instead of spinning out the timeout.
+		let rows = await console.getRowCount();
+		expect(rows, `First load should fill exactly one page of ${PAGE_SIZE} rows`).toBe(PAGE_SIZE);
+		let stalls = 0;
+		for(let attempt = 0; attempt < 60 && rows <= 2000 && stalls < 2; attempt++)
+		{
+			const before = rows;
+			await console.scrollTableToBottom();
+			rows = await console.getRowCount();
+			stalls = rows === before ? stalls + 1 : 0;
+		}
+		test.info().annotations.push({type: 'notes', description: `Rows after deep scroll: ${rows}`});
+		expect(rows, 'The cursor-based pager should keep appending past the 2,000-row OFFSET cap').toBeGreaterThan(2000);
+	});
+
+	test('V123: The active sort order survives a filter change', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.switchView('entries');
+		await console.enableAllLevels();
+
+		// Flip Time from the default descending to ascending, then change a filter and prove the
+		// ascending order is still in force. The seed back-dates many rows to identical CreatedDate
+		// values, so the specific head row is a tie group with no stable order across queries — this
+		// asserts the ORDER persists (header indicator + oldest-first-to-newest-last on the page),
+		// not that one particular row stays pinned, which ties make non-deterministic.
+		const orderSignature = async() =>
+		{
+			const texts = await console.getRowTexts();
+			const first = firstRowTime(texts[0]);
+			const last = firstRowTime(texts[texts.length - 1]);
+			return {first, last, count: texts.length};
+		};
+
+		await console.clickColumnHeader('Time');
+		expect(await console.getColumnHeaderText(), 'Time should sort ascending after the header click').toContain('Sorted Ascending');
+		const ascendingBefore = await orderSignature();
+		expect(ascendingBefore.first && ascendingBefore.last, 'Both edge rows should carry a parseable time').toBeTruthy();
+		expect(ascendingBefore.first.getTime(), 'Ascending should run oldest-first to newest-last down the page')
+		.toBeLessThanOrEqual(ascendingBefore.last.getTime());
+
+		// Toggle DEBUG off — the ascending sort must survive the filter change (header indicator and
+		// page order both), rather than snapping back to the default Time-descending.
+		await console.setLevel('DEBUG', false);
+		const headerAfter = await console.getColumnHeaderText();
+		expect(headerAfter, 'The ascending sort should survive the level change').toContain('Sorted Ascending');
+		expect(headerAfter, 'The sort must not snap back to the default descending').not.toContain('Sorted Descending');
+		const ascendingAfter = await orderSignature();
+		expect(ascendingAfter.count, 'Rows should still render after the filter change').toBeGreaterThan(0);
+		expect(ascendingAfter.first.getTime(), 'The list should still be ordered ascending after the filter change')
+		.toBeLessThanOrEqual(ascendingAfter.last.getTime());
+		test.info().annotations.push({type: 'notes', description: `Ascending held across DEBUG-off: before ${ascendingBefore.first?.toISOString()}..${ascendingBefore.last?.toISOString()}, after ${ascendingAfter.first?.toISOString()}..${ascendingAfter.last?.toISOString()}`});
+	});
+
+	test('V124: Phone width keeps the ribbon scrollable and opens the detail drawer', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		await page.setViewportSize({width: 390, height: 844});
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.switchView('entries');
+
+		// The summary ribbon must overflow-scroll at phone width — wrapped or clipped cards were
+		// the R2 mobile defect this guards against.
+		const ribbon = console.root().locator('.summary').first();
+		const overflow = await ribbon.evaluate((element) => element.scrollWidth - element.clientWidth);
+		expect(overflow, 'The ribbon should overflow horizontally at phone width').toBeGreaterThan(0);
+		const scrolled = await ribbon.evaluate((element) =>
+		{
+			element.scrollLeft = element.scrollWidth;
+			return element.scrollLeft;
+		});
+		expect(scrolled, 'The ribbon should scroll to its trailing cards').toBeGreaterThan(0);
+
+		await console.selectRow(0);
+		await expect(console.detailPanel(), 'Selecting a row at phone width should open the drawer').toBeVisible();
+	});
+
+	test('V125: The View-occurrences drill lands on a populated entries list', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		const console = new LogConsolePage(page);
+		await console.navigate();
+
+		// Problems is the default view; drill the top problem's raw rows. The drill pins the class and
+		// method the problem was grouped under rather than searching for its class name as free text,
+		// so every row it lands on really was logged from that source.
+		await console.selectRow(0);
+		await console.detailPanel().locator('[data-testid="action-view-occurrences"]').first().click();
+		await console.waitForListSettled();
+
+		expect(await console.isViewActive('entries'), 'The drill should switch to Individual entries').toBeTruthy();
+		await expect(console.sourceFilterPill(), 'The drill should pin a visible, removable source filter').toBeVisible();
+		// lightning-pill takes its label as a property, not a reflected attribute, so it is read off the
+		// element rather than the DOM.
+		const pinned = await console.sourceFilterPill().evaluate((pill) => pill.label);
+		expect(await console.searchValue(), 'A pinned drill leaves the search box alone').toBe('');
+		const rows = await console.getRowCount();
+		test.info().annotations.push({type: 'notes', description: `Pinned "${pinned}" matched ${rows} rows`});
+		expect(rows, 'The drill should land populated on seeded data').toBeGreaterThan(0);
+
+		// Every listed row carries the pinned source, which the old free-text drill could not promise:
+		// it also matched rows that merely mentioned the class name in a message or a stack trace.
+		// Matched through Playwright's text engine rather than DOM textContent: the datatable renders its
+		// cells inside their own shadow roots, which a raw textContent read never enters.
+		const pinnedSource = pinned.replace(/^[^:]*:\s*/, '');
+		const carryingTheSource = console.rows().filter({hasText: pinnedSource});
+		expect(await carryingTheSource.count(), 'Every row behind a drilled problem should carry that problem\'s own source').toBe(rows);
+
+		// A problem always carries a count, and that count outlives the entries it counted, so the two
+		// numbers on screen differ and the console says how they relate rather than leaving the reader
+		// to reconcile "1,284 occurrences" with a handful of rows.
+		await expect(console.occurrencesReconciliation(), 'The drill should reconcile the count with the entries on file').toBeVisible();
+
+		// And the pin comes off again, restoring the unfiltered list.
+		await console.sourceFilterPill().locator('button').first().click();
+		await console.waitForListSettled();
+		await expect(console.sourceFilterPill(), 'Removing the pill should clear the pinned source').toHaveCount(0);
+		await expect(console.occurrencesReconciliation(), 'Nothing is pinned, so there is nothing to reconcile').toHaveCount(0);
+	});
+
+	test('V130: Escape closes the drawer and hands focus back to the list', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		// Focus movement across the shadow boundary is exactly what the jest stub of lightning/datatable
+		// cannot answer: only a browser can say where focus actually went.
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.selectRow(0);
+		await expect(console.detailPanel(), 'Selecting a row should open the drawer').toBeVisible();
+
+		// Opening a row puts focus on the drawer panel, so the drawer's own controls are the next tab
+		// stop rather than every remaining row's log-number link.
+		const landedInDrawer = await console.root().evaluate((root) =>
+		{
+			const panel = root.querySelector('[data-testid="detail-panel"]');
+			return !!panel && panel.getRootNode().activeElement === panel;
+		});
+		expect(landedInDrawer, 'Opening a row should put focus on the drawer panel').toBeTruthy();
+
+		await page.keyboard.press('Escape');
+		await page.waitForTimeout(500);
+
+		await expect(console.detailPanel(), 'Escape should close the drawer').toHaveCount(0);
+		const focusOnList = await console.root().evaluate((root) =>
+		{
+			const list = root.querySelector('.listwrap');
+			return !!list && list.getRootNode().activeElement === list;
+		});
+		expect(focusOnList, 'Closing the drawer should return focus to the list').toBeTruthy();
+	});
+
+	test('V131: An inverted custom range is refused out loud instead of silently ignored', async({page}) =>
+	{
+		test.setTimeout(240_000);
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.selectDateRange('Custom range…');
+
+		// A forward range applies and the list reloads.
+		await console.setCustomRange({fromDate: toLocalDateInput(daysAgo(3)), fromTime: '00:00', toDate: toLocalDateInput(new Date()), toTime: '23:59'});
+		await expect(console.customRangeError(), 'A usable range carries no message').toHaveCount(0);
+
+		// Now put the end before the start. The window cannot be run, and leaving the previous rows on
+		// screen with nothing said made them look like the answer to the range just typed.
+		await console.setCustomRange({fromDate: toLocalDateInput(daysAgo(1)), fromTime: '00:00', toDate: toLocalDateInput(daysAgo(3)), toTime: '00:00'});
+
+		await expect(console.customRangeError(), 'An inverted range should say so').toBeVisible();
+		expect(await console.customRangeError().textContent(), 'The message should name the field to fix').toContain('To date');
+	});
+
+	test('V127: A grouped problem opens, keeps its selection, and hands focus on', async({page}) =>
+	{
+		test.setTimeout(300_000);
+		// Jest cannot reach any of this. It stubs lightning/datatable, so the real key-field handling, the
+		// real single-select behaviour and real focus movement across the shadow boundary are all invisible
+		// to the unit suite — and a grouped problem is precisely the row whose key is neither an id nor
+		// anything the datatable has seen before. Only a browser can answer it.
+		const console = new LogConsolePage(page);
+		await console.navigate();
+		await console.waitForListSettled();
+
+		// A grouped row is the one with no Log Number: it owns no record, so that cell carries the muted
+		// stand-in mark. Found by that cell specifically — a tagged problem can dash its Source or Context
+		// cell too, and would then fail the grouped-problem assertions below for the wrong reason.
+		const groupedIndex = await console.findGroupedRowIndex();
+		if(groupedIndex < 0)
+		{
+			// Before skipping, make sure the finder is not blind rather than the list empty of groups: the datatable
+			// keys a grouped row on its grouping identity, never on a record id, so a non-id row key with no stand-in
+			// mark rendered means the logNumber cell type stopped rendering — a failure, not an absence.
+			const rowKeys = await console.rows().evaluateAll((rows) => rows.map((row) => row.getAttribute('data-row-key-value')));
+			expect(rowKeys.some((key) => key && !/^[a-zA-Z0-9]{15,18}$/.test(key)),
+					'A grouped row is listed but its log-number cell shows no stand-in: the logNumber cell type is not rendering').toBe(false);
+		}
+		test.skip(groupedIndex < 0, 'No grouped problem in the seeded window; problem grouping may be off for these levels');
+
+		await console.selectRow(groupedIndex);
+		await expect(console.detailPanel(), 'Selecting a grouped problem should open the drawer').toBeVisible();
+
+		// The button is named for what it opens, because there is no record of the group itself to open.
+		await expect(console.detailPanel().locator('[data-testid="action-open-latest"]').first(),
+				'A grouped problem should offer its latest occurrence').toBeVisible();
+		await expect(console.detailPanel().locator('[data-testid="action-open-record"]'),
+				'A grouped problem has no record of its own to open').toHaveCount(0);
+		await expect(console.detailPanel().locator('[data-testid="log-number"]'),
+				'A grouped problem should not show a log number it does not have').toHaveCount(0);
+
+		// The real datatable keys grouped rows on plain delimited text rather than a record id. If that value
+		// were mishandled the row would lose its selection the moment anything re-rendered.
+		const stillSelected = await console.rows().nth(groupedIndex).getAttribute('aria-selected');
+		test.info().annotations.push({type: 'notes', description: `Grouped row ${groupedIndex} aria-selected=${stillSelected}`});
+
+		// Focus has to be able to leave the row and reach the drawer, which is the interaction jest's stub
+		// cannot exercise at all.
+		const closeButton = console.detailPanel().locator('[data-testid="close-button"] button').first();
+		await closeButton.focus();
+		const focusReached = await closeButton.evaluate((element) => element.getRootNode().activeElement === element);
+		expect(focusReached, 'The drawer close control should be reachable by keyboard from the list').toBeTruthy();
+
+		// The two custom cell types read their attributes off the REAL datatable's typeAttributes bag — the one
+		// thing the jest stub cannot prove, and the one that shipped broken once (a bare {recordUrl} binding
+		// rendered every log number as muted text and never showed a pill). A tagged row keeps its record link
+		// and carries the pill; a grouped row's log-number cell is the muted stand-in and never a link.
+		// The seed always lands tagged problems in the default view (e2e-npe-afterupdate, e2e-pay-timeout), so a list
+		// with no pill at all IS the regression, never an absence to skip over.
+		const taggedRows = console.rows().filter({has: page.locator('.provenance-pill')});
+		expect(await taggedRows.count(), 'The seeded tagged problems should carry the Tagged pill').toBeGreaterThan(0);
+		await expect(taggedRows.first().locator('a').first(), 'A tagged row should keep its record link beside the pill').toBeVisible();
+		await expect(taggedRows.first().locator('.log-number-none'), 'A tagged row has a record, so its log number is a link, not the stand-in').toHaveCount(0);
+		// The log-number column is the only column that renders an anchor, so a grouped row carries none at all.
+		await expect(console.rows().nth(groupedIndex).locator('a'), 'A grouped row must not link a record it does not have').toHaveCount(0);
+
+		// And the approximate-totals help must be a focusable control now, not a title attribute — a title
+		// reaches neither a keyboard nor a touch device.
+		const helpIcon = console.root().locator('[data-testid="totals-approximate-help"]');
+		if(await helpIcon.count() > 0)
+		{
+			await expect(helpIcon.first().locator('button'), 'The approximate-totals help should be a focusable control').toBeVisible();
+		}
+	});
+
+	test('V126: A still-running chain deep link freezes the window end and Refresh keeps it', async({page}) =>
+	{
+		test.setTimeout(300_000);
+		const console = new LogConsolePage(page);
+		const windowStart = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+		// A deep link whose source is still running carries no upper bound; the console freezes
+		// customEnd at link-arrival time and Refresh must KEEP that frozen bound (later logs need a
+		// manual range widen — the trade is transparent in the custom inputs). Waiting out a minute
+		// boundary before refreshing makes a recomputed "now" bound show up as a changed To-time.
+		await console.page.goto(
+				`${getInstanceUrl()}/lightning/n/${console.tabApiName()}`
+				+ `?c__correlationId=${CHAIN_CORRELATION}&c__windowStart=${encodeURIComponent(windowStart)}`,
+				{waitUntil: 'domcontentloaded'});
+		await waitForPageLoad(console.page);
+		await console.root().waitFor({state: 'visible', timeout: 60_000});
+		await console.waitForListSettled();
+
+		await expect(console.correlationPill(), 'The deep link should pin the correlation as a pill').toBeVisible();
+		const rangeDisplay = await console.root().locator('.date-range-combobox').first().innerText();
+		expect(rangeDisplay, 'The bounded deep link should land on the custom range').toContain('Custom range');
+		const toInput = (field) => console.root().locator(`.customrange-field[data-field="${field}"] input`).first();
+		const frozenDate = await toInput('toDate').inputValue();
+		const frozenTime = await toInput('toTime').inputValue();
+		expect(frozenTime, 'The To-time should be seeded from the link-arrival instant').not.toBe('');
+		expect(await console.getRowCount(), 'The chain hops should be inside the pinned window').toBeGreaterThan(0);
+
+		await console.page.waitForTimeout(65_000);
+		await console.root().locator('[data-spec-id="refresh-action"]').first().click();
+		await console.waitForListSettled();
+		expect(await toInput('toDate').inputValue(), 'Refresh should keep the frozen To-date').toBe(frozenDate);
+		expect(await toInput('toTime').inputValue(), 'Refresh should keep the frozen To-time').toBe(frozenTime);
+		test.info().annotations.push({type: 'notes', description: `Frozen window end held across Refresh: ${frozenDate} ${frozenTime}`});
 	});
 });
