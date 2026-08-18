@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>AllowRecursion__c</fullName>
     <defaultValue>true</defaultValue>
-    <description>Controls whether this action can re-enter itself. When false, the framework skips the action if an earlier run of the same action is still in progress, most commonly when the action's own DML fires the same trigger again before it finishes (e.g. an After Update action that updates the same object). The action still runs for separate, later operations in the same transaction. Defaults to true (recursion allowed).</description>
+    <description>Controls whether this action can re-enter itself. When false, the framework skips the action if an earlier run of the same action is still in progress, most commonly when the action&apos;s own DML fires the same trigger again before it finishes (e.g. an After Update action that updates the same object). The action still runs for separate, later operations in the same transaction. Defaults to true (recursion allowed).</description>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <inlineHelpText>When unchecked, this action does not run again while an earlier run of it is still in progress (for example, when its own update fires the same trigger again). It still runs for separate operations later in the same transaction. Uncheck to prevent infinite loops from actions that modify the same object.</inlineHelpText>
     <label>Allow Recursion</label>

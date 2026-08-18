@@ -8,14 +8,31 @@
 				<div class="slds-grid slds-wrap slds-gutters">
 					<template for:each={tools} for:item="tool">
 						<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3 slds-p-bottom_small tool-card-wrapper" key={tool.key}>
-							<lightning-card class="tool-card" icon-name={tool.iconName} title={tool.title}>
-								<div class="tool-card-body slds-p-horizontal_medium slds-p-bottom_small">
-									<p class="slds-text-body_small slds-text-color_weak tool-card-description">{tool.description}</p>
-									<div class="tool-card-footer slds-m-top_small">
-										<lightning-button data-key={tool.key} label={tool.buttonLabel} onclick={handleLaunch}></lightning-button>
+							<!-- Hand-built rather than lightning-card, and it must stay that way: lightning-card hard-codes an <h2> around both a string
+							 title and the title slot, so a tile inside the Administration Tools card could not sit below that card's own heading,
+							 and it truncates a string title with span.slds-truncate. SLDS's nested-card rule keeps this article borderless, which
+							 is exactly how the nested lightning-card rendered. -->
+							<article class="slds-card tool-card" data-testid="tool-card">
+								<div class="slds-card__header slds-grid">
+									<header class="slds-media slds-media_center slds-has-flexi-truncate">
+										<div class="slds-media__figure">
+											<lightning-icon icon-name={tool.iconName} size="small"></lightning-icon>
+										</div>
+										<div class="slds-media__body">
+											<h3 class="slds-card__header-title tool-card-title" data-testid="tool-card-title">{tool.title}</h3>
+										</div>
+									</header>
+								</div>
+								<div class="slds-card__body">
+									<div class="tool-card-body slds-p-horizontal_medium slds-p-bottom_small">
+										<p class="slds-text-body_small slds-text-color_weak tool-card-description">{tool.description}</p>
+										<div class="tool-card-footer slds-m-top_small">
+											<lightning-button aria-label={tool.buttonAriaLabel} data-key={tool.key} label={tool.buttonLabel}
+															  onclick={handleLaunch}></lightning-button>
+										</div>
 									</div>
 								</div>
-							</lightning-card>
+							</article>
 						</div>
 					</template>
 				</div>
