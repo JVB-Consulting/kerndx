@@ -10,6 +10,34 @@ pipeline package adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [v0.4.0] — Unreleased
+
+**Distribution:** ships alongside the next framework release as `pipeline-v0.4.0` (bundle file name and framework version are recorded here at release).
+
+This release makes the CI gate block what it says it blocks, opens the pipeline to repos that do not run the KernDX framework, and adds a Flow-invocable constructor check that runs on every supported PMD version.
+
+### Added
+
+- **Framework-agnostic hygiene tier.** `kerndx init` now asks whether the repo builds on the KernDX managed package. Answering no scaffolds `code-analyzer.yml` against the new `kerndx-hygiene-ruleset.xml`: the six KernDX rules that need no framework classes (test quality, security-bypass review, Flow-invocable constructors), so the CI gate enforces those checks on their own. The answer persists as `framework_package` in `.kerndx/config.yml` and round-trips through `kerndx upgrade`; existing configs keep the full ruleset.
+- **`KernInvocableClassNeedsNoArgConstructor` PMD rule** *(should fix)* — flags Apex classes that declare `@InvocableVariable` fields but no visible no-arg constructor. The platform instantiates those classes through the no-arg constructor, so a class declaring only argument-bearing constructors fails the moment a Flow runs it. This is a KernDX-authored XPath rule with the same intent as the standard PMD check that requires PMD 7.26.0, so it runs on the whole supported range (PMD apex module 7.19.0 and newer, including the version Salesforce Code Analyzer bundles). Brings the ruleset to 26 rules; included in the hygiene and framework tiers as well.
+- **`kerndx/no-hardcoded-user-text` ESLint rule** — flags hardcoded user-facing text in LWC toasts, errors, and template bindings; import the text from a Custom Label instead. Brings the plugin to 7 rules.
+- **`init` asks for release branches directly.** The answer lands in the new `branches.release` config key, making the stricter release gate reachable from interactive setup. Configs written before the question existed keep the previous derivation (protected branches minus ingress branches).
+- **`init` renders the branch-protection rulesets its next steps reference.** `ingress-gate.json` (and `release-gate.json` when a protected branch exists beyond the ingress set) now land in `.kerndx/rulesets/` on scaffold, so the printed `gh ruleset create` commands work on a fresh setup instead of failing on missing files.
+
+### Fixed
+
+- **`scan --ci` now blocks on findings.** CI mode passes the same severity threshold as the quality-gate workflow (blocking severity 1 and 2), so Code Analyzer findings fail the run instead of exiting zero. The CLI and plugin presence preflights also run in CI mode and fail loudly with an accurate message.
+- **`scan --ci` no longer passes silently when it cannot work out what changed.** When no diff base can be resolved (a shallow CI clone, for example), the scan now covers the full workspace instead of comparing the latest commit against itself and finding nothing, and an unresolvable changed-file list fails CI loudly. The diff-base resolver also honours a default branch not named `main`.
+- **`init` and `upgrade` never overwrite hand-authored branch-protection rulesets.** An existing `.kerndx/rulesets/` file is preserved rather than replaced, and preserved files stay out of the manifest so drift detection does not claim them.
+- **Dependency advisories cleared in both shipped trees** (`js-yaml` and `fast-uri` in the pipeline tree; `js-yaml` and `brace-expansion` in the ESLint plugin tree). Production-dependency audits run clean.
+
+### Changed
+
+- **The rulesets are guaranteed loadable on Salesforce Code Analyzer's bundled PMD.** Every rule is a KernDX-authored XPath definition and no standard PMD categories are referenced (one reference to a rule the bundled PMD lacks would stop the whole ruleset loading). Always-run tests enforce that policy, and the hygiene ruleset is generated verbatim from the full ruleset so the two can never drift. Validated floor: PMD apex module 7.19.0.
+- **Unwired config knobs removed.** The schema no longer accepts `severity_overrides` or `scanner.changed_files_only`; neither was ever read by the pipeline. Severity tuning is available by editing `code-analyzer.yml` directly, and the scanner already scans changed files by default. The two working knobs (`severity_threshold`, `rule_selector`) are unchanged.
+
+---
+
 ## [v0.3.0] — 2026-06-15
 
 **Distribution:** `KernDX-1.1.0-11-pipeline.zip`. Ships alongside the framework as `pipeline-v0.3.0` against framework release `v1.1.0-11`.
@@ -103,5 +131,6 @@ troubleshooting).
 
 173/173 pipeline tests + 6/6 ESLint plugin tests + 1241/1241 script tests passing.
 
+[v0.4.0]: https://github.com/JVB-Consulting/kerndx/tree/pipeline-v0.4.0
 [v0.3.0]: https://github.com/JVB-Consulting/kerndx/tree/pipeline-v0.3.0
 [v0.2.0]: https://github.com/JVB-Consulting/kerndx/tree/v1.0.0-121
