@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
 public inherited sharing class CTRL_HealthCheck
@@ -282,7 +282,8 @@ public inherited sharing class CTRL_HealthCheck
 			LogEntry__c.SObjectType => new RecommendationSpec(90, DEFAULT_CRON, System.Label.HealthCheck_DataRetention_SchedulerName_LogEntry),
 			ApiCall__c.SObjectType => new RecommendationSpec(90, DEFAULT_CRON, System.Label.HealthCheck_DataRetention_SchedulerName_ApiCall),
 			ApiIssue__c.SObjectType => new RecommendationSpec(180, DEFAULT_CRON, System.Label.HealthCheck_DataRetention_SchedulerName_ApiIssue),
-			AsyncChainExecution__c.SObjectType => new RecommendationSpec(90, DEFAULT_CRON, System.Label.HealthCheck_DataRetention_SchedulerName_AsyncChainExecution)
+			AsyncChainExecution__c.SObjectType => new RecommendationSpec(90, DEFAULT_CRON,
+					System.Label.HealthCheck_DataRetention_SchedulerName_AsyncChainExecution, AsyncChainExecution__c.CompletedAt__c)
 	};
 
 	/**
@@ -432,6 +433,10 @@ public inherited sharing class CTRL_HealthCheck
 			DTO_NameValues jobParameters = new DTO_NameValues();
 			jobParameters.add(SCHED_PurgeRecords.REQUIRED_PARAMETER_OBJECT_NAME, proposal.objectApiName);
 			jobParameters.add(SCHED_PurgeRecords.OPTIONAL_PARAMETER_MINIMUM_NUMBER_OF_DAYS, String.valueOf(recommendation.retentionDays));
+			if(recommendation.dateField != null)
+			{
+				jobParameters.add(SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME, UTIL_SObjectDescribe.getCachedFieldName(recommendation.dateField));
+			}
 
 			jobsToInsert.add(new ScheduledJob__c(
 					SchedulerName__c = recommendation.schedulerName,
@@ -1152,7 +1157,17 @@ public inherited sharing class CTRL_HealthCheck
 		public final String schedulerName;
 
 		/**
-		 * @description Constructs a RecommendationSpec.
+		 * @description Date field the recommended purge job evaluates for record age, or null to let
+		 * SCHED_PurgeRecords fall back to its CreatedDate default. The AsyncChainExecution__c entry
+		 * must key on CompletedAt__c: chains that are still running, stalled, or awaiting recovery
+		 * leave that field null, so a purge aged on CompletedAt__c can never delete them.
+		 */
+		public final SObjectField dateField;
+
+		/**
+		 * @description Constructs a RecommendationSpec with no explicit date field: delegates to the
+		 * four-argument constructor with a null dateField, so the recommended purge job ages records
+		 * by CreatedDate (the SCHED_PurgeRecords default).
 		 *
 		 * @param retentionDays Retention window in days
 		 * @param cronExpression Default cron expression
@@ -1160,9 +1175,23 @@ public inherited sharing class CTRL_HealthCheck
 		 */
 		public RecommendationSpec(Integer retentionDays, String cronExpression, String schedulerName)
 		{
+			this(retentionDays, cronExpression, schedulerName, null);
+		}
+
+		/**
+		 * @description Constructs a RecommendationSpec.
+		 *
+		 * @param retentionDays Retention window in days
+		 * @param cronExpression Default cron expression
+		 * @param schedulerName Default scheduler display name
+		 * @param dateField Date field the purge job evaluates for record age, or null for the CreatedDate default
+		 */
+		public RecommendationSpec(Integer retentionDays, String cronExpression, String schedulerName, SObjectField dateField)
+		{
 			this.retentionDays = retentionDays;
 			this.cronExpression = cronExpression;
 			this.schedulerName = schedulerName;
+			this.dateField = dateField;
 		}
 	}
 }

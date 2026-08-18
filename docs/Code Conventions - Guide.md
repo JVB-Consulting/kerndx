@@ -120,6 +120,21 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 **`@date` (class declarations ONLY — never on methods or properties):** `Month Year` or `Month Year, Month Year` (created, modified — at most two values; refresh the second on edit)
 **`@example`:** Must use ```` ```apex ```` code fences with valid Apex
 
+**`@description` quality — written for the cold reader.** The reader is a subscriber or new
+maintainer who cloned the repo and opened the file for the first time. Names carry the *what*;
+the ApexDoc carries the *why*, the contract, and the invariants the code cannot show — that is
+the point of the comment. Concretely:
+
+- Describe current behaviour only — never relative to history ("as before", "no longer",
+  "previously"): the reader has no before.
+- Internal vocabulary (fences, sparse writes, parks, re-drives, sweeps) appears only WITH an
+  in-doc gloss or an explicit pointer to the member that defines it ("see buildSparseUpdate").
+- Refer to members by their actual names, never informal aliases ("the bare writer").
+- Short sentences or an ordered sequence — never a whole algorithm compressed into one breath.
+- A doc that omits behaviour added in the same change is stale; the doc updates with the code.
+- Claim only what the code proves. Test `@description`s state what the test proves and why it
+  matters, not a restatement of the method name.
+
 ```apex
 /**
  * @description Handler for Foobar defaults.
@@ -207,6 +222,10 @@ public with sharing class SEL_Cases extends kern.SEL_Base
 **Inherited:** `query` (property) | `findById(Id)`/`findById(Set<Id>)` | `findByIdOrThrow(Id/Set<Id>)` | `findByField(field, value)`/`findByField(field, Set/List)` |
 `findFirstByField(field, value)` | `findByFields(Map)`/`findFirstByFields(Map)` | `toList()`/`getFirst()`/`getRandomItem()` | `count()`/`exists()` | `toQueryLocator()`
 
+**When to add a custom query method:** only when it does something the inherited `find*` methods cannot express — a different field projection, an ordering, a row limit, a
+relationship path, or a domain meaning worth naming (like `findOpen()` above, which bakes in the open-case filter and ordering). If `findByField(...)` already expresses the
+query, call it directly instead of wrapping it in a typed alias.
+
 ## QRY_Builder
 
 SEL_\* for reusable queries; QRY_Builder directly for one-off. Prefer `List<SObjectField>` for compile-time safety (`List<String>` only for relationship traversals).
@@ -232,7 +251,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 `.notIn(Builder)` only for anti-join subqueries.
 **Pagination:** `.getPage(page, size)` → `QueryPage` (`.records`/`.totalRecords`/`.hasMorePages`/`.deletedRecords`/`.cursor`)
 
-**Security** (default SYSTEM_MODE + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query) | `.withSharing()`/`.bypassSharing()` (SYSTEM_MODE only, ignored with `withUserMode()`) | `.withoutSecurity()` (reset)
+**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query) | `.withSharing()`/`.bypassSharing()` (picks the sharing proxy, independent of the access mode; under the USER_MODE default the platform enforces record sharing regardless, so an effective bypass is `bypassSharing()` + a system-mode dial) | `.withoutSecurity()` (reset)
 
 **Data Category:** `.withDataCategory(groupName)` → `DataCategoryBuilder` with `.at()`/`.above()`/`.below()`/`.aboveOrBelow()` — each with `(String)` and `(List<String>)`
 overloads. Mutually exclusive with `WITH SECURITY_ENFORCED` — use `.withUserMode()` for security enforcement with data category queries. One filter per group.
@@ -247,9 +266,11 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 	.allowPartial().execute();
 ```
 
-**Methods:** `.doInsert()`/`.doUpdate()`/`.doDelete()`/`.doUpsert()`/`.doUndelete()`/`.allowPartial()`/`.bypassSharing()`/`.suppressLogging()`/`.suppressExceptions()`/`.async()`/`.execute()`
+**Methods:** `.doInsert()`/`.doUpdate()`/`.doDelete()`/`.doUpsert()`/`.doUndelete()`/`.allowPartial()`/`.bypassSharing()`/`.suppressLogging()`/`.suppressExceptions()`/`.execute()`
 **TransactionResult:** `isSuccess()`/`getInsertedIds()`/`getErrors()`/`getSuccessCount()`/`getFailureCount()`
 **Parent-child:** `.doInsert(child, relationshipField, parent)` auto-sets lookup. Parent must appear earlier.
+**Async:** `.async()` is a type switch, not a config method — it returns `DML_AsyncBuilder`, whose only members are `withBatchSize(Integer)` and `execute()`, and whose `execute()`
+returns `void`, not a `TransactionResult`. Chain it last: `.doUpdate(records).async().withBatchSize(200).execute();`
 
 ## Flow Invocables
 
@@ -381,7 +402,7 @@ public with sharing class API_SendEmail extends API_Outbound
 	public override List<String> getValidationErrors()
 	{
 		List<String> errors = new List<String>();
-		Foobar__c record = (Foobar__c)new SEL_Foobar().findById(queueItem.TriggeringRecordId__c);
+		Foobar__c record = (Foobar__c)new SEL_Foobar().findById(apiCall.TriggeringRecordId__c);
 		if(String.isBlank(record.Email__c)) { errors.add(ERROR_NO_EMAIL); }
 		return errors;
 	}

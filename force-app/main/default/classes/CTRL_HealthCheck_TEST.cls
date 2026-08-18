@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.EagerlyLoadedDescribeSObjectResult,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -739,6 +739,24 @@ private class CTRL_HealthCheck_TEST
 	}
 
 	/**
+	 * @description Verifies the chain-abort check degrades gracefully when the abort custom permission
+	 * itself cannot be resolved: the namespace-scoped lookup returns nothing, so the broad-grant probe
+	 * has no grants to inspect and must report no broad grant rather than warn or fail the whole
+	 * Health Check, and the check falls through to the assignee probe.
+	 */
+	@IsTest
+	private static void shouldPassAbortCheckWhenAbortCustomPermissionCannotBeResolved()
+	{
+		TST_Mock.register(CustomPermission.SObjectType, new List<CustomPermission>());
+		TST_Mock.register(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {abortAssignment()});
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, results[7].status, 'An unresolvable abort permission must skip the broad-grant probe, not crash the Health Check');
+		Assert.areEqual(System.Label.HealthCheck_AsyncChainAbort_Configured, results[7].detail, 'The check falls through to the assignee probe');
+	}
+
+	/**
 	 * @description Builds a non-inserted PermissionSetAssignment mock row. The abort probe counts through
 	 * the TST_Mock registry, which returns the seeded list size, so a bare row is enough to prove presence.
 	 *
@@ -1034,6 +1052,49 @@ private class CTRL_HealthCheck_TEST
 			Assert.isNotNull(job.Parameters__c, 'Parameters__c should be populated');
 			Assert.areEqual(runningUserTimezone, job.Timezone__c, 'Timezone should default to the running user timezone so cron fires at the intended local time');
 		}
+	}
+
+	/**
+	 * @description Verifies the retention proposal for AsyncChainExecution__c schedules its purge
+	 * job with CompletedAt__c as the date-field parameter
+	 * (SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME), while every other proposal omits the
+	 * parameter so its job falls back to the SCHED_PurgeRecords CreatedDate default (appropriate
+	 * for those insert-once framework objects, which have no separate completion timestamp).
+	 * Keying the chain purge on CompletedAt__c is what makes it safe: Stalled and Running rows
+	 * carry a null CompletedAt__c until a terminal path (the code that marks a chain Completed,
+	 * Failed or Aborted) stamps it, so the purge can never delete a chain that has not finished.
+	 */
+	@IsTest
+	private static void shouldKeyAsyncChainPurgeOnCompletedAtDateField()
+	{
+		TRG_Base.bypass(ScheduledJob__c.SObjectType);
+
+		List<CTRL_HealthCheck.DTO_RetentionProposal> proposals = CTRL_HealthCheck.getRetentionProposals();
+
+		Test.startTest();
+		List<Id> insertedIds = CTRL_HealthCheck.applyRetentionRecommendations(proposals);
+		Test.stopTest();
+
+		String chainObjectName = UTIL_SObjectDescribe.getObjectNameFromType(AsyncChainExecution__c.SObjectType);
+		String completedAtFieldName = UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.CompletedAt__c);
+		Integer chainJobCount = 0;
+		List<ScheduledJob__c> createdJobs = new SEL_ScheduledJob().findById(new Set<Id>(insertedIds));
+		for(ScheduledJob__c job : createdJobs)
+		{
+			DTO_NameValues parameters = (DTO_NameValues)new DTO_NameValues().deserialize(job.Parameters__c);
+			if(chainObjectName.equals(parameters.get(SCHED_PurgeRecords.REQUIRED_PARAMETER_OBJECT_NAME)))
+			{
+				chainJobCount++;
+				Assert.areEqual(completedAtFieldName, parameters.get(SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME),
+						'The async-chain purge job must key on CompletedAt__c so non-terminal chains are never purged');
+			}
+			else
+			{
+				Assert.isNull(parameters.get(SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME),
+						'Insert-once framework objects keep the CreatedDate default');
+			}
+		}
+		Assert.areEqual(1, chainJobCount, 'Exactly one proposal targets AsyncChainExecution__c');
 	}
 
 	/**
