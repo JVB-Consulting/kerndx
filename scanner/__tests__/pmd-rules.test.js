@@ -103,13 +103,13 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 
 	describe('KernNoBooleanExceptionThrown', () =>
 	{
-		it('fires on the positive fixture', () =>
+		it('fires once per sentinel: the Boolean flag, the captured Exception, and the inverse Assert.isNull', () =>
 		{
 			const output = runPmd('KernNoBooleanExceptionThrown-positive.cls');
-			expect(countRuleHits(output, 'KernNoBooleanExceptionThrown')).toBe(1);
+			expect(countRuleHits(output, 'KernNoBooleanExceptionThrown')).toBe(3);
 		});
 
-		it('is silent on the Assert.fail + isInstanceOfType fixture', () =>
+		it('is silent on Assert.fail + isInstanceOfType, a bare must-not-throw call, and locals reassigned inside the catch', () =>
 		{
 			const output = runPmd('KernNoBooleanExceptionThrown-negative.cls');
 			expect(countRuleHits(output, 'KernNoBooleanExceptionThrown')).toBe(0);
@@ -144,6 +144,21 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		{
 			const output = runPmd('KernNoLegacyAssert-negative.cls');
 			expect(countRuleHits(output, 'KernNoLegacyAssert')).toBe(0);
+		});
+	});
+
+	describe('KernInvocableClassNeedsNoArgConstructor', () =>
+	{
+		it('fires on invocable-variable classes without a visible no-arg constructor', () =>
+		{
+			const output = runPmd('KernInvocableClassNeedsNoArgConstructor-positive.cls');
+			expect(countRuleHits(output, 'KernInvocableClassNeedsNoArgConstructor')).toBe(2);
+		});
+
+		it('is silent when the no-arg constructor is explicit or implicit', () =>
+		{
+			const output = runPmd('KernInvocableClassNeedsNoArgConstructor-negative.cls');
+			expect(countRuleHits(output, 'KernInvocableClassNeedsNoArgConstructor')).toBe(0);
 		});
 	});
 

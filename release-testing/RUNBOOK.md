@@ -697,6 +697,47 @@ runbook pass):**
   3. the terminal write itself always commits regardless of the signal (best-effort).
   CAVEAT: hold the exact-delivery assertions under DML-heavy transactions until PLAN-121 **F9**
   (silent-loss investigation) resolves — script the healthy-transaction cases first.
+
+**Pending 1.7.0 sections (registered before scripting; author the section scripts with the 1.7.0
+runbook pass):**
+
+- **Composition-pattern proof suites (PLAN-142, registered 2026-08-10):** the five `Recipe_*` suites
+  (`Recipe_ChainCircuitBreaker_DEMO_TEST`, `Recipe_ApprovalHandOff_DEMO_TEST`,
+  `Recipe_ScheduledChain_DEMO_TEST`, `Recipe_CaseDelivery_SERVICE_TEST`,
+  `Recipe_CommittedDelivery_DEMO_TEST`) ride the standard 1.4 artifact deploy (their classes, the
+  `TRG_Case` trigger, and the three `Recipe`/`Case` CMDT records are in `release-testing/subscriber/`)
+  and must run green on the 1.7 candidate — the committed-delivery suite is the binding re-proof of
+  the ApiStep subscriber-handler resolution fix (`02152683`), first proven 12/12 on the third 1.7
+  beta.
+
+- **Operator re-drive actions (PLAN-138, registered 2026-08-09):** in the subscriber org, with a
+  user holding **Kern Async Chain Redrive** + **Kern Async Chain Monitor Read Only**, observe —
+  1. **Retry from failed step:** a Failed chain whose failed step answers `true` from `isIdempotent()`
+     offers Retry; completed steps do not re-run; the run keeps its record and `CorrelationId__c`;
+     a chain without the declaration, a `failedPermanently` failure, and a context-unavailable row
+     each refuse with their labelled reason (disabled button + tooltip; server re-check on confirm).
+  2. **Restart from start:** a Failed or Aborted chain built with `.allowRestart()` restarts as a
+     NEW run (fresh `CorrelationId__c` + `RunKey__c`, `SourceExecution__c` lineage, monitor
+     re-points at the clone); the source row stays terminal and untouched; a non-declared chain
+     refuses `RestartNotDeclared`.
+  3. **Clear stalled:** seeded stalled chains are checked and the toast reports the four buckets
+     (checked / re-driven / marked failed / still waiting); the action refuses while processing is
+     suspended; a chain the sweeping user cannot read stays untouched and counts as still waiting.
+  4. **Kill-switch toggle:** a user holding **Kern Async Chain Kill Switch** can Suspend/Resume;
+     suspend flips running chains to `Aborted` (`FailureCategory__c = 'KillSwitch'`) at their next
+     step boundary and new chains abort before their first step; resume leaves the stopped chains
+     stopped; a user-level `AsyncChainRuntimeSwitch__c` record overrides the org default for that
+     user's chain transactions.
+  5. **Live activity stream:** the detail panel seeds the newest entries (cap 20) through BOTH
+     reference legs (correlation id + record reference — watchdog/abort entries appear), streams
+     ERROR-level entries regardless of threshold, and needs `kern__LogEntry__c` read (the
+     **Kern Administrator** set) — without it the stream is empty, not an error.
+  Namespace leg: repeat 1-5 in the subscriber org (`SF_SUBSCRIBER_ORG_ALIAS`; kern__ prefixes throughout); uses
+  `SubscriberChainSteps.RecoveringStep` (kern.-referencing, declares idempotency by overriding
+  `isIdempotent()` — never in a constructor, which the framework cannot reach across the package
+  boundary — marker-based like `EndToEndChainSteps.RecoveringStep`; covered by
+  `SubscriberChainSteps_TEST`). Note: e2e parts 8-10 still have no npm aliases (run the spec files
+  by name).
   Model: launch + verify split (async settling), sections 48-50 pattern.
 
 ### Run a single load test in isolation
@@ -824,7 +865,7 @@ Validates the KernDX PMD ruleset (`scanner/kerndx-pmd-ruleset.xml`) against test
 > **PMD floor vs. Code Analyzer bundle (updated 2026-07-15).** The kern rulesets carry no
 > standard-category rule references (removed by policy on 2026-07-12) and load on the PMD apex
 > module >= 7.19.0, which includes the pmd-apex 7.25.0 the current `code-analyzer` plugin (5.14.0)
-> bundles — `sf code-analyzer` loads and fires all 25 Kern rules. Two things to know when running
+> bundles — `sf code-analyzer` loads and fires all 26 Kern rules. Two things to know when running
 > it: passing `code-analyzer.yml` via the `--config-file` flag is REQUIRED (without it `custom_rulesets` never
 > loads and 0 Kern rules run, silently), and sfca is report-by-default (exit 0 even with
 > violations; only `--severity-threshold <n>` makes it fail). (Historical: until 2026-07-12 the
@@ -1076,6 +1117,16 @@ browser-tested; the actions' runtime behaviour is covered by Phase 2 sections 17
 - Subscriber test code deployed (classes, triggers, CMDT, LWC components, FlexiPage, tab)
 - Health Check prerequisites configured (org cache partition, session cache partition, trusted URL)
 - Audit-field back-dating enabled (Phase 1 two-step recipe) — `part10`'s date-range check hard-fails without it
+- **Realism and volume seeded** with the `release-testing/scripts/` tooling: `seed-log-volume.mjs`
+  (back-dated `LogEntry__c` volume via Bulk API 2.0; `--rows 120000 --days 30` default, `--teardown` to
+  purge) and `seed-chain-scenarios.sh` (real multi-step chains across failure/recovery shapes plus
+  synthesized Running/Stalled rows). The consoles behave differently at volume — a run against a
+  near-empty org proves far less than it appears to.
+- **Running any part against a different org than the runbook's subscriber org** (for example the
+  development org while iterating on a fix): `export SF_SUBSCRIBER_ORG_ALIAS=<that alias>` first. The
+  local runner configuration falls back to the standing subscriber alias when the variable is unset, so
+  an un-exported run silently tests the installed package version, not your working tree — the symptom
+  is a "stale bundle" that no redeploy fixes.
 
 ### Debugging Failures
 

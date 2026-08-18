@@ -31,7 +31,8 @@ const HYGIENE_RULES = [
 	'KernNoCoverageTheatre',
 	'KernNoBooleanExceptionThrown',
 	'KernCoverageExemptRequiresReason',
-	'KernSecurityBypassCallSite'
+	'KernSecurityBypassCallSite',
+	'KernInvocableClassNeedsNoArgConstructor'
 ];
 
 function extractRule(sourceXml, ruleName)
@@ -63,8 +64,9 @@ function generateHygieneRuleset(sourceXml)
    The subset of the KernDX PMD rules that does not require the KernDX
    framework: no KernDX classes or managed package are needed to adopt them.
    Point any PMD 7 (apex module 7.19.0 or newer) or the Salesforce Code
-   Analyzer at this file to get the test-quality and security-review checks
-   on their own. \`kerndx init\` scaffolds this ruleset when a repo does not
+   Analyzer at this file to get the test-quality, security-review and
+   Flow-invocable constructor checks on their own. \`kerndx init\` scaffolds
+   this ruleset when a repo does not
    build on the KernDX framework; repos that do should use
    kerndx-pmd-ruleset.xml instead, which contains every rule below plus the
    framework-integration rules.
@@ -91,8 +93,10 @@ function generateHygieneRuleset(sourceXml)
       KernDX rules that need no KernDX framework: no legacy System.assert
       methods, no coverage-theatre test patterns, a written reason on every
       coverage-rule suppression, no Boolean exceptionThrown try/catch
-      testing, and a reviewed acknowledgement on every security-bypass call
-      site (matched by method-name convention, framework or not).
+      testing, a reviewed acknowledgement on every security-bypass call
+      site (matched by method-name convention, framework or not), and a
+      visible no-arg constructor on every class with @InvocableVariable
+      fields.
    </description>
 
 ${rules.join('\n\n')}

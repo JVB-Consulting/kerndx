@@ -5,8 +5,9 @@
    The subset of the KernDX PMD rules that does not require the KernDX
    framework: no KernDX classes or managed package are needed to adopt them.
    Point any PMD 7 (apex module 7.19.0 or newer) or the Salesforce Code
-   Analyzer at this file to get the test-quality and security-review checks
-   on their own. `kerndx init` scaffolds this ruleset when a repo does not
+   Analyzer at this file to get the test-quality, security-review and
+   Flow-invocable constructor checks on their own. `kerndx init` scaffolds
+   this ruleset when a repo does not
    build on the KernDX framework; repos that do should use
    kerndx-pmd-ruleset.xml instead, which contains every rule below plus the
    framework-integration rules.
@@ -33,8 +34,10 @@
       KernDX rules that need no KernDX framework: no legacy System.assert
       methods, no coverage-theatre test patterns, a written reason on every
       coverage-rule suppression, no Boolean exceptionThrown try/catch
-      testing, and a reviewed acknowledgement on every security-bypass call
-      site (matched by method-name convention, framework or not).
+      testing, a reviewed acknowledgement on every security-bypass call
+      site (matched by method-name convention, framework or not), and a
+      visible no-arg constructor on every class with @InvocableVariable
+      fields.
    </description>
 
    <rule name="KernNoLegacyAssert"
@@ -122,11 +125,24 @@
 //Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
    //CatchBlockStatement[not(BlockStatement/*)]
 |
-(: Pattern 3 — Boolean exceptionThrown anti-pattern. :)
+(: Pattern 3 — exception-sentinel anti-pattern: a local assigned inside a catch :)
+(: of a try that carries no Assert.fail/throw does the job Assert.fail must do :)
+(: (Boolean flag, captured Exception, inverse Assert.isNull); the classic :)
+(: 'Boolean exceptionThrown' name fires regardless. Same predicate as :)
+(: KernNoBooleanExceptionThrown — keep the two in step. :)
 //Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
    //VariableDeclaration[
-      lower-case(@Type) = 'boolean'
-      and lower-case(@Image) = 'exceptionthrown'
+      (lower-case(@Type) = 'boolean' and lower-case(@Image) = 'exceptionthrown')
+      or
+      (
+         not(ancestor::CatchBlockStatement)
+         and @Image = ancestor::Method[1]
+               //TryCatchFinallyBlockStatement[
+                  not(BlockStatement[1]//MethodCallExpression[ends-with(lower-case(@FullMethodName), 'assert.fail')])
+                  and not(BlockStatement[1]//ThrowStatement)
+               ]
+               /CatchBlockStatement//AssignmentExpression/VariableExpression[1]/@Image
+      )
    ]
 |
 (: Pattern 4 — Assert.isNotNull(var) where var was declared from :)
@@ -151,14 +167,24 @@
 
    <rule name="KernNoBooleanExceptionThrown"
          language="apex"
-         message="The 'Boolean exceptionThrown' try/catch pattern is forbidden. Use Assert.fail('Should throw ...') + Assert.isInstanceOfType(error, ExceptionClass.class, ...) instead."
+         message="A test must not rely on a variable set inside catch to detect that an exception was thrown (Boolean flag, captured Exception, Assert.isNull/isNotNull on it). Put Assert.fail('Should throw ...') inside the try after the call and assert the type inside the catch with Assert.isInstanceOfType(error, ExceptionClass.class, ...)."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
-         The 'Boolean exceptionThrown = false; try { ... }
-         catch(Exception error) { exceptionThrown = true; }
-         Assert.isTrue(exceptionThrown, ...)' anti-pattern is
-         explicitly forbidden by docs/Code Conventions - Guide.md. It obscures intent, loses
-         the exception type, and skips the original error message.
+         The exception-sentinel family is forbidden by docs/Code Conventions - Guide.md
+         (Exception testing). Every member relies on a local declared before the try and
+         assigned inside a catch to detect that the call threw, so the test never says what
+         it expected, loses the exception type, and skips the original error message:
+
+         Boolean exceptionThrown = false;   /  Boolean threw = false;
+         Exception caught;                  /  DmlException caught;
+         try { doSomething(); }
+         catch(Exception error) { exceptionThrown = true; }   /  { caught = error; }
+         Assert.isTrue(exceptionThrown, ...);  /  Assert.isNotNull(caught, ...);
+
+         The inverse sentinel is forbidden for the same reason: 'Exception caught; try { ... }
+         catch(Exception error) { caught = error; } Assert.isNull(caught, ...)' swallows the
+         real failure. A test that must NOT throw simply calls the method with no try/catch;
+         if it throws, the test fails with the real error and stack.
 
          Use the canonical Apex pattern:
 
@@ -171,16 +197,30 @@
          {
             Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect type');
          }
+
+         The rule fires on any local in an @IsTest method that is assigned inside a catch of
+         a try whose body carries neither Assert.fail nor a throw — the variable is doing the
+         job Assert.fail must do. The classic 'Boolean exceptionThrown' name fires regardless.
       </description>
       <priority>5</priority>
       <properties>
          <property name="xpath">
             <value>
 <![CDATA[
-//VariableDeclaration[
-   lower-case(@Type) = 'boolean'
-   and lower-case(@Image) = 'exceptionthrown'
-]
+//Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
+   //VariableDeclaration[
+      (lower-case(@Type) = 'boolean' and lower-case(@Image) = 'exceptionthrown')
+      or
+      (
+         not(ancestor::CatchBlockStatement)
+         and @Image = ancestor::Method[1]
+               //TryCatchFinallyBlockStatement[
+                  not(BlockStatement[1]//MethodCallExpression[ends-with(lower-case(@FullMethodName), 'assert.fail')])
+                  and not(BlockStatement[1]//ThrowStatement)
+               ]
+               /CatchBlockStatement//AssignmentExpression/VariableExpression[1]/@Image
+      )
+   ]
 ]]>
             </value>
          </property>
@@ -265,6 +305,41 @@
    or @MethodName = 'bypassGroup'
    or @MethodName = 'bypassRule'
    or @MethodName = 'bypassAction'
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <rule name="KernInvocableClassNeedsNoArgConstructor"
+         language="apex"
+         message="Class declares @InvocableVariable fields but no visible no-arg constructor. Flow/Process instantiation fails at run time; declare an explicit public no-arg constructor alongside the other constructors."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Apex classes that expose @InvocableVariable properties (Flow /
+         Process inputs or outputs) are instantiated through their no-arg
+         constructor at run time. Declaring only argument-bearing
+         constructors removes the implicit no-arg constructor, and a
+         private no-arg constructor is not visible to Flow — either way
+         invocation throws at run time. Declare an explicit public no-arg
+         constructor alongside any other constructor. A class that
+         declares no constructor at all keeps the implicit no-arg
+         constructor and is compliant.
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//UserClass[
+   Field/ModifierNode/Annotation[lower-case(@Name) = 'invocablevariable']
+   and Method[@Constructor = true()]
+   and not(Method[
+      @Constructor = true()
+      and @Arity = 0
+      and ModifierNode[@Public = true() or @Global = true()]
+   ])
 ]
 ]]>
             </value>

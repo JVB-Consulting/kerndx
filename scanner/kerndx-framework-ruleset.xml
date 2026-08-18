@@ -40,6 +40,7 @@
    <!-- Production-code hygiene (universal — applies to any Apex codebase) -->
    <rule ref="scanner/kerndx-pmd-ruleset.xml/KernTriggerMustDelegate"/>
    <rule ref="scanner/kerndx-pmd-ruleset.xml/KernRestResourceNaming"/>
+   <rule ref="scanner/kerndx-pmd-ruleset.xml/KernInvocableClassNeedsNoArgConstructor"/>
 
    <!--
       KernNoInlineSOQL, KernNoSystemDebug, KernNoRawEmail are EXCLUDED

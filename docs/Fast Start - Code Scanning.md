@@ -16,7 +16,11 @@ navOrder: 90
 - [ ] SF Code Analyzer v5 installed (`sf plugins install @salesforce/plugin-code-analyzer`)
 - [ ] Working in a sandbox or scratch org (not production)
 
-**What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and 21 other framework violations, both inline in your IDE and in CI/CD.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
+**What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and 23 other framework violations, both inline in your IDE and in CI/CD.
 
 **Success looks like:** You write a class with `System.debug()` and `[SELECT Id FROM Account]`, and your IDE underlines both lines before you even save.
 
@@ -205,19 +209,19 @@ Turning on every rule at once in an existing codebase floods you with violations
 
 ### Priority tiers
 
-The rules are not all equally urgent, so the 25 KernDX-authored PMD rules are grouped into three priority levels. Fix the most important first and add the rest over time:
+The rules are not all equally urgent, so the 26 KernDX-authored PMD rules are grouped into three priority levels. Fix the most important first and add the rest over time:
 
 | Tier          | Priority | Count | Approach                                                             |
 |---------------|----------|-------|----------------------------------------------------------------------|
 | Blockers      | 1        | 4     | Fix immediately: these bypass core framework patterns                |
-| Should Fix    | 3        | 11    | Fix in the current sprint: leaving them makes code harder to maintain |
+| Should Fix    | 3        | 12    | Fix in the current sprint: leaving them makes code harder to maintain |
 | Informational | 5        | 10    | Fix opportunistically: good practice, no immediate action required   |
 
 **Recommended adoption path:** Start with Priority 1 (triggers and SOQL). Once clean, enable Priority 3. Add Priority 5 when the team is comfortable with the framework.
 
 ### PMD rule reference
 
-All 25 KernDX-authored PMD rules:
+All 26 KernDX-authored PMD rules:
 
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
@@ -236,6 +240,7 @@ All 25 KernDX-authored PMD rules:
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                    | `UTIL_Email`                                                                                    | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                  | `REST_*` + `API_Dispatcher`                                                                     | 3        |
 | `KernNoInlineDmlInTests`           | `insert`/`update`/`delete` inside `@IsTest` methods                                    | [`TST_Builder`](reference/apex/TST_Builder.md) / [`DML_Builder`](reference/apex/DML_Builder.md) | 3        |
+| `KernInvocableClassNeedsNoArgConstructor` | `@InvocableVariable` classes whose only constructors take arguments (Flow cannot create them at run time) | An explicit public no-arg constructor alongside the others                                      | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                     | `Assert.*`                                                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                     | [`TST_Builder`](reference/apex/TST_Builder.md)                                                  | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                       | `UTIL_Cache`                                                                                    | 5        |
@@ -351,8 +356,8 @@ See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed ins
 
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`   | 25 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
-| `kerndx-hygiene-ruleset.xml` | Framework-agnostic tier: the five test-quality and security-review rules, for repos that do not use the KernDX framework                                                                   |
+| `kerndx-pmd-ruleset.xml`   | 26 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
+| `kerndx-hygiene-ruleset.xml` | Framework-agnostic tier: the six rules that need no KernDX framework (test quality, security-bypass review, Flow-invocable constructors), for repos that do not use the KernDX framework     |
 | `eslint-plugin-kerndx`     | 7 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, no mutating a fixture shared across tests, and no hardcoded user-facing text |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |
 | Priority tiers (1/3/5)     | A staged adoption order: start with blockers, expand to should-fix, then informational                                                                                              |

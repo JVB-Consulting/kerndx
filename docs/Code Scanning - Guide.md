@@ -7,8 +7,9 @@ navOrder: 90
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **Using KernDX under your own namespace:** When using KernDX with a custom namespace, prefix framework class references with your namespace (e.g., `ClientNS.LOG_Builder`).
-> See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **Target Audience:**
 
@@ -95,6 +96,7 @@ This guide is the full reference behind those commands: every rule, every way to
         - [KernNoRawEmail](#kernnorawemail)
         - [KernRestResourceNaming](#kernrestresourcenaming)
         - [KernNoInlineDmlInTests](#kernnoinlinedmlintests)
+        - [KernInvocableClassNeedsNoArgConstructor](#kerninvocableclassneedsnoargconstructor)
     - [Priority 5 Informational](#priority-5-informational)
         - [KernNoLegacyAssert](#kernnolegacyassert)
         - [KernUseTestBuilder](#kernusetestbuilder)
@@ -196,7 +198,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  25 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
+|  26 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -213,8 +215,8 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 | File                                | Scope                             | Purpose                                                                                                                                                                        |
 |-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 25 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
-| `kerndx-hygiene-ruleset.xml`        | Any Salesforce org (no framework needed) | Framework-agnostic tier: the five test-quality and security-review rules that do not require the KernDX framework. `kerndx init` scaffolds this one when the repo does not use the framework. |
+| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 26 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
+| `kerndx-hygiene-ruleset.xml`        | Any Salesforce org (no framework needed) | Framework-agnostic tier: the six rules (test quality, security-bypass review, Flow-invocable constructors) that do not require the KernDX framework. `kerndx init` scaffolds this one when the repo does not use the framework. |
 | `subscriber-naming-pmd-ruleset.xml` | Your org (example)                | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
 | `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>`, for tools that accept only one ruleset file                                                                              |
 | `eslint-plugin-kerndx/`             | Any KernDX org                    | 7 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention, hardcoded display-text detection |
@@ -224,7 +226,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 ## PMD Rule Reference
 
-This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 25 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
+This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 26 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -542,11 +544,13 @@ email.setPlainTextBody('Hello');
 Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{email});
 
 // CORRECT
-UTIL_Email.send()
-   .toAddress('user@example.com')
-   .subject('Notification')
-   .plainTextBody('Hello')
-   .send();
+UTIL_Email.sendEmail(
+   new List<String>{'user@example.com'},
+   'Notification',
+   'Hello',
+   false,  // plain text
+   null    // no attachments
+);
 ```
 
 #### KernRestResourceNaming
@@ -588,6 +592,38 @@ Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 
 // CORRECT -- DML_Builder when explicit DML is under test
 DML_Builder.newTransaction().doInsert(record).execute();
+```
+
+#### KernInvocableClassNeedsNoArgConstructor
+
+**You want to:** Flow actions that keep working at run time. When a class exposes `@InvocableVariable` fields (Flow or Process Builder inputs and outputs), the platform creates an instance of it through its no-arg constructor. Declaring only argument-bearing constructors removes the implicit no-arg constructor, and a private no-arg constructor is not visible to Flow, so either way the action fails the moment a Flow runs it. The compiler will not warn you; this rule does. A class that declares no constructor at all keeps the implicit no-arg constructor and is fine.
+
+```apex
+// VIOLATION -- the only constructor takes arguments
+public class Request
+{
+   @InvocableVariable(required=true)
+   public String recordId;
+
+   public Request(String recordId)
+   {
+      this.recordId = recordId;
+   }
+}
+
+// CORRECT -- explicit public no-arg constructor alongside the other one
+public class Request
+{
+   @InvocableVariable(required=true)
+   public String recordId;
+
+   public Request() {}
+
+   public Request(String recordId)
+   {
+      this.recordId = recordId;
+   }
+}
 ```
 
 ### Priority 5 Informational
@@ -675,8 +711,11 @@ Type handlerType = UTIL_System.getTypeForClassName('TRG_SetAccountDefaults', IF_
 System.enqueueJob(new MyQueueable());
 
 // CORRECT
-UTIL_AsynchronousJobLauncher.enqueue(new MyQueueable());
+UTIL_AsynchronousJobLauncher.process(itemsToProcess, new MyProcessor());
 ```
+
+`MyProcessor` implements `kern.IF_Async.Processable`. The launcher decides between a queueable and a
+batch based on the volume and the limits left in the transaction.
 
 #### KernNoRawCrypto
 
@@ -691,6 +730,8 @@ Blob key = Crypto.generateAesKey(256);
 String hash = UTIL_Crypto.generateSHA256Hash(input);
 Blob key = UTIL_Crypto.generateEncryptionKey();
 ```
+
+**Who this swap is for.** `UTIL_Crypto` is an in-namespace helper, so the rewrite above applies to code that compiles alongside the framework source: contributions to the framework itself, and orgs running the renamed source from [Path 2](Installation.md#path-2-repackage-under-your-own-namespace). If you installed the managed package instead, `UTIL_Crypto` belongs to the package, so the move for your own code is to funnel every `Crypto.*` call through a single reviewed crypto utility of your own rather than scattering them. Either way the rule is pointing at the same thing: one audited place where cryptography happens.
 
 #### KernNoRawFeatureManagement
 
@@ -748,7 +789,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 ### PMD Rule Summary Table
 
 <details>
-<summary>All 25 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
+<summary>All 26 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
 
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
@@ -767,13 +808,14 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | `KernNoRawEmail`                   | `Messaging.sendEmail()`, `new SingleEmailMessage()`                                             | `UTIL_Email`                                                    | 3        |
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                           | `REST_*` + `API_Dispatcher`                                     | 3        |
 | `KernNoInlineDmlInTests`           | Raw `insert`/`update`/`delete` inside `@IsTest` classes                                         | `TST_Builder` or `DML_Builder`                                  | 3        |
+| `KernInvocableClassNeedsNoArgConstructor` | `@InvocableVariable` classes without a visible no-arg constructor                        | An explicit public no-arg constructor                           | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                              | `Assert.*`                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                              | `TST_Builder`                                                   | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                                | `UTIL_Cache`                                                    | 5        |
 | `KernNoRawDescribe`                | `Schema.getGlobalDescribe()`                                                                    | `UTIL_SObjectDescribe`                                          | 5        |
 | `KernNoRawTypeForName`             | `Type.forName()`                                                                                | `UTIL_System.getTypeForClassName()`                             | 5        |
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                           | `UTIL_AsynchronousJobLauncher`                                  | 5        |
-| `KernNoRawCrypto`                  | `Crypto.*`                                                                                      | `UTIL_Crypto`                                                   | 5        |
+| `KernNoRawCrypto`                  | `Crypto.*`                                                                                      | `UTIL_Crypto` in-namespace, or one reviewed crypto utility of your own | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                           | `UTIL_FeatureFlag.isEnabled()`                                  | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown` try/catch pattern                                                     | `Assert.fail` + `Assert.isInstanceOfType`                       | 5        |
 | `KernSecurityBypassCallSite`       | Security-bypass call sites (`withSystemMode`, `bypassSharing`, `bypassAction`, …)               | Acknowledge with `@SuppressWarnings`/`// NOPMD` + reason        | 5        |
@@ -852,7 +894,7 @@ this.consoleError('Failed to save');
 
 ### kerndx/enforce-component-naming
 
-**The goal:** keep component names consistent so anyone can tell at a glance which part of the business a component belongs to. This rule requires LWC folder names to follow a `domain[Brand]FeatureVariant` pattern. It is org-specific: you set the list of domains and brands in the rule's source.
+**The goal:** keep component names consistent so anyone can tell at a glance which part of the business a component belongs to. This rule requires LWC folder names to follow a `domain[Brand]FeatureVariant` pattern. It is org-specific: you supply the list of domains and brands as rule options, and until you do the rule checks nothing.
 
 **What the rule detects:**
 
@@ -860,7 +902,7 @@ this.consoleError('Failed to save');
 - Component folder names longer than 40 characters.
 - Folder names starting with `__` are skipped (that is an internal LWC convention).
 
-**Default configuration (example for your org):**
+**Example configuration for your org:**
 
 - Domains: `sls`, `ord`, `prd`, `svc`, `sub`, `mkt`, `cmn`
 - Brands: `Lex`, `Ear`
@@ -880,8 +922,30 @@ export default class OrdReturnWizard extends ComponentBuilder('notification') {}
 export default class SvcLexWarrantyTimeline extends ComponentBuilder('navigation') {}
 ```
 
-**Customising:** Edit the `DOMAINS` and `BRANDS` arrays at the top of `scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js` to match your organisation's naming
-convention. The `MAX_LENGTH` constant (default 40) can also be adjusted.
+**Customising:** The vocabulary is a rule option rather than something you edit inside the plugin, so it lives with the rest of your lint configuration:
+
+```javascript
+// eslint.config.mjs
+import kerndxPlugin from 'eslint-plugin-kerndx';
+
+export default [
+	{
+		plugins: {kerndx: kerndxPlugin},
+		files: ['**/*.js'],
+		rules: {
+			'kerndx/enforce-component-naming': ['error', {
+				domains: ['sls', 'ord', 'prd', 'svc', 'sub', 'mkt', 'cmn'],
+				brands: ['Lex', 'Ear'],
+				maxLength: 40
+			}]
+		}
+	}
+];
+```
+
+`domains` is the one option you have to supply, in lowercase. `brands` is optional and PascalCase, and `maxLength` defaults to 40 if you leave it out.
+
+Worth knowing before you turn the rule on: with no options at all it reports nothing. There is no built-in vocabulary to fall back on, which keeps the plugin useful in orgs whose conventions look nothing like this example, but it does mean an options-less `'kerndx/enforce-component-naming': 'error'` line is silently doing no work.
 
 ### kerndx/no-coverage-exempt-without-reason
 
@@ -1036,13 +1100,16 @@ Flows and Custom Objects are not Apex or JavaScript, so neither PMD nor ESLint c
 
 ### How do I configure it?
 
-You drive the script with three configuration arrays at the top of the file:
+You drive the script from a `naming` block in `.kerndx/config.yml` at the root of your repo. With no such file, it runs on these built-in defaults:
 
-| Array        | Purpose                     | Default (example)                                |
-|--------------|-----------------------------|--------------------------------------------------|
-| `DOMAINS`    | Organizational domain codes | `SLS`, `ORD`, `PRD`, `SVC`, `SUB`, `MKT`, `CMN`  |
-| `BRANDS`     | Optional brand segments     | `ACM`, `BTA`                                     |
-| `FLOW_TYPES` | Flow type abbreviations     | `BS`, `AS`, `BD`, `SCR`, `AL`, `SCH`, `PE`, `SF` |
+| Setting         | Purpose                       | Default                                                                                                                      |
+|-----------------|-------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `domains`       | Organisational domain codes   | `SLS`, `ORD`, `PRD`, `SVC`, `SUB`, `MKT`, `CMN`                                                                              |
+| `brands`        | Optional brand segments       | `ACM`, `BTA`                                                                                                                 |
+| `flow_types`    | Flow type abbreviations       | `BS`, `AS`, `BD`, `SCR`, `AL`, `SCH`, `PE`, `SF`                                                                             |
+| `length_limits` | Character limits per artefact | `flow: 80`, `custom_object: 40`                                                                                              |
+
+Apex naming is enforced by the PMD ruleset and the pipeline tooling, not by this script.
 
 **Flow pattern:** `Domain_[Brand_]Object_Type_Action` (80-character limit)
 
@@ -1073,13 +1140,19 @@ The script reports:
 
 ### How do I adapt it to my org?
 
-Adapt the configuration arrays to your own naming convention:
+Create `.kerndx/config.yml` at the root of your repo and describe your convention under a `naming` key. Nothing in `scanner/` needs editing:
 
-1. Open `scanner/validate-naming.js`
-2. Edit `DOMAINS` to match your organisational domains (e.g., `['FIN', 'HR', 'OPS', 'CMN']`)
-3. Edit `BRANDS` to match your brand codes (e.g., `['PRO', 'ENT']`) or set to `[]` if not used
-4. Edit `FLOW_TYPES` to match your flow type abbreviations
-5. Adjust `CHARACTER_LIMITS` if your org uses different limits
+```yaml
+naming:
+  domains: [FIN, HR, OPS, CMN]
+  brands: [PRO, ENT]
+  flow_types: [BS, AS, BD, SCR, AL, SCH, PE, SF]
+  length_limits:
+    flow: 80
+    custom_object: 40
+```
+
+Two things to know about how the merge works. Each list you supply **replaces** the matching default outright rather than adding to it, so spell out every value you want, not just the new ones (an empty `brands: []` switches the brand segment off). Keys you leave out keep their defaults, and `length_limits` is the exception to the replace rule: it merges limit by limit, so you can override `flow` alone and leave the rest.
 
 ---
 
@@ -1283,7 +1356,7 @@ If you also use org-specific naming rules:
 
 Violations now appear inline as squiggly underlines while you type. Hover over one to see the rule name and message. The Apex PMD extension supports more than one ruleset out of the box.
 
-**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the four rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config.
+**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the four rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config, with one caveat: `kerndx/enforce-component-naming` reports nothing until you also give it a `domains` option.
 
 ### IntelliJ / Illuminated Cloud
 
@@ -1462,11 +1535,11 @@ Create or update a combined ruleset that references both the framework rules and
 
 **Step 4: Customise the naming validator**
 
-Edit the `DOMAINS`, `BRANDS`, and `FLOW_TYPES` arrays in `scanner/validate-naming.js` to match your org's naming convention for Flows and Custom Objects.
+Add a `naming` block to `.kerndx/config.yml` with your domains, brands and flow types, as shown in [How do I adapt it to my org?](#how-do-i-adapt-it-to-my-org).
 
 **Step 5: Customise LWC naming**
 
-Edit the `DOMAINS` and `BRANDS` arrays in `scanner/eslint-plugin-kerndx/rules/enforce-component-naming.js` to match your LWC naming convention.
+Pass your domains and brands as options to `kerndx/enforce-component-naming` in your ESLint config, as shown in [kerndx/enforce-component-naming](#kerndxenforce-component-naming). The ESLint rule matches LWC folder names, so it wants lowercase domains and PascalCase brands: `SLS` in the YAML is `sls` here.
 
 > **Reference:** PMD 7 XPath documentation is available at [pmd.github.io](https://pmd.github.io/pmd/pmd_userdocs_extending_writing_xpath_rules.html). The Apex AST node
 > types used in these rules (`UserClass`, `UserTrigger`, `MethodCallExpression`, `NewObjectExpression`, `SoqlExpression`, etc.) are documented in the PMD Apex language
@@ -1541,7 +1614,7 @@ The KernDX-authored rules use PMD 7's XPath rule class:
 net.sourceforge.pmd.lang.rule.xpath.XPathRule
 ```
 
-**PMD 6 is not supported.** Swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) does not help: the bundled standard-rule reference has no PMD 6 equivalent, so the ruleset still fails to load. If your CI/CD tool pins PMD 6 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
+**PMD 6 is not supported.** The rules are written for the PMD 7 XPath rule class, and swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is not enough on its own, because the XPath the rules use targets the PMD 7 Apex node model. If your CI/CD tool pins PMD 6 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
 
 <details>
 <summary>PMD version per CI/CD tool, and whether the ruleset works as-is</summary>
