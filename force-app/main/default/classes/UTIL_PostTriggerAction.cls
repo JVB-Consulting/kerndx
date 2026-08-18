@@ -10,7 +10,11 @@
  * 3. Optional Apex entry-criteria evaluator (`EntryCriteriaContextClassName__c`)
  *
  * Rows that survive the gates are dispatched under a per-row performance timer
- * with a no-DML contract guard. Action exceptions route through `FailureAction__c`
+ * with a no-DML contract guard. The guard discounts the logging framework's own
+ * log persistence (inside a platform-event / change-event trigger dispatch,
+ * `LOG_Engine` persists via direct DML instead of publishing), so post-actions can
+ * log — the documented contract — without being blamed for the engine's DML.
+ * Action exceptions route through `FailureAction__c`
  * policy (`LogAndContinue` or `BlockDml`); `LimitException` and the no-DML guard's
  * own `PostActionDmlException` always rethrow regardless of policy.
  *
@@ -23,13 +27,14 @@
  * @see IF_Trigger.PostAction
  * @see IF_Trigger.PostActionEntryCriteria
  * @see IF_Trigger.PostActionContext
+ * @see LOG_Engine
  * @see UTIL_PostTriggerAction_TEST
  *
  * @author Jason van Beukering
  *
  * @group Triggers
  *
- * @date May 2026
+ * @date May 2026, August 2026
  *
  * @since 1.1
  */
@@ -216,6 +221,14 @@ public inherited sharing class UTIL_PostTriggerAction
 	 * `PostActionDmlException` is thrown and routes through `handleFailure`, which
 	 * always rethrows the DML exception regardless of `FailureAction__c` policy.
 	 *
+	 * The guard discounts the logging framework's own persistence: inside a platform-event /
+	 * change-event trigger dispatch `LOG_Engine` persists log entries via direct DML instead of
+	 * publishing (an ERROR-level emit, or an emit that crosses the engine's buffer cap, flushes
+	 * synchronously), so a post-action that merely logs — the documented contract — must not be
+	 * blamed for the engine's DML. `LOG_Engine.getFrameworkLogPersistenceDmlStatements()` is
+	 * sampled around `execute(context)` and its delta subtracted from the measured statements;
+	 * DML the post-action performs itself always still counts.
+	 *
 	 * @param row The post-action CMDT row.
 	 * @param context The post-action context.
 	 */
@@ -230,8 +243,10 @@ public inherited sharing class UTIL_PostTriggerAction
 		try
 		{
 			Integer dmlStatementsBefore = Limits.getDmlStatements();
+			Integer frameworkLogDmlStatementsBefore = LOG_Engine.getFrameworkLogPersistenceDmlStatements();
 			action.execute(context);
-			if(Limits.getDmlStatements() > dmlStatementsBefore)
+			Integer frameworkLogDmlStatementsDuringAction = LOG_Engine.getFrameworkLogPersistenceDmlStatements() - frameworkLogDmlStatementsBefore;
+			if(Limits.getDmlStatements() - frameworkLogDmlStatementsDuringAction > dmlStatementsBefore)
 			{
 				throw new UTIL_Exceptions.PostActionDmlException(String.format(DML_VIOLATION_MESSAGE, new List<String> {row.ApexClassName__c}));
 			}

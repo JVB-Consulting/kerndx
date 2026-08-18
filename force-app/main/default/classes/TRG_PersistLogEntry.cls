@@ -13,9 +13,23 @@
  * (presence-based, re-armed automatically after purges because the unique detail key no longer
  * exists) plus one rollup counter row per fingerprint per UTC day. Any aggregation failure falls
  * back to plain per-row inserts with a null fingerprint so no event is ever lost.
+ *
+ * Grouping keys are normalized where the stored keys are composed — `groupEvents` runs each one
+ * through `LOG_Builder.normalizeStoredFingerprintKey` rather than trusting it — because this class
+ * persists any delivered `LogEntryEvent__e`, including one published straight to the platform event,
+ * which never passes through `LOG_Builder` and can therefore carry edge whitespace or a key too long
+ * for the stored `detail:`/`rollup:` form.
+ *
+ * Flood control writes its own rows through row-level `Database` DML rather than `DML_Builder`,
+ * because partial success is the whole point here: the detail key is a unique index, so a second
+ * writer that raced the presence check has its row rejected, and an all-or-nothing transaction
+ * would take the rest of the chunk — including the plain rows of unrelated events — down with it.
+ * Rejected rows are recovered instead (folded into the row already stored, or kept as plain rows)
+ * and one WARN breadcrumb records that it happened.
  * Originally adapted from [ApexLogger](https://github.com/mlockett/ApexLogger).
  *
  * @see TRG_PersistLogEntry_TEST
+ * @see LOG_Builder
  * @see LOG_Engine
  * @see TRG_Base
  * @see IF_Trigger
@@ -25,7 +39,7 @@
  *
  * @group Triggers
  *
- * @date January 2026, July 2026
+ * @date January 2026, August 2026
  */
 public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements IF_Trigger.AfterInsert
 {
@@ -53,6 +67,22 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * @date July 2026
 	 */
 	private static final Integer ROLLUP_DAY_SUFFIX_LENGTH = UTIL_String.COLON.length() + UTIL_Date.toUtcDayBucket(Datetime.newInstanceGmt(2026, 1, 1)).length();
+
+	/**
+	 * @description Message shape of the breadcrumb persisted when flood control had to recover a
+	 * rejected row: how many rows were kept as plain entries, how many folded into a row already
+	 * stored, and the database's own text for the first rejection. Held as a constant here rather
+	 * than a Custom Label because it is engine diagnostic text on a log row, the same treatment
+	 * every other persisted framework log message gets, and the log-persist path must never take a
+	 * dependency that could itself emit a log.
+	 */
+	private static final String FALLBACK_BREADCRUMB_FORMAT = 'flood-control fallback: {0} events stored plain, {1} folded into the row already stored, first error: {2}';
+
+	/**
+	 * @description Class/method stamp on the fallback breadcrumb, pointing an administrator at the
+	 * exact framework entry point that recovered the rows.
+	 */
+	private static final String FALLBACK_BREADCRUMB_CLASS_METHOD = TRG_PersistLogEntry.class.getName() + '/persist';
 
 	/**
 	 * @description Composes the presence-based detail key ('detail:<base>') this handler stamps onto the
@@ -158,30 +188,41 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description Persists a chunk of log events: plain events insert as today; fingerprinted
 	 * events collapse into presence-based detail rows and per-day rollup counters via the
-	 * insert/update split routed off one indexed selector query. If the aggregation compute ever
-	 * throws (no current input can), the fingerprinted events persist as plain null-fingerprint
-	 * rows instead, so no log event is lost to the flood-control path. DML-layer failures are
-	 * deliberately NOT wrapped (no fallback-on-failed-DML amplification) and no
-	 * EventBus.RetryableException is thrown (retry exhaustion would suspend the subscription).
+	 * insert/update split routed off one indexed selector query. If that aggregation throws — the
+	 * presence-check query failing under load is the realistic way — the fingerprinted events
+	 * persist as plain null-fingerprint rows instead, so no log event is lost to the flood-control
+	 * path.
+	 *
+	 * Every key is put into storable shape before a row is composed from it (see `groupEvents`), so
+	 * the detail key, the rollup key, the presence check and the recovery re-read all name the one
+	 * key the row is stored under. This boundary normalizes rather than trusting its caller because
+	 * it receives any delivered `LogEntryEvent__e`, including one published straight to the platform
+	 * event without ever passing through `LOG_Builder`, whose 216-character field accepts keys the
+	 * stored `detail:`/`rollup:` form cannot hold.
+	 *
+	 * The two layers commit separately: plain rows keep their original all-or-nothing
+	 * `DML_Builder` transaction, while the flood-control rows commit row by row so a rejection on
+	 * the unique fingerprint index costs only the row the database refused (see
+	 * `persistFloodControlRows`). No `EventBus.RetryableException` is thrown at any point — retry
+	 * exhaustion would suspend the subscription and stop persisting logs org-wide.
 	 *
 	 * `public static` because two callers share it: the `afterInsert` trigger callback (normal
 	 * delivered-event path) and `LOG_Engine` (in-context path, when publishing would loop).
 	 *
 	 * @param events The platform-event chunk to persist.
 	 *
-	 * @date January 2026, July 2026
+	 * @date January 2026, August 2026
 	 */
 	public static void persist(List<LogEntryEvent__e> events)
 	{
-		List<LogEntry__c> rowsToInsert = new List<LogEntry__c>();
-		List<LogEntry__c> rowsToUpdate = new List<LogEntry__c>();
+		List<LogEntry__c> plainRows = new List<LogEntry__c>();
 		List<LogEntryEvent__e> fingerprinted = new List<LogEntryEvent__e>();
 
 		for(LogEntryEvent__e event : events)
 		{
 			if(String.isBlank(event.Fingerprint__c))
 			{
-				rowsToInsert.add(buildRow(event));
+				plainRows.add(buildRow(event));
 			}
 			else
 			{
@@ -189,32 +230,194 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 			}
 		}
 
-		List<LogEntry__c> aggregatedInserts = new List<LogEntry__c>();
-		List<LogEntry__c> aggregatedUpdates = new List<LogEntry__c>();
+		List<LogEntry__c> floodControlInserts = new List<LogEntry__c>();
+		List<LogEntry__c> floodControlUpdates = new List<LogEntry__c>();
 		try
 		{
+			List<LogEntry__c> aggregatedInserts = new List<LogEntry__c>();
+			List<LogEntry__c> aggregatedUpdates = new List<LogEntry__c>();
 			aggregate(fingerprinted, aggregatedInserts, aggregatedUpdates);
-			rowsToInsert.addAll(aggregatedInserts);
-			rowsToUpdate.addAll(aggregatedUpdates);
+			floodControlInserts = aggregatedInserts;
+			floodControlUpdates = aggregatedUpdates;
 		}
-		// kern-coverage-exempt: durability fallback; no current aggregate() input can throw, kept so a future compute defect degrades to plain rows instead of losing log events
-		// kern-coverage-exempt: the catch-entry brace below is coverage-counted with the fallback and is unreachable for the same reason (nothing in aggregate() can throw)
 		catch(Exception error)
 		{
-			// kern-coverage-exempt: fallback loop reachable only through the compute catch above; persists fingerprinted events as plain null-fingerprint rows
 			for(LogEntryEvent__e event : fingerprinted)
 			{
-				// kern-coverage-exempt: fallback row build reachable only through the compute catch above; no log event is ever lost to a compute defect
-				rowsToInsert.add(buildRow(event));
+				plainRows.add(buildRow(event));
 			}
 		}
 
-		if(rowsToInsert.isEmpty() && rowsToUpdate.isEmpty())
+		if(!plainRows.isEmpty())
+		{
+			DML_Builder.newTransaction().systemModeInternal().doInsert(plainRows).execute();
+		}
+
+		persistFloodControlRows(floodControlInserts, floodControlUpdates);
+	}
+
+	/**
+	 * @description Commits the flood-control layer row by row, so one refused row costs only itself.
+	 * Raw `Database` DML is deliberate here: `DML_Builder` is all-or-nothing by design, and
+	 * all-or-nothing is exactly wrong for this layer — `Fingerprint__c` is a unique index, so a
+	 * writer that raced another on a first-seen key has its row refused, and an all-or-nothing
+	 * commit would discard the whole chunk (including rows for entirely unrelated fingerprints) to
+	 * no purpose. Both statements therefore run with `allOrNone` false, in the same `SYSTEM_MODE`
+	 * the plain path uses.
+	 *
+	 * Refused inserts are recovered — the row is not lost. Refused updates are not: an update means
+	 * the row is already stored (that is why it is an update), so only a counter increment is
+	 * missed, and re-persisting the row would double-count the window. The breadcrumb records both.
+	 *
+	 * @param rowsToInsert The detail and new rollup rows to insert.
+	 * @param rowsToUpdate The existing rollup rows whose counters were incremented.
+	 */
+	@SuppressWarnings('PMD.KernNoDirectDML')
+	private static void persistFloodControlRows(List<LogEntry__c> rowsToInsert, List<LogEntry__c> rowsToUpdate)
+	{
+		List<String> failureMessages = new List<String>();
+		List<LogEntry__c> refusedInserts = new List<LogEntry__c>();
+
+		if(!rowsToInsert.isEmpty())
+		{
+			refusedInserts = collectRefusedRows(rowsToInsert, Database.insert(rowsToInsert, false, AccessLevel.SYSTEM_MODE), failureMessages);
+		}
+
+		if(!rowsToUpdate.isEmpty())
+		{
+			//The refused updates themselves need no recovery (see the method docstring); the call is here for its
+			//error text, which the breadcrumb quotes so a missed counter increment is still diagnosable.
+			collectRefusedRows(rowsToUpdate, Database.update(rowsToUpdate, false, AccessLevel.SYSTEM_MODE), failureMessages);
+		}
+
+		if(failureMessages.isEmpty())
 		{
 			return;
 		}
 
-		DML_Builder.newTransaction().systemModeInternal().doInsert(rowsToInsert).doUpdate(rowsToUpdate).execute();
+		recoverRefusedRows(refusedInserts, failureMessages[0]);
+	}
+
+	/**
+	 * @description Splits a partial-success DML result into the rows the database refused, gathering
+	 * each refusal's text for the breadcrumb. Results are positional against the rows submitted,
+	 * which is the platform's contract for `Database.insert`/`Database.update`.
+	 *
+	 * @param rows The rows submitted, in submission order.
+	 * @param results The per-row outcomes, in the same order.
+	 * @param failureMessages Output: the database's text for each refusal, appended in row order.
+	 *
+	 * @return The refused rows.
+	 */
+	private static List<LogEntry__c> collectRefusedRows(List<LogEntry__c> rows, List<Database.SaveResult> results, List<String> failureMessages)
+	{
+		List<LogEntry__c> refusedRows = new List<LogEntry__c>();
+		for(Integer index = 0; index < results.size(); index++)
+		{
+			if(!results[index].isSuccess())
+			{
+				refusedRows.add(rows[index]);
+				failureMessages.add(LOG_Engine.extractErrorMessage(results[index].getErrors()));
+			}
+		}
+		return refusedRows;
+	}
+
+	/**
+	 * @description Recovers the flood-control rows the database refused, then records the fallback.
+	 * Each refused row is re-read under its own key. A row already stored under that key wins: the
+	 * refused row's occurrences fold into it, which is what a genuine two-writer race on a first-seen
+	 * key needs — the winner committed between this transaction's presence check and its insert, and
+	 * its counter would otherwise be short by the loser's window. With nothing stored under the key,
+	 * the refusal was not a collision this transaction can reconcile, so the row persists plain,
+	 * without a fingerprint, where it can neither collide again nor be lost.
+	 *
+	 * The fold adds the refused row's occurrences to the stored row's, and leaves the counter unset
+	 * when neither row counts any — a refused detail row carries no count and folds into a detail
+	 * row that carries none either. That keeps the two row shapes meaning what they mean: a stored
+	 * row with a count is a rollup counter, one without is a forensic sample, and the Log Console
+	 * reads them apart on exactly that.
+	 *
+	 * The recovery is one round by design: its own DML is partial too, and its outcome is not
+	 * inspected, which bounds the fallback at one extra statement of each kind and keeps a failing
+	 * persist from amplifying into a retry storm.
+	 *
+	 * @param refusedRows The flood-control rows the insert refused.
+	 * @param firstFailureMessage The database's text for the first refusal, quoted in the breadcrumb.
+	 */
+	@SuppressWarnings('PMD.KernNoDirectDML')
+	private static void recoverRefusedRows(List<LogEntry__c> refusedRows, String firstFailureMessage)
+	{
+		Set<String> storedKeys = new Set<String>();
+		for(LogEntry__c refused : refusedRows)
+		{
+			storedKeys.add(refused.Fingerprint__c);
+		}
+
+		Map<String, LogEntry__c> storedByKey = findByKey(storedKeys);
+		Map<Id, LogEntry__c> foldedRowsById = new Map<Id, LogEntry__c>();
+		List<LogEntry__c> plainRows = new List<LogEntry__c>();
+
+		for(LogEntry__c refused : refusedRows)
+		{
+			LogEntry__c stored = storedByKey.get(refused.Fingerprint__c);
+			Decimal refusedCount = refused.OccurrenceCount__c;
+
+			if(stored == null)
+			{
+				refused.Fingerprint__c = null;
+				refused.OccurrenceCount__c = null;
+				plainRows.add(refused);
+			}
+			else
+			{
+				// kern-coverage-exempt: cross-transaction only — a stored row under a refused row's key needs a winner that committed after this transaction's presence check ran
+				stored.OccurrenceCount__c = stored.OccurrenceCount__c == null && refusedCount == null ? null : (stored.OccurrenceCount__c ?? 0) + (refusedCount ?? 0);
+				// kern-coverage-exempt: same cross-transaction race as the fold above; the winner's row is findable only once its own transaction has committed
+				foldedRowsById.put(stored.Id, stored);
+			}
+		}
+
+		plainRows.add(buildBreadcrumbRow(plainRows.size(), foldedRowsById.size(), firstFailureMessage));
+
+		if(!foldedRowsById.isEmpty())
+		{
+			// kern-coverage-exempt: writes the folded counters, so it runs only when the cross-transaction race above found a stored row
+			Database.update(foldedRowsById.values(), false, AccessLevel.SYSTEM_MODE);
+		}
+		Database.insert(plainRows, false, AccessLevel.SYSTEM_MODE);
+	}
+
+	/**
+	 * @description Builds the single WARN row that records a flood-control fallback, so a silent
+	 * repeat is impossible: the counts say what became of the refused rows and the message quotes
+	 * the database's own reason.
+	 *
+	 * The row is composed and written here, as an ordinary `LogEntry__c`, rather than emitted
+	 * through `LOG_Builder`. That is the point: an emitted breadcrumb would publish a
+	 * `LogEntryEvent__e`, the platform would deliver it straight back into this trigger, and inside
+	 * an event-trigger context `LOG_Engine` calls `persist` directly — either way the breadcrumb
+	 * would re-enter the very path it is reporting on. Writing the row keeps the fallback flat. Its
+	 * `Fingerprint__c` is left null for the same reason: a breadcrumb can never collide, so it can
+	 * never be refused, so it can never provoke a breadcrumb of its own.
+	 *
+	 * @param plainRowCount How many refused rows were kept as plain rows.
+	 * @param foldedRowCount How many refused rows folded into a row already stored.
+	 * @param firstFailureMessage The database's text for the first refusal.
+	 *
+	 * @return The unsaved breadcrumb row.
+	 */
+	private static LogEntry__c buildBreadcrumbRow(Integer plainRowCount, Integer foldedRowCount, String firstFailureMessage)
+	{
+		String message = String.format(FALLBACK_BREADCRUMB_FORMAT, new List<Object> {plainRowCount, foldedRowCount, firstFailureMessage});
+
+		LogEntry__c breadcrumb = new LogEntry__c();
+		breadcrumb.ClassMethod__c = UTIL_String.abbreviate(FALLBACK_BREADCRUMB_CLASS_METHOD, LogEntry__c.ClassMethod__c);
+		breadcrumb.LogLevel__c = LoggingLevel.WARN.name();
+		breadcrumb.Message__c = UTIL_String.abbreviate(message, LogEntry__c.Message__c);
+		breadcrumb.ShortMessage__c = UTIL_String.abbreviate(message, LogEntry__c.ShortMessage__c);
+
+		return breadcrumb;
 	}
 
 	/**
@@ -251,7 +454,16 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description First-pass grouping: records the first event seen per `detail:` key and
 	 * accumulates the per-UTC-day rollup window (payload sample plus occurrence count) per
-	 * `rollup:` key. Window assignment uses `CreatedDate` — the event PUBLISH time, not the trigger
+	 * `rollup:` key.
+	 *
+	 * Both keys are composed from the event's grouping key put into storable shape
+	 * (`LOG_Builder.normalizeStoredFingerprintKey`) rather than from the key as it arrived — trimmed,
+	 * and hashed when it is longer than the prefixed form can hold. Normalizing here, at the one
+	 * place the keys are composed, is what lets the presence check find what the insert stored: the
+	 * shape is fixed before any key exists, and the delivered event itself is never written to,
+	 * because a platform event's record is read-only once the platform has delivered it.
+	 *
+	 * Window assignment uses `CreatedDate` — the event PUBLISH time, not the trigger
 	 * persist time — so the publish-to-persist delivery lag never mis-buckets (spec §4.3). This
 	 * equals the original occurrence time only for immediately-published events; under log buffering
 	 * (`suspendSaving`/`LogScope`) or the async DML-budget fallback, publish can lag the occurrence,
@@ -267,13 +479,15 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	{
 		for(LogEntryEvent__e event : events)
 		{
-			String detailKey = buildDetailKey(event.Fingerprint__c);
+			String baseKey = LOG_Builder.normalizeStoredFingerprintKey(event.Fingerprint__c);
+
+			String detailKey = buildDetailKey(baseKey);
 			if(!detailSampleByKey.containsKey(detailKey))
 			{
 				detailSampleByKey.put(detailKey, event);
 			}
 
-			String rollupKey = buildRollupKey(event.Fingerprint__c, event.CreatedDate ?? Datetime.now());
+			String rollupKey = buildRollupKey(baseKey, event.CreatedDate ?? Datetime.now());
 			RollupWindow window = windowByKey.get(rollupKey);
 			if(window == null)
 			{

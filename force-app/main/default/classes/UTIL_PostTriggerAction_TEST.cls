@@ -2,8 +2,8 @@
 /**
  * @description Test class for `UTIL_PostTriggerAction`. Covers the three gating filters
  * (feature flags, optional `TriggerSetting__c` scope, Apex entry-criteria evaluator),
- * the no-DML contract guard, the `FailureAction__c` policy branches, the fatal-governor
- * rethrow, and the recursion guard.
+ * the no-DML contract guard and its framework-log-persistence discount, the
+ * `FailureAction__c` policy branches, the fatal-governor rethrow, and the recursion guard.
  *
  * @see UTIL_PostTriggerAction
  * @see PostTriggerAction__mdt
@@ -12,7 +12,7 @@
  *
  * @group Triggers
  *
- * @date May 2026, June 2026
+ * @date May 2026, August 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -29,7 +29,16 @@ private class UTIL_PostTriggerAction_TEST
 	private static final String ACTION_NAME_SUCCESS = UTIL_PostTriggerAction_TEST.MockPostAction_Success.class.getName();
 	private static final String ACTION_NAME_SUCCESS_SECONDARY = UTIL_PostTriggerAction_TEST.MockPostAction_SuccessSecondary.class.getName();
 	private static final String ACTION_NAME_DML = UTIL_PostTriggerAction_TEST.MockPostAction_Dml.class.getName();
+	private static final String ACTION_NAME_DML_AND_ERROR_LOG = UTIL_PostTriggerAction_TEST.MockPostAction_DmlAndErrorLog.class.getName();
+	private static final String ACTION_NAME_EMITS_ERROR_LOG = UTIL_PostTriggerAction_TEST.MockPostAction_EmitsErrorLog.class.getName();
+	private static final String ACTION_NAME_EMITS_INFO_LOG = UTIL_PostTriggerAction_TEST.MockPostAction_EmitsInfoLog.class.getName();
 	private static final String ACTION_NAME_THROWS = UTIL_PostTriggerAction_TEST.MockPostAction_Throws.class.getName();
+	/**
+	 * @description One below `LOG_Engine`'s private buffer cap (`MAX_BUFFER_SIZE` = 500), so a
+	 * single buffered INFO emit from the post-action under test crosses the cap and triggers the
+	 * synchronous auto-flush.
+	 */
+	private static final Integer LOG_BUFFER_COUNT_ONE_BELOW_CAP = 499;
 	private static final String EVALUATOR_TRUE = UTIL_PostTriggerAction_TEST.MockEntryCriteria_True.class.getName();
 	private static final String EVALUATOR_FALSE = UTIL_PostTriggerAction_TEST.MockEntryCriteria_False.class.getName();
 
@@ -408,6 +417,90 @@ private class UTIL_PostTriggerAction_TEST
 	}
 
 	/**
+	 * @description A post-action that emits an ERROR-level log inside a platform-event /
+	 * change-event trigger dispatch persists that log synchronously via the engine's
+	 * direct-DML path (`TRG_PersistLogEntry.persist` — publishing would make the platform
+	 * redeliver the source event). That framework-owned DML must NOT trip the no-DML
+	 * contract guard: the guard discounts the engine's own log persistence and blames the
+	 * post-action only for DML it performed itself. The delta assertion pins that the
+	 * persistence still happened synchronously inside the dispatch window — the discount
+	 * must not change log delivery timing.
+	 */
+	@IsTest
+	private static void runDoesNotRaiseDmlExceptionWhenActionEmitsErrorLogInEventTriggerContext()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				buildRow('ErrorLogEmit', 10, ACTION_NAME_EMITS_ERROR_LOG, SEL_TriggerAction.FAILURE_ACTION_LOG_AND_CONTINUE)
+		};
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		Integer dmlStatementsBeforeRun = Limits.getDmlStatements();
+
+		EventTriggerContextRunOutcome outcome = runInsideEventTriggerContextCapturingOutcome();
+
+		Assert.isNull(outcome.caught, 'Framework log persistence must not trip the post-action no-DML guard; caught: ' + outcome.caught);
+		Assert.isTrue(outcome.dmlStatementsAfterRun > dmlStatementsBeforeRun,
+				'The ERROR log must still persist synchronously via direct DML inside the dispatch window, sampled before teardown so a deferred flush cannot satisfy it');
+	}
+
+	/**
+	 * @description A post-action whose INFO-level emit crosses the engine's buffer cap inside an
+	 * event-trigger dispatch triggers the synchronous auto-flush, which persists the whole buffer
+	 * via direct DML (measured in-org 2026-08-10: 20 DML statements / 500 rows for a full buffer).
+	 * That framework-owned DML must NOT trip the no-DML contract guard — this is the shipped
+	 * `IF_Trigger.PostAction` `@example` shape, which would otherwise fail intermittently
+	 * depending on how full the buffer happens to be. The buffer is pre-filled to one below the
+	 * cap so the mock's single emit is the crossing one.
+	 */
+	@IsTest
+	private static void runDoesNotRaiseDmlExceptionWhenActionInfoLogCrossesBufferCapInEventTriggerContext()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				buildRow('InfoLogBufferCrossing', 10, ACTION_NAME_EMITS_INFO_LOG, SEL_TriggerAction.FAILURE_ACTION_LOG_AND_CONTINUE)
+		};
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+		for(Integer i = 0; i < LOG_BUFFER_COUNT_ONE_BELOW_CAP; i++)
+		{
+			LOG_Engine.logBuffer.add((LogEntryEvent__e)TST_Builder.of(LogEntryEvent__e.SObjectType)
+					.withOverride(LogEntryEvent__e.Message__c, 'buffer filler ' + i)
+					.withOverride(LogEntryEvent__e.LogLevel__c, LoggingLevel.INFO.name())
+					.withoutInsertion()
+					.build());
+		}
+		Integer dmlStatementsBeforeRun = Limits.getDmlStatements();
+
+		EventTriggerContextRunOutcome outcome = runInsideEventTriggerContextCapturingOutcome();
+
+		Assert.isNull(outcome.caught, 'A buffer-cap-crossing flush is framework-owned DML and must not trip the guard; caught: ' + outcome.caught);
+		Assert.isTrue(outcome.dmlStatementsAfterRun > dmlStatementsBeforeRun,
+				'Crossing the buffer cap must still flush synchronously via direct DML inside the dispatch window, sampled before teardown so a deferred flush cannot satisfy it');
+	}
+
+	/**
+	 * @description A post-action that performs its OWN synchronous DML still trips the
+	 * no-DML contract guard even when it also emits an ERROR-level log inside the same
+	 * event-trigger dispatch. Pins the boundary of the framework-log discount: only the
+	 * engine's own persistence DML is excluded from the measured delta, never the
+	 * post-action's.
+	 */
+	@IsTest
+	private static void runRaisesDmlExceptionWhenActionPerformsOwnDmlBesideErrorLogInEventTriggerContext()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				buildRow('OwnDmlBesideLog', 10, ACTION_NAME_DML_AND_ERROR_LOG, SEL_TriggerAction.FAILURE_ACTION_LOG_AND_CONTINUE)
+		};
+		LOG_Engine.beginEventTriggerContext(new List<SObject> {new LogEntryEvent__e()});
+
+		EventTriggerContextRunOutcome outcome = runInsideEventTriggerContextCapturingOutcome();
+
+		Assert.isNotNull(outcome.caught, 'A post-action performing its own DML must still trip the guard even when it also logs');
+		Assert.isInstanceOfType(outcome.caught, UTIL_Exceptions.PostActionDmlException.class,
+				'The framework-log discount must never absorb the post-action\'s own DML');
+	}
+
+	/**
 	 * @description An action throwing a non-fatal, non-DML runtime exception with
 	 * `FailureAction__c = LogAndContinue` is logged and swallowed — `run` returns
 	 * normally without rethrowing.
@@ -502,6 +595,46 @@ private class UTIL_PostTriggerAction_TEST
 		{
 			return caughtException;
 		}
+	}
+
+	/**
+	 * @description Carries what a post-action dispatch inside an owned event-trigger context
+	 * produced: the exception `run` raised (null when it returned normally) and the
+	 * DML-statement count sampled inside the dispatch window, before the context teardown
+	 * (null when `run` threw before the sample).
+	 */
+	private class EventTriggerContextRunOutcome
+	{
+		private Exception caught;
+		private Integer dmlStatementsAfterRun;
+	}
+
+	/**
+	 * @description Runs `UTIL_PostTriggerAction.run` against an empty context inside an
+	 * already-begun event-trigger context, samples `Limits.getDmlStatements()` BEFORE the
+	 * `finally` tears the context down (so a flush deferred to teardown cannot satisfy a
+	 * delivery-timing assertion), and always ends the context. Lets the framework-log-discount
+	 * tests share one scaffold instead of repeating the try/catch/finally block.
+	 *
+	 * @return The outcome carrying the captured exception and the in-window DML sample
+	 */
+	private static EventTriggerContextRunOutcome runInsideEventTriggerContextCapturingOutcome()
+	{
+		EventTriggerContextRunOutcome outcome = new EventTriggerContextRunOutcome();
+		try
+		{
+			UTIL_PostTriggerAction.run(emptyContext());
+			outcome.dmlStatementsAfterRun = Limits.getDmlStatements();
+		}
+		catch(Exception caughtException)
+		{
+			outcome.caught = caughtException;
+		}
+		finally
+		{
+			LOG_Engine.endEventTriggerContext();
+		}
+		return outcome;
 	}
 
 	/**
@@ -684,6 +817,73 @@ private class UTIL_PostTriggerAction_TEST
 					.allowPartial()
 					.suppressLogging()
 					.execute();
+		}
+	}
+
+	/**
+	 * @description Mock `PostAction` that emits an ERROR-level log through the real
+	 * `LOG_Builder` path — inside an event-trigger context that emit persists via direct
+	 * DML, which the no-DML guard must discount as framework-owned.
+	 */
+	public class MockPostAction_EmitsErrorLog implements IF_Trigger.PostAction
+	{
+		/**
+		 * @description Emits the ERROR-level probe log when the dispatcher invokes this action.
+		 *
+		 * @param context The post-action context supplied by the dispatcher
+		 */
+		public void execute(IF_Trigger.PostActionContext context)
+		{
+			LOG_Builder.build().error('Post-action framework-log persistence probe').emitAt(ACTION_NAME_EMITS_ERROR_LOG);
+		}
+	}
+
+	/**
+	 * @description Mock `PostAction` that emits a single INFO-level log through the real
+	 * `LOG_Builder` path — mirrors the shipped `IF_Trigger.PostAction` `@example`. Used with a
+	 * pre-filled buffer so the emit crosses the engine's buffer cap and triggers the synchronous
+	 * auto-flush inside the dispatch window.
+	 */
+	public class MockPostAction_EmitsInfoLog implements IF_Trigger.PostAction
+	{
+		/**
+		 * @description Emits the single INFO-level log that crosses the pre-filled buffer cap.
+		 *
+		 * @param context The post-action context supplied by the dispatcher
+		 */
+		public void execute(IF_Trigger.PostActionContext context)
+		{
+			LOG_Builder.build().info('Transaction touched ' + context.touchedSObjectTypes.size() + ' SObject(s)').emitAt(ACTION_NAME_EMITS_INFO_LOG);
+		}
+	}
+
+	/**
+	 * @description Mock `PostAction` that performs its own synchronous DML AND emits an
+	 * ERROR-level log — used to pin that the framework-log discount never absorbs the
+	 * post-action's own DML. The DML shape mirrors `MockPostAction_Dml` (partial-allowed,
+	 * logging-suppressed) so a subscriber-org row failure cannot escape before the guard runs.
+	 */
+	public class MockPostAction_DmlAndErrorLog implements IF_Trigger.PostAction
+	{
+		/**
+		 * @description Performs the action's own insert, then emits the ERROR-level probe log.
+		 *
+		 * @param context The post-action context supplied by the dispatcher
+		 */
+		public void execute(IF_Trigger.PostActionContext context)
+		{
+			DML_Builder.newTransaction()
+					.doInsert
+							(
+									TST_Builder.of(Account.SObjectType)
+											.withOverride(Account.Name, 'PostActionDmlBesideLogAccount')
+											.withoutInsertion()
+											.build()
+							)
+					.allowPartial()
+					.suppressLogging()
+					.execute();
+			LOG_Builder.build().error('Post-action own-DML-beside-log probe').emitAt(ACTION_NAME_DML_AND_ERROR_LOG);
 		}
 	}
 
