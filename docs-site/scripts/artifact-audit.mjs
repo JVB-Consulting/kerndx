@@ -129,7 +129,23 @@ if (!entry) {
   }
 }
 
-console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions, ${strayPreloads.size} stray preload target(s), entry ${entry ? Math.round((await stat(path.join(assetsDir, entry))).size / 1024) + ' KB' : 'missing'}.`)
+// 6. Sized images. Every <img> in page HTML must declare width and height so the browser reserves
+// its box before the bytes arrive: without them a lazy-loaded screenshot renders as a 2 px placeholder
+// until it loads, the layout jumps when it does, and a below-the-fold still cannot be sized for the
+// LCP calculation. Lighthouse reports this as unsized-images; the tour page's screenshots tripped it.
+let imgChecked = 0
+for (const p of pages) {
+  for (const m of p.html.matchAll(/<img\b[^>]*>/g)) {
+    imgChecked++
+    const tag = m[0]
+    if (!/\swidth="\d+"/.test(tag) || !/\sheight="\d+"/.test(tag)) {
+      const src = (tag.match(/\ssrc="([^"]*)"/) || [])[1] || '(no src)'
+      failures.push(`UNSIZED /${p.slug || '(home)'}: <img src="${src}"> lacks width/height attributes`)
+    }
+  }
+}
+
+console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions, ${strayPreloads.size} stray preload target(s), ${imgChecked} <img> sized, entry ${entry ? Math.round((await stat(path.join(assetsDir, entry))).size / 1024) + ' KB' : 'missing'}.`)
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failure(s):`)
   for (const f of failures) console.error('  ' + f)

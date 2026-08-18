@@ -14,10 +14,15 @@
 import {ref, onMounted, onBeforeUnmount, nextTick} from 'vue';
 import {withBase} from 'vitepress';
 
+// width/height are the image's intrinsic pixels, emitted as attributes so the browser reserves the
+// box before the bytes arrive (no layout jump when a lazy still loads, and a real size for the LCP
+// calculation). The stills are captured at 1280×720; a still of another size passes its own.
 const props = defineProps({
 	src: {type: String, default: ''},
 	alt: {type: String, default: ''},
-	caption: {type: String, default: ''}
+	caption: {type: String, default: ''},
+	width: {type: Number, default: 1280},
+	height: {type: Number, default: 720}
 });
 
 const lightboxOpen = ref(false);
@@ -85,6 +90,8 @@ onBeforeUnmount(() =>
 				class="still-shot__img"
 				:src="withBase(src)"
 				:alt="alt || caption"
+				:width="width"
+				:height="height"
 				loading="lazy"
 				@click="openLightbox"
 			/>
@@ -98,7 +105,7 @@ onBeforeUnmount(() =>
 		<Teleport to="body">
 			<div v-if="lightboxOpen" class="still-lightbox" role="dialog" aria-modal="true" :aria-label="alt || caption || 'Screenshot'" @click.self="closeLightbox">
 				<button ref="lightboxCloseEl" type="button" class="still-lightbox__close" aria-label="Close" @click="closeLightbox">✕</button>
-				<img class="still-lightbox__img" :src="withBase(src)" :alt="alt || caption" />
+				<img class="still-lightbox__img" :src="withBase(src)" :alt="alt || caption" :width="width" :height="height" />
 				<p v-if="caption" class="still-lightbox__cap">{{ caption }}</p>
 			</div>
 		</Teleport>
