@@ -16,7 +16,7 @@
  *
  * @group Async
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -36,6 +36,26 @@ private class UTIL_AsyncChain_TEST
 	 * re-enqueue, not just the shallow two- and three-step chains the other tests drive.
 	 */
 	private static final Integer DEEP_CHAIN_STEP_COUNT = 7;
+
+	/**
+	 * @description Caller-supplied queueable stack depth for the first-enqueue clone witnesses:
+	 * deliberately unlike any framework-computed default (step count + 1) in these tests, so a
+	 * depth observed on the built options can only have been copied from the caller's object.
+	 */
+	private static final Integer CUSTOM_STACK_DEPTH = 5;
+
+	/**
+	 * @description In-range first-step delay (platform range 0-10) handed to the first-enqueue
+	 * clone helper, expected back verbatim on the built options and never on the caller's object.
+	 */
+	private static final Integer DELAY_MINUTES = 5;
+
+	/**
+	 * @description Stand-in for the framework-default stack depth (step count + 1) as execute()
+	 * computes it for a chain started without custom options — the value that must now reach the
+	 * first enqueue instead of being dropped by the old bare-enqueue branch.
+	 */
+	private static final Integer DEFAULT_DEPTH_FIXTURE = 3;
 
 	/**
 	 * @description Length of the deliberately oversized step failure message. Individually it stays
@@ -81,6 +101,73 @@ private class UTIL_AsyncChain_TEST
 	 * context-overflow failure.
 	 */
 	private static final Integer OVERSIZED_MESSAGE_CONTEXT_CAP = 60000;
+
+	/**
+	 * @description Initial-context key seeded by the restart-declaration tests, expected verbatim in
+	 * the as-built snapshot captured on the run record.
+	 */
+	private static final String RESTART_SEED_KEY = 'restartSeedKey';
+
+	/**
+	 * @description Initial-context value seeded by the restart-declaration tests, expected verbatim in
+	 * the as-built snapshot captured on the run record.
+	 */
+	private static final String RESTART_SEED_VALUE = 'restart-seed-value';
+
+	/**
+	 * @description Context key SuccessStep writes while the chain runs — present in the evolved
+	 * context but never in the as-built snapshot, so the restart tests can tell the two apart.
+	 */
+	private static final String EVOLVED_CONTEXT_KEY = 'stepCount';
+
+	/**
+	 * @description Deduplication key handed to withDeduplicationKey by the declared-key round-trip
+	 * test, expected back verbatim on the terminal record after the active key is released.
+	 */
+	private static final String DECLARED_DEDUPLICATION_KEY = 'declared-deduplication-key-witness';
+
+	/**
+	 * @description Failure message carried by the declared-permanent failure fixture.
+	 */
+	private static final String PERMANENT_FAILURE_MESSAGE = 'Declared permanent failure';
+
+	/**
+	 * @description Fixed JSON characters around each undeclared step's class name in the insert-time
+	 * StepLog__c document: the entry braces plus the className key and its quoting — the pre-change
+	 * byte shape of a healthy step entry, which the null-suppressed declaration markers must not grow.
+	 */
+	private static final Integer HEALTHY_STEP_ENTRY_JSON_OVERHEAD = 16;
+
+	/**
+	 * @description Fixed JSON characters of the two-entry step-list document outside its entries: the
+	 * array brackets plus the single separating comma.
+	 */
+	private static final Integer HEALTHY_STEP_LIST_JSON_OVERHEAD = 3;
+
+	/**
+	 * @description Deduplication key shared by the two launches in the deduplication-landing test, so
+	 * the second launch lands on the first chain instead of starting a run of its own.
+	 */
+	private static final String SHARED_DEDUPLICATION_KEY = 'shared-deduplication-key-witness';
+
+	/**
+	 * @description Emitting-site suffix of the announcement a launch writes when it had to record its
+	 * chain under a freshly minted correlation. Its own site, not the launch site, so the announcement
+	 * never counts as the empty-chain completion signal that shares ChainBuilder.execute.
+	 */
+	private static final String MINTED_CORRELATION_SITE = 'announceMintedCorrelation';
+
+	/**
+	 * @description Independent oracle for the holder wording the correlation refusal falls back to when
+	 * the run holding the correlation started outside this transaction — the shape a subscriber reads.
+	 */
+	private static final String UNNAMED_HOLDER_FRAGMENT = 'another chain execution';
+
+	/**
+	 * @description Independent oracle for the remedy the correlation refusal must spell out, so the
+	 * caller is told how to launch several chains under one log correlation.
+	 */
+	private static final String CORRELATION_REMEDY_FRAGMENT = 'execute(correlationId)';
 
 	/**
 	 * @description Step name the next PaddedNameStep construction reports, seeded by each test before
@@ -578,6 +665,46 @@ private class UTIL_AsyncChain_TEST
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'Later steps run normally after a delayed first step');
 			Assert.areEqual(3, execution.TotalSteps__c, 'All three steps are present');
 			Assert.areEqual(3, execution.CompletedSteps__c, 'All three steps complete');
+		}
+	}
+
+	/**
+	 * @description Verifies the first-enqueue options builder carries custom AsyncOptions through a
+	 * DELAYED first enqueue — the branch that historically dropped them — and that it returns a
+	 * clone: the delay rides the built options only, and the caller's object (which becomes the
+	 * executor baton every later hop re-uses) stays byte-unchanged, asserted property-by-property.
+	 */
+	@IsTest
+	private static void shouldCarryCustomOptionsThroughDelayedFirstEnqueue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncOptions custom = new AsyncOptions();
+			custom.maximumQueueableStackDepth = CUSTOM_STACK_DEPTH;
+			AsyncOptions built = UTIL_AsyncChain.buildFirstEnqueueOptions(custom, DELAY_MINUTES);
+			Assert.areEqual(CUSTOM_STACK_DEPTH, built.maximumQueueableStackDepth, 'Custom depth must survive a delayed first enqueue');
+			Assert.areEqual(DELAY_MINUTES, built.minimumQueueableDelayInMinutes, 'Delay must ride the options object');
+			Assert.isNull(custom.minimumQueueableDelayInMinutes, 'Caller options must stay delay-free (delay repeats every hop otherwise)');
+			Assert.areEqual(CUSTOM_STACK_DEPTH, custom.maximumQueueableStackDepth, 'Caller options must be byte-unchanged by the clone');
+		}
+	}
+
+	/**
+	 * @description Verifies the first-enqueue options builder forwards the framework-default stack
+	 * depth to an undelayed first enqueue with no custom options — the branch that historically
+	 * enqueued bare, so the depth default only took effect from the second hop — and sets no delay
+	 * when none is configured.
+	 */
+	@IsTest
+	private static void shouldApplyDefaultDepthOnUndelayedFirstEnqueueWithoutCustomOptions()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncOptions defaults = new AsyncOptions();
+			defaults.maximumQueueableStackDepth = DEFAULT_DEPTH_FIXTURE;
+			AsyncOptions built = UTIL_AsyncChain.buildFirstEnqueueOptions(defaults, null);
+			Assert.areEqual(DEFAULT_DEPTH_FIXTURE, built.maximumQueueableStackDepth, 'Depth default must now reach the first hop');
+			Assert.isNull(built.minimumQueueableDelayInMinutes, 'No delay configured means no delay set');
 		}
 	}
 
@@ -1468,6 +1595,105 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description The shipped AsyncChain flag must resolve ENABLED through the REAL metadata —
+	 * the flag record, its hierarchy-setting strategy record, and no runtime-switch row — exactly
+	 * as an untouched org resolves it after upgrade: the strategy finds no
+	 * AsyncChainRuntimeSwitch__c row, reports no match, and the flag's ResultOnNoMatch keeps
+	 * chains enabled. Deliberately seeds NO flag mock: the shipped records are the subject under
+	 * test (the upgrade-neutrality witness). The precondition pin distinguishes the no-match
+	 * fallback from the strategy-less IsEnabledByDefault branch — both resolve true on the
+	 * shipped record, so without the pin a deleted strategy record would leave this green.
+	 */
+	@IsTest
+	private static void shouldResolveChainFlagEnabledWithStrategyRecordAndNoSettingRow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			FeatureFlag__mdt chainFlag = SEL_FeatureFlag.activeFlags.get(UTIL_AsyncChain.FEATURE_FLAG_NAME);
+			Assert.areEqual(1, chainFlag.FeatureFlagStrategies__r?.size(),
+					'Precondition: the shipped AsyncChain flag must carry exactly its hierarchy-setting strategy; without one, '
+					+ 'resolution falls to IsEnabledByDefault and this witness could not regression-guard the strategy record');
+			Assert.areEqual(SEL_FeatureFlagStrategy.TYPE_HIERARCHICAL_CUSTOM_SETTING, chainFlag.FeatureFlagStrategies__r[0].Type__c,
+					'Precondition: the shipped strategy must resolve through the hierarchy-setting type');
+
+			Assert.isTrue(UTIL_AsyncChain.isChainProcessingEnabled(),
+					'An org that never wrote the runtime switch must resolve chains enabled: strategy no-match falls back to the shipped ResultOnNoMatch');
+		}
+	}
+
+	/**
+	 * @description suspendChainProcessing writes the ORG-default switch row, so the suspension is
+	 * org-wide: both the suspending user and an unrelated second user resolve chains disabled
+	 * through the hierarchy strategy. The second-user assert is the org-wide witness — a
+	 * user-level write would suspend only its author and must fail here.
+	 */
+	@IsTest
+	private static void shouldSuspendChainProcessingViaOrgDefaultSetting()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.suspendChainProcessing();
+			Assert.isFalse(UTIL_AsyncChain.isChainProcessingEnabled(), 'The suspending user must resolve chains disabled');
+		}
+		System.runAs(getLowPrivilegeUser())
+		{
+			Assert.isFalse(UTIL_AsyncChain.isChainProcessingEnabled(),
+					'A second user must resolve chains disabled: the suspension rides the org default, never a per-user row');
+		}
+	}
+
+	/**
+	 * @description resumeChainProcessing rewrites the same org-default row back to enabled, so a
+	 * suspend-then-resume round trip ends with chains enabled again for every user.
+	 */
+	@IsTest
+	private static void shouldResumeChainProcessingViaOrgDefaultSetting()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.suspendChainProcessing();
+			UTIL_AsyncChain.resumeChainProcessing();
+			Assert.isTrue(UTIL_AsyncChain.isChainProcessingEnabled(), 'Resume must re-enable chains through the same org-default row');
+		}
+		System.runAs(getLowPrivilegeUser())
+		{
+			Assert.isTrue(UTIL_AsyncChain.isChainProcessingEnabled(), 'Resume must reach every user, exactly as the suspension did');
+		}
+	}
+
+	/**
+	 * @description End-to-end: a chain started while chains are enabled is aborted at its next
+	 * executor entry once processing is suspended mid-flight — the executor consult re-reads the
+	 * runtime switch fresh in its own evaluation, so a suspension lands without waiting for new
+	 * chains. Runs against the REAL flag and strategy records (no flag mock). The chain-record
+	 * DML and the hierarchy-setting DML coexist in this one test transaction ONLY because
+	 * System.runAs waives the mixed-DML restriction in tests — the exempt place, not a safe
+	 * pattern: no production path may combine the two kinds (the setting-DML isolation
+	 * precedent), which is why suspendChainProcessing performs the setting write and no other
+	 * DML.
+	 */
+	@IsTest
+	private static void shouldAbortRunningChainAtBoundaryWhenSuspended()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.TrackingStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			UTIL_AsyncChain.suspendChainProcessing();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, execution.Status__c, 'The executor entry consult must abort the chain under suspension');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_KILL_SWITCH, execution.FailureCategory__c, 'A suspension abort is a kill-switch abort');
+			Map<String, Object> contextData = parseContextData(execution);
+			Assert.isNull(contextData.get('trackingStepExecuted'), 'The step must not run under suspension');
+		}
+	}
+
+	/**
 	 * @description The operator abort writer stamps the full terminal bookkeeping — Aborted status,
 	 * OperatorAbort category, abbreviated reason, completion timestamp, duration, and the
 	 * deduplication-key release (I2) — and emits exactly one WARN signal at its own site (I1, D12).
@@ -1908,17 +2134,18 @@ private class UTIL_AsyncChain_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			UTIL_Exceptions.IllegalStateException caught;
 			try
 			{
 				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).withDeduplicationKey(' ');
+				Assert.fail('A blank deduplication key should be rejected');
 			}
-			catch(UTIL_Exceptions.IllegalStateException validationError)
+			catch(Exception error)
 			{
-				caught = validationError;
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+						'A blank deduplication key should be rejected at build time: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains('must not be blank'),
+						'The blank-key rejection should carry its build-time message: ' + error.getMessage());
 			}
-			Assert.isNotNull(caught, 'A blank deduplication key should be rejected');
-			Assert.isTrue(caught.getMessage().contains('must not be blank'), 'The blank-key rejection should carry its build-time message');
 		}
 	}
 
@@ -1933,17 +2160,18 @@ private class UTIL_AsyncChain_TEST
 		{
 			Assert.areEqual(255, AsyncChainExecution__c.ActiveDeduplicationKey__c.getDescribe().getLength(),
 					'Validation ceiling must match the deployed field length');
-			UTIL_Exceptions.IllegalStateException caught;
 			try
 			{
 				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).withDeduplicationKey('k'.repeat(256));
+				Assert.fail('An oversized deduplication key should be rejected');
 			}
-			catch(UTIL_Exceptions.IllegalStateException validationError)
+			catch(Exception error)
 			{
-				caught = validationError;
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+						'An oversized deduplication key should be rejected at build time: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains('exceeds 255 characters'),
+						'The oversized-key rejection should carry the limit in its message: ' + error.getMessage());
 			}
-			Assert.isNotNull(caught, 'An oversized deduplication key should be rejected');
-			Assert.isTrue(caught.getMessage().contains('exceeds 255 characters'), 'The oversized-key rejection should carry the limit in its message');
 		}
 	}
 
@@ -2024,11 +2252,16 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
-	 * @description A CorrelationId__c collision is NOT deduplication — it rethrows verbatim (pre-existing
-	 * behaviour, pinned so the deduplication catch can never misattribute it).
+	 * @description A launch that declares a deduplication key AND reuses an attached correlation is
+	 * refused with the correlation rule, whichever message form the platform gives it. Where the
+	 * colliding field is named, the first failure is attributed straight away; where it is redacted,
+	 * the launch presumes the deduplication index, finds no run holding its own free key, retries
+	 * once, and the second failure clears the deduplication index a second time, leaving the
+	 * correlation as the only index left to have collided. One outcome either way, so a keyed launch
+	 * never hands a subscriber a raw duplicate-value error to decode.
 	 */
 	@IsTest
-	private static void shouldRethrowCorrelationIdCollision()
+	private static void shouldRefuseAKeyedLaunchWhoseCorrelationIsAlreadyAttached()
 	{
 		setupEnabledFeatureFlag();
 		System.runAs(getTestAdmin())
@@ -2038,57 +2271,24 @@ private class UTIL_AsyncChain_TEST
 			UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
 					.then(new SuccessStep())
 					.execute(correlationId);
-			DmlException caught;
-			try
-			{
-				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-						.then(new SuccessStep())
-						.execute(correlationId);
-			}
-			catch(DmlException correlationCollision)
-			{
-				caught = correlationCollision;
-			}
-			Test.stopTest();
-
-			Assert.isNotNull(caught, 'A CorrelationId__c collision should rethrow, never deduplicate');
-		}
-	}
-
-	/**
-	 * @description A keyed builder colliding on CorrelationId__c still surfaces the platform error,
-	 * deterministically across message redaction: the disclosed form rethrows at the attribution
-	 * predicate; the redacted form attributes presumptively, finds no run holding the free key, and
-	 * the single retry re-collides — both branches end in the same observable DUPLICATE_VALUE rethrow.
-	 */
-	@IsTest
-	private static void shouldRethrowKeyedCorrelationIdCollision()
-	{
-		setupEnabledFeatureFlag();
-		System.runAs(getTestAdmin())
-		{
-			String correlationId = UTIL_Random.randomUUID();
-			Test.startTest();
-			UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
-					.then(new SuccessStep())
-					.execute(correlationId);
-			DmlException caught;
 			try
 			{
 				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
 						.then(new SuccessStep())
 						.withDeduplicationKey(UTIL_Random.randomUUID())
 						.execute(correlationId);
+				Assert.fail('A keyed launch reusing an attached correlation must be refused, never landed on an unrelated run');
 			}
-			catch(DmlException keyedCorrelationCollision)
+			catch(Exception error)
 			{
-				caught = keyedCorrelationCollision;
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+						'A keyed launch must be refused with the correlation rule, not a raw platform error: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(correlationId),
+						'The refusal must name the correlation that is already attached: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(CORRELATION_REMEDY_FRAGMENT),
+						'The refusal must spell out the remedy: ' + error.getMessage());
 			}
 			Test.stopTest();
-
-			Assert.isNotNull(caught, 'A keyed CorrelationId__c collision should surface, never land on an unrelated run');
-			Assert.areEqual(StatusCode.DUPLICATE_VALUE, caught.getDmlType(0),
-					'The surfaced error should be the duplicate-value collision');
 		}
 	}
 
@@ -2759,6 +2959,262 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description A service that starts a log correlation and then launches TWO chains keeps both:
+	 * the first launch adopts the transaction's correlation, the second records its own rather than
+	 * colliding on the unique CorrelationId__c index.
+	 */
+	@IsTest
+	private static void shouldMintItsOwnCorrelationForASecondChainInOneCorrelatedTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			String transactionCorrelationId = LOG_Builder.startCorrelation();
+
+			Test.startTest();
+			String firstExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			String secondExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			Test.stopTest();
+
+			Assert.areEqual(transactionCorrelationId, queryExecution(firstExecutionId).CorrelationId__c,
+					'The first chain in a correlated transaction must adopt the active correlation');
+			String secondCorrelationId = queryExecution(secondExecutionId).CorrelationId__c;
+			Assert.isTrue(String.isNotBlank(secondCorrelationId), 'The second chain must still carry a correlation of its own');
+			Assert.areNotEqual(transactionCorrelationId, secondCorrelationId,
+					'The second chain must mint its own correlation instead of colliding on the unique index');
+		}
+	}
+
+	/**
+	 * @description The minted correlation is announced exactly once, filed under the TRANSACTION
+	 * correlation and pointing at the chain it started — so a reader who only knows the correlation
+	 * their service started can still find the second chain.
+	 */
+	@IsTest
+	private static void shouldAnnounceTheMintedCorrelationUnderTheTransactionCorrelation()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+			String transactionCorrelationId = LOG_Builder.startCorrelation();
+
+			Test.startTest();
+			UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			String secondExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			String secondCorrelationId = queryExecution(secondExecutionId).CorrelationId__c;
+			List<LogEntry__c> announcements = findLogEntriesAt(secondExecutionId, MINTED_CORRELATION_SITE);
+			Assert.areEqual(1, announcements.size(), 'A minted correlation must be announced exactly once');
+			Assert.areEqual('INFO', announcements[0].LogLevel__c, 'The announcement reports a routine launch, not a problem');
+			Assert.areEqual(transactionCorrelationId, announcements[0].CorrelationId__c,
+					'The announcement must be filed under the transaction correlation the caller knows about');
+			Assert.isTrue(announcements[0].ShortMessage__c.contains(secondCorrelationId),
+					'The announcement must name the correlation the second chain is recorded under');
+			Assert.isTrue(announcements[0].ShortMessage__c.contains(transactionCorrelationId),
+					'The announcement must name the transaction correlation it stepped aside from');
+
+			List<LogEntry__c> secondChainCompletion = findLogEntriesAt(secondExecutionId, 'handleChainCompletion');
+			Assert.areEqual(1, secondChainCompletion.size(), 'The second chain should complete and log it');
+			Assert.areEqual(transactionCorrelationId, secondChainCompletion[0].CorrelationId__c,
+					'The second chain\'s own entries stay under the transaction correlation, so one search still returns the whole action');
+		}
+	}
+
+	/**
+	 * @description Control for the first-adopter rule: a transaction that launches ONE chain still
+	 * adopts the active correlation silently, with nothing announced.
+	 */
+	@IsTest
+	private static void shouldAdoptTheActiveCorrelationSilentlyForTheOnlyChainInATransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+			String transactionCorrelationId = LOG_Builder.startCorrelation();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(transactionCorrelationId, queryExecution(executionId).CorrelationId__c,
+					'A lone chain must keep inheriting the active correlation');
+			Assert.areEqual(0, findLogEntriesAt(executionId, MINTED_CORRELATION_SITE).size(),
+					'A chain that adopted the active correlation has nothing to announce');
+		}
+	}
+
+	/**
+	 * @description A second launch that carries the same deduplication key lands on the running chain
+	 * instead of starting one, so there is no new correlation and nothing to announce — the
+	 * announcement must never claim a chain that was never started.
+	 */
+	@IsTest
+	private static void shouldAnnounceNothingWhenTheSecondLaunchLandsOnTheRunningChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+			LOG_Builder.startCorrelation();
+
+			Test.startTest();
+			String firstExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(SHARED_DEDUPLICATION_KEY)
+					.execute();
+			String secondExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.withDeduplicationKey(SHARED_DEDUPLICATION_KEY)
+					.execute();
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			Assert.areEqual(firstExecutionId, secondExecutionId, 'The second launch must land on the chain already holding the key');
+			Assert.areEqual(0, findLogEntriesAt(firstExecutionId, MINTED_CORRELATION_SITE).size(),
+					'A launch that started no chain must announce no correlation');
+		}
+	}
+
+	/**
+	 * @description Reusing one correlation for two chains in the same transaction is refused with a
+	 * message naming the correlation, the run already holding it, and the remedy — not a raw
+	 * duplicate-value database error. Also pins that a correlation collision is never mistaken for
+	 * deduplication: the second launch is refused, never quietly landed on the first run.
+	 */
+	@IsTest
+	private static void shouldNameTheHolderWhenACorrelationIsReusedInTheSameTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			String sharedCorrelationId = UTIL_Random.randomUUID();
+
+			Test.startTest();
+			String firstExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute(sharedCorrelationId);
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute(sharedCorrelationId);
+				Assert.fail('A second chain on an already-attached correlation must be refused');
+			}
+			catch(UTIL_Exceptions.IllegalStateException refusal)
+			{
+				Assert.isTrue(refusal.getMessage().contains(sharedCorrelationId), 'The refusal must name the correlation: ' + refusal.getMessage());
+				Assert.isTrue(refusal.getMessage().contains(firstExecutionId),
+						'The refusal must name the run already holding it: ' + refusal.getMessage());
+				Assert.isTrue(refusal.getMessage().contains(CORRELATION_REMEDY_FRAGMENT),
+						'The refusal must spell out the remedy: ' + refusal.getMessage());
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description A correlation propagated from an EARLIER transaction is held by a run this
+	 * transaction never launched, so the refusal cannot name it — it still states the rule and the
+	 * remedy rather than surfacing a database error.
+	 */
+	@IsTest
+	private static void shouldStateTheRuleWhenACorrelationIsHeldByAnEarlierTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			String propagatedCorrelationId = UTIL_Random.randomUUID();
+			TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.CorrelationId__c => propagatedCorrelationId
+			});
+
+			Test.startTest();
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute(propagatedCorrelationId);
+				Assert.fail('A chain reusing a correlation attached elsewhere must be refused');
+			}
+			catch(UTIL_Exceptions.IllegalStateException refusal)
+			{
+				Assert.isTrue(refusal.getMessage().contains(propagatedCorrelationId), 'The refusal must name the correlation: ' + refusal.getMessage());
+				Assert.isTrue(refusal.getMessage().contains(UNNAMED_HOLDER_FRAGMENT),
+						'The refusal must say another run holds it, without a query to name which: ' + refusal.getMessage());
+				Assert.isTrue(refusal.getMessage().contains(CORRELATION_REMEDY_FRAGMENT),
+						'The refusal must spell out the remedy: ' + refusal.getMessage());
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description A stepless chain launches through its own insert, so it gets the same refusal as a
+	 * chain with steps when its correlation is already attached.
+	 */
+	@IsTest
+	private static void shouldRefuseASteplessChainOnAnAlreadyAttachedCorrelation()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			String propagatedCorrelationId = UTIL_Random.randomUUID();
+			TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.CorrelationId__c => propagatedCorrelationId
+			});
+
+			Test.startTest();
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).execute(propagatedCorrelationId);
+				Assert.fail('A stepless chain on an already-attached correlation must be refused');
+			}
+			catch(UTIL_Exceptions.IllegalStateException refusal)
+			{
+				Assert.isTrue(refusal.getMessage().contains(propagatedCorrelationId), 'The refusal must name the correlation: ' + refusal.getMessage());
+				Assert.isTrue(refusal.getMessage().contains(CORRELATION_REMEDY_FRAGMENT),
+						'The refusal must spell out the remedy: ' + refusal.getMessage());
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description A launch that fails for any reason OTHER than a duplicate correlation must reach
+	 * the caller as the platform reported it: mislabelling an unrelated write failure as a
+	 * correlation collision would send a subscriber hunting the wrong problem. Oversizing the
+	 * correlation is the cheapest real path to a non-duplicate insert failure.
+	 */
+	@IsTest
+	private static void shouldSurfaceANonDuplicateLaunchFailureAsThePlatformReportedIt()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer correlationCapacity = AsyncChainExecution__c.CorrelationId__c.getDescribe().getLength();
+			String oversizedCorrelationId = 'x'.repeat(correlationCapacity + 1);
+
+			Test.startTest();
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute(oversizedCorrelationId);
+				Assert.fail('A correlation the field cannot hold must fail the launch');
+			}
+			catch(UTIL_Exceptions.IllegalStateException misattributed)
+			{
+				Assert.fail('A non-duplicate write failure must not be reported as a correlation collision: ' + misattributed.getMessage());
+			}
+			catch(DmlException platformFailure)
+			{
+				Assert.areNotEqual(StatusCode.DUPLICATE_VALUE, platformFailure.getDmlType(0),
+						'The platform failure must reach the caller unchanged: ' + platformFailure.getMessage());
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
 	 * @description A completed chain emits exactly one guarded INFO terminal signal naming
 	 * handleChainCompletion.
 	 */
@@ -3320,7 +3776,9 @@ private class UTIL_AsyncChain_TEST
 
 			AsyncChainExecution__c result = queryExecution(execution.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, result.Status__c, 'Chain should fail for missing class');
-			Assert.isTrue(result.ErrorMessage__c.contains('Class Not Found'), 'Error should mention class not found');
+			String resolverCause = String.format(UTIL_System.ERROR_TYPE_NOT_FOUND, new List<String> {'NonExistentClass'});
+			String expectedMessage = String.format(UTIL_AsyncChain.STEP_NOT_CREATABLE_MESSAGE, new List<String> {'NonExistentClass', resolverCause});
+			Assert.areEqual(expectedMessage, result.ErrorMessage__c, 'Error should name the step, state the constructor rule, and carry the resolver cause');
 		}
 	}
 
@@ -3357,6 +3815,230 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description The builder must persist each step's idempotency declaration into the step log at
+	 * build time: true for a step whose author declared isIdempotent, and null for an undeclared step
+	 * — absent from the JSON with false semantics, so healthy step logs stay byte-identical.
+	 */
+	@IsTest
+	private static void shouldPersistIdempotentDeclarationIntoStepLog()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.IdempotentSuccessStep())
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(true, entries[0].isIdempotent, 'Declared step must persist the marker');
+			Assert.isNull(entries[1].isIdempotent, 'Undeclared step must stay null-suppressed (absent in JSON, false semantics)');
+		}
+	}
+
+	/**
+	 * @description An isIdempotent() override that answers null must read as undeclared: the builder
+	 * persists no marker, so the retry gate keeps the step closed exactly as for a step that never
+	 * overrode the declaration.
+	 */
+	@IsTest
+	private static void shouldTreatNullIdempotencyDeclarationAsUndeclared()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.NullDeclaringStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A null declaration must not disturb the run');
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.isNull(entries[0].isIdempotent, 'A null declaration must persist no marker');
+		}
+	}
+
+	/**
+	 * @description A chain built with allowRestart() must stamp the declaration on the run record at
+	 * insert and capture the as-built initial context beside it — the snapshot a restart replays,
+	 * never the evolved context the running steps write afterwards.
+	 */
+	@IsTest
+	private static void shouldStampRestartDeclarationAndInitialContextAtInsert()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withInitialContext(RESTART_SEED_KEY, RESTART_SEED_VALUE)
+					.allowRestart()
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c row = queryRestartProjection(executionId);
+			Assert.areEqual(true, row.AllowRestart__c, 'allowRestart must stamp the record');
+			Assert.isTrue(String.isNotBlank(row.InitialContextData__c), 'Initial context snapshot must persist for restart-declared chains');
+			Assert.isTrue(row.InitialContextData__c.contains(RESTART_SEED_VALUE), 'Snapshot must be the as-built context');
+			Assert.isFalse(row.InitialContextData__c.contains(EVOLVED_CONTEXT_KEY), 'Snapshot must never absorb keys the running steps wrote after the build');
+			Assert.isTrue(row.ContextData__c.contains(EVOLVED_CONTEXT_KEY), 'Control: the evolved context does carry the step-written key the snapshot must lack');
+		}
+	}
+
+	/**
+	 * @description A chain built without allowRestart() must keep the default false declaration and
+	 * store no initial-context snapshot — the second long-text copy is opt-in storage.
+	 */
+	@IsTest
+	private static void shouldNotCaptureInitialContextWithoutRestartDeclaration()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withInitialContext(RESTART_SEED_KEY, RESTART_SEED_VALUE)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c row = queryRestartProjection(executionId);
+			Assert.areEqual(false, row.AllowRestart__c, 'Default stays false');
+			Assert.isNull(row.InitialContextData__c, 'No snapshot for undeclared chains - storage is opt-in');
+			Assert.isNull(row.DeclaredDeduplicationKey__c, 'An unkeyed chain must stamp no declared key');
+		}
+	}
+
+	/**
+	 * @description A step that returns failedPermanently must persist its declared-permanent marker
+	 * into the failed entry of the terminal step log, so a later re-drive gate can read the finality
+	 * verdict off the record instead of re-deriving it.
+	 */
+	@IsTest
+	private static void shouldMarkTerminalPermanentFailureInStepLog()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.PermanentlyFailingStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'A declared-permanent failure must fail the chain');
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(true, entries[0].permanentFailure, 'Declared-permanent terminal failure must persist its marker');
+		}
+	}
+
+	/**
+	 * @description A permanent failure on a continueOnError step must NOT persist the
+	 * declared-permanent marker: the chain continues, so the failure is not terminal, and the marker
+	 * rides only the terminal failure persist. Pins the stamp's position inside the terminal branch —
+	 * hoisting it above the continueOnError check would silently mark continued failures.
+	 */
+	@IsTest
+	private static void shouldNotMarkContinuedPermanentFailureInStepLog()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.PermanentlyFailingStep(), true)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A continued permanent failure must not fail the chain');
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(execution.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.areEqual(false, entries[0].success, 'Control: the continued step genuinely failed');
+			Assert.isNull(entries[0].permanentFailure, 'A continued permanent failure must not carry the terminal marker');
+		}
+	}
+
+	/**
+	 * @description A chain built with withDeduplicationKey must keep the declared key on the record
+	 * after the run ends — the active key releases at the terminal transition, the declared key stays
+	 * so a re-drive can re-claim it.
+	 */
+	@IsTest
+	private static void shouldPersistDeclaredDeduplicationKeyAtInsert()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withDeduplicationKey(DECLARED_DEDUPLICATION_KEY)
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c row = queryRestartProjection(executionId);
+			Assert.areEqual(DECLARED_DEDUPLICATION_KEY, row.DeclaredDeduplicationKey__c, 'The declared key must persist past the terminal transition');
+			Assert.isNull(row.ActiveDeduplicationKey__c, 'Control: the active key must release at completion while the declared key stays');
+		}
+	}
+
+	/**
+	 * @description Round-trip size witness: a healthy chain of undeclared steps must persist an
+	 * insert-time StepLog__c that is byte-identical to the pre-change shape — each entry carries
+	 * exactly its className and nothing else, because the new declaration markers are null-suppressed
+	 * and absent markers add zero bytes. Guards the upgrade-safety contract: step logs persisted
+	 * before the markers existed and step logs written today serialize to the same document.
+	 */
+	@IsTest
+	private static void shouldKeepHealthyStepLogInsertSizeUnchanged()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.then(new UTIL_AsyncChain_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			AsyncChainExecution__c inserted = queryExecution(executionId);
+			Test.stopTest();
+
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(inserted.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Integer expectedLength = 2 * (entries[0].className.length() + HEALTHY_STEP_ENTRY_JSON_OVERHEAD) + HEALTHY_STEP_LIST_JSON_OVERHEAD;
+			Assert.areEqual(expectedLength, inserted.StepLog__c.length(), 'A healthy step log must stay byte-identical: null-suppressed markers add zero bytes per entry');
+		}
+	}
+
+	/**
 	 * @description Queries an AsyncChainExecution__c record by ID.
 	 *
 	 * @param executionId The execution record ID.
@@ -3366,6 +4048,21 @@ private class UTIL_AsyncChain_TEST
 	private static AsyncChainExecution__c queryExecution(String executionId)
 	{
 		return (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
+	}
+
+	/**
+	 * @description Reads an AsyncChainExecution__c row through the production restart projection —
+	 * the same selector method restartChainFromStart uses, so these witnesses prove the builder's
+	 * persisted fields are reachable by the reader that will consume them, not merely present in
+	 * the database.
+	 *
+	 * @param executionId The execution record ID.
+	 *
+	 * @return The execution record with the re-drive gating fields and the snapshot.
+	 */
+	private static AsyncChainExecution__c queryRestartProjection(String executionId)
+	{
+		return new SEL_AsyncChainExecution().findByIdForRestart(executionId);
 	}
 
 	/**
@@ -3459,14 +4156,34 @@ private class UTIL_AsyncChain_TEST
 	private static Integer countTerminalLogs(Id executionId, String siteMethodSuffix, String expectedLogLevel)
 	{
 		Integer matches = 0;
-		for(LogEntry__c logEntry : new SEL_LogEntry().getAll())
+		for(LogEntry__c logEntry : findLogEntriesAt(executionId, siteMethodSuffix))
 		{
-			if(logEntry.RecordId__c == String.valueOf(executionId)
-					&& logEntry.ClassMethod__c != null
-					&& logEntry.ClassMethod__c.endsWith(siteMethodSuffix)
-					&& (expectedLogLevel == null || logEntry.LogLevel__c == expectedLogLevel))
+			if(expectedLogLevel == null || logEntry.LogLevel__c == expectedLogLevel)
 			{
 				matches++;
+			}
+		}
+		return matches;
+	}
+
+	/**
+	 * @description Collects the persisted LogEntry__c rows that name the given execution and were
+	 * emitted at the given site, for the tests that assert on an entry's payload — its level, its
+	 * correlation, the text a reader sees — rather than only on how many there are.
+	 *
+	 * @param executionId The chain execution record the entry must name.
+	 * @param siteMethodSuffix The emitting site's method-name suffix (e.g. 'announceMintedCorrelation').
+	 *
+	 * @return The matching log entries, in the selector's order.
+	 */
+	private static List<LogEntry__c> findLogEntriesAt(String executionId, String siteMethodSuffix)
+	{
+		List<LogEntry__c> matches = new List<LogEntry__c>();
+		for(LogEntry__c logEntry : new SEL_LogEntry().getAll())
+		{
+			if(logEntry.RecordId__c == executionId && logEntry.ClassMethod__c != null && logEntry.ClassMethod__c.endsWith(siteMethodSuffix))
+			{
+				matches.add(logEntry);
 			}
 		}
 		return matches;
@@ -3545,6 +4262,50 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description Step that succeeds and declares itself safe to execute more than once, so tests
+	 * can prove the builder persists the declaration into the step log.
+	 */
+	public class IdempotentSuccessStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Declares the step safe to re-run — the constructor-free shape a subscriber uses.
+		 *
+		 * @return True.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return true;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	/**
+	 * @description Step whose idempotency override answers null, so tests can prove a null answer
+	 * reads as undeclared rather than as a declaration.
+	 */
+	public class NullDeclaringStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Answers null instead of a Boolean.
+		 *
+		 * @return Null.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return null;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	/**
 	 * @description Step that succeeds with data payload.
 	 */
 	public class DataStep extends UTIL_AsyncChain.ChainStep
@@ -3576,6 +4337,30 @@ private class UTIL_AsyncChain_TEST
 		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
 		{
 			return UTIL_AsyncChain.failed('Deliberate failure');
+		}
+	}
+
+	/**
+	 * @description Step that declares its failure permanent, halting the chain so the terminal
+	 * declared-permanent marker persist is exercised. Declared idempotent so re-drive fixtures can
+	 * reuse it.
+	 */
+	public class PermanentlyFailingStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Declares the step safe to re-run so the permanent-failure refusal is proven to
+		 * outrank the idempotency declaration.
+		 *
+		 * @return True.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return true;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.failedPermanently(PERMANENT_FAILURE_MESSAGE);
 		}
 	}
 

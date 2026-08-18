@@ -12,7 +12,7 @@
  *
  * @group Async
  *
- * @date July 2026
+ * @date July 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -55,6 +55,13 @@ private class UTIL_AsyncChainRecovery_TEST
 	 * not the terminal write's (both fenced writes leave an identical record).
 	 */
 	private static Integer retryStrategyConsultCount = 0;
+
+	/**
+	 * @description Number of times an IdempotentRecoveringStep has run in this test transaction.
+	 * The operator-retry tests assert on it to prove exactly the failed step re-executes — never a
+	 * step whose success marker survives the reset.
+	 */
+	private static Integer retriedStepRunCount = 0;
 
 	/**
 	 * @description Stale threshold that treats a just-created chain as fresh, for the watchdog
@@ -111,6 +118,48 @@ private class UTIL_AsyncChainRecovery_TEST
 	private static final Integer QUERY_PARK_SEED_COUNT = 4;
 
 	/**
+	 * @description Seed count for the operator clear-stalled budget tests: every seeded candidate
+	 * must be left untouched when a budget gate refuses the first candidate's decision legs.
+	 */
+	private static final Integer CLEAR_STALLED_TAIL_SEED_COUNT = 2;
+
+	/**
+	 * @description Query budget the operator clear-stalled sweep is left to start with so its gate
+	 * refuses every candidate: the candidate selector's own read spends one, leaving two — below
+	 * the operator per-candidate query reserve of four — so the gate breaks before the first
+	 * candidate while the outcome tally's single read stays affordable.
+	 */
+	private static final Integer QUERY_BUDGET_FOR_NO_SWEPT_OPERATOR_CANDIDATES = 3;
+
+	/**
+	 * @description DML-statement budget the operator clear-stalled sweep is left to start with so
+	 * its gate refuses every candidate: two remaining statements sit below the operator
+	 * per-candidate DML reserve of three, and the sweep's read-only legs (candidate selector and
+	 * outcome tally) spend none of them.
+	 */
+	private static final Integer DML_BUDGET_FOR_NO_SWEPT_OPERATOR_CANDIDATES = 2;
+
+	/**
+	 * @description Query budget below the operator sweep's entry minimum of two, so the entry
+	 * guard refuses before the candidate read ever runs — the one budget shape the loop gate
+	 * cannot see.
+	 */
+	private static final Integer QUERY_BUDGET_BELOW_OPERATOR_ENTRY_MINIMUM = 1;
+
+	/**
+	 * @description Stall reason seeded on a candidate BEFORE an operator sweep runs, distinct from
+	 * every reason the sweep can write, so a test can prove whether the sweep touched the row.
+	 */
+	private static final String PRE_SWEEP_SEEDED_REASON = 'Seeded reason before operator sweep';
+
+	/**
+	 * @description A context value that parses as valid JSON but is a LIST, not an object — the
+	 * shape the executor's context hydration hard-casts to. The retry gate must refuse it: a
+	 * parse-only gate would admit it, enqueue, and die at executor entry.
+	 */
+	private static final String NON_OBJECT_CONTEXT_JSON = '["valid json","but a list","never an object"]';
+
+	/**
 	 * @description Minutes the newer-activity test back-dates its hand-built sweep view by, so the
 	 * real row's LastModifiedDate is provably newer than the view the re-drive receives.
 	 */
@@ -136,6 +185,164 @@ private class UTIL_AsyncChainRecovery_TEST
 	 * leaves behind.
 	 */
 	private static final Integer TRUNCATED_STEP_LOG_PERCENT = 60;
+
+	/**
+	 * @description The value LOG_Engine persists to LogLevel__c for an ERROR entry: LOG_Engine
+	 * writes LoggingLevel.name(), so deriving this constant from the same enum keeps the asserted
+	 * value in lockstep with what is recorded.
+	 */
+	private static final String LOG_LEVEL_ERROR = LoggingLevel.ERROR.name();
+
+	/**
+	 * @description The value LOG_Engine persists to LogLevel__c for a WARN entry: LOG_Engine
+	 * writes LoggingLevel.name(), so deriving this constant from the same enum keeps the asserted
+	 * value in lockstep with what is recorded.
+	 */
+	private static final String LOG_LEVEL_WARN = LoggingLevel.WARN.name();
+
+	/**
+	 * @description Payload length guaranteed to push the serialized chain context past the
+	 * ContextData__c field capacity (131,072 characters), so the failure persist's all-or-nothing
+	 * rule must drop the context instead of truncating it.
+	 */
+	private static final Integer OVERSIZED_CONTEXT_PAYLOAD_LENGTH = 140000;
+
+	/**
+	 * @description Context key the context-bloating fixture steps write their oversized payload under.
+	 */
+	private static final String OVERSIZED_CONTEXT_PAYLOAD_KEY = 'oversizedPayload';
+
+	/**
+	 * @description Builder-time context cap set above the ContextData__c field capacity, so the
+	 * context-bloating fixtures deterministically exercise the failure persist's field-length check
+	 * rather than the in-flight overflow guard, even if fixture routing drifts.
+	 */
+	private static final Integer MAX_CONTEXT_SIZE_ABOVE_FIELD_CAPACITY = 262144;
+
+	/**
+	 * @description Failure message the context-bloating fixture step returns — the independent
+	 * oracle for the base message the context-not-preserved marker is appended to.
+	 */
+	private static final String OVERSIZED_CONTEXT_FAILURE_MESSAGE = 'Deliberate failure with oversized context';
+
+	/**
+	 * @description Independent oracle for the ErrorMessage__c field capacity in characters. The
+	 * marker-survival test fails with a message of exactly this length, leaving the marker append
+	 * zero slack unless the failure persist reserves room first.
+	 */
+	private static final Integer ERROR_MESSAGE_FIELD_CAPACITY = 32768;
+
+	/**
+	 * @description Name used for the operator retry-from-failed-step test chains, keeping their
+	 * records and log entries distinguishable from the watchdog fixtures'.
+	 */
+	private static final String RETRY_TEST_CHAIN_NAME = 'RetryTestChain';
+
+	/**
+	 * @description Step count of the retry fixtures' hand-built step log: one completed step and
+	 * one failed step.
+	 */
+	private static final Integer RETRY_TOTAL_STEPS = 2;
+
+	/**
+	 * @description Completed-step count of the retry fixtures' hand-built step log: only the first
+	 * step succeeded before the terminal failure.
+	 */
+	private static final Integer RETRY_COMPLETED_STEPS = 1;
+
+	/**
+	 * @description Parseable context document the retry fixtures persist, shaped exactly like a
+	 * mid-chain ChainContext serialization so a re-driven executor can hydrate it.
+	 */
+	private static final String RETRY_CONTEXT_JSON = JSON.serialize(new Map<String, Object> {'stepCount' => 1});
+
+	/**
+	 * @description A step-log value that is not JSON at all, for the unparseable-refusal polarity.
+	 */
+	private static final String MALFORMED_STEP_LOG_JSON = 'not step-log json';
+
+	/**
+	 * @description A context value that is not JSON at all, for the unparseable-context refusal
+	 * polarity — the one condition only the context-parse probe can catch.
+	 */
+	private static final String MALFORMED_CONTEXT_JSON = 'not context json';
+
+	/**
+	 * @description The spent attempt count the retry fixtures stamp on the failed entry, proving
+	 * the operator retry resets the attempt budget instead of resuming a spent one.
+	 */
+	private static final Integer RETRY_PRIOR_ATTEMPT_COUNT = 3;
+
+	/**
+	 * @description Duration the retry fixtures stamp on the seeded terminal row, proving the
+	 * operator retry clears the stale diagnostics in its one sparse update.
+	 */
+	private static final Integer RETRY_SEEDED_DURATION_MS = 1000;
+
+	/**
+	 * @description Failure message the retry fixtures stamp on the failed entry and the seeded row.
+	 */
+	private static final String RETRY_FAILURE_MESSAGE = 'Deliberate retryable failure at step two';
+
+	/**
+	 * @description Deduplication key the retry re-claim fixtures declare at seed time.
+	 */
+	private static final String RETRY_DECLARED_DEDUPLICATION_KEY = 'retry-declared-deduplication-key';
+
+	/**
+	 * @description Name used for the operator restart-from-start test chains.
+	 */
+	private static final String RESTART_TEST_CHAIN_NAME = 'RestartTestChain';
+
+	/**
+	 * @description The framework's reserved context key for the serialized logging context —
+	 * mirrored locally because the production constant is private, and pinned here so a drift in
+	 * either copy fails the restart correlation witnesses.
+	 */
+	private static final String CONTEXT_LOG_KEY = '__logContext';
+
+	/**
+	 * @description The logging-context document's correlation field name, as LOG_Engine's context
+	 * DTO serializes it.
+	 */
+	private static final String LOG_CONTEXT_CORRELATION_FIELD = 'correlationId';
+
+	/**
+	 * @description Correlation id baked into the seeded snapshot's logging-context entry, standing
+	 * in for the source run's live correlation at build time — the value a restart clone must
+	 * NEVER carry forward.
+	 */
+	private static final String SOURCE_LOG_CORRELATION_ID = 'source-log-correlation';
+
+	/**
+	 * @description Context key the restart fixtures seed into the snapshot beside the logging
+	 * context, proving the clone replays the as-built values.
+	 */
+	private static final String RESTART_SNAPSHOT_KEY = 'restartSeed';
+
+	/**
+	 * @description Value the restart fixtures seed under RESTART_SNAPSHOT_KEY.
+	 */
+	private static final String RESTART_SNAPSHOT_VALUE = 'restart-seed-value';
+
+	/**
+	 * @description Capacity in characters of the ContextData__c and InitialContextData__c long text
+	 * areas. The overflow witness seeds a snapshot filling the field exactly, so the clone rebuild's
+	 * larger logging-context entry can only push the clone's context past the field.
+	 */
+	private static final Integer CONTEXT_DATA_FIELD_CAPACITY = 131072;
+
+	/**
+	 * @description A deliberately tiny logging-context value for the overflow witness: the clone
+	 * rebuild replaces it with a full correlation document, so the rebuilt context is strictly
+	 * larger than the snapshot it came from.
+	 */
+	private static final String TINY_LOG_CONTEXT_VALUE = 'x';
+
+	/**
+	 * @description Context key the overflow witness pads with filler to reach the field capacity.
+	 */
+	private static final String SNAPSHOT_PADDING_KEY = 'padding';
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -348,6 +555,35 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
+	 * @description Verifies ChainBuilder.execute stamps the enqueued executor's AsyncApexJob id
+	 * into AsyncChainExecution__c.CurrentJobId__c before the first hop runs. That enqueue-time
+	 * stamp is what lets the watchdog prove liveness for first-hop and single-step chains, which
+	 * never reach a progress write. Also verifies the terminal completion write leaves the stamp
+	 * in place.
+	 */
+	@IsTest
+	private static void shouldStampExecutorJobIdAtEnqueue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new SuccessStep())
+					.execute();
+
+			AsyncChainExecution__c beforeFirstHop = queryExecution(executionId);
+			Assert.isNotNull(beforeFirstHop.CurrentJobId__c, 'The enqueue-time stamp must land before the first hop runs');
+			Test.stopTest();
+
+			AsyncChainExecution__c completed = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completed.Status__c, 'The single-step chain completes normally');
+			Assert.isNotNull(completed.CurrentJobId__c, 'Terminal writes leave the stamp in place for the watchdog');
+		}
+	}
+
+	/**
 	 * @description Verifies a crashing onError handler cannot escalate a Stalled chain to Failed:
 	 * the HandlerExecutor Finalizer logs the crash instead of stamping Failed plus a completion
 	 * time, so the chain stays Stalled and visible to recovery.
@@ -424,6 +660,81 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.isTrue(result.ErrorMessage__c.contains('No live executor detected by watchdog sweep'), 'The stall reason must name the watchdog sweep');
 			Assert.isNull(result.CompletedAt__c, 'Stalled is non-terminal: CompletedAt must stay unset');
 			Assert.areEqual(0, errorHandlerRunCount, 'A step log without an error-handler entry must not produce a notification');
+		}
+	}
+
+	/**
+	 * @description Verifies an unhandled stall is recorded at ERROR level: when the watchdog
+	 * sweep moves a chain into Stalled and no onError handler resolves, the single 'Chain
+	 * stalled' emission that would otherwise go out at WARN is raised to ERROR — same entry, same
+	 * message prefix, never a second entry. That severity surfaces unhandled stalls in the Log
+	 * Console without anyone watching the Chain Monitor. A budget park never elevates, even with
+	 * no handler at all — see shouldNotElevateParkedStallToError.
+	 */
+	@IsTest
+	private static void shouldElevateUnhandledStallLogToError()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The sweep must mark the stale chain Stalled');
+			Assert.isTrue(anyLogEntryAtLevelContains(LOG_LEVEL_ERROR, 'no onError handler registered'),
+					'A genuine stall transition with no resolvable onError handler must be recorded at ERROR level');
+			Assert.isFalse(anyLogEntryAtLevelContains(LOG_LEVEL_WARN, 'Chain stalled'),
+					'The elevation replaces the WARN emission for this transition, never adds a second entry');
+			Assert.areEqual(1, countLogEntriesContaining('Chain stalled'),
+					'Exactly one stall entry for one transition');
+		}
+	}
+
+	/**
+	 * @description Verifies the unhandled-stall ERROR elevation fires only on the actual
+	 * transition into Stalled, never on a repeat sweep of the same row. Two budget-rich sweeps
+	 * run over one handler-less Running chain with no CurrentJobId__c stamp, so both route
+	 * through the stall leg: the first sweep is the genuine transition and records the single
+	 * ERROR entry; the second re-marks the already-Stalled row, observes no transition, and must
+	 * log its stall entry at WARN. Dropping the stallTransition conjunct from
+	 * unhandledStallTransition in UTIL_AsyncChain.markStalledAndNotify would false-fire a second
+	 * ERROR on every repeat sweep — the count assertion below is what catches that regression.
+	 */
+	@IsTest
+	private static void shouldNotRepeatUnhandledStallErrorOnRepeatSweep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The repeat sweep must leave the chain Stalled');
+			Assert.areEqual(1, countLogEntriesContaining('no onError handler registered'),
+					'The unhandled-stall ERROR fires once, on the transition into Stalled only — a second entry means the re-mark elevated without a transition');
+			Assert.isTrue(anyLogEntryAtLevelContains(LOG_LEVEL_WARN, 'Chain stalled'),
+					'The re-mark of the already-Stalled row logs its stall entry at WARN, proving the second sweep reached the stall leg');
 		}
 	}
 
@@ -634,6 +945,39 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual
 					(enqueuedJobsBeforeSweep, UTIL_Limits.queueableJobs().used(), 'Parking must not enqueue the onError notification: it costs the slot the gate proved absent');
 			Assert.isNull(result.CompletedAt__c, 'Stalled is non-terminal: a parked chain awaits recovery, so CompletedAt must stay unset');
+		}
+	}
+
+	/**
+	 * @description Verifies a budget park never fires the unhandled-stall ERROR elevation proved
+	 * by shouldElevateUnhandledStallLogToError. A park is the sweep marking a stale chain Stalled
+	 * because no queueable budget remains to process it: the onError notification is withheld by
+	 * that budget necessity, not because no handler exists, so the park's stall entry must stay
+	 * at WARN — never ERROR — even when the chain has no handler at all.
+	 */
+	@IsTest
+	private static void shouldNotElevateParkedStallToError()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			consumeAllQueueableBudget();
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Test.getEventBus().deliver();
+
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The budget gate parks the stale chain');
+			Assert.isTrue(anyLogEntryAtLevelContains(LOG_LEVEL_WARN, 'Chain stalled'),
+					'The park still records its WARN stall entry (proves log delivery in this test, so the ERROR check below cannot pass vacuously)');
+			Assert.isFalse(anyLogEntryAtLevelContains(LOG_LEVEL_ERROR, 'Chain stalled'),
+					'A park must never fire the unhandled-stall ERROR');
 		}
 	}
 
@@ -891,11 +1235,15 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
-	 * @description Closes the notification gap end-to-end: a chain the builder persisted with an
-	 * onError registration stalls with no executor state anywhere, and the watchdog sweep resolves
-	 * the notification handler purely from the persisted step log. Executes the builder outside
-	 * startTest so the enqueued executor is never delivered — the row stays Running exactly like a
-	 * production chain whose executor died.
+	 * @description Verifies end-to-end that a stalled chain's onError notification can come from
+	 * the watchdog sweep alone: for a chain persisted by ChainBuilder with an onError
+	 * registration, the sweep resolves the handler purely from the persisted step log and runs
+	 * the notification. The builder executes outside startTest so the enqueued executor is never
+	 * delivered — the row stays Running exactly like a production chain whose executor died.
+	 * clearEnqueueTimeStamp then blanks the CurrentJobId__c stamp ChainBuilder.execute writes at
+	 * enqueue, modelling a row persisted by a package version without that stamp: only a row with
+	 * no job id to probe reaches the sweep's CANNOT-CHECK notify leg (see sweepCandidate in
+	 * UTIL_AsyncChain) — a stamped row is routed to the liveness check instead.
 	 */
 	@IsTest
 	private static void shouldNotifyBuilderPersistedOnErrorHandlerViaSweep()
@@ -909,6 +1257,7 @@ private class UTIL_AsyncChainRecovery_TEST
 					.onError(new UTIL_AsyncChainRecovery_TEST.CountingErrorHandlerStep())
 					.withAsyncOptions(createAsyncOptions(2))
 					.execute();
+			clearEnqueueTimeStamp(executionId);
 
 			Test.startTest();
 			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
@@ -960,6 +1309,34 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual(2, parseContextData(result).get('stepCount'), 'The remaining step must run with the restored context, not a fresh one');
 			Assert.areEqual(true, parseContextData(result).get('completionHandlerExecuted'), 'The completion handler rehydrated from the persisted step log must fire');
 			Assert.areEqual(0, errorHandlerRunCount, 'The rehydrated error handler must not fire on a successful recovery');
+		}
+	}
+
+	/**
+	 * @description Verifies the re-drive's own enqueue-time stamp: the moment redriveStalledChain
+	 * enqueues the rehydrated executor, CurrentJobId__c must hold that fresh executor's job id
+	 * instead of the dead predecessor's, so the liveness probe tracks the re-driven executor
+	 * before its first progress write. Drives redriveStalledChain through its @TestVisible seam
+	 * outside startTest/stopTest so the re-enqueued executor never runs — the reloaded stamp is
+	 * therefore the re-drive's own write, not a later progress write.
+	 */
+	@IsTest
+	private static void shouldStampExecutorJobIdOnWatchdogRedrive()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = seedMidChainDeadRedriveCandidate(UTIL_Random.randomUUID());
+			AsyncChainExecution__c beforeRedrive = queryExecution(execution.Id);
+			String staleJobIdBeforeRedrive = beforeRedrive.CurrentJobId__c;
+			Assert.isNotNull(staleJobIdBeforeRedrive, 'Fixture guard: the candidate must carry a predecessor stamp, or the replacement assert proves nothing');
+
+			UTIL_AsyncChain.redriveStalledChain(beforeRedrive);
+
+			AsyncChainExecution__c redriven = queryExecution(execution.Id);
+			Assert.isNotNull(redriven.CurrentJobId__c, 'Re-drive must stamp the fresh executor job id');
+			Assert.areNotEqual(staleJobIdBeforeRedrive, redriven.CurrentJobId__c, 'The stale predecessor id must be replaced at re-enqueue');
 		}
 	}
 
@@ -2118,6 +2495,134 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
+	 * @description A failed chain whose context still fits the ContextData__c field must persist
+	 * the complete serialized context: the failure persist is all-or-nothing, so whatever lands on
+	 * the record must parse.
+	 */
+	@IsTest
+	private static void shouldPersistFullContextOnFailureWhenWithinFieldLimit()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainRecovery_TEST.TrackingStep())
+					.then(new UTIL_AsyncChainRecovery_TEST.FailingStep())
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failed = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failed.Status__c, 'Fixture must fail the chain');
+			Object parsed = JSON.deserializeUntyped(failed.ContextData__c);
+			Assert.isNotNull(parsed, 'Persisted failure context must be complete, parseable JSON');
+			Assert.areEqual(true, ((Map<String, Object>)parsed).get('trackingStepExecuted'), 'The persisted context must round-trip the pre-failure step data intact');
+		}
+	}
+
+	/**
+	 * @description When the failing chain's context no longer fits the ContextData__c field, the
+	 * failure persist must store no context at all — never a truncated document — and must flag the
+	 * loss by suffixing the context-not-preserved marker onto ErrorMessage__c. The helper is also
+	 * witnessed directly: an oversized context must serialize to null for failure persistence.
+	 */
+	@IsTest
+	private static void shouldPersistNoContextAndMarkerWhenContextExceedsFieldOnFailure()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			UTIL_AsyncChain.ChainContext oversizedContext = new UTIL_AsyncChain.ChainContext('test', 'test');
+			oversizedContext.put(OVERSIZED_CONTEXT_PAYLOAD_KEY, 'x'.repeat(OVERSIZED_CONTEXT_PAYLOAD_LENGTH));
+			Assert.isNull(UTIL_AsyncChain.serializeContextForFailurePersist(oversizedContext), 'Oversized context must not be truncated-persisted');
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(MAX_CONTEXT_SIZE_ABOVE_FIELD_CAPACITY)
+					.then(new UTIL_AsyncChainRecovery_TEST.ContextBloatingFailingStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failed = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failed.Status__c, 'The context-bloating fixture must fail the chain');
+			Assert.isNull(failed.ContextData__c, 'An oversized failure context must be dropped entirely, never truncated');
+			Assert.isTrue(failed.ErrorMessage__c.contains(UTIL_AsyncChain.CONTEXT_NOT_PRESERVED_MARKER), 'The dropped context must be flagged with the marker in ErrorMessage__c');
+			Assert.isTrue(failed.ErrorMessage__c.startsWith(OVERSIZED_CONTEXT_FAILURE_MESSAGE), 'The original failure message must stay first, ahead of the marker suffix');
+		}
+	}
+
+	/**
+	 * @description The context-not-preserved marker must survive even when the failure message
+	 * already fills ErrorMessage__c to its field capacity: the failure persist reserves room by
+	 * abbreviating the base message first, so the marker can never be truncated off the end.
+	 */
+	@IsTest
+	private static void shouldKeepMarkerWhenFailureMessageAlreadyAtFieldCapacity()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(MAX_CONTEXT_SIZE_ABOVE_FIELD_CAPACITY)
+					.then(new UTIL_AsyncChainRecovery_TEST.ContextBloatingCapacityMessageStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failed = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failed.Status__c, 'The capacity-length-message fixture must fail the chain');
+			Assert.isNull(failed.ContextData__c, 'The oversized failure context must still be dropped entirely');
+			Assert.isTrue(failed.ErrorMessage__c.endsWith(UTIL_AsyncChain.CONTEXT_NOT_PRESERVED_MARKER), 'The marker must survive at the end of a capacity-length failure message');
+			Assert.isTrue(failed.ErrorMessage__c.length() <= ERROR_MESSAGE_FIELD_CAPACITY, 'The marked message must still fit within the ErrorMessage__c capacity');
+		}
+	}
+
+	/**
+	 * @description When the failing step supplies no message at all, the context-not-preserved
+	 * marker must stand alone on the record: with no base text to prefix, there is no separator to
+	 * add, so ErrorMessage__c reads as exactly the marker.
+	 *
+	 * Characterisation test, deliberately not a mutation witness: the persist builds the message
+	 * without a stray separator, and the platform independently trims leading whitespace when it
+	 * saves a long text area, so the persisted value is identical either way (measured: a
+	 * 68-character leading-space value stores as 67). What this pins is the observable contract —
+	 * the marker is the whole message, and it is first — which would break if the construction
+	 * ever put the marker behind the base text or the field stopped trimming.
+	 */
+	@IsTest
+	private static void shouldRecordMarkerAloneWhenFailureMessageIsBlank()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.withMaxContextSize(MAX_CONTEXT_SIZE_ABOVE_FIELD_CAPACITY)
+					.then(new UTIL_AsyncChainRecovery_TEST.ContextBloatingBlankMessageStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c failed = new SEL_AsyncChainExecution().findByIdForMonitoring(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, failed.Status__c, 'The blank-message fixture must fail the chain');
+			Assert.isNull(failed.ContextData__c, 'The oversized failure context must still be dropped entirely');
+			Assert.areEqual
+					(
+							UTIL_AsyncChain.CONTEXT_NOT_PRESERVED_MARKER,
+							failed.ErrorMessage__c,
+							'A blank failure message must leave the marker standing alone, with no leading separator'
+					);
+		}
+	}
+
+	/**
 	 * @description Positive control for countLogsAtSite: a healthy single-step chain emits exactly
 	 * one terminal completion signal, and the counter must see it at the completion site while
 	 * returning zero for a non-emitting site suffix and for an unrelated execution record over the
@@ -2183,10 +2688,12 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
-	 * @description Verifies the executor stamps its own queueable job id onto the execution record
-	 * at the progress write, and that the stamp survives to the terminal state: no terminal write
-	 * set intends CurrentJobId__c, so completion leaves the last known executor's job id in place
-	 * for the watchdog's liveness check.
+	 * @description Verifies the progress write really carries CurrentJobId__c. On a three-step
+	 * chain, hop two's progress write stamps the SECOND executor's job id over the enqueue-time
+	 * stamp, so the completed record must carry a job id that DIFFERS from the one captured at
+	 * enqueue. Dropping the field from the progress write set would leave the enqueue stamp in
+	 * place and break the inequality below. The terminal write then leaves that last progress
+	 * stamp in place for the watchdog's liveness check.
 	 */
 	@IsTest
 	private static void shouldStampCurrentJobIdAtProgressWrite()
@@ -2199,13 +2706,21 @@ private class UTIL_AsyncChainRecovery_TEST
 			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
 					.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
 					.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
-					.withAsyncOptions(createAsyncOptions(3))
+					.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(4))
 					.execute();
+			String enqueueTimeStamp = queryExecution(executionId).CurrentJobId__c;
 			Test.stopTest();
 
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'The chain should complete');
 			Assert.isNotNull(execution.CurrentJobId__c, 'The progress write must stamp the executing job id, and no terminal write may clear it');
+			Assert.areNotEqual
+					(
+							enqueueTimeStamp,
+							execution.CurrentJobId__c,
+							'Hop two\'s progress write must stamp a later executor\'s id — an unchanged value means the progress write set dropped CurrentJobId__c'
+					);
 			Assert.areEqual
 					(
 							AsyncApexJob.SObjectType,
@@ -2216,9 +2731,13 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
-	 * @description Verifies CurrentJobId__c belongs to the progress write's intended list only: a
-	 * single-step chain performs no progress write (its only persist is the terminal completion
-	 * write), so the field must stay null — proof that no terminal write set intends the stamp.
+	 * @description Verifies CurrentJobId__c stays out of the terminal completion write set. On a
+	 * two-step chain the expected final value is the FIRST executor's job id: the enqueue-time
+	 * stamp, re-confirmed by hop one's progress write. The finishing executor holds its own
+	 * DIFFERENT job id in memory at the terminal persist, so a completion write set that leaked
+	 * the field would persist the finishing executor's id and break the equality below. This
+	 * proves the completion write omits the stamp by design; the other terminal write sets share
+	 * buildSparseUpdate's field discipline but are not exercised here.
 	 */
 	@IsTest
 	private static void shouldNotStampCurrentJobIdViaTerminalWrite()
@@ -2230,13 +2749,20 @@ private class UTIL_AsyncChainRecovery_TEST
 			Test.startTest();
 			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
 					.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
-					.withAsyncOptions(createAsyncOptions(2))
+					.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
+					.withAsyncOptions(createAsyncOptions(3))
 					.execute();
+			String enqueueTimeStamp = queryExecution(executionId).CurrentJobId__c;
 			Test.stopTest();
 
 			AsyncChainExecution__c execution = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'The chain should complete');
-			Assert.isNull(execution.CurrentJobId__c, 'A single-step chain performs no progress write, so no terminal write may stamp CurrentJobId__c');
+			Assert.areEqual
+					(
+							enqueueTimeStamp,
+							execution.CurrentJobId__c,
+							'The terminal write must leave the first executor\'s stamped job id in place — a differing value means the completion write set leaked CurrentJobId__c'
+					);
 		}
 	}
 
@@ -2558,7 +3084,11 @@ private class UTIL_AsyncChainRecovery_TEST
 
 			AsyncChainExecution__c result = queryExecution(execution.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'Finalizer stall over a Failed row is deliberately legal (fence-only semantics)');
-			Assert.isNotNull(result.CompletedAt__c, 'markStalled must not clear the completion timestamp — D16 and D22 lean on exactly this');
+			Assert.isNotNull
+					(
+							result.CompletedAt__c,
+							'markStalled must not clear the completion timestamp — the watchdog sweep skips rows carrying one and ChainStatus.isTerminal() reads one as terminal'
+					);
 		}
 	}
 
@@ -2875,11 +3405,17 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
-	 * @description Winner-vanished race: the insert retries once against the freed key; when the
-	 * retry also collides (the seeded row still holds it), the platform error surfaces verbatim.
+	 * @description Winner-vanished race, where the winner lookup keeps disagreeing with the index:
+	 * the key is held, but every lookup says it is free, which is what a release and re-claim around
+	 * the lookup looks like from inside the start. The start retries once, collides again, looks once
+	 * more, and still finds nobody. The launch took a correlation the FRAMEWORK minted, and a freshly
+	 * minted id cannot already be attached to a run, so the correlation is ruled out as the colliding
+	 * index and the platform's own duplicate-value error reaches the caller unchanged. A launch that
+	 * reused a caller-supplied correlation is the opposite case and is refused by the correlation
+	 * rule instead (UTIL_AsyncChain_TEST.shouldRefuseAKeyedLaunchWhoseCorrelationIsAlreadyAttached).
 	 */
 	@IsTest
-	private static void shouldRetryInsertOnceWhenWinnerLookupComesUpEmpty()
+	private static void shouldSurfaceThePlatformErrorWhenTheWinnerLookupKeepsComingUpEmpty()
 	{
 		System.runAs(getTestAdmin())
 		{
@@ -2893,21 +3429,21 @@ private class UTIL_AsyncChainRecovery_TEST
 			});
 			TST_Mock.register(AsyncChainExecution__c.SObjectType, new List<AsyncChainExecution__c>());
 
-			DmlException caught;
 			try
 			{
 				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
 						.then(new UTIL_AsyncChainRecovery_TEST.SuccessStep())
 						.withDeduplicationKey(deduplicationKey)
 						.execute();
+				Assert.fail('A start that collides twice on a held key should surface the platform error');
 			}
-			catch(DmlException secondCollision)
+			catch(Exception error)
 			{
-				caught = secondCollision;
+				Assert.isInstanceOfType(error, DmlException.class,
+						'A minted correlation cannot collide, so the deduplication failure must reach the caller as the platform reported it: ' + error.getMessage());
+				Assert.areEqual(StatusCode.DUPLICATE_VALUE, ((DmlException)error).getDmlType(0),
+						'The surfaced error should be the duplicate-value collision');
 			}
-			Assert.isNotNull(caught, 'A retry that collides again should surface the platform error');
-			Assert.areEqual(StatusCode.DUPLICATE_VALUE, caught.getDmlType(0),
-					'The surfaced error should be the duplicate-value collision');
 		}
 	}
 
@@ -3059,6 +3595,1179 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
+	 * @description An eligible candidate — Failed status, parseable context and step log, failed
+	 * entry declared idempotent and not permanent — must resolve Available.
+	 */
+	@IsTest
+	private static void shouldResolveRetryAvailableForIdempotentFailedStep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_AVAILABLE, availability, 'An idempotent failed step on a Failed chain must offer retry');
+		}
+	}
+
+	/**
+	 * @description Every non-Failed status must refuse retry with ChainNotRetryable: the operator
+	 * retry re-enters terminal Failed state only — live rows and other terminal rows are never
+	 * candidates, whatever their step log declares.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryForNonFailedStatus()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			List<String> nonFailedStatuses = new List<String>
+			{
+					SEL_AsyncChainExecution.STATUS_RUNNING,
+					SEL_AsyncChainExecution.STATUS_STALLED,
+					SEL_AsyncChainExecution.STATUS_COMPLETED,
+					SEL_AsyncChainExecution.STATUS_ABORTED
+			};
+			for(String status : nonFailedStatuses)
+			{
+				AsyncChainExecution__c execution = TST_Factory.newChainExecution(
+						status, RETRY_TEST_CHAIN_NAME, buildRetryEligibleStepLog(), RETRY_TOTAL_STEPS, RETRY_COMPLETED_STEPS);
+				execution.ContextData__c = RETRY_CONTEXT_JSON;
+				DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+				String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+				UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+
+				Assert.areEqual(UTIL_AsyncChain.REDRIVE_CHAIN_NOT_RETRYABLE, availability, 'A ' + status + ' chain must refuse retry');
+				Assert.areEqual(UTIL_AsyncChain.REDRIVE_CHAIN_NOT_RETRYABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses for ' + status);
+				Assert.areEqual(status, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the ' + status + ' row');
+			}
+		}
+	}
+
+	/**
+	 * @description A failed entry that never declared isIdempotent must refuse retry: re-running an
+	 * undeclared step could double its side effects, so retry stays hidden until the author opts in.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenFailedStepNotIdempotent()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildFailedStepLogWithoutIdempotentMarker());
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_STEP_NOT_IDEMPOTENT, availability, 'Undeclared step must refuse retry');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_STEP_NOT_IDEMPOTENT, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A failed entry carrying the declared-permanent marker must refuse retry even
+	 * though it also declares isIdempotent: the step itself judged a re-run futile, and the
+	 * operator override for that judgment is restart-from-start or a code fix, never this button.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenFailureDeclaredPermanent()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildFailedStepLogWithPermanentFailureMarker());
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_FAILURE_PERMANENT, availability, 'A declared-permanent failure must refuse retry despite the idempotency declaration');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_FAILURE_PERMANENT, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A Failed row whose context was not preserved (the failure persist's
+	 * all-or-nothing rule stored null) must refuse retry with ContextUnavailable: there is no
+	 * state to resume from.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenContextNotPreserved()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(
+					SEL_AsyncChainExecution.STATUS_FAILED, RETRY_TEST_CHAIN_NAME, buildRetryEligibleStepLog(), RETRY_TOTAL_STEPS, RETRY_COMPLETED_STEPS);
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, availability, 'An absent context must refuse retry cleanly');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A Failed row whose step log does not parse must refuse retry with
+	 * ContextUnavailable: with no readable step markers there is no failed step to resume at.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenStepLogUnparseable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(MALFORMED_STEP_LOG_JSON);
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, availability, 'An unparseable step log must refuse retry cleanly');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A Failed row whose step log parses but records no terminal failed step — every
+	 * entry attempted and succeeded, or failures that all continued — must refuse retry with
+	 * ContextUnavailable: there is no failed step to resume at.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenNoTerminalFailedStepRecorded()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildAllAttemptedStepLogWithErrorHandler());
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, availability, 'A step log with no terminal failed entry must refuse retry cleanly');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A Failed row whose step log is eligible but whose persisted context does not
+	 * parse must refuse retry with ContextUnavailable — the context-parse probe is the only gate
+	 * that can catch this shape, so this is its falsifying witness.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenContextUnparseable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			execution.ContextData__c = MALFORMED_CONTEXT_JSON;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, availability, 'An unparseable context must refuse retry cleanly');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description A context that parses as valid JSON but is not a JSON OBJECT — the shape the
+	 * executor's hydration hard-casts to — must refuse retry with ContextUnavailable, exactly as
+	 * the restart gate already refuses a non-object snapshot. Without this strictness a
+	 * hand-edited row passes the parse-only gate, rotates its run key, flips to Running, and
+	 * enqueues an executor that dies at entry — a Running row with no live executor.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenContextIsNotAJsonObject()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			execution.ContextData__c = NON_OBJECT_CONTEXT_JSON;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, availability, 'A non-object context must refuse retry: the executor can only hydrate a JSON object');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description While chain processing is suspended, an otherwise-eligible retry must refuse
+	 * with ChainProcessingSuspended: re-driving into a kill switch only manufactures runs the
+	 * next executor entry consult immediately aborts.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhileChainProcessingSuspended()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			SEL_FeatureFlag.activeFlags.remove(UTIL_AsyncChain.FEATURE_FLAG_NAME);
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRetryAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED, availability, 'A suspended org must refuse retry');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(execution.Id).Status__c, 'A refused retry must not mutate the row');
+		}
+	}
+
+	/**
+	 * @description End-to-end operator retry: an eligible Failed chain re-enters Running with its
+	 * terminal diagnostics cleared in the SAME sparse update (the purge/watchdog interlock), its
+	 * run key rotated and the fresh executor's job id stamped, then completes by re-executing
+	 * ONLY the failed step under the framework-default envelope.
+	 */
+	@IsTest
+	private static void shouldRetryFailedChainFromFailedStepAndComplete()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			String failedRunKey = execution.RunKey__c;
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			AsyncChainExecution__c interim = queryExecution(execution.Id);
+			Test.stopTest();
+
+			Assert.isNull(outcome.refusalCode, 'An eligible retry must not refuse');
+			Assert.areEqual(execution.Id, outcome.resultId, 'Retry re-enters the same record and returns its id');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, interim.Status__c, 'Retry flips the row back to Running');
+			Assert.isNull(interim.CompletedAt__c, 'CompletedAt must clear in the SAME sparse update - a Running row with it set is purge-eligible while watchdog-invisible');
+			Assert.isNull(interim.DurationMs__c, 'The stale duration must clear with the terminal state');
+			Assert.isNull(interim.FailureCategory__c, 'The stale failure category must clear with the terminal state');
+			Assert.isNull(interim.ErrorMessage__c, 'The stale error message must clear with the terminal state');
+			Assert.areNotEqual(failedRunKey, interim.RunKey__c, 'Retry must rotate the run key so any zombie executor stays fenced');
+			Assert.isNotNull(interim.CurrentJobId__c, 'Retry must stamp the fresh executor job id at enqueue');
+
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, result.Status__c, 'The re-driven executor must complete the chain');
+			Assert.areEqual(RETRY_TOTAL_STEPS, result.CompletedSteps__c, 'Both steps count completed after the re-run');
+			Assert.areEqual(1, retriedStepRunCount, 'Exactly the failed step re-executes');
+			Assert.isNull(parseContextData(result).get('trackingStepExecuted'), 'The completed prior step must not re-execute');
+			Assert.areEqual(0, errorHandlerRunCount, 'The rehydrated error handler must not fire on a successful re-run');
+		}
+	}
+
+	/**
+	 * @description The operator retry grants the failed entry a fresh attempt budget: all four
+	 * runtime markers reset in the rewritten step log, while the completed prior entry keeps
+	 * its markers. Runs outside startTest so the re-enqueued executor never executes — the parsed
+	 * document is therefore the retry's own sparse write.
+	 */
+	@IsTest
+	private static void shouldGiveRetriedStepFreshAttemptBudget()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+
+			Assert.isNull(outcome.refusalCode, 'An eligible retry must not refuse');
+			List<UTIL_AsyncChain.DTO_StepDefinition> entries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(queryExecution(execution.Id).StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.isNull(entries[1].attempt, 'The retried step must start with a fresh attempt budget');
+			Assert.isNull(entries[1].success, 'The stale failure marker must reset so the entry reads unattempted');
+			Assert.isNull(entries[1].message, 'The stale failure message must reset with the marker');
+			Assert.isNull(entries[1].durationMs, 'The stale duration must reset with the marker');
+			Assert.areEqual(true, entries[0].success, 'The completed prior entry keeps its markers - only the failed entry resets');
+			Assert.areEqual(true, entries[1].isIdempotent, 'The declaration markers survive the runtime-marker reset');
+			Assert.areEqual(true, entries[2].isErrorHandler, 'The trailing handler entry must survive the failed-entry reset untouched');
+		}
+	}
+
+	/**
+	 * @description A retry of a chain built with a deduplication key re-claims the declared key
+	 * into ActiveDeduplicationKey__c in the same sparse update, restoring the concurrency lock the
+	 * terminal transition released.
+	 */
+	@IsTest
+	private static void shouldReclaimDeclaredDeduplicationKeyOnRetry()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			execution.DeclaredDeduplicationKey__c = RETRY_DECLARED_DEDUPLICATION_KEY;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+
+			AsyncChainExecution__c reclaimed = queryExecution(execution.Id);
+			Assert.isNull(outcome.refusalCode, 'An eligible keyed retry must not refuse');
+			Assert.areEqual(RETRY_DECLARED_DEDUPLICATION_KEY, reclaimed.ActiveDeduplicationKey__c, 'Retry must re-claim the declared key in its one sparse update');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, reclaimed.Status__c, 'The re-claimed run is live again');
+		}
+	}
+
+	/**
+	 * @description When another live run already holds the declared deduplication key, the retry
+	 * must refuse with DuplicateRun and leave the row byte-untouched: the unique-index collision
+	 * rolls the whole sparse update back, attributed through the shipped collision predicate.
+	 */
+	@IsTest
+	private static void shouldRefuseRetryWhenDeduplicationKeyHeldByLiveRun()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			execution.DeclaredDeduplicationKey__c = RETRY_DECLARED_DEDUPLICATION_KEY;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+			String failedRunKey = execution.RunKey__c;
+			TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, RETRY_TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.ActiveDeduplicationKey__c => RETRY_DECLARED_DEDUPLICATION_KEY
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.retryChainFromFailedStep(execution.Id);
+			Test.stopTest();
+
+			AsyncChainExecution__c untouched = queryExecution(execution.Id);
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_DUPLICATE_RUN, outcome.refusalCode, 'A live run holding the key must refuse the retry with DuplicateRun');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, untouched.Status__c, 'A key-collision refusal must roll the whole sparse update back');
+			Assert.areEqual(failedRunKey, untouched.RunKey__c, 'No rotation may survive a key-collision refusal');
+			Assert.isNotNull(untouched.CompletedAt__c, 'The terminal bookkeeping survives a refused retry');
+		}
+	}
+
+	/**
+	 * @description A Failed chain that declared allowRestart at build time must resolve Available
+	 * for the restart action.
+	 */
+	@IsTest
+	private static void shouldResolveRestartAvailableForDeclaredFailedChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+
+			String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_AVAILABLE, availability, 'A declared Failed chain must offer restart');
+		}
+	}
+
+	/**
+	 * @description An Aborted chain that declared allowRestart qualifies too — restart is the one
+	 * recovery an aborted run supports, since resuming it stays impossible.
+	 */
+	@IsTest
+	private static void shouldResolveRestartAvailableForDeclaredAbortedChain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_ABORTED);
+
+			String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_AVAILABLE, availability, 'A declared Aborted chain must offer restart');
+		}
+	}
+
+	/**
+	 * @description Live and Completed chains must refuse restart with ChainNotRestartable: only a
+	 * run that ended badly — Failed or Aborted — may be re-run from the start.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartForNonTerminalOrCompletedStatus()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			List<String> ineligibleStatuses = new List<String>
+			{
+					SEL_AsyncChainExecution.STATUS_RUNNING,
+					SEL_AsyncChainExecution.STATUS_STALLED,
+					SEL_AsyncChainExecution.STATUS_COMPLETED
+			};
+			for(String status : ineligibleStatuses)
+			{
+				AsyncChainExecution__c execution = seedRestartDeclaredChain(status);
+
+				String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+				UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(execution.Id);
+
+				Assert.areEqual(UTIL_AsyncChain.RESTART_CHAIN_NOT_RESTARTABLE, availability, 'A ' + status + ' chain must refuse restart');
+				Assert.areEqual(UTIL_AsyncChain.RESTART_CHAIN_NOT_RESTARTABLE, outcome.refusalCode, 'The action must refuse what the resolver refuses for ' + status);
+				Assert.areEqual(status, queryExecution(execution.Id).Status__c, 'A refused restart must not mutate the ' + status + ' row');
+				Assert.isTrue(queryRestartClones(execution.Id).isEmpty(), 'A refused restart must insert no clone for ' + status);
+			}
+		}
+	}
+
+	/**
+	 * @description A chain built without allowRestart() must refuse with RestartNotDeclared —
+	 * pre-upgrade rows and undeclared chains land here, never null-eligible.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWithoutDeclaration()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_NOT_DECLARED, availability, 'An undeclared chain must refuse restart');
+			Assert.areEqual(UTIL_AsyncChain.RESTART_NOT_DECLARED, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.isTrue(queryRestartClones(execution.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description A declared chain whose snapshot was never captured refuses at the ACTION with
+	 * ContextUnavailable, while the resolver still says Available: the resolver reads the
+	 * monitoring projection, which deliberately cannot see the 131KB snapshot — the availability
+	 * code is a UI hint, and the action's own read through the restart projection is the
+	 * enforcement point.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWithoutInitialContextSnapshot()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			execution.AllowRestart__c = true;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_AVAILABLE, availability, 'The monitoring-row hint cannot see the snapshot and says Available by design');
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'The action must refuse when the snapshot is absent');
+			Assert.isTrue(queryRestartClones(execution.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description A declared chain whose snapshot does not parse must refuse at the action with
+	 * ContextUnavailable — a clone cannot be built from a corrupted as-built context.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWhenSnapshotUnparseable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			execution.InitialContextData__c = MALFORMED_CONTEXT_JSON;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'An unparseable snapshot must refuse restart cleanly');
+			Assert.isTrue(queryRestartClones(execution.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description A declared chain whose step log does not parse — or parses to no step entries —
+	 * must refuse at the action with ContextUnavailable: a clone needs a definition list to run.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWhenStepLogUnparseableOrEmpty()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c malformed = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			malformed.StepLog__c = MALFORMED_STEP_LOG_JSON;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(malformed).execute();
+
+			AsyncChainExecution__c entryless = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			UTIL_AsyncChain.DTO_StepDefinition handlerOnly = buildDtoStepDefinition(CountingErrorHandlerStep.class.getName(), 'CountingErrorHandler');
+			handlerOnly.isErrorHandler = true;
+			entryless.StepLog__c = JSON.serialize(new List<UTIL_AsyncChain.DTO_StepDefinition> {handlerOnly}, true);
+			DML_Builder.newTransaction().withSystemMode().doUpdate(entryless).execute();
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome malformedOutcome = UTIL_AsyncChain.restartChainFromStart(malformed.Id);
+			UTIL_AsyncChain.OperatorActionOutcome entrylessOutcome = UTIL_AsyncChain.restartChainFromStart(entryless.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE, malformedOutcome.refusalCode, 'An unparseable step log must refuse restart cleanly');
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE, entrylessOutcome.refusalCode, 'A step log with no step entries must refuse restart cleanly');
+			Assert.isTrue(queryRestartClones(malformed.Id).isEmpty(), 'A refused restart must insert no clone');
+			Assert.isTrue(queryRestartClones(entryless.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description While chain processing is suspended, an otherwise-eligible restart must refuse
+	 * with ChainProcessingSuspended: restarting into a kill switch only manufactures a clone the
+	 * next executor entry consult immediately aborts.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWhileChainProcessingSuspended()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			SEL_FeatureFlag.activeFlags.remove(UTIL_AsyncChain.FEATURE_FLAG_NAME);
+
+			Test.startTest();
+			String availability = UTIL_AsyncChain.resolveRestartAvailability(new SEL_AsyncChainExecution().findByIdForMonitoring(execution.Id));
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(execution.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED, availability, 'A suspended org must refuse restart');
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_PROCESSING_SUSPENDED, outcome.refusalCode, 'The action must refuse what the resolver refuses');
+			Assert.isTrue(queryRestartClones(execution.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description End-to-end operator restart: a declared Failed chain clones to a NEW record —
+	 * fresh correlation and run key, definition-only step log, counters at zero, snapshot and
+	 * declaration copied, lineage lookup stamped, job id stamped — and the clone completes by
+	 * running every step from the start against the as-built snapshot.
+	 */
+	@IsTest
+	private static void shouldRestartChainAsFreshCloneAndComplete()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+			AsyncChainExecution__c interimClone = new SEL_AsyncChainExecution().findByIdForRestart(outcome.resultId);
+			Test.stopTest();
+
+			Assert.isNull(outcome.refusalCode, 'An eligible restart must not refuse');
+			Assert.isNotNull(outcome.resultId, 'Restart must return the clone id');
+			Assert.areNotEqual(source.Id, outcome.resultId, 'Restart must clone to a NEW record, never mutate the source');
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, interimClone.Status__c, 'The clone starts Running');
+			Assert.areEqual(0, interimClone.CompletedSteps__c, 'The clone starts at step zero');
+			Assert.areEqual(source.TotalSteps__c, interimClone.TotalSteps__c, 'The clone keeps the definition step total');
+			Assert.areNotEqual(source.CorrelationId__c, interimClone.CorrelationId__c, 'The clone mints a fresh correlation id');
+			Assert.areNotEqual(source.RunKey__c, interimClone.RunKey__c, 'The clone mints a fresh run key');
+			Assert.areEqual(true, interimClone.AllowRestart__c, 'The clone is itself restartable');
+			Assert.isTrue(String.isNotBlank(interimClone.InitialContextData__c), 'The clone carries the snapshot forward');
+			Assert.areEqual(source.Id, interimClone.SourceExecution__c, 'The clone records its restart lineage');
+			Assert.isNotNull(interimClone.CurrentJobId__c, 'Restart must stamp the fresh executor job id at enqueue');
+			List<UTIL_AsyncChain.DTO_StepDefinition> cloneEntries = (List<UTIL_AsyncChain.DTO_StepDefinition>)
+					JSON.deserialize(interimClone.StepLog__c, List<UTIL_AsyncChain.DTO_StepDefinition>.class);
+			Assert.isNull(cloneEntries[0].success, 'The clone step log is definition-only: no runtime markers survive the copy');
+			Assert.isNull(cloneEntries[1].success, 'The failed marker must not ride into the clone');
+			Assert.isNull(cloneEntries[1].attempt, 'The spent attempt budget must not ride into the clone');
+			Assert.isNull(cloneEntries[1].message, 'The stale failure message must not ride into the clone');
+			Assert.isNull(cloneEntries[1].durationMs, 'The stale duration must not ride into the clone');
+			Assert.areEqual(true, cloneEntries[1].isIdempotent, 'The declaration markers survive the definition-only copy');
+			Assert.areEqual(true, cloneEntries[2].isErrorHandler, 'The handler entries survive the definition-only copy');
+
+			AsyncChainExecution__c completedClone = queryExecution(outcome.resultId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completedClone.Status__c, 'The clone must complete from the start');
+			Assert.areEqual(RETRY_TOTAL_STEPS, completedClone.CompletedSteps__c, 'Every step runs on the clone');
+			Assert.areEqual(RESTART_SNAPSHOT_VALUE, parseContextData(completedClone).get(RESTART_SNAPSHOT_KEY), 'The clone replays the as-built snapshot values');
+			Assert.areEqual(true, parseContextData(completedClone).get('trackingStepExecuted'), 'The first step re-runs on the clone');
+			Assert.areEqual(1, retriedStepRunCount, 'The second step runs exactly once on the clone');
+			Assert.areEqual(0, errorHandlerRunCount, 'The rehydrated error handler must not fire on a successful clone run');
+		}
+	}
+
+	/**
+	 * @description The source row is never mutated by a restart: its terminal state, diagnostics
+	 * and identity survive byte-for-byte while the clone runs beside it.
+	 */
+	@IsTest
+	private static void shouldLeaveSourceRecordUntouchedByRestart()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+
+			AsyncChainExecution__c untouched = queryExecution(source.Id);
+			Assert.isNull(outcome.refusalCode, 'An eligible restart must not refuse');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, untouched.Status__c, 'The source keeps its terminal status');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, untouched.FailureCategory__c, 'The source keeps its failure category');
+			Assert.areEqual(RETRY_FAILURE_MESSAGE, untouched.ErrorMessage__c, 'The source keeps its error message');
+			Assert.isNotNull(untouched.CompletedAt__c, 'The source keeps its completion timestamp');
+			Assert.areEqual(source.RunKey__c, untouched.RunKey__c, 'The source keeps its run key - restart rotates nothing on it');
+		}
+	}
+
+	/**
+	 * @description The clone's context hydrates the CLONE's correlation id, never the source's:
+	 * the rebuild replaces the snapshot's logging-context entry so the clone's steps log under the
+	 * new run's identity, while every other snapshot value survives untouched. Runs outside
+	 * startTest so the parsed document is the insert-time rebuild, not a later executor write.
+	 */
+	@IsTest
+	private static void shouldRehydrateCloneWithFreshLogCorrelation()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+
+			AsyncChainExecution__c clone = queryExecution(outcome.resultId);
+			Map<String, Object> cloneContext = parseContextData(clone);
+			Map<String, Object> logContext = (Map<String, Object>)JSON.deserializeUntyped((String)cloneContext.get(CONTEXT_LOG_KEY));
+			Assert.areEqual(clone.CorrelationId__c, logContext.get(LOG_CONTEXT_CORRELATION_FIELD), 'The clone context must hydrate the CLONE correlation id');
+			Assert.areNotEqual(SOURCE_LOG_CORRELATION_ID, logContext.get(LOG_CONTEXT_CORRELATION_FIELD), 'The source correlation must never ride into the clone');
+			Assert.areEqual(RESTART_SNAPSHOT_VALUE, cloneContext.get(RESTART_SNAPSHOT_KEY), 'The rebuild replaces only the logging-context entry');
+		}
+	}
+
+	/**
+	 * @description A restart of a chain built with a deduplication key re-claims the declared key
+	 * on the clone at insert — declared and active both carry it — while the source's released
+	 * active key stays released.
+	 */
+	@IsTest
+	private static void shouldReclaimDeclaredDeduplicationKeyOnRestartClone()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			source.DeclaredDeduplicationKey__c = RETRY_DECLARED_DEDUPLICATION_KEY;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(source).execute();
+
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+
+			AsyncChainExecution__c clone = queryExecution(outcome.resultId);
+			Assert.areEqual(RETRY_DECLARED_DEDUPLICATION_KEY, clone.DeclaredDeduplicationKey__c, 'The clone inherits the declared key');
+			Assert.areEqual(RETRY_DECLARED_DEDUPLICATION_KEY, clone.ActiveDeduplicationKey__c, 'The clone re-claims the key at insert');
+			Assert.isNull(queryExecution(source.Id).ActiveDeduplicationKey__c, 'The source active key stays released');
+		}
+	}
+
+	/**
+	 * @description When another live run already holds the declared deduplication key, the restart
+	 * must refuse with DuplicateRun and insert no clone: the unique-index collision rolls the
+	 * insert back, attributed through the shipped collision predicate.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWhenDeduplicationKeyHeldByLiveRun()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			source.DeclaredDeduplicationKey__c = RETRY_DECLARED_DEDUPLICATION_KEY;
+			DML_Builder.newTransaction().withSystemMode().doUpdate(source).execute();
+			TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, RESTART_TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.ActiveDeduplicationKey__c => RETRY_DECLARED_DEDUPLICATION_KEY
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.REDRIVE_DUPLICATE_RUN, outcome.refusalCode, 'A live run holding the key must refuse the restart with DuplicateRun');
+			Assert.isTrue(queryRestartClones(source.Id).isEmpty(), 'A key-collision refusal must insert no clone');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(source.Id).Status__c, 'The source survives a refused restart untouched');
+		}
+	}
+
+	/**
+	 * @description A restart whose clone insert fails for any reason OTHER than the deduplication
+	 * index must surface that failure, not swallow it into a refusal code: only a duplicate-key
+	 * collision has a meaningful operator message. Forced by a snapshot filling the context field
+	 * exactly — the clone rebuild's larger logging-context entry pushes the clone's context past
+	 * the field, so the insert fails on length.
+	 */
+	@IsTest
+	private static void shouldRethrowNonDuplicateFailureFromRestartInsert()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			source.InitialContextData__c = buildCapacityFillingSnapshotJson();
+			DML_Builder.newTransaction().withSystemMode().doUpdate(source).execute();
+
+			Test.startTest();
+			try
+			{
+				UTIL_AsyncChain.restartChainFromStart(source.Id);
+				Assert.fail('Should throw DmlException');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
+			}
+			Test.stopTest();
+
+			Assert.isTrue(queryRestartClones(source.Id).isEmpty(), 'A failed clone insert must leave no clone behind');
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(source.Id).Status__c, 'The source survives a failed restart untouched');
+		}
+	}
+
+	/**
+	 * @description A retry whose sparse update fails for any reason OTHER than the deduplication
+	 * index must surface that failure rather than reporting a refusal. Forced with the
+	 * authorized-mock technique: the resolver and the action both read a row whose real record has
+	 * been deleted, so the update cannot land.
+	 */
+	@IsTest
+	private static void shouldRethrowNonDuplicateFailureFromRetryUpdate()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c execution = seedFailedRetryChain(buildRetryEligibleStepLog());
+			Id executionId = execution.Id;
+			DML_Builder.newTransaction().doDelete(execution).execute();
+			TST_Mock.register(AsyncChainExecution__c.SObjectType, TST_Builder.of(AsyncChainExecution__c.SObjectType)
+					.withOverride(AsyncChainExecution__c.Id, executionId)
+					.withOverride(AsyncChainExecution__c.Status__c, SEL_AsyncChainExecution.STATUS_FAILED)
+					.withOverride(AsyncChainExecution__c.ContextData__c, RETRY_CONTEXT_JSON)
+					.withOverride(AsyncChainExecution__c.StepLog__c, buildRetryEligibleStepLog())
+					.withoutInsertion()
+					.build());
+
+			Test.startTest();
+			try
+			{
+				UTIL_AsyncChain.retryChainFromFailedStep(executionId);
+				Assert.fail('Should throw DmlException');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, DmlException.class, 'Incorrect Exception Type');
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description A restart against a row that no longer exists must refuse cleanly rather than
+	 * dereferencing a null read.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartForMissingRow()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(UTIL_Random.randomId(AsyncChainExecution__c.SObjectType));
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CHAIN_NOT_RESTARTABLE, outcome.refusalCode, 'A missing row must refuse restart without dereferencing it');
+		}
+	}
+
+	/**
+	 * @description A snapshot that parses as JSON but is a LIST rather than an object must refuse
+	 * restart with ContextUnavailable — the shape that makes the snapshot parse throw on its cast
+	 * rather than on the parse itself.
+	 */
+	@IsTest
+	private static void shouldRefuseRestartWhenSnapshotIsNotAnObject()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c source = seedRestartDeclaredChain(SEL_AsyncChainExecution.STATUS_FAILED);
+			source.InitialContextData__c = JSON.serialize(new List<String> {RESTART_SNAPSHOT_VALUE});
+			DML_Builder.newTransaction().withSystemMode().doUpdate(source).execute();
+
+			Test.startTest();
+			UTIL_AsyncChain.OperatorActionOutcome outcome = UTIL_AsyncChain.restartChainFromStart(source.Id);
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_AsyncChain.RESTART_CONTEXT_UNAVAILABLE, outcome.refusalCode, 'A non-object snapshot must refuse restart cleanly');
+			Assert.isTrue(queryRestartClones(source.Id).isEmpty(), 'A refused restart must insert no clone');
+		}
+	}
+
+	/**
+	 * @description Verifies the operator clear-stalled sweep re-drives a provably-dead stalled
+	 * chain through the watchdog's own decision path — rotation, re-enqueue, job-id stamp — and
+	 * counts it as re-driven: the outcome tally reads the candidate back Running before the
+	 * transaction's queueables drain, and the re-driven executor then completes the chain.
+	 */
+	@IsTest
+	private static void shouldRedriveProvablyDeadStalledChainOnClearStalled()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
+					.withOverride(AsyncApexJob.Status, 'Aborted')
+					.build();
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+					AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+			Test.stopTest();
+
+			Assert.areEqual(1, counts.candidates, 'The stalled chain must be inspected as a candidate');
+			Assert.areEqual(1, counts.redriven, 'A provably-dead candidate must count as re-driven');
+			Assert.areEqual(0, counts.markedFailed, 'A clean re-drive must mark nothing failed');
+			Assert.areEqual(0, counts.remainingStalled, 'A re-driven candidate must not count as remaining');
+			Assert.areEqual
+					(
+							SEL_AsyncChainExecution.STATUS_COMPLETED,
+							queryExecution(execution.Id).Status__c,
+							'The re-driven executor must complete the chain when the queueables drain'
+					);
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep cannot prove an unstamped candidate dead — no job
+	 * id to probe — so it detect-marks the row through the watchdog's CANNOT-CHECK leg and counts
+	 * it as remaining: still Stalled, its reason replaced by the sweep's stall reason, never
+	 * re-driven.
+	 */
+	@IsTest
+	private static void shouldCountStalledChainAsRemainingWhenLivenessCannotBeProven()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.ErrorMessage__c => PRE_SWEEP_SEEDED_REASON,
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+			Test.stopTest();
+
+			Assert.areEqual(1, counts.candidates, 'The stalled chain must be inspected as a candidate');
+			Assert.areEqual(0, counts.redriven, 'A candidate that cannot be proven dead must never re-drive');
+			Assert.areEqual(0, counts.markedFailed, 'The CANNOT-CHECK leg marks Stalled, never Failed');
+			Assert.areEqual(1, counts.remainingStalled, 'A detect-marked candidate must count as remaining');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'A candidate that cannot be proven dead must stay Stalled');
+			Assert.areEqual('No live executor detected by watchdog sweep', result.ErrorMessage__c,
+					'The detect-mark leg must record the sweep stall reason, proving the candidate was processed rather than skipped');
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep routes an unrecoverable candidate — provably dead
+	 * but with an unreadable persisted step log — through the watchdog's terminal degrade and
+	 * counts it as marked failed, with the actionable reason and the Stalled failure category.
+	 */
+	@IsTest
+	private static void shouldCountUnrecoverableCandidateAsMarkedFailedOnClearStalled()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
+					.withOverride(AsyncApexJob.Status, 'Aborted')
+					.build();
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+					AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.StepLog__c => MALFORMED_STEP_LOG_JSON
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+			Test.stopTest();
+
+			Assert.areEqual(1, counts.candidates, 'The stalled chain must be inspected as a candidate');
+			Assert.areEqual(0, counts.redriven, 'An unrecoverable candidate must never count as re-driven');
+			Assert.areEqual(1, counts.markedFailed, 'An unrecoverable candidate must count as marked failed');
+			Assert.areEqual(0, counts.remainingStalled, 'A terminally-failed candidate must not count as remaining');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, result.Status__c, 'An unreadable step log must fail the candidate terminally');
+			Assert.isTrue(result.ErrorMessage__c.contains(REDRIVE_UNRECOVERABLE_FRAGMENT), 'The failure must carry the actionable re-drive reason');
+		}
+	}
+
+	/**
+	 * @description Verifies clear-stalled returns truthful zero counts when no stalled candidates
+	 * exist, without throwing.
+	 */
+	@IsTest
+	private static void shouldReportZeroCountsWhenNoStalledChainsExist()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+			Test.stopTest();
+
+			Assert.areEqual(0, counts.candidates, 'An org with no stalled chains has no candidates');
+			Assert.areEqual(0, counts.redriven, 'Nothing can be re-driven when nothing is stalled');
+			Assert.areEqual(0, counts.markedFailed, 'Nothing can be marked failed when nothing is stalled');
+			Assert.areEqual(0, counts.remainingStalled, 'Nothing can remain when nothing is stalled');
+		}
+	}
+
+	/**
+	 * @description Verifies the clobbered-terminal-row guard: a Stalled row carrying a completion
+	 * timestamp is a finished chain whose status was overwritten, and the operator sweep must not
+	 * even count it as a candidate — re-driving it would resurrect a completed chain whose
+	 * deduplication key was already released.
+	 */
+	@IsTest
+	private static void shouldExcludeClobberedTerminalRowsFromClearStalled()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c clobbered = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.CompletedAt__c => Datetime.now(),
+					AsyncChainExecution__c.ErrorMessage__c => PRE_SWEEP_SEEDED_REASON
+			});
+
+			Test.startTest();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+			Test.stopTest();
+
+			Assert.areEqual(0, counts.candidates, 'A Stalled row with CompletedAt set is a clobbered terminal row, never a candidate');
+			AsyncChainExecution__c result = queryExecution(clobbered.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The guard excludes the row entirely; nothing may touch it');
+			Assert.areEqual(PRE_SWEEP_SEEDED_REASON, result.ErrorMessage__c, 'An excluded row must keep its seeded reason untouched');
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep's query-budget gate: with the remaining query
+	 * budget below the operator reserve, no candidate's decision legs run — the rows stay exactly
+	 * as seeded, with no park write — and the counts stay truthful because the extra reserve unit
+	 * keeps the outcome tally's single read affordable. Runs without Test.startTest around the
+	 * sweep on purpose — startTest opens a fresh governor-limit segment, which would hand the
+	 * sweep a full query budget again; the assertions run inside that fresh segment instead.
+	 */
+	@IsTest
+	private static void shouldLeaveTailUntouchedWhenQueryBudgetRunsShort()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			TST_Factory.newChainExecutions(CLEAR_STALLED_TAIL_SEED_COUNT, SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME);
+			consumeSoqlBudgetDownTo(QUERY_BUDGET_FOR_NO_SWEPT_OPERATOR_CANDIDATES);
+
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+
+			Test.startTest();
+			Assert.areEqual(CLEAR_STALLED_TAIL_SEED_COUNT, counts.candidates, 'Both stalled rows must be counted as candidates');
+			Assert.areEqual(0, counts.redriven, 'No decision legs may run below the query reserve');
+			Assert.areEqual(0, counts.markedFailed, 'No decision legs may run below the query reserve');
+			Assert.areEqual(CLEAR_STALLED_TAIL_SEED_COUNT, counts.remainingStalled, 'Refused candidates must count as remaining');
+			List<AsyncChainExecution__c> untouched = new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_STALLED);
+			Assert.areEqual(CLEAR_STALLED_TAIL_SEED_COUNT, untouched.size(), 'Both rows must remain Stalled for a later sweep');
+			for(AsyncChainExecution__c row : untouched)
+			{
+				Assert.isNull(row.ErrorMessage__c, 'A refused candidate must stay untouched: no stall mark, no park write');
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep's DML-budget gate — the reserve the scheduled sweep
+	 * does not need, because an @AuraEnabled transaction carries ambient DML the scheduler's does
+	 * not: with the remaining DML-statement budget below the operator reserve, no candidate's
+	 * decision legs run and the row keeps its seeded shape — a processed candidate would have
+	 * detect-marked it with the sweep's stall reason. Runs without Test.startTest around the sweep
+	 * on purpose — the fresh governor-limit segment would restore the DML budget.
+	 */
+	@IsTest
+	private static void shouldLeaveTailUntouchedWhenDmlBudgetRunsShort()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.ErrorMessage__c => PRE_SWEEP_SEEDED_REASON,
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+			consumeDmlBudgetDownTo(DML_BUDGET_FOR_NO_SWEPT_OPERATOR_CANDIDATES);
+
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+
+			Assert.areEqual(1, counts.candidates, 'The stalled row must be counted as a candidate');
+			Assert.areEqual(0, counts.redriven, 'No decision legs may run below the DML reserve');
+			Assert.areEqual(0, counts.markedFailed, 'No decision legs may run below the DML reserve');
+			Assert.areEqual(1, counts.remainingStalled, 'The refused candidate must count as remaining');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The refused candidate must stay Stalled');
+			Assert.areEqual(PRE_SWEEP_SEEDED_REASON, result.ErrorMessage__c,
+					'The refused candidate must keep its seeded reason: a processed candidate would carry the sweep stall reason');
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep leaves a slow-but-alive candidate completely
+	 * untouched and counts it as remaining: the liveness probe finds the stamped executor job
+	 * still processing, so no mark, no rotation, and no enqueue may land — duplicate execution of
+	 * a live chain is the worse defect the probe exists to prevent. This is the operator-path
+	 * witness for the sweep's liveness gate itself, distinct from the unstamped CANNOT-CHECK leg.
+	 */
+	@IsTest
+	private static void shouldCountLiveExecutorCandidateAsRemainingOnClearStalled()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncApexJob liveJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
+					.withOverride(AsyncApexJob.Status, 'Processing')
+					.build();
+			String runKey = UTIL_Random.randomUUID();
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.RunKey__c => runKey,
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(liveJob.Id),
+					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
+			});
+
+			Integer enqueuedJobsBeforeSweep = UTIL_Limits.queueableJobs().used();
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+
+			Assert.areEqual(1, counts.candidates, 'The stalled chain must be inspected as a candidate');
+			Assert.areEqual(0, counts.redriven, 'A live executor must never be re-driven: duplicate execution is the worse defect');
+			Assert.areEqual(0, counts.markedFailed, 'A live candidate must not be marked failed');
+			Assert.areEqual(1, counts.remainingStalled, 'A live candidate must count as remaining');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'A live candidate must stay Stalled, untouched');
+			Assert.areEqual(runKey, result.RunKey__c, 'No rotation may land under a live executor: rotation would fence it out mid-flight');
+			Assert.isNull(result.ErrorMessage__c, 'The live skip must write nothing to the row');
+			Assert.areEqual(enqueuedJobsBeforeSweep, UTIL_Limits.queueableJobs().used(), 'A live candidate must cost no executor enqueue');
+		}
+	}
+
+	/**
+	 * @description Verifies the engine passes its candidate ceiling to the selector: with one
+	 * more stalled row than the ceiling admits, the sweep inspects exactly the ceiling's worth of
+	 * candidates. Uses the exhausted-DML technique so the gate refuses every candidate's decision
+	 * legs — the ceiling is provable from the candidate count alone, at no per-candidate cost.
+	 */
+	@IsTest
+	private static void shouldBoundOperatorSweepAtCandidateCeiling()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			TST_Factory.newChainExecutions(UTIL_AsyncChain.MAX_OPERATOR_SWEEP_CANDIDATES + 1, SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME);
+			consumeDmlBudgetDownTo(DML_BUDGET_FOR_NO_SWEPT_OPERATOR_CANDIDATES);
+
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+
+			Assert.areEqual(UTIL_AsyncChain.MAX_OPERATOR_SWEEP_CANDIDATES, counts.candidates,
+					'One operator invocation must inspect at most the candidate ceiling; the row beyond it waits for the next invocation');
+			Assert.areEqual(UTIL_AsyncChain.MAX_OPERATOR_SWEEP_CANDIDATES, counts.remainingStalled, 'Every refused candidate must count as remaining');
+		}
+	}
+
+	/**
+	 * @description Verifies the operator sweep's entry guard: when the transaction cannot afford
+	 * even the sweep's own two reads — the candidate selector and the outcome tally — it returns
+	 * truthful zero counts instead of running either read into an uncatchable LimitException, and
+	 * touches nothing. Runs without Test.startTest around the sweep on purpose — the fresh
+	 * governor-limit segment would restore the budget; the assertions run inside one instead.
+	 */
+	@IsTest
+	private static void shouldReturnZeroCountsWhenQueryBudgetCannotAffordSweepReads()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.ErrorMessage__c => PRE_SWEEP_SEEDED_REASON
+			});
+			consumeSoqlBudgetDownTo(QUERY_BUDGET_BELOW_OPERATOR_ENTRY_MINIMUM);
+
+			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
+
+			Test.startTest();
+			Assert.areEqual(0, counts.candidates, 'Zero candidates honestly means the sweep inspected nothing');
+			Assert.areEqual(0, counts.redriven, 'Nothing may be re-driven when the sweep never ran');
+			Assert.areEqual(0, counts.markedFailed, 'Nothing may be marked failed when the sweep never ran');
+			Assert.areEqual(0, counts.remainingStalled, 'The entry guard reports work NOT inspected, never guessed-at remainders');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The stalled row must stay untouched for a budget-rich invocation');
+			Assert.areEqual(PRE_SWEEP_SEEDED_REASON, result.ErrorMessage__c, 'The entry guard must write nothing');
+			Test.stopTest();
+		}
+	}
+
+	/**
 	 * @description Queries an AsyncChainExecution__c record by ID.
 	 *
 	 * @param executionId The execution record ID.
@@ -3068,6 +4777,28 @@ private class UTIL_AsyncChainRecovery_TEST
 	private static AsyncChainExecution__c queryExecution(String executionId)
 	{
 		return (AsyncChainExecution__c)new SEL_AsyncChainExecution().findById(executionId);
+	}
+
+	/**
+	 * @description Blanks the CurrentJobId__c stamp ChainBuilder.execute writes at enqueue,
+	 * turning the given run record into the shape of a pre-upgrade row: one persisted by a
+	 * package version without the enqueue-time stamp, or by a start that caught its enqueue
+	 * failure (see stampExecutorJobId in UTIL_AsyncChain), carrying no executor job id until its
+	 * first progress write. Sweep tests need this because a stamped row is routed to the liveness
+	 * check; only a row with no usable job id reaches the sweep's CANNOT-CHECK leg, where
+	 * staleness alone marks and notifies (see sweepCandidate in UTIL_AsyncChain).
+	 *
+	 * @param executionId The execution record ID whose stamp to clear.
+	 */
+	private static void clearEnqueueTimeStamp(String executionId)
+	{
+		AsyncChainExecution__c row = (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
+				.withOverride(AsyncChainExecution__c.Id, (Id)executionId)
+				.withOptionalField(AsyncChainExecution__c.ChainName__c)
+				.withoutInsertion()
+				.build();
+		row.CurrentJobId__c = null;
+		DML_Builder.newTransaction().systemModeInternal().doUpdate(row).execute();
 	}
 
 	/**
@@ -3161,6 +4892,48 @@ private class UTIL_AsyncChainRecovery_TEST
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * @description Reports whether any persisted log entry at the given level carries the fragment,
+	 * so tests can prove not just that a stall was logged but at which severity.
+	 *
+	 * @param logLevel The LogLevel__c literal to match.
+	 * @param fragment The message fragment to look for.
+	 *
+	 * @return True when a matching entry exists.
+	 */
+	private static Boolean anyLogEntryAtLevelContains(String logLevel, String fragment)
+	{
+		for(LogEntry__c log : new SEL_LogEntry().getAll())
+		{
+			if(logLevel.equals(log.LogLevel__c) && log.Message__c != null && log.Message__c.contains(fragment))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @description Counts persisted log entries carrying the fragment, so a test can prove an
+	 * emission happened exactly once, not merely at least once.
+	 *
+	 * @param fragment The message fragment to count.
+	 *
+	 * @return The number of matching entries.
+	 */
+	private static Integer countLogEntriesContaining(String fragment)
+	{
+		Integer matches = 0;
+		for(LogEntry__c log : new SEL_LogEntry().getAll())
+		{
+			if(log.Message__c != null && log.Message__c.contains(fragment))
+			{
+				matches++;
+			}
+		}
+		return matches;
 	}
 
 	/**
@@ -3348,10 +5121,190 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
+	 * @description Builds the eligible operator-retry candidate's step log: a completed
+	 * TrackingStep, a failed IdempotentRecoveringStep whose entry declares isIdempotent and
+	 * carries the spent runtime markers of a real terminal failure, and a trailing error-handler
+	 * entry — so the retry tests also witness that handler entries survive the failed-entry reset
+	 * and rehydrate without firing on a successful re-run.
+	 *
+	 * @return The serialized step-log JSON.
+	 */
+	private static String buildRetryEligibleStepLog()
+	{
+		UTIL_AsyncChain.DTO_StepDefinition completedStep = buildDtoStepDefinition('UTIL_AsyncChainRecovery_TEST.TrackingStep', 'TrackingStep');
+		completedStep.success = true;
+		completedStep.durationMs = 5;
+
+		UTIL_AsyncChain.DTO_StepDefinition failedStep = buildDtoStepDefinition(IdempotentRecoveringStep.class.getName(), 'IdempotentRecoveringStep');
+		failedStep.isIdempotent = true;
+		failedStep.success = false;
+		failedStep.message = RETRY_FAILURE_MESSAGE;
+		failedStep.attempt = RETRY_PRIOR_ATTEMPT_COUNT;
+		failedStep.durationMs = 3;
+
+		UTIL_AsyncChain.DTO_StepDefinition handlerEntry = buildDtoStepDefinition(CountingErrorHandlerStep.class.getName(), 'CountingErrorHandler');
+		handlerEntry.isErrorHandler = true;
+
+		return JSON.serialize(new List<UTIL_AsyncChain.DTO_StepDefinition> {completedStep, failedStep, handlerEntry}, true);
+	}
+
+	/**
+	 * @description Builds the ineligible operator-retry variant whose failed entry never declared
+	 * isIdempotent — the pre-upgrade and undeclared shape the gate must refuse.
+	 *
+	 * @return The serialized step-log JSON.
+	 */
+	private static String buildFailedStepLogWithoutIdempotentMarker()
+	{
+		UTIL_AsyncChain.DTO_StepDefinition completedStep = buildDtoStepDefinition('UTIL_AsyncChainRecovery_TEST.TrackingStep', 'TrackingStep');
+		completedStep.success = true;
+		completedStep.durationMs = 5;
+
+		UTIL_AsyncChain.DTO_StepDefinition failedStep = buildDtoStepDefinition('UTIL_AsyncChainRecovery_TEST.FailingStep', 'FailingStep');
+		failedStep.success = false;
+		failedStep.message = RETRY_FAILURE_MESSAGE;
+		failedStep.durationMs = 3;
+
+		return JSON.serialize(new List<UTIL_AsyncChain.DTO_StepDefinition> {completedStep, failedStep}, true);
+	}
+
+	/**
+	 * @description Builds the declared-permanent operator-retry variant: the failed entry declares
+	 * BOTH isIdempotent and permanentFailure, so a passing refusal proves permanence outranks the
+	 * idempotency declaration.
+	 *
+	 * @return The serialized step-log JSON.
+	 */
+	private static String buildFailedStepLogWithPermanentFailureMarker()
+	{
+		UTIL_AsyncChain.DTO_StepDefinition completedStep = buildDtoStepDefinition('UTIL_AsyncChainRecovery_TEST.TrackingStep', 'TrackingStep');
+		completedStep.success = true;
+		completedStep.durationMs = 5;
+
+		UTIL_AsyncChain.DTO_StepDefinition failedStep = buildDtoStepDefinition(IdempotentRecoveringStep.class.getName(), 'IdempotentRecoveringStep');
+		failedStep.isIdempotent = true;
+		failedStep.permanentFailure = true;
+		failedStep.success = false;
+		failedStep.message = RETRY_FAILURE_MESSAGE;
+		failedStep.durationMs = 3;
+
+		return JSON.serialize(new List<UTIL_AsyncChain.DTO_StepDefinition> {completedStep, failedStep}, true);
+	}
+
+	/**
+	 * @description Seeds a Failed chain row from the given hand-built step log, carrying the full
+	 * terminal bookkeeping of a real failure — parseable context, run key, completion timestamp,
+	 * duration, failure category and error message — the exact shape the operator retry gate reads
+	 * and its one sparse update must clear.
+	 *
+	 * @param stepLogJson The hand-built persisted step log.
+	 *
+	 * @return The seeded record, reloaded through the default projection.
+	 */
+	private static AsyncChainExecution__c seedFailedRetryChain(String stepLogJson)
+	{
+		AsyncChainExecution__c execution = TST_Factory.newChainExecution(
+				SEL_AsyncChainExecution.STATUS_FAILED, RETRY_TEST_CHAIN_NAME, stepLogJson, RETRY_TOTAL_STEPS, RETRY_COMPLETED_STEPS);
+		stampTerminalBookkeeping(execution);
+		DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+		return queryExecution(execution.Id);
+	}
+
+	/**
+	 * @description Stamps the terminal bookkeeping a real failure leaves behind — parseable context,
+	 * run key, completion timestamp, duration, failure category and error message. Shared by the
+	 * retry and restart seeders deliberately: both gates read the same terminal shape, so seeding it
+	 * twice would let the two suites drift onto differently-shaped rows and stop comparing.
+	 *
+	 * @param execution The seeded row to stamp, in memory — the caller owns the DML.
+	 */
+	private static void stampTerminalBookkeeping(AsyncChainExecution__c execution)
+	{
+		execution.ContextData__c = RETRY_CONTEXT_JSON;
+		execution.RunKey__c = UTIL_Random.randomUUID();
+		execution.CompletedAt__c = Datetime.now();
+		execution.DurationMs__c = RETRY_SEEDED_DURATION_MS;
+		execution.FailureCategory__c = SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION;
+		execution.ErrorMessage__c = RETRY_FAILURE_MESSAGE;
+	}
+
+	/**
+	 * @description Builds the as-built context snapshot the restart fixtures seed: one business
+	 * value plus a logging-context entry carrying the SOURCE correlation — the exact shape
+	 * ChainBuilder captures at build time, so the clone rebuild has a real entry to replace.
+	 *
+	 * @return The serialized snapshot JSON.
+	 */
+	private static String buildRestartSnapshotJson()
+	{
+		return JSON.serialize(new Map<String, Object>
+		{
+				RESTART_SNAPSHOT_KEY => RESTART_SNAPSHOT_VALUE,
+				CONTEXT_LOG_KEY => JSON.serialize(new Map<String, String> {LOG_CONTEXT_CORRELATION_FIELD => SOURCE_LOG_CORRELATION_ID})
+		});
+	}
+
+	/**
+	 * @description Seeds a terminal chain row declared restartable: AllowRestart, the as-built
+	 * snapshot, an eligible step log, and the full terminal bookkeeping — the exact shape the
+	 * restart action reads through its dedicated projection.
+	 *
+	 * @param status The terminal status to seed (Failed or Aborted).
+	 *
+	 * @return The seeded record, reloaded through the restart projection.
+	 */
+	private static AsyncChainExecution__c seedRestartDeclaredChain(String status)
+	{
+		AsyncChainExecution__c execution = TST_Factory.newChainExecution(
+				status, RESTART_TEST_CHAIN_NAME, buildRetryEligibleStepLog(), RETRY_TOTAL_STEPS, RETRY_COMPLETED_STEPS);
+		stampTerminalBookkeeping(execution);
+		execution.AllowRestart__c = true;
+		execution.InitialContextData__c = buildRestartSnapshotJson();
+		DML_Builder.newTransaction().withSystemMode().doUpdate(execution).execute();
+		return new SEL_AsyncChainExecution().findByIdForRestart(execution.Id);
+	}
+
+	/**
+	 * @description Builds an as-built snapshot that fills InitialContextData__c to its exact field
+	 * capacity, carrying a deliberately tiny logging-context entry. Restarting from it must
+	 * overflow: the clone rebuild swaps that entry for a full correlation document, so the clone's
+	 * ContextData__c cannot fit the same field.
+	 *
+	 * @return The serialized capacity-filling snapshot JSON.
+	 */
+	private static String buildCapacityFillingSnapshotJson()
+	{
+		Map<String, Object> snapshot = new Map<String, Object>
+		{
+				CONTEXT_LOG_KEY => TINY_LOG_CONTEXT_VALUE,
+				SNAPSHOT_PADDING_KEY => UTIL_String.EMPTY
+		};
+		Integer fillerLength = CONTEXT_DATA_FIELD_CAPACITY - JSON.serialize(snapshot).length();
+		snapshot.put(SNAPSHOT_PADDING_KEY, 'p'.repeat(fillerLength));
+		return JSON.serialize(snapshot);
+	}
+
+	/**
+	 * @description Queries the clones a restart action inserted for the given source run — empty
+	 * when a refused restart correctly inserted nothing.
+	 *
+	 * @param sourceExecutionId The source run whose restart lineage to query.
+	 *
+	 * @return The clone rows pointing at the source.
+	 */
+	private static List<AsyncChainExecution__c> queryRestartClones(Id sourceExecutionId)
+	{
+		return QRY_Builder.selectFrom(AsyncChainExecution__c.SObjectType)
+				.condition(AsyncChainExecution__c.SourceExecution__c).equals(sourceExecutionId)
+				.toList();
+	}
+
+	/**
 	 * @description Builds a persisted step-log JSON document whose every step entry carries a
 	 * success marker — a chain that attempted all its work but never finalised — plus a counting
-	 * error-handler entry, for the unrecoverable-degrade notification tests: with no unattempted
-	 * step to resume, the derivation lands past the last entry and the degrade must notify.
+	 * error-handler entry. Two consumers: the unrecoverable-degrade notification tests (with no
+	 * unattempted step to resume, the derivation lands past the last entry and the degrade must
+	 * notify) and the operator-retry no-terminal-failed-entry refusal witness.
 	 *
 	 * @return The serialized step-log JSON.
 	 */
@@ -3507,6 +5460,28 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
+	 * @description Issues single-row updates until the transaction's remaining DML-statement
+	 * budget drops to the given target, so the operator sweep's DML-budget gate test can run
+	 * against a deterministic near-exhausted budget. Must run outside Test.startTest — startTest
+	 * opens a fresh governor-limit segment, which would hand the sweep a full DML budget again.
+	 * The DML-in-loop is deliberate and self-bounding — reaching the target is the loop's exit
+	 * condition — hence the targeted suppression. The loop may finish one statement below the
+	 * target when a single builder transaction spends more than one statement; every consumer
+	 * only needs "at or below target", so undershoot is harmless.
+	 *
+	 * @param targetRemaining The remaining DML-statement budget to leave for the code under test.
+	 */
+	@SuppressWarnings('PMD.OperationWithLimitsInLoop')
+	private static void consumeDmlBudgetDownTo(Integer targetRemaining)
+	{
+		AsyncChainExecution__c budgetConsumer = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_COMPLETED, TEST_CHAIN_NAME);
+		while(UTIL_Limits.dmlStatements().remaining() > targetRemaining)
+		{
+			DML_Builder.newTransaction().withSystemMode().doUpdate(budgetConsumer).execute();
+		}
+	}
+
+	/**
 	 * @description Builds a direct-invocation ChainExecutor carrying the counting onError handler,
 	 * for the stall tests that assert how often the notification fires.
 	 *
@@ -3559,6 +5534,48 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			failingStepRunCount++;
 			return UTIL_AsyncChain.failed('Deliberate pre-upgrade failure');
+		}
+	}
+
+	/**
+	 * @description Step that writes a payload larger than the ContextData__c field capacity into
+	 * the context and then fails, driving handleStepFailure's terminal persist with a context that
+	 * can no longer be stored intact.
+	 */
+	public class ContextBloatingFailingStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(OVERSIZED_CONTEXT_PAYLOAD_KEY, 'x'.repeat(OVERSIZED_CONTEXT_PAYLOAD_LENGTH));
+			return UTIL_AsyncChain.failed(OVERSIZED_CONTEXT_FAILURE_MESSAGE);
+		}
+	}
+
+	/**
+	 * @description Step that writes a payload larger than the ContextData__c field capacity into
+	 * the context and then fails with a message already at the ErrorMessage__c field capacity, so
+	 * the context-not-preserved marker only survives if the failure persist reserves room for it.
+	 */
+	public class ContextBloatingCapacityMessageStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(OVERSIZED_CONTEXT_PAYLOAD_KEY, 'x'.repeat(OVERSIZED_CONTEXT_PAYLOAD_LENGTH));
+			return UTIL_AsyncChain.failed('m'.repeat(ERROR_MESSAGE_FIELD_CAPACITY));
+		}
+	}
+
+	/**
+	 * @description Step that writes a payload larger than the ContextData__c field capacity into
+	 * the context and then fails with a BLANK message, so the failure persist has no base text to
+	 * prefix the context-not-preserved marker with.
+	 */
+	public class ContextBloatingBlankMessageStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(OVERSIZED_CONTEXT_PAYLOAD_KEY, 'x'.repeat(OVERSIZED_CONTEXT_PAYLOAD_LENGTH));
+			return UTIL_AsyncChain.failed(UTIL_String.EMPTY);
 		}
 	}
 
@@ -3685,6 +5702,32 @@ private class UTIL_AsyncChainRecovery_TEST
 		public override UTIL_Retry.Strategy createRetryStrategy()
 		{
 			return UTIL_Retry.exponential().withMaxRetries(1).withBaseBackoff(0);
+		}
+	}
+
+	/**
+	 * @description Step the operator-retry happy path re-executes: declares itself idempotent (the
+	 * subscriber authoring shape — an isIdempotent() override, no constructor) and succeeds while
+	 * counting its runs, so the tests can prove exactly the failed step re-executed.
+	 */
+	public class IdempotentRecoveringStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Declares the step safe to re-run, the shape a subscriber uses when opting a
+		 * step into the Chain Monitor's retry action. The executor instantiates the step reflectively
+		 * from the persisted step log, which is exactly the runtime path under test.
+		 *
+		 * @return True.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return true;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			retriedStepRunCount++;
+			return UTIL_AsyncChain.succeeded('Recovered');
 		}
 	}
 

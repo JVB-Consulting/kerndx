@@ -13,7 +13,7 @@
  *
  * @group Async
  *
- * @date July 2026
+ * @date July 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -105,6 +105,12 @@ private class UTIL_AsyncChainApi_TEST
 	private static final String CONFIG_KEY_RETRY_BACKOFF_SECONDS = 'retryBackoffSeconds';
 
 	/**
+	 * @description ApiStep config key carrying the JSON-serialized retryOn status-code filter, as
+	 * written by writeConfig and restored by work()'s re-stash.
+	 */
+	private static final String CONFIG_KEY_RETRYABLE_STATUS_CODES = 'retryableStatusCodes';
+
+	/**
 	 * @description Service name of the fails-once-then-succeeds outbound fixture handler.
 	 */
 	private static final String FLAKY_SERVICE_NAME = FlakyOutboundHandler.class.getName();
@@ -114,6 +120,22 @@ private class UTIL_AsyncChainApi_TEST
 	 * recorded callout.
 	 */
 	private static final String FLAKY_SUCCESS_BODY = '{"success":true}';
+
+	private static final String PERMANENT_FAILURE_MESSAGE = 'Business rule rejected the record';
+	private static final String TRANSIENT_FAILURE_MESSAGE = 'Transient failure before the permanent verdict';
+	private static final String PERMANENT_FLAG_SEEN_KEY = 'permanentFlagSeenByNextStep';
+
+	private static final String PROBE_DENIED_KEY = 'probeDeniedExceptionAnswer';
+	private static final String PROBE_ALLOWED_KEY = 'probeAllowedExceptionAnswer';
+	private static final String PROBE_BUDGET_KEY = 'probeBudgetOnlyAnswer';
+	private static final String HANDLER_FINALITY_KEY = 'handlerObservedFinality';
+
+	private static final Integer HTTP_STATUS_SERVICE_UNAVAILABLE = 503;
+	private static final Set<Integer> SERVER_ERROR_RETRY_STATUS_CODES = new Set<Integer> {API_Base.HTTP_INTERNAL_SERVER_ERROR, HTTP_STATUS_SERVICE_UNAVAILABLE};
+	private static final String SERVER_ERROR_SERVICE_NAME = FlakyServerErrorOutboundHandler.class.getName();
+	private static final String SERVER_ERROR_BODY = '{"error":"service unavailable"}';
+	private static final String NON_NUMERIC_STATUS_CODE = 'gateway timeout';
+	private static final String OVERSIZED_STATUS_CODE = '99999999999';
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -370,6 +392,268 @@ private class UTIL_AsyncChainApi_TEST
 			Map<String, Object> contextData = parseContextData(serializedShell);
 			Assert.isFalse(contextData.containsKey('currentAttempt'), 'Serialized context data should not carry the attempt stamp');
 			Assert.isFalse(contextData.containsKey('finalAttempt'), 'Serialized context data should not carry the finalAttempt stamp');
+		}
+	}
+
+	/**
+	 * @description Verifies an onError handler reads isFinalAttempt() true after a filter-denied
+	 * retry. The failing step's allowlist refuses the thrown exception while budget remains, so
+	 * the pre-work stamp said false; the dispatch must correct it before the handler runs. The
+	 * handler having run at all also witnesses that the transient strategy stash never rides the
+	 * handler enqueue's platform serialization (the fixture's filter holds a Set<Type>).
+	 */
+	@IsTest
+	private static void shouldRestampFinalityBeforeErrorHandlerAfterFilterDenial()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.ThrowingRetryAllowlistStep())
+					.onError(new UTIL_AsyncChainApi_TEST.FinalityRecordingErrorHandlerStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'The filter-denied failure must fail the chain');
+			Map<String, Object> contextData = parseContextData(execution);
+			Assert.areEqual(true, contextData.get(HANDLER_FINALITY_KEY),
+					'The handler must read the corrected finality: the denied retry made this failure final');
+		}
+	}
+
+	/**
+	 * @description Verifies an onError handler reads isFinalAttempt() true after a permanent
+	 * failure refused the remaining budget: the pre-work stamp said false (budget remained), and
+	 * the dispatch must correct it on the permanent short-circuit path too.
+	 */
+	@IsTest
+	private static void shouldRestampFinalityBeforeErrorHandlerAfterPermanentFailure()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.PermanentlyFailingStep())
+					.onError(new UTIL_AsyncChainApi_TEST.FinalityRecordingErrorHandlerStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			Map<String, Object> contextData = parseContextData(queryExecution(executionId));
+			Assert.areEqual(true, contextData.get(HANDLER_FINALITY_KEY),
+					'The handler must read final after a permanent declaration refused the budget');
+		}
+	}
+
+	/**
+	 * @description Verifies the exception-aware probe from inside work() on attempt one of three:
+	 * a filter-denied exception reads final (the retry would be refused), a filter-allowed one
+	 * reads not final (a retry remains), and the budget-only overload still reads not final —
+	 * the exact blindness the probe exists to see past.
+	 */
+	@IsTest
+	private static void shouldAnswerExceptionAwareFinalityProbeInsideWork()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.FinalityProbeRecordingStep())
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			Map<String, Object> contextData = parseContextData(queryExecution(executionId));
+			Assert.areEqual(true, contextData.get(PROBE_DENIED_KEY), 'A filter-denied exception must read final');
+			Assert.areEqual(false, contextData.get(PROBE_ALLOWED_KEY), 'A filter-allowed exception must read not final while budget remains');
+			Assert.areEqual(false, contextData.get(PROBE_BUDGET_KEY), 'The budget-only reading stays not final: the blindness the probe sees past');
+		}
+	}
+
+	/**
+	 * @description Verifies the probe's resting answer: a context with no stashed strategy (a
+	 * fresh context, or any handler transaction after the stash was excluded from serialization)
+	 * reads final for any exception — correct, because a failure outside a live retry consult is
+	 * always final.
+	 */
+	@IsTest
+	private static void shouldDefaultExceptionAwareFinalityProbeForFreshContext()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ChainContext context = new UTIL_AsyncChain.ChainContext('test-exec-id', 'test-corr-id');
+			Assert.isTrue(context.isFinalAttempt(new UTIL_Exceptions.IllegalStateException(PERMANENT_FAILURE_MESSAGE)),
+					'With no strategy in scope every failure is final');
+		}
+	}
+
+	/**
+	 * @description Verifies a step that declares its failure permanent is never retried even though
+	 * its strategy has budget left: one attempt runs, the chain fails, and the audit category reads
+	 * StepException because the budget was refused, not exhausted.
+	 */
+	@IsTest
+	private static void shouldNotRetryPermanentlyFailedStepDespiteBudget()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.PermanentlyFailingStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'A permanent failure must fail the chain');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c,
+					'A refused budget is not an exhausted one: the category must read StepException');
+			Assert.isTrue(execution.ErrorMessage__c.contains(PERMANENT_FAILURE_MESSAGE), 'The declared message must reach the audit record');
+			Assert.isFalse(execution.StepLog__c.contains('"attempt"'),
+					'No retry may be scheduled for a permanent failure, so the attempt marker never lands');
+		}
+	}
+
+	/**
+	 * @description Verifies the permanent-failure flag across every factory: both failedPermanently
+	 * overloads set it, every other factory leaves it false, and it is never null.
+	 */
+	@IsTest
+	private static void shouldExposePermanentFailureFlagOnStepResultFactories()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.StepResult permanentFromMessage = UTIL_AsyncChain.failedPermanently(PERMANENT_FAILURE_MESSAGE);
+			Assert.isFalse(permanentFromMessage.success, 'failedPermanently must produce a failed result');
+			Assert.isTrue(permanentFromMessage.permanentFailure, 'The message overload must set the permanent flag');
+			Assert.areEqual(PERMANENT_FAILURE_MESSAGE, permanentFromMessage.message, 'The message must pass through unchanged');
+
+			UTIL_Exceptions.IllegalStateException cause = new UTIL_Exceptions.IllegalStateException(PERMANENT_FAILURE_MESSAGE);
+			UTIL_AsyncChain.StepResult permanentFromException = UTIL_AsyncChain.failedPermanently(cause);
+			Assert.isTrue(permanentFromException.permanentFailure, 'The exception overload must set the permanent flag');
+			Assert.areEqual(cause, permanentFromException.error, 'The exception must ride the result like failed(exception)');
+
+			Assert.isFalse(UTIL_AsyncChain.failed(PERMANENT_FAILURE_MESSAGE).permanentFailure, 'failed() must never read as permanent');
+			Assert.isFalse(UTIL_AsyncChain.failed(cause).permanentFailure, 'failed(exception) must never read as permanent');
+			Assert.isFalse(UTIL_AsyncChain.succeeded().permanentFailure, 'succeeded() must never read as permanent');
+		}
+	}
+
+	/**
+	 * @description Subscriber-surface witness for the isIdempotent declaration on ChainStep: a step
+	 * subclass overrides isIdempotent() — the constructor-free subscriber authoring shape — and the
+	 * chain still completes through the real execution path. The declaration is inert to the run
+	 * itself; it gates the Chain Monitor's re-drive actions.
+	 */
+	@IsTest
+	private static void shouldExposeIdempotentDeclarationOnChainStep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.IdempotentDeclaringStep())
+					.withAsyncOptions(createAsyncOptions(2))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'A chain whose step declares isIdempotent must still complete');
+			Assert.areEqual(1, execution.CompletedSteps__c, 'The declaring step must run and count complete');
+		}
+	}
+
+	/**
+	 * @description Verifies a step that genuinely retried once and then declared its failure
+	 * permanent records StepException: the second attempt refused the remaining budget, and
+	 * recording RetriesExhausted would corrupt the audit distinction the guide promises.
+	 */
+	@IsTest
+	private static void shouldCategorisePermanentFailureAsStepExceptionAfterRetry()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.TransientThenPermanentStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'The permanent verdict on attempt two must fail the chain');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c,
+					'A permanent verdict after a real retry still reads StepException, never RetriesExhausted');
+			List<UTIL_AsyncChain.DTO_StepDefinition> persistedSteps = parseStepLog(execution);
+			Assert.areEqual(2, persistedSteps[0].attempt, 'The step log must record that a real second attempt ran');
+		}
+	}
+
+	/**
+	 * @description Pins the dispatch truth the corrected ApexDoc states: a step that RETURNS
+	 * failed(exception) without throwing is filtered exactly like a throwing step, so an
+	 * allowlist that does not match the returned exception denies the retry on attempt one.
+	 */
+	@IsTest
+	private static void shouldApplyExceptionFilterToReturnedFailedResult()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.ReturnsFilterDeniedExceptionStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'The filter-denied returned failure must fail the chain');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c,
+					'A first-attempt filter denial reads StepException');
+			Assert.isFalse(execution.StepLog__c.contains('"attempt"'),
+					'The allowlist must deny the retry of a returned failed(exception): no attempt marker may land');
+		}
+	}
+
+	/**
+	 * @description Verifies the permanent-failure flag survives the previous-step-result
+	 * persistence round trip: a continueOnError successor running in a later transaction still
+	 * reads permanentFailure true from getPreviousStepResult().
+	 */
+	@IsTest
+	private static void shouldRoundTripPermanentFailureFlagToNextStep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainApi_TEST.PermanentlyFailingStep(), true)
+					.then(new UTIL_AsyncChainApi_TEST.PermanentFlagReaderStep())
+					.withAsyncOptions(createAsyncOptions(4))
+					.execute();
+			Test.stopTest();
+
+			Map<String, Object> contextData = parseContextData(queryExecution(executionId));
+			Assert.areEqual(true, contextData.get(PERMANENT_FLAG_SEEN_KEY),
+					'The successor transaction must still see the permanent flag on the previous result');
 		}
 	}
 
@@ -794,6 +1078,204 @@ private class UTIL_AsyncChainApi_TEST
 			}
 			Assert.areEqual(1, selfScheduledCalls.size(), 'The unsuppressed factory-path call must still self-schedule its own retry');
 			Assert.isNotNull(selfScheduledCalls[0].NextRetry__c, 'The unsuppressed factory-path call must stamp its own next-retry time');
+		}
+	}
+
+	/**
+	 * @description Verifies a failed status outside the retryOn filter is never retried even with
+	 * retry budget configured: exactly one call runs, the chain fails, and the category reads
+	 * StepException because the status proved the failure deterministic.
+	 */
+	@IsTest
+	private static void shouldNotRetryApiStepWhenStatusExcludedByRetryOn()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+			API_MockFactory.forService(API_STEP_SERVICE_NAME)
+					.body(SERVER_ERROR_BODY)
+					.statusCode(API_Base.HTTP_BAD_REQUEST)
+					.register();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+							.triggeringRecord(record.Id)
+							.withParameter(API_PostExample.PARAMETER_NAME, 'test')
+							.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+							.retryOn(SERVER_ERROR_RETRY_STATUS_CODES))
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, execution.Status__c, 'The excluded status must fail the chain');
+			Assert.areEqual(SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION, execution.FailureCategory__c,
+					'A status the filter excludes is a deterministic failure: StepException, never RetriesExhausted');
+			Assert.areEqual(1, new SEL_ApiCall().findByServiceName(API_STEP_SERVICE_NAME).size(),
+					'The excluded status must consume exactly one call: no retry may fire');
+		}
+	}
+
+	/**
+	 * @description Verifies a failed status inside the retryOn filter still retries: the flaky
+	 * fixture fails with 503 once, the filter admits it, and the chain completes on attempt two.
+	 */
+	@IsTest
+	private static void shouldRetryApiStepWhenStatusIncludedInRetryOn()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			API_MockFactory.forService(SERVER_ERROR_SERVICE_NAME)
+					.body(SERVER_ERROR_BODY)
+					.statusCode(HTTP_STATUS_SERVICE_UNAVAILABLE)
+					.register();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain.ApiStep(FlakyServerErrorOutboundHandler.class)
+							.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+							.retryOn(SERVER_ERROR_RETRY_STATUS_CODES))
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c, 'The in-filter status must retry to success');
+			List<UTIL_AsyncChain.DTO_StepDefinition> persistedSteps = parseStepLog(execution);
+			Assert.areEqual(CHAIN_RETRY_MAX_ATTEMPTS, persistedSteps[0].attempt, 'The step log must record the successful second attempt');
+		}
+	}
+
+	/**
+	 * @description Pins the released default: without retryOn, EVERY failed status retries, a 400
+	 * included. Guards against the HttpClient-style default set {500, 502, 503, 504} ever leaking
+	 * into the chain path, which would silently stop shipped chains retrying client errors.
+	 */
+	@IsTest
+	private static void shouldRetryAnyFailedStatusWithoutRetryOnFilter()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			API_MockFactory.forService(SERVER_ERROR_SERVICE_NAME)
+					.body(SERVER_ERROR_BODY)
+					.statusCode(API_Base.HTTP_BAD_REQUEST)
+					.register();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain.ApiStep(FlakyServerErrorOutboundHandler.class)
+							.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS))
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c,
+					'Without retryOn the released retry-any default stands: even a 400 retries to success');
+			Assert.areEqual(CHAIN_RETRY_MAX_ATTEMPTS, parseStepLog(execution)[0].attempt, 'The 400 must have been retried');
+		}
+	}
+
+	/**
+	 * @description End-to-end witness that a statusless transport failure stays retryable under
+	 * the harshest possible filter: the first call throws before any status exists, the empty
+	 * retryOn set would refuse every status-bearing failure, yet the chain retries and completes
+	 * — because without a status, nothing proves the failure deterministic.
+	 */
+	@IsTest
+	private static void shouldKeepStatuslessTransportFailureRetryable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			API_MockFactory.forService(SERVER_ERROR_SERVICE_NAME).withTransportFailure().register();
+
+			Test.startTest();
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChain.ApiStep(FlakyServerErrorOutboundHandler.class)
+							.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+							.retryOn(new Set<Integer>()))
+					.withAsyncOptions(createAsyncOptions(3))
+					.execute();
+			Test.stopTest();
+
+			AsyncChainExecution__c execution = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, execution.Status__c,
+					'A statusless transport failure must stay retryable even under an empty retryOn filter');
+			Assert.areEqual(CHAIN_RETRY_MAX_ATTEMPTS, parseStepLog(execution)[0].attempt,
+					'The step log must record the successful second attempt after the transport failure');
+		}
+	}
+
+	/**
+	 * @description Verifies retryOn round-trips the step config as a JSON string: present with the
+	 * exact codes when configured, absent when never called, and restored by work()'s re-stash so
+	 * the post-work permanence decision sees it on the reflected instance.
+	 */
+	@IsTest
+	private static void shouldRoundTripRetryOnConfigurationThroughContext()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Map<String, Object> initialContext = new Map<String, Object>();
+			new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+					.retryOn(SERVER_ERROR_RETRY_STATUS_CODES)
+					.writeConfig(initialContext, 0);
+
+			Map<String, Object> config = (Map<String, Object>)initialContext.get(UTIL_AsyncChain.API_STEP_CONFIG_KEY_PREFIX + '0');
+			Set<Integer> persisted = (Set<Integer>)JSON.deserialize((String)config.get(CONFIG_KEY_RETRYABLE_STATUS_CODES), Set<Integer>.class);
+			Assert.areEqual(SERVER_ERROR_RETRY_STATUS_CODES, persisted, 'The configured codes must round-trip the JSON string');
+
+			Map<String, Object> unfilteredContext = new Map<String, Object>();
+			new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+					.writeConfig(unfilteredContext, 0);
+			Map<String, Object> unfilteredConfig = (Map<String, Object>)unfilteredContext.get(UTIL_AsyncChain.API_STEP_CONFIG_KEY_PREFIX + '0');
+			Assert.isFalse(unfilteredConfig.containsKey(CONFIG_KEY_RETRYABLE_STATUS_CODES),
+					'An unset filter must write no key, so the retry-any default is structurally preserved');
+		}
+	}
+
+	/**
+	 * @description Direct witness for every fail-open branch of the status filter, including the
+	 * edges no mock can produce: unset filter, absent retry budget, blank status, non-numeric
+	 * status, and a numeric status too large for an Integer all stay retryable; only a parseable
+	 * status outside the filter reads permanent.
+	 */
+	@IsTest
+	private static void shouldFailOpenToRetryableForUnfilterableStatusCodes()
+	{
+		System.runAs(getTestAdmin())
+		{
+			UTIL_AsyncChain.ApiStep filtered = new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+					.retryOn(SERVER_ERROR_RETRY_STATUS_CODES);
+			Assert.isTrue(filtered.isPermanentByStatusFilter(String.valueOf(API_Base.HTTP_BAD_REQUEST)), 'A parseable status outside the filter reads permanent');
+			Assert.isFalse(filtered.isPermanentByStatusFilter(String.valueOf(HTTP_STATUS_SERVICE_UNAVAILABLE)), 'A status inside the filter stays retryable');
+			Assert.isFalse(filtered.isPermanentByStatusFilter(null), 'A missing status fails open to retryable');
+			Assert.isFalse(filtered.isPermanentByStatusFilter(''), 'A blank status fails open to retryable');
+			Assert.isFalse(filtered.isPermanentByStatusFilter(NON_NUMERIC_STATUS_CODE), 'A non-numeric status fails open to retryable');
+			Assert.isFalse(filtered.isPermanentByStatusFilter(OVERSIZED_STATUS_CODE), 'A status too large for an Integer fails open to retryable, never throws');
+
+			UTIL_AsyncChain.ApiStep unfiltered = new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS);
+			Assert.isFalse(unfiltered.isPermanentByStatusFilter(String.valueOf(API_Base.HTTP_BAD_REQUEST)),
+					'Without retryOn no status reads permanent: the released retry-any default');
+
+			UTIL_AsyncChain.ApiStep withoutRetryBudget = new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.retryOn(SERVER_ERROR_RETRY_STATUS_CODES);
+			Assert.isFalse(withoutRetryBudget.isPermanentByStatusFilter(String.valueOf(API_Base.HTTP_BAD_REQUEST)), 'retryOn is inert without withRetry');
+
+			UTIL_AsyncChain.ApiStep emptyFiltered = new UTIL_AsyncChain.ApiStep(API_PostExample.class)
+					.withRetry(CHAIN_RETRY_MAX_ATTEMPTS, CHAIN_RETRY_BACKOFF_SECONDS)
+					.retryOn(new Set<Integer>());
+			Assert.isTrue(emptyFiltered.isPermanentByStatusFilter(String.valueOf(HTTP_STATUS_SERVICE_UNAVAILABLE)),
+					'An empty filter stops every status-bearing failure from retrying');
 		}
 	}
 
@@ -1505,6 +1987,165 @@ private class UTIL_AsyncChainApi_TEST
 						.statusCode(API_Base.HTTP_OK)
 						.register();
 			}
+		}
+	}
+
+	/**
+	 * @description Outbound fixture whose first call fails with a retryable server error and whose
+	 * later calls succeed, so retryOn tests can prove an in-filter status is retried to success.
+	 * The test registers the failing mock; configure() flips it to success once a call has run.
+	 */
+	public class FlakyServerErrorOutboundHandler extends API_Outbound
+	{
+		/**
+		 * @description Configures the fixture: no triggering record required, and flips the
+		 * registered mock to a success response once the first callout has been recorded.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requiresTriggeringRecord = false;
+			defaultMockBody = FLAKY_SUCCESS_BODY;
+
+			if(API_MockFactory.getInvocationCount(SERVER_ERROR_SERVICE_NAME) >= 1)
+			{
+				API_MockFactory.forService(SERVER_ERROR_SERVICE_NAME)
+						.body(FLAKY_SUCCESS_BODY)
+						.statusCode(API_Base.HTTP_OK)
+						.register();
+			}
+		}
+	}
+
+	/**
+	 * @description Step that declares its failure permanent on the first attempt while carrying a
+	 * retry strategy with remaining budget, so tests can prove the declaration outranks the budget.
+	 */
+	public class PermanentlyFailingStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.failedPermanently(PERMANENT_FAILURE_MESSAGE);
+		}
+
+		public override UTIL_Retry.Strategy createRetryStrategy()
+		{
+			return UTIL_Retry.exponential().withMaxRetries(2).withBaseBackoff(0);
+		}
+	}
+
+	/**
+	 * @description Step that fails plainly on attempt one and permanently on attempt two, so tests
+	 * can prove a genuine retry followed by a permanent verdict records StepException, never
+	 * RetriesExhausted: the second attempt refused the remaining budget rather than consuming it.
+	 */
+	public class TransientThenPermanentStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			if(context.getAttempt() < 2)
+			{
+				return UTIL_AsyncChain.failed(TRANSIENT_FAILURE_MESSAGE);
+			}
+			return UTIL_AsyncChain.failedPermanently(PERMANENT_FAILURE_MESSAGE);
+		}
+
+		public override UTIL_Retry.Strategy createRetryStrategy()
+		{
+			return UTIL_Retry.exponential().withMaxRetries(2).withBaseBackoff(0);
+		}
+	}
+
+	/**
+	 * @description Step that RETURNS (never throws) a failed result carrying an exception the
+	 * allowlist does not match, pinning the shipped dispatch truth the corrected ApexDoc states:
+	 * exception filters apply to a returned failed(exception) exactly as to a thrown one.
+	 */
+	public class ReturnsFilterDeniedExceptionStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.failed(new UTIL_Exceptions.IllegalStateException(PERMANENT_FAILURE_MESSAGE));
+		}
+
+		public override UTIL_Retry.Strategy createRetryStrategy()
+		{
+			return UTIL_Retry.retryOnlyOnException(
+					UTIL_Retry.exponential().withMaxRetries(3).withBaseBackoff(0),
+					new Set<Type> {System.CalloutException.class});
+		}
+	}
+
+	/**
+	 * @description Successor step that records whether the previous step's persisted result still
+	 * carries its permanent-failure flag after the cross-transaction round trip.
+	 */
+	public class PermanentFlagReaderStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(PERMANENT_FLAG_SEEN_KEY, context.getPreviousStepResult()?.permanentFailure);
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	/**
+	 * @description Step that records, from inside work() on attempt one of an allowlisted
+	 * three-attempt budget, what the exception-aware probe answers for a filter-denied exception
+	 * (final), a filter-allowed exception (not final), and the budget-only reading (not final).
+	 */
+	public class FinalityProbeRecordingStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(PROBE_DENIED_KEY, context.isFinalAttempt(new UTIL_Exceptions.IllegalStateException(PERMANENT_FAILURE_MESSAGE)));
+			context.put(PROBE_ALLOWED_KEY, context.isFinalAttempt(new System.CalloutException(TRANSIENT_FAILURE_MESSAGE)));
+			context.put(PROBE_BUDGET_KEY, context.isFinalAttempt());
+			return UTIL_AsyncChain.succeeded();
+		}
+
+		public override UTIL_Retry.Strategy createRetryStrategy()
+		{
+			return UTIL_Retry.retryOnlyOnException(
+					UTIL_Retry.exponential().withMaxRetries(2).withBaseBackoff(0),
+					new Set<Type> {System.CalloutException.class});
+		}
+	}
+
+	/**
+	 * @description onError handler that records what isFinalAttempt() reads inside the handler
+	 * transaction, so tests can prove the post-denial re-stamp reaches the handler: before the
+	 * fix a filter-denied retry left the pre-work false in place, and the handler was lied to.
+	 */
+	public class FinalityRecordingErrorHandlerStep extends UTIL_AsyncChain.ChainStep
+	{
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(HANDLER_FINALITY_KEY, context.isFinalAttempt());
+			return UTIL_AsyncChain.succeeded();
+		}
+	}
+
+	/**
+	 * @description Step that declares idempotency by overriding isIdempotent() — the constructor-free
+	 * subscriber authoring shape — and succeeds, so the surface witness can drive the declaration
+	 * through the real execution path.
+	 */
+	public class IdempotentDeclaringStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Declares the step safe to re-run — the constructor-free shape a subscriber uses.
+		 *
+		 * @return True.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return true;
+		}
+
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			return UTIL_AsyncChain.succeeded();
 		}
 	}
 

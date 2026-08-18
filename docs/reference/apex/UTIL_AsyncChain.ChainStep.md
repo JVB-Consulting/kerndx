@@ -46,6 +46,7 @@ public class LoadDataStep extends UTIL_AsyncChain.ChainStep
 | Method | Description |
 |--------|-------------|
 | global virtual [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [createRetryStrategy](#createretrystrategy)() | Optional per-step retry strategy. |
+| global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isIdempotent](#isidempotent)() | Declares whether this step is safe to execute more than once — override to return true only when a repeat run of work() cannot double the step's side effects, either because the work is naturally idempotent or because the step guards itself (e.g. |
 | global abstract [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [work](#work)([UTIL_AsyncChain.ChainContext](UTIL_AsyncChain.ChainContext.md) context) | Execute the step's business logic. |
 
 ### createRetryStrategy
@@ -62,8 +63,11 @@ failures only (locks, timeouts, 5xx-shaped results): compose
 UTIL_Retry.retryOnlyOnException(...) / dontRetryOnException(...) so deterministic failures are
 never re-burned; a validation error retried N times across a storm of trigger-spawned chains
 costs async budget with zero chance of success. Steps that retry MUST be idempotent — pair with
-ChainContext.idempotencyKey(). Exception filters apply only when the step failed by THROWING;
-a failed StepResult carries no exception, so only the attempt budget gates it.
+ChainContext.idempotencyKey(). Exception filters match the failure's exception wherever one
+exists: a step that THROWS and a step that RETURNS failed(exception) are filtered identically.
+Only a message-only failed(message) carries no exception, so nothing but the attempt budget
+gates it; a step that recognises a deterministic message-only failure should return
+failedPermanently(...) instead, which refuses retry outright whatever this strategy answers.
 
 A chain retrying enough to exhaust queueable stack depth degrades to Stalled and is
 recovered by the watchdog from a fresh root. Backoff has whole-minute granularity — the
@@ -78,6 +82,37 @@ its run — each retry link genuinely deepens the chain, so the extra depth stay
 the hops that follow.
 
 **Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — The retry strategy for this step, or null (the default) for no retry.
+
+</div>
+
+### isIdempotent
+
+<div class="apex-member">
+
+```apex
+global virtual Boolean isIdempotent()
+```
+
+Declares whether this step is safe to execute more than once — override to
+return true only when a repeat run of work() cannot double the step's side effects, either
+because the work is naturally idempotent or because the step guards itself (e.g. via
+ChainContext.idempotencyKey()). Read on the instance the chain was built with, persisted
+into the run's step log, and consulted by the Chain Monitor's retry-from-failed-step gate;
+the default false keeps retry hidden until the author opts in. The declaration never
+changes how the chain runs. It is a method rather than a field so the declaration needs no
+constructor: the framework recreates every step by class name in each hop, and a step
+class that declares its own constructor cannot be recreated across the package boundary.
+
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when a repeat run of this step is safe; false (the default) otherwise.
+
+**Example**
+
+```apex
+public override Boolean isIdempotent()
+{
+    return true;
+}
+```
 
 </div>
 

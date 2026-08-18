@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>ManageAsyncChainKillSwitch</name>
+    </customPermissions>
+    <description>Grants the ability to suspend and resume all async chain processing from the Chain Monitor. Assign this to operations leads trusted with an org-wide stop; it ships assigned to nobody. Pair it with the Kern Async Chain Monitor Read Only set.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Kern Async Chain Kill Switch</label>
+</PermissionSet>

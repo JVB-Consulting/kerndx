@@ -14,7 +14,7 @@ category: apex
 <div class="apex-member apex-class">
 
 ```apex
-global class LOG_Builder.LogEntry
+global inherited sharing class LOG_Builder.LogEntry
 ```
 
 Fluent builder for constructing rich log entries with context. Provides a chainable API for setting log level, location, record association, and contextual metadata before emitting the log.

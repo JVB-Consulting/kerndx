@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customSettingsType>Hierarchy</customSettingsType>
+    <description>Hierarchical custom setting that controls whether async chain processing runs, at the org, profile, or user level. User-level overrides profile-level, which overrides org-level. The Chain Monitor&apos;s suspend and resume actions write the org-level record; rows at the other levels are manual overrides.</description>
+    <enableFeeds>false</enableFeeds>
+    <label>Async Chain Runtime Switch</label>
+    <visibility>Public</visibility>
+</CustomObject>

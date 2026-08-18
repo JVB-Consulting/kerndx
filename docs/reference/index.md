@@ -38,13 +38,13 @@
 
 ## Overview
 
-This reference contains **266 documented items** across the following categories:
+This reference contains **267 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
 | **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
 | **Apex Classes** | 240 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
-| **Custom Objects** | 10 | Custom SObjects in the package | [Browse All](objects/index.md) |
+| **Custom Objects** | 11 | Custom SObjects in the package | [Browse All](objects/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
 ---
@@ -58,7 +58,7 @@ This reference contains **266 documented items** across the following categories
 | **Build SOQL queries** | [QRY_Builder](apex/QRY_Builder.md) | [QRY_Condition](apex/QRY_Condition.md) |
 | **Simple record lookup** | [SEL_Base](apex/SEL_Base.md) | - |
 | **Create trigger actions** | [TRG_Dispatcher](apex/TRG_Dispatcher.md) | [TRG_Base](apex/TRG_Base.md), [IF_Trigger](apex/IF_Trigger.md) |
-| **Make REST API calls** | [API_Outbound](apex/API_Outbound.md) | API_OutboundMock, [DTO_JsonBase](apex/DTO_JsonBase.md) |
+| **Make REST API calls** | [API_Outbound](apex/API_Outbound.md) | [DTO_JsonBase](apex/DTO_JsonBase.md) |
 | **Handle inbound APIs** | [API_Inbound](apex/API_Inbound.md) | - |
 | **Transactional DML** | [DML_Builder](apex/DML_Builder.md) | [DML_Transaction](apex/DML_Transaction.md) |
 | **Log application events** | [LOG_Builder](apex/LOG_Builder.md) | - |
@@ -67,7 +67,7 @@ This reference contains **266 documented items** across the following categories
 | **Implement circuit breaker** | [UTIL_CircuitBreaker](apex/UTIL_CircuitBreaker.md) | [UTIL_Retry](apex/UTIL_Retry.md) |
 | **Work with strings** | [UTIL_String](apex/UTIL_String.md) | - |
 | **Work with dates** | [UTIL_Date](apex/UTIL_Date.md) | - |
-| **Work with collections** | [UTIL_List](apex/UTIL_List.md) | [UTIL_Map](apex/UTIL_Map.md), UTIL_Set |
+| **Work with collections** | [UTIL_List](apex/UTIL_List.md) | [UTIL_Map](apex/UTIL_Map.md) |
 
 ---
 
@@ -458,6 +458,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [ApiIssue__c](objects/ApiIssue__c.md) | Tracks API integration issues for troubleshooting, manual resolution, and automatic retry of failed service calls. |
 | [ApiRuntimeSwitch__c](objects/ApiRuntimeSwitch__c.md) | Hierarchical custom setting that provides runtime API kill switches at the org, profile, or user level. |
 | [AsyncChainExecution__c](objects/AsyncChainExecution__c.md) | Tracks async chain executions including state, step definitions, shared context, and progress. |
+| [AsyncChainRuntimeSwitch__c](objects/AsyncChainRuntimeSwitch__c.md) | Hierarchical custom setting that controls whether async chain processing runs, at the org, profile, or user level. |
 | [Foobar__c](objects/Foobar__c.md) | Test object for managed package unit tests. |
 | [LogEntry__c](objects/LogEntry__c.md) | Persistent log entries captured by the Kern logging framework. |
 | [LoginFrequency__c](objects/LoginFrequency__c.md) | Tracks monthly login activity per user, including total login count and number of unique days logged in. |

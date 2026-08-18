@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>RedriveAsyncChain</name>
+    </customPermissions>
+    <description>Grants the ability to re-drive async chains from the Chain Monitor: retry, restart, and clear stalled. Assign this to operations users who recover chains; it ships assigned to nobody. Pair it with the Kern Async Chain Monitor Read Only set.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Kern Async Chain Redrive</label>
+</PermissionSet>

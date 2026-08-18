@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Allows re-driving async chains from the Chain Monitor: retrying a failed chain from its failed step, restarting a declared chain from the start, and clearing stalled chains. Granted through the Kern Async Chain Redrive permission set.</description>
+    <isLicensed>false</isLicensed>
+    <label>Redrive Async Chain</label>
+</CustomPermission>

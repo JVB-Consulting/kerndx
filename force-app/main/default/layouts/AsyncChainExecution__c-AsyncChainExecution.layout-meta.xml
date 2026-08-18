@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Layout xmlns="http://soap.sforce.com/2006/04/metadata">
-    <excludeButtons>SmartFillEnrich</excludeButtons>
     <layoutSections>
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
@@ -23,6 +22,10 @@
                 <behavior>Readonly</behavior>
                 <field>DurationMs__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>AllowRestart__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
@@ -40,6 +43,10 @@
             <layoutItems>
                 <behavior>Readonly</behavior>
                 <field>TotalSteps__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>SourceExecution__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsLeftToRight</style>
@@ -76,6 +83,10 @@
                 <behavior>Readonly</behavior>
                 <field>StepLog__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>InitialContextData__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>OneColumn</style>
     </layoutSections>
@@ -96,6 +107,10 @@
             <layoutItems>
                 <behavior>Readonly</behavior>
                 <field>ActiveDeduplicationKey__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>DeclaredDeduplicationKey__c</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>

@@ -5,7 +5,7 @@ pageClass: reference
 description: "A semi-intelligent wrapper for standard Apex Schema methods, providing internal caching to avoid hitting describe limits and helper methods for handling relationship field names and namespaces."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, June 2026"
+date: "February 2026, August 2026"
 since: "1.0"
 category: apex
 ---

@@ -99,6 +99,16 @@
                 <identifier>RecordDurationMs_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.AllowRestart__c</fieldItem>
+                <identifier>RecordAllowRestart_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-578b926f-c812-4933-94b3-ce0d79491d55</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -141,6 +151,16 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.TotalSteps__c</fieldItem>
                 <identifier>RecordTotalSteps_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.SourceExecution__c</fieldItem>
+                <identifier>RecordSourceExecution_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-6582f5f2-5d06-4f94-87ca-a5a6231b3287</name>
@@ -265,6 +285,16 @@
                 <identifier>RecordStepDefinitions_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.InitialContextData__c</fieldItem>
+                <identifier>RecordInitialContextData_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-27d477b3-5cae-4c81-8c6b-178a739a6786</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -345,6 +375,16 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.ActiveDeduplicationKey__c</fieldItem>
                 <identifier>RecordActiveDeduplicationKey_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.DeclaredDeduplicationKey__c</fieldItem>
+                <identifier>RecordDeclaredDeduplicationKey_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-af8298db-ed24-485f-a072-0c7e21647990</name>

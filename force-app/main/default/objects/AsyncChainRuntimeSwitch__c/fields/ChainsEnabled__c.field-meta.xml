@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ChainsEnabled__c</fullName>
+    <businessStatus>Active</businessStatus>
+    <defaultValue>true</defaultValue>
+    <description>Whether async chain processing runs for the applicable user, profile, or org. Uncheck to suspend it: running chains stop at their next step boundary and new chains stop at once. This is a hierarchical custom setting — user-level overrides profile-level, which overrides org-level — and an org with no record at all keeps chains enabled.</description>
+    <inlineHelpText>Uncheck to suspend async chain processing. Running chains stop at their next step boundary; new chains stop at once. Applies at user, profile, or org level based on where the setting is configured.</inlineHelpText>
+    <label>Chains Enabled</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

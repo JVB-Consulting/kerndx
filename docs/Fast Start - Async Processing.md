@@ -18,10 +18,9 @@ What you'll build in one line: a two-step background job that creates an Account
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
-> **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g.,
-> `kern.UTIL_AsyncChain.ChainStep`). Your own classes don't need a namespace prefix. The framework's
-> Type Resolver (how it finds the Apex classes in your namespace, so you tell it where to look) handles
-> resolution automatically.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A two-step async chain (a sequence of background steps) that creates an Account,
 then enriches it in a second transaction, plus a paired test class with 100% coverage.
@@ -211,8 +210,10 @@ sf project deploy start -o YourOrgAlias -m "ApexClass:EnrichAccountStep"
 - `extends kern.UTIL_AsyncChain.ChainStep` pulls in the `work()` contract
 - `global override StepResult work(ChainContext)` is the only required method
 - Read inputs via `context.get(key)`, and store outputs via `context.put(key, value)`
-- Return `kern.UTIL_AsyncChain.succeeded(msg, data)` or `.failed(msg)`. Never throw
-- A public no-arg constructor is required so the framework can create the step by name (Apex provides one when you declare none)
+- Return `kern.UTIL_AsyncChain.succeeded(msg, data)` or `.failed(msg)`. Use
+  `.failedPermanently(msg)` for a failure that must never be retried. Never throw
+- Declare no constructor: the framework creates the step from its class name on every hop, and from inside the
+  package it can only use the constructor Apex provides when you declare none
 
 ### Step 2: Execute the chain
 
@@ -334,6 +335,12 @@ kern.UTIL_AsyncChain.newChain('AccountEnrichment')
 	.execute();
 ```
 
+Registering `onError` also changes how loudly a stall reports itself. The first time a chain loses its
+background job with no `onError` handler registered, the framework records that stall at ERROR level so
+it surfaces in the Log Console on its own. Register a handler and the entry drops to WARN, because the
+handler is what raises the alarm. A chain the watchdog parks because your org has run out of
+background-job capacity stays at WARN whatever handlers it has.
+
 **Continue past optional failures:** pass `true` to `.then()` to let the chain skip over a failed step
 and keep going:
 
@@ -404,12 +411,13 @@ instead.
 
 | Problem                                          | Cause                                                             | Fix                                                                        |
 |--------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------|
-| `Failed (Class Not Found: MyStep)`               | Step class is `public`, invisible across the package namespace    | Make the step class `global`, or register a Type Resolver                  |
+| `Failed (Cannot create step MyStep)`             | The step class declares its own constructor, or (in an org with its own namespace) no Type Resolver finds the class | Declare no constructor on the step (a `global` class may declare a `global` one); in a namespaced org, register a Type Resolver |
 | Test assertions fail (Description never stamped) | Missing `Test.startTest()` / `Test.stopTest()` around `execute()` | Wrap the chain build + execute in `Test.startTest/stopTest`                |
 | `Status: Running` indefinitely                   | First step threw an unhandled exception before persisting status  | Check the `kern__LogEntry__c` rows for the chain's `correlationId`. A scheduled Chain Watchdog also marks such runs `Stalled` and re-drives the safe ones; the Health Check schedules it in one click |
 | Chain test only runs first step                  | Default `maximumQueueableStackDepth` is 1 in tests                | Pass `.withAsyncOptions(options)` with `maximumQueueableStackDepth` raised |
 | `context.get()` returns null                     | Value not JSON-serialisable, or key spelling mismatch             | Store only Ids, primitives, and simple collections; verify the key         |
 | `Chain has already been executed`                | Reusing a `ChainBuilder` after `.execute()`                       | Build a fresh chain via `kern.UTIL_AsyncChain.newChain(...)`               |
+| `Status: Aborted` with failure category `Kill Switch` | Chain processing was suspended org-wide when the chain ran (the [kill switch](Async%20Processing%20-%20Guide.md#kill-switch)) | Resume processing from the Chain Monitor's operations control, then restart or re-drive the chains that were stopped |
 
 ---
 
@@ -423,8 +431,9 @@ instead.
 - **`kern__AsyncChainExecution__c`** is the tracking row (status, step counts, error message), kept and
   queryable from anywhere
 - **`kern.UTIL_AsyncChain.ApiStep`** runs a `kern.API_Outbound` handler as a chain step
-- **`global` is required on step classes**, because the framework creates them from their class name at
-  runtime (reflection) across the package namespace boundary
+- **Step classes declare no constructor**, because the framework creates them from their class name at
+  runtime across the package namespace boundary and can only use the constructor Apex provides when
+  none is declared (`public` is fine; a `global` class may declare a `global` constructor)
 - **`Test.startTest() / Test.stopTest()`** forces the queued background job to run; raise
   `AsyncOptions.maximumQueueableStackDepth` for chains of more than one step under test
 - **Use `kern.DML_Builder.async()`** for single-statement background work; use a chain only when you

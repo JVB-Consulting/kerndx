@@ -44,6 +44,7 @@ API_MockFactory.forService('API_SendEmail')
 | global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withFailureRate](#withfailurerate)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) failureRate) | Sets the failure rate percentage for fault injection. |
 | global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withHeader](#withheader)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a single response header. |
 | global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withHeaders](#withheaders)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headers) | Adds multiple response headers. |
+| global [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) [withTransportFailure](#withtransportfailure)() | Makes the registered mock simulate a transport failure: the callout throws a CalloutException before any response exists, so the caller sees no status code at all. |
 
 ### body
 
@@ -195,6 +196,31 @@ Adds multiple response headers.
 | `headers` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of header key-value pairs |
 
 **Returns** [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) — This builder for chaining
+
+</div>
+
+### withTransportFailure
+
+<div class="apex-member">
+
+```apex
+global API_MockFactory.MockBuilder withTransportFailure()
+```
+
+Makes the registered mock simulate a transport failure: the callout throws
+a CalloutException before any response exists, so the caller sees no status code at
+all. Use it to prove code that must treat a statusless failure differently from a
+failed status — for example, chain-level retryOn keeps statusless failures retryable.
+Body, status code, and headers on the same registration are ignored: a transport
+failure never produces a response.
+
+**Returns** [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) — This builder for chaining.
+
+**Example**
+
+```apex
+API_MockFactory.forService('API_SendEmail').withTransportFailure().register();
+```
 
 </div>
 

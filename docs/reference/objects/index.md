@@ -2,7 +2,7 @@
 
 > Custom SObjects in the package
 
-**10 items** in this category.
+**11 items** in this category.
 
 ---
 
@@ -14,6 +14,7 @@
 | [ApiIssue__c](ApiIssue__c.md) | Tracks API integration issues for troubleshooting, manual resolution, and automatic retry of failed  |
 | [ApiRuntimeSwitch__c](ApiRuntimeSwitch__c.md) | Hierarchical custom setting that provides runtime API kill switches at the org, profile, or user lev |
 | [AsyncChainExecution__c](AsyncChainExecution__c.md) | Tracks async chain executions including state, step definitions, shared context, and progress. Each  |
+| [AsyncChainRuntimeSwitch__c](AsyncChainRuntimeSwitch__c.md) | Hierarchical custom setting that controls whether async chain processing runs, at the org, profile,  |
 | [Foobar__c](Foobar__c.md) | Test object for managed package unit tests. Used to demonstrate and validate library functions. Do n |
 | [LogEntry__c](LogEntry__c.md) | Persistent log entries captured by the Kern logging framework. Each record represents a single logge |
 | [LoginFrequency__c](LoginFrequency__c.md) | Tracks monthly login activity per user, including total login count and number of unique days logged |

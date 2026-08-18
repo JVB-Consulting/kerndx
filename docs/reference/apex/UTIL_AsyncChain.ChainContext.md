@@ -46,7 +46,8 @@ Boolean hasKey = context.has('accountId');
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)() | Returns the step-level idempotency key for the currently executing step: the chain execution id joined to the step index. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Returns the record-grain idempotency key for a step that fans out over many records: the step-level key joined to the given record id. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) grain) | Returns a custom-grain idempotency key for a step that fans out over a unit that is not a record id (for example a line number or an external key): the step-level key joined to the given grain. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)() | True when no further retry remains for the currently executing step — the strategy's budget is exhausted (or no strategy is configured), so a failure now is final. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)() | True when no further retry remains for the currently executing step, judged by the strategy's attempt budget alone. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | True when failing the current attempt with the given exception would be final. |
 | global void [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Stores a value in the context under the given key. |
 
 ### get
@@ -334,11 +335,47 @@ String lineKey = context.idempotencyKey('orderLine-' + lineNumber);
 global Boolean isFinalAttempt()
 ```
 
-True when no further retry remains for the currently executing step — the
-strategy's budget is exhausted (or no strategy is configured), so a failure now is final.
-Retry-aware steps should branch on isFinalAttempt() for last-chance side effects, e.g. alerting.
+True when no further retry remains for the currently executing step, judged
+by the strategy's attempt budget alone. The stamp is written before work() runs, so it
+cannot know which exception the attempt will fail with, and a strategy wrapped in an
+exception filter can still refuse the retry afterwards; when that happens the framework
+corrects the stamp before dispatching the failure, so an onError handler always reads
+true for a failure that was final. To ask "would failing with THIS exception be final?"
+from inside work(), use isFinalAttempt(error).
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when a failure of the current attempt is final; false when a retry remains.
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global Boolean isFinalAttempt(Exception error)
+```
+
+True when failing the current attempt with the given exception would be
+final. Unlike isFinalAttempt(), which reads the attempt budget alone and cannot know
+that an exception filter would refuse the retry, this overload consults the current
+step's full strategy, filters included, with the exception you are about to fail with.
+Call it from inside work(), before returning or throwing, when a last-chance side
+effect (release a lock, write a marker, alert someone) must run exactly when no retry
+will follow. Outside work() — in an onError handler — no strategy is in scope and the
+probe reads true, which is correct there: a dispatched failure is final.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `error` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception the step is about to fail with, or null for a message-only failure. |
+
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when a failure with this exception ends the step's attempts.
+
+**Example**
+
+```apex
+if(context.isFinalAttempt(caught)) { releaseLock(); }
+return UTIL_AsyncChain.failed(caught);
+```
 
 </div>
 

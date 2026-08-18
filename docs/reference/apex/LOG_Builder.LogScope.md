@@ -14,7 +14,7 @@ category: apex
 <div class="apex-member apex-class">
 
 ```apex
-global class LOG_Builder.LogScope
+global inherited sharing class LOG_Builder.LogScope
 ```
 
 A logging scope that buffers log entries until closed. On creation, suspends immediate log publishing. On close, flushes all buffered logs and resumes publishing. Provides a simpler alternative to manual suspendSaving/flushBuffer/resumeSaving patterns.

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Primary logging interface for application debugging, monitoring, and error tracking. Uses a fluent builder API for rich contextual logging.  ```apex // Full chain with context LOG_Builder.build()     "
 author: "Jason Van Beukering"
 group: "Logging"
-date: "October 2024, July 2026"
+date: "October 2024, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -102,6 +102,7 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 | global static void [resumeSaving](#resumesaving)() | Resumes log publishing and flushes buffer. |
 | global static [LOG_Builder.LogScope](LOG_Builder.LogScope.md) [scope](#scope)() | Creates a logging scope that suspends immediate log publishing. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serializeContext](#serializecontext)() | Serializes logging context for async job transfer. |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serializeContext](#serializecontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Serializes a logging context carrying the SUPPLIED correlation id — for handing a different execution its own logging identity (for example, a restarted chain's fresh run) without reading or touching this transaction's live context. |
 | global static void [setCorrelationId](#setcorrelationid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Sets the correlation ID for child transactions. |
 | global static void [setGlobalContext](#setglobalcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Sets a global context value included in ALL logs this transaction. |
 | global static void [setParentTransactionId](#setparenttransactionid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parentTransactionId) | Sets parent transaction ID for hierarchy tracking. |
@@ -319,6 +320,34 @@ Serializes logging context for async job transfer.
 ```apex
 String logContext = LOG_Builder.serializeContext();
 System.enqueueJob(new MyQueueable(logContext));
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static String serializeContext(String correlationId)
+```
+
+Serializes a logging context carrying the SUPPLIED correlation id — for
+handing a different execution its own logging identity (for example, a restarted chain's
+fresh run) without reading or touching this transaction's live context. The document is
+minimal on purpose: it carries no transaction lineage and no live context data, because it
+is written for another execution and outlives this request.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `correlationId` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The correlation id the serialized context carries. |
+
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String JSON context for the supplied correlation id, ready for hydrateContext.
+
+**Example**
+
+```apex
+String cloneLogContext = LOG_Builder.serializeContext(cloneCorrelationId);
 ```
 
 </div>

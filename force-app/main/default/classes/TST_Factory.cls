@@ -11,7 +11,7 @@
  *
  * @group Testing
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -46,18 +46,6 @@ global without sharing class TST_Factory
 	 * Delegates to the canonical map in SEL_TriggerAction.
 	 */
 	private static final Map<TriggerOperation, String> OPERATION_TO_EVENT = SEL_TriggerAction.OPERATION_TO_EVENT;
-
-	/**
-	 * @description Static initializer to set the custom default value provider.
-	 * This ensures all User creation requests from this factory
-	 * correctly handle license-based permission fields.
-	 */
-	static
-	{
-		// Set a custom provider to ignore license-based permission fields
-		// This applies for the entire transaction when TST_Factory is loaded.
-		TST_Builder.defaultValueProvider = new UserBuilderOptionalFieldsProvider();
-	}
 
 	/**
 	 * @description Disables all inbound APIs by activating the DisableAllInboundAPIs feature flag.
@@ -1279,68 +1267,6 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Revokes every profile-held grant of a custom permission for the duration of the
-	 * test run. Package installs write packaged custom permissions into profiles — the System
-	 * Administrator profile on an admins-only install, every profile on an all-users install — so a
-	 * test user can hold a custom permission through profile membership alone. Deleting the
-	 * profile-owned SetupEntityAccess rows (test DML, rolled back after the run) pins the
-	 * permission to its designed source, permission set assignment, keeping permission-gated
-	 * behaviour tests deterministic in every org and install mode.
-	 *
-	 * @param customPermissionDeveloperName The developer name of the custom permission to revoke from profiles.
-	 *
-	 * @since 1.6
-	 *
-	 * @example
-	 * ```apex
-	 * TST_Factory.revokeProfileCustomPermissionGrants(UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME);
-	 * System.debug('Profile-held grants revoked for the test run');
-	 * ```
-	 */
-	public static void revokeProfileCustomPermissionGrants(String customPermissionDeveloperName)
-	{
-		List<CustomPermission> customPermissions = QRY_Builder.selectFrom(CustomPermission.SObjectType)
-				.condition(CustomPermission.DeveloperName).equals(customPermissionDeveloperName)
-				.toList();
-		if(customPermissions.isEmpty())
-		{
-			return;
-		}
-
-		List<SetupEntityAccess> grants = QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
-				.addField(SetupEntityAccess.ParentId)
-				.condition(SetupEntityAccess.SetupEntityId).isIn(new List<Id>(new Map<Id, CustomPermission>(customPermissions).keySet()))
-				.toList();
-		if(grants.isEmpty())
-		{
-			return;
-		}
-
-		Set<Id> parentIds = new Set<Id>();
-		for(SetupEntityAccess grant : grants)
-		{
-			parentIds.add(grant.ParentId);
-		}
-		Map<Id, PermissionSet> profileOwnedParents = new Map<Id, PermissionSet>((List<PermissionSet>)QRY_Builder.selectFrom(PermissionSet.SObjectType)
-				.condition(PermissionSet.Id).isIn(new List<Id>(parentIds))
-				.condition(PermissionSet.IsOwnedByProfile).equals(true)
-				.toList());
-
-		List<SetupEntityAccess> profileGrants = new List<SetupEntityAccess>();
-		for(SetupEntityAccess grant : grants)
-		{
-			if(profileOwnedParents.containsKey(grant.ParentId))
-			{
-				profileGrants.add(grant);
-			}
-		}
-		if(!profileGrants.isEmpty())
-		{
-			DML_Builder.newTransaction().doDelete(profileGrants).execute();
-		}
-	}
-
-	/**
 	 * @description Assigns the Administrator permission set to the current running user if not already assigned.
 	 * Intended for SeeAllData=true tests where the running user needs record type visibility
 	 * or elevated permissions provided by the package Administrator permission set.
@@ -2465,43 +2391,4 @@ global without sharing class TST_Factory
 				);
 	}
 
-	/**
-	 * @description Custom default value provider to handle User creation.
-	 * It dynamically marks all 'UserPermissions...' fields as optional
-	 * to prevent license-based field integrity exceptions during
-	 * test data generation.
-	 */
-	private class UserBuilderOptionalFieldsProvider extends UTIL_SObjectBuilderDefaultProvider
-	{
-		/**
-		 * @description Overrides the default optional fields definition.
-		 *
-		 * @param sObjectType The SObjectType to define optional fields for.
-		 *
-		 * @return A Set of SObjectField tokens to be treated as optional.
-		 */
-		public override Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjectType)
-		{
-			Set<SObjectField> optionalFields = super.defineSObjectOptionalFields(sObjectType) ?? new Set<SObjectField>();
-
-			if(sObjectType == User.SObjectType)
-			{
-				final String userPermissionPrefix = 'UserPermissions';
-
-				Map<String, SObjectField> objectFieldMap = UTIL_SObjectDescribe.getDescribe(User.SObjectType).getFieldsMap();
-
-				for(SObjectField objectField : objectFieldMap.values())
-				{
-					if(objectField.getDescribe().name.startsWithIgnoreCase(userPermissionPrefix))
-					{
-						optionalFields.add(objectField);
-					}
-				}
-
-				return optionalFields;
-			}
-
-			return optionalFields;
-		}
-	}
 }

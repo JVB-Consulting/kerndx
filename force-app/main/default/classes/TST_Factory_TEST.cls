@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date September 2025, July 2026
+ * @date September 2025, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -49,46 +49,6 @@ private class TST_Factory_TEST
 		PermissionSetGroup foundGroup = new SEL_PermissionSetGroup().findByName(newGroup.DeveloperName);
 
 		Assert.areEqual(SEL_PermissionSetGroup.STATUS_UPDATED, foundGroup.Status, 'Status was not recalculated');
-	}
-
-	/**
-	 * @description Seeds a profile-held grant of the FrameworkTestPermission custom permission — the shape
-	 * package installs write into profiles — then verifies the revoke removes exactly the profile-held
-	 * grants while permission-set-held grants (the Administrator permission set ships one for this
-	 * permission) survive.
-	 *
-	 * @see TST_Factory.revokeProfileCustomPermissionGrants
-	 */
-	@IsTest
-	private static void revokeProfileCustomPermissionGrantsRemovesOnlyProfileHeldGrants()
-	{
-		Id permissionId = QRY_Builder.selectFrom(CustomPermission.SObjectType)
-				.condition(CustomPermission.DeveloperName).equals(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION)
-				.getFirst().Id;
-		PermissionSet profileOwned = (PermissionSet)QRY_Builder.selectFrom(PermissionSet.SObjectType)
-				.condition(PermissionSet.ProfileId).equals(UserInfo.getProfileId())
-				.getFirst();
-
-		// A subscriber-org install has already written this exact grant into the admin profile, so the
-		// seed below would collide (DUPLICATE_VALUE) in RunAllTestsInOrg. Revoking first constructs the
-		// scenario deterministically in every org and install mode.
-		TST_Factory.revokeProfileCustomPermissionGrants(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
-
-		// Direct insert mirrors what a package install writes; there is no TST_Builder shape for a
-		// profile-held SetupEntityAccess grant.
-		insert new SetupEntityAccess(ParentId = profileOwned.Id, SetupEntityId = permissionId);
-
-		Test.startTest();
-		TST_Factory.revokeProfileCustomPermissionGrants(SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
-		Test.stopTest();
-
-		Assert.areEqual(0, (Integer)QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
-				.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
-				.condition(SetupEntityAccess.ParentId).equals(profileOwned.Id)
-				.count(), 'The profile-held grant is revoked');
-		Assert.isTrue((Integer)QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
-				.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
-				.count() > 0, 'Permission-set-held grants survive the revoke');
 	}
 
 	/**
@@ -606,5 +566,31 @@ private class TST_Factory_TEST
 		Assert.areEqual('TestChain', execution.ChainName__c, 'Chain name should match');
 		Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, execution.Status__c, 'Status should match');
 		Assert.isNotNull(execution.CorrelationId__c, 'Correlation ID should be auto-generated');
+	}
+
+	/**
+	 * @description Verifies that using TST_Factory keeps a default value provider that was registered
+	 * before the factory class loaded — the factory must never replace a registered provider. The
+	 * factory call is the test method's first TST_Factory reference, so its static initializer runs
+	 * after the registration.
+	 *
+	 * @see TST_Builder.defaultValueProvider
+	 */
+	@IsTest
+	private static void factoryUseKeepsRegisteredDefaultValueProvider()
+	{
+		TST_Builder.defaultValueProvider = new RegisteredDefaultValueProvider();
+
+		TST_Factory.newFoobar();
+
+		Assert.isTrue(TST_Builder.defaultValueProvider instanceof RegisteredDefaultValueProvider, 'Using TST_Factory must not replace the registered default value provider.');
+	}
+
+	/**
+	 * @description Marker provider standing in for a provider registered on the
+	 * 'TST_Builder.defaultValueProvider' extension point before TST_Factory loads.
+	 */
+	private class RegisteredDefaultValueProvider extends UTIL_SObjectBuilderDefaultProvider
+	{
 	}
 }

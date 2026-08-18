@@ -726,6 +726,10 @@
     </customSettingAccesses>
     <customSettingAccesses>
         <enabled>true</enabled>
+        <name>AsyncChainRuntimeSwitch__c</name>
+    </customSettingAccesses>
+    <customSettingAccesses>
+        <enabled>true</enabled>
         <name>ScheduleSetting__c</name>
     </customSettingAccesses>
     <description>Grants full create, read, update, and delete access to all Kern objects, fields, tabs, Apex classes, custom metadata, and the Kern application. Assign this to administrators who need complete control over the Kern framework.</description>
@@ -931,6 +935,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>AsyncChainExecution__c.AllowRestart__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>AsyncChainExecution__c.CompletedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -961,6 +970,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>AsyncChainExecution__c.DeclaredDeduplicationKey__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>AsyncChainExecution__c.DurationMs__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -976,7 +990,17 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>AsyncChainExecution__c.InitialContextData__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>AsyncChainExecution__c.RunKey__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>AsyncChainExecution__c.SourceExecution__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

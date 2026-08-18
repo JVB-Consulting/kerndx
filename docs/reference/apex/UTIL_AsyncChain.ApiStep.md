@@ -47,6 +47,7 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 | Method | Description |
 |--------|-------------|
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [credential](#credential)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) namedCredential) | Overrides the Named Credential used for this API call. |
+| global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [retryOn](#retryon)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)> statusCodes) | Restricts chain-level retry to the given HTTP status codes, the ApiStep sibling of UTIL_HttpClient's retryOn. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [triggeringRecord](#triggeringrecord)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Sets a static triggering record ID for this API call. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [triggeringRecordFrom](#triggeringrecordfrom)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextKey) | Sets the triggering record ID from a ChainContext key, resolved at execution-time. |
 | global [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) [withParameter](#withparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a static parameter value to pass to the handler. |
@@ -77,6 +78,43 @@ Overrides the Named Credential used for this API call.
 ```apex
 new UTIL_AsyncChain.ApiStep(API_SendEmail.class)
     .credential('AlternateGateway')
+```
+
+</div>
+
+### retryOn
+
+<div class="apex-member">
+
+```apex
+global UTIL_AsyncChain.ApiStep retryOn(Set<Integer> statusCodes)
+```
+
+Restricts chain-level retry to the given HTTP status codes, the ApiStep
+sibling of UTIL_HttpClient's retryOn. A failed call whose status is outside the set is
+declared permanently failed: the chain fails on that attempt without spending the
+remaining retry budget, because the status proved the failure deterministic (a 400
+returns 400 however often it is re-sent). Without this call every failed status
+retries, exactly as before. A failure with no status code at all (the transport threw
+before any response arrived) always stays retryable: without a status, nothing proves
+the failure deterministic. An explicitly-passed empty set therefore stops every
+status-bearing failure from retrying. Has no effect unless withRetry(...) enabled
+chain-level retry, matching the UTIL_HttpClient family.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `statusCodes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The status codes eligible for retry. |
+
+**Returns** [UTIL_AsyncChain.ApiStep](UTIL_AsyncChain.ApiStep.md) — This ApiStep for method chaining.
+
+**Example**
+
+```apex
+new UTIL_AsyncChain.ApiStep(API_ChargePayment.class)
+    .withRetry(3, 30)
+    .retryOn(new Set<Integer> {500, 503})
 ```
 
 </div>

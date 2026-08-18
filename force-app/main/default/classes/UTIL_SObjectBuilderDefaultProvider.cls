@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date November 2025, July 2026
+ * @date November 2025, August 2026
  *
  * @since 1.0
  *
@@ -56,6 +56,12 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 * the width of generated Integer defaults.
 	 */
 	private static final Integer MAXIMUM_INTEGER_DIGIT_COUNT = 9;
+
+	/**
+	 * @description The field-name prefix shared by the license-based User permission fields the base
+	 * provider marks as optional for every User build.
+	 */
+	private static final String USER_PERMISSION_FIELD_PREFIX = 'UserPermissions';
 
 	@TestVisible
 	private static Boolean isMockActive = false;
@@ -106,6 +112,9 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 
 	/**
 	 * @description Defines a set of optional fields for a given SObject. Can be overridden in a subclass.
+	 * For the User SObjectType the base implementation marks every UserPermissions* field as optional,
+	 * preventing license-based field integrity exceptions during User test data generation. Subclasses
+	 * overriding this method should call 'super.defineSObjectOptionalFields' to preserve that behaviour.
 	 *
 	 * @param sObjectType The SObjectType for which the optional fields will be defined.
 	 *
@@ -115,12 +124,28 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 *
 	 * @example
 	 * ```apex
-	 * Set<SObjectField> result = instance.defineSObjectOptionalFields(Account.SObjectType);
+	 * Set<SObjectField> result = instance.defineSObjectOptionalFields(User.SObjectType);
 	 * ```
 	 */
 	global virtual Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjectType)
 	{
-		return null;
+		if(sObjectType != User.SObjectType)
+		{
+			return null;
+		}
+
+		Set<SObjectField> optionalFields = new Set<SObjectField>();
+		Map<String, SObjectField> userFieldTokensByName = UTIL_SObjectDescribe.getDescribe(User.SObjectType).getFieldsMap();
+
+		for(String fieldName : userFieldTokensByName.keySet())
+		{
+			if(fieldName.startsWithIgnoreCase(USER_PERMISSION_FIELD_PREFIX))
+			{
+				optionalFields.add(userFieldTokensByName.get(fieldName));
+			}
+		}
+
+		return optionalFields;
 	}
 
 	/**
@@ -351,7 +376,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 * ```apex
 	 * Integer result = instance.getIntegerDefaultValue(ApexClass.LengthWithoutComments.getDescribe(), 10);
 	 * ```
- 	 */
+	 */
 	@SuppressWarnings('ApexUnusedDeclaration')
 	global virtual Integer getIntegerDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
 	{

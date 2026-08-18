@@ -39,7 +39,8 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 
 | Method | Description |
 |--------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)() | Executes the chain with an auto-generated correlation ID. |
+| global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [allowRestart](#allowrestart)() | Declares this chain safe to restart from its first step. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)() | Executes the chain, giving it the transaction's log correlation when one is active and a fresh one otherwise. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Executes the chain with a caller-supplied correlation ID for log tracing. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [onComplete](#oncomplete)([IF_Chain.Step](IF_Chain.Step.md) completionHandlerStep) | Registers a completion handler step that executes ONLY when every step in the chain completes successfully. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [onError](#onerror)([IF_Chain.Step](IF_Chain.Step.md) errorHandlerStep) | Registers an error handler step that executes when any step fails (unless the failing step has continueOnError set to true). |
@@ -52,6 +53,35 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxContextSize](#withmaxcontextsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSize) | Sets the maximum serialized context size in characters. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [withMaxSteps](#withmaxsteps)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maximumSteps) | Sets the maximum number of steps the chain is allowed to execute. |
 
+### allowRestart
+
+<div class="apex-member">
+
+```apex
+global UTIL_AsyncChain.ChainBuilder allowRestart()
+```
+
+Declares this chain safe to restart from its first step. A restart re-runs
+EVERY step, so declare it only when the whole chain can run twice without doubling its
+side effects. The declaration stamps the run record at start and captures the as-built
+initial context beside it; the Chain Monitor's restart action is offered only for declared
+runs and replays that snapshot, never the evolved context a partial run left behind. Off
+by default, so restart stays hidden until the author opts in — the declaration never
+changes how the chain runs.
+
+**Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This builder, for chaining.
+
+**Example**
+
+```apex
+String runId = UTIL_AsyncChain.newChain('NightlyAccountSync')
+    .then(new SyncStep())
+    .allowRestart()
+    .execute();
+```
+
+</div>
+
 ### execute
 
 <div class="apex-member">
@@ -60,8 +90,15 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 global String execute()
 ```
 
-Executes the chain with an auto-generated correlation ID.
-Persists the chain configuration and enqueues the first step.
+Executes the chain, giving it the transaction's log correlation when one is
+active and a fresh one otherwise. Persists the chain configuration and enqueues the first step.
+
+First-adopter rule: a correlation can be attached to exactly one chain run, so only the
+FIRST chain launched under an active correlation adopts it. Later launches in the same
+transaction — the shape a service that starts a correlation and then kicks off several
+chains produces — are recorded under a correlation of their own and announce it once, under
+the transaction's correlation, so the whole transaction still reads as one story. Before
+this rule the second launch failed on the unique index with an unattributed database error.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
 
@@ -69,7 +106,7 @@ Persists the chain configuration and enqueues the first step.
 
 | Exception | Description |
 |-----------|-------------|
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID overload this method delegates to. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID overload this method delegates to — or if the active correlation is already attached to a chain run started in an EARLIER transaction, which the first-adopter rule cannot see. |
 
 **Example**
 
@@ -102,7 +139,7 @@ Persists the chain configuration and enqueues the first step.
 
 | Exception | Description |
 |-----------|-------------|
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON — or if the supplied correlation ID is already attached to another chain run, since a run owns its correlation exclusively. |
 
 **Example**
 
