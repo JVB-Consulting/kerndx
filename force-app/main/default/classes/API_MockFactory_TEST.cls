@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -23,6 +23,12 @@ private class API_MockFactory_TEST
 	 * @description Test response body.
 	 */
 	private static final String TEST_BODY = '{"success":true}';
+
+	/**
+	 * @description Service name for the transport-failure mock test, driven directly through
+	 * CalloutMock with a matching apiClassName, so no handler-class lookup is involved.
+	 */
+	private static final String TRANSPORT_FAILURE_SERVICE_NAME = 'TransportFailureService';
 
 	/**
 	 * @description Tests basic mock registration and retrieval.
@@ -704,6 +710,31 @@ private class API_MockFactory_TEST
 		Test.stopTest();
 
 		Assert.areEqual(API_Base.HTTP_OK, response.getStatusCode(), 'Should fall back to defaultMockBody when no metadata mock found');
+	}
+
+	/**
+	 * @description Verifies a mock registered with withTransportFailure() makes respond() throw a
+	 * CalloutException instead of returning a response, simulating the transport giving out
+	 * before any status code exists — the one failure shape no response-bearing mock can express.
+	 */
+	@IsTest
+	private static void shouldThrowCalloutExceptionWhenTransportFailureRegistered()
+	{
+		API_MockFactory.forService(TRANSPORT_FAILURE_SERVICE_NAME).withTransportFailure().register();
+
+		API_MockFactory.CalloutMock calloutMock = new API_MockFactory.CalloutMock();
+		calloutMock.apiClassName = TRANSPORT_FAILURE_SERVICE_NAME;
+
+		try
+		{
+			calloutMock.respond(new HttpRequest());
+			Assert.fail('A transport-failure mock must throw, never return a response');
+		}
+		catch(System.CalloutException expected)
+		{
+			Assert.isTrue(expected.getMessage().contains(TRANSPORT_FAILURE_SERVICE_NAME),
+					'The simulated failure must name the service so a test author can trace it');
+		}
 	}
 
 	/**

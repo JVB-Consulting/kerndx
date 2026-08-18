@@ -11,7 +11,7 @@
  *              with the global lightning/modal mock (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026, July 2026
+ * @date June 2026, August 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';
@@ -106,6 +106,37 @@ function textOf(element, testId)
 {
 	const node = element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
 	return node ? node.textContent : null;
+}
+
+/**
+ * @description Reads the copy affordance's current state: the icon it draws (clipboard, or a check once copied) and the
+ *              text of the status live region under the command block (empty, or Copied). The icon's accessible name
+ *              is deliberately stable, so it is not part of the state.
+ * @param {HTMLElement} element - The mounted modal.
+ * @returns {{iconName: string, status: string}}
+ */
+function copyStateOf(element)
+{
+	const affordance = element.shadowRoot.querySelector('[data-testid="copy-command-button"]');
+	const status = element.shadowRoot.querySelector('[data-testid="copy-command-status"]');
+	return {iconName: affordance.iconName, status: status.textContent};
+}
+
+/**
+ * @description Points the temporary-input clipboard fallback at the given outcome, mounts the modal, clicks the copy
+ *              affordance and lets the copy settle — the shared arrange step of every fallback-path test.
+ * @param {boolean} fallbackSucceeds - What document.execCommand reports for the fallback copy.
+ * @returns {Promise<HTMLElement>} The mounted modal after the click.
+ */
+async function mountAndClickCopyWithFallback(fallbackSucceeds)
+{
+	// noinspection JSDeprecatedSymbols
+	document.execCommand = jest.fn().mockReturnValue(fallbackSucceeds);
+	const element = createModal();
+	await flush();
+	element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
+	await settle();
+	return element;
 }
 
 afterEach(() =>
@@ -253,7 +284,24 @@ describe('c-masking-export-modal', () =>
 			expect(textOf(element, 'deploy-command')).toBe('sf project deploy start --metadata-dir metadata -o <your-org-alias>');
 		});
 
-		it('copies the resolved command to the clipboard and flips the button label', async() =>
+		it('offers the deploy command through the shared copy icon rather than a text button', async() =>
+		{
+			const element = createModal();
+			await flush();
+
+			// The same small icon every other copy affordance in the product uses, pinned inside the command block
+			// (inverse variant on the dark block); its stable name is the visible tooltip and the accessible name,
+			// and the confirmation lives in a status live region beside it, empty until a copy succeeds.
+			const affordance = element.shadowRoot.querySelector('[data-testid="copy-command-button"]');
+			expect(affordance.tagName.toLowerCase()).toBe('lightning-button-icon');
+			expect(affordance.title).toBe('Copy command');
+			expect(affordance.alternativeText).toBe('Copy command');
+			expect(affordance.variant).toBe('bare-inverse');
+			expect(element.shadowRoot.querySelector('[data-testid="copy-command-status"]').getAttribute('role')).toBe('status');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:copy_to_clipboard', status: ''});
+		});
+
+		it('copies the resolved command to the clipboard and flips the affordance to its copied state', async() =>
 		{
 			const writeText = jest.fn();
 			Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
@@ -267,7 +315,7 @@ describe('c-masking-export-modal', () =>
 			await settle();
 
 			expect(writeText).toHaveBeenCalledWith('sf project deploy start --metadata-dir metadata -o AcmeProd');
-			expect(textOf(element, 'copy-command-button')).toBe('Copied');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:check', status: 'Copied'});
 		});
 
 		it('does not claim Copied when the clipboard write fails', async() =>
@@ -275,46 +323,28 @@ describe('c-masking-export-modal', () =>
 			const writeText = jest.fn().mockRejectedValue(new Error('Write denied'));
 			Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
 			// The temporary-input fallback also fails, so the copy never happened.
-			// noinspection JSDeprecatedSymbols
-			document.execCommand = jest.fn().mockReturnValue(false);
-			const element = createModal();
-			await flush();
+			const element = await mountAndClickCopyWithFallback(false);
 
-			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
-			await settle();
-
-			expect(textOf(element, 'copy-command-button')).toBe('Copy command');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:copy_to_clipboard', status: ''});
 		});
 
 		it('does not claim Copied when the clipboard API is unavailable and the fallback fails', async() =>
 		{
 			Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
-			// noinspection JSDeprecatedSymbols
-			document.execCommand = jest.fn().mockReturnValue(false);
-			const element = createModal();
-			await flush();
+			const element = await mountAndClickCopyWithFallback(false);
 
-			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
-			await settle();
-
-			expect(textOf(element, 'copy-command-button')).toBe('Copy command');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:copy_to_clipboard', status: ''});
 		});
 
 		it('flips to Copied when the restricted-context fallback copy succeeds', async() =>
 		{
 			Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
-			// noinspection JSDeprecatedSymbols
-			document.execCommand = jest.fn().mockReturnValue(true);
-			const element = createModal();
-			await flush();
+			const element = await mountAndClickCopyWithFallback(true);
 
-			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
-			await settle();
-
-			expect(textOf(element, 'copy-command-button')).toBe('Copied');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:check', status: 'Copied'});
 		});
 
-		it('re-arms the copy button label after the alias changes', async() =>
+		it('re-arms the copy affordance and clears the Copied status after the alias changes', async() =>
 		{
 			const writeText = jest.fn();
 			Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true});
@@ -323,13 +353,13 @@ describe('c-masking-export-modal', () =>
 
 			element.shadowRoot.querySelector('[data-testid="copy-command-button"]').click();
 			await settle();
-			expect(textOf(element, 'copy-command-button')).toBe('Copied');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:check', status: 'Copied'});
 
 			const input = element.shadowRoot.querySelector('[data-testid="alias-input"]');
 			input.dispatchEvent(new CustomEvent('change', {detail: {value: 'Other'}}));
 			await flush();
 
-			expect(textOf(element, 'copy-command-button')).toBe('Copy command');
+			expect(copyStateOf(element)).toEqual({iconName: 'utility:copy_to_clipboard', status: ''});
 		});
 
 		it('renders both the CLI intro and the other-tools note', async() =>

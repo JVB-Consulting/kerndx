@@ -23,7 +23,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -985,6 +985,29 @@ private class TST_BuilderInternal_TEST
 			Assert.isNotNull(id2, 'Second ID should not be null.');
 			Assert.areNotEqual(id1, id2, 'Each call should return a unique ID.');
 			Assert.areEqual(Foobar__c.SObjectType, id1.getSobjectType(), 'ID should be for the correct SObjectType.');
+		}
+	}
+
+	/**
+	 * @description Tests that MockIdProvider never repeats an Id across a volume large enough
+	 * that the four-character random Id suffix alone would statistically collide.
+	 */
+	@IsTest
+	private static void mockIdProviderGetValueNeverRepeatsAcrossLargeVolume()
+	{
+		final Integer generatedIdCount = 20000;
+
+		System.runAs(getTestAdmin())
+		{
+			TST_BuilderInternal.MockIdProvider provider = new TST_BuilderInternal.MockIdProvider(Foobar__c.SObjectType);
+			Set<Id> generatedIds = new Set<Id>();
+
+			for(Integer recordIndex = 0; recordIndex < generatedIdCount; recordIndex++)
+			{
+				generatedIds.add((Id)provider.getValue(recordIndex));
+			}
+
+			Assert.areEqual(generatedIdCount, generatedIds.size(), 'Every generated mock Id must be unique within the transaction.');
 		}
 	}
 

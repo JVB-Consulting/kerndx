@@ -17,7 +17,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -686,6 +686,14 @@ global inherited sharing class API_MockFactory
 		private Boolean simulatedFailure;
 
 		/**
+		 * @description True when this mock simulates a transport failure: respond() throws a
+		 * CalloutException instead of returning a response, so no status code ever exists —
+		 * the failure shape a response-bearing mock cannot express.
+		 */
+		@TestVisible
+		private Boolean transportFailure;
+
+		/**
 		 * @description Creates a new mock response with default values.
 		 */
 		public MockResponse()
@@ -697,6 +705,7 @@ global inherited sharing class API_MockFactory
 			delayMs = 0;
 			failureRate = 0;
 			simulatedFailure = false;
+			transportFailure = false;
 		}
 
 		/**
@@ -716,6 +725,7 @@ global inherited sharing class API_MockFactory
 			cloned.delayMs = delayMs;
 			cloned.failureRate = failureRate;
 			cloned.simulatedFailure = false;
+			cloned.transportFailure = transportFailure;
 			return cloned;
 		}
 	}
@@ -882,6 +892,29 @@ global inherited sharing class API_MockFactory
 		}
 
 		/**
+		 * @description Makes the registered mock simulate a transport failure: the callout throws
+		 * a CalloutException before any response exists, so the caller sees no status code at
+		 * all. Use it to prove code that must treat a statusless failure differently from a
+		 * failed status — for example, chain-level retryOn keeps statusless failures retryable.
+		 * Body, status code, and headers on the same registration are ignored: a transport
+		 * failure never produces a response.
+		 *
+		 * @return This builder for chaining.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * API_MockFactory.forService('API_SendEmail').withTransportFailure().register();
+		 * ```
+		 */
+		global MockBuilder withTransportFailure()
+		{
+			mock.transportFailure = true;
+			return this;
+		}
+
+		/**
 		 * @description Registers the mock response in the factory.
 		 *
 		 * @since 1.0
@@ -925,6 +958,11 @@ global inherited sharing class API_MockFactory
 			HttpResponse httpResponse = new HttpResponse();
 
 			MockResponse factoryMock = getOutboundMock(apiClassName, settingDeveloperName, request?.getBody());
+
+			if(factoryMock != null && factoryMock.transportFailure == true)
+			{
+				throw new System.CalloutException('Simulated transport failure for ' + apiClassName + ' (registered via withTransportFailure)');
+			}
 
 			if(factoryMock != null)
 			{

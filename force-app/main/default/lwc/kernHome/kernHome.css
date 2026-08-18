@@ -11,11 +11,21 @@
 	width          : 100%;
 }
 
+/* Flex-item margins never collapse: zero this so the header/body gap stays at lightning-card's 12 px instead of stacking to 24. */
 .tool-card .slds-card__body
 {
 	display        : flex;
 	flex           : 1 1 auto;
 	flex-direction : column;
+	margin-top     : 0;
+}
+
+/* The tile heading is a full name, not a chip: let it wrap onto a second line instead of
+   truncating to an unreadable stub at the narrower grid columns. */
+.tool-card-title
+{
+	overflow-wrap : break-word;
+	white-space   : normal;
 }
 
 .tool-card-body

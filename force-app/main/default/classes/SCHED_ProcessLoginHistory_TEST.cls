@@ -8,7 +8,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 private class SCHED_ProcessLoginHistory_TEST
@@ -20,9 +20,12 @@ private class SCHED_ProcessLoginHistory_TEST
 	@IsTest
 	private static void runSchedule()
 	{
+		// The watermark is "now", not a random past instant: the batch reads the org's REAL LoginHistory
+		// (platform data a test can neither seed nor purge), so a past watermark makes the batch's row
+		// count grow with org age until it spans two chunks and stopTest throws the one-executeBatch rule.
 		TST_Builder.of(ScheduleSetting__c.SObjectType)
 				.withOverride(ScheduleSetting__c.Name, PROC_LoginFrequencyAggregator.SETTING_NAME)
-				.withOverride(ScheduleSetting__c.LastSuccessfulRunTime__c, UTIL_Random.randomDateTime())
+				.withOverride(ScheduleSetting__c.LastSuccessfulRunTime__c, Datetime.now())
 				.build();
 
 		Test.startTest();
@@ -32,6 +35,12 @@ private class SCHED_ProcessLoginHistory_TEST
 		scheduler = (ScheduledJob__c)new SEL_ScheduledJob().findById(scheduler.Id);
 
 		Test.stopTest();
+
+		// Driven directly, after the flush: the schedulable's own body must run for the test to mean
+		// anything, and a job enqueued here is never executed, so the empty watermark window keeps this
+		// deterministic at any org size instead of racing the org's LoginHistory row count. A failure
+		// anywhere in the setting read, the login-history query or the launch fails this call.
+		new SCHED_ProcessLoginHistory().execute(null);
 
 		Assert.isNotNull(scheduler.ScheduledJobId__c, 'SCHED_ProcessLoginHistory was not started');
 	}

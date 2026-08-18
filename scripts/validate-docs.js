@@ -219,6 +219,23 @@ const KERN_PREFIXES = new Set([
 	'UTIL_'
 ]);
 
+/**
+ * `kern.`-qualified references that are intentionally unresolvable.
+ *
+ * File-scoped, so the same identifier still errors anywhere else. Add ONLY with a one-line
+ * justification — an entry here is a claim that the reference is deliberately not callable.
+ */
+const KERN_CLASS_REF_EXCEPTIONS = [
+	// Deliberate "// WRONG" counter-example: prefixing your OWN subscriber class.
+	{file: 'docs/AI Agent Instructions.md', ref: 'API_CreateOrder'},
+	// Quoted runtime error string ("Invalid type: kern.SEL_Accounts") in the callout that
+	// explains why the prefix rule exists.
+	{file: 'docs/Fast Start - Selectors.md', ref: 'SEL_Accounts'},
+	// Bypass-KEY string for the framework's internal flow runner, not a callable type.
+	// TRG_InvokeFlow is `public` (no reference page) by design.
+	{file: 'docs/Triggers - Guide.md', ref: 'TRG_InvokeFlow'}
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Logging
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,7 +275,13 @@ function createLogger(silent = false)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Parses code blocks from Markdown content
+ * Parses code blocks from Markdown content.
+ *
+ * Both the opening and the closing fence marker tolerate leading whitespace, so fences nested
+ * under list items are parsed like column-0 fences (un-anchoring only the opener would leave a
+ * block permanently open and blind every downstream check). This is deliberately NOT a full
+ * CommonMark fence parser — leading-whitespace tolerance on backtick fences is the whole scope.
+ *
  * @param {string} content - Markdown content
  * @returns {Array<{lang: string, code: string, startLine: number, endLine: number}>}
  */
@@ -274,13 +297,13 @@ function parseCodeBlocks(content)
 		const line = lines[i];
 		const lineNum = i + 1;
 
-		if(!inBlock && /^```(\w*)/.test(line))
+		if(!inBlock && /^[ \t]*```(\w*)/.test(line))
 		{
-			const lang = line.match(/^```(\w*)/)[1] || '';
+			const lang = line.match(/^[ \t]*```(\w*)/)[1] || '';
 			currentBlock = {lang, code: '', startLine: lineNum, endLine: lineNum};
 			inBlock = true;
 		}
-		else if(inBlock && /^```\s*$/.test(line))
+		else if(inBlock && /^[ \t]*```\s*$/.test(line))
 		{
 			currentBlock.endLine = lineNum;
 			blocks.push(currentBlock);
@@ -938,13 +961,130 @@ function checkCodeFenceLanguages(content, filePath)
 }
 
 /**
- * Validates that Kern class references in code blocks exist in the codebase
+ * Scans PROSE for `kern.`-qualified class references.
+ *
+ * Only inline code spans are inspected, and only `kern.`-qualified tokens are reported, so an
+ * ordinary mention of a class name in a sentence never fires. This is the whole false-positive
+ * control, and it is why prose can be scanned at ERROR severity at all.
+ *
+ * Prose matters because the rosters that drift live there, not in apex fences. It deliberately
+ * does NOT try to expand shorthand rosters (`` `kern.UTIL_String` / `Date` / `Number` ``): deriving
+ * `UTIL_Number` from a bare `Date` requires guessing that the separator means "same stem", and
+ * ordinary prose such as `` `kern.DML_Builder` / `Database` `` would then fabricate a
+ * `kern.DML_Database` that appears nowhere and fail CI on it. Spell rosters out instead — one
+ * fully-qualified name per entry is greppable by this scan and by a human.
+ *
+ * @param {string} content - File content
+ * @param {function(string, boolean, number): void} record - Callback: (ref, qualified, line)
+ * @returns {void}
+ */
+function scanProseClassReferences(content, record)
+{
+	// Mask fenced blocks line-for-line so reported line numbers stay accurate. Backtick and tilde
+	// fences both count, and the marker tolerates leading whitespace — the same anchor rule
+	// parseCodeBlocks uses, so a fence body is masked here exactly when its lines are scanned as
+	// code there. (Indented fences were once invisible to BOTH passes: parseCodeBlocks anchored
+	// its fence regexes at column 0, so a list-nested ```apex fence opened no block and its body
+	// was scanned by neither the code-block pass nor this prose pass. Both ends were un-anchored
+	// together — opener AND closer — because un-anchoring only the opener leaves a block
+	// permanently open and blinds every downstream check.)
+	const masked = [];
+	let fenceMarker = '';
+
+	for(const line of content.split('\n'))
+	{
+		const marker = /^[ \t]*(`{3,}|~{3,})/.exec(line);
+
+		if(fenceMarker)
+		{
+			masked.push('');
+			if(marker && marker[1][0] === fenceMarker[0] && marker[1].length >= fenceMarker.length)
+			{
+				fenceMarker = '';
+			}
+			continue;
+		}
+
+		if(marker)
+		{
+			fenceMarker = marker[1];
+			masked.push('');
+			continue;
+		}
+
+		masked.push(line);
+	}
+
+	// Blank out HTML comments in place (newlines preserved) — they carry retired names on purpose.
+	const text = masked.join('\n').replace(/<!--[\s\S]*?-->/g, comment => comment.replace(/[^\n]/g, ' '));
+
+	// One pass to map offset → line, so the scan stays linear on large files.
+	const lineStarts = [0];
+	for(let i = 0; i < text.length; i++)
+	{
+		if(text[i] === '\n')
+		{
+			lineStarts.push(i + 1);
+		}
+	}
+
+	const lineOf = (offset) =>
+	{
+		let low = 0;
+		let high = lineStarts.length - 1;
+		while(low < high)
+		{
+			const mid = Math.ceil((low + high) / 2);
+			if(lineStarts[mid] <= offset)
+			{
+				low = mid;
+			}
+			else
+			{
+				high = mid - 1;
+			}
+		}
+		return low + 1;
+	};
+
+	const spanRegex = /`([^`\n]+)`/g;
+	const qualifiedRegex = /\bkern\.([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*)\b/g;
+	let spanMatch;
+
+	while((spanMatch = spanRegex.exec(text)) !== null)
+	{
+		let match;
+		qualifiedRegex.lastIndex = 0;
+
+		while((match = qualifiedRegex.exec(spanMatch[1])) !== null)
+		{
+			record(match[1], true, lineOf(spanMatch.index));
+		}
+	}
+}
+
+/**
+ * Validates Kern class references, in two tiers.
+ *
+ * A `kern.`-qualified reference names the framework's released public API, so it is resolved
+ * against the generated reference pages ONLY (`globalIndex`) and a miss is an ERROR — a class
+ * that exists in force-app but is declared `public` cannot be named by a subscriber, and
+ * resolving it through the source tree is exactly how `kern.UTIL_Set` shipped undetected.
+ *
+ * A bare reference is usually a subscriber-authored example class, so it stays lenient: it is
+ * resolved against the union index and a miss is a WARNING.
+ *
+ * Qualified references are scanned in prose as well as in apex fences, because the rosters that
+ * drift most (`kern.UTIL_String` | `kern.UTIL_Date` | ...) live in prose. Bare identifiers in
+ * prose are never reported, which is what keeps the false-positive rate at zero.
+ *
  * @param {string} content - File content
  * @param {string} filePath - File path for reporting
- * @param {Set<string>} classIndex - Set of known class names
+ * @param {Set<string>} classIndex - Union of source classes and reference pages (lenient tier)
+ * @param {Set<string>} globalIndex - Reference pages only (strict tier); omit to disable it
  * @returns {Array<{file: string, line: number, severity: string, check: string, message: string}>}
  */
-function checkClassReferences(content, filePath, classIndex)
+function checkClassReferences(content, filePath, classIndex, globalIndex = null)
 {
 	const issues = [];
 
@@ -953,9 +1093,62 @@ function checkClassReferences(content, filePath, classIndex)
 		return issues;
 	}
 
-	const codeBlocks = parseCodeBlocks(content);
-	const classRefRegex = /\b([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*)\b/g;
+	// No reference pages available (e.g. a partial clone) → strict tier off, behaviour unchanged.
+	const strict = globalIndex && globalIndex.size > 0 ? globalIndex : null;
+	const normalisedPath = filePath.split(path.sep).join('/');
 	const reported = new Set();
+
+	const isAllowlisted = (ref) => KERN_CLASS_REF_EXCEPTIONS.some(
+		entry => entry.ref === ref && (normalisedPath === entry.file || normalisedPath.endsWith(`/${entry.file}`))
+	);
+
+	const record = (ref, qualified, line) =>
+	{
+		if(ref.endsWith('__c') || ref.endsWith('__mdt') || ref.endsWith('__e') || ref.endsWith('__r') || ref.endsWith('__b') || ref.endsWith('__x'))
+		{
+			return;
+		}
+
+		const prefix = ref.split('_')[0] + '_';
+		if(!KERN_PREFIXES.has(prefix) || ref.includes('_TEST'))
+		{
+			return;
+		}
+
+		// Qualified and bare misses carry different messages and severities, so they key
+		// separately — but only when the strict tier is live. With it off both forms fall through
+		// to the identical lenient warning, and keying them apart would double-report one name.
+		const strictQualified = qualified && Boolean(strict);
+		const reportKey = `${filePath}:${strictQualified ? 'kern.' : ''}${ref}`;
+		if(reported.has(reportKey))
+		{
+			return;
+		}
+
+		if(strictQualified)
+		{
+			if(isAllowlisted(ref) || strict.has(ref))
+			{
+				return;
+			}
+
+			reported.add(reportKey);
+			issues.push({
+				file: filePath, line, severity: 'error', check: 'class-ref',
+				message: `Unknown framework class reference: kern.${ref} — no docs/reference/apex/${ref}.md page, so it is not subscriber-callable`
+			});
+			return;
+		}
+
+		if(!classIndex.has(ref))
+		{
+			reported.add(reportKey);
+			issues.push({file: filePath, line, severity: 'warning', check: 'class-ref', message: `Unknown class reference: ${ref}`});
+		}
+	};
+
+	const codeBlocks = parseCodeBlocks(content);
+	const classRefRegex = /(\bkern\.)?\b([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*)\b/g;
 
 	for(const block of codeBlocks)
 	{
@@ -979,39 +1172,16 @@ function checkClassReferences(content, filePath, classIndex)
 			classRefRegex.lastIndex = 0;
 			while((match = classRefRegex.exec(codeLine)) !== null)
 			{
-				const ref = match[1];
-
-				if(ref.endsWith('__c') || ref.endsWith('__mdt') || ref.endsWith('__e') || ref.endsWith('__r') || ref.endsWith('__b') || ref.endsWith('__x'))
-				{
-					continue;
-				}
-
-				const prefix = ref.split('_')[0] + '_';
-				if(!KERN_PREFIXES.has(prefix))
-				{
-					continue;
-				}
-
-				if(ref.includes('_TEST'))
-				{
-					continue;
-				}
-
-				const reportKey = `${filePath}:${ref}`;
-				if(reported.has(reportKey))
-				{
-					continue;
-				}
-
-				if(!classIndex.has(ref))
-				{
-					reported.add(reportKey);
-					issues.push({
-						file: filePath, line: block.startLine + i + 1, severity: 'warning', check: 'class-ref', message: `Unknown class reference: ${ref}`
-					});
-				}
+				record(match[2], Boolean(match[1]), block.startLine + i + 1);
 			}
 		}
+	}
+
+	// Prose is scanned only for the strict tier. With no reference pages there is nothing to
+	// resolve a qualified name against, and the 3-argument call form must stay byte-compatible.
+	if(strict)
+	{
+		scanProseClassReferences(content, record);
 	}
 
 	return issues;
@@ -1107,6 +1277,40 @@ function checkCrossDocVersionConsistency(fileContents, allowedPathPatterns = [])
 		}
 	}
 	return issues;
+}
+
+/**
+ * Builds the index of SUBSCRIBER-CALLABLE class names — the generated reference pages only.
+ *
+ * A page under docs/reference/apex/ exists if and only if the type is part of the released
+ * global surface, so page-existence is the only reliable proof that `kern.<Name>` compiles in a
+ * subscriber org. A class present in force-app but declared `public` is invisible to subscribers,
+ * which is why buildClassIndex (the lenient, union index) must not be used for `kern.`-qualified
+ * references.
+ *
+ * @param {string} referenceDir - Absolute path to docs/reference/apex
+ * @param {object} fsModule - Injectable fs for testing
+ * @returns {Set<string>} Top-level and inner type names carrying a reference page
+ */
+function buildGlobalClassIndex(referenceDir, fsModule = fs)
+{
+	const index = new Set();
+
+	if(fsModule.existsSync(referenceDir))
+	{
+		const files = fsModule.readdirSync(referenceDir);
+		for(const file of files)
+		{
+			if(file.endsWith('.md'))
+			{
+				const name = file.slice(0, -3);
+				index.add(name);
+				index.add(name.split('.')[0]);
+			}
+		}
+	}
+
+	return index;
 }
 
 function buildClassIndex(classesDir, referenceDir, fsModule = fs)
@@ -1829,6 +2033,7 @@ class DocsValidator
 		const startTime = Date.now();
 		const files = this.getFiles();
 		const classIndex = buildClassIndex(path.resolve(this.config.classesDir), path.resolve(this.config.referenceDir), this.fs);
+		const globalClassIndex = buildGlobalClassIndex(path.resolve(this.config.referenceDir), this.fs);
 		let allIssues = [];
 
 		this.log.info('docs:validate \u2014 Documentation Validation\n');
@@ -1848,7 +2053,7 @@ class DocsValidator
 				...checkSharingDeclarations(content, filePath),
 				...checkToc(content, filePath),
 				...checkCodeFenceLanguages(content, filePath),
-				...checkClassReferences(content, filePath, classIndex),
+				...checkClassReferences(content, filePath, classIndex, globalClassIndex),
 				...checkLineLength(content, filePath),
 				...checkTableAlignment(content, filePath),
 				...checkProseFileRefs(content, filePath, repoRoot, this.fs, this.config.proseRefAllowlist),
@@ -2505,6 +2710,9 @@ module.exports = {
 	checkLineLength,
 	checkTableAlignment,
 	buildClassIndex,
+	buildGlobalClassIndex,
+	scanProseClassReferences,
+	KERN_CLASS_REF_EXCEPTIONS,
 	DEFAULT_CONFIG,
 	MAX_LINE_LENGTH,
 	SF_STANDARD_TYPES,

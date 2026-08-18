@@ -15,7 +15,7 @@
  * download".
  *
  * @author Jason van Beukering
- * @date June 2026, July 2026
+ * @date June 2026, August 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';
@@ -51,6 +51,9 @@ const SCOPE_OBJECT = 'O';
 // Decorative scope glyphs (aria-hidden in the template); the row's accessible content is its text.
 const GLYPH_OBJECT_WIDE = '🌐';
 const GLYPH_FIELD = '📍';
+// The copy affordance's two faces: the shared clipboard glyph, and the check it flips to on a successful copy.
+const ICON_COPY = 'utility:copy_to_clipboard';
+const ICON_COPIED = 'utility:check';
 
 /**
  * @description Static label strings the template renders, grouped so the markup reads `{labels.x}`.
@@ -67,7 +70,8 @@ const LABELS = {
 	deployOtherToolsNote: DEPLOY_OTHER_TOOLS_NOTE,
 	orgAliasLabel: ORG_ALIAS_LABEL,
 	orgAliasPlaceholder: ORG_ALIAS_PLACEHOLDER,
-	deployCommandAriaLabel: DEPLOY_COMMAND_ARIA
+	deployCommandAriaLabel: DEPLOY_COMMAND_ARIA,
+	copy: COPY
 };
 
 export default class MaskingExportModal extends LightningModal
@@ -112,8 +116,8 @@ export default class MaskingExportModal extends LightningModal
 	aliasValue = '';
 
 	/**
-	 * @description True once the command has been copied, flipping the Copy button label until the alias
-	 * changes.
+	 * @description True once the command has been copied — the copy icon shows a check and the status line
+	 * reads Copied — until the alias changes.
 	 * @type {boolean}
 	 */
 	copied = false;
@@ -247,12 +251,25 @@ export default class MaskingExportModal extends LightningModal
 	}
 
 	/**
-	 * @description The Copy button label — "Copied" immediately after a copy, otherwise the copy prompt.
+	 * @description The copy confirmation, rendered in a status live region under the command block — "Copied"
+	 * immediately after a successful copy, otherwise empty. A live region rather than a swapped button name:
+	 * the icon keeps a stable accessible name ("Copy command") and screen readers announce the change,
+	 * while sighted users get the words, not just a glyph flip.
 	 * @returns {string}
 	 */
-	get copyButtonLabel()
+	get copyStatusText()
 	{
-		return this.copied ? COPIED : COPY;
+		return this.copied ? COPIED : '';
+	}
+
+	/**
+	 * @description The copy affordance's icon — a check immediately after a copy, otherwise the clipboard
+	 * glyph every other copy affordance in the product uses.
+	 * @returns {string}
+	 */
+	get copyIconName()
+	{
+		return this.copied ? ICON_COPIED : ICON_COPY;
 	}
 
 	/**
@@ -265,8 +282,8 @@ export default class MaskingExportModal extends LightningModal
 	}
 
 	/**
-	 * @description Records the typed org alias (re-filling the command via the getter) and re-arms the Copy
-	 * button so the admin copies the updated command.
+	 * @description Records the typed org alias (re-filling the command via the getter) and clears the copied
+	 * state so the admin copies the updated command.
 	 * @param {CustomEvent} event - The lightning-input change event carrying the new value in detail.
 	 */
 	handleAliasChange(event)
@@ -276,9 +293,9 @@ export default class MaskingExportModal extends LightningModal
 	}
 
 	/**
-	 * @description Copies the resolved deploy command to the clipboard and flips the button label to
-	 * confirm — only once the copy actually succeeded. A failed copy (Clipboard API and its
-	 * temporary-input fallback both failing) leaves the button re-armed so the admin can retry.
+	 * @description Copies the resolved deploy command to the clipboard and confirms it — icon check plus the
+	 * Copied status line — only once the copy actually succeeded. A failed copy (Clipboard API and its
+	 * temporary-input fallback both failing) leaves the affordance re-armed so the admin can retry.
 	 */
 	async handleCopyCommand()
 	{
@@ -290,7 +307,7 @@ export default class MaskingExportModal extends LightningModal
 		}
 		catch
 		{
-			// copyToClipBoard already logged the failure; the button stays re-armed for a retry.
+			// copyToClipBoard already logged the failure; the affordance stays re-armed for a retry.
 		}
 	}
 

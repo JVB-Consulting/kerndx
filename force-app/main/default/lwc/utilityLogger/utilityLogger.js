@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  *
  * @group Logging
  *
@@ -91,6 +91,83 @@ function serialiseContext(context)
 	{
 		return JSON.stringify({serialisationError: serialisationError.message});
 	}
+}
+
+/**
+ * @description True when a value is text worth persisting — a string holding at least one
+ * non-whitespace character.
+ *
+ * @param {*} value - Candidate value
+ * @returns {boolean} True when the value is non-blank text
+ * @private
+ */
+function isPresentText(value)
+{
+	return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * @description Pulls the structured detail out of a caught failure so the persisted entry carries
+ * it in named fields rather than buried in a nested payload: the server message, the stack the
+ * failure reported (`stack` for a JavaScript error, `body.stackTrace` for an Apex failure relayed
+ * by Aura) and the Apex exception class name. The server-side bridge promotes `errorStack` into the
+ * log entry's stack trace. Blank and absent values are left out so a caller's own structured
+ * payload is never overwritten with an empty string. An array of failures reports the first.
+ *
+ * @param {Error|Object|Object[]|string} failure - The caught error, an Aura failure, or structured data
+ * @returns {Object} The detail keys that could be resolved
+ * @private
+ */
+function describeError(failure)
+{
+	const [first] = Array.isArray(failure) ? failure : [failure];
+	const source = first ?? {};
+	const errorMessage = typeof source === 'string' ? source : (source.body?.message ?? source.message);
+	const errorStack = source.stack ?? source.body?.stackTrace;
+	const exceptionType = source.body?.exceptionType ?? (source instanceof Error ? source.name : undefined);
+	const details = {};
+
+	if(isPresentText(errorMessage))
+	{
+		details.errorMessage = errorMessage;
+	}
+
+	if(isPresentText(errorStack))
+	{
+		details.errorStack = errorStack;
+	}
+
+	if(isPresentText(exceptionType))
+	{
+		details.exceptionType = exceptionType;
+	}
+
+	return details;
+}
+
+/**
+ * @description Keeps whatever the caller passed alongside the failure so nothing is lost from the
+ * persisted context: a plain object is copied as-is, an array of failures is kept under `errors`,
+ * and an Error or a bare string contributes nothing (their text is normalised into the detail keys
+ * by {@link describeError} instead of being spread one key per character).
+ *
+ * @param {Error|Object|Object[]|string} failure - The caught error, an Aura failure, or structured data
+ * @returns {Object} The context payload to persist alongside the resolved detail
+ * @private
+ */
+function resolveErrorPayload(failure)
+{
+	if(Array.isArray(failure))
+	{
+		return {errors: failure};
+	}
+
+	if(failure instanceof Error || typeof failure === 'string')
+	{
+		return {};
+	}
+
+	return {...failure};
 }
 
 /**
@@ -243,16 +320,26 @@ function warn(message, data = {})
 }
 
 /**
- * @description Logs an ERROR-level message and immediately flushes the buffer.
- * Accepts either an Error instance or a plain data object.
+ * @description Logs an ERROR-level message and immediately flushes the buffer. Accepts an Error
+ * instance, an Aura failure relayed from Apex, an array of Lightning Data Service failures, or a
+ * plain data object; whichever it is, the server message, stack and Apex exception class are
+ * normalised into named context keys the server-side bridge understands. Pass the calling
+ * component's name so the persisted entry can be attributed to it instead of an unnamed source.
  *
  * @param {string} message - Log message
- * @param {Error|Object} [err={}] - Error object or structured data
+ * @param {Error|Object|Object[]|string} [failure={}] - Error object, Aura failure, or structured data
+ * @param {string} [componentName=''] - Name of the component the failure surfaced in
  */
-function error(message, err = {})
+function error(message, failure = {}, componentName = '')
 {
-	const errorData = err instanceof Error ? {errorMessage: err.message, errorStack: err.stack} : err;
-	appendEntry(LogLevel.ERROR, message, errorData);
+	const data = {...resolveErrorPayload(failure), ...describeError(failure)};
+
+	if(isPresentText(componentName))
+	{
+		data.componentName = componentName;
+	}
+
+	appendEntry(LogLevel.ERROR, message, data);
 	flush();
 }
 

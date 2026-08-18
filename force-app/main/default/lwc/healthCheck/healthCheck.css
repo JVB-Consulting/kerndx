@@ -15,6 +15,25 @@
 	padding-top : 0.5rem;
 }
 
+/* The prefix and the chips are two columns, not one run-on line: the chips wrap inside their own
+   column so a second line stays aligned under the first instead of orphaning itself from "Passing:". */
+.passing-row__label
+{
+	flex : 0 0 auto;
+}
+
+/* Ancestor-qualified so it out-ranks the `.health-check-alert ul` divider above, which is meant
+   for the action lists, not for the chip row that already has its own top rule. */
+.health-check-alert .passing-row__chips
+{
+	border-top : 0;
+	flex       : 1 1 auto;
+	list-style : none;
+	margin     : 0;
+	min-width  : 0;
+	padding    : 0;
+}
+
 .status-chip
 {
 	white-space : nowrap;

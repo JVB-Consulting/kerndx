@@ -3,18 +3,15 @@
  * @description Jest unit tests for the kernHome composite LWC.
  *
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, August 2026
  */
 import {createElement} from 'lwc';
 import KernHome from 'c/kernHome';
 import {mockNavigate, mockCallControllerMethod} from 'c/componentBuilder';
 
-jest.mock('c/classTypeResolverSetupModal', () => ({
-	__esModule: true, default: {open: jest.fn().mockResolvedValue(undefined)}
-}), {virtual: true});
-
 jest.mock('@salesforce/label/c.KernHome_AdministrationToolsHeading', () => ({default: 'Administration Tools'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_ToolOpenButton', () => ({default: 'Open'}), {virtual: true});
+jest.mock('@salesforce/label/c.KernHome_ToolOpenButtonWithName', () => ({default: 'Open {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_ApiTestHarness_Title', () => ({default: 'API Test Harness'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_ApiTestHarness_Description', () => ({default: 'Test inbound and outbound API calls...'}), {virtual: true});
 jest.mock('@salesforce/label/c.KernHome_StreamingMonitor_Title', () => ({default: 'Streaming Event Monitor'}), {virtual: true});
@@ -58,8 +55,12 @@ describe('c-kern-home', () =>
 
 	function getToolCards(element)
 	{
-		return Array.from(element.shadowRoot.querySelectorAll('lightning-card'))
-		.filter((card) => card.title !== 'Administration Tools');
+		return Array.from(element.shadowRoot.querySelectorAll('article[data-testid="tool-card"]'));
+	}
+
+	function getToolTitles(element)
+	{
+		return Array.from(element.shadowRoot.querySelectorAll('[data-testid="tool-card-title"]'));
 	}
 
 	it('should render an outer Administration Tools card', async() =>
@@ -84,24 +85,78 @@ describe('c-kern-home', () =>
 	{
 		const element = await createComponent();
 
-		const toolCards = getToolCards(element);
-		expect(toolCards[0].title).toBe('API Test Harness');
-		expect(toolCards[1].title).toBe('Streaming Event Monitor');
-		expect(toolCards[2].title).toBe('Chain Monitor');
-		expect(toolCards[3].title).toBe('Data Masking Advisor');
-		expect(toolCards[4].title).toBe('Log Console');
+		const toolTitles = getToolTitles(element).map((title) => title.textContent);
+		expect(toolTitles).toEqual([
+			'API Test Harness',
+			'Streaming Event Monitor',
+			'Chain Monitor',
+			'Data Masking Advisor',
+			'Log Console'
+		]);
 	});
 
 	it('should render the expected icon names on each tool card (matching their tab motifs)', async() =>
 	{
 		const element = await createComponent();
 
-		const toolCards = getToolCards(element);
-		expect(toolCards[0].iconName).toBe('custom:custom63');
-		expect(toolCards[1].iconName).toBe('custom:custom30');
-		expect(toolCards[2].iconName).toBe('custom:custom57');
-		expect(toolCards[3].iconName).toBe('custom:custom91');
-		expect(toolCards[4].iconName).toBe('custom:custom7');
+		const toolIcons = getToolCards(element).map((card) => card.querySelector('lightning-icon').iconName);
+		expect(toolIcons).toEqual([
+			'custom:custom63',
+			'custom:custom30',
+			'custom:custom57',
+			'custom:custom91',
+			'custom:custom7'
+		]);
+	});
+
+	it('should title each tool tile one heading level below the Administration Tools section heading', async() =>
+	{
+		const element = await createComponent();
+
+		const toolTitles = getToolTitles(element);
+		expect(toolTitles).toHaveLength(5);
+		toolTitles.forEach((title) => expect(title.tagName).toBe('H3'));
+	});
+
+	it('should keep the Administration Tools card as the only card on the page, so the tiles do not repeat its heading level', async() =>
+	{
+		const element = await createComponent();
+
+		const cards = element.shadowRoot.querySelectorAll('lightning-card');
+		expect(cards).toHaveLength(1);
+		expect(element.shadowRoot.querySelectorAll('h2')).toHaveLength(0);
+	});
+
+	it('should let a long tool heading wrap rather than truncate it behind an ellipsis', async() =>
+	{
+		const element = await createComponent();
+
+		getToolTitles(element).forEach((title) =>
+		{
+			expect(title.className).toContain('tool-card-title');
+			expect(title.className).not.toContain('slds-truncate');
+		});
+	});
+
+	it('should name each Open button after the tool it opens, so five identical labels are still distinguishable', async() =>
+	{
+		const element = await createComponent();
+
+		const buttons = Array.from(element.shadowRoot.querySelectorAll('lightning-button[data-key]'));
+		expect(buttons.map((button) => button.label)).toEqual([
+			'Open',
+			'Open',
+			'Open',
+			'Open',
+			'Open'
+		]);
+		expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+			'Open API Test Harness',
+			'Open Streaming Event Monitor',
+			'Open Chain Monitor',
+			'Open Data Masking Advisor',
+			'Open Log Console'
+		]);
 	});
 
 	it('should navigate to the api test harness tab when the open button is clicked', async() =>

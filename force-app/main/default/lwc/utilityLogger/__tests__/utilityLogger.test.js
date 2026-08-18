@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  */
 
 		// Mock the Apex method - create a trackable function
@@ -23,6 +23,15 @@ jest.mock('@salesforce/apex/CTRL_Logger.persistLogs', () =>
 const originalConsole = {
 	log: console.log, warn: console.warn, error: console.error, group: console.group, groupEnd: console.groupEnd
 };
+
+// A failed Apex call as Aura relays it to the browser: the server message, the Apex exception class
+// and the Apex stack arrive nested under `body`, with the HTTP status line alongside them.
+const apexFailure = Object.freeze({
+	body: {message: 'kern:Too many apex pagination cursor rows: 100001', exceptionType: 'System.LimitException', stackTrace: '(kern)'},
+	status: 400,
+	statusText: 'Bad Request',
+	ok: false
+});
 
 // Import after mocks are set up
 import utilityLogger, {
@@ -181,13 +190,13 @@ describe('utilityLogger', () =>
 			expect(console.error).toHaveBeenCalledWith('[ERROR] Error with data', {code: 500});
 		});
 
-		it('should extract message and stack from Error object', () =>
+		it('should extract message, stack and type from Error object', () =>
 		{
-			const testError = new Error('Something went wrong');
-			testError.stack = 'Error: Something went wrong\n    at test.js:1:1';
+			const testError = new TypeError('Something went wrong');
+			testError.stack = 'TypeError: Something went wrong\n    at test.js:1:1';
 			error('Caught exception', testError);
 			expect(console.error).toHaveBeenCalledWith('[ERROR] Caught exception', {
-				errorMessage: 'Something went wrong', errorStack: testError.stack
+				errorMessage: 'Something went wrong', errorStack: testError.stack, exceptionType: 'TypeError'
 			});
 		});
 
@@ -202,6 +211,89 @@ describe('utilityLogger', () =>
 			expect(entries).toHaveLength(1);
 			expect(entries[0].level).toBe('ERROR');
 			expect(entries[0].message).toBe('Critical failure');
+		});
+	});
+
+	describe('error normalisation', () =>
+	{
+		const persistedContext = (callIndex = 0) => JSON.parse(JSON.parse(mockPersistLogs.mock.calls[callIndex][0].entriesJson)[0].context);
+
+		it('lifts the Apex message, exception type and server stack out of an Aura failure', async() =>
+		{
+			error('callControllerMethod: kern:Too many apex pagination cursor rows: 100001', {...apexFailure});
+
+			await Promise.resolve();
+
+			const context = persistedContext();
+			expect(context.errorMessage).toBe('kern:Too many apex pagination cursor rows: 100001');
+			expect(context.exceptionType).toBe('System.LimitException');
+			expect(context.errorStack).toBe('(kern)');
+			expect(context.body.message).toBe('kern:Too many apex pagination cursor rows: 100001');
+			expect(context.status).toBe(apexFailure.status);
+		});
+
+		it('stamps the calling component so the persisted entry can name it', async() =>
+		{
+			error('callControllerMethod: boom', {...apexFailure}, 'logConsole');
+
+			await Promise.resolve();
+
+			expect(persistedContext().componentName).toBe('logConsole');
+		});
+
+		it('omits the component name when the caller does not supply one', async() =>
+		{
+			error('callControllerMethod: boom', {...apexFailure});
+
+			await Promise.resolve();
+
+			expect(persistedContext().componentName).toBeUndefined();
+		});
+
+		it('leaves a caller-supplied structured payload untouched', async() =>
+		{
+			error('Component error', {errorMessage: 'child blew up', componentStack: 'c-child-component'});
+
+			await Promise.resolve();
+
+			const context = persistedContext();
+			expect(context.errorMessage).toBe('child blew up');
+			expect(context.componentStack).toBe('c-child-component');
+			expect(context.exceptionType).toBeUndefined();
+		});
+
+		it('records a string rejection as the error message rather than one key per character', async() =>
+		{
+			error('callControllerMethod: String error', 'String error');
+
+			await Promise.resolve();
+
+			const context = persistedContext();
+			expect(context.errorMessage).toBe('String error');
+			expect(context['0']).toBeUndefined();
+		});
+
+		it('persists a bare entry when the failure value is null', async() =>
+		{
+			error('callControllerMethod: ', null);
+
+			await Promise.resolve();
+
+			expect(persistedContext()).toEqual({});
+		});
+
+		it('keeps every failure when Lightning Data Service rejects with an array', async() =>
+		{
+			error('handleWireResponse: first failure', [
+				{body: {message: 'first failure'}},
+				{body: {message: 'second failure'}}
+			]);
+
+			await Promise.resolve();
+
+			const context = persistedContext();
+			expect(context.errorMessage).toBe('first failure');
+			expect(context.errors).toHaveLength(2);
 		});
 	});
 

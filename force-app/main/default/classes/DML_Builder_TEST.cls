@@ -8,9 +8,9 @@
  *
  * @group DML
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount')
 @IsTest(SeeAllData=false IsParallel=false)
 private class DML_Builder_TEST
 {
@@ -1367,6 +1367,12 @@ private class DML_Builder_TEST
 	 * the queueable's DML must evaluate FLS against the running user, and the update must be
 	 * rejected (the seeded value is preserved).
 	 *
+	 * The `UserModeDml_Enabled` flag is pinned OFF so the rejection can only come from the
+	 * explicitly threaded USER_MODE dial: with the flag OFF the flag-driven default is
+	 * SYSTEM_MODE, so a framework that drops the dial across the async hand-off writes the
+	 * record and fails this test. (Before the pin, the test passed for the wrong reason — the
+	 * dropped dial coincided with the flag-ON default.)
+	 *
 	 * Catches: a regression that re-hard-codes .withSystemMode() inside PROC_ExecuteDML.execute()
 	 * (the bug commit f22a88d fixed) — the low-privilege user's update would silently succeed,
 	 * violating the framework's "global API contract" promise that .withUserMode() means USER_MODE
@@ -1391,6 +1397,8 @@ private class DML_Builder_TEST
 
 		System.runAs(getLowPrivilegeUser())
 		{
+			TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true, false);
+
 			seededRecord.Email__c = attemptedEmail;
 
 			Test.startTest();
@@ -1411,6 +1419,112 @@ private class DML_Builder_TEST
 			Foobar__c found = (Foobar__c)new SEL_Foobar().findById(seededRecord.Id);
 
 			Assert.areEqual(originalEmail, found.Email__c, 'USER_MODE async update must be rejected for low-privilege user — Email__c should be unchanged');
+		}
+	}
+
+	/**
+	 * @description Proves the audited SYSTEM_MODE elevation and the `.bypassSharing()` dial BOTH
+	 * survive the async hand-off. A low-privilege user with no access to an admin-owned
+	 * Foobar__c (Private OWD) runs `.withSystemMode().bypassSharing().doUpdate(...).async()`:
+	 * SYSTEM_MODE must reach the queueable's DML (waiving CRUD/FLS for the low-privilege user)
+	 * and the bypass must select the without-sharing proxy, so the unshared write lands. The
+	 * `UserModeDml_Enabled` flag is pinned ON — the over-enforcement direction — so a framework
+	 * that drops the dials falls back to USER_MODE, CRUD-rejects the write, and fails this test.
+	 *
+	 * @see DML_Builder.bypassSharing
+	 * @see DML_Builder.async
+	 * @see PROC_ExecuteDML.execute
+	 */
+	@IsTest
+	private static void shouldHonourBypassSharingOnAsyncSystemModeUpdate()
+	{
+		final String originalEmail = 'seeded-bypass-async@kerndx.test.invalid';
+		final String attemptedEmail = 'written-via-bypass-async@kerndx.test.invalid';
+		Foobar__c seededRecord;
+
+		System.runAs(getTestAdmin())
+		{
+			seededRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Email__c, originalEmail)
+					.build();
+		}
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+
+			seededRecord.Email__c = attemptedEmail;
+
+			Test.startTest();
+
+			DML_Builder.newTransaction()
+					.withSystemMode()
+					.bypassSharing()
+					.doUpdate(seededRecord)
+					.async()
+					.execute();
+
+			Test.stopTest();
+		}
+
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c found = (Foobar__c)new SEL_Foobar().findById(seededRecord.Id);
+
+			Assert.areEqual(attemptedEmail, found.Email__c,
+					'SYSTEM_MODE + .bypassSharing() async update must land for a low-privilege user — the audited elevation and the bypass dial must survive the async hand-off');
+		}
+	}
+
+	/**
+	 * @description Proves a SYSTEM_MODE async write WITHOUT `.bypassSharing()` is rejected by
+	 * record sharing. Under SYSTEM_MODE the Database API waives CRUD/FLS entirely, so sharing is
+	 * the only control that can reject the write — and the bypass sibling test landing under the
+	 * identical configuration proves the record is otherwise writable. The `UserModeDml_Enabled`
+	 * flag is pinned OFF — the disclosure direction — so a framework that drops the dials resolves
+	 * the flag-driven SYSTEM_MODE default inside a without-sharing frame, silently writes the
+	 * unshared record, and fails this test.
+	 *
+	 * @see DML_Builder.async
+	 * @see PROC_ExecuteDML.execute
+	 */
+	@IsTest
+	private static void shouldEnforceSharingOnAsyncSystemModeUpdateWithoutBypass()
+	{
+		final String originalEmail = 'seeded-enforce-async@kerndx.test.invalid';
+		final String attemptedEmail = 'blocked-by-sharing-async@kerndx.test.invalid';
+		Foobar__c seededRecord;
+
+		System.runAs(getTestAdmin())
+		{
+			seededRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Email__c, originalEmail)
+					.build();
+		}
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true, false);
+
+			seededRecord.Email__c = attemptedEmail;
+
+			Test.startTest();
+
+			DML_Builder.newTransaction()
+					.withSystemMode()
+					.doUpdate(seededRecord)
+					.allowPartial()
+					.async()
+					.execute();
+
+			Test.stopTest();
+		}
+
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c found = (Foobar__c)new SEL_Foobar().findById(seededRecord.Id);
+
+			Assert.areEqual(originalEmail, found.Email__c, 'SYSTEM_MODE async update without .bypassSharing() must be rejected by record sharing — Email__c should be unchanged');
 		}
 	}
 
@@ -1650,6 +1764,37 @@ private class DML_Builder_TEST
 		Assert.isNull(findBypassAuditContext('sharing:null'), 'Null records must not contaminate the audit footprints');
 		Assert.isNull(findBypassAuditContext('sharing:' + String.valueOf(Account.SObjectType)),
 				'An all-null typed list must not mint a zero-row phantom entry for its object');
+	}
+
+	/**
+	 * @description Tests that a concretely typed record list aggregates to a single
+	 * object-qualified audit footprint carrying the summed row count, rather than one entry per
+	 * record — the typed-list fast path of the footprint recorder. Uses the `async()` terminal so
+	 * the audit path runs without attempting actual DML, mirroring the null-handling sibling.
+	 *
+	 * @see DML_Builder.async
+	 * @see UTIL_BypassAudit.AuditQueue.recordOperation
+	 */
+	@IsTest
+	private static void shouldAggregateTypedListRowsIntoOneAuditFootprint()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		List<Foobar__c> records = new List<Foobar__c>();
+		records.add((Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build());
+		records.add((Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build());
+
+		Test.startTest();
+		DML_Builder.newTransaction()
+				.doInsert(records)
+				.bypassSharing()
+				.async();
+		Test.stopTest();
+
+		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(context, 'A typed record list should produce its object-qualified audit entry');
+		Assert.areEqual('2', String.valueOf(context.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)),
+				'The typed-list fast path must aggregate all rows into one entry with the summed row count');
 	}
 
 	/**

@@ -12,7 +12,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -51,6 +51,14 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	 * honours a subscriber's secure-by-default opt-in through `DML_Builder.async().execute()`.
 	 */
 	private final AccessLevel accessLevel;
+
+	/**
+	 * @description Whether the caller requested a record-sharing bypass for the commit. Crosses the
+	 * async serialization boundary as part of the processor's state. Defaults to false — the
+	 * secure enforce-default — including for payloads queued before this field existed, which
+	 * deserialize it as null.
+	 */
+	private Boolean isBypassSharingRequested = false;
 
 	/**
 	 * @description Constructs a DML processor with the specified operation and default all-or-nothing behavior.
@@ -115,7 +123,26 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	}
 
 	/**
-	 * @description Executes the configured DML operation on the provided list of records.
+	 * @description Marks the commit as a deliberate record-sharing bypass. Namespace-internal:
+	 * `DML_Builder.DML_AsyncBuilder` calls this while threading a subscriber's `.bypassSharing()`
+	 * dial across the async hand-off — the audited opt-out already happened on the synchronous
+	 * side. A subscriber constructing `PROC_ExecuteDML` directly cannot reach this method and gets
+	 * the secure enforce-default.
+	 *
+	 * @since 1.7
+	 */
+	public void requestSharingBypass()
+	{
+		this.isBypassSharingRequested = true;
+	}
+
+	/**
+	 * @description Executes the configured DML operation on the provided list of records. The
+	 * commit pins its record-sharing context explicitly — enforced unless `requestSharingBypass()`
+	 * was called — and re-applies the configured access mode without a separate bypass-audit
+	 * entry; this holds for a direct synchronous invocation exactly as it does inside an async
+	 * job, so a synchronous caller that needs its own class sharing context or an audited opt-out
+	 * should commit through `DML_Builder` instead.
 	 *
 	 * @param items The list of SObject records to process.
 	 *
@@ -138,14 +165,21 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 
 		DML_Builder builder = DML_Builder.newTransaction();
 		// Tri-state: SYSTEM_MODE and USER_MODE override explicitly; null inherits the flag-driven default.
-		if(accessLevel == System.AccessLevel.SYSTEM_MODE)
+		// The comparator, not raw ==, because a deserialized AccessLevel identity-matches neither singleton.
+		// systemModeInternal: this re-applies a selection audited on the synchronous side of the hand-off
+		// (or made by a framework utility), so it must not enqueue a second bypass-audit entry.
+		if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE))
 		{
-			builder.withSystemMode();
+			builder.systemModeInternal();
 		}
-		else if(accessLevel == System.AccessLevel.USER_MODE)
+		else if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.USER_MODE))
 		{
 			builder.withUserMode();
 		}
+
+		// The job's own frame is `without sharing`, so INHERITED must never cross the hand-off: the
+		// rebuilt builder selects sharing explicitly — enforce unless the caller requested a bypass.
+		builder.withSharingEnforcement(!(isBypassSharingRequested ?? false));
 
 		switch on operation
 		{

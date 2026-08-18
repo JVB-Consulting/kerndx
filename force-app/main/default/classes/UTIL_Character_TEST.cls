@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -132,17 +132,8 @@ private class UTIL_Character_TEST
 			}
 		}
 
-		Exception errorThrown;
-		try
-		{
-			UTIL_Character.validateChar('B');
-		}
-		catch(Exception error)
-		{
-			errorThrown = error;
-		}
-
-		Assert.isNull(errorThrown, 'No error should be thrown for a valid char');
+		// A valid character passes validation; a throw here fails the test with the real error
+		UTIL_Character.validateChar('B');
 	}
 
 	/**

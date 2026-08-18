@@ -3,7 +3,7 @@
  * @description Jest unit tests for scheduledJobDetail LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, July 2026
+ * @date March 2026, August 2026
  */
 import {createElement} from 'lwc';
 import LOADING_LABEL from '@salesforce/label/c.ScheduledJobDetail_Loading';
@@ -726,6 +726,29 @@ describe('c-scheduled-job-detail', () =>
 			let template = fs.readFileSync(templatePath, 'utf8');
 			expect(template).not.toContain('handleEdit');
 			expect(template).not.toContain('lightning-button-icon');
+		});
+
+		it('declares size before any device-specific size on every lightning-layout-item', () =>
+		{
+			// The template assigns properties in attribute order, and lightning-layout-item's
+			// device-size setters throw at render time when size has not been assigned yet —
+			// so a device-size attribute written before size crashes the whole record page.
+			const fs = require('fs');
+			const path = require('path');
+			let templatePath = path.resolve(__dirname, '..', 'scheduledJobDetail.html');
+			let template = fs.readFileSync(templatePath, 'utf8');
+			const layoutItemTags = template.match(/<lightning-layout-item[^>]*>/g) ?? [];
+			expect(layoutItemTags.length).toBeGreaterThan(0);
+			for(const tag of layoutItemTags)
+			{
+				const deviceSizePosition = tag.search(/[a-z]+-device-size=/);
+				if(deviceSizePosition >= 0)
+				{
+					const sizePosition = tag.search(/\ssize=/);
+					expect(sizePosition).toBeGreaterThanOrEqual(0);
+					expect(sizePosition).toBeLessThan(deviceSizePosition);
+				}
+			}
 		});
 	});
 

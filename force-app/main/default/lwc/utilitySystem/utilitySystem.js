@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, July 2026
+ * @date June 2021, August 2026
  */
 import utilityLogger from 'c/utilityLogger';
 
@@ -106,7 +106,29 @@ function extractBodyMessages(body, message)
 }
 
 /**
- * @description Extracts a human-readable message from a single error-like object.
+ * @description True when extracted body text is worth reporting — a non-blank string, or a list
+ * holding at least one non-blank string. A body that yields nothing readable (a bare fetch failure
+ * carries `body: {}` or an empty `body.message`) must not stand in for the error text.
+ *
+ * @param {string|string[]|undefined} extracted - Text pulled out of a response body
+ * @returns {boolean} True when there is something readable to report
+ * @private
+ */
+function hasReadableText(extracted)
+{
+	if(Array.isArray(extracted))
+	{
+		return extracted.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+	}
+
+	return typeof extracted === 'string' && extracted.trim().length > 0;
+}
+
+/**
+ * @description Extracts a human-readable message from a single error-like object. The body is
+ * preferred, then the HTTP status line, then the status text or code alone, then a message on the
+ * error itself. A body that carries no readable text falls through to those fallbacks rather than
+ * reporting an empty string, so a bare fetch failure still says what happened.
  *
  * @param {FetchResponse} errorItem - A normalised error object
  * @returns {string|string[]|undefined} Extracted error text
@@ -115,10 +137,11 @@ function extractBodyMessages(body, message)
 function extractMessage(errorItem)
 {
 	const {body, message, statusText, status} = errorItem;
+	const bodyMessages = (body !== undefined && body !== null) ? extractBodyMessages(body, message) : undefined;
 
-	if(body !== undefined && body !== null)
+	if(hasReadableText(bodyMessages))
 	{
-		return extractBodyMessages(body, message);
+		return bodyMessages;
 	}
 
 	if(statusText && status)

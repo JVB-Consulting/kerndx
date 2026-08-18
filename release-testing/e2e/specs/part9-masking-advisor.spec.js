@@ -19,7 +19,7 @@ const PHONE_RULE_INTERNATIONAL = 'MaskPhoneInternational';
 const OVERFLOW_TOLERANCE = 2;
 // Must match System.Label.HealthCheck_MaskingPosture_CheckName — the masking-posture check was
 // renamed when the custom-object coverage check split out of it.
-const MASKING_CHECK_NAME = 'Masking configuration';
+const MASKING_CHECK_NAME = 'Masking Configuration';
 // Reuses the committed masking-advisor round-trip bundles: `create` adds a dead configuration (an
 // active target bound to a dormant rule) that flips the masking-posture Health Check to Warn; `disable`
 // restores the Pass baseline. The bundles carry namespace-qualified rule references, so the value-change

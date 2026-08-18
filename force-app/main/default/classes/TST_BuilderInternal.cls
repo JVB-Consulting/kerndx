@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class TST_BuilderInternal
@@ -48,6 +48,12 @@ public inherited sharing class TST_BuilderInternal
 	};
 
 	/**
+	 * @description Every mock ID issued by MockIdProvider in this transaction, guarding it against
+	 * the birthday-collision odds of the four-character random ID suffix in large builds.
+	 */
+	private static final Set<Id> ISSUED_MOCK_IDS = new Set<Id>();
+
+	/**
 	 * @description Provides unique mock IDs for each record when building without insertion.
 	 * Implements DefaultFieldValueProvider to integrate with the existing default value machinery.
 	 */
@@ -66,7 +72,8 @@ public inherited sharing class TST_BuilderInternal
 		}
 
 		/**
-		 * @description Generates a unique mock ID for the specified record index.
+		 * @description Generates a unique mock ID for the specified record index, re-rolling on the
+		 * rare random collision so uniqueness holds across all MockIdProvider-issued IDs in the transaction.
 		 *
 		 * @param recordIndex The index of the record being created (not used, but required by interface).
 		 *
@@ -74,7 +81,14 @@ public inherited sharing class TST_BuilderInternal
 		 */
 		public override Object getValue(Integer recordIndex)
 		{
-			return UTIL_Random.randomId(objectType);
+			Id mockId = UTIL_Random.randomId(objectType);
+
+			while(!ISSUED_MOCK_IDS.add(mockId))
+			{
+				mockId = UTIL_Random.randomId(objectType);
+			}
+
+			return mockId;
 		}
 	}
 

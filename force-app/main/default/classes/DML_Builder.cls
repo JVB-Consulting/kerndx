@@ -11,7 +11,7 @@
  *
  * @group DML
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -93,6 +93,14 @@ global inherited sharing class DML_Builder
 	 */
 	@TestVisible
 	private Boolean isBypassSharing = false;
+
+	/**
+	 * @description Framework-internal explicit sharing selection. Null for every synchronous
+	 * caller — `execute()` then derives INHERITED/BYPASS from `isBypassSharing` exactly as it
+	 * always has. `PROC_ExecuteDML` sets it on the async leg, where the job's `without sharing`
+	 * frame makes INHERITED unsafe to derive.
+	 */
+	private Boolean sharingEnforcementOverride;
 
 	/**
 	 * @description Whether to suppress LOG_Builder error logging.
@@ -505,6 +513,28 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
+	 * @description Framework-internal explicit sharing selection for the async leg. When set,
+	 * `execute()` passes this value to `DML_Transaction.commitWork` instead of deriving
+	 * INHERITED/BYPASS from the bypass flag. An async job's `inherited sharing` classes resolve
+	 * against the processor's `without sharing` frame, so the rebuilt builder must pin ENFORCE or
+	 * BYPASS explicitly — INHERITED must never cross the hand-off. Not audited: the subscriber's
+	 * opt-out, if any, was audited by `bypassSharing()` on the synchronous side. Synchronous
+	 * callers never set this; their INHERITED derivation is unchanged.
+	 *
+	 * @param enforceSharing True to enforce record sharing, false to bypass it.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 *
+	 * @since 1.7
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	public DML_Builder withSharingEnforcement(Boolean enforceSharing)
+	{
+		this.sharingEnforcementOverride = enforceSharing;
+		return this;
+	}
+
+	/**
 	 * @description Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
 	 * regardless of the `UserModeDml_Enabled` feature flag. Use when a subscriber-facing flow
 	 * must enforce CRUD/FLS even in orgs where the flag has been disabled as a kill-switch.
@@ -639,6 +669,16 @@ global inherited sharing class DML_Builder
 	 * @description Switches to asynchronous execution mode. Returns a DML_AsyncBuilder that delegates to
 	 * PROC_ExecuteDML and UTIL_AsynchronousJobLauncher for adaptive async processing.
 	 *
+	 * Three caller-set dials survive the hand-off: the access mode (`.withUserMode()` /
+	 * `.withSystemMode()`), partial success (`.allowPartial()`), and the record-sharing bypass
+	 * (`.bypassSharing()`). The async job runs in a `without sharing` processor frame, so the job
+	 * selects record sharing explicitly — enforced by default, bypassed only when
+	 * `.bypassSharing()` was called; a synchronous caller's own class sharing cannot carry across
+	 * the hand-off. `.suppressExceptions()` and `.suppressLogging()` are deliberately dropped:
+	 * they shape the synchronous return value and its error logging, and an async job has no
+	 * caller to hand a suppressed result to — the job's failures are always logged and surfaced
+	 * through the async framework's own error handling.
+	 *
 	 * @return A DML_AsyncBuilder for configuring and executing async DML.
 	 *
 	 * @since 1.0
@@ -656,7 +696,7 @@ global inherited sharing class DML_Builder
 	{
 		recordOperationFootprints();
 		auditQueue.flush();
-		return new DML_AsyncBuilder(operations, isPartial, accessLevel);
+		return new DML_AsyncBuilder(this);
 	}
 
 	/**
@@ -762,7 +802,7 @@ global inherited sharing class DML_Builder
 
 		try
 		{
-			Boolean enforceSharing = isBypassSharing ? false : null;
+			Boolean enforceSharing = sharingEnforcementOverride ?? (isBypassSharing ? false : null);
 			dmlTransaction.commitWork(enforceSharing);
 		}
 		catch(DmlException error)
@@ -833,7 +873,10 @@ global inherited sharing class DML_Builder
 
 	/**
 	 * @description Async DML execution wrapper. Groups registered operations by type and delegates
-	 * to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing.
+	 * to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing. Carries
+	 * the parent builder's access mode, partial-success, and sharing-bypass dials across the
+	 * sync-to-async boundary; the job enforces record sharing unless the bypass dial was set,
+	 * because its `without sharing` processor frame makes inherited sharing unavailable.
 	 *
 	 * @since 1.0
 	 */
@@ -857,22 +900,29 @@ global inherited sharing class DML_Builder
 		private final AccessLevel accessLevel;
 
 		/**
+		 * @description Whether the parent builder's `.bypassSharing()` dial was set. Propagated to
+		 * `PROC_ExecuteDML` so the deliberate, already-audited sharing bypass survives the
+		 * sync-to-async boundary; without it the job enforces record sharing by default.
+		 */
+		private final Boolean isBypassSharing;
+
+		/**
 		 * @description Optional batch size override.
 		 */
 		private Integer batchSize;
 
 		/**
-		 * @description Constructs a DML_AsyncBuilder with operations and configuration from the parent builder.
+		 * @description Constructs a DML_AsyncBuilder carrying the parent builder's operations and
+		 * the dials that survive the hand-off.
 		 *
-		 * @param operations The registered DML operations.
-		 * @param isPartial Whether to allow partial success.
-		 * @param accessLevel Inherited `AccessLevel` from the parent builder, or `null` for flag-driven default.
+		 * @param parent The DML_Builder whose registered operations and dials to carry.
 		 */
-		private DML_AsyncBuilder(List<DTO_Operation> operations, Boolean isPartial, AccessLevel accessLevel)
+		private DML_AsyncBuilder(DML_Builder parent)
 		{
-			this.operations = operations;
-			this.isPartial = isPartial;
-			this.accessLevel = accessLevel;
+			this.operations = parent.operations;
+			this.isPartial = parent.isPartial;
+			this.accessLevel = parent.accessLevel;
+			this.isBypassSharing = parent.isBypassSharing;
 		}
 
 		/**
@@ -938,6 +988,11 @@ global inherited sharing class DML_Builder
 			{
 				List<SObject> records = recordsByOperation.get(operationType);
 				PROC_ExecuteDML processor = new PROC_ExecuteDML(operationType, allOrNothing, accessLevel);
+
+				if(isBypassSharing == true)
+				{
+					processor.requestSharingBypass();
+				}
 
 				if(batchSize != null)
 				{

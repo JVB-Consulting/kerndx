@@ -124,7 +124,7 @@ function countLineStartIsTestMethods(repoRoot)
 			{
 				continue;
 			}
-			if(trimmed.includes('(') || trimmed.includes('class '))
+			if(trimmed.includes('(') || trimmed.includes('class ') || line === trimmed)
 			{
 				continue;
 			}

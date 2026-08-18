@@ -12,7 +12,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -257,11 +257,12 @@ global inherited sharing class PROC_UpdateFields implements IF_Async.Processable
 
 		DML_Builder builder = DML_Builder.newTransaction();
 		// Tri-state: SYSTEM_MODE and USER_MODE override explicitly; null inherits the flag-driven default.
-		if(parameters.accessLevel == System.AccessLevel.SYSTEM_MODE)
+		// The comparator, not raw ==, because a deserialized AccessLevel identity-matches neither singleton.
+		if(DML_SharingProxy.matchesAccessLevel(parameters.accessLevel, System.AccessLevel.SYSTEM_MODE))
 		{
 			builder.withSystemMode();
 		}
-		else if(parameters.accessLevel == System.AccessLevel.USER_MODE)
+		else if(DML_SharingProxy.matchesAccessLevel(parameters.accessLevel, System.AccessLevel.USER_MODE))
 		{
 			builder.withUserMode();
 		}
@@ -315,11 +316,12 @@ global inherited sharing class PROC_UpdateFields implements IF_Async.Processable
 				.fields(fieldNames);
 
 		// Tri-state: SYSTEM_MODE and USER_MODE override explicitly; null inherits the flag-driven default.
-		if(parameters.accessLevel == System.AccessLevel.SYSTEM_MODE)
+		// The comparator, not raw ==, because a deserialized AccessLevel identity-matches neither singleton.
+		if(DML_SharingProxy.matchesAccessLevel(parameters.accessLevel, System.AccessLevel.SYSTEM_MODE))
 		{
 			query.withSystemMode();
 		}
-		else if(parameters.accessLevel == System.AccessLevel.USER_MODE)
+		else if(DML_SharingProxy.matchesAccessLevel(parameters.accessLevel, System.AccessLevel.USER_MODE))
 		{
 			query.withUserMode();
 		}

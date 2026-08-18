@@ -45,23 +45,6 @@ class KernHomePage
 		return this.kernHomeRoot().locator(`lightning-button[data-key="${key}"]`).first();
 	}
 
-	async getToolCardTitles()
-	{
-		const root = this.kernHomeRoot();
-		const cards = root.locator('.tool-card lightning-card .slds-card__header-title, .tool-card lightning-card .slds-truncate');
-		const titles = [];
-		const count = await cards.count();
-		for(let i = 0; i < count; i++)
-		{
-			const title = await cards.nth(i).textContent().catch(() => '');
-			if(title?.trim())
-			{
-				titles.push(title.trim());
-			}
-		}
-		return titles;
-	}
-
 	async getHealthCheckActionItems()
 	{
 		const healthCheck = this.healthCheck();

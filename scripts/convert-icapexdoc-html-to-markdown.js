@@ -2721,12 +2721,7 @@ function generateMasterIndex(categories, masterIndexPath)
 				'IF_Trigger'
 			]
 		},
-		{
-			use: 'Make REST API calls', primary: 'API_Outbound', related: [
-				'API_OutboundMock',
-				'DTO_JsonBase'
-			]
-		},
+		{use: 'Make REST API calls', primary: 'API_Outbound', related: ['DTO_JsonBase']},
 		{use: 'Handle inbound APIs', primary: 'API_Inbound', related: []},
 		{use: 'Transactional DML', primary: 'DML_Builder', related: ['DML_Transaction']},
 		{use: 'Log application events', primary: 'LOG_Builder', related: []},
@@ -2740,12 +2735,7 @@ function generateMasterIndex(categories, masterIndexPath)
 		{use: 'Implement circuit breaker', primary: 'UTIL_CircuitBreaker', related: ['UTIL_Retry']},
 		{use: 'Work with strings', primary: 'UTIL_String', related: []},
 		{use: 'Work with dates', primary: 'UTIL_Date', related: []},
-		{
-			use: 'Work with collections', primary: 'UTIL_List', related: [
-				'UTIL_Map',
-				'UTIL_Set'
-			]
-		}
+		{use: 'Work with collections', primary: 'UTIL_List', related: ['UTIL_Map']}
 	];
 
 	useCases.forEach(uc =>
@@ -3024,7 +3014,8 @@ module.exports = {
 	generateFieldDetailsMd: generateFieldDetails,
 	generateSObjectFieldDetailsMd: generateSObjectFieldDetails, // Main functions
 	convertFile,
-	generateIndexes, // Constants
+	generateIndexes,
+	generateMasterIndex, // Constants
 	CONFIG,
 	APEX_MODIFIERS,
 	MAX_SUMMARY_LENGTH,

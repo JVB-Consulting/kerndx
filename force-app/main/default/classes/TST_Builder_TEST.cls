@@ -21,7 +21,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
@@ -1246,21 +1246,12 @@ private class TST_Builder_TEST
 		{
 			if(UTIL_SObjectDescribe.isPersonAccountEnabled())
 			{
-				Exception caughtException;
+				Test.startTest();
+				// Build in-memory only to test logic without risking DML failure; a throw here fails the test with the real error
+				SObject built = TST_Builder.of(SEL_Foobar.OBJECT_NAME).withoutInsertion().build();
+				Test.stopTest();
 
-				try
-				{
-					Test.startTest();
-					// Build in-memory only to test logic without risking DML failure
-					TST_Builder.of(SEL_Foobar.OBJECT_NAME).withoutInsertion().build();
-					Test.stopTest();
-				}
-				catch(Exception error)
-				{
-					caughtException = error;
-				}
-
-				Assert.isNull(caughtException, 'Building a record (doInsert=false) in a Person Account org should not throw an exception.');
+				Assert.isNotNull(built, 'Building a record (doInsert=false) in a Person Account org should return the in-memory record');
 			}
 		}
 	}

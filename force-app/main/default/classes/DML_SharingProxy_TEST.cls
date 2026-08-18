@@ -8,12 +8,80 @@
  *
  * @group DML
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false IsParallel=false)
 private class DML_SharingProxy_TEST
 {
+	/**
+	 * @description Whether the round-tripped `AccessLevel` still identity-matched the
+	 * `SYSTEM_MODE` singleton inside the async execution context.
+	 */
+	private static Boolean roundTrippedMatchesSystemModeByIdentity;
+
+	/**
+	 * @description Whether the comparator resolved the round-tripped `AccessLevel` as SYSTEM_MODE.
+	 */
+	private static Boolean comparatorResolvesSystemMode;
+
+	/**
+	 * @description Whether the comparator wrongly resolved the round-tripped `AccessLevel` as USER_MODE.
+	 */
+	private static Boolean comparatorResolvesUserMode;
+
+	/**
+	 * @description Probe payload for the serialization round-trip fence. Carries the `SYSTEM_MODE`
+	 * singleton through the platform's own async serializer — the only mechanism that round-trips
+	 * an `AccessLevel`, since `JSON.serialize`/`JSON.deserialize` both reject the type — and
+	 * records, from inside the deserialized execution context, how raw identity comparison and the
+	 * comparator each resolve it.
+	 */
+	public class AccessLevelRoundTripProbe implements IF_Async.Processable
+	{
+		/**
+		 * @description The access level carried through the platform async serializer; seeded with
+		 * the live `SYSTEM_MODE` singleton so the deserialized instance can be compared against it.
+		 */
+		public AccessLevel carriedAccessLevel = System.AccessLevel.SYSTEM_MODE;
+
+		/**
+		 * @description Captures the identity and comparator observations into test statics.
+		 *
+		 * @param items The list of objects to process; the probe ignores their content.
+		 */
+		public void execute(List<Object> items)
+		{
+			roundTrippedMatchesSystemModeByIdentity = carriedAccessLevel == System.AccessLevel.SYSTEM_MODE;
+			comparatorResolvesSystemMode = DML_SharingProxy.matchesAccessLevel(carriedAccessLevel, System.AccessLevel.SYSTEM_MODE);
+			comparatorResolvesUserMode = DML_SharingProxy.matchesAccessLevel(carriedAccessLevel, System.AccessLevel.USER_MODE);
+		}
+	}
+
+	/**
+	 * @description Round-trip fence for the serialization-safe access-mode comparator. Drives the
+	 * probe through the real async machinery so the platform serializer round-trips the carried
+	 * `AccessLevel`, then asserts raw `==` fails (pinning the identity-loss trap) while the
+	 * comparator resolves the mode correctly. A platform serialization or rendering-format change
+	 * fails this test loudly instead of silently degrading production mode selection.
+	 *
+	 * @see DML_SharingProxy.matchesAccessLevel
+	 */
+	@IsTest
+	private static void shouldResolveAccessLevelAcrossSerializationBoundary()
+	{
+		Test.startTest();
+
+		UTIL_AsynchronousJobLauncher.process(new List<Object> {'round-trip-probe'}, new AccessLevelRoundTripProbe());
+
+		Test.stopTest();
+
+		Assert.isFalse(roundTrippedMatchesSystemModeByIdentity,
+				'Round-tripped AccessLevel must fail raw identity comparison — if it holds, the platform now preserves identity and the comparator fallback is unexercised');
+		Assert.isTrue(comparatorResolvesSystemMode, 'Comparator must resolve the round-tripped AccessLevel as SYSTEM_MODE');
+		Assert.isFalse(comparatorResolvesUserMode, 'Comparator must not resolve the round-tripped SYSTEM_MODE as USER_MODE');
+	}
+
 	/**
 	 * @description Tests bypass behaviour for all DML methods.
 	 *

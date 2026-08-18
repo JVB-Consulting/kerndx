@@ -12,7 +12,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -495,23 +495,20 @@ private class CTRL_EventMonitor_TEST
 	@IsTest
 	private static void getEventUsageMetricsRejectsInvalidSegment()
 	{
-		Boolean threwExpected = false;
-
 		Test.startTest();
 
 		try
 		{
 			CTRL_EventMonitor.getEventUsageMetrics('Weekly', null, null);
+			Assert.fail('Unknown time segment should throw AuraHandledException');
 		}
-		catch(AuraHandledException error)
+		catch(Exception error)
 		{
-			threwExpected = true;
+			Assert.isInstanceOfType(error, AuraHandledException.class, 'Unknown time segment should throw AuraHandledException');
 			Assert.areEqual(System.Label.EventUsageMetrics_Validation_UnsupportedSegment, error.getMessage(), 'The unsupported-segment message should be the label text');
 		}
 
 		Test.stopTest();
-
-		Assert.isTrue(threwExpected, 'Unknown time segment should throw AuraHandledException');
 	}
 
 	/**
@@ -523,25 +520,22 @@ private class CTRL_EventMonitor_TEST
 	@IsTest
 	private static void getEventUsageMetricsRejectsTooWideRange()
 	{
-		Boolean threwExpected = false;
-
 		Test.startTest();
 
 		try
 		{
 			CTRL_EventMonitor.getEventUsageMetrics(
 					SEL_PlatformEventUsageMetric.TimeSegment.Hourly.name(), Datetime.now().addDays(-7), Datetime.now());
+			Assert.fail('A range wider than the Hourly window should throw AuraHandledException');
 		}
-		catch(AuraHandledException error)
+		catch(Exception error)
 		{
-			threwExpected = true;
+			Assert.isInstanceOfType(error, AuraHandledException.class, 'A range wider than the Hourly window should throw AuraHandledException');
 			Assert.isTrue(error.getMessage().contains(System.Label.EventUsageMetrics_Window_Hourly), 'The range-too-wide message should name the segment maximum window');
 			Assert.isFalse(error.getMessage().contains('{0}'), 'The window placeholder should be substituted, not left literal');
 		}
 
 		Test.stopTest();
-
-		Assert.isTrue(threwExpected, 'A range wider than the Hourly window should throw AuraHandledException');
 	}
 
 	/**
@@ -555,8 +549,6 @@ private class CTRL_EventMonitor_TEST
 	@IsTest
 	private static void getEventUsageMetricsRejectsTooNarrowRange()
 	{
-		Boolean threwExpected = false;
-
 		Test.startTest();
 
 		try
@@ -565,17 +557,16 @@ private class CTRL_EventMonitor_TEST
 					SEL_PlatformEventUsageMetric.TimeSegment.Hourly.name(),
 					Datetime.newInstance(2026, 6, 5, 13, 24, 0),
 					Datetime.newInstance(2026, 6, 5, 14, 15, 0));
+			Assert.fail('A range narrower than one Hourly bucket should throw AuraHandledException');
 		}
-		catch(AuraHandledException error)
+		catch(Exception error)
 		{
-			threwExpected = true;
+			Assert.isInstanceOfType(error, AuraHandledException.class, 'A range narrower than one Hourly bucket should throw AuraHandledException');
 			Assert.isTrue(error.getMessage().contains(System.Label.EventUsageMetrics_Minimum_Hourly), 'The range-too-narrow message should name the segment minimum range');
 			Assert.isFalse(error.getMessage().contains('{0}'), 'The minimum placeholder should be substituted, not left literal');
 		}
 
 		Test.stopTest();
-
-		Assert.isTrue(threwExpected, 'A range narrower than one Hourly bucket should throw AuraHandledException');
 	}
 
 	/**
@@ -614,24 +605,21 @@ private class CTRL_EventMonitor_TEST
 	@IsTest
 	private static void getEventUsageMetricsRejectsStartAfterEnd()
 	{
-		Boolean threwExpected = false;
-
 		Test.startTest();
 
 		try
 		{
 			CTRL_EventMonitor.getEventUsageMetrics(
 					SEL_PlatformEventUsageMetric.TimeSegment.Daily.name(), Datetime.now(), Datetime.now().addDays(-1));
+			Assert.fail('A start after the end should throw AuraHandledException');
 		}
-		catch(AuraHandledException error)
+		catch(Exception error)
 		{
-			threwExpected = true;
+			Assert.isInstanceOfType(error, AuraHandledException.class, 'A start after the end should throw AuraHandledException');
 			Assert.areEqual(System.Label.EventUsageMetrics_Validation_StartAfterEnd, error.getMessage(), 'The start-after-end message should be the label text');
 		}
 
 		Test.stopTest();
-
-		Assert.isTrue(threwExpected, 'A start after the end should throw AuraHandledException');
 	}
 
 	/**

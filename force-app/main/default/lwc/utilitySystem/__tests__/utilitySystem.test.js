@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, August 2026
  */
 import {reduceErrors, sortBy, copyToClipBoard, flattenObject, setPropertyOnObject} from 'c/utilitySystem';
 
@@ -268,6 +268,57 @@ describe('reduceErrors', () =>
 			// returns that undefined, which the filter strips.
 			const result = reduceErrors({body: {debugInfo: 'nothing useful'}});
 			expect(result).toBe('');
+		});
+
+		it('reports the status line when the body carries an empty message', () =>
+		{
+			// A bare fetch failure still carries a body, but its message is empty. Reporting that
+			// empty string leaves the reader with a blank toast and a blank log entry, so the
+			// status line has to stand in for it.
+			const result = reduceErrors({body: {message: ''}, status: 500, statusText: 'Server Error'});
+			expect(result).toBe('500 - Server Error');
+		});
+
+		it('reports the status text alone when the body is empty and no status code is present', () =>
+		{
+			const result = reduceErrors({body: {}, statusText: 'Gateway Timeout'});
+			expect(result).toBe('Gateway Timeout');
+		});
+
+		it('reports the status code alone when the body is empty and no status text is present', () =>
+		{
+			const result = reduceErrors({body: {message: '   '}, status: 503});
+			expect(result).toBe('503');
+		});
+
+		it('falls back to the outer message when the body carries an empty message and no status', () =>
+		{
+			const result = reduceErrors({body: {message: ''}, message: 'outer fallback message'});
+			expect(result).toBe('outer fallback message');
+		});
+
+		it('reports the status line when every message in a body array is blank', () =>
+		{
+			const error = {
+				body: [
+					{message: ''},
+					{message: '   '}
+				], status: 500, statusText: 'Server Error'
+			};
+			const result = reduceErrors(error);
+			expect(result).toBe('500 - Server Error');
+		});
+
+		it('keeps a body array that carries at least one readable message', () =>
+		{
+			const error = {
+				body: [
+					{message: ''},
+					{message: 'Second error is readable'}
+				], status: 500, statusText: 'Server Error'
+			};
+			const result = reduceErrors(error);
+			expect(result).toBe(',Second error is readable');
 		});
 	});
 

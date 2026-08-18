@@ -2,9 +2,14 @@
 const {execSync, exec} = require('child_process');
 const {ORG_ALIAS} = require('./sf-auth');
 
+// Node caps a child process's captured stdout at 1 MB by default and kills the child with ENOBUFS beyond it. A full
+// Apex debug log over a large table (the seed scripts on an org holding 200k log rows) passes that easily, so every
+// capture below raises the cap; 64 MB is far above any log the CLI can hand back and costs nothing until used.
+const OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
+
 function runApexScript(scriptPath, {timeout = 120_000} = {})
 {
-	const output = execSync(`sf apex run -o ${ORG_ALIAS} -f ${scriptPath} 2>&1`, {encoding: 'utf8', timeout});
+	const output = execSync(`sf apex run -o ${ORG_ALIAS} -f ${scriptPath} 2>&1`, {encoding: 'utf8', timeout, maxBuffer: OUTPUT_BUFFER_BYTES});
 	return parseApexOutput(output);
 }
 
@@ -12,7 +17,7 @@ function runApexScriptAsync(scriptPath, {timeout = 120_000} = {})
 {
 	return new Promise((resolve, reject) =>
 	{
-		exec(`sf apex run -o ${ORG_ALIAS} -f ${scriptPath} 2>&1`, {encoding: 'utf8', timeout}, (error, stdout) =>
+		exec(`sf apex run -o ${ORG_ALIAS} -f ${scriptPath} 2>&1`, {encoding: 'utf8', timeout, maxBuffer: OUTPUT_BUFFER_BYTES}, (error, stdout) =>
 		{
 			if(error && !stdout)
 			{
@@ -31,7 +36,7 @@ function executeAnonymousApex(apex, {timeout = 60_000} = {})
 	fs.writeFileSync(tmpFile, apex, 'utf8');
 	try
 	{
-		const output = execSync(`sf apex run -o ${ORG_ALIAS} -f "${tmpFile}" 2>&1`, {encoding: 'utf8', timeout});
+		const output = execSync(`sf apex run -o ${ORG_ALIAS} -f "${tmpFile}" 2>&1`, {encoding: 'utf8', timeout, maxBuffer: OUTPUT_BUFFER_BYTES});
 		return output;
 	}
 	finally
@@ -44,7 +49,7 @@ function soqlQuery(query, {tooling = false, timeout = 30_000} = {})
 {
 	const toolingFlag = tooling ? '-t' : '';
 	const output = execSync(`sf data query -o ${ORG_ALIAS} ${toolingFlag} -q "${query}" --json`,
-			{encoding: 'utf8', timeout, env: {...process.env, FORCE_COLOR: '0', NO_COLOR: '1'}});
+			{encoding: 'utf8', timeout, maxBuffer: OUTPUT_BUFFER_BYTES, env: {...process.env, FORCE_COLOR: '0', NO_COLOR: '1'}});
 	const clean = output.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
 	const result = JSON.parse(clean);
 	return result.result.records || [];
@@ -72,7 +77,7 @@ function deployMetadata(sourcePath, {timeout = 120_000} = {})
 
 function runTests({testLevel = 'RunLocalTests', timeout = 600_000} = {})
 {
-	const output = execSync(`sf apex run test -o ${ORG_ALIAS} --test-level ${testLevel} --result-format json --code-coverage --json`, {encoding: 'utf8', timeout});
+	const output = execSync(`sf apex run test -o ${ORG_ALIAS} --test-level ${testLevel} --result-format json --code-coverage --json`, {encoding: 'utf8', timeout, maxBuffer: OUTPUT_BUFFER_BYTES});
 	return JSON.parse(output);
 }
 

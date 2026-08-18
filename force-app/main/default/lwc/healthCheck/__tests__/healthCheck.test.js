@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for healthCheck LWC component
  * @author Jason van Beukering
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 import {createElement} from 'lwc';
 import HealthCheck from 'c/healthCheck';
@@ -112,8 +112,8 @@ jest.mock('@salesforce/label/c.HealthCheck_DataRetention_CustomizingHelp',
 		() => ({default: 'Each Set up button opens the scheduled job editor with recommended defaults prefilled. Tweak anything before saving.'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_FailSection_Heading', () => ({default: 'Action required'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_WarnSection_Heading', () => ({default: 'Review recommended'}), {virtual: true});
-jest.mock('@salesforce/label/c.HealthCheck_MaskingPosture_CheckName', () => ({default: 'Data Masking'}), {virtual: true});
-jest.mock('@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName', () => ({default: 'Custom-Object Masking Coverage'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_MaskingPosture_CheckName', () => ({default: 'Masking Configuration'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_CustomObjectCoverage_CheckName', () => ({default: 'Masking Coverage (Custom Objects)'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_WarningSingular', () => ({default: 'warning'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_WarningPlural', () => ({default: 'warnings'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_DataRetention_RefreshFailedToast', () => ({default: 'Failed to refresh retention proposals'}), {virtual: true});
@@ -128,7 +128,7 @@ jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_SuccessToast', () => ({
 jest.mock('@salesforce/label/c.ScheduledJob_NewTitle', () => ({default: 'New Scheduled Job'}), {virtual: true});
 
 const MOCK_RESULTS = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured for https://example.my.salesforce.com.', actionLabel: null, priority: 30},
 	{name: 'Class Type Resolver', status: 'Pass', detail: 'A class type resolver is configured and working.', actionLabel: null, priority: 40},
@@ -137,11 +137,7 @@ const MOCK_RESULTS = [
 
 const MOCK_RESULTS_WITH_FAILURE = [
 	{
-		name: 'Organisation Cache',
-		status: 'Fail',
-		detail: 'Allocate Organisation Cache to the kern.Library partition (Setup > Platform Cache > Edit).',
-		actionLabel: null,
-		priority: 10
+		name: 'Org Cache', status: 'Fail', detail: 'Allocate Org Cache to the kern.Library partition (Setup > Platform Cache > Edit).', actionLabel: null, priority: 10
 	},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 20},
 	{
@@ -162,7 +158,7 @@ const MOCK_RESULTS_WITH_FAILURE = [
 ];
 
 const MOCK_RESULTS_WITH_WARNING = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
 	{
 		name: 'Session Cache', status: 'Warn', detail: 'Allocate Session Cache to the kern.Library partition (Setup > Platform Cache > Edit).', actionLabel: null, priority: 20
 	},
@@ -172,7 +168,7 @@ const MOCK_RESULTS_WITH_WARNING = [
 ];
 
 const MOCK_RESULTS_WITH_RESOLVER_WARN = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured for https://example.my.salesforce.com.', actionLabel: null, priority: 30},
 	{
@@ -186,7 +182,7 @@ const MOCK_RESULTS_WITH_RESOLVER_WARN = [
 ];
 
 const MOCK_RESULTS_WITH_RETENTION_WARN = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured for https://example.my.salesforce.com.', actionLabel: null, priority: 30},
 	{name: 'Class Type Resolver', status: 'Pass', detail: 'A class type resolver is configured and working.', actionLabel: null, priority: 40},
@@ -206,12 +202,12 @@ const MOCK_RESULTS_WITH_RETENTION_WARN = [
 ];
 
 const MOCK_RESULTS_WITH_MASKING_WARN = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
 	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
 	{
-		name: 'Data Masking',
+		name: 'Masking Configuration',
 		status: 'Warn',
 		detail: '2 masking target(s) are masking nothing — open the advisor to fix or remove them.',
 		actionLabel: 'Review masking',
@@ -221,13 +217,13 @@ const MOCK_RESULTS_WITH_MASKING_WARN = [
 ];
 
 const MOCK_RESULTS_WITH_COVERAGE_WARN = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
 	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
-	{name: 'Data Masking', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
+	{name: 'Masking Configuration', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
 	{
-		name: 'Custom-Object Masking Coverage',
+		name: 'Masking Coverage (Custom Objects)',
 		status: 'Warn',
 		detail: '2 of your custom objects hold likely-sensitive fields with no masking configured: CustomerFeedback__c, SupportTranscript__c.',
 		actionLabel: 'Review masking',
@@ -237,19 +233,19 @@ const MOCK_RESULTS_WITH_COVERAGE_WARN = [
 ];
 
 const MOCK_RESULTS_WITH_WATCHDOG_WARN = [
-	{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null, priority: 10},
 	{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
 	{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
 	{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null, priority: 40},
-	{name: 'Data Masking', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
-	{name: 'Custom-Object Masking Coverage', status: 'Pass', detail: 'All custom objects with likely-sensitive fields are masked.', actionLabel: null, priority: 46},
+	{name: 'Masking Configuration', status: 'Pass', detail: 'Masking is active on 4 objects.', actionLabel: null, priority: 45},
+	{name: 'Masking Coverage (Custom Objects)', status: 'Pass', detail: 'All custom objects with likely-sensitive fields are masked.', actionLabel: null, priority: 46},
 	{name: 'Data Retention', status: 'Pass', detail: 'Scheduled purge jobs are configured.', actionLabel: null, priority: 50},
-	{name: 'Async Chain Abort', status: 'Pass', detail: 'The abort permission set has assignees.', actionLabel: null, priority: 55},
+	{name: 'Chain Abort Capability', status: 'Pass', detail: 'The abort permission set has assignees.', actionLabel: null, priority: 55},
 	{
 		name: 'Chain Watchdog',
 		status: 'Warn',
-		detail: 'No chain watchdog is scheduled. A chain the platform silently drops stays Running forever — the hourly watchdog sweep marks it Stalled '
-				+ 'and fires its error notification so you can recover it.',
+		detail: 'No chain watchdog is scheduled. A chain the platform drops stays Running forever, with nothing to flag it. Schedule the watchdog so an '
+				+ 'hourly sweep marks a stopped chain Stalled and sends its error notification.',
 		actionLabel: null,
 		priority: 60
 	}
@@ -339,7 +335,7 @@ describe('c-health-check', () =>
 	it('should pluralise single check correctly in all-pass banner copy', async() =>
 	{
 		const element = await createComponent([
-			{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated to the kern.Library partition.', actionLabel: null}
+			{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null}
 		]);
 
 		const allPassBanner = element.shadowRoot.querySelector('[data-testid="health-check-all-pass"]');
@@ -393,10 +389,23 @@ describe('c-health-check', () =>
 		expect(passingChips).toHaveLength(4);
 	});
 
+	it('should group the passing chips into one list labelled by the Passing prefix, so a wrap cannot orphan them', async() =>
+	{
+		const element = await createComponent(MOCK_RESULTS_WITH_WARNING);
+
+		const passingList = element.shadowRoot.querySelector('[data-testid="health-check-passing-list"]');
+		expect(passingList.tagName).toBe('UL');
+		expect(passingList.getAttribute('aria-labelledby')).toBe(element.shadowRoot.querySelector('.passing-row__label').getAttribute('id'));
+
+		const chips = passingList.querySelectorAll('[data-testid="health-check-passing-chip"]');
+		expect(chips).toHaveLength(4);
+		chips.forEach((chip) => expect(chip.tagName).toBe('LI'));
+	});
+
 	it('should not render the passing row when every check is broken', async() =>
 	{
 		const element = await createComponent([
-			{name: 'Organisation Cache', status: 'Fail', detail: 'Allocate...', actionLabel: null},
+			{name: 'Org Cache', status: 'Fail', detail: 'Allocate...', actionLabel: null},
 			{name: 'Session Cache', status: 'Fail', detail: 'Allocate...', actionLabel: null},
 			{name: 'Trusted Site', status: 'Fail', detail: 'Add a Trusted URL...', actionLabel: null}
 		]);
@@ -413,7 +422,7 @@ describe('c-health-check', () =>
 		expect(items).toHaveLength(3);
 
 		const names = element.shadowRoot.querySelectorAll('[data-testid="health-check-name"]');
-		expect(names[0].textContent).toBe('Organisation Cache');
+		expect(names[0].textContent).toBe('Org Cache');
 		expect(names[1].textContent).toBe('Trusted Site');
 		expect(names[2].textContent).toBe('Class Type Resolver');
 	});
@@ -423,7 +432,7 @@ describe('c-health-check', () =>
 		const element = await createComponent(MOCK_RESULTS_WITH_FAILURE);
 
 		const details = element.shadowRoot.querySelectorAll('[data-testid="health-check-detail"]');
-		expect(details[0].textContent).toContain('Allocate Organisation Cache');
+		expect(details[0].textContent).toContain('Allocate Org Cache');
 	});
 
 	it('should render inline Setup button when an action item has actionLabel', async() =>
@@ -523,7 +532,7 @@ describe('c-health-check', () =>
 	{
 		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
 
-		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Masking Configuration"]');
 		expect(maskingButton).toBeTruthy();
 		expect(maskingButton.label).toBe('Review masking');
 	});
@@ -532,7 +541,7 @@ describe('c-health-check', () =>
 	{
 		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
 
-		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Masking Configuration"]');
 		maskingButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 
@@ -543,7 +552,7 @@ describe('c-health-check', () =>
 	{
 		const element = await createComponent(MOCK_RESULTS_WITH_MASKING_WARN);
 
-		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Data Masking"]');
+		const maskingButton = element.shadowRoot.querySelector('lightning-button[data-name="Masking Configuration"]');
 		maskingButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -555,7 +564,7 @@ describe('c-health-check', () =>
 	{
 		const element = await createComponent(MOCK_RESULTS_WITH_COVERAGE_WARN);
 
-		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Custom-Object Masking Coverage"]');
+		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Masking Coverage (Custom Objects)"]');
 		coverageButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 
@@ -566,7 +575,7 @@ describe('c-health-check', () =>
 	{
 		const element = await createComponent(MOCK_RESULTS_WITH_COVERAGE_WARN);
 
-		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Custom-Object Masking Coverage"]');
+		const coverageButton = element.shadowRoot.querySelector('lightning-button[data-name="Masking Coverage (Custom Objects)"]');
 		coverageButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -617,7 +626,7 @@ describe('c-health-check', () =>
 	it('should pluralise warnings in headline when multiple warnings exist', async() =>
 	{
 		const multipleWarnings = [
-			{name: 'Organisation Cache', status: 'Pass', detail: 'Pass', actionLabel: null},
+			{name: 'Org Cache', status: 'Pass', detail: 'Pass', actionLabel: null},
 			{name: 'Session Cache', status: 'Warn', detail: 'Warn', actionLabel: null},
 			{name: 'Trusted Site', status: 'Pass', detail: 'Pass', actionLabel: null},
 			{name: 'Class Type Resolver', status: 'Warn', detail: 'Warn', actionLabel: 'Setup'},
@@ -1202,7 +1211,7 @@ describe('c-health-check', () =>
 	it('should show only unconfigured objects when some retention jobs exist', async() =>
 	{
 		const partialRetention = [
-			{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null},
+			{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null},
 			{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null},
 			{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null},
 			{name: 'Class Type Resolver', status: 'Pass', detail: 'Resolver is configured.', actionLabel: null},
@@ -1234,7 +1243,7 @@ describe('c-health-check', () =>
 	it('should render fail items inside the Action required section', async() =>
 	{
 		const failOnly = [
-			{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+			{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null, priority: 10},
 			{name: 'Session Cache', status: 'Pass', detail: 'Session Cache is allocated.', actionLabel: null, priority: 20},
 			{name: 'Trusted Site', status: 'Pass', detail: 'Trusted URL is configured.', actionLabel: null, priority: 30},
 			{
@@ -1307,7 +1316,7 @@ describe('c-health-check', () =>
 	it('should not render Warn section when no warn items', async() =>
 	{
 		const failOnly = [
-			{name: 'Organisation Cache', status: 'Pass', detail: 'Organisation Cache is allocated.', actionLabel: null, priority: 10},
+			{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated.', actionLabel: null, priority: 10},
 			{
 				name: 'Trusted Site', status: 'Fail', detail: 'Add a Trusted URL.', actionLabel: null, priority: 30
 			},
@@ -1329,14 +1338,14 @@ describe('c-health-check', () =>
 		const context = {
 			results: [
 				{name: 'Class Type Resolver', failed: true, warned: false, actionLabel: 'Setup', priority: 40},
-				{name: 'Organisation Cache', failed: true, warned: false, actionLabel: null, priority: 10}
+				{name: 'Org Cache', failed: true, warned: false, actionLabel: null, priority: 10}
 			]
 		};
 
 		const items = Object.getOwnPropertyDescriptor(prototype, 'failItems').get.call(context);
 
 		expect(items).toHaveLength(2);
-		expect(items[0].name).toBe('Organisation Cache');
+		expect(items[0].name).toBe('Org Cache');
 		expect(items[0].priority).toBe(10);
 		expect(items[1].name).toBe('Class Type Resolver');
 		expect(items[1].priority).toBe(40);

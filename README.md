@@ -14,7 +14,7 @@
 
 Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.
 
-`105 global API classes` · `192 production classes` · `70 LWC components` · `4,082 tests` · `100% Apex / 95% LWC coverage`
+`106 global API classes` · `193 production classes` · `72 LWC components` · `4,341 tests` · `100% Apex / 95% LWC coverage`
 
 **Most Salesforce open-source ships a library and stops there. KernDX ships the library plus the onboarding, CI, and guardrails that keep it consistent.**
 
@@ -60,7 +60,7 @@ Each has a Fast Start you can finish in under 30 minutes. Jump to the one you ca
 
 KernDX is **one managed package that replaces a dozen separate libraries**: the SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
 
-This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.6.0-3` at this snapshot. Build provenance for this snapshot, including the subscriber package version id, is recorded in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json).
+This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.7.0-13` at this snapshot. Build provenance for this snapshot, including the subscriber package version id, is recorded in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json).
 
 ## Built for AI-assisted development
 
@@ -119,8 +119,8 @@ The constraints are deliberate, documented, and ship as enforceable gates, not g
 |   | **Path 1: Managed package** | **Path 2: Repackage under your namespace** | **Path 3: CI tooling only** |
 | --- | --- | --- | --- |
 | **Who it's for** | Salesforce admins / developers adding KernDX to an existing org. | Teams that want to embed KernDX inside their own managed package. | Teams that want the KernDX CI pipeline without the framework itself. |
-| **What gets installed** | The `kern` managed package at `1.6.0-3`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
-| **Install command** | `sf package install --package 04tfj000000OKK9AAO --target-org <alias>` (04t in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json)). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.6.0-3-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
+| **What gets installed** | The `kern` managed package at `1.7.0-13`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
+| **Install command** | `sf package install --package 04tfj000000ScTlAAK --target-org <alias>` (04t in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json)). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.7.0-13-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
 | **When to choose** | You want the framework as a managed dependency you can swap in days, not weeks. | You're building a managed package and want KernDX inside it as *your* code. | You don't want the framework but you want the conventions enforced in your CI. |
 | **Full guide** | [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package) | [Installation, Path 2](./docs/Installation.md#path-2-repackage-under-your-own-namespace) | [Installation, Path 3](./docs/Installation.md#path-3-ci-tooling-only) · preview [9 workflow examples](./examples/workflows/) |
 
@@ -138,8 +138,8 @@ One click deploys `force-app/` source into a scratch or sandbox org you nominate
 git clone https://github.com/JVB-Consulting/kerndx.git
 cd kerndx
 
-# Node 22 required — .nvmrc pins it.
-nvm install 22
+# .nvmrc pins the exact Node version. Both commands read it, so they cannot disagree.
+nvm install
 nvm use
 
 npm ci
@@ -174,7 +174,7 @@ npm run release:phase2
 
 ## Where to go next
 
-- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.6.0-3`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.6.0-3`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
+- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.7.0-13`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.7.0-13`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
 - [**Release Notes: Kern 1.1**](./release-notes/Release%20Notes%20-%20Kern%201.1.md): what's new since v1.0, grouped by capability, with upgrade notes. **Read this first if you are evaluating an upgrade.**
 - [**Release Notes: Kern 1.0**](./release-notes/Release%20Notes%20-%20Kern%201.0.md): the comprehensive feature reference for the framework 1.1 builds on, grouped by capability. (The top-level [CHANGELOG.md](./CHANGELOG.md) is a sequential per-build log for diagnostic use; the release notes are the subscriber-facing summary.)
 - [Documentation hub](./docs/README.md): learning paths, Fast Starts, Strategic Guides, Apex reference.

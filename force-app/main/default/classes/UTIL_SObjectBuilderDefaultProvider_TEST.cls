@@ -21,7 +21,7 @@
  *
  * @group Testing
  *
- * @date October 2025, July 2026
+ * @date October 2025, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -265,6 +265,37 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 		// And the fields marked as required ARE populated
 		assertPopulated(mapOfValues, FOOBAR_NAME_FIELD_KEY, String.class, 'Name should be populated by the custom provider\'s required fields.');
 		assertValue(mapOfValues, FOOBAR_EMAIL_FIELD_KEY, 'my_custom_email0@email.com', 'Email__c should be populated by the custom provider\'s overridden default value method.');
+	}
+
+	/**
+	 * @description Given: The base provider with no subclass overrides
+	 * When: 'defineSObjectOptionalFields' is called for the User SObjectType
+	 * Then: Every UserPermissions* field is marked optional, preventing license-based
+	 * field integrity exceptions during User test data generation
+	 */
+	@IsTest
+	private static void givenBaseProviderWhenUserOptionalFieldsRequestedThenUserPermissionFieldsReturned()
+	{
+		Set<SObjectField> optionalFields = new UTIL_SObjectBuilderDefaultProvider().defineSObjectOptionalFields(User.SObjectType);
+
+		Assert.isNotNull(optionalFields, 'The base provider should define optional fields for User.');
+		Assert.isFalse(optionalFields.isEmpty(), 'At least one UserPermissions field should be marked optional.');
+		for(SObjectField optionalField : optionalFields)
+		{
+			// Raw describe as the independent oracle for the wrapper-driven production scan
+			Assert.isTrue(optionalField.getDescribe().getName().startsWithIgnoreCase('UserPermissions'), 'Only UserPermissions fields should be marked optional, found: ' + optionalField);
+		}
+	}
+
+	/**
+	 * @description Given: The base provider with no subclass overrides
+	 * When: 'defineSObjectOptionalFields' is called for a non-User SObjectType
+	 * Then: No optional fields are defined
+	 */
+	@IsTest
+	private static void givenBaseProviderWhenNonUserOptionalFieldsRequestedThenNullReturned()
+	{
+		Assert.isNull(new UTIL_SObjectBuilderDefaultProvider().defineSObjectOptionalFields(Foobar__c.SObjectType), 'The base provider should define no optional fields for non-User types.');
 	}
 
 	/**

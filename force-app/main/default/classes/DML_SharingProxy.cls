@@ -10,7 +10,7 @@
  *
  * @group DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class DML_SharingProxy
@@ -23,6 +23,14 @@ public inherited sharing class DML_SharingProxy
 	private static final String FLAG_USER_MODE_DML = 'UserModeDml_Enabled';
 
 	/**
+	 * @description The two access-permission tokens the fallback comparison recognises. A token
+	 * outside this set — including a degenerate marker both operands could share after a platform
+	 * rendering-format change — never matches, so the comparator can only degrade toward the
+	 * flag-driven default, never elevate.
+	 */
+	private static final Set<String> KNOWN_ACCESS_PERMISSIONS = new Set<String> {'SYSTEM_MODE', 'USER_MODE'};
+
+	/**
 	 * @description Returns the flag-driven default `AccessLevel` for DML operations.
 	 *
 	 * @return `AccessLevel.USER_MODE` when `UserModeDml_Enabled` is on; `AccessLevel.SYSTEM_MODE` otherwise.
@@ -30,6 +38,58 @@ public inherited sharing class DML_SharingProxy
 	public static AccessLevel defaultAccessLevel()
 	{
 		return UTIL_FeatureFlag.isEnabled(FLAG_USER_MODE_DML) ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+	}
+
+	/**
+	 * @description Serialization-safe access-mode comparator. `System.AccessLevel` survives a
+	 * queueable or batch hand-off by value but not by identity — the deserialized instance matches
+	 * neither singleton under `==` — so every access-mode comparison on the async path must go
+	 * through this method instead of raw `==`. Identity is compared first; for deserialized
+	 * instances the comparison falls back to each operand's own rendered
+	 * `currentAccessPermissions` token, which both live and deserialized renderings place last and
+	 * which must be one of the two known mode names. When either token cannot be extracted or is
+	 * not a known mode name (a platform rendering-format change), the comparator reports no match,
+	 * degrading the caller to the flag-driven default — never a silent elevation. A
+	 * permission-set-scoped USER_MODE variant carries the same `USER_MODE` token as the plain
+	 * singleton and resolves as USER_MODE — the permission-set scoping is dropped, which is the
+	 * stricter direction.
+	 *
+	 * @param candidate The access level under test, possibly deserialized from an async payload.
+	 * @param reference The access level to compare against, normally the `AccessLevel.SYSTEM_MODE` or `AccessLevel.USER_MODE` singleton.
+	 *
+	 * @return True when both operands denote the same access mode; false when they differ, when either is null, or when the rendering cannot be parsed.
+	 *
+	 * @since 1.7
+	 */
+	public static Boolean matchesAccessLevel(AccessLevel candidate, AccessLevel reference)
+	{
+		if(candidate == reference)
+		{
+			return true;
+		}
+		if(candidate == null || reference == null)
+		{
+			return false;
+		}
+		String candidatePermission = extractCurrentAccessPermission(candidate);
+		return KNOWN_ACCESS_PERMISSIONS.contains(candidatePermission) && candidatePermission == extractCurrentAccessPermission(reference);
+	}
+
+	/**
+	 * @description Extracts an `AccessLevel` instance's own `currentAccessPermissions` token from
+	 * its undocumented `String.valueOf` rendering. The instance's own token renders LAST — the
+	 * nested renderings of the twin singletons embed both mode names earlier, so only the final
+	 * occurrence identifies the operand; a `contains` check would match both modes.
+	 *
+	 * @param accessLevel The access level whose rendered state to parse.
+	 *
+	 * @return The trailing `currentAccessPermissions` token (for example `SYSTEM_MODE`), or null when the rendering does not carry one.
+	 */
+	private static String extractCurrentAccessPermission(AccessLevel accessLevel)
+	{
+		String renderedTail = String.valueOf(accessLevel).substringAfterLast('currentAccessPermissions=');
+		String permissionToken = renderedTail.substringBefore(',').substringBefore(']').trim();
+		return String.isBlank(permissionToken) ? null : permissionToken;
 	}
 
 	/**

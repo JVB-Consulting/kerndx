@@ -6,11 +6,13 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, July 2026
+ * @date April 2026, August 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
+import {formatTemplateString} from 'c/utilityString';
 import ADMINISTRATION_TOOLS_HEADING from '@salesforce/label/c.KernHome_AdministrationToolsHeading';
 import TOOL_OPEN_BUTTON from '@salesforce/label/c.KernHome_ToolOpenButton';
+import TOOL_OPEN_BUTTON_WITH_NAME from '@salesforce/label/c.KernHome_ToolOpenButtonWithName';
 import API_TEST_HARNESS_TITLE from '@salesforce/label/c.KernHome_ApiTestHarness_Title';
 import API_TEST_HARNESS_DESCRIPTION from '@salesforce/label/c.KernHome_ApiTestHarness_Description';
 import STREAMING_MONITOR_TITLE from '@salesforce/label/c.KernHome_StreamingMonitor_Title';
@@ -64,7 +66,9 @@ export default class KernHome extends ComponentBuilder('navigation')
 		{
 			key: 'logConsole', iconName: 'custom:custom7', title: LOG_CONSOLE_TITLE, description: LOG_CONSOLE_DESCRIPTION, buttonLabel: TOOL_OPEN_BUTTON, launchTarget: 'LogConsole'
 		}
-	];
+		// Every tile's button reads "Open", so its accessible name carries the tool it opens: a screen reader
+		// or a keyboard tab-list gets "Open Log Console" rather than the fifth of five identical "Open"s.
+	].map((tool) => ({...tool, buttonAriaLabel: formatTemplateString(TOOL_OPEN_BUTTON_WITH_NAME, [tool.title])}));
 
 	handleLaunch(event)
 	{
