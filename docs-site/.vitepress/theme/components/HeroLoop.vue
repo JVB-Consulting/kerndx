@@ -79,10 +79,11 @@ onMounted(() =>
 	{
 		return;
 	}
-	// Reduced-motion: never autoplay; the poster stays as the still frame.
+	// Reduced-motion: never play; the poster stays as the still frame. Nothing has started the
+	// video — there is no autoplay in the markup, and the observer below is the only thing that
+	// calls play() — so this branch only has to decline to attach it. pause() is belt-and-braces.
 	if(prefersReducedMotion())
 	{
-		el.removeAttribute('autoplay');
 		el.pause();
 		return;
 	}
@@ -127,6 +128,11 @@ onBeforeUnmount(() =>
 <template>
 	<figure class="hero-loop">
 		<div class="hero-loop__frame">
+			<!-- NEVER add `autoplay` here. It overrides preload="none", so the browser's preload
+			     scanner starts every loop downloading during first paint — before hydration, and
+			     therefore before the IntersectionObserver below can gate it (pausing a video does
+			     not abort a fetch already in flight). Eight loops on one page cost an 8 MB first
+			     load that way. Playback starts from the observer, on intersection, and nowhere else. -->
 			<video
 				ref="videoEl"
 				class="hero-loop__video"
@@ -136,15 +142,18 @@ onBeforeUnmount(() =>
 				loop
 				playsinline
 				preload="none"
-				autoplay
 				@click="openLightbox"
 			>
 				<source v-if="src" :src="withBase(src)" type="video/webm" />
 				<source v-if="mp4" :src="withBase(mp4)" type="video/mp4" />
 			</video>
-			<button type="button" class="hero-loop__expand" aria-label="Expand to full screen" @click="openLightbox">
-				<span aria-hidden="true">⤢</span> Expand
-			</button>
+			<!-- The ⤢ glyph is drawn by CSS (::before), not written as a text node. axe's
+			     label-content-name-mismatch (WCAG 2.5.3) counts the glyph as part of the button's
+			     visible text, and "Expand to full screen" does not contain "⤢ Expand" — so an
+			     aria-hidden span around it is NOT enough to satisfy the rule. Keeping the glyph
+			     out of the text means visible text is exactly "Expand", which the fuller
+			     accessible name does contain. Do not move it back into the markup. -->
+			<button type="button" class="hero-loop__expand" aria-label="Expand to full screen" @click="openLightbox">Expand</button>
 		</div>
 		<figcaption v-if="caption || guide" class="hero-loop__meta" :class="{'has-guide': !!guide}">
 			<span v-if="caption" class="hero-loop__cap">{{ caption }}</span>
@@ -191,6 +200,7 @@ onBeforeUnmount(() =>
 	box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
 }
 /* Discoverable "expand" affordance so the full-screen view isn't hidden behind a guess. */
+.hero-loop__expand::before{ content: '⤢'; }
 .hero-loop__expand{
 	position: absolute;
 	top: 10px;

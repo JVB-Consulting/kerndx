@@ -108,11 +108,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick));
 				class="version-switcher__trigger"
 				aria-haspopup="listbox"
 				:aria-expanded="open ? 'true' : 'false'"
-				aria-label="Select documentation version"
 				@click.stop="toggle"
 				@keydown.down.prevent="openMenu"
 				@keydown.esc="close"
 			>
+				<!-- The context lives in a visually-hidden span rather than an aria-label. An
+				     aria-label REPLACES the accessible name, so the button announced "Select
+				     documentation version" while showing "1.6" — the visible text was absent from
+				     the accessible name, which fails WCAG 2.5.3 (axe label-content-name-mismatch)
+				     and leaves voice-control users unable to say what they can see. Prefixing
+				     instead keeps the visible label inside the announced name. -->
+				<span class="visually-hidden">Documentation version</span>
 				<span class="version-switcher__label">{{ current.label }}</span>
 				<span v-if="current.latest" class="version-switcher__badge">LATEST</span>
 				<span class="version-switcher__chevron" aria-hidden="true"></span>

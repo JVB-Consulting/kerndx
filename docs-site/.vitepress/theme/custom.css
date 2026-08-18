@@ -86,10 +86,25 @@
    the VitePress design tokens, so light/dark stay in sync automatically. */
 :root
 {
-	--vp-c-brand-1    : #8a623c;
+	/* Darkened from #8a623c by roughly 3%, which is imperceptible against the old value but moves
+	   brand-coloured text over the WCAG AA line. #8a623c cleared 4.5:1 on white, yet measured
+	   4.43:1 on the soft background (#e7e9ec) that tables, custom blocks and quotes use — so
+	   inline code and links inside those surfaces failed while the same colour passed in plain
+	   prose. Fixing the token once covers every brand-on-soft pairing; patching the individual
+	   selectors would have left the next one to be discovered. Now 5.84:1 on white, 4.80:1 on soft. */
+	--vp-c-brand-1    : #855d38;
 	--vp-c-brand-2    : #76512f;
 	--vp-c-brand-3    : #9c7148;
 	--vp-c-brand-soft : rgba(138, 98, 60, 0.14);
+	/* The code-block language badge. VitePress 1.6.4 defaults this to --vp-c-text-3, which is
+	   #929295 on the #f6f6f7 code background — 2.87:1 at 12px, against the 4.5:1 WCAG AA
+	   requirement. Dark fails too (#6a6a71 on #161618, 3.37:1); light is the worse of the two,
+	   which is why a single-theme audit misses it. Upstream fixed this by moving the token to
+	   --vp-c-text-2 (vuejs/vitepress#4486, shipped in 2.0), giving 5.21:1 light and 6.31:1 dark.
+	   We adopt upstream's value rather than inventing our own, so this override becomes a no-op
+	   on the 2.0 upgrade instead of a divergence someone has to re-litigate. Set the badge token
+	   directly, never --vp-c-text-3 itself, which also feeds the code line-number colour. */
+	--vp-code-lang-color : var(--vp-c-text-2);
 }
 
 .dark
@@ -98,6 +113,7 @@
 	--vp-c-brand-2    : #c6925c;
 	--vp-c-brand-3    : #b67f48;
 	--vp-c-brand-soft : rgba(214, 168, 117, 0.16);
+	--vp-code-lang-color : var(--vp-c-text-2);
 }
 
 /* ── Readable links in both schemes ───────────────────────────────────────────

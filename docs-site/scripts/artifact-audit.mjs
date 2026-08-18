@@ -5,7 +5,7 @@
 // tags (a search-engine hygiene defect at scale), and container/markup tokens leaking
 // into rendered prose. Reads the built HTML only — no browser, no network. Exits non-zero
 // on any failure so it can gate a release. Run after `npm run build`: `npm run test:artifact`.
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -91,7 +91,45 @@ for (const p of pages) {
   if (text.includes('[object Object]')) failures.push(`LEAK    /${p.slug || '(home)'}: [object Object]`)
 }
 
-console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions.`)
+// 4. Preload budget. A page may only <link rel=modulepreload> the chunks it actually needs: the
+// framework and theme chunks, plus its own .lean.js. Everything else reachable from the app's
+// dynamic-import graph would otherwise be fetched and parsed on EVERY page — the corpus has one
+// mermaid diagram in it, and was preloading two of mermaid's layout engines site-wide because the
+// old deny-list matched chunk names that had since been renamed. An allow-list cannot fail that
+// way: a chunk nobody listed is simply not preloaded, which costs a fetch, never correctness
+// (modulepreload is a hint; the module still loads through the import graph when the entry runs).
+// Aggregated by distinct href because a leak hits every page, and 326 identical lines is a wall.
+const KEEP_PRELOAD = /\/assets\/(?:chunks\/(?:framework|theme)\.[^/"]+\.js|[^/"]+\.lean\.js)$/
+const strayPreloads = new Map()
+for (const p of pages) {
+  for (const m of p.html.matchAll(/<link rel="modulepreload" href="([^"]+)"/g)) {
+    if (KEEP_PRELOAD.test(m[1])) continue
+    const key = m[1].replace(/\.[A-Za-z0-9_-]{8}\.js$/, '.<hash>.js')
+    strayPreloads.set(key, (strayPreloads.get(key) ?? 0) + 1)
+  }
+}
+for (const [href, count] of [...strayPreloads].sort((a, b) => b[1] - a[1])) {
+  failures.push(`PRELOAD ${count} page(s) preload ${href} — not framework, theme, or the page's own chunk`)
+}
+
+// 5. Entry-chunk budget. app.*.js is fetched, parsed and compiled on every page, so anything welded
+// into it is paid on all 326. It should carry the VitePress client runtime and this theme's own
+// registrations, nothing more: heavy optional machinery belongs behind a dynamic import so only the
+// pages that use it pay. The ceiling exists because a single static import in the wrong place is
+// invisible in review and enormous on the wire — mermaid reached 638 KB here that way.
+const ENTRY_CEILING_BYTES = 60 * 1024
+const assetsDir = path.join(DIST, 'assets')
+const entry = (await readdir(assetsDir)).find(f => /^app\.[A-Za-z0-9_-]+\.js$/.test(f))
+if (!entry) {
+  failures.push('ENTRY   no app.*.js found in dist/assets — has the build layout changed?')
+} else {
+  const bytes = (await stat(path.join(assetsDir, entry))).size
+  if (bytes > ENTRY_CEILING_BYTES) {
+    failures.push(`ENTRY   ${entry} is ${Math.round(bytes / 1024)} KB raw, over the ${ENTRY_CEILING_BYTES / 1024} KB budget — something heavy is statically imported into the client entry`)
+  }
+}
+
+console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions, ${strayPreloads.size} stray preload target(s), entry ${entry ? Math.round((await stat(path.join(assetsDir, entry))).size / 1024) + ' KB' : 'missing'}.`)
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failure(s):`)
   for (const f of failures) console.error('  ' + f)

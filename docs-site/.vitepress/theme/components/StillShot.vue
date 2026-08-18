@@ -88,9 +88,10 @@ onBeforeUnmount(() =>
 				loading="lazy"
 				@click="openLightbox"
 			/>
-			<button type="button" class="still-shot__expand" aria-label="Expand to full screen" @click="openLightbox">
-				<span aria-hidden="true">⤢</span> Expand
-			</button>
+			<!-- Glyph drawn by CSS, not written as a text node — see the same note in HeroLoop.vue:
+			     axe counts it as visible text, so "Expand to full screen" would not contain
+			     "⤢ Expand" and aria-hidden on a span does not exempt it. -->
+			<button type="button" class="still-shot__expand" aria-label="Expand to full screen" @click="openLightbox">Expand</button>
 		</div>
 		<figcaption v-if="caption" class="still-shot__cap">{{ caption }}</figcaption>
 
@@ -118,6 +119,7 @@ onBeforeUnmount(() =>
 	box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
 }
 /* Discoverable "expand" affordance, matching HeroLoop. */
+.still-shot__expand::before{ content: '⤢'; }
 .still-shot__expand{
 	position: absolute;
 	top: 10px;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-import {h} from 'vue';
+import {defineAsyncComponent, h} from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import './custom.css';
 import VersionSwitcher from './VersionSwitcher.vue';
@@ -67,17 +67,28 @@ export default {
 		app.component('CodeCompare', CodeCompare);
 		app.component('HeroLoop', HeroLoop);
 		app.component('StillShot', StillShot);
-		if(typeof window === 'undefined')
+		// Mermaid, registered lazily. The markdown transform in config.mjs emits <Mermaid> for a
+		// ```mermaid fence, and defineAsyncComponent means the chunk is only fetched by a page that
+		// actually contains one — exactly one page in this corpus does. Upstream's plugin instead
+		// splices a STATIC import into VitePress's client entry, which put 624 KB of diagram code
+		// on all 326 pages.
+		//
+		// Component registrations are deliberately unconditional and above the browser-only block
+		// below. They must run during SSR too, or the diagram page renders nothing server-side
+		// while the render gate still passes on the client — a failure that is invisible until
+		// someone views source. Keeping the browser-only work inside an `if` rather than behind an
+		// early `return` is what stops that from depending on statement order.
+		app.component('Mermaid', defineAsyncComponent(() => import('vitepress-plugin-mermaid/Mermaid.vue')));
+		if(typeof window !== 'undefined')
 		{
-			return;
-		}
-		const run = () => setTimeout(tagOverloadCounts, 0);
-		const orig = router.onAfterRouteChange;
-		router.onAfterRouteChange = (to) =>
-		{
-			orig?.(to);
+			const run = () => setTimeout(tagOverloadCounts, 0);
+			const orig = router.onAfterRouteChange;
+			router.onAfterRouteChange = (to) =>
+			{
+				orig?.(to);
+				run();
+			};
 			run();
-		};
-		run();
+		}
 	}
 };

@@ -3,6 +3,7 @@
 // @playwright/test's chromium (NOT the Playwright MCP). Exits non-zero on failure.
 import {chromium} from '@playwright/test';
 import {spawn} from 'node:child_process';
+import {readdir, readFile} from 'node:fs/promises';
 import {setTimeout as sleep} from 'node:timers/promises';
 
 // DOCS_BASE is e.g. '/kerndx-docs-pages-check/' for a project-page deploy,
@@ -45,12 +46,16 @@ function assert(cond, msg)
 	}
 }
 
+// `detached` so teardown can kill the process GROUP. Spawning through `npx` puts a wrapper process
+// in between, so a plain server.kill() reaps the wrapper and leaves vitepress bound to the port.
+// That orphan then serves a STALE file map (sirv indexes the directory once at startup), so the
+// next run's freshly built, content-hashed assets 404 and the page never hydrates.
 const server = spawn('npx', [
 	'vitepress',
 	'preview',
 	'--port',
 	'4173'
-], {stdio: 'inherit'});
+], {stdio: 'inherit', detached: true});
 let browser;
 try
 {
@@ -69,6 +74,16 @@ try
 	await page.goto(`${BASE}/objects-metadata-guide`, {waitUntil: 'networkidle'});
 	await page.waitForSelector('.vp-doc svg[id^="mermaid"], .mermaid svg', {timeout: 15000});
 	assert(await page.locator('.vp-doc svg').count() > 0, 'mermaid diagram renders as <svg>');
+
+	// 3b. …and the <Mermaid> component resolved during SSR, not only in the browser. The check above
+	//     cannot see the difference: it drives a real browser, so a component registered only on the
+	//     client still produces the SVG and still passes. But the server-rendered HTML would then
+	//     carry no diagram container at all — invisible to the gate, visible to anyone reading
+	//     source, and to a crawler. mermaid is registered lazily (theme/index.mjs) precisely so it
+	//     stays out of the client entry, which makes it easy to "tidy" the registration into the
+	//     browser-only block and silently lose SSR. This assertion is what makes that loud.
+	const diagramHtml = await readFile(new URL('../.vitepress/dist/objects-metadata-guide.html', import.meta.url), 'utf8');
+	assert(/class="mermaid[" ]/.test(diagramHtml), 'mermaid container is present in the SERVER-rendered HTML (component resolved during SSR, not client-only)');
 
 	// 4. Collapsible compiled to native details.custom-block with no raw ::: leak + inner content.
 	await page.goto(`${BASE}/dtos-guide`, {waitUntil: 'networkidle'});
@@ -202,6 +217,34 @@ try
 		assert(gres.status() === 200, `hero loop guide link resolves 200: ${l.guide}`);
 		console.log(`ok: hero loop ${l.poster} (webm+mp4, poster, guide ${l.guide})`);
 	}
+	// 10b. No <video> anywhere in the corpus may carry `autoplay` in its SERVER-RENDERED HTML.
+	//      `autoplay` overrides the `preload="none"` beside it, so the browser's preload scanner
+	//      starts every loop downloading during first paint — before Vue hydrates, and therefore
+	//      before the IntersectionObserver in HeroLoop can gate it (pausing a video does not abort
+	//      a fetch already in flight). Eight loops cost the tour page an 8 MB first load that way.
+	//      Two deliberate choices here. Read the built HTML rather than the hydrated DOM: the DOM
+	//      is what the page holds after JS has run, the HTML is what the scanner actually acted on.
+	//      And sweep the WHOLE corpus rather than the one page that has loops today, so a NEW page
+	//      embedding one is covered the day it is written, with nobody having to extend this test.
+	const distDir = new URL('../.vitepress/dist/', import.meta.url);
+	const htmlFiles = (await readdir(distDir, {recursive: true})).filter(f => f.endsWith('.html'));
+	let corpusVideos = 0;
+	const autoplayPages = [];
+	for(const file of htmlFiles)
+	{
+		const html = await readFile(new URL(file, distDir), 'utf8');
+		corpusVideos += (html.match(/<video\b[^>]*>/gi) ?? []).length;
+		const offenders = (html.match(/<video\b[^>]*\bautoplay\b[^>]*>/gi) ?? []).length;
+		if(offenders)
+		{
+			autoplayPages.push(`${file} (${offenders})`);
+		}
+	}
+	// The two guards below keep the assertion from passing vacuously: a build that emitted nothing,
+	// or a corpus with no <video> left in it, would otherwise read as "no autoplay anywhere".
+	assert(htmlFiles.length > 100, `corpus sweep found the built pages (${htmlFiles.length} html files)`);
+	assert(corpusVideos > 0, `corpus contains <video> elements to check (${corpusVideos})`);
+	assert(autoplayPages.length === 0, `no page ships autoplay in server-rendered HTML (offenders: ${autoplayPages.join(', ') || 'none'})`);
 
 	// 11. Admin-tools tour stills: every embedded /stills/ screenshot resolves (HTTP 200). These are
 	//     plain markdown images served from /public — nothing in the build gates a missing one, so
@@ -225,5 +268,12 @@ finally
 	{
 		await browser.close();
 	}
-	server.kill('SIGTERM')
+	try
+	{
+		process.kill(-server.pid, 'SIGTERM');
+	}
+	catch
+	{
+		server.kill('SIGTERM');
+	}
 }

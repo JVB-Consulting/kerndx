@@ -1,6 +1,39 @@
 // SPDX-License-Identifier: BUSL-1.1
+import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vitepress';
-import {withMermaid} from 'vitepress-plugin-mermaid';
+import {MermaidMarkdown} from 'vitepress-plugin-mermaid';
+
+// Supplies the `virtual:mermaid-config` module that Mermaid.vue awaits before it renders.
+//
+// Upstream ships this alongside a transform that STATICALLY imports Mermaid.vue into VitePress's
+// own client entry (it string-splices `app.component("Mermaid", Mermaid)` into
+// vitepress/dist/client/app/index.js). That transform is what welded all of mermaid — every
+// diagram type, its layout engines, dagre, katex — into app.js: 624 KB raw, fetched, parsed and
+// compiled on all 326 pages for a corpus containing exactly one diagram.
+//
+// We want the virtual module and not the transform, so only this half is reimplemented. The
+// component is registered lazily in theme/index.mjs instead, which is what moves mermaid out of
+// the entry and behind a dynamic import. Deleting this plugin does not degrade gracefully: the
+// build fails outright with "Rollup failed to resolve import virtual:mermaid-config".
+function mermaidConfigPlugin(userConfig = {})
+{
+	const virtualId = 'virtual:mermaid-config';
+	const resolvedId = '\0' + virtualId;
+	// Upstream's defaults. `startOnLoad: false` matters — the component renders on mount itself,
+	// and letting mermaid scan the document on load would race it.
+	const settings = {securityLevel: 'loose', startOnLoad: false, ...userConfig};
+	return {
+		name: 'kern-mermaid-config',
+		resolveId(source)
+		{
+			return source === virtualId ? resolvedId : undefined;
+		},
+		load(id)
+		{
+			return id === resolvedId ? `export default ${JSON.stringify(settings)};` : undefined;
+		}
+	};
+}
 import sidebar from './sidebar.generated.mjs';
 import {repoUrl} from '../scripts/repo.mjs';
 import {seoHeadEntries} from '../scripts/seo-head.mjs';
@@ -85,10 +118,52 @@ const recolorForeground = (tokenColors, swaps) => tokenColors.map((tc) =>
 const apexLightTheme = {...githubLight, name: 'kerndx-apex-light', tokenColors: [...recolorForeground(githubLight.tokenColors, {'#d73a49': '#cf222e'}), ...apexScopeRules(APEX_LIGHT), commentRule('#57606a')]};
 const apexDarkTheme = {...githubDark, name: 'kerndx-apex-dark', tokenColors: [...githubDark.tokenColors, ...apexScopeRules(APEX_DARK), commentRule('#8b949e')]};
 
-export default withMermaid(defineConfig({
+export default defineConfig({
+	// The four aliases and the dev-server prebundle list that withMermaid() used to inject. Kept
+	// verbatim: mermaid's dayjs and cytoscape imports resolve to CommonJS builds that break the
+	// ESM bundle without them.
+	vite: {
+		plugins: [mermaidConfigPlugin()],
+		// Array form, because the sidebar override below needs a regex `find`. The four mermaid
+		// entries are unchanged in meaning, only in shape.
+		resolve: {
+			alias: [
+				{find: 'dayjs/plugin/advancedFormat.js', replacement: 'dayjs/esm/plugin/advancedFormat'},
+				{find: 'dayjs/plugin/customParseFormat.js', replacement: 'dayjs/esm/plugin/customParseFormat'},
+				{find: 'dayjs/plugin/isoWeek.js', replacement: 'dayjs/esm/plugin/isoWeek'},
+				{find: 'cytoscape/dist/cytoscape.umd.js', replacement: 'cytoscape/dist/cytoscape.esm.js'},
+				// Accessibility override of a stock default-theme component. The rationale, the
+				// measurements and the upstream issue numbers are in the target file's header — read
+				// that before touching this. The pattern matches the RELATIVE specifier VitePress uses
+				// internally ('./VPSidebarItem.vue'), which is why it is anchored on the filename
+				// rather than on a package path. Our replacement lives under theme/overrides/ and
+				// self-references implicitly via <script setup>, so it does not re-enter this alias.
+				{
+					find: /^.*\/VPSidebarItem\.vue$/,
+					replacement: fileURLToPath(new URL('./theme/overrides/VPSidebarItem.vue', import.meta.url))
+				}
+			]
+		},
+		optimizeDeps: {
+			include: [
+				'@braintree/sanitize-url',
+				'dayjs',
+				'debug',
+				'cytoscape-cose-bilkent',
+				'cytoscape'
+			]
+		}
+	},
 	title: 'KernDX',
 	description: 'A complete Salesforce Apex + LWC framework and library suite.',
 	srcDir: 'src',
+	// prepare.mjs copies docs-site/assets/ wholesale into src/public/, and srcDir makes VitePress
+	// compile EVERY .md it finds underneath — so an internal maintenance note that happened to sit
+	// beside the screenshots (assets/stills/README.md) was built, published at /public/stills/README
+	// and listed in the sitemap for search engines to index. Exclude markdown under public/: those
+	// files are static assets to be served, never pages to be rendered. Declarative on purpose, so
+	// a future stray README added next to an asset cannot leak the same way.
+	srcExclude: ['public/**/*.md'],
 	lang: 'en-US',
 	// '/' under the custom domain (mirror). A GitHub project-page deploy (e.g. the
 	// ephemeral test repo) sets DOCS_BASE=/<repo>/ so assets resolve under the subpath.
@@ -149,6 +224,11 @@ export default withMermaid(defineConfig({
 		config(md)
 		{
 			md.use(responsiveTables);
+			// Rewrites ```mermaid fences to <Suspense><Mermaid graph="..."/></Suspense>. This is the
+			// half of withMermaid() we DO want: it is build-time markdown transformation and adds
+			// nothing to the client bundle. The component it emits is registered lazily in
+			// theme/index.mjs, so mermaid itself only loads on a page that has a diagram.
+			MermaidMarkdown(md);
 		}
 	}, // Canonical + Open Graph + Twitter card per page.
 	transformPageData(pageData)
@@ -229,21 +309,19 @@ export default withMermaid(defineConfig({
 		// Social-share image (absolute https), OG site metadata, and schema.org
 		// JSON-LD (Organization + WebSite sitewide, per-page TechArticle).
 		pageData.frontmatter.head.push(...seoHeadEntries({title, description: desc, url, hostname: HOSTNAME, isHome}));
-	},
-	// withMermaid registers <Mermaid> globally, so mermaid's ~25 lazy diagram chunks + dagre +
-	// katex land in the app chunk's dynamicImports and VitePress bakes a <link rel="modulepreload">
-	// for each into EVERY page head — even though a ```mermaid fence appears on exactly one page and
-	// no page on the critical path uses math. That eagerly pulls ~345 KB of unused JS on first paint
-	// (the dominant cause of slow mobile FCP/LCP). The preload is only a fetch hint: the one diagram
-	// page still renders because <Mermaid> dynamically imports its chunk at mount. Strip those hints
-	// from the built HTML (the runtime import() path is untouched, so behaviour is unchanged). After
-	// any mermaid/vitepress upgrade, rebuild and confirm only framework/theme/<page>.lean.js preloads
-	// remain — a new eco chunk whose filename lacks these tokens would slip through.
-	transformHtml(code)
-	{
-		return code.replace(
-			/\n?[ \t]*<link rel="modulepreload" href="[^"]*\/assets\/chunks\/(?:katex|dagre|cytoscape|(?:virtual_)?mermaid|[a-z0-9-]*diagram[a-z0-9-]*|mindmap-definition|kanban-definition|timeline-definition)[^"]*">/gi,
-			''
-		);
 	}
-}));
+	// There is deliberately NO transformHtml preload filter here any more.
+	//
+	// One used to strip mermaid's chunks out of every page head, because withMermaid() put all of
+	// mermaid into the client entry's import graph and VitePress dutifully emitted a
+	// <link rel="modulepreload"> for each. Registering <Mermaid> lazily (theme/index.mjs) removed
+	// that graph, and VitePress now emits exactly the three hints a page should have on its own:
+	// framework, theme, and the page's own .lean.js. Verified by disabling the filter and rebuilding
+	// — the output was byte-for-byte what the filter had been producing.
+	//
+	// Post-processing HTML with a regex was always the symptom, not the fix, and the first version
+	// of it rotted silently when mermaid renamed two chunks. Deleting it is the point: a filter that
+	// does not exist cannot go stale. The invariant it was defending is now enforced where it
+	// belongs, as check 4 in scripts/artifact-audit.mjs, which fails the build if any page ever
+	// preloads something outside that set again.
+});
