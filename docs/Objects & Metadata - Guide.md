@@ -7,6 +7,10 @@ navOrder: 70
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Understanding custom objects, metadata types, and configuration patterns for framework implementation
@@ -151,7 +155,7 @@ For deeper coverage, continue reading the sections below.
 
 These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
 
-> **Package Data Model:** 10 custom objects, 15 custom metadata types, 57 pre-built metadata records, and 1 platform event.
+> **Package Data Model:** 11 custom objects, 15 custom metadata types, 67 pre-built metadata records, and 1 platform event.
 > These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
@@ -189,6 +193,7 @@ Data Management. If you are new to the underlying Salesforce concepts, the offic
 | Custom Setting                                                    | Type      | Purpose                                                                         |
 |-------------------------------------------------------------------|-----------|---------------------------------------------------------------------------------|
 | [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) | Hierarchy | A master off-switch you can flip in an incident without a deployment (kill-switch): disable all APIs per user, profile, or org |
+| [`AsyncChainRuntimeSwitch__c`](reference/objects/AsyncChainRuntimeSwitch__c.md) | Hierarchy | The same kind of off-switch for background chains: suspend and resume chain processing per user, profile, or org |
 | [`LogSetting__c`](reference/objects/LogSetting__c.md)             | Hierarchy | Log level thresholds and performance logging toggles (per user / profile / org) |
 | [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md)   | List      | Runtime state for scheduled jobs (last run time)                                |
 
@@ -306,7 +311,7 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 | `ContextData__c`         | Long Text Area(32768) | Structured context data as JSON (key-value pairs for debugging)                           |
 | `CorrelationId__c`       | Text(36)              | Correlation ID linking related log entries across transactions                            |
 | `DurationMs__c`          | Number(18,0)          | Duration in milliseconds (for performance-timed operations)                               |
-| `ExceptionType__c`       | Text(255)             | Exception type associated with the log                                                    |
+| `ExceptionType__c`       | Text(80)              | The kind of failure recorded: an Apex exception class such as `System.DmlException`, or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call |
 | `ExecutionEvent__c`      | Picklist              | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
 | `Limits__c`              | Long Text Area(1024)  | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)           | Source code line number where the exception occurred                                      |
@@ -354,7 +359,7 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 | `ContextData__c`         | Long Text Area(5000) | Structured context data as JSON                                                           |
 | `CorrelationId__c`       | Text(36)             | Correlation ID linking related log entries                                                |
 | `DurationMs__c`          | Number(18,0)         | Duration in milliseconds for timed operations                                             |
-| `ExceptionType__c`       | Text(255)            | Exception type                                                                            |
+| `ExceptionType__c`       | Text(80)             | The kind of failure recorded: an Apex exception class, or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call |
 | `ExecutionEvent__c`      | Text(40)             | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
 | `Limits__c`              | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)          | Source code line number where the exception occurred                                      |
@@ -398,6 +403,9 @@ Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
 | `QueryPerformanceThresholdMs__c`        | Number(10,0) | Query performance threshold (ms, Default: 1000 = 1 second)         |
 | `TriggerPerformanceThresholdMs__c`      | Number(10,0) | Trigger action performance threshold (ms)                          |
 | `ValidationPerformanceThresholdMs__c`   | Number(10,0) | Validation context performance threshold (ms)                      |
+| `ProblemGroupingDisabled__c`            | Checkbox     | Tick to stop the Log Console grouping repeated errors on its own (Default: unticked, so grouping is on) |
+| `ProblemGroupingLogLevels__c`           | Text(255)    | Which log levels the console may group, separated by semicolons or commas (Default: `ERROR;WARN`) |
+| `ProblemGroupingMinimumOccurrences__c`  | Number(4,0)  | How many repeats an error needs inside the window you are viewing before it is listed as a problem (Default: 2) |
 
 **Usage**:
 
@@ -411,6 +419,14 @@ Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
 - **Query Performance**: Uses `EnableQueryPerformanceLogging__c` and `QueryPerformanceThresholdMs__c` (1s default - appropriate for database queries)
 - **Trigger Performance**: Uses `EnableTriggerPerformanceLogging__c` and `TriggerPerformanceThresholdMs__c`
 - **Validation Performance**: Uses `EnableValidationPerformanceLogging__c` and `ValidationPerformanceThresholdMs__c`
+
+**Problem grouping configuration**:
+
+Three of these settings control how the Log Console's Problem summary view behaves, not what gets
+logged. Grouping is on by default, covers `ERROR` and `WARN`, and lists an error once it has
+happened at least twice inside the window you are viewing. Changing any of the three changes what
+the console shows you and never changes what is recorded, so no entry is dropped and nothing is
+deleted. See [Logging - Guide](Logging%20-%20Guide.md) for what the view does with them.
 
 **Example Configuration**:
 
@@ -988,7 +1004,7 @@ profile calls for it.
 
 ##### [MaskingTarget__mdt](reference/metadata/MaskingTarget__mdt.md) (Custom Metadata)
 
-**Description**: Wires a `MaskingRule__mdt` to a specific SObject + field (or wildcards across every text field), optionally scoped to a caller class.
+**Description**: Wires a `MaskingRule__mdt` to a specific SObject + field (or wildcards across every text field except unique keys and external ids), optionally scoped to a caller class.
 
 **Fields**:
 
@@ -996,7 +1012,7 @@ profile calls for it.
 |------------------|---------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `Rule__c`        | MetadataRelationship(MaskingRule__mdt) (Required) | The rule to apply                                                                                                             |
 | `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | Target SObject (e.g., `ApiCall__c`, `LogEntryEvent__e`)                                                                       |
-| `Field__c`       | MetadataRelationship(FieldDefinition)             | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject |
+| `Field__c`       | MetadataRelationship(FieldDefinition)             | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject except unique keys and external ids |
 | `CallerClass__c` | Text(100)                                         | Optional scope: only fire when the caller class name matches                                                                  |
 | `IsActive__c`    | Checkbox                                          | Enable/disable this wiring without touching the rule                                                                          |
 
@@ -1018,7 +1034,7 @@ excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on 
 
 **What it does:** Lets you turn features on or off at runtime without a deployment, and target who sees them, by user, by profile, or org-wide. So you can roll a feature out gradually, or switch it off instantly if something goes wrong.
 
-**The pieces:** Each feature is a [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) record, with one or more [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) records that decide who it applies to. Your code checks a flag with [`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md). [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) is a related master off-switch for APIs.
+**The pieces:** Each feature is a [`FeatureFlag__mdt`](reference/metadata/FeatureFlag__mdt.md) record, with one or more [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) records that decide who it applies to. Your code checks a flag with [`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md). Two hierarchy custom settings work as related master off-switches: [`ApiRuntimeSwitch__c`](reference/objects/ApiRuntimeSwitch__c.md) for APIs, and [`AsyncChainRuntimeSwitch__c`](reference/objects/AsyncChainRuntimeSwitch__c.md) for background chains.
 
 See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 
@@ -1039,10 +1055,15 @@ See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
                                     | - Order             |
                                     +---------------------+
 
-+---------------------+
-| ApiRuntimeSwitch__c | (Hierarchy Custom Setting)
-| - DisableAllApis    |
-+---------------------+
++----------------------------+
+| ApiRuntimeSwitch__c        | (Hierarchy Custom Setting)
+| - DisableAllApis           |
++----------------------------+
+
++----------------------------+
+| AsyncChainRuntimeSwitch__c | (Hierarchy Custom Setting)
+| - ChainsEnabled            |
++----------------------------+
 ```
 
 #### Objects
@@ -1064,8 +1085,8 @@ See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 
 - Parent of `FeatureFlagStrategy__mdt` (1:N)
 
-**Pre-built records (10 shipped):** framework flags including `UserModeQueries_Enabled` and `UserModeDml_Enabled` (the master off-switches for the framework's safe-by-default security behaviour, both default `true`, so the safe behaviour is on automatically),
-plus `DisableAllAPIs`, `MockAllInboundAPIs`, and similar framework-scoped toggles. You add your own feature flags alongside these.
+**Pre-built records (13 shipped):** framework flags including `UserModeQueries_Enabled` and `UserModeDml_Enabled` (the master off-switches for the framework's safe-by-default security behaviour, both default `true`, so the safe behaviour is on automatically),
+plus `DisableAllAPIs`, `MockAllInboundAPIs`, the async chain kill switch, and the flags behind the Chain Monitor's operator actions. You add your own feature flags alongside these.
 
 **Usage**:
 
@@ -1099,7 +1120,7 @@ if(isEnabled)
 
 - Metadata relationship to `FeatureFlag__mdt` (parent)
 
-**Pre-built records (2 shipped):** strategies attached to framework flags. You add your own strategies, either onto framework flags or onto your own flags.
+**Pre-built records (5 shipped):** strategies attached to framework flags. Three of them decide a Chain Monitor action by custom permission, and one points the async chain kill switch at a hierarchy custom setting. You add your own strategies, either onto framework flags or onto your own flags.
 
 **Usage**:
 
@@ -1194,10 +1215,20 @@ See also: [Async Processing - Guide](Async%20Processing%20-%20Guide.md),
 | UTIL_AsyncChain     |------>| AsyncChainExecution__c |
 | .newChain().then()  |       | - Status               |
 | .execute()          |       | - CompletedSteps       |
-+---------------------+       | - TotalSteps           |
-                              | - StepLog (JSON)       |
-                              | - CorrelationId        |
-                              +------------------------+
++----------+----------+       | - TotalSteps           |
+           |                  | - StepLog (JSON)       |
+           | checks flag      | - CorrelationId        |
+           v                  +------------------------+
++----------------------------+
+| AsyncChain                 | (FeatureFlag__mdt + strategy)
++----------------------------+
+           |
+           | reads
+           v
++----------------------------+
+| AsyncChainRuntimeSwitch__c | (Hierarchy Custom Setting)
+| - ChainsEnabled            |
++----------------------------+
 ```
 
 #### Objects
@@ -1286,6 +1317,13 @@ insert job;
 | `StepLog__c`         | Long Text Area(131072)        | JSON array of step definitions enriched with runtime outcomes                 |
 | `ContextData__c`     | Long Text Area(131072)        | Serialised shared chain context (JSON)                                        |
 | `CorrelationId__c`   | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries                      |
+| `ActiveDeduplicationKey__c` | Text(255), External ID, Unique | The deduplication key while the chain is live. Cleared when the chain reaches an end state, so a finished chain frees its key for the next run |
+| `RunKey__c`          | Text(36)                      | Identifies the current run. The framework issues a new value when a chain starts or is recovered, so leftover jobs from an earlier run can no longer change the record |
+| `CurrentJobId__c`    | Text(18)                      | The background job currently working on this chain. The framework checks it before recovering a chain that looks stuck |
+| `AllowRestart__c`    | Checkbox                      | Whether the chain was built to allow a restart from its first step (Default: unticked). The Chain Monitor offers its restart action only for ticked runs |
+| `DeclaredDeduplicationKey__c` | Text(255)            | The deduplication key the chain was built with. Unlike the active key, it stays after the run ends, so a retry or restart can re-claim it |
+| `InitialContextData__c` | Long Text Area(131072)     | The chain's starting context, captured only for chains that allow a restart. A restart replays this snapshot rather than the context as it later evolved |
+| `SourceExecution__c` | Lookup to `AsyncChainExecution__c` | The earlier run this one was restarted from. Empty unless the Chain Monitor's restart action created this record |
 
 **Field history tracking** is enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and `CompletedAt__c`.
 
@@ -1303,6 +1341,34 @@ kern__AsyncChainExecution__c execution = [
 // Use the fluent API (preferred)
 Map<String, Object> status = kern.UTIL_AsyncChain.getStatus(executionId);
 ```
+
+##### [AsyncChainRuntimeSwitch__c](reference/objects/AsyncChainRuntimeSwitch__c.md) (Hierarchy Custom Setting)
+
+**Description**: Hierarchical custom setting that decides whether background chain processing runs. Set it for the whole org, or override it for a profile or a single user.
+
+**Fields**:
+
+| Field              | Type     | Description                                                                                       |
+|--------------------|----------|-----------------------------------------------------------------------------------------------------|
+| `ChainsEnabled__c` | Checkbox | Whether chains run for the applicable user, profile, or org (Default: ticked). Untick to suspend: running chains stop at their next step boundary, and new chains stop at once |
+
+Read the polarity carefully: ticked means chains run, and you untick the box to stop them. An org with no record at all keeps chains running, so you only create a record when you want to change something.
+
+The Chain Monitor's Suspend and Resume actions write the org-level record for you, and that is the usual way to reach this setting. Records at profile or user level are manual overrides that beat the org-level value for those users, so you can exempt one integration user from an org-wide stop, or stop chains for a single user.
+
+**Usage**:
+
+```apex
+// Check whether chain processing is currently on
+if(!UTIL_FeatureFlag.isEnabled('AsyncChain'))
+{
+	return; // Chain processing is suspended
+}
+```
+
+Check the feature flag rather than reading the setting record directly. The flag is what the framework itself consults, and it gives the right answer in an org that has no setting record at all.
+
+For the full resolution order and how this setting relates to the `AsyncChain` feature flag, see [Kill Switch](Async%20Processing%20-%20Guide.md#kill-switch) in the Async Processing Guide.
 
 ---
 
@@ -1692,6 +1758,9 @@ erDiagram
     %% Logging Framework
     LogEntryEvent__e }o--|| LogEntry__c : "creates"
 
+    %% Asynchronous Operations Framework
+    AsyncChainExecution__c ||--o{ AsyncChainExecution__c : "restarted as"
+
     %% Trigger Action Framework
     TriggerSetting__mdt ||--o{ TriggerAction__mdt : "has actions"
 
@@ -1916,6 +1985,13 @@ erDiagram
         longtext StepLog__c
         longtext ContextData__c
         text CorrelationId__c
+        checkbox AllowRestart__c
+        text DeclaredDeduplicationKey__c
+        text ActiveDeduplicationKey__c
+        longtext InitialContextData__c
+        lookup SourceExecution__c
+        text RunKey__c
+        text CurrentJobId__c
     }
 
     ValidationRuleGroup__mdt {
@@ -1947,6 +2023,10 @@ erDiagram
 
     ApiRuntimeSwitch__c {
         checkbox DisableAllApis__c
+    }
+
+    AsyncChainRuntimeSwitch__c {
+        checkbox ChainsEnabled__c
     }
 
     ClassTypeResolver__mdt {
@@ -1989,6 +2069,9 @@ erDiagram
         number QueryPerformanceThresholdMs__c
         number TriggerPerformanceThresholdMs__c
         number ValidationPerformanceThresholdMs__c
+        checkbox ProblemGroupingDisabled__c
+        text ProblemGroupingLogLevels__c
+        number ProblemGroupingMinimumOccurrences__c
     }
 
     ApiMock__mdt {

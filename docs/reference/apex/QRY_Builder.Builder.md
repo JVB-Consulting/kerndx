@@ -1615,14 +1615,23 @@ global QRY_Builder.QueryPage getPage(Integer requestedPageNumber, Integer reques
 
 Executes a paged query and returns results with pagination metadata.
 
+A page may hold at most 2,000 records, which is all a cursor will hand back in one fetch.
+
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `requestedPageNumber` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The page number to retrieve (1-based) |
-| `requestedPageSize` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of records per page |
+| `requestedPageSize` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Number of records per page, from 1 to 2000 |
 
 **Returns** [QRY_Builder.QueryPage](QRY_Builder.QueryPage.md) — Page containing records and pagination metadata
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When the page number is below 1, or the page size is outside 1 to 2000 |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has spent its cursor capacity — roughly fifty diverted paged reads in one transaction — and the requested page also sits past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. |
 
 **Example**
 

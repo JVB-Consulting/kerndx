@@ -7,6 +7,10 @@ navOrder: 36
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Branching code paths on runtime flags, targeting features to user segments, and testing both paths
@@ -593,13 +597,23 @@ Two terms appear in the table below. A flag that runs in **USER_MODE** enforces 
 | `UserModeQueries_Enabled`                                             | Controls the default access mode on selector queries. `true` enforces CRUD/FLS/sharing (USER_MODE); `false` runs in SYSTEM_MODE. | `true`  |
 | `UserModeDml_Enabled`                                                 | Controls the default access mode on DML operations, with the same true/false meaning.                                            | `true`  |
 | `MaskingFramework_Enabled`                                            | Kill switch for the data-masking framework. `true` applies masking rules before logs publish; `false` skips masking.             | `true`  |
-| `AsyncChain`                                                          | Kill switch for async chain orchestration. `true` runs chains; `false` short-circuits them.                                      | `true`  |
+| `AsyncChain`                                                          | Kill switch for async chain orchestration. `true` runs chains; `false` short-circuits them. Resolves through the `AsyncChainRuntimeSwitch__c` hierarchy setting (see the note below this table). | `true`  |
+| `AsyncChainAbort_Enabled`                                             | Governs the Chain Monitor's abort action, enabled per user through the Kern Async Chain Abort permission set. Deactivate the record to hide the action for everyone.  | `false` |
+| `AsyncChainRedrive_Enabled`                                           | Governs the Chain Monitor's three recovery actions (retry, restart, clear stalled), enabled per user through the Kern Async Chain Redrive permission set. Deactivate the record to hide them for everyone. | `false` |
+| `AsyncChainKillSwitch_Enabled`                                        | Governs the Chain Monitor's suspend and resume control, enabled per user through the Kern Async Chain Kill Switch permission set. Deactivate the record to hide it for everyone. | `false` |
 | `DisableAllAPIs` / `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` | Runtime kill switches for the web-services framework.                                                                            | `false` |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles for the web-services framework.                                                                                | `false` |
 
 </details>
 
-To roll one back in an emergency, edit the `FeatureFlag__mdt` record in Setup and flip `IsEnabledByDefault__c`, or uncheck `IsActive__c` to disable it entirely. The framework reads these flags itself, so your own code never references them. For how `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with the per-query `withUserMode()` and `withSystemMode()` overrides, see [Selectors - Guide → Sharing Enforcement](Selectors%20-%20Guide.md#sharing-enforcement).
+For the three Chain Monitor action flags, `false` in the Default column is the answer a user gets without the matching permission set: each flag ships active and resolves per user from that permission set, so the capability is off until you grant it. The `AsyncChain` flag works differently: it resolves through a shipped strategy record pointing at the `AsyncChainRuntimeSwitch__c` hierarchy setting, which is what the Chain Monitor's Suspend and Resume actions write. No setting record means chains run; see [Kill Switch](Async%20Processing%20-%20Guide.md#kill-switch) in the Async Processing Guide for the full resolution order and the per-user override pattern.
+
+To roll one back in an emergency, untick `IsActive__c` on the `FeatureFlag__mdt` record in Setup. Deactivating the record is the off-switch that works for every flag above, and an upgrade never overwrites the edit. Two edits to avoid on the flags that carry strategy records (`AsyncChain`, `DisableAllAPIs`, and the three Chain Monitor action flags):
+
+- `IsEnabledByDefault__c` is consulted only when a flag has no active strategies, so on these flags editing it changes nothing. If you ever switched a flag off that way, re-check it after an upgrade, because a newly shipped strategy stops consulting the field.
+- On `AsyncChain`, `ResultOnNoMatch__c = false` leaves chains off whenever no `AsyncChainRuntimeSwitch__c` record exists, and chains then look disabled for no obvious reason.
+
+The framework reads these flags itself, so your own code never references them. For how `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with the per-query `withUserMode()` and `withSystemMode()` overrides, see [Selectors - Guide → Sharing Enforcement](Selectors%20-%20Guide.md#sharing-enforcement).
 
 ---
 

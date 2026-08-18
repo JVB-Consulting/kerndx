@@ -7,6 +7,10 @@ navOrder: 10
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Implementing trigger logic with modular, metadata-driven actions
@@ -549,8 +553,8 @@ global virtual inherited sharing class TRG_Base
 	// Audit-trail helper: attach a reason to subsequent bypass events
 	global static void setBypassReason(String reason)
 
-	// Enum returned by resolveBypassAction(String) for audit-trail parsing
-	global enum BypassAction { BYPASS, CLEAR, CLEAR_ALL }
+	// Enum returned by resolveBypassType(String) for bypass-scope parsing
+	global enum BypassType { CLASS_NAME, OBJECT_NAME }
 }
 ```
 
@@ -616,13 +620,16 @@ One record per object you want the framework to manage. It is the switchboard fo
 <details>
 <summary>Every TriggerSetting__mdt field</summary>
 
-| Field                    | Type                                   | Purpose                                             |
-|--------------------------|----------------------------------------|-----------------------------------------------------|
-| `SObjectType__c`         | MetadataRelationship(EntityDefinition) | The SObject this trigger setting applies to         |
-| `BypassExecution__c`     | Checkbox                               | Bypass all actions for this object                  |
-| `BypassFeatureFlag__c`   | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses all actions when enabled |
-| `RequiredFeatureFlag__c` | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for actions to run            |
-| `ApplyMasking__c`        | Checkbox                               | Mask configured sensitive fields before actions run |
+| Field                         | Type                                   | Purpose                                                                      |
+|-------------------------------|----------------------------------------|------------------------------------------------------------------------------|
+| `SObjectType__c`              | MetadataRelationship(EntityDefinition) | The SObject this trigger setting applies to                                  |
+| `ObjectApiNameOverride__c`    | Text(255)                              | API name to dispatch on instead of the relationship, for Change Data Capture |
+| `BypassExecution__c`          | Checkbox                               | Bypass all actions for this object                                           |
+| `BypassFeatureFlag__c`        | MetadataRelationship(FeatureFlag__mdt) | Feature Flag that bypasses all actions when enabled                          |
+| `RequiredFeatureFlag__c`      | MetadataRelationship(FeatureFlag__mdt) | Feature Flag required for actions to run                                     |
+| `EnablePerformanceLogging__c` | Checkbox                               | Track execution time for every action on this object                         |
+| `PerformanceThresholdMs__c`   | Number(8,0)                            | Log actions on this object that exceed this threshold (ms)                   |
+| `ApplyMasking__c`             | Checkbox                               | Mask configured sensitive fields before actions run                          |
 
 </details>
 
@@ -795,8 +802,10 @@ fields are redacted on save.
 **Default:** `true`. Every object with a Trigger Setting is masked automatically. Uncheck it to opt one object out.
 
 **How it runs:** On every **before-insert** and **before-update**, the dispatcher masks the records *before* the first trigger action fires, so downstream
-actions, and the database, only ever see the masked values. The pass runs only when the `MaskingFramework_Enabled` feature flag is on, and only redacts fields you
-have wired up with a `MaskingTarget__mdt` record. It runs in the `before` phase and writes onto the record in memory, so it adds no extra DML.
+actions, and the database, only ever see the masked values. The pass runs only when the `MaskingFramework_Enabled` feature flag is on, and it never touches a field
+you have not wired up with a `MaskingTarget__mdt` record. That record is a precondition rather than a promise: a target naming one field redacts it, but a wildcard
+target covering a whole object deliberately steps over unique keys and external IDs, because rewriting those would break record identity. It runs in the `before`
+phase and writes onto the record in memory, so it adds no extra DML.
 
 **When to Use:**
 
@@ -2577,15 +2586,17 @@ TRG_Base.clearAllActionBypasses();
 > passing silently. When bypassing your own action classes, prefer the compiler-checked form
 > `TRG_Base.bypassAction(TRG_ValidateAccount.class.getName())` over a string literal.
 
-> **Flow actions share one bypass key.** Every flow action dispatches through the framework's built-in runner class,
-> so the action-level key is that runner's name: `kern.TRG_InvokeFlow` when you installed the managed package, or
-> `TRG_InvokeFlow` in an unmanaged deploy. Bypassing it switches off every flow action for the rest of the
-> transaction; to switch off a single flow row, set its `BypassExecution__c` or gate it with a feature flag instead.
+> **Flow actions share one bypass key.** Every flow action runs through the framework's built-in flow runner, so the
+> action-level key is that runner's class name: `'kern.TRG_InvokeFlow'` on a managed-package install, or
+> `'TRG_InvokeFlow'` in an unmanaged deploy. On a managed install the runner is internal to the framework, so you have
+> to pass the name as a plain string; the compiler-checked `.class.getName()` form above is not available for it.
+> Bypassing it switches off every flow action for the rest of the transaction. To switch off a single flow row, set its
+> `BypassExecution__c` or gate it with a feature flag instead.
 
 #### Bypass Audit Trail
 
 Every call to `TRG_Base.bypass*()` / `clearBypass*()` / `clearAll*Bypasses()` emits a WARN-level
-`LogEntryEvent__e` tagged with `category = 'BypassEvent'` via `UTIL_BypassAudit.emit`. The event captures
+`LogEntryEvent__e` tagged with `category = 'BypassEvent'`. The event captures
 the running user, the action (`BYPASS`, `CLEAR`, `CLEAR_ALL`), the surface (`trigger-object` /
 `trigger-action`), the target (SObject API name or class name), and the optional reason set via
 `TRG_Base.setBypassReason(String)`. When an action-level bypass or clear names a class that matches
@@ -2606,8 +2617,8 @@ TRG_Base.bypass(Account.SObjectType);
 TRG_Base.bypassAction('TRG_ValidateAccount');
 ```
 
-The `TRG_Base.BypassAction` enum is `global`, so you can reason about bypass events directly in your own code. To
-query the audit log:
+The `TRG_Base.BypassType` enum is available to your own code, so you can name a bypass scope without a string
+literal. To query the audit log:
 
 ```apex
 List<LogEntry__c> bypassEvents = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
@@ -3664,12 +3675,28 @@ Find your symptom below, then work through the likely causes and the fixes for e
 
 **Solutions:**
 
-1. Check metadata configuration:
+1. Check metadata configuration. The object binding lives on the parent setting rather than on the action, so look the setting up first and then read its actions:
+
+> **On a managed install**, prefix the metadata types and their fields with `kern__` (`kern__TriggerAction__mdt`, `kern__Order__c`) and Apex classes with `kern.` (`kern.LOG_Builder`). These samples use the unprefixed names, as the rest of this guide does.
 
 ```apex
-List<TriggerAction__mdt> actions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation('Account', TriggerOperation.BEFORE_INSERT);
+List<TriggerSetting__mdt> settings = [
+	SELECT Id, DeveloperName, BypassExecution__c
+	FROM TriggerSetting__mdt
+	WHERE SObjectType__r.QualifiedApiName = 'Account' OR ObjectApiNameOverride__c = 'Account'
+];
+
+List<TriggerAction__mdt> actions = [
+	SELECT DeveloperName, Order__c, Event__c, ApexClassName__c, FlowName__c, BypassExecution__c
+	FROM TriggerAction__mdt
+	WHERE TriggerSetting__c IN :settings AND Event__c = 'Before Insert'
+	ORDER BY Order__c NULLS FIRST, DeveloperName
+];
+
 LOG_Builder.build().debug(String.valueOf(actions)).emitAt('TriggerDebug.checkMetadata');
 ```
+
+> **What the query cannot show you:** feature-flag gating. `BypassFeatureFlag__c` and `RequiredFeatureFlag__c` are evaluated per user while the trigger runs, so an action can appear in these results and still be skipped. Causes 3 and 4 above have to be checked against the flag itself.
 
 2. Check bypass status:
 
@@ -3716,13 +3743,26 @@ trigger TRG_Account on Account (before insert, before update)
 1. Query and verify order:
 
 ```apex
-List<TriggerAction__mdt> actions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation('Account', TriggerOperation.BEFORE_INSERT);
+List<TriggerSetting__mdt> settings = [
+	SELECT Id FROM TriggerSetting__mdt
+	WHERE SObjectType__r.QualifiedApiName = 'Account' OR ObjectApiNameOverride__c = 'Account'
+];
+
+List<TriggerAction__mdt> actions = [
+	SELECT DeveloperName, Order__c, ApexClassName__c, FlowName__c
+	FROM TriggerAction__mdt
+	WHERE TriggerSetting__c IN :settings AND Event__c = 'Before Insert'
+	ORDER BY Order__c NULLS FIRST, DeveloperName
+];
+
 for(TriggerAction__mdt action : actions)
 {
 	String target = String.isNotBlank(action.ApexClassName__c) ? action.ApexClassName__c : 'Flow:' + action.FlowName__c;
 	LOG_Builder.build().debug(action.Order__c + ': ' + target).emitAt('Troubleshooting.verifyOrder');
 }
 ```
+
+The `ORDER BY` matches how the dispatcher itself sequences actions: lowest `Order__c` first, a blank order ahead of any number, and ties broken by developer name so the sequence never shifts between deployments.
 
 2. Update order to use increments of 10:
 
@@ -3924,7 +3964,18 @@ private static void isolatedTest()
 #### Query Metadata Configuration
 
 ```apex
-List<TriggerAction__mdt> actions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation('Account', TriggerOperation.BEFORE_INSERT);
+List<TriggerSetting__mdt> settings = [
+	SELECT Id FROM TriggerSetting__mdt
+	WHERE SObjectType__r.QualifiedApiName = 'Account' OR ObjectApiNameOverride__c = 'Account'
+];
+
+List<TriggerAction__mdt> actions = [
+	SELECT DeveloperName, Order__c, ApexClassName__c, FlowName__c,
+		BypassExecution__c, AllowRecursion__c, EntryCriteriaFormula__c
+	FROM TriggerAction__mdt
+	WHERE TriggerSetting__c IN :settings AND Event__c = 'Before Insert'
+	ORDER BY Order__c NULLS FIRST, DeveloperName
+];
 
 for(TriggerAction__mdt action : actions)
 {

@@ -351,6 +351,8 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 
 **LIKE-contains leaf** (field-only constructor + `contains()`, wildcards handled for you): `new kern.QRY_Condition.FieldCondition(Account.Name).contains('Acme')` → `Name LIKE '%Acme%'`
 
+**LIKE-contains leaf for text a person typed** (`containsLiteral()` escapes `%`, `_` and `\` so the term matches exactly as typed): `new kern.QRY_Condition.FieldCondition(Account.Name).containsLiteral(searchBoxValue)`. Use it for every search box, filter or report parameter; `contains()` keeps the wildcards and is for patterns you wrote yourself.
+
 ### Date Literals
 
 ```apex
@@ -376,9 +378,24 @@ kern.DML_Builder.TransactionResult result = kern.DML_Builder.newTransaction()
 **Operations:** `.doInsert(SObject/List)` | `.doInsert(child, relField, parent)` | `.doUpdate()` | `.doDelete()` | `.doUpsert()` | `.doUpsert(records, externalId)` |
 `.doUndelete()`
 
-**Config:** `.allowPartial()` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()` | `.async()`
+**Config:** `.allowPartial()` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()`
 
 **Result:** `isSuccess()` | `getInsertedIds()` | `getErrors()` | `getSuccessCount()` | `getFailureCount()`
+
+**Async:** `.async()` → `kern.DML_Builder.DML_AsyncBuilder` — a **type switch, not a config method**. The async builder exposes only `.withBatchSize(Integer)` and
+`.execute()`, and its `execute()` returns **`void`**, not a `TransactionResult`. Chain `.async()` last; none of the Config methods above exist on it. Three
+dials carry across the switch: `.allowPartial()`, the access mode (`.withUserMode()` / `.withSystemMode()`), and `.bypassSharing()`. `.suppressLogging()` /
+`.suppressExceptions()` do not — the async leg always logs and rethrows a `DmlException`.
+
+> **Record sharing on the async leg: enforced unless you opt out.** The async job cannot inherit your class's sharing declaration (the work runs inside the
+framework's own job processor), so the framework pins the sharing context explicitly: the write runs **with record sharing enforced** by default, and
+`.bypassSharing()` is the deliberate opt-out that carries across the switch. Under the default USER_MODE the access mode itself also enforces sharing, so the
+dial only changes system-mode writes. The one remaining sync/async difference: a synchronous chain called without a bypass inherits the sharing context of
+the class that calls `.execute()`, while the async leg always enforces unless bypassed.
+
+```apex
+kern.DML_Builder.newTransaction().doInsert(accounts).async().withBatchSize(50).execute();   // returns void
+```
 
 > **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeDml_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
 `.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects).
@@ -495,6 +512,17 @@ Two records needed per handler: a `TriggerSetting` (one per SObject) and a `Trig
 | `kern__SObjectType__c`     | Object API name (e.g., `Account`) |
 | `kern__BypassExecution__c` | `false`                           |
 
+Optional on TriggerSetting (omit unless needed):
+
+| Field                               | Default | Purpose                                                                                                                                                           |
+|-------------------------------------|:-------:|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kern__ObjectApiNameOverride__c`    | —       | Registers an entity `SObjectType__c` cannot reference — Change Data Capture events (`AccountChangeEvent`). Wins at dispatch; at least one of the two must be set. |
+| `kern__ApplyMasking__c`             | `true`  | Runs the masking pass before insert/update on this object. Uncheck to opt one object out.                                                                         |
+| `kern__BypassFeatureFlag__c`        | —       | Skip ALL actions on this object while the named `FeatureFlag__mdt` is on.                                                                                         |
+| `kern__RequiredFeatureFlag__c`      | —       | Run actions on this object ONLY while the named `FeatureFlag__mdt` is on.                                                                                         |
+| `kern__EnablePerformanceLogging__c` | `true`  | Track execution time for every action on this object.                                                                                                             |
+| `kern__PerformanceThresholdMs__c`   | —       | Log actions slower than this (ms). Overrides the global default.                                                                                                  |
+
 **TriggerAction** — one per handler + event. File: `kern__TriggerAction.{ActionName}_{Event}.md-meta.xml`
 
 | Field                     | Value                                                                                                                     |
@@ -503,9 +531,26 @@ Two records needed per handler: a `TriggerSetting` (one per SObject) and a `Trig
 | `kern__Event__c`          | `Before Insert` / `Before Update` / `After Insert` / `After Update` / `Before Delete` / `After Delete` / `After Undelete` |
 | `kern__Order__c`          | Execution sequence (lower first; use 100, 200, etc.)                                                                      |
 | `kern__TriggerSetting__c` | DeveloperName of the TriggerSetting record                                                                                |
-| `kern__Description__c`    | Human-readable description                                                                                                |
+| `kern__Description__c`    | Human-readable description (a validation rule requires it)                                                                |
 
-**Copy-paste XML reference** (TriggerAction — the most field-heavy record):
+Optional on TriggerAction (omit unless needed):
+
+| Field                                    | Default          | Purpose                                                                                                                                                                                                                                                     |
+|------------------------------------------|:----------------:|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kern__FlowName__c`                      | —                | Runs an active auto-launched flow instead of an Apex class. Set exactly one of `ApexClassName__c` / `FlowName__c` — a validation rule blocks both or neither. The flow needs an in/out `record` variable (plus input-only `recordPrior` for update events). |
+| `kern__BypassExecution__c`               | `false`          | Kill switch for this one action.                                                                                                                                                                                                                            |
+| `kern__BypassFeatureFlag__c`             | —                | Skip this action while the named `FeatureFlag__mdt` is on.                                                                                                                                                                                                  |
+| `kern__RequiredFeatureFlag__c`           | —                | Run this action ONLY while the named `FeatureFlag__mdt` is on.                                                                                                                                                                                              |
+| `kern__AllowRecursion__c`                | `true`           | Re-entrancy guard, NOT a once-per-transaction guard. Uncheck to skip the action while an earlier run of it is still in progress (its own DML re-firing the same trigger). It still runs for separate, later operations in the same transaction.             |
+| `kern__AllowNonSelfInitiated__c`         | `true`           | Uncheck to skip the action when another trigger, not the original DML, caused this execution.                                                                                                                                                               |
+| `kern__EntryCriteriaFormula__c`          | —                | Formula gate — the action runs only for records where it evaluates true.                                                                                                                                                                                    |
+| `kern__EntryCriteriaContextClassName__c` | —                | Class implementing `kern.UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext`. Required for CUSTOM objects only — Account, Campaign, Case, Contact, Event, Lead, Opportunity, Task and User resolve automatically.                                       |
+| `kern__FailureAction__c`                 | `LogAndContinue` | `LogAndContinue` or `BlockDml` when the action throws.                                                                                                                                                                                                      |
+| `kern__PerformanceThresholdMs__c`        | —                | Per-action override of the threshold (ms).                                                                                                                                                                                                                  |
+| `kern__ForcePerformanceLogging__c`       | `false`          | Log this action's timing even when the object-level switch is off.                                                                                                                                                                                          |
+| `kern__SuppressPerformanceLogging__c`    | `false`          | Never log this action's timing.                                                                                                                                                                                                                             |
+
+**Copy-paste XML reference** (TriggerAction — required fields only; add optional fields from the table above as needed):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -544,14 +589,66 @@ must match `TriggerSetting__mdt.SObjectType__c` exactly. `LogSetting__c.EnableFl
 `.fail(message).register()`, `.assertInvoked(name, count)`, `.assertNotInvoked(name)`, `.getLastInputRecord(name)`, `.getLastInputPriorRecord(name)`, `.clear()`. Mocks test
 framework orchestration, not flow logic — pair with one deployed-flow integration test per flow.
 
+### Post-Trigger Actions
+
+Runs after every `TriggerAction__mdt` on every touched object in a dispatch has completed. Transaction-scoped, not per-record — it receives no records. The class implements
+`kern.IF_Trigger.PostAction` and does **not** extend `kern.TRG_Base`; registration is metadata-only via `PostTriggerAction__mdt` (no `Event__c` field — post-actions are
+not bound to an event).
+
+| Type                                      | Member                                                                                                |
+|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `kern.IF_Trigger.PostAction`              | `void execute(kern.IF_Trigger.PostActionContext context)`                                             |
+| `kern.IF_Trigger.PostActionEntryCriteria` | `Boolean shouldRun(kern.IF_Trigger.PostActionContext context)` — optional gate; `false` skips the row |
+| `kern.IF_Trigger.PostActionContext`       | `Set<SObjectType> touchedSObjectTypes` — read-only, never null, may be empty. The entire context.     |
+
+**Synchronous DML is contractually banned.** The framework compares `Limits.getDmlStatements()` across `execute()` and throws a `PostActionDmlException`
+(framework-internal — you cannot catch it by name), always rethrown regardless of `FailureAction__c`. Compute, or enqueue async (`System.enqueueJob` /
+`@future` / `System.schedule`) instead.
+
+**It fires once per timing per DML operation, not once per transaction.** Each trigger timing is a separate top-level dispatch, so an `insert` against a
+handler registered on both before- and after-insert fires post-actions twice, and N top-level DML statements multiply that again. Write them idempotent or
+gate on `touchedSObjectTypes`. They do not fire at all when the object is bypassed or when a trigger action threw.
+
+Registration record — `kern__PostTriggerAction.{Name}.md-meta.xml`. Fields: `kern__ApexClassName__c` (the implementing class) | `kern__Order__c` (ascending) |
+`kern__TriggerSetting__c` (when set, the row runs only if that setting's object is in `touchedSObjectTypes`; omit for cross-object) | `kern__EntryCriteriaContextClassName__c` |
+`kern__BypassExecution__c` (`false`) | `kern__RequiredFeatureFlag__c` / `kern__BypassFeatureFlag__c` | `kern__FailureAction__c` (`LogAndContinue`) |
+`kern__PerformanceThresholdMs__c` | `kern__ForcePerformanceLogging__c` (`false`) | `kern__Description__c`. Gate order, cheapest first: bypass → feature flags →
+trigger-setting scope → entry criteria.
+
+```apex
+public with sharing class TRG_EnqueueAccountSync implements kern.IF_Trigger.PostAction
+{
+	/**
+	 * @description Enqueues one downstream sync job per dispatch when Account triggers participated.
+	 *
+	 * @param context The touched-type context for this dispatch.
+	 */
+	public void execute(kern.IF_Trigger.PostActionContext context)
+	{
+		if(!context.touchedSObjectTypes.contains(Account.SObjectType))
+		{
+			return;
+		}
+
+		System.enqueueJob(new AccountSyncQueueable());
+	}
+}
+```
+
 ### Bypass
 
-Object: `kern.TRG_Base.bypass(SObjectType)` / `.isBypassed()` / `.clearBypass()` / `.clearAllBypasses()`
-Action: `.bypassAction(name)` / `.isActionBypassed()` / `.clearActionBypass()` / `.clearAllActionBypasses()`
+Object: `kern.TRG_Base.bypass(SObjectType)` / `.isBypassed(SObjectType)` / `.clearBypass(SObjectType)` / `.clearAllBypasses()` — each single-argument call
+also takes a `String` object API name
+Action: `.bypassAction(String)` / `.isActionBypassed(String)` / `.clearActionBypass(String)` / `.clearAllActionBypasses()` — names match case-insensitively
+Either surface: `.bypass(String, BypassType)` / `.isBypassed(String, BypassType)` / `.clearBypass(String, BypassType)` / `.clearAllBypasses(BypassType)` —
+one call site for both sets, routed by `kern.TRG_Base.BypassType.OBJECT_NAME` or `.CLASS_NAME`. Parse a string into the enum with
+`kern.TRG_Base.resolveBypassType(String)`.
 Declarative: `TriggerSetting__mdt.BypassExecution__c`
 Audit: every `bypass*()` / `clear*Bypass()` call emits a `LogEntryEvent__e` with category `BypassEvent` — the runtime audit trail is always on. Set a free-text reason for the whole
 transaction via `kern.TRG_Base.setBypassReason(String)` and it attaches to every bypass emission that follows. (The underlying `BypassAction` enum and `resolveBypassAction(String)`
 resolver are framework-internal — `public`, not `global` — and drive the declarative `FLOW_BypassTrigger` invocable; subscribers do not call them directly.)
+
+The object and action sets are independent — `clearAllBypasses()` does not clear action bypasses, and vice versa.
 
 ### Trigger Test Pattern
 
@@ -626,9 +723,9 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 	public override List<String> getValidationErrors()
 	{
 		List<String> errors = new List<String>();
-		Foobar__c record = (Foobar__c)new SEL_Foobar().findById(queueItem.TriggeringRecordId__c);
+		Contact record = (Contact)new SEL_Contacts().findById(apiCall.kern__TriggeringRecordId__c);
 
-		if(String.isBlank(record.Email__c))
+		if(String.isBlank(record.Email))
 		{
 			errors.add(ERROR_NO_EMAIL);
 		}
@@ -645,8 +742,8 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		public override void populate(Id recordId, kern.DTO_NameValues params)
 		{
 			super.populate(recordId, params);
-			Foobar__c record = (Foobar__c)new SEL_Foobar().findById(recordId);
-			this.recipient = record.Email__c;
+			Contact record = (Contact)new SEL_Contacts().findById(recordId);
+			this.recipient = record.Email;
 		}
 	}
 
@@ -661,6 +758,12 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 
 **Rules:** `with sharing` | Default POST for outbound (override `getHttpMethod()` if different) | `super.configure()` first | `super.getRequiredInputs()` and add | `@TestVisible`
 param constants | `defaultMockBody` in configure | DTO props `private` + ApexDoc | `@JsonAccess` on all DTOs | Extend `kern.DTO_JsonBase` | `super.populate()` first
+
+**Triggering record:** the inherited `apiCall` property (`kern__ApiCall__c`, populated before `getValidationErrors()` runs) carries the triggering record id. Note the
+field is namespaced from your org: `apiCall.kern__TriggeringRecordId__c`, not `apiCall.TriggeringRecordId__c`. Other inherited members you can read: `setting` |
+`request` | `response` | `requestPayload` | `responsePayload` | `requiresTriggeringRecord` | `baseUrl` | `defaultMockBody` | `result` | `errorText` | `correlationId` |
+`inputs`. Your selector must declare every field you then read — `findById` selects only the selector's declared fields, so a `SEL_Contacts` that omits
+`Contact.Email` throws `SObjectException: SObject row was retrieved via SOQL without querying the requested field`.
 
 ### API Custom Metadata Configuration (REQUIRED for both Inbound and Outbound)
 
@@ -728,8 +831,8 @@ private class API_SendNotification_TEST
 	@IsTest
 	private static void shouldCompleteSuccessfully()
 	{
-		Foobar__c record = (Foobar__c)kern.TST_Builder.of(Foobar__c.SObjectType)
-			.withOverride(Foobar__c.Email__c, 'test@example.com').build();
+		Contact record = (Contact)kern.TST_Builder.of(Contact.SObjectType)
+			.withOverride(Contact.Email, 'test@example.com').build();
 		Map<String, String> parameters = new Map<String, String>
 		{
 			API_SendNotification.PARAM_RECIPIENT => 'recipient@example.com'
@@ -742,8 +845,8 @@ private class API_SendNotification_TEST
 	private static void shouldFailWhenApiReturnsError()
 	{
 		kern.API_MockFactory.registerErrorMock(SERVICE_NAME);
-		Foobar__c record = (Foobar__c)kern.TST_Builder.of(Foobar__c.SObjectType)
-			.withOverride(Foobar__c.Email__c, 'test@example.com').build();
+		Contact record = (Contact)kern.TST_Builder.of(Contact.SObjectType)
+			.withOverride(Contact.Email, 'test@example.com').build();
 		kern__ApiCall__c apiCall = kern.TST_Factory.newOutboundApiCall(SERVICE_NAME, record.Id);
 		kern.API_OutboundTestHelper.assertCallFailed(new List<kern__ApiCall__c>{ apiCall });
 	}
@@ -939,8 +1042,8 @@ Account parent = (Account)kern.TST_Builder.of(Account.SObjectType)
 ### TST_Mock (DML-free)
 
 ```apex
-Foobar__c mock = (Foobar__c)kern.TST_Mock.of(Foobar__c.SObjectType)
-	.withOverride(Foobar__c.Name, 'Test').build();
+Account mock = (Account)kern.TST_Mock.of(Account.SObjectType)
+	.withOverride(Account.Name, 'Test').build();
 // Selector queries now return mock data
 ```
 
@@ -984,11 +1087,6 @@ catch(Exception error)
 ```
 
 **Never use `Boolean exceptionThrown`.**
-
-### SEL_Foobar Field Constants
-
-For test overrides: `FIELD_INTEGER` | `FIELD_TEXT` | `FIELD_EMAIL` | `FIELD_PHONE` | `FIELD_PICKLIST` | `FIELD_DATE` | `FIELD_DATETIME` | `FIELD_DECIMAL` | `FIELD_CURRENCY` |
-`FIELD_PERCENT` | `FIELD_CHECKBOX` | `FIELD_URL` | `FIELD_LOOKUP`
 
 ---
 
@@ -1063,10 +1161,17 @@ Extend `kern.DTO_JsonBase` + `@JsonAccess(Serializable='always' Deserializable='
 ## Framework Utilities
 
 `kern.UTIL_Exceptions` (IllegalState/Configuration/NotFoundException) | `kern.UTIL_Cache` | `kern.UTIL_CircuitBreaker` | `kern.UTIL_Retry` |
-`kern.UTIL_FeatureFlag.isEnabled(flagName)` | `kern.UTIL_TypeResolver` | `kern.UTIL_String` / `Date` / `Number` / `Set` / `List` / `Map` / `SObject` / `Email` / `Random` /
-`Security` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sObjectType)` **or `getDescribe(String objectApiName)`** — BOTH return a `kern.UTIL_SObjectDescribe` instance (the wrapper itself, NOT a native `Schema.DescribeSObjectResult`); the String overload returns null for an unknown/blank name, resolving an object API name to the wrapper WITHOUT raw `Schema.getGlobalDescribe()`. On the returned wrapper call `.getField(name)` (namespace-aware by default), `.getFieldDescribe(name)`
+`kern.UTIL_FeatureFlag.isEnabled(flagName)` | `kern.UTIL_TypeResolver` | `kern.UTIL_String` | `kern.UTIL_Date` | `kern.UTIL_List` | `kern.UTIL_Map` |
+`kern.UTIL_SObject` | `kern.UTIL_Email` | `kern.UTIL_Random` | `kern.UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sObjectType)` **or `getDescribe(String objectApiName)`** — BOTH return a `kern.UTIL_SObjectDescribe` instance (the wrapper itself, NOT a native `Schema.DescribeSObjectResult`); the String overload returns null for an unknown/blank name, resolving an object API name to the wrapper WITHOUT raw `Schema.getGlobalDescribe()`. On the returned wrapper call `.getField(name)` (namespace-aware by default), `.getFieldDescribe(name)`
 returns cached `DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups;
 never use raw `Schema.getGlobalDescribe()` / `fields.getMap()` from package code — namespace handling is the trap that bites)
+
+**The roster above is a selection, not the whole surface** — other pillars in this document cover `kern.UTIL_AsyncChain`, `kern.UTIL_HttpClient`,
+`kern.UTIL_ValidationRule`, `kern.UTIL_System`, `kern.UTIL_Limits` and more. The reference-page rule at the top of this document is the authority.
+**Some `UTIL_*` classes read like general-purpose helpers but are framework-internal and will not compile from a subscriber org:** `UTIL_Set`,
+`UTIL_Comparators`, `UTIL_Crypto`, `UTIL_CronExpression`, `UTIL_NumberRange`, `UTIL_Boolean`, `UTIL_Character`. Check for a
+`docs/reference/apex/<ClassName>.md` page before reaching for any `UTIL_*` name you have not seen used here. There is no `UTIL_Number` or
+`UTIL_Security` in any version.
 
 ### Framework-shipped Feature Flags
 
@@ -1105,7 +1210,7 @@ object, the payment-card rule does the work.
 **Failure handling:** `MaskingRule__mdt.FailureAction__c` = `LogAndContinue` / `WriteFailureMarker` / `BlockDml`.
 **Kill switch:** `FeatureFlag.MaskingFramework_Enabled` (default `true`). Per-object opt-out: `TriggerSetting__mdt.ApplyMasking__c`.
 **Performance logging (opt-in):** `LogSetting__c.EnableMaskerPerformanceLogging__c = true` with `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100 ms) emits
-`LogEntryEvent__e` via `UTIL_MaskerPerformanceTimer` for batches exceeding the threshold.
+`LogEntryEvent__e` for batches exceeding the threshold.
 
 Subscribers extend the default ship set by deploying additional `MaskingRule__mdt` + `MaskingTarget__mdt` records; no Apex needed.
 
@@ -1125,7 +1230,10 @@ kern.UTIL_AsyncChain.newChain('DataMigration')
 ```
 
 **IF_Chain.Step interface:** Implement `kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)` or extend `kern.UTIL_AsyncChain.ChainStep` (abstract, adds
-`stepName` property).
+the `stepName` field and the `isIdempotent()` declaration). **Never declare a constructor on a step class** — the framework recreates every step by class name in
+each hop, and from inside the package only the implicit constructor of a class that declares none (or a global constructor on a global class) is reachable; a step
+with its own `public` constructor fails on its first hop. Set `stepName` on the instance before handing it to the builder (`MyStep step = new MyStep(); step.stepName =
+'Load accounts'; ...then(step)`); the builder records it at build time.
 
 ```apex
 public with sharing class LoadDataStep extends kern.UTIL_AsyncChain.ChainStep
@@ -1139,9 +1247,10 @@ public with sharing class LoadDataStep extends kern.UTIL_AsyncChain.ChainStep
 }
 ```
 
-**ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
-**ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`/`.idempotencyKey()`/`.idempotencyKey(recordId)`/`.idempotencyKey(grain)`
-**StepResult:** `kern.UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)` — properties: `success`, `message`, `data`, `error`
+**ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withMaxContextSize(n)`/`.withDelayMinutes(n)`/`.withDeduplicationKey(key)`/`.allowRestart()`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
+**Operator re-drive declarations (both default off — the Chain Monitor's retry/restart actions stay unavailable until the author declares them; neither changes how the chain runs):** `public override Boolean isIdempotent() { return true; }` on a `ChainStep` (an override, never a constructor; declares the step safe to re-run, gating retry-from-failed-step) / `.allowRestart()` on the builder (declares the whole chain safe to restart from step 1 and captures the as-built context snapshot for the restart to replay)
+**ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`/`.idempotencyKey()`/`.idempotencyKey(recordId)`/`.idempotencyKey(grain)`/`.getAttempt()`/`.isFinalAttempt()`/`.isFinalAttempt(error)`
+**StepResult:** `kern.UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)`/`.failedPermanently(msg)`/`.failedPermanently(exception)` — properties: `success`, `message`, `data`, `error`, `permanentFailure`
 **ApiStep:** Wraps `kern.API_Outbound` handler as a chain step:
 
 ```apex
@@ -1150,6 +1259,7 @@ new kern.UTIL_AsyncChain.ApiStep(API_SendEmail.class)
 	.withParameter(API_SendEmail.PARAM_RECIPIENT, 'test@example.com')
 	.withParameterFrom('subject', 'emailSubject')
 	.triggeringRecordFrom('recordId')
+	.withRetry(3, 30).retryOn(new Set<Integer>{500, 503})
 ```
 
 **Status:** `kern.UTIL_AsyncChain.getStatus(chainExecutionId)` → `Map<String, Object>`

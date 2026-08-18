@@ -7,6 +7,10 @@ navOrder: 32
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building inbound and outbound REST integrations with automatic logging and retry mechanisms
@@ -442,9 +446,6 @@ Salesforce refuses to make an HTTP callout once you have unsaved database change
 3. **Errors are handled cleanly** at each stage
 
 Because callouts always run before any record is saved, you never hit that "uncommitted work pending" error, because the framework keeps the two steps apart for you.
-> **Namespace Note:** Code examples in this guide omit the namespace prefix for readability. In subscriber orgs, prefix framework class references with your namespace (e.g.,
-`ClientNS.API_Outbound`). See the Subscriber Context section for details.
-
 ---
 
 ## How does it work?
@@ -674,7 +675,7 @@ Masking (redaction) keeps secrets and personal data out of your logs, so a card 
 |------------------|----------------------------------------------------------------------|
 | `Rule__c`        | The `MaskingRule__mdt` to apply                                      |
 | `SObjectType__c` | Target SObject (e.g., `ApiCall__c`)                                  |
-| `Field__c`       | Specific field path, or blank for a wildcard across every text field |
+| `Field__c`       | Specific field path, or blank for a wildcard across every text field (unique keys and external ids excepted) |
 | `CallerClass__c` | Optional scope: only fire when the caller class name matches         |
 | `IsActive__c`    | Enable/disable this wiring without touching the rule                 |
 
@@ -1862,7 +1863,7 @@ In your `ApiSetting__mdt` record:
 
 > **Only works from a live user session.** [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) signs each call with the current user's session ID, and that session ID exists only while a real user session is active. Asynchronous Apex has none: a scheduled job, a queueable, a batch, a future method, and therefore any step running inside an async chain all run without a user session. The call then goes out with no usable session and your org rejects it, every time, with an HTTP 401 (Unauthorised). To call back into your own org from a background job, authenticate with a stored connection instead: extend [`API_Outbound`](reference/apex/API_Outbound.md) with a Named Credential (a stored, reusable connection definition) or an `ApiCredential__mdt` record, rather than `API_CallCurrentOrg`.
 >
-> Do not reach for retry to paper over that 401 inside a chain. The 401 comes back as an ordinary HTTP response, so the step records a failed result with no thrown exception attached. `withRetry` cannot heal a session that was never going to exist: the call is deterministic, so every attempt returns the same 401, and because there is no exception object, an exception-filtered retry has nothing to match and cannot single the 401 out to skip it. Each attempt simply spends another slice of your retry budget on the same failure. See [Retrying a failed step](Async%20Processing%20-%20Guide.md#retrying-a-failed-step) and [ApiStep: Web Service Integration](Async%20Processing%20-%20Guide.md#apistep-web-service-integration) in the Async Processing Guide.
+> Do not reach for retry to paper over that 401 inside a chain. The 401 comes back as an ordinary HTTP response, so the step records a failed result with no thrown exception attached. `withRetry` cannot heal a session that was never going to exist: the call is deterministic, so every attempt returns the same 401. Keep 401 out of your `.retryOn(...)` set, or leave `withRetry` off for this step, so the deterministic failure fails permanently instead of spending your retry budget on the same answer. Check the service's own retry settings on its `ApiSetting` record too: with `withRetry` off, the service's configured retries still re-send on their own schedule, even when the chain does not. See [Retrying a failed step](Async%20Processing%20-%20Guide.md#retrying-a-failed-step) and [ApiStep: Web Service Integration](Async%20Processing%20-%20Guide.md#apistep-web-service-integration) in the Async Processing Guide; for the full background-delivery composition, see [Calling an external system only after the transaction commits](Async%20Processing%20-%20Guide.md#calling-an-external-system-only-after-the-transaction-commits).
 
 ---
 
@@ -2839,7 +2840,7 @@ Add a `MaskingTarget__mdt` wiring the shipped-but-inactive `MaskSsn` rule onto `
 |------------------|--------------------------------------------|
 | `Rule__c`        | `MaskSsn`                                  |
 | `SObjectType__c` | `ApiCall__c`                               |
-| `Field__c`       | *blank (wildcard across every text field)* |
+| `Field__c`       | *blank (wildcard across every text field, unique keys and external ids excepted)* |
 | `IsActive__c`    | `true`                                     |
 
 **Example: scope a rule to one service**
@@ -2900,16 +2901,19 @@ API_MockFactory.clearMocks();
 
 **MockBuilder methods** (all return `MockBuilder` for chaining):
 
-| Method                              | Description                                                |
-|-------------------------------------|------------------------------------------------------------|
-| `.body(String)`                     | Response body (supports `{{request.field}}` interpolation) |
-| `.statusCode(Integer)`              | HTTP status code                                           |
-| `.status(String)`                   | HTTP status text                                           |
-| `.withHeader(String, String)`       | Add a response header                                      |
-| `.withHeaders(Map<String, String>)` | Add multiple response headers                              |
-| `.fromResponse(HttpResponse)`       | Populate from an existing HttpResponse                     |
-| `.withFailureRate(Integer)`         | Percentage of requests to fail randomly (0-100)            |
-| `.register()`                       | Register the mock in the factory                           |
+| Method                              | Description                                                                             |
+|-------------------------------------|-----------------------------------------------------------------------------------------|
+| `.body(String)`                     | Response body (supports `{{request.field}}` interpolation)                              |
+| `.statusCode(Integer)`              | HTTP status code                                                                        |
+| `.status(String)`                   | HTTP status text                                                                        |
+| `.withHeader(String, String)`       | Add a response header                                                                   |
+| `.withHeaders(Map<String, String>)` | Add multiple response headers                                                           |
+| `.fromResponse(HttpResponse)`       | Populate from an existing HttpResponse                                                  |
+| `.withFailureRate(Integer)`         | Percentage of requests to fail randomly (0-100)                                         |
+| `.withTransportFailure()`           | The callout throws before any response exists, so the caller sees no status code at all |
+| `.register()`                       | Register the mock in the factory                                                        |
+
+`.withTransportFailure()` is the one that ignores the rest of the registration: a callout that never reached the other end has no body, status or headers to return. Use it to prove that your code treats a connection that failed outright differently from a request that came back with a bad status.
 
 #### Call Verification
 
@@ -3732,7 +3736,6 @@ These methods let you verify that an outbound call succeeded, failed, or was abo
 |---------------------------------------------------------------------------------------|--------------------------------|----------------------|
 | `assertCallSuccessful(serviceName, recordId)`                                         | Test successful API execution  | API handler instance |
 | `assertCallSuccessful(serviceName, recordId, parameters)`                             | Test with custom parameters    | API handler instance |
-| `assertCallSuccessfulWithTransformation(serviceName, recordId, transformerClassName)` | Test with response transformer | API handler instance |
 | `assertCallFailed(queueItems)`                                                        | Test failed API calls          | List of API handlers |
 | `assertCallAborted(serviceName, recordId)`                                            | Test aborted calls             | API handler instance |
 
@@ -3962,7 +3965,7 @@ private class API_PersonRetrieve_TEST
 		RestContext.request.requestURI = RestContext.request.requestURI + '/' + testContact.CMN_ExternalReference__c;
 
 		Test.startTest();
-		System.runAs(TST_Factory.newUser(SEL_Profile.API_ONLY_USER))
+		System.runAs(TST_Factory.newUser('Standard User'))
 		{
 			REST_Person.getPerson();
 		}
@@ -3989,7 +3992,7 @@ private class API_PersonRetrieve_TEST
 		RestContext.request.requestURI = RestContext.request.requestURI + '/invalid-guid-99999';
 
 		Test.startTest();
-		System.runAs(TST_Factory.newUser(SEL_Profile.API_ONLY_USER))
+		System.runAs(TST_Factory.newUser('Standard User'))
 		{
 			REST_Person.getPerson();
 		}
@@ -4133,12 +4136,10 @@ List<ApiCall__c> failedItems = SEL_ApiCall.assertServiceFailed(
 List<ApiCall__c> items = new SEL_ApiCall().findByServiceName(
 	'API_PersonRetrieve'
 );
-
-/**
- * @description Retrieves batched outbound queue items
- */
-List<ApiCall__c> batchedItems = new SEL_ApiCall().findByBatchedOutbound();
 ```
+
+Batched outbound calls are picked up for you by the scheduled job described under Batched Outbound
+Calls, so there is nothing you need to query by hand to make them run.
 
 ---
 

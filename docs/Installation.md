@@ -7,32 +7,33 @@
 <details>
 <summary>Expand</summary>
 
-1. [Path 1: Install the KernDX Managed Package](#path-1-install-the-kerndx-managed-package)
+1. [How to read the code samples](#how-to-read-the-code-samples)
+2. [Path 1: Install the KernDX Managed Package](#path-1-install-the-kerndx-managed-package)
     - [Installation](#installation)
     - [Post-Install Configuration](#post-install-configuration)
     - [Integration Gotchas](#integration-gotchas)
     - [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission)
     - [Upgrading](#upgrading)
     - [Release Testing](#release-testing)
-2. [Path 2: Repackage Under Your Own Namespace](#path-2-repackage-under-your-own-namespace)
+3. [Path 2: Repackage Under Your Own Namespace](#path-2-repackage-under-your-own-namespace)
     - [What You'll Do](#what-youll-do)
-3. [Prerequisites](#prerequisites)
-4. [Step 1: Enable Your Dev Hub](#step-1-enable-your-dev-hub)
-5. [Step 2: Register and Link Your Namespace](#step-2-register-and-link-your-namespace)
+4. [Prerequisites](#prerequisites)
+5. [Step 1: Enable Your Dev Hub](#step-1-enable-your-dev-hub)
+6. [Step 2: Register and Link Your Namespace](#step-2-register-and-link-your-namespace)
     - [Register Namespace in Namespace Org](#register-namespace-in-namespace-org)
     - [Link Namespace to Dev Hub (UI Only)](#link-namespace-to-dev-hub-ui-only)
-6. [Step 3: Rebrand the Project Tree](#step-3-rebrand-the-project-tree)
+7. [Step 3: Rebrand the Project Tree](#step-3-rebrand-the-project-tree)
     - [Confirm your starting tree](#confirm-your-starting-tree)
     - [Run the swap script](#run-the-swap-script)
     - [Verify the swap](#verify-the-swap)
-7. [Step 4: Configure Your Package](#step-4-configure-your-package)
-8. [Step 5: Create Your Managed Package](#step-5-create-your-managed-package)
+8. [Step 4: Configure Your Package](#step-4-configure-your-package)
+9. [Step 5: Create Your Managed Package](#step-5-create-your-managed-package)
     - [Create the Package](#create-the-package)
     - [Create Your First Package Version](#create-your-first-package-version)
     - [Test Your Beta Version](#test-your-beta-version)
     - [Promote to Released](#promote-to-released)
-9. [Complete Example: Acme Corp](#complete-example-acme-corp)
-10. [Troubleshooting](#troubleshooting)
+10. [Complete Example: Acme Corp](#complete-example-acme-corp)
+11. [Troubleshooting](#troubleshooting)
     - ["Namespace not found"](#namespace-not-found)
     - ["Package name already exists"](#package-name-already-exists)
     - ["Code coverage below 75%"](#code-coverage-below-75)
@@ -40,14 +41,28 @@
     - ["duplicate value found: CustomNotifTypeName"](#duplicate-value-found-customnotiftypename)
     - [Lightning Page Components Missing](#lightning-page-components-missing)
     - [Metadata Uniqueness Reference](#metadata-uniqueness-reference)
-11. [Next Steps](#next-steps)
-12. [Path 3: CI Tooling Only](#path-3-ci-tooling-only)
-13. [References](#references)
-14. [Project Template](#project-template)
+12. [Next Steps](#next-steps)
+13. [Path 3: CI Tooling Only](#path-3-ci-tooling-only)
+14. [References](#references)
+15. [Project Template](#project-template)
     - [Namespace Usage](#namespace-usage)
     - [Placeholders Reference](#placeholders-reference)
 
 </details>
+
+---
+
+## How to read the code samples
+
+Two things mark the managed package's namespace in a code sample: `kern.` in front of a class, and `kern__` in front of an object, field, or custom metadata type. Samples across this documentation appear in both forms. Some spell the prefixes out, others leave them off to keep the example short. A sample's form is not a statement about your org, so read it for its shape and apply the rule for the path you took.
+
+**Path 1, the managed package.** The framework lives in the `kern` namespace, so your code has to name it. Every framework class reference needs `kern.` in front of it, for example `kern.LOG_Builder`, and every framework object, field, and custom metadata type needs `kern__`, for example `kern__LogEntry__c` and `kern__TriggerSetting__mdt`. Add them wherever a sample leaves them out. Your own classes, objects, and fields keep the names you gave them, with no prefix. For custom permissions and permission sets, use the API name exactly as it appears in Setup.
+
+**Path 2, repackaged under your own namespace.** Your prefix takes kern's place, so `kern__LogEntry__c` reads `acme__LogEntry__c` in a package built under the namespace `acme`. Your own code calls the framework classes with no prefix at all, because it now lives in the same namespace as the framework.
+
+**Deployed straight from the source, with no namespace of its own (an unmanaged deploy).** Drop the prefixes where a sample shows them: `kern.LOG_Builder` is simply `LOG_Builder`, and `kern__LogEntry__c` is `LogEntry__c`.
+
+The release notes show the managed (`kern.`) form. The generated reference pages show the bare form, without the prefixes.
 
 ---
 
@@ -57,12 +72,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Installation
 
-**Current SubscriberPackageVersionId (1.6.0-3):** `04tfj000000OKK9AAO`
+**Current SubscriberPackageVersionId (1.7.0-13):** `04tfj000000ScTlAAK`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000OKK9AAO)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000OKK9AAO)
+[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK)
+[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK)
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -73,13 +88,13 @@ When the install page asks who to install for, choose **Install for Admins Only*
 **CLI install**, in production:
 
 ```bash
-sf package install --package 04tfj000000OKK9AAO --target-org YourProdOrg --no-prompt --wait 15
+sf package install --package 04tfj000000ScTlAAK --target-org YourProdOrg --no-prompt --wait 15
 ```
 
 **CLI install**, in a sandbox (point `--target-org` at your sandbox alias):
 
 ```bash
-sf package install --package 04tfj000000OKK9AAO --target-org YourSandboxOrg --no-prompt --wait 15
+sf package install --package 04tfj000000ScTlAAK --target-org YourSandboxOrg --no-prompt --wait 15
 ```
 
 **Machine-readable source.** If you are scripting installs, prefer `RELEASE-PROVENANCE.json` at the repo root over scraping this guide. The file ships with every release and
@@ -109,7 +124,9 @@ What the Health Check looks for, and how to satisfy it:
 2. **Trusted URL (only if you use the features that need it).** A few Kern features call back into your own org, for example pushing to streaming channels. If you use them, add a Trusted URL for your org's My Domain in **Setup > Trusted URLs** (find your domain under **Setup > Company Information > My Domain**). If you don't use those features, you can skip this step.
 3. **Class Type Resolver (optional).** You only need this if you keep your own trigger handlers, validation rules, scheduled jobs, or web-service classes `public` rather than `global`. In that case Kern needs a small helper class (a Type Resolver) to find your classes across its namespace; in plain terms, you tell the framework where to look for your code. Click **Setup** on this row and the Health Check generates a ready-to-deploy resolver and test class for you. See also [Integration Gotchas](#integration-gotchas) below.
 4. **Chain abort action (optional).** The Chain Monitor can abort a single runaway async chain, and it ships switched off so no one can stop a chain by accident. To switch it on, assign the **Kern Async Chain Abort** permission set to the operations users who should be allowed to abort a chain, and the action appears for them. A separate org-wide off-switch, the **Async Chain Abort Enabled** feature-flag record, ships active and lets you hide the action for everyone in one step without touching anyone's permissions. The Health Check's **Chain Abort Capability** row reports where you stand; if the package was installed for All Users, every profile already holds the abort permission, and the row warns until you remove those profile grants and rely on the permission set instead. See [Stopping a chain from the Chain Monitor](Async%20Processing%20-%20Guide.md#stopping-a-chain-from-the-chain-monitor) in the Async Processing Guide.
-5. **Stalled-chain recovery (schedule the watchdog).** A background job can die silently and leave an async chain stuck part-way. A scheduled watchdog spots these, marks them `Stalled`, and re-drives the ones it can prove are safe to resume; the rest it flags for you. A managed package cannot ship a scheduled job, so stalled-chain recovery stays dormant until you schedule it. The Health Check's **Chain Watchdog** row spots the gap and schedules the job for you in one click (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). To set it up yourself instead, create a `ScheduledJob__c` record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (cron `0 0 * * * ?`), through the framework's Scheduled Jobs UI (no code needed). Two optional attributes tune it: `StaleThresholdMinutes` (idle minutes before a chain counts as stalled, default 30) and `BatchSize` (chains inspected per sweep, default 50). To schedule it from Apex instead: `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());`. See [Declarative Scheduling with `ScheduledJob__c`](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
+5. **Chain recovery actions (optional).** The Chain Monitor can also re-drive a failed chain from its failed step, restart a declared chain from the start, and clear stalled chains on demand. These ship switched off the same way as abort: assign the **Kern Async Chain Redrive** permission set to the operations users who recover chains, and the three actions appear for them. Pair it with the **Kern Async Chain Monitor Read Only** set, which grants the chain data, tabs, and monitor access the actions work on. The org-wide off-switch is the **Async Chain Redrive Enabled** feature-flag record. The first two actions also need the chain itself to opt in (a retry needs the failed step to declare itself safe to re-run; a restart needs the chain's author to have allowed restarts), so they stay unavailable on chains that never declared them; see [Re-driving a failed chain](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) in the Async Processing Guide.
+6. **Chain kill-switch control (optional).** Operations leads can suspend and resume all chain processing org-wide from the Chain Monitor, without a deployment. This grant is deliberately separate from the recovery actions because it stops everything at once: assign the **Kern Async Chain Kill Switch** permission set only to the users trusted with an org-wide stop. Its off-switch is the **Async Chain Kill Switch Enabled** feature-flag record. If the package was installed for All Users, every profile already holds the recovery and kill-switch permissions too; remove those profile grants to bring the actions back under the permission sets' control. See [The operations control](Async%20Processing%20-%20Guide.md#the-operations-control) in the Async Processing Guide.
+7. **Stalled-chain recovery (schedule the watchdog).** A background job can die silently and leave an async chain stuck part-way. A scheduled watchdog spots these, marks them `Stalled`, and re-drives the ones it can prove are safe to resume; the rest it flags for you. A managed package cannot ship a scheduled job, so stalled-chain recovery stays dormant until you schedule it. The Health Check's **Chain Watchdog** row spots the gap and schedules the job for you in one click (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). To set it up yourself instead, create a `ScheduledJob__c` record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (cron `0 0 * * * ?`), through the framework's Scheduled Jobs UI (no code needed). Two optional attributes tune it: `StaleThresholdMinutes` (idle minutes before a chain counts as stalled, default 30) and `BatchSize` (chains inspected per sweep, default 50). To schedule it from Apex instead: `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());`. See [Declarative Scheduling with `ScheduledJob__c`](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
 
 To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission) below). For a full walkthrough of every check and what each result means,
 see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.

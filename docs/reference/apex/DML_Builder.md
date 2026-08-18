@@ -5,7 +5,7 @@ pageClass: reference
 description: "Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a t"
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, June 2026"
+date: "February 2026, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -99,6 +99,16 @@ global DML_Builder.DML_AsyncBuilder async()
 
 Switches to asynchronous execution mode. Returns a DML_AsyncBuilder that delegates to
 PROC_ExecuteDML and UTIL_AsynchronousJobLauncher for adaptive async processing.
+
+Three caller-set dials survive the hand-off: the access mode (`.withUserMode()` /
+`.withSystemMode()`), partial success (`.allowPartial()`), and the record-sharing bypass
+(`.bypassSharing()`). The async job runs in a `without sharing` processor frame, so the job
+selects record sharing explicitly — enforced by default, bypassed only when
+`.bypassSharing()` was called; a synchronous caller's own class sharing cannot carry across
+the hand-off. `.suppressExceptions()` and `.suppressLogging()` are deliberately dropped:
+they shape the synchronous return value and its error logging, and an async job has no
+caller to hand a suppressed result to — the job's failures are always logged and surfaced
+through the async framework's own error handling.
 
 **Returns** [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) — A DML_AsyncBuilder for configuring and executing async DML.
 

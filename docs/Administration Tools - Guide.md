@@ -6,6 +6,10 @@ title: "Administration Tools"
 
 # Administration Tools
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 ## What problem does this solve?
 
 Running a Salesforce integration in production comes down to three jobs you do again and again: watching what your integrations and jobs are doing, working out what went wrong when one fails, and setting up new automation as the team grows. Out of the box, each of those means assembling your own kit: Postman for callouts, throwaway anonymous Apex, a streaming client to watch events, a hand-written audit to find sensitive fields, and a scatter of list views and debug logs to reconstruct what happened. Most teams build and maintain that kit themselves.
@@ -170,6 +174,8 @@ Follow an async chain step by step: each step's status, timing, and any error on
 
 When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped. And when a run is still going but needs to be stopped, the same screen offers an abort action to the users you have granted it to: it asks for confirmation first, then marks the run Aborted.
 
+The same screen can recover as well as stop. Users you grant the re-drive permission can retry a failed chain from its failed step (when the step declared itself safe to re-run), restart a chain whose author allowed restarts from the start as a new run, and clear stalled chains on demand; a separate grant controls the kill switch (a master off-switch you can flip in an incident without a deployment), which suspends and resumes all chain processing. A live activity stream in the detail panel shows each run's log entries as they happen. Every action ships switched off until you assign its permission set; see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) for how each is enabled and why an action can be unavailable.
+
 <HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why. Then stop an in-flight run with the abort action." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#chain-monitor) · [Read the full write-up in the LWC Guide](https://docs.jvb-consulting.io/lwc-guide#chain-monitor-components) · [Async chains in the Async Processing Guide](https://docs.jvb-consulting.io/async-processing-guide#monitoring-async-chain-failures)
@@ -181,6 +187,8 @@ When a multi-step async job fails, the platform barely tells you which step brok
 Browse everything your code logged, grouped into recurring problems rather than a wall of rows, and drill from a problem to the exact run that caused it.
 
 Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you. Its **Problem summary** view folds the window down to distinct problems ("this error, N occurrences"); the **Individual entries** view shows the flat rows when you need every event. A summary ribbon across the top counts entries per level and names the top sources in the window, so you can see at a glance where the noise is coming from.
+
+The console also works the grouping out for itself, so recurring errors group into problems even where nobody tagged them in code. In Setup > Custom Settings > Log Setting you can change how many repeats it takes before something is listed as a problem, which log levels are covered, or turn the automatic grouping off altogether. None of those change what gets logged, and none of them deletes anything.
 
 From either view you can narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range), search the text, sort any column, and keep scrolling as more rows load. Selecting a row opens a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded. The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
 

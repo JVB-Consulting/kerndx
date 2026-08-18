@@ -8,7 +8,7 @@ navOrder: 34
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-07-26 (1.6.0-3 release reconciliation)
+**Last verified:** 2026-08-17 (1.7.0 release reconciliation); counts recomputed from the source tree, including 73 Jest suites and 3,275 Jest test cases
 **Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
 
 ---
@@ -40,18 +40,18 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                          |                Count | Notes                                                                                                                                              |
 |---------------------------------|---------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Apex classes (total)            |                  372 | sum of production + test                                                                                                                           |
-| Apex production classes         |                  192 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
-| Apex test classes               |                  180 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
-| Apex test methods               |                4,082 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
+| Apex classes (total)            |                  374 | sum of production + test                                                                                                                           |
+| Apex production classes         |                  193 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
+| Apex test classes               |                  181 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
+| Apex test methods               |                4,341 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
 | Apex test coverage              |        100% per-file | enforced at every release build by `scripts/evaluate-coverage.js`                                                                                  |
-| Lines of code (production Apex) |                 ~97K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
-| Lines of code (test Apex)       |                 ~97K | counted from `force-app/main/default/classes/*_TEST.cls`                                                                                           |
-| Lines of code (production LWC)  |                 ~24K | counted from `force-app/main/default/lwc/**/*.js` excluding `.test.js`                                                                             |
-| Lines of code (LWC Jest tests)  |                 ~43K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
-| Lines of code (total)           |                ~261K | sum of the rows above                                                                                                                              |
+| Lines of code (production Apex) |                ~105K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
+| Lines of code (test Apex)       |                ~114K | counted from `force-app/main/default/classes/*_TEST.cls`                                                                                           |
+| Lines of code (production LWC)  |                 ~27K | counted from `force-app/main/default/lwc/**/*.js` excluding `.test.js`                                                                             |
+| Lines of code (LWC Jest tests)  |                 ~49K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
+| Lines of code (total)           |                ~294K | the rows above are rounded; exact total 294,036                                                                                                    |
 | Source API version              |                 67.0 | visible in Setup → Installed Packages → Kern → API Version; also in `sfdx-project.json`                                                            |
-| Latest packaged version         |  1.6.0-3 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
+| Latest packaged version         | 1.7.0-8 (candidate) | `sfdx-project.json` `packageAliases`                                                                                                               |
 
 ## Org Apex Usage (Unmanaged)
 
@@ -67,7 +67,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                        | Count |
 |-------------------------------|------:|
-| Global classes (top-level)    |   105 |
+| Global classes (top-level)    |   106 |
 | Global interfaces (top-level) |     4 |
 | Global inner classes          |   ~94 |
 | Global inner interfaces       |   ~26 |
@@ -84,8 +84,8 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 |----------------------------------|--------:|--------------------------------------------------------------------------------------------------------------|
 | `TriggerSetting__mdt`            |       6 |                                                                                                              |
 | `TriggerAction__mdt`             |       6 |                                                                                                              |
-| `FeatureFlag__mdt`               |      11 |                                                                                                              |
-| `FeatureFlagStrategy__mdt`       |       2 |                                                                                                              |
+| `FeatureFlag__mdt`               |      13 | excluding the `TestFeatureFlag` fixture record                                                               |
+| `FeatureFlagStrategy__mdt`       |       5 | excluding the `TestFeatureFlagStrategy` fixture record                                                       |
 | `ApiSetting__mdt`                |       4 |                                                                                                              |
 | `ApiCredential__mdt`             |       3 |                                                                                                              |
 | `MaskingRule__mdt`               |      18 | 3 active by default (MaskSecretKeys, MaskPaymentCard, and the legacy MaskCreditCard it replaces), 15 shipped as inactive templates |
@@ -97,7 +97,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | `AsynchronousJobSetting__mdt`    |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `FieldSetGroup__mdt`             |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `PostTriggerAction__mdt`         |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
-| **Total pre-built CMDT records** |  **62** |                                                                                                              |
+| **Total pre-built CMDT records** |  **67** | excluding the two `Test*` fixture records                                                                    |
 
 ### Code-Level (extend or implement)
 
@@ -130,23 +130,23 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                 |                        Count | Notes                                                             |
 |------------------------|-----------------------------:|-------------------------------------------------------------------|
-| LWC components (total) |                           70 | `force-app/main/default/lwc/**/`                                  |
-| Jest test files        |                           71 | counted from `force-app/main/default/lwc/**/*.test.js`            |
-| Jest test cases        |                        2,963 | counted across all Jest test files                                |
+| LWC components (total) |                           72 | `force-app/main/default/lwc/**/`                                  |
+| Jest test files        |                           73 | counted from `force-app/main/default/lwc/**/*.test.js`            |
+| Jest test cases        |                        3,275 | counted across all Jest test files                                |
 | Jest test coverage     | 95%+ statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
 
 ## Salesforce Metadata
 
 | Metric                          | Count |
 |---------------------------------|------:|
-| Custom objects (`__c`)          |    10 |
+| Custom objects (`__c`)          |    11 |
 | Custom metadata types (`__mdt`) |    15 |
 | Platform events (`__e`)         |     1 |
-| Custom fields (total)           |   270 |
-| — on custom objects             |   131 |
+| Custom fields (total)           |   278 |
+| — on custom objects             |   139 |
 | — on custom metadata types      |   122 |
 | — on platform events            |    17 |
-| Pre-built CMDT records          |    62 |
+| Pre-built CMDT records          |    67 |
 
 ## Documentation
 
@@ -157,30 +157,30 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Strategic Guide documents                     |     9 | Overview + Architecture & Philosophy + Adoption + Operations + Risks + Glossary + Personas + Metrics + Choosing a Framework |
 | API reference pages (Apex)                    |   241 |                                                                                                                             |
 | API reference pages (metadata)                |    16 |                                                                                                                             |
-| API reference pages (objects)                 |    11 |                                                                                                                             |
+| API reference pages (objects)                 |    12 |                                                                                                                             |
 | API reference pages (events)                  |     2 |                                                                                                                             |
-| API reference pages (total)                   |   270 | sum of all reference categories                                                                                             |
+| API reference pages (total)                   |   271 | sum of all reference categories                                                                                             |
 | Total documentation files (developer-focused) |    46 | 21 developer guides + 16 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
 | Security Guide (lines)                        | 2,326 | bespoke threat-model guide; counted from `docs/Security - Guide.md`                                                         |
 
-> The headline figure quoted in companion docs is 37 developer documents (21 guides + 16 Fast Starts) plus 270 API reference pages, matching the per-category totals above.
+> The headline figure quoted in companion docs is 37 developer documents (21 guides + 16 Fast Starts) plus 271 API reference pages, matching the per-category totals above.
 
 ## Code Quality & Scanning
 
 | Metric                       | Count |
 |------------------------------|------:|
-| PMD rules (KernDX custom)    |    25 |
+| PMD rules (KernDX custom)    |    26 |
 | ESLint rules (KernDX custom) |     7 |
 | Node validators              |     4 |
-| Total scanner checks         |    36 |
+| Total scanner checks         |    37 |
 
 ## Release Testing
 
 | Metric                                | Count |
 |---------------------------------------|------:|
-| Subscriber Apex classes (production)  |    59 |
-| Subscriber test classes               |    41 |
-| Subscriber test methods               |   190 |
+| Subscriber Apex classes (production)  |    65 |
+| Subscriber test classes               |    46 |
+| Subscriber test methods               |   205 |
 | Anonymous Apex test sections          |    76 |
 | Anonymous Apex assertions (`PASS:`)   |   417 |
 | Anonymous Apex assertions (`Assert.`) |   561 |
@@ -189,36 +189,38 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric              | Count |
 |---------------------|------:|
-| Spec files          |    12 |
-| Test cases          |    83 |
+| Spec files          |    13 |
+| Test cases          |   103 |
 | Page objects        |    14 |
-| Helper modules      |     7 |
+| Helper modules      |     8 |
 | CMDT fixture states |    24 |
 
-> The Test cases row counts the functional release-verification specs (parts 1 to 10). Two further spec files maintain the documentation screenshots and add 14 more cases; the Spec files row counts all 12 files.
+> The Test cases row counts the functional release-verification specs (parts 1 to 10). Three further spec files sit outside that count: two capture the documentation screenshots (15 cases between them) and one checks the Log Console's shipped screens against the agreed design (2 cases). The Spec files row counts all 13 files.
 
 ## Combined Test Coverage
 
 | Layer                       |         Tests |  Assertions |
 |-----------------------------|--------------:|------------:|
-| Package Apex tests          | 4,082 methods |      ~7,729 |
-| Package Jest tests          |   2,963 cases |      ~5,054 |
-| Subscriber Apex tests       |   190 methods |        ~349 |
+| Package Apex tests          | 4,341 methods |      ~7,729 |
+| Package Jest tests          |   3,275 cases |      ~5,054 |
+| Subscriber Apex tests       |   205 methods |        ~349 |
 | Subscriber anonymous Apex   |   76 sections |         417 |
-| Subscriber E2E (Playwright) |      83 cases |        ~342 |
-| **Total**                   |     **7,394** | **~13,885** |
+| Subscriber E2E (Playwright) |     103 cases |        ~342 |
+| **Total**                   |     **8,000** | **~13,885** |
+
+> The Tests column is recounted from source every release. The Assertions column carries forward from the 1.6 reconciliation and was not recounted this release.
 
 ## Activity Snapshot
 
-These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-07-12). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
+These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-08-17). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
-| Published managed-package versions |                  128 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000OKK9AAO` |
-| Latest packaged version            |  1.6.0-3 (released) | `sfdx-project.json` `packageAliases`                                                    |
+| Published managed-package versions |                  136 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000ScTlAAK` |
+| Latest packaged version            | 1.7.0-8 (candidate) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 
-> KernDX is a single-maintainer project. Its readiness to install shows up in the 128 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
+> KernDX is a single-maintainer project. Its readiness to install shows up in the 136 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
 
 ## The Other Frameworks We Compared
 

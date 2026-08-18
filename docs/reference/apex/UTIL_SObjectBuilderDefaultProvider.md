@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS class to override default values or define custom required fields for SObjects."
 author: "Jason Van Beukering"
 group: "Testing"
-date: "November 2025, July 2026"
+date: "November 2025, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -78,6 +78,9 @@ global virtual Set<SObjectField> defineSObjectOptionalFields(SObjectType sObject
 ```
 
 Defines a set of optional fields for a given SObject. Can be overridden in a subclass.
+For the User SObjectType the base implementation marks every UserPermissions* field as optional,
+preventing license-based field integrity exceptions during User test data generation. Subclasses
+overriding this method should call 'super.defineSObjectOptionalFields' to preserve that behaviour.
 
 **Parameters**
 
@@ -90,7 +93,7 @@ Defines a set of optional fields for a given SObject. Can be overridden in a sub
 **Example**
 
 ```apex
-Set<SObjectField> result = instance.defineSObjectOptionalFields(Account.SObjectType);
+Set<SObjectField> result = instance.defineSObjectOptionalFields(User.SObjectType);
 ```
 
 </div>

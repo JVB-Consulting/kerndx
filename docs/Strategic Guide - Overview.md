@@ -69,13 +69,19 @@ by querying the audit log, instead of hunting through the codebase. More on the 
 
 Production-ready, end-to-end implementations across all of these areas:
 
-| | | |
-|---|---|---|
-| Trigger Framework | Query Builder | DML |
-| Web Services — Inbound | Web Services — Outbound | |
-| Resilience | Security | Data Masking |
-| LWC | Async Patterns | Utilities |
-| Health & Self-Diag. | CI / Tooling | |
+- Trigger Framework
+- Query Builder
+- DML
+- Web Services — Inbound
+- Web Services — Outbound
+- Resilience
+- Security
+- Data Masking
+- LWC
+- Async Patterns
+- Utilities
+- Health & Self-Diag.
+- CI / Tooling
 
 **Where to mix KernDX with other libraries**
 
@@ -175,7 +181,7 @@ either all at once or one piece at a time.
 
 **Key facts:**
 
-|                           |                                                                                                                                                                                                                                                                                                            |
+| Field                     | Value                                                                                                                                                                                                                                                                                                      |
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Package Type**          | Managed Package (2GP)                                                                                                                                                                                                                                                                                      |
 | **API Version**           | 67.0 (`sourceApiVersion` per `sfdx-project.json`)                                                                                                                                                                                                                                                          |
@@ -233,7 +239,7 @@ features* are what make the difference in the comparison:
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
 - **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a nine-dimension self-diagnostic with
   actionable results.
-- **CI / Tooling.** Decisive features: [25 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 7-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
+- **CI / Tooling.** Decisive features: [26 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 7-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
   against `force-app/**`, and a secret-scanning gate that blocks committed credentials) plus 2 branch-rule templates + 6 CI-tool adapters, all via `kerndx init`.
 - **Web Services — Outbound.** KernDX ships the broadest implementation of this area among the Apex libraries surveyed. On the mock-library piece, KernDX matches

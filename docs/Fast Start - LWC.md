@@ -13,8 +13,12 @@ navOrder: 30
 - [ ] KernDX package installed in your org
 - [ ] Org configured post-install. Verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
 - [ ] A Salesforce DX project on disk (LWC bundles cannot be authored in the Developer Console). Verify with `sf org open -o YourOrgAlias`
-- [ ] Node 22 installed for Jest unit tests (`node --version` shows `v22.x`)
+- [ ] Node 22.22.3 installed for Jest unit tests (`node --version` shows `v22.22.3`). Not 22.23.x, where Jest hangs silently
 - [ ] Working in a sandbox or scratch org (not production)
+
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A KernDX-aware Lightning Web Component that calls an Apex controller method, shows a
 toast on success or failure, and logs errors through the framework's client logger. You'll also write a Jest test that
@@ -462,10 +466,10 @@ LWC tooling, not part of the managed package:
 npm install --save-dev @salesforce/sfdx-lwc-jest
 ```
 
-Then run the test (Node 22):
+Then run the test. `nvm use` reads `.nvmrc` and switches to the pinned version (22.22.3); Jest hangs on 22.23.x.
 
 ```bash
-. /opt/homebrew/opt/nvm/nvm.sh && nvm use 22
+nvm use
 npx sfdx-lwc-jest -- --testPathPattern=accountCard
 ```
 

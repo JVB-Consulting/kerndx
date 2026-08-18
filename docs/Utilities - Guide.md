@@ -7,6 +7,10 @@ navOrder: 72
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Quick reference for common utility operations and advanced patterns including retry, circuit breaker, cache, and type resolution
@@ -2686,7 +2690,10 @@ String context = LOG_Builder.serializeContext();
 System.enqueueJob(new MyQueueable(recordId, context));
 
 // In async job - restore context
-LOG_Builder.hydrateContext(loggerContext);
+LOG_Builder.hydrateContext(context);
+
+// Give a separate run its own logging identity instead of continuing this one
+String freshContext = LOG_Builder.serializeContext(newCorrelationId);
 ```
 
 For detailed usage including LWC logging, Flow integration, and performance timers, see the [Logging - Guide](Logging%20-%20Guide.md).
@@ -2982,7 +2989,7 @@ The card header summarises the overall state. For example, *Review recommended (
 
 | Check                   | When missing       | What it verifies                                                                                                                                                                                                                                          |
 |-------------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Organisation Cache**  | Action required    | Organisation cache is allocated to KernDX's **LibraryCache** partition (the package ships the partition; you allocate the capacity). Without it, automatic integration retries, repeated-error protection, and shared configuration lookups stop working. |
+| **Org Cache**           | Action required    | Org Cache is allocated to KernDX's **LibraryCache** partition (the package ships the partition; you allocate the capacity). Without it, automatic integration retries, repeated-error protection, and shared configuration lookups stop working. |
 | **Session Cache**       | Review recommended | Session cache is allocated to the **LibraryCache** partition. Kern keeps per-user data such as encryption keys here; without it that data falls back to Org Cache.                                                                                        |
 | **Trusted Site**        | Action required    | A Trusted URL is registered for your org domain (Setup &gt; Trusted URLs). Only relevant if you use features that call back into your org, such as streaming channels.                                                                                    |
 | **Class Type Resolver** | Review recommended | A custom type resolver is registered so the framework can locate the Apex classes in your own namespace that you reference in configuration.                                                                                                              |
@@ -2999,7 +3006,8 @@ Three checks can repair the configuration for you, without leaving the page:
 - **Class Type Resolver → Setup** opens a generator that writes a ready-to-deploy resolver class and its matching test class for you to copy or download.
   See [Type Resolution](#type-resolution-util_typeresolver) for the resolver pattern and how to register it.
 - **Data Retention → Apply Recommended Retention** schedules a nightly purge job for every uncovered object using default retention windows. Choose **Customize each job →** to set
-  the retention period and schedule per object before the jobs are created.
+  the retention period and schedule per object before the jobs are created. The recommended purge job for chain records is keyed on the completion timestamp (`CompletedAt__c`),
+  not the creation date, so a purge can never remove a chain that is still running, stalled, or awaiting recovery: those records have no completion timestamp until they finish.
 - **Chain Watchdog → Schedule Chain Watchdog** creates the recurring stalled-chain recovery job for you with the recommended defaults: hourly, a 30-minute stale threshold, and up
   to 50 chains per sweep. Choose **Customize schedule →** to adjust the job before it is created.
 

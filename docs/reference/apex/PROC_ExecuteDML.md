@@ -5,7 +5,7 @@ pageClass: reference
 description: "Processor for generic DML operations using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports INSERT, UPDATE, D"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, May 2026"
+date: "February 2026, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -55,7 +55,12 @@ UTIL_AsynchronousJobLauncher.process(
 global void execute(List<Object> items)
 ```
 
-Executes the configured DML operation on the provided list of records.
+Executes the configured DML operation on the provided list of records. The
+commit pins its record-sharing context explicitly — enforced unless `requestSharingBypass()`
+was called — and re-applies the configured access mode without a separate bypass-audit
+entry; this holds for a direct synchronous invocation exactly as it does inside an async
+job, so a synchronous caller that needs its own class sharing context or an audited opt-out
+should commit through `DML_Builder` instead.
 
 **Parameters**
 

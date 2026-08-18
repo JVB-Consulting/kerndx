@@ -7,6 +7,10 @@ navOrder: 62
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Adding retry-with-backoff and circuit-breaker protection around callouts and other failure-prone operations
@@ -694,6 +698,10 @@ catch(kern.UTIL_CircuitBreaker.OpenException openError)
 ```
 
 A useful mental model: **retry is short-term patience, the circuit breaker is long-term memory.** Retry gives a single call a few more chances over a handful of seconds. The circuit breaker remembers a pattern of failure across many calls and transactions, and refuses to keep trying once a service is clearly broken.
+
+The same composition scales up from a single callout to a whole chain of background work: see
+[Protecting a struggling integration with a circuit breaker](Async%20Processing%20-%20Guide.md#protecting-a-struggling-integration-with-a-circuit-breaker)
+in the Async Processing Guide for gating chain launches on a shared circuit.
 
 ---
 

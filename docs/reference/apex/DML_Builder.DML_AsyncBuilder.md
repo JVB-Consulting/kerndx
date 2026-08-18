@@ -2,7 +2,7 @@
 title: "DML_Builder.DML_AsyncBuilder"
 type: class
 pageClass: reference
-description: "Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing."
+description: "Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing. Carries the parent builder's access "
 since: "1.0"
 category: apex
 ---
@@ -17,7 +17,7 @@ category: apex
 global class DML_Builder.DML_AsyncBuilder
 ```
 
-Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing.
+Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing. Carries the parent builder's access mode, partial-success, and sharing-bypass dials across the sync-to-async boundary; the job enforces record sharing unless the bypass dial was set, because its without sharing processor frame makes inherited sharing unavailable.
 
 </div>
 

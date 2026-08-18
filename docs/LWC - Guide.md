@@ -7,6 +7,10 @@ navOrder: 30
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building [Lightning Web Components](https://developer.salesforce.com/docs/platform/lwc/guide) using KernDX's base classes, utilities, and pre-built components
@@ -158,12 +162,12 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
         - [cronExpressionEditor](#cronexpressioneditor)
     - [Component Availability Summary](#component-availability-summary)
     - [Complete Component Inventory](#complete-component-inventory)
-        - [Utility Modules (7 components)](#utility-modules-7-components)
+        - [Utility Modules (8 components)](#utility-modules-8-components)
         - [Base Architecture (8 components)](#base-architecture-8-components)
         - [Subscriber-Usable Components (15 components)](#subscriber-usable-components-15-components)
-        - [Internal UI Components (9 components)](#internal-ui-components-9-components)
+        - [Internal UI Components (10 components)](#internal-ui-components-10-components)
         - [Streaming Monitor Internals (9 components)](#streaming-monitor-internals-9-components)
-        - [Chain Monitor (4 components)](#chain-monitor-4-components)
+        - [Chain Monitor (7 components)](#chain-monitor-7-components)
         - [Log Console (4 components)](#log-console-4-components)
         - [Data Masking Advisor (10 components)](#data-masking-advisor-10-components)
         - [Demo Components (1 component)](#demo-components-1-component)
@@ -216,8 +220,8 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 > **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
 
-> **What's in this part of KernDX:** 67 components, made up of 7 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
-> data masking advisor components, log console components, and admin components. Every one is covered by tests: 68 Jest test files holding ~2,750 test cases (~40K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
+> **What's in this part of KernDX:** 72 components, made up of 8 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
+> data masking advisor components, log console components, and admin components. Every one is covered by tests: 73 Jest test files holding ~3,000 test cases (~45K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -1124,7 +1128,7 @@ this.dispatchCustomEvent('recordselected', {recordId: '001xx'});
 
 // Logging (uses utilityLogger internally)
 this.consoleLog('Debug message');
-this.consoleError('Error occurred', error);
+this.consoleError(error, 'MyComponent.handleSave'); // the error object comes first
 ```
 
 #### Properties
@@ -1303,7 +1307,7 @@ After installing KernDX, a few things need to be set up correctly (caches, a tru
 
 **Checks:**
 
-1. **Organisation Cache**: Platform Cache partition allocated (Fail if missing)
+1. **Org Cache**: Platform Cache partition allocated (Fail if missing)
 2. **Session Cache**: Session partition allocated (Warn if missing)
 3. **Trusted Site**: CSP Trusted URL configured for the org domain (Fail if missing)
 4. **Class Type Resolver**: `ClassTypeResolver__mdt` record configured with a valid resolver class (Warn if missing, with Setup action)
@@ -1449,15 +1453,18 @@ KernDX's Streaming Monitor is adapted from Philippe Ozil's [Streaming Monitor](h
 
 ### Chain Monitor Components
 
-When you run multi-step background jobs (chains), you want to see how each step went without writing SOQL by hand. The Chain Monitor is a read-only view of `AsyncChainExecution__c` records. It appears two ways: as a full-page, split-panel monitor reached from Kern Home, and as a step-by-step timeline embedded on the record page.
+When you run multi-step background jobs (chains), you want to see how each step went without writing SOQL by hand. The Chain Monitor is a live view of `AsyncChainExecution__c` records with operator actions for the runs that need help: abort, retry, restart, clear stalled, and an org-wide suspend and resume control, each behind its own opt-in (see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain)). It appears two ways: as a full-page, split-panel monitor reached from Kern Home, and as a step-by-step timeline embedded on the record page.
 
 **Component tree:**
 
 ```text
-chainMonitor (AppPage container)
+chainMonitor (AppPage container — list, detail, and the header operations control)
 ├── chainMonitorList (left panel — datatable, filters, pagination)
-└── chainMonitorDetail (right panel — header, progress, accordion)
-    └── chainStepTimeline (SLDS timeline with hover popovers)
+├── chainMonitorDetail (right panel — header actions, progress, accordion)
+│   ├── chainStepTimeline (SLDS timeline with hover popovers)
+│   └── chainLogStream (live activity stream for the selected run)
+├── chainAbortModal (abort confirmation, opened from the detail header)
+└── chainActionConfirmModal (retry / restart / clear-stalled / suspend / resume confirmations)
 
 chainStepTimeline (standalone on AsyncChainExecution__c record page)
 ```
@@ -1468,6 +1475,12 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
   org's namespace at runtime so live refresh works in unmanaged and renamed-namespace deploys too. If the
   subscribe fails, the failure is logged and the monitor still works through imperative Apex calls on user
   interactions.
+- **Server-computed availability:** every operator action's availability is resolved in Apex and returned as a
+  code on the response object. A button whose check refuses renders disabled with the reason in its tooltip; a
+  button that does not apply to the chain's state is hidden. Button state is only a hint: Apex re-checks every
+  condition when the action is confirmed, and every refusal surfaces as a labelled error toast.
+- **Modal wording comes ready-made:** `chainAbortModal` and `chainActionConfirmModal` extend `LightningModal` and
+  take ready-made title, body, and button strings, so all wording lives in Custom Labels at the call site.
 - **Smart row selection:** `chainMonitorList` auto-selects the first row on load, keeps the selection
   after a filter or sort if the row still exists, and clears it if the row is filtered out.
 - **String parameter pattern:** the controller takes `String requestJson` and calls `JSON.deserialize()` to avoid
@@ -1478,12 +1491,15 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
 - **View logs cross-link:** `chainMonitorDetail` includes a **View logs** button that opens the Log Console
   pre-filtered to the run's correlation ID, so you jump from a failed step straight to everything that run logged.
 
-| Component            | Purpose                                                                               |
-|----------------------|---------------------------------------------------------------------------------------|
-| `chainMonitor`       | Split-panel container with empApi subscription                                        |
-| `chainMonitorList`   | Datatable with collapsible status filters, search, sorting, pagination                |
-| `chainMonitorDetail` | Status icon, progress bar, step timeline, timing grid, error section, View logs link  |
-| `chainStepTimeline`  | SLDS timeline blueprint with hover popovers; dual mode (@api steps or @api recordId) |
+| Component                | Purpose                                                                               |
+|--------------------------|---------------------------------------------------------------------------------------|
+| `chainMonitor`           | Split-panel container with empApi subscription and the header operations control (suspend/resume, clear stalled, state badge) |
+| `chainMonitorList`       | Datatable with collapsible status filters, search, sorting, pagination                |
+| `chainMonitorDetail`     | Status icon, progress bar, operator action buttons, step timeline, timing grid, error section, restart lineage, View logs link |
+| `chainStepTimeline`      | SLDS timeline blueprint with hover popovers; dual mode (@api steps or @api recordId) |
+| `chainLogStream`         | Live activity stream: shows the run's newest entries (the Apex seed arrives oldest-first and is rendered newest-first), then live over empApi, with the errors-always-stream caveat |
+| `chainAbortModal`        | Destructive confirmation dialogue for abort                                           |
+| `chainActionConfirmModal`| Shared confirmation dialogue for retry, restart, clear stalled, suspend, and resume   |
 
 ### Log Console Components
 
@@ -1540,11 +1556,11 @@ You write [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testin
 
 ### Jest Test Setup
 
-Run KernDX LWC tests on Node 22. The commands below switch Node, run the suite, target one component, and add coverage.
+Run KernDX LWC tests on Node 22.22.3. The version matters: the Jest worker pool hangs on 22.23.x, with no error and no timeout, so the suite simply never finishes. The repository pins the working version in `.nvmrc`, and the command below reads that file rather than naming a version, so it stays correct when the pin moves.
 
 ```bash
-# Switch to Node 22
-. /opt/homebrew/opt/nvm/nvm.sh && nvm use 22
+# Switch to the pinned Node version (reads .nvmrc)
+nvm use
 
 # Run all tests
 npm run test:unit
@@ -1787,7 +1803,8 @@ If something isn't working, start here. The table covers the most common symptom
 | Toast not showing         | Verify `moduleNotification` is included in ComponentBuilder                                                                                            |
 | Navigation not working    | Verify `moduleNavigation` is included; check [NavigationMixin](https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate.html)             |
 | LMS messages not received | Verify channel import; check subscription in [connectedCallback](https://developer.salesforce.com/docs/platform/lwc/guide/create-lifecycle-hooks.html) |
-| Jest tests failing        | Use Node 22; check mock setup                                                                                                                          |
+| Jest tests failing        | Run `nvm use` to pick up the pinned Node version (22.22.3); check mock setup                                                                            |
+| Jest hangs with no output | You are on Node 22.23.x, where the worker pool stalls silently. Run `nvm use` to return to the pinned version                                           |
 
 ### Debugging Tips
 
@@ -1968,7 +1985,7 @@ public with sharing class MyController implements IF_Search
 
 **Features:**
 
-- 9 checks: Organisation Cache, Session Cache, Trusted Site, Class Type Resolver, Data Retention, Data Masking, Custom Object Coverage, Chain Abort Capability, Chain Watchdog
+- 9 checks: Org Cache, Session Cache, Trusted Site, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog
 - Two-section layout: Action required (fail items) rendered above Review recommended (warn items); all-pass state collapses to a slim green banner
 - Validates resolver classes extend `BaseClassResolver`, and warns if a class exists but is incompatible
 - Setup button on resolver warnings opens a code generator modal
@@ -2175,12 +2192,12 @@ and Friday at 9:30 AM").
 
 ### Complete Component Inventory
 
-All 67 LWC components in the KernDX framework with their category, exposure status, and test coverage.
+All 72 LWC components in the KernDX framework with their category, exposure status, and test coverage.
 
 <details>
-<summary>Expand the full 63-component inventory</summary>
+<summary>Expand the full 72-component inventory</summary>
 
-#### Utility Modules (7 components)
+#### Utility Modules (8 components)
 
 | Component          | Exposed | Jest Tests | Purpose                                     |
 |--------------------|:-------:|:----------:|---------------------------------------------|
@@ -2191,6 +2208,7 @@ All 67 LWC components in the KernDX framework with their category, exposure stat
 | `utilityRandom`    |   Yes   |    Yes     | UUID and random string generation           |
 | `utilityGenerator` |    -    |    Yes     | Counter and array generators                |
 | `utilityStreaming` |    -    |    Yes     | Streaming constants and helpers             |
+| `utilityScheduledJob` |    -    |    Yes     | Shared timezone-name and parameter-parsing helpers for the ScheduledJob__c components |
 
 #### Base Architecture (8 components)
 
@@ -2225,7 +2243,7 @@ All 67 LWC components in the KernDX framework with their category, exposure stat
 | `healthCheck`          |   Yes   |    Yes     | Post-install diagnostics with resolver code generator             |
 | `featureFlag`          |   Yes   |    Yes     | Cacheable bridge to `UTIL_FeatureFlag.isEnabled()` for the UI      |
 
-#### Internal UI Components (9 components)
+#### Internal UI Components (10 components)
 
 | Component                     | Exposed | Jest Tests | Purpose                                                        |
 |-------------------------------|:-------:|:----------:|----------------------------------------------------------------|
@@ -2238,6 +2256,7 @@ All 67 LWC components in the KernDX framework with their category, exposure stat
 | `kernHome`                    |   Yes   |    Yes     | Kern Home developer control room card layout                   |
 | `scheduledJobEditor`          |    -    |    Yes     | ScheduledJob__c editor form (action override via Aura wrapper) |
 | `scheduledJobEditorModal`     |    -    |    Yes     | Modal dialog for creating/editing ScheduledJob__c records      |
+| `scheduleChainWatchdogModal`  |    -    |    Yes     | Confirmation modal for the Health Check's one-click Chain Watchdog scheduling |
 
 #### Streaming Monitor Internals (9 components)
 
@@ -2253,14 +2272,17 @@ All 67 LWC components in the KernDX framework with their category, exposure stat
 | `streamingSubscriptions` |    -    |    Yes     | Active subscription management                          |
 | `streamingSidebar`       |    -    |    Yes     | Toggleable sidebar navigation for the Streaming Monitor |
 
-#### Chain Monitor (4 components)
+#### Chain Monitor (7 components)
 
-| Component            | Exposed | Jest Tests | Purpose                                                                                       |
-|----------------------|:-------:|:----------:|-----------------------------------------------------------------------------------------------|
-| `chainMonitor`       |   Yes   |    Yes     | Full-page split-panel container with empApi subscription for live refresh                     |
-| `chainMonitorList`   |    -    |    Yes     | Paginated datatable with filters, sorting, smart row selection, URL links to records          |
-| `chainMonitorDetail` |    -    |    Yes     | Accordion layout: status icon, progress bar, step timeline, timing, error section, View logs cross-link to the Log Console |
-| `chainStepTimeline`  |   Yes   |    Yes     | SLDS timeline with hover popovers showing class, status, duration, continueOnError            |
+| Component                 | Exposed | Jest Tests | Purpose                                                                                       |
+|---------------------------|:-------:|:----------:|-----------------------------------------------------------------------------------------------|
+| `chainMonitor`            |   Yes   |    Yes     | Full-page split-panel container with empApi subscription for live refresh and the header operations control |
+| `chainMonitorList`        |    -    |    Yes     | Paginated datatable with filters, sorting, smart row selection, URL links to records          |
+| `chainMonitorDetail`      |    -    |    Yes     | Accordion layout: status icon, progress bar, operator action buttons, step timeline, timing, error section, View logs cross-link to the Log Console |
+| `chainStepTimeline`       |   Yes   |    Yes     | SLDS timeline with hover popovers showing class, status, duration, continueOnError            |
+| `chainLogStream`          |    -    |    Yes     | Live activity stream for one run: Apex-seeded newest entries, then live empApi delivery       |
+| `chainAbortModal`         |    -    |    Yes     | Destructive confirmation dialogue for the abort action                                        |
+| `chainActionConfirmModal` |    -    |    Yes     | Shared confirmation dialogue for retry, restart, clear stalled, suspend, and resume           |
 
 #### Log Console (4 components)
 
@@ -2308,16 +2330,16 @@ The console and dialogs behind the **Data Masking Advisor** (see [Security Guide
 
 | Category            | Components | With Jest Tests | Coverage |
 |---------------------|:----------:|:---------------:|:--------:|
-| Utility Modules     |     7      |        7        |   100%   |
+| Utility Modules     |     8      |        8        |   100%   |
 | Base Architecture   |     8      |        8        |   100%   |
 | Subscriber-Usable   |     15     |       15        |   100%   |
-| Internal UI         |     9      |        9        |   100%   |
+| Internal UI         |     10     |       10        |   100%   |
 | Streaming Internals |     9      |        9        |   100%   |
-| Chain Monitor       |     4      |        4        |   100%   |
+| Chain Monitor       |     7      |        7        |   100%   |
 | Log Console         |     4      |        3        |   100%   |
 | Data Masking Advisor |    10     |       10        |   100%   |
 | Demo Components     |     1      |        1        |   100%   |
-| **TOTAL**           |   **67**   |     **66**      | **100%** |
+| **TOTAL**           |   **72**   |     **71**      | **100%** |
 
 > **Note:** Every LWC component is held at 100% Jest coverage (`logConsoleContext` is covered through the other Log Console components' test suites rather than a dedicated test file). Run `npm run test:unit -- --coverage` to verify coverage.
 

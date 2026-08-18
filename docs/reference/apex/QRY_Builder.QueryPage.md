@@ -83,6 +83,13 @@ global Database.PaginationCursor cursor
 The PaginationCursor state for LWC round-trips.
 Can be passed back to the server for stable pagination across requests.
 
+Null whenever the page was served without a pagination cursor — because more records match than
+the paging allowance left in the transaction (100,000 records today, drawn on by every paged read
+in the same transaction, so a later read has only what the earlier ones left), or because the
+transaction has no pagination-cursor instances left. Those pages are served another way:
+records, totalRecords and every paging flag stay correct, and only deletedRecords is
+unavailable, so it reads 0. Check for null before passing the cursor back.
+
 **Example**
 
 ```apex

@@ -7,6 +7,10 @@ navOrder: 92
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building and running Playwright E2E tests against Salesforce orgs with KernDX
@@ -347,18 +351,16 @@ module.exports = defineConfig({
 
 ### Org Alias
 
-The Playwright suite always talks to one org, named by a fixed alias. That name is the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js:5`. The helper does not read an environment variable for it, so the constant is the single place the alias is set.
+The Playwright suite always talks to one org, and you name that org with the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. `release-testing/e2e/helpers/sf-auth.js` reads it once when it loads and holds it in `ORG_ALIAS`, so pointing the suite somewhere else is an export, never a code change.
 
-If your scratch org already uses that alias, the only setup is to make it your CLI default:
+Set the variable, then make the same alias your CLI default:
 
 ```bash
+export SF_SUBSCRIBER_ORG_ALIAS=YourExistingAlias
 sf config set target-org=$SF_SUBSCRIBER_ORG_ALIAS
 ```
 
-If your org uses a different alias, pick one of two paths:
-
-- **Rename the alias** (the simpler path for one-off testing): `export SF_SUBSCRIBER_ORG_ALIAS=YourExistingAlias`.
-- **Edit your own copy of the helper**: change the `ORG_ALIAS` constant in `release-testing/e2e/helpers/sf-auth.js` to match your alias. This change lives in your own copy and is not contributed back upstream.
+Keep the export in your shell profile, or in your pipeline's environment, and every helper in the suite follows it.
 
 ---
 
@@ -631,13 +633,13 @@ await page.locator(COMBOBOX_OPTION).filter({hasText: 'Technology'}).click();
 
 Authentication and session management.
 
-| Export                      | Type             | Description                                                                                                       |
-|-----------------------------|------------------|-------------------------------------------------------------------------------------------------------------------|
-| `ORG_ALIAS`                 | `string`         | Hardcoded constant in `sf-auth.js:5`; rename your local alias with `sf alias set` or fork the helper to change it |
-| `getFrontdoorUrl()`         | `function`       | Returns one-time frontdoor URL from `sf org open`                                                                 |
-| `getInstanceUrl()`          | `function`       | Returns org instance URL (e.g., `https://example.my.salesforce.com`)                                              |
-| `reauthenticate(page)`      | `async function` | Re-authenticates via frontdoor URL in the current page                                                            |
-| `ensureAuthenticated(page)` | `async function` | Checks if page is on Salesforce; re-authenticates if not                                                          |
+| Export                      | Type             | Description                                                                                                             |
+|-----------------------------|------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `ORG_ALIAS`                 | `string`         | Resolved at load time from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable; export it to point the suite at your org |
+| `getFrontdoorUrl()`         | `function`       | Returns one-time frontdoor URL from `sf org open`                                                                       |
+| `getInstanceUrl()`          | `function`       | Returns org instance URL (e.g., `https://example.my.salesforce.com`)                                                    |
+| `reauthenticate(page)`      | `async function` | Re-authenticates via frontdoor URL in the current page                                                                  |
+| `ensureAuthenticated(page)` | `async function` | Checks if page is on Salesforce; re-authenticates if not                                                                |
 
 **`getFrontdoorUrl()`**
 
@@ -646,7 +648,7 @@ const {getFrontdoorUrl} = require('../helpers/sf-auth');
 const url = getFrontdoorUrl();
 ```
 
-- Calls `sf org open -o <ORG_ALIAS> --url-only -r` (substituting the value of the `ORG_ALIAS` constant)
+- Calls `sf org open -o <alias> --url-only -r`, where `<alias>` is the value of `SF_SUBSCRIBER_ORG_ALIAS`
 - Extracts the URL from stdout using regex
 - Throws if no URL found (CLI not authenticated, wrong alias)
 - Timeout: 30 seconds
@@ -658,7 +660,7 @@ const {getInstanceUrl} = require('../helpers/sf-auth');
 const instanceUrl = getInstanceUrl();
 ```
 
-- Calls `sf org display -o <ORG_ALIAS> --json` (substituting the value of the `ORG_ALIAS` constant)
+- Calls `sf org display -o <alias> --json`, where `<alias>` is the value of `SF_SUBSCRIBER_ORG_ALIAS`
 - Strips ANSI codes and parses JSON
 - Returns `result.result.instanceUrl`
 - Timeout: 30 seconds
@@ -1263,14 +1265,16 @@ Verify that an API call was logged after invoking a web service:
 ```javascript
 test('should log API call record', async ({page}) =>
 {
-	// API_Echo validates that the REST body is non-empty; seed a RestContext before dispatching.
+	// Substitute your own inbound service: a class extending kern.API_Inbound that has an
+	// ApiSetting__mdt record (without one it will not execute). Inbound services typically
+	// validate the request body, so seed a RestContext before dispatching.
 	executeAnonymousApex(`
 		RestRequest request = new RestRequest();
 		request.requestBody = Blob.valueOf('{"message":"E2E"}');
 		RestResponse response = new RestResponse();
 		RestContext.request = request;
 		RestContext.response = response;
-		kern.API_Dispatcher.processInboundService('kern.API_Echo');
+		kern.API_Dispatcher.processInboundService(API_YourInboundService.class.getName());
 	`);
 
 	const calls = soqlQuery(
@@ -1671,9 +1675,9 @@ A CI environment starts fresh on every run, so there is never a cached `.auth/st
   field as a GitHub secret
 - **Timeout:** CI environments can be slower. Consider increasing `timeout` to `180_000`
 - **Headless:** Always `true` in CI (default)
-- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), log each one in under the expected alias with
-  `sf org login sfdx-url --alias <ORG_ALIAS> ...` on every run, substituting the value of the `ORG_ALIAS` constant from `sf-auth.js:5`. The helper follows the alias, not a URL, so every
-  test run targets whichever org is currently registered under that alias. If your release-management tool cannot rename aliases, the alternative is to edit your own copy of the helper to read the alias from an environment variable.
+- **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), set `SF_SUBSCRIBER_ORG_ALIAS` to the alias that run uses, then log the org in
+  under the same name with `sf org login sfdx-url --alias "$SF_SUBSCRIBER_ORG_ALIAS" ...`. The helpers follow the alias rather than a URL, so each run targets whichever
+  org is registered under it and nothing in the suite has to be edited between runs.
 
 ### Artifact Collection
 
